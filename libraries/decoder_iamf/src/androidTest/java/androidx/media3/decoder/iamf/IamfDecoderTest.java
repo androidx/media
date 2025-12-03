@@ -27,10 +27,8 @@ import org.junit.runner.RunWith;
 /** Test IAMF native functions. */
 @RunWith(AndroidJUnit4.class)
 public final class IamfDecoderTest {
-  private static final int DEFAULT_BINAURAL_LAYOUT_CHANNEL_COUNT = 2;
-
   // Sample configOBUs data from sample_iamf.mp4 file.
-  private static final byte[] IACB_OBUS = {
+  private static final byte[] iacbObus = {
     -8, 6, 105, 97, 109, 102, 0, 0, 0, 15, -56, 1, 105, 112, 99, 109, 64, 0, 0, 1, 16, 0, 0, 62,
     -128, 8, 12, -84, 2, 0, -56, 1, 1, 0, 0, 32, 16, 1, 1, 16, 78, 42, 1, 101, 110, 45, 117, 115, 0,
     116, 101, 115, 116, 95, 109, 105, 120, 95, 112, 114, 101, 115, 0, 1, 1, -84, 2, 116, 101, 115,
@@ -38,6 +36,12 @@ public final class IamfDecoderTest {
     109, 101, 110, 116, 95, 48, 0, 0, 0, 100, -128, 125, -128, 0, 0, 100, -128, 125, -128, 0, 0, 1,
     -128, 0, -54, 81, -51, -79
   };
+  // Frame size of the content in the above configuration OBUs.
+  private static final int FRAME_SIZE = 64;
+  // Sample rate of the content in the above configuration OBUs.
+  private static final int SAMPLE_RATE = 16000;
+  // Mix Presentation ID of the content in the above configuration OBUs.
+  private static final long MIX_PRESENTATION_ID = 42;
 
   @Before
   public void setUp() {
@@ -45,11 +49,60 @@ public final class IamfDecoderTest {
   }
 
   @Test
-  public void iamfBinauralLayoutChannelsCount_equalsTwo() throws Exception {
-    IamfDecoder iamf =
-        new IamfDecoder(ImmutableList.of(IACB_OBUS), /* spatializationSupported= */ false);
+  public void decoderCreate_withUnsetParameters_usesDefaults() throws Exception {
+    // By default, decoder will output stereo.
+    int expectedNumOutputChannels = 2;
 
-    assertThat(iamf.getBinauralLayoutChannelCount())
-        .isEqualTo(DEFAULT_BINAURAL_LAYOUT_CHANNEL_COUNT);
+    IamfDecoder decoder =
+        new IamfDecoder(
+            ImmutableList.of(iacbObus),
+            IamfDecoder.OUTPUT_LAYOUT_UNSET,
+            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
+            IamfDecoder.CHANNEL_ORDERING_UNSET);
+
+    assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
+    assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(expectedNumOutputChannels);
+    assertThat(decoder.getSelectedOutputLayout())
+        .isEqualTo(IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
+    assertThat(decoder.getSelectedMixPresentationId()).isEqualTo(MIX_PRESENTATION_ID);
+    assertThat(decoder.getSampleRate()).isEqualTo(SAMPLE_RATE);
+    assertThat(decoder.getFrameSize()).isEqualTo(FRAME_SIZE);
+    assertThat(decoder.getOutputSampleType())
+        .isEqualTo(IamfDecoder.OUTPUT_SAMPLE_TYPE_INT32_LITTLE_ENDIAN);
+    int bytesPerSample = 4; // size in bytes of int32.
+    assertThat(decoder.getOutputBufferSizeBytes())
+        .isEqualTo(FRAME_SIZE * expectedNumOutputChannels * bytesPerSample);
+
+    decoder.release();
+  }
+
+  @Test
+  public void decoderCreate_willAcceptParameters() throws Exception {
+    // If we request 5.1 output, we should expect 6 channels.
+    int expectedNumOutputChannels = 6;
+
+    IamfDecoder decoder =
+        new IamfDecoder(
+            ImmutableList.of(iacbObus),
+            IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+            IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
+
+    assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
+    assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(expectedNumOutputChannels);
+    assertThat(decoder.getSelectedOutputLayout())
+        .isEqualTo(IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0);
+    assertThat(decoder.getSelectedMixPresentationId()).isEqualTo(MIX_PRESENTATION_ID);
+    assertThat(decoder.getSampleRate()).isEqualTo(SAMPLE_RATE);
+    assertThat(decoder.getFrameSize()).isEqualTo(FRAME_SIZE);
+    assertThat(decoder.getOutputSampleType())
+        .isEqualTo(IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN);
+    int bytesPerSample = 2; // size in bytes of int16.
+    assertThat(decoder.getOutputBufferSizeBytes())
+        .isEqualTo(FRAME_SIZE * expectedNumOutputChannels * bytesPerSample);
+
+    decoder.release();
   }
 }

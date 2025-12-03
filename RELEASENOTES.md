@@ -21,6 +21,8 @@
 *   Extractors:
 *   Inspector:
 *   Audio:
+    *   Change underlying decoding library for IAMF decoder extension from
+        'libiamf' to 'iamf_tools'.
 *   Video:
 *   Text:
 *   Metadata:

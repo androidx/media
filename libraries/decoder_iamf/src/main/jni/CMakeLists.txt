@@ -16,20 +16,22 @@
 
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
 
-# Enable C++11 features.
-set(CMAKE_CXX_STANDARD 11)
+# Enable C++20 features for the iamf_tools library.
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Define project name for your JNI module
 project(libiamfJNI C CXX)
 
-set(libiamf_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
+set(iamf_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Build libiamf.
-add_subdirectory("${libiamf_jni_root}/libiamf/code"
-                 EXCLUDE_FROM_ALL)
+# Path to the compiled static iamf_tools lib.
+# The build script places the static lib here.
+set(IAMF_TOOLS_LIB_PATH
+    "${iamf_jni_root}/nativelib/${ANDROID_ABI}/libiamf_decoder_static.a")
 
-# Add the include directory from libiamf.
-include_directories ("${libiamf_jni_root}/libiamf/code/include")
+# Add include directory for iamf_tools.
+include_directories("${iamf_jni_root}/iamf_tools/iamf/include")
 
 # Build libiamfJNI.
 add_library(iamfJNI
@@ -42,5 +44,8 @@ find_library(android_log_lib log)
 # Link libiamfJNI against used libraries.
 target_link_libraries(iamfJNI
                       PRIVATE android
-                      PRIVATE iamf
+                      PRIVATE ${IAMF_TOOLS_LIB_PATH}
                       PRIVATE ${android_log_lib})
+
+target_link_options(iamfJNI
+                    PRIVATE "-Wl,-z,max-page-size=16384")

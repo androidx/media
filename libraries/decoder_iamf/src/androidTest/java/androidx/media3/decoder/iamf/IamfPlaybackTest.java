@@ -46,7 +46,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Playback tests using {@link LibiamfAudioRenderer}. */
+/** Playback tests using {@link IamfAudioRenderer}. */
 @RunWith(AndroidJUnit4.class)
 public class IamfPlaybackTest {
   private static final String IAMF_SAMPLE = "mp4/sample_iamf.mp4";
@@ -90,7 +90,7 @@ public class IamfPlaybackTest {
     @Nullable private ExoPlayer player;
     @Nullable private PlaybackException playbackException;
 
-    public TestPlaybackRunnable(Uri uri, Context context, AudioSink audioSink) {
+    private TestPlaybackRunnable(Uri uri, Context context, AudioSink audioSink) {
       this.uri = uri;
       this.context = context;
       this.audioSink = audioSink;
@@ -101,13 +101,10 @@ public class IamfPlaybackTest {
       Looper.prepare();
       if (SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        // Lint can't follow the indirection from AudioFormat.ENCODING_PCM_16BIT to
-        // IamfDecoder.OUTPUT_PCM_ENCODING.
-        @SuppressWarnings("WrongConstant")
         AudioFormat.Builder audioFormat =
             new AudioFormat.Builder()
-                .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
-                .setChannelMask(IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT);
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1);
         if (audioManager != null) {
           Spatializer spatializer = audioManager.getSpatializer();
           assertWithMessage("Spatializer must be disabled to run this test.")
@@ -129,8 +126,10 @@ public class IamfPlaybackTest {
               textRendererOutput,
               metadataRendererOutput) ->
               new Renderer[] {
-                new LibiamfAudioRenderer(
-                    context, eventHandler, audioRendererEventListener, audioSink)
+                new IamfAudioRenderer.Builder(context, audioSink)
+                    .setEventHandlerAndListener(eventHandler, audioRendererEventListener)
+                    .setRequestedChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                    .build()
               };
       player = new ExoPlayer.Builder(context, renderersFactory).build();
       player.addListener(this);

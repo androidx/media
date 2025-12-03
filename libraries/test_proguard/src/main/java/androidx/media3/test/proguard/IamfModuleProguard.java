@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 @VisibleForTesting(otherwise = NONE)
 public final class IamfModuleProguard {
 
-  private IamfModuleProguard() {}
-
   // This is a valid initialization data for the IAMF decoder taken from a test file.
   private static final ImmutableList<byte[]> IAMF_INITIALIZATION_DATA =
       ImmutableList.of(
@@ -39,13 +37,32 @@ public final class IamfModuleProguard {
             -128, 0, 0, 100, -128, 125, -128, 0, 0, 1, -128, 0, -54, 81, -51, -79
           });
 
+  private IamfModuleProguard() {}
+
   /**
    * Creates an {@link IamfDecoder} that relies on unobfuscated native method names and native code
    * calls.
    */
   public static void createIamfDecoder() throws Exception {
     IamfDecoder decoder =
-        new IamfDecoder(IAMF_INITIALIZATION_DATA, /* spatializationSupported= */ false);
+        new IamfDecoder(
+            IAMF_INITIALIZATION_DATA,
+            IamfDecoder.OUTPUT_LAYOUT_UNSET,
+            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
+            IamfDecoder.CHANNEL_ORDERING_UNSET);
+    decoder.release();
+  }
+
+  public static void createIamfDecoderWithParameters() throws Exception {
+    IamfDecoder decoder =
+        new IamfDecoder(
+            IAMF_INITIALIZATION_DATA,
+            IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+            IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
+
     decoder.release();
   }
 }

@@ -17,6 +17,7 @@ package androidx.media3.exoplayer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -700,22 +701,27 @@ public class DefaultRenderersFactory implements RenderersFactory {
 
     try {
       // LINT.IfChange
-      Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
-      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
-      // move.
+      Class<?> builderClass =
+          Class.forName("androidx.media3.decoder.iamf.IamfAudioRenderer$Builder");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any move.
       @SuppressWarnings("UnnecessarilyFullyQualified")
-      Constructor<?> constructor =
-          clazz.getConstructor(
-              Context.class,
-              Handler.class,
-              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
-              androidx.media3.exoplayer.audio.AudioSink.class);
+      Constructor<?> builderConstructor =
+          builderClass.getConstructor(
+              Context.class, androidx.media3.exoplayer.audio.AudioSink.class);
+      Object builder = builderConstructor.newInstance(context, audioSink);
+      // Full class names used for media3 constructor args so the LINT rule triggers if any move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Class<?> audioRenderEventListenerClass =
+          androidx.media3.exoplayer.audio.AudioRendererEventListener.class;
+      builderClass
+          .getMethod("setEventHandlerAndListener", Handler.class, audioRenderEventListenerClass)
+          .invoke(builder, eventHandler, eventListener);
+      Renderer renderer = (Renderer) builderClass.getMethod("build").invoke(builder);
       // LINT.ThenChange(../../../../../../proguard-rules.txt)
-      Renderer renderer =
-          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
+      checkNotNull(renderer);
       out.add(extensionRendererIndex++, renderer);
-      Log.i(TAG, "Loaded LibiamfAudioRenderer.");
-    } catch (ClassNotFoundException e) {
+      Log.i(TAG, "Loaded IamfAudioRenderer.");
+    } catch (ReflectiveOperationException e) {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.

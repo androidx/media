@@ -136,11 +136,11 @@ public final class ExoPlayerModuleProguard {
     throw new IllegalStateException();
   }
 
-  /** Creates a LibiamfAudioRenderer with {@link DefaultRenderersFactory}. */
-  public static void createLibiamfAudioRendererWithDefaultRenderersFactory(Context context) {
+  /** Creates a IamfAudioRenderer with {@link DefaultRenderersFactory}. */
+  public static void createIamfAudioRendererWithDefaultRenderersFactory(Context context) {
     for (Renderer renderer : createDefaultRenderersFactoryRenderers(context)) {
       // Don't use instanceof to prevent including the class in the apk directly.
-      if (Objects.equals(renderer.getName(), "LibiamfAudioRenderer")) {
+      if (Objects.equals(renderer.getName(), "IamfAudioRenderer")) {
         return;
       }
     }

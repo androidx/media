@@ -16,15 +16,19 @@
 package androidx.media3.decoder.iamf;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+import static androidx.media3.common.util.Util.castNonNull;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
-import android.media.AudioFormat;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.C;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -32,28 +36,173 @@ import java.util.List;
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
-  /* package */ static final int OUTPUT_SAMPLE_RATE = 48000;
-  /* package */ static final int OUTPUT_PCM_ENCODING = C.ENCODING_PCM_16BIT;
-  /* package */ static final int SPATIALIZED_OUTPUT_LAYOUT = AudioFormat.CHANNEL_OUT_5POINT1;
 
-  // Matches IAMF_SoundSystem in IAMF_defines.h
-  private static final int SOUND_SYSTEM_STEREO = 0; // SOUND_SYSTEM_A
-  private static final int SOUND_SYSTEM_5POINT1 = 1; // SOUND_SYSTEM_B
+  /**
+   * Represents the different sound systems supported by IAMF.
+   *
+   * <p>NOTE: Values from iamf_tools_api_types.h but are translated by iamf_jni.cc.
+   */
+  @Documented
+  @Retention(SOURCE)
+  @Target(ElementType.TYPE_USE)
+  @IntDef({
+    OUTPUT_LAYOUT_UNSET,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0,
+    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0,
+    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0,
+    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0,
+    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0,
+    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0
+  })
+  public @interface OutputLayout {}
 
-  private final byte[] initializationData;
-  private final int soundSystem;
+  /** Value to be used to not specify an output layout. */
+  public static final int OUTPUT_LAYOUT_UNSET = -1;
 
+  /** ITU-R B.S. 2051-3 sound system A (0+2+0), commonly known as stereo. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0 = 0;
+
+  /** ITU-R B.S. 2051-3 sound system B (0+5+0), commonly known as 5.1. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0 = 1;
+
+  /** ITU-R B.S. 2051-3 sound system C (2+5+0), commonly known as 5.1.2. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0 = 2;
+
+  /** ITU-R B.S. 2051-3 sound system D (4+5+0), commonly known as 5.1.4. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0 = 3;
+
+  /** ITU-R B.S. 2051-3 sound system E (4+5+1). */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1 = 4;
+
+  /** ITU-R B.S. 2051-3 sound system F (3+7+0). */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0 = 5;
+
+  /** ITU-R B.S. 2051-3 sound system G (4+9+0). */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0 = 6;
+
+  /** ITU-R B.S. 2051-3 sound system H (9+10+3). */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3 = 7;
+
+  /** ITU-R B.S. 2051-3 sound system I (0+7+0), commonly known as 7.1. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0 = 8;
+
+  /** ITU-R B.S. 2051-3 sound system J (4+7+0), commonly known as 7.1.4. */
+  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0 = 9;
+
+  /** IAMF extension 7.1.2. */
+  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0 = 10;
+
+  /** IAMF extension 3.1.2. */
+  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0 = 11;
+
+  /** Mono. */
+  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0 = 12;
+
+  /** IAMF Extension 9.1.6. */
+  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0 = 13;
+
+  /**
+   * Represents the different possible output sample types supported by the iamf_tools decoder.
+   *
+   * <p>NOTE: Values from iamf_tools_api_types.h.
+   */
+  @Documented
+  @Retention(SOURCE)
+  @Target(ElementType.TYPE_USE)
+  @IntDef({
+    OUTPUT_SAMPLE_TYPE_UNSET,
+    OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+    OUTPUT_SAMPLE_TYPE_INT32_LITTLE_ENDIAN
+  })
+  public @interface OutputSampleType {}
+
+  /** Value used to not specify an output sample type. */
+  public static final int OUTPUT_SAMPLE_TYPE_UNSET = -1;
+
+  /** Interleaved little endian signed 16-bit. */
+  public static final int OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN = 1;
+
+  /** Interleaved little endian signed 32-bit. */
+  public static final int OUTPUT_SAMPLE_TYPE_INT32_LITTLE_ENDIAN = 2;
+
+  /**
+   * Represents the different possible output channel orderings supported by the iamf_tools decoder.
+   *
+   * <p>NOTE: Values from iamf_tools_api_types.h.
+   */
+  @Documented
+  @Retention(SOURCE)
+  @Target(ElementType.TYPE_USE)
+  @IntDef({
+    CHANNEL_ORDERING_UNSET,
+    CHANNEL_ORDERING_IAMF_ORDERING,
+    CHANNEL_ORDERING_ANDROID_ORDERING
+  })
+  public @interface ChannelOrdering {}
+
+  /** Value to be used to not specify a ChannelOrdering. */
+  public static final int CHANNEL_ORDERING_UNSET = -1;
+
+  /** Ordering as specified in ITU/IAMF spec. This is the default behaviour of iamf_tools. */
+  public static final int CHANNEL_ORDERING_IAMF_ORDERING = 0;
+
+  /** Ordering to match that found in Android's AudioFormat.java. */
+  public static final int CHANNEL_ORDERING_ANDROID_ORDERING = 1;
+
+  /**
+   * Used to indicate no requested Mix Presentation ID when creating a decoder.
+   *
+   * <p>When this value is used, the decoder will select a Mix Presentation ID based on the default
+   * logic, including considering the requested OutputLayout, if provided.
+   */
+  public static final long REQUESTED_MIX_PRESENTATION_ID_UNSET = -1;
+
+  /**
+   * Status codes returned by the JNI wrapper around the decoder.
+   *
+   * <p>These values are also defined by the JNI and must be kept in sync.
+   */
+  @Documented
+  @Retention(SOURCE)
+  @Target(ElementType.TYPE_USE)
+  @IntDef({STATUS_ERROR, STATUS_OK})
+  private @interface Status {}
+
+  private static final int STATUS_ERROR = -1;
+  private static final int STATUS_OK = 0;
+
+  /** Pointer to the native decoder, must be manually closed. */
   private long nativeDecoderPointer;
 
   /**
-   * Creates an IAMF decoder.
+   * Creates an IAMF decoder from Descriptor OBUs.
    *
-   * @param initializationData ConfigOBUs data for the decoder.
-   * @param spatializationSupported Whether spatialization is supported and output should be 6
-   *     channels in 5.1 layout.
+   * @param initializationData Descriptor OBUs data for the decoder.
+   * @param requestedOutputLayout The desired {@link OutputLayout} to request. Can be set to
+   *     OUTPUT_LAYOUT_UNSET to avoid specifying. The actual layout used may not be the same as
+   *     requested, so getSelectedOutputLayout() can be used to get the actual layout used.
+   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to
+   *     REQUESTED_MIX_PRESENTATION_ID_UNSET to avoid specifying. The actual Mix Presentation ID
+   *     used may not be the same as requested, so getSelectedMixPresentationId() can be used to get
+   *     the actual Mix Presentation ID used.
+   * @param outputSampleType The desired {@link OutputSampleType}.
+   * @param channelOrdering The desired {@link ChannelOrdering}.
    * @throws IamfDecoderException Thrown if an exception occurs when initializing the decoder.
    */
-  public IamfDecoder(List<byte[]> initializationData, boolean spatializationSupported)
+  public IamfDecoder(
+      List<byte[]> initializationData,
+      @OutputLayout int requestedOutputLayout,
+      long requestedMixPresentationId,
+      @OutputSampleType int outputSampleType,
+      @ChannelOrdering int channelOrdering)
       throws IamfDecoderException {
     super(new DecoderInputBuffer[1], new SimpleDecoderOutputBuffer[1]);
     if (!IamfLibrary.isAvailable()) {
@@ -62,38 +211,27 @@ public final class IamfDecoder
     if (initializationData.size() != 1) {
       throw new IamfDecoderException("Initialization data must contain a single element.");
     }
-    soundSystem = spatializationSupported ? SOUND_SYSTEM_5POINT1 : SOUND_SYSTEM_STEREO;
-    this.initializationData = initializationData.get(0);
-    this.nativeDecoderPointer = iamfOpen();
+    nativeDecoderPointer = iamfOpen();
+    if (nativeDecoderPointer == 0) {
+      throw new IamfDecoderException("Failed to open decoder");
+    }
+    @Status
     int status =
-        iamfConfigDecoder(
-            this.initializationData,
-            Util.getByteDepth(OUTPUT_PCM_ENCODING) * C.BITS_PER_BYTE,
-            OUTPUT_SAMPLE_RATE,
-            soundSystem,
+        iamfCreateFromDescriptors(
+            initializationData.get(0),
+            requestedOutputLayout,
+            requestedMixPresentationId,
+            outputSampleType,
+            channelOrdering,
             nativeDecoderPointer);
-    if (status != 0) {
+    if (status != STATUS_OK) {
       throw new IamfDecoderException("Failed to configure decoder with returned status: " + status);
     }
   }
 
   @Override
-  public void release() {
-    super.release();
-    iamfClose(nativeDecoderPointer);
-  }
-
-  public int getBinauralLayoutChannelCount() {
-    return iamfLayoutBinauralChannelsCount();
-  }
-
-  public int getChannelCount() {
-    return iamfGetChannelCount(soundSystem);
-  }
-
-  @Override
   public String getName() {
-    return "libiamf";
+    return "IamfDecoder";
   }
 
   @Override
@@ -116,52 +254,237 @@ public final class IamfDecoder
   protected IamfDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
     if (reset) {
-      iamfClose(nativeDecoderPointer);
-      nativeDecoderPointer = iamfOpen();
-      iamfConfigDecoder(
-          initializationData,
-          Util.getByteDepth(OUTPUT_PCM_ENCODING) * C.BITS_PER_BYTE,
-          OUTPUT_SAMPLE_RATE,
-          soundSystem,
-          nativeDecoderPointer); // reconfigure
+      @Status int resetResult = iamfReset(nativeDecoderPointer);
+      if (resetResult != STATUS_OK) {
+        return new IamfDecoderException("Failed to reset decoder.");
+      }
     }
-    int bufferSize =
-        iamfGetMaxFrameSize(nativeDecoderPointer)
-            * getChannelCount()
-            * Util.getByteDepth(OUTPUT_PCM_ENCODING);
-    outputBuffer.init(inputBuffer.timeUs, bufferSize);
-    ByteBuffer outputData = Util.castNonNull(outputBuffer.data);
-    ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
-    int ret = iamfDecode(inputData, inputData.limit(), outputData, nativeDecoderPointer);
-    if (ret < 0) {
-      return new IamfDecoderException("Failed to decode error= " + ret);
+    ByteBuffer inputData = castNonNull(inputBuffer.data);
+    @Status int decodeResult = iamfDecode(inputData, inputData.limit(), nativeDecoderPointer);
+    if (decodeResult != STATUS_OK) {
+      return new IamfDecoderException("Failed to decode.");
     }
-    outputData.position(0);
-    outputData.limit(ret * getChannelCount() * Util.getByteDepth(OUTPUT_PCM_ENCODING));
+    if (isTemporalUnitAvailable()) {
+      int bufferSize;
+      try {
+        bufferSize = getOutputBufferSizeBytes();
+      } catch (IamfDecoderException e) {
+        return e;
+      }
+      outputBuffer.init(inputBuffer.timeUs, bufferSize);
+      ByteBuffer outputData = castNonNull(outputBuffer.data);
+      int bytesWritten =
+          iamfGetOutputTemporalUnit(outputData, outputData.limit(), nativeDecoderPointer);
+      if (bytesWritten == STATUS_ERROR) {
+        return new IamfDecoderException("GetOutputTemporalUnit failed.");
+      }
+      outputData.position(0);
+      outputData.limit(bytesWritten);
+    }
     return null;
   }
 
-  private native int iamfLayoutBinauralChannelsCount();
+  @Override
+  public void release() {
+    super.release();
+    iamfClose(nativeDecoderPointer);
+  }
 
-  private native int iamfConfigDecoder(
-      byte[] initializationData,
-      int bitDepth,
-      int sampleRate,
-      int soundSystem,
-      long decoderRawPointer);
+  /** Returns whether an output buffer (temporal unit) is available to be retrieved. */
+  public boolean isTemporalUnitAvailable() {
+    return iamfIsTemporalUnitAvailable(nativeDecoderPointer);
+  }
 
-  private native long iamfOpen();
-
-  private native void iamfClose(long decoderRawPointer);
-
-  private native int iamfDecode(
-      ByteBuffer inputBuffer, int inputSize, ByteBuffer outputBuffer, long decoderRawPointer);
+  /** Returns whether Descriptor OBU processing is complete. */
+  public boolean isDescriptorProcessingComplete() {
+    return iamfIsDescriptorProcessingComplete(nativeDecoderPointer);
+  }
 
   /**
-   * Returns the maximum expected number of PCM samples per channel in a compressed audio frame.
-   * Used to initialize the output buffer.
+   * Returns the number of output channels.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting number of output
+   *     channels. Generally happens if Descriptor OBU processing has not completed.
    */
-  private native int iamfGetMaxFrameSize(long decoderRawPointer);
+  public int getNumberOfOutputChannels() throws IamfDecoderException {
+    int result = iamfGetNumberOfOutputChannels(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get number of output channels.");
+    }
+    return result;
+  }
 
-  private native int iamfGetChannelCount(int soundSystem);
+  /**
+   * Returns the output layout that has been selected by the decoder.
+   *
+   * <p>Even if a requested layout was specified, the selected layout may be different than the
+   * requested layout, for example, if the requested layout was not available.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting selected output layout.
+   *     Generally happens if Descriptor OBU processing has not completed.
+   */
+  public int getSelectedOutputLayout() throws IamfDecoderException {
+    int result = iamfGetSelectedOutputLayout(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get selected output layout.");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the Mix Presentation ID that has been selected by the decoder.
+   *
+   * <p>Even if a requested Mix Presentation ID was specified, the selected Mix Presentation ID may
+   * be different than the requested Mix Presentation ID, for example, if the requested mix
+   * presentation ID was not available.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting selected mix
+   *     presentation ID. Generally happens if Descriptor OBU processing has not completed.
+   */
+  public long getSelectedMixPresentationId() throws IamfDecoderException {
+    long result = iamfGetSelectedMixPresentationId(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get selected Mix Presentation ID.");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the output sample type.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting output sample type.
+   *     Generally happens if Descriptor OBU processing has not completed.
+   */
+  public @OutputSampleType int getOutputSampleType() throws IamfDecoderException {
+    int result = iamfGetOutputSampleType(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get output sample type.");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the sample rate.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting sample rate. Generally
+   *     happens if Descriptor OBU processing has not completed.
+   */
+  public int getSampleRate() throws IamfDecoderException {
+    int result = iamfGetSampleRate(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get sample rate.");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the frame size.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting frame size. Generally
+   *     happens if Descriptor OBU processing has not completed.
+   */
+  public int getFrameSize() throws IamfDecoderException {
+    int result = iamfGetFrameSize(nativeDecoderPointer);
+    if (result < 0) {
+      throw new IamfDecoderException("Failed to get frame size.");
+    }
+    return result;
+  }
+
+  /**
+   * Returns the output buffer size in bytes.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when getting output buffer size.
+   *     Generally happens if Descriptor OBU processing has not completed.
+   */
+  public int getOutputBufferSizeBytes() throws IamfDecoderException {
+    int channelCount = iamfGetNumberOfOutputChannels(nativeDecoderPointer);
+    if (channelCount < 0) {
+      throw new IamfDecoderException("Failed to get number of output channels.");
+    }
+    int frameSize = iamfGetFrameSize(nativeDecoderPointer);
+    if (frameSize < 0) {
+      throw new IamfDecoderException("Failed to get frame size.");
+    }
+    int outputSampleType = iamfGetOutputSampleType(nativeDecoderPointer);
+    if (outputSampleType < 0) {
+      throw new IamfDecoderException("Failed to get output sample type.");
+    }
+    int bytesPerSample = getBytesPerSample(outputSampleType);
+    return channelCount * frameSize * bytesPerSample;
+  }
+
+  private static int getBytesPerSample(@OutputSampleType int outputSampleType) {
+    switch (outputSampleType) {
+      case OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN:
+        return 2;
+      case OUTPUT_SAMPLE_TYPE_INT32_LITTLE_ENDIAN:
+        return 4;
+      default:
+        throw new IllegalArgumentException("Unsupported output sample type: " + outputSampleType);
+    }
+  }
+
+  // ===== Native Method Declarations =====
+
+  /** Necessary first step to get the decoderRawPointer. */
+  private native long iamfOpen();
+
+  /** Must be called to free the decoder when no longer needed. */
+  private native void iamfClose(long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfCreate(
+      int outputLayout, int outputSampleType, int channelOrdering, long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfCreateFromDescriptors(
+      byte[] initializationData,
+      int outputLayout,
+      long requestedMixPresentationId,
+      int outputSampleType,
+      int channelOrdering,
+      long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfDecode(
+      ByteBuffer inputBuffer, int inputSize, long decoderRawPointer);
+
+  /** Returns bytes written on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetOutputTemporalUnit(
+      ByteBuffer outputBuffer, int outputSize, long decoderRawPointer);
+
+  /** Returns whether an output buffer (temporal unit) is available to be retrieved. */
+  private native boolean iamfIsTemporalUnitAvailable(long decoderRawPointer);
+
+  /** Returns whether Descriptor OBU processing is complete. */
+  private native boolean iamfIsDescriptorProcessingComplete(long decoderRawPointer);
+
+  /** Returns channel count on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetNumberOfOutputChannels(long decoderRawPointer);
+
+  /** Returns output layout on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetSelectedOutputLayout(long decoderRawPointer);
+
+  /** Returns Mix Presentation ID on success, or {@link #STATUS_ERROR} on failure. */
+  private native long iamfGetSelectedMixPresentationId(long decoderRawPointer);
+
+  /** Returns sample type on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetOutputSampleType(long decoderRawPointer);
+
+  /** Returns sample rate on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetSampleRate(long decoderRawPointer);
+
+  /** Returns frame size on success, or {@link #STATUS_ERROR} on failure. */
+  private native int iamfGetFrameSize(long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfReset(long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfResetWithNewMix(
+      int requestedOutputLayout, long requestedMixPresentationId, long decoderRawPointer);
+
+  /** Returns {@link #STATUS_OK} on success, or {@link #STATUS_ERROR} on failure. */
+  private native @Status int iamfSignalEndOfDecoding(long decoderRawPointer);
 }
