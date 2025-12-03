@@ -256,8 +256,6 @@ public class AudioGraphInputTest {
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer());
 
-    // First call to getOutput() triggers silence generation.
-    checkState(!audioGraphInput.getOutput().hasRemaining());
     int totalBytesOutput = 0;
     ByteBuffer output;
     while ((output = audioGraphInput.getOutput()).hasRemaining()) {
@@ -457,7 +455,7 @@ public class AudioGraphInputTest {
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
 
-    assertThat(outputBytes).hasSize(44101 * STEREO_44100.bytesPerFrame);
+    assertThat(outputBytes).hasSize(44100 * STEREO_44100.bytesPerFrame);
     assertThat(outputBytes.subList(0, inputData.length))
         .containsExactlyElementsIn(Bytes.asList(inputData))
         .inOrder();
@@ -498,8 +496,7 @@ public class AudioGraphInputTest {
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = 22050;
-    // Silent audio generator rounds up duration.
-    assertThat(outputBytes).hasSize((int) ((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame));
+    assertThat(outputBytes).hasSize((int) (expectedSampleCount * STEREO_44100.bytesPerFrame));
     // Sonic takes a while to zero-out the input.
     assertThat(min(outputBytes.subList(inputData.length * 6 / 10, outputBytes.size())))
         .isEqualTo(0);
