@@ -32,7 +32,10 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    sourceSets.main.assets.srcDir '../test_data/src/test/assets/'
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+        main.assets.srcDir '../test_data/src/test/assets'
+    }
 }
 
 dependencies {

@@ -85,7 +85,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithAvailableCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer ->
-                    createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"))),
+                    createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"))),
             Player.COMMAND_PLAY_PAUSE);
     MediaSession mediaSession = createMediaSession(player);
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -127,7 +127,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithAvailableCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
                   createdPlayer.prepare();
                   createdPlayer.play();
                 }),
@@ -285,7 +285,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItem(
-                      MediaItem.fromUri("asset://media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
                       /* startPositionMs= */ 500);
                   createdPlayer.prepare();
                 }),
@@ -327,7 +327,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItem(
-                      MediaItem.fromUri("asset://media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
                       /* startPositionMs= */ 500);
                   createdPlayer.prepare();
                 }),
@@ -375,7 +375,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithAvailableCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_FORWARD);
@@ -417,7 +417,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithExcludedCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_FORWARD);
@@ -466,7 +466,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithAvailableCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
@@ -508,7 +508,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         createPlayerWithExcludedCommand(
             createPlayer(
                 /* onPostCreationTask= */ createdPlayer -> {
-                  createdPlayer.setMediaItem(MediaItem.fromUri("asset://media/wav/sample.wav"));
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
@@ -557,8 +557,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")));
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_TO_MEDIA_ITEM);
@@ -601,8 +601,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")));
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
                   createdPlayer.prepare();
                 }),
             Player.COMMAND_SEEK_TO_MEDIA_ITEM);
@@ -652,8 +652,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")));
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
                   createdPlayer.prepare();
                 }),
             /* availableCommands= */ new Player.Commands.Builder()
@@ -702,8 +702,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")));
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
                   createdPlayer.prepare();
                 }),
             /* availableCommands= */ new Player.Commands.Builder()
@@ -752,8 +752,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")));
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")));
                   createdPlayer.prepare();
                 }),
             /* availableCommands= */ Player.Commands.EMPTY,
@@ -806,8 +806,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")),
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
                       /* startIndex= */ 1,
                       /* startPositionMs= */ C.TIME_UNSET);
                   createdPlayer.prepare();
@@ -858,8 +858,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")),
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
                       /* startIndex= */ 1,
                       /* startPositionMs= */ C.TIME_UNSET);
                   createdPlayer.prepare();
@@ -910,8 +910,8 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 /* onPostCreationTask= */ createdPlayer -> {
                   createdPlayer.setMediaItems(
                       ImmutableList.of(
-                          MediaItem.fromUri("asset://media/wav/sample.wav"),
-                          MediaItem.fromUri("asset://media/wav/sample_rf64.wav")),
+                          MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                          MediaItem.fromUri("asset:///media/wav/sample_rf64.wav")),
                       /* startIndex= */ 1,
                       /* startPositionMs= */ C.TIME_UNSET);
                   createdPlayer.prepare();
@@ -971,7 +971,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                   MediaSession.ControllerInfo controller,
                   List<MediaItem> mediaItems) {
                 return Futures.immediateFuture(
-                    ImmutableList.of(MediaItem.fromUri("asset://media/wav/sample.wav")));
+                    ImmutableList.of(MediaItem.fromUri("asset:///media/wav/sample.wav")));
               }
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -1043,7 +1043,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                   MediaSession.ControllerInfo controller,
                   List<MediaItem> mediaItems) {
                 return Futures.immediateFuture(
-                    ImmutableList.of(MediaItem.fromUri("asset://media/wav/sample.wav")));
+                    ImmutableList.of(MediaItem.fromUri("asset:///media/wav/sample.wav")));
               }
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -1322,7 +1322,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                   MediaSession.ControllerInfo controller,
                   List<MediaItem> mediaItems) {
                 return Futures.immediateFuture(
-                    ImmutableList.of(MediaItem.fromUri("asset://media/wav/sample.wav")));
+                    ImmutableList.of(MediaItem.fromUri("asset:///media/wav/sample.wav")));
               }
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -1377,7 +1377,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                   MediaSession.ControllerInfo controller,
                   List<MediaItem> mediaItems) {
                 return Futures.immediateFuture(
-                    ImmutableList.of(MediaItem.fromUri("asset://media/wav/sample.wav")));
+                    ImmutableList.of(MediaItem.fromUri("asset:///media/wav/sample.wav")));
               }
             });
     MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
@@ -1897,9 +1897,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             /* onPostCreationTask= */ createdPlayer -> {
               createdPlayer.setMediaItems(
                   ImmutableList.of(
-                      MediaItem.fromUri("asset://media/wav/sample.wav"),
-                      MediaItem.fromUri("asset://media/wav/sample.wav"),
-                      MediaItem.fromUri("asset://media/wav/sample.wav")));
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav")));
               createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
             });
     SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);

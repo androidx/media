@@ -5,6 +5,9 @@
 *   ExoPlayer:
     *   Allow dynamic scheduling to slow `doSomeWork` interval only after audio
         starts to support smoother A/V sync at beginning of playback.
+    *   Fix bug in `DefaultLoadErrorHandlingPolicy` where
+        `FileNotFoundException` and similar exception types were retried
+        multiple times.
 
 ## 1.9
 
