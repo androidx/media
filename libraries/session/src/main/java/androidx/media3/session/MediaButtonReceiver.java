@@ -124,6 +124,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    */
   @Override
   public void onReceive(Context context, Intent intent) {
+    checkNotNull(intent);
     handleIntentAndMaybeStartTheService(context, intent);
   }
 
