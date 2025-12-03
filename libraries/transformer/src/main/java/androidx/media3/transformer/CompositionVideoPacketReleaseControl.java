@@ -228,6 +228,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         .setPresentationTimeUs(frame.presentationTimeUs)
         .setReleaseTimeNs(releaseTimeNs)
         .setMetadata(frame.getMetadata())
+        .setFenceSync(frame.fenceSync)
         .build();
   }
 }

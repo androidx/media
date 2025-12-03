@@ -112,6 +112,9 @@ public final class GlUtil {
         EGL14.EGL_NONE
       };
 
+  /** Marker value for when no fence sync is set. */
+  @ExperimentalApi public static final long GL_FENCE_SYNC_UNSET = -1;
+
   // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glFenceSync.xhtml
   private static final long GL_FENCE_SYNC_FAILED = 0;
   // https://www.khronos.org/registry/EGL/extensions/EXT/EGL_EXT_protected_content.txt
@@ -506,15 +509,21 @@ public final class GlUtil {
 
   /** Releases the GL sync object if set, suppressing any error. */
   public static void deleteSyncObjectQuietly(long syncObject) {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     GLES30.glDeleteSync(syncObject);
   }
 
   /**
    * Ensures that following commands on the current OpenGL context will not be executed until the
-   * sync point has been reached. If {@code syncObject} equals {@code 0}, this does not block the
-   * CPU, and only affects the current OpenGL context. Otherwise, this will block the CPU.
+   * sync point has been reached. If {@code syncObject} equals {@code #GL_FENCE_SYNC_UNSET}, this is
+   * a no-op. This method does not block the CPU.
    */
   public static void awaitSyncObject(long syncObject) throws GlException {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     if (syncObject == GL_FENCE_SYNC_FAILED) {
       // Fallback to using glFinish for synchronization when fence creation failed.
       GLES20.glFinish();

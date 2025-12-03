@@ -228,6 +228,7 @@ public class CompositionVideoPacketReleaseControlTest {
           assertThat(receivedFrame.releaseTimeNs).isEqualTo(expectedFrame.releaseTimeNs);
         }
         assertThat(receivedFrame.glTextureInfo).isEqualTo(expectedFrame.glTextureInfo);
+        assertThat(receivedFrame.fenceSync).isEqualTo(expectedFrame.fenceSync);
       }
     }
   }

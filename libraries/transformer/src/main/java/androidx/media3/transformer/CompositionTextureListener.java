@@ -81,7 +81,6 @@ import java.util.concurrent.LinkedBlockingQueue;
       throw new VideoFrameProcessingException(e);
     }
     int itemIndex = presentationTimeAndItemIndex.second;
-    // TODO: b/430250432 - Add syncObject to GlTextureFrame.
     GlTextureFrame textureFrame =
         new GlTextureFrame.Builder(
                 outputTexture,
@@ -89,6 +88,7 @@ import java.util.concurrent.LinkedBlockingQueue;
                 (u) -> textureProducer.releaseOutputTexture(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
             .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))
+            .setFenceSync(syncObject)
             .build();
     frameAggregator.queueFrame(textureFrame, sequenceIndex);
   }

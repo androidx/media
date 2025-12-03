@@ -20,6 +20,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.GlUtil;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
 
@@ -47,6 +48,23 @@ public class GlTextureFrame implements Frame {
   /** The {@link Consumer} to call to release the texture. */
   public final Consumer<GlTextureInfo> releaseTextureCallback;
 
+  /**
+   * The OpenGL fence sync object (a {@link GlUtil#createGlSyncFence()} handle) associated with this
+   * frame. See <a
+   * href="https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glFenceSync.xhtml"></a>
+   *
+   * <p>If this texture is read in an OpenGL context different to the one it was written to, call
+   * {@link GlUtil#awaitSyncObject } on this fence before reading the {@link #glTextureInfo}, to
+   * ensure the contents have been fully written to.
+   *
+   * <p>Callers must *not* {@linkplain GlUtil#deleteSyncObject delete} this fence, as it may be
+   * reused up until this frame is {@linkplain #release() released}.
+   *
+   * <p>The value is {@link GlUtil#GL_FENCE_SYNC_UNSET} if no fence has been created for this
+   * texture, as it is only expected to be produced and consumed within the same GL command stream.
+   */
+  public final long fenceSync;
+
   /** A builder for {@link GlTextureFrame} instances. */
   public static final class Builder {
     private final GlTextureInfo glTextureInfo;
@@ -57,6 +75,7 @@ public class GlTextureFrame implements Frame {
     private Format format;
     private long releaseTimeNs;
     private Metadata metadata;
+    private long fenceSync;
 
     /**
      * Creates a new {@link Builder}.
@@ -77,6 +96,7 @@ public class GlTextureFrame implements Frame {
       presentationTimeUs = C.TIME_UNSET;
       format = new Format.Builder().build();
       releaseTimeNs = C.TIME_UNSET;
+      fenceSync = GlUtil.GL_FENCE_SYNC_UNSET;
     }
 
     /** Sets the {@link GlTextureFrame#presentationTimeUs}. */
@@ -107,6 +127,23 @@ public class GlTextureFrame implements Frame {
       return this;
     }
 
+    /**
+     * Sets the {@link GlTextureFrame#fenceSync}.
+     *
+     * <p>The default value is {@link GlUtil#GL_FENCE_SYNC_UNSET}.
+     *
+     * <p>The consumer of the frame is expected to wait on this fence (e.g. using {@code glWaitSync}
+     * or {@code glClientWaitSync}) to ensure the texture content is fully written before reading
+     * it.
+     *
+     * @param fenceSync The OpenGL fence sync object.
+     */
+    @CanIgnoreReturnValue
+    public Builder setFenceSync(long fenceSync) {
+      this.fenceSync = fenceSync;
+      return this;
+    }
+
     /** Builds the {@link GlTextureFrame} instance. */
     public GlTextureFrame build() {
       return new GlTextureFrame(this);
@@ -121,6 +158,7 @@ public class GlTextureFrame implements Frame {
     this.metadata = builder.metadata;
     this.releaseTextureExecutor = builder.releaseTextureExecutor;
     this.releaseTextureCallback = builder.releaseTextureCallback;
+    this.fenceSync = builder.fenceSync;
   }
 
   @Override
@@ -130,6 +168,7 @@ public class GlTextureFrame implements Frame {
 
   @Override
   public void release() {
+    // TODO: b/465289713 - Wait on a fence before releasing the texture.
     releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
   }
 }
