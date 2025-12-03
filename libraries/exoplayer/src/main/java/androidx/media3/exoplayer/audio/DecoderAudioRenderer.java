@@ -43,7 +43,6 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderException;
@@ -276,8 +275,6 @@ public abstract class DecoderAudioRenderer<
             (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
-    // Account for the elapsed time since the start of this iteration of the rendering loop.
-    bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 

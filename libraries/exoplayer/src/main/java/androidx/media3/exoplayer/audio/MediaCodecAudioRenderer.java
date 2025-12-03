@@ -563,8 +563,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
-    // Account for the elapsed time since the start of this iteration of the rendering loop.
-    bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 
