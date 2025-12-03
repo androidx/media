@@ -54,6 +54,7 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
@@ -408,7 +409,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         Bundle bundle = new Bundle();
         Bundle adPlaybackStatesBundle = new Bundle();
         for (Map.Entry<String, AdPlaybackState> entry : adPlaybackStates.entrySet()) {
-          adPlaybackStatesBundle.putBundle(entry.getKey(), entry.getValue().toBundle());
+          adPlaybackStatesBundle.putBundle(
+              entry.getKey(), entry.getValue().toBundle(MediaLibraryInfo.INTERFACE_VERSION));
         }
         bundle.putBundle(FIELD_AD_PLAYBACK_STATES, adPlaybackStatesBundle);
         return bundle;
@@ -422,7 +424,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         Bundle adPlaybackStateBundle = checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATES));
         for (String key : adPlaybackStateBundle.keySet()) {
           AdPlaybackState adPlaybackState =
-              AdPlaybackState.fromBundle(checkNotNull(adPlaybackStateBundle.getBundle(key)));
+              AdPlaybackState.fromBundle(
+                  checkNotNull(adPlaybackStateBundle.getBundle(key)),
+                  MediaLibraryInfo.INTERFACE_VERSION);
           adPlaybackStateMap.put(
               key, AdPlaybackState.fromAdPlaybackState(/* adsId= */ key, adPlaybackState));
         }

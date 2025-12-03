@@ -1125,15 +1125,19 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemBundle == null) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.fromBundle(mediaItemBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_SET_MEDIA_ITEM,
         sendSessionResultWhenReady(
@@ -1156,18 +1160,19 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemBundle == null) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.fromBundle(mediaItemBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
-    if (controllerInfo != null) {
-      setMediaItemItemWithResetPositionForControllerInfo(
-          controllerInfo, sequenceNumber, mediaItem, resetPosition);
-    }
+    setMediaItemItemWithResetPositionForControllerInfo(
+        controllerInfo, sequenceNumber, mediaItem, resetPosition);
   }
 
   private void setMediaItemItemWithResetPositionForControllerInfo(
@@ -1212,17 +1217,22 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemsRetriever == null) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     List<MediaItem> mediaItemList;
     try {
       mediaItemList =
           BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+              BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1252,17 +1262,22 @@ import java.util.concurrent.ExecutionException;
         || (startIndex != C.INDEX_UNSET && startIndex < 0)) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     List<MediaItem> mediaItemList;
     try {
       mediaItemList =
           BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+              BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1288,15 +1303,21 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || playlistMetadataBundle == null) {
       return;
     }
+    @Nullable
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaMetadata playlistMetadata;
     try {
-      playlistMetadata = MediaMetadata.fromBundle(playlistMetadataBundle);
+      playlistMetadata =
+          MediaMetadata.fromBundle(playlistMetadataBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaMetadata", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_SET_PLAYLIST_METADATA,
         sendSessionResultSuccess(player -> player.setPlaylistMetadata(playlistMetadata)));
@@ -1308,15 +1329,19 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemBundle == null) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.fromBundle(mediaItemBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1336,15 +1361,19 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemBundle == null || index < 0) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.fromBundle(mediaItemBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1364,17 +1393,22 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemsRetriever == null) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     List<MediaItem> mediaItems;
     try {
       mediaItems =
           BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+              BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1393,17 +1427,22 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemsRetriever == null || index < 0) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     List<MediaItem> mediaItems;
     try {
       mediaItems =
           BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+              BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1497,15 +1536,19 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemBundle == null || index < 0) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     MediaItem mediaItem;
     try {
-      mediaItem = MediaItem.fromBundle(mediaItemBundle);
+      mediaItem = MediaItem.fromBundle(mediaItemBundle, controllerInfo.getInterfaceVersion());
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -1535,17 +1578,22 @@ import java.util.concurrent.ExecutionException;
     if (caller == null || mediaItemsRetriever == null || fromIndex < 0 || toIndex < fromIndex) {
       return;
     }
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo == null) {
+      return;
+    }
     ImmutableList<MediaItem> mediaItems;
     try {
       mediaItems =
           BundleCollectionUtil.fromBundleList(
-              MediaItem::fromBundle, BundleListRetriever.getList(mediaItemsRetriever));
+              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+              BundleListRetriever.getList(mediaItemsRetriever));
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_CHANGE_MEDIA_ITEMS,
         sendSessionResultWhenReady(
@@ -2255,7 +2303,7 @@ import java.util.concurrent.ExecutionException;
     @Override
     public void onLibraryResult(int sequenceNumber, LibraryResult<?> result)
         throws RemoteException {
-      iController.onLibraryResult(sequenceNumber, result.toBundle());
+      iController.onLibraryResult(sequenceNumber, result.toBundle(controllerInterfaceVersion));
     }
 
     @Override
@@ -2300,7 +2348,9 @@ import java.util.concurrent.ExecutionException;
     public void setCustomLayout(int sequenceNumber, List<CommandButton> layout)
         throws RemoteException {
       iController.onSetCustomLayout(
-          sequenceNumber, BundleCollectionUtil.toBundleList(layout, CommandButton::toBundle));
+          sequenceNumber,
+          BundleCollectionUtil.toBundleList(
+              layout, button -> button.toBundle(controllerInterfaceVersion)));
     }
 
     @Override
@@ -2309,7 +2359,8 @@ import java.util.concurrent.ExecutionException;
       if (controllerInterfaceVersion >= 7) {
         iController.onSetMediaButtonPreferences(
             sequenceNumber,
-            BundleCollectionUtil.toBundleList(mediaButtonPreferences, CommandButton::toBundle));
+            BundleCollectionUtil.toBundleList(
+                mediaButtonPreferences, button -> button.toBundle(controllerInterfaceVersion)));
       } else {
         // Controller doesn't support media button preferences, send the list as a custom layout.
         // TODO: b/332877990 - Improve this logic to take allowed command and session extras for
@@ -2318,10 +2369,12 @@ import java.util.concurrent.ExecutionException;
             CommandButton.getCustomLayoutFromMediaButtonPreferences(
                 mediaButtonPreferences,
                 /* backSlotAllowed= */ true,
-                /* forwardSlotAllowed= */ true);
+                /* forwardSlotAllowed= */ true,
+                MediaLibraryInfo.INTERFACE_VERSION);
         iController.onSetCustomLayout(
             sequenceNumber,
-            BundleCollectionUtil.toBundleList(customLayout, CommandButton::toBundle));
+            BundleCollectionUtil.toBundleList(
+                customLayout, button -> button.toBundle(controllerInterfaceVersion)));
       }
     }
 

@@ -39,6 +39,7 @@ import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
@@ -434,7 +435,10 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       boolean showPauseButton) {
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
     boolean hasCustomBackButton =
         CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
     boolean hasCustomForwardButton =

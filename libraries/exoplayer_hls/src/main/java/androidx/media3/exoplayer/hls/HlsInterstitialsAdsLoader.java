@@ -56,6 +56,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.AdsConfiguration;
 import androidx.media3.common.MediaItem.LocalConfiguration;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
@@ -271,14 +272,17 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     public Bundle toBundle() {
       Bundle bundle = new Bundle();
       bundle.putString(FIELD_ADS_ID, adsId);
-      bundle.putBundle(FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle());
+      bundle.putBundle(
+          FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       return bundle;
     }
 
     public static AdsResumptionState fromBundle(Bundle bundle) {
       String adsId = checkNotNull(bundle.getString(FIELD_ADS_ID));
       AdPlaybackState adPlaybackState =
-          AdPlaybackState.fromBundle(checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATE)))
+          AdPlaybackState.fromBundle(
+                  checkNotNull(bundle.getBundle(FIELD_AD_PLAYBACK_STATE)),
+                  MediaLibraryInfo.INTERFACE_VERSION)
               .withAdsId(adsId);
       return new AdsResumptionState(adsId, adPlaybackState);
     }

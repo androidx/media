@@ -21,6 +21,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.util.Util;
@@ -234,13 +235,26 @@ import java.util.Objects;
     return bundle;
   }
 
-  /** Restores a {@code SessionPositionInfo} from a {@link Bundle}. */
+  /**
+   * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+   */
+  @Deprecated
   public static SessionPositionInfo fromBundle(Bundle bundle) {
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Restores a {@code SessionPositionInfo} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
+  public static SessionPositionInfo fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable Bundle positionInfoBundle = bundle.getBundle(FIELD_POSITION_INFO);
     PositionInfo positionInfo =
         positionInfoBundle == null
             ? DEFAULT_POSITION_INFO
-            : PositionInfo.fromBundle(positionInfoBundle);
+            : PositionInfo.fromBundle(positionInfoBundle, interfaceVersion);
     boolean isPlayingAd = bundle.getBoolean(FIELD_IS_PLAYING_AD, /* defaultValue= */ false);
     long eventTimeMs = bundle.getLong(FIELD_EVENT_TIME_MS, /* defaultValue= */ C.TIME_UNSET);
     long durationMs = bundle.getLong(FIELD_DURATION_MS, /* defaultValue= */ C.TIME_UNSET);

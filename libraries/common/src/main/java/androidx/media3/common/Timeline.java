@@ -439,17 +439,29 @@ public abstract class Timeline {
     private static final String FIELD_POSITION_IN_FIRST_PERIOD_US = Util.intToStringMaxRadix(13);
 
     /**
+     * @deprecated Use {@link #toBundle(int)} instead.
+     */
+    @Deprecated
+    @UnstableApi
+    public Bundle toBundle() {
+      return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
      * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #uid} and {@link #manifest} fields. The {@link #uid} of an instance
      * restored by {@link #fromBundle} will be a fake {@link Object} and the {@link #manifest} of
      * the instance will be {@code null}.
+     *
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+     *     process.
      */
     @UnstableApi
-    public Bundle toBundle() {
+    public Bundle toBundle(int interfaceVersion) {
       Bundle bundle = new Bundle();
       if (!MediaItem.EMPTY.equals(mediaItem)) {
-        bundle.putBundle(FIELD_MEDIA_ITEM, mediaItem.toBundle());
+        bundle.putBundle(FIELD_MEDIA_ITEM, mediaItem.toBundle(interfaceVersion));
       }
       if (presentationStartTimeMs != C.TIME_UNSET) {
         bundle.putLong(FIELD_PRESENTATION_START_TIME_MS, presentationStartTimeMs);
@@ -492,13 +504,30 @@ public abstract class Timeline {
       return bundle;
     }
 
-    /** Restores a {@code Window} from a {@link Bundle}. */
+    /**
+     * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+     */
     @UnstableApi
+    @Deprecated
     public static Window fromBundle(Bundle bundle) {
+      return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
+     * Restores a {@code Window} from a {@link Bundle}.
+     *
+     * @param bundle The {@link Bundle}.
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending
+     *     process.
+     */
+    @UnstableApi
+    public static Window fromBundle(Bundle bundle, int interfaceVersion) {
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
       @Nullable
       MediaItem mediaItem =
-          mediaItemBundle != null ? MediaItem.fromBundle(mediaItemBundle) : MediaItem.EMPTY;
+          mediaItemBundle != null
+              ? MediaItem.fromBundle(mediaItemBundle, interfaceVersion)
+              : MediaItem.EMPTY;
       long presentationStartTimeMs =
           bundle.getLong(FIELD_PRESENTATION_START_TIME_MS, /* defaultValue= */ C.TIME_UNSET);
       long windowStartTimeMs =
@@ -911,13 +940,25 @@ public abstract class Timeline {
     private static final String FIELD_AD_PLAYBACK_STATE = Util.intToStringMaxRadix(4);
 
     /**
+     * @deprecated Use {@link #toBundle(int)} instead.
+     */
+    @Deprecated
+    @UnstableApi
+    public Bundle toBundle() {
+      return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
      * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #id} and {@link #uid} fields so these fields of an instance restored
      * by {@link #fromBundle} will always be {@code null}.
+     *
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+     *     process.
      */
     @UnstableApi
-    public Bundle toBundle() {
+    public Bundle toBundle(int interfaceVersion) {
       Bundle bundle = new Bundle();
       if (windowIndex != 0) {
         bundle.putInt(FIELD_WINDOW_INDEX, windowIndex);
@@ -932,14 +973,29 @@ public abstract class Timeline {
         bundle.putBoolean(FIELD_PLACEHOLDER, isPlaceholder);
       }
       if (!adPlaybackState.equals(AdPlaybackState.NONE)) {
-        bundle.putBundle(FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle());
+        bundle.putBundle(FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle(interfaceVersion));
       }
       return bundle;
     }
 
-    /** Restores a {@code Period} from a {@link Bundle}. */
+    /**
+     * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+     */
     @UnstableApi
+    @Deprecated
     public static Period fromBundle(Bundle bundle) {
+      return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
+     * Restores a {@code Period} from a {@link Bundle}.
+     *
+     * @param bundle The {@link Bundle}.
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending
+     *     process.
+     */
+    @UnstableApi
+    public static Period fromBundle(Bundle bundle, int interfaceVersion) {
       int windowIndex = bundle.getInt(FIELD_WINDOW_INDEX, /* defaultValue= */ 0);
       long durationUs = bundle.getLong(FIELD_DURATION_US, /* defaultValue= */ C.TIME_UNSET);
       long positionInWindowUs = bundle.getLong(FIELD_POSITION_IN_WINDOW_US, /* defaultValue= */ 0);
@@ -947,7 +1003,7 @@ public abstract class Timeline {
       @Nullable Bundle adPlaybackStateBundle = bundle.getBundle(FIELD_AD_PLAYBACK_STATE);
       AdPlaybackState adPlaybackState =
           adPlaybackStateBundle != null
-              ? AdPlaybackState.fromBundle(adPlaybackStateBundle)
+              ? AdPlaybackState.fromBundle(adPlaybackStateBundle, interfaceVersion)
               : AdPlaybackState.NONE;
 
       Period period = new Period();
@@ -1384,26 +1440,39 @@ public abstract class Timeline {
   private static final String FIELD_SHUFFLED_WINDOW_INDICES = Util.intToStringMaxRadix(2);
 
   /**
+   * @deprecated Use {@link #toBundle(int)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public final Bundle toBundle() {
+    return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
    * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>The {@link #getWindow(int, Window)} windows} and {@link #getPeriod(int, Period) periods} of
    * an instance restored by {@link #fromBundle} may have missing fields as described in {@link
-   * Window#toBundle()} and {@link Period#toBundle()}.
+   * Window#toBundle(int)} and {@link Period#toBundle(int)}.
+   *
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+   *     process.
    */
   @UnstableApi
-  public final Bundle toBundle() {
+  public final Bundle toBundle(int interfaceVersion) {
     List<Bundle> windowBundles = new ArrayList<>();
     int windowCount = getWindowCount();
     Window window = new Window();
     for (int i = 0; i < windowCount; i++) {
-      windowBundles.add(getWindow(i, window, /* defaultPositionProjectionUs= */ 0).toBundle());
+      windowBundles.add(
+          getWindow(i, window, /* defaultPositionProjectionUs= */ 0).toBundle(interfaceVersion));
     }
 
     List<Bundle> periodBundles = new ArrayList<>();
     int periodCount = getPeriodCount();
     Period period = new Period();
     for (int i = 0; i < periodCount; i++) {
-      periodBundles.add(getPeriod(i, period, /* setIds= */ false).toBundle());
+      periodBundles.add(getPeriod(i, period, /* setIds= */ false).toBundle(interfaceVersion));
     }
 
     int[] shuffledWindowIndices = new int[windowCount];
@@ -1449,13 +1518,29 @@ public abstract class Timeline {
         ImmutableList.of(window), periods.build(), /* shuffledWindowIndices= */ new int[] {0});
   }
 
-  /** Restores a {@code Timeline} from a {@link Bundle}. */
+  /**
+   * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+   */
   @UnstableApi
+  @Deprecated
   public static Timeline fromBundle(Bundle bundle) {
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Restores a {@code Timeline} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
+  @UnstableApi
+  public static Timeline fromBundle(Bundle bundle, int interfaceVersion) {
     ImmutableList<Window> windows =
-        fromBundleListRetriever(Window::fromBundle, bundle.getBinder(FIELD_WINDOWS));
+        fromBundleListRetriever(
+            item -> Window.fromBundle(item, interfaceVersion), bundle.getBinder(FIELD_WINDOWS));
     ImmutableList<Period> periods =
-        fromBundleListRetriever(Period::fromBundle, bundle.getBinder(FIELD_PERIODS));
+        fromBundleListRetriever(
+            item -> Period.fromBundle(item, interfaceVersion), bundle.getBinder(FIELD_PERIODS));
     @Nullable int[] shuffledWindowIndices = bundle.getIntArray(FIELD_SHUFFLED_WINDOW_INDICES);
     return new RemotableTimeline(
         windows,

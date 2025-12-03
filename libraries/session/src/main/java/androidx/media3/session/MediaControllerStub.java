@@ -41,9 +41,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   private final WeakReference<MediaControllerImplBase> controller;
+  private int sessionInterfaceVersion;
 
   public MediaControllerStub(MediaControllerImplBase controller) {
     this.controller = new WeakReference<>(controller);
+    this.sessionInterfaceVersion = C.INDEX_UNSET;
   }
 
   @Override
@@ -69,9 +71,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (libraryResultBundle == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     LibraryResult<?> result;
     try {
-      result = LibraryResult.fromUnknownBundle(libraryResultBundle);
+      result = LibraryResult.fromUnknownBundle(libraryResultBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for LibraryResult", e);
       return;
@@ -95,6 +101,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       onDisconnected(seq);
       return;
     }
+    sessionInterfaceVersion = connectionState.sessionInterfaceVersion;
     dispatchControllerTaskOnHandler(controller -> controller.onConnected(connectionState));
   }
 
@@ -110,13 +117,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (commandButtonBundleList == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     List<CommandButton> layout;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       layout =
           BundleCollectionUtil.fromBundleList(
               bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
@@ -133,13 +139,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (commandButtonBundleList == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     ImmutableList<CommandButton> mediaButtonPreferences;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       mediaButtonPreferences =
           BundleCollectionUtil.fromBundleList(
               bundle -> CommandButton.fromBundle(bundle, sessionInterfaceVersion),
@@ -243,9 +248,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (sessionPositionInfoBundle == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     SessionPositionInfo sessionPositionInfo;
     try {
-      sessionPositionInfo = SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
+      sessionPositionInfo =
+          SessionPositionInfo.fromBundle(sessionPositionInfoBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for SessionPositionInfo", e);
       return;
@@ -276,13 +286,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (playerInfoBundle == null || playerInfoExclusions == null) {
       return;
     }
+    if (sessionInterfaceVersion == C.INDEX_UNSET) {
+      // Not yet connected.
+      return;
+    }
     PlayerInfo playerInfo;
     try {
-      int sessionInterfaceVersion = getSessionInterfaceVersion();
-      if (sessionInterfaceVersion == C.INDEX_UNSET) {
-        // Stale event.
-        return;
-      }
       playerInfo = PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     } catch (RuntimeException e) {
       Log.w(TAG, "Ignoring malformed Bundle for PlayerInfo", e);
@@ -422,20 +431,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     } finally {
       Binder.restoreCallingIdentity(token);
     }
-  }
-
-  /** Returns session interface version or {@link C#INDEX_UNSET} for stale events. */
-  private int getSessionInterfaceVersion() {
-    @Nullable MediaControllerImplBase controller = this.controller.get();
-    if (controller == null) {
-      return C.INDEX_UNSET;
-    }
-    @Nullable SessionToken connectedToken = controller.getConnectedToken();
-    if (connectedToken == null) {
-      // Stale event.
-      return C.INDEX_UNSET;
-    }
-    return connectedToken.getInterfaceVersion();
   }
 
   /* @FunctionalInterface */

@@ -2395,7 +2395,7 @@ public final class MediaItem {
   private static final String FIELD_LOCAL_CONFIGURATION = Util.intToStringMaxRadix(5);
 
   @UnstableApi
-  private Bundle toBundle(boolean includeLocalConfiguration) {
+  private Bundle toBundle(boolean includeLocalConfiguration, int interfaceVersion) {
     Bundle bundle = new Bundle();
     if (!mediaId.equals(DEFAULT_MEDIA_ID)) {
       bundle.putString(FIELD_MEDIA_ID, mediaId);
@@ -2404,7 +2404,7 @@ public final class MediaItem {
       bundle.putBundle(FIELD_LIVE_CONFIGURATION, liveConfiguration.toBundle());
     }
     if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
-      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle(interfaceVersion));
     }
     if (!clippingConfiguration.equals(ClippingConfiguration.UNSET)) {
       bundle.putBundle(FIELD_CLIPPING_PROPERTIES, clippingConfiguration.toBundle());
@@ -2419,33 +2419,67 @@ public final class MediaItem {
   }
 
   /**
+   * @deprecated Use {@link #toBundle(int)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public Bundle toBundle() {
+    return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
    * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>It omits the {@link #localConfiguration} field. The {@link #localConfiguration} of an
    * instance restored from such a bundle by {@link #fromBundle} will be {@code null}.
+   *
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+   *     process.
    */
   @UnstableApi
-  public Bundle toBundle() {
-    return toBundle(/* includeLocalConfiguration= */ false);
+  public Bundle toBundle(int interfaceVersion) {
+    return toBundle(/* includeLocalConfiguration= */ false, interfaceVersion);
+  }
+
+  /**
+   * @deprecated Use {@link #toBundleIncludeLocalConfiguration(int)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public Bundle toBundleIncludeLocalConfiguration() {
+    return toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   /**
    * Returns a {@link Bundle} representing the information stored in this {@link #MediaItem} object,
    * while including the {@link #localConfiguration} field if it is not null (otherwise skips it).
+   *
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+   *     process.
    */
   @UnstableApi
-  public Bundle toBundleIncludeLocalConfiguration() {
-    return toBundle(/* includeLocalConfiguration= */ true);
+  public Bundle toBundleIncludeLocalConfiguration(int interfaceVersion) {
+    return toBundle(/* includeLocalConfiguration= */ true, interfaceVersion);
+  }
+
+  /**
+   * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+   */
+  @UnstableApi
+  @Deprecated
+  public static MediaItem fromBundle(Bundle bundle) {
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   /**
    * Restores a {@code MediaItem} from a {@link Bundle}.
    *
-   * <p>The {@link #localConfiguration} of a restored instance will always be {@code null}.
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
    */
   @UnstableApi
   @SuppressWarnings("deprecation") // Unbundling to ClippingProperties while it still exists.
-  public static MediaItem fromBundle(Bundle bundle) {
+  public static MediaItem fromBundle(Bundle bundle, int interfaceVersion) {
     String mediaId = checkNotNull(bundle.getString(FIELD_MEDIA_ID, DEFAULT_MEDIA_ID));
     @Nullable Bundle liveConfigurationBundle = bundle.getBundle(FIELD_LIVE_CONFIGURATION);
     LiveConfiguration liveConfiguration;
@@ -2459,7 +2493,7 @@ public final class MediaItem {
     if (mediaMetadataBundle == null) {
       mediaMetadata = MediaMetadata.EMPTY;
     } else {
-      mediaMetadata = MediaMetadata.fromBundle(mediaMetadataBundle);
+      mediaMetadata = MediaMetadata.fromBundle(mediaMetadataBundle, interfaceVersion);
     }
     @Nullable Bundle clippingConfigurationBundle = bundle.getBundle(FIELD_CLIPPING_PROPERTIES);
     ClippingProperties clippingConfiguration;

@@ -719,17 +719,32 @@ public final class AdPlaybackState {
     static final String FIELD_IS_PLACEHOLDER = Util.intToStringMaxRadix(10);
     private static final String FIELD_SKIP_INFOS = Util.intToStringMaxRadix(11);
 
+    /**
+     * @deprecated Use {@link #toBundle(int)} instead.
+     */
+    @Deprecated
+    public Bundle toBundle() {
+      return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
+     * Write this ad playback state to a {@link Bundle}.
+     *
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+     *     process.
+     * @return A {@link Bundle} containing the data of this instance.
+     */
     // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
     @SuppressWarnings({"deprecation", "nullness:argument"})
-    public Bundle toBundle() {
+    public Bundle toBundle(int interfaceVersion) {
       Bundle bundle = new Bundle();
       bundle.putLong(FIELD_TIME_US, timeUs);
       bundle.putInt(FIELD_COUNT, count);
       bundle.putInt(FIELD_ORIGINAL_COUNT, originalCount);
       bundle.putParcelableArrayList(
           FIELD_URIS, new ArrayList<@NullableType Uri>(Arrays.asList(uris)));
-      bundle.putParcelableArrayList(FIELD_MEDIA_ITEMS, getMediaItemsArrayBundles());
+      bundle.putParcelableArrayList(FIELD_MEDIA_ITEMS, getMediaItemsArrayBundles(interfaceVersion));
       bundle.putIntArray(FIELD_STATES, states);
       bundle.putLongArray(FIELD_DURATIONS_US, durationsUs);
       bundle.putLong(FIELD_CONTENT_RESUME_OFFSET_US, contentResumeOffsetUs);
@@ -740,10 +755,24 @@ public final class AdPlaybackState {
       return bundle;
     }
 
-    /** Restores a {@code AdGroup} from a {@link Bundle}. */
+    /**
+     * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+     */
+    @Deprecated
+    public static AdGroup fromBundle(Bundle bundle) {
+      return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
+     * Restores a {@code AdGroup} from a {@link Bundle}.
+     *
+     * @param bundle The {@link Bundle}.
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending
+     *     process.
+     */
     // getParcelableArrayList may have null elements.
     @SuppressWarnings("nullness:type.argument")
-    public static AdGroup fromBundle(Bundle bundle) {
+    public static AdGroup fromBundle(Bundle bundle, int interfaceVersion) {
       long timeUs = bundle.getLong(FIELD_TIME_US);
       int count = bundle.getInt(FIELD_COUNT);
       int originalCount = bundle.getInt(FIELD_ORIGINAL_COUNT);
@@ -767,7 +796,7 @@ public final class AdPlaybackState {
           count,
           originalCount,
           states == null ? new int[0] : states,
-          getMediaItemsFromBundleArrays(mediaItemBundleList, uriList),
+          getMediaItemsFromBundleArrays(mediaItemBundleList, uriList, interfaceVersion),
           durationsUs == null ? new long[0] : durationsUs,
           contentResumeOffsetUs,
           isServerSideInserted,
@@ -786,22 +815,29 @@ public final class AdPlaybackState {
       return bundles;
     }
 
-    private ArrayList<@NullableType Bundle> getMediaItemsArrayBundles() {
+    private ArrayList<@NullableType Bundle> getMediaItemsArrayBundles(int interfaceVersion) {
       ArrayList<@NullableType Bundle> bundles = new ArrayList<>();
       for (@Nullable MediaItem mediaItem : mediaItems) {
-        bundles.add(mediaItem == null ? null : mediaItem.toBundleIncludeLocalConfiguration());
+        bundles.add(
+            mediaItem == null
+                ? null
+                : mediaItem.toBundleIncludeLocalConfiguration(interfaceVersion));
       }
       return bundles;
     }
 
     private static @NullableType MediaItem[] getMediaItemsFromBundleArrays(
         @Nullable ArrayList<@NullableType Bundle> mediaItemBundleList,
-        @Nullable ArrayList<@NullableType Uri> uriList) {
+        @Nullable ArrayList<@NullableType Uri> uriList,
+        int interfaceVersion) {
       if (mediaItemBundleList != null) {
         @NullableType MediaItem[] mediaItems = new MediaItem[mediaItemBundleList.size()];
         for (int i = 0; i < mediaItemBundleList.size(); i++) {
           @Nullable Bundle mediaItemBundle = mediaItemBundleList.get(i);
-          mediaItems[i] = mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle);
+          mediaItems[i] =
+              mediaItemBundle == null
+                  ? null
+                  : MediaItem.fromBundle(mediaItemBundle, interfaceVersion);
         }
         return mediaItems;
       } else if (uriList != null) {
@@ -1704,17 +1740,28 @@ public final class AdPlaybackState {
   private static final String FIELD_REMOVED_AD_GROUP_COUNT = Util.intToStringMaxRadix(4);
 
   /**
+   * @deprecated Use {@link #toBundle(int)} instead.
+   */
+  @Deprecated
+  public Bundle toBundle() {
+    return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
    * Returns a {@link Bundle} representing the information stored in this object.
    *
    * <p>It omits the {@link #adsId} field so the {@link #adsId} of instances restored by {@link
-   * #fromBundle(Bundle)} will always be {@code null}.
+   * #fromBundle(Bundle, int)} will always be {@code null}.
+   *
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+   *     process.
    */
   // TODO(b/166765820): See if missing adsId would be okay and add adsId to the Bundle otherwise.
-  public Bundle toBundle() {
+  public Bundle toBundle(int interfaceVersion) {
     Bundle bundle = new Bundle();
     ArrayList<Bundle> adGroupBundleList = new ArrayList<>();
     for (AdGroup adGroup : adGroups) {
-      adGroupBundleList.add(adGroup.toBundle());
+      adGroupBundleList.add(adGroup.toBundle(interfaceVersion));
     }
     if (!adGroupBundleList.isEmpty()) {
       bundle.putParcelableArrayList(FIELD_AD_GROUPS, adGroupBundleList);
@@ -1731,8 +1778,21 @@ public final class AdPlaybackState {
     return bundle;
   }
 
-  /** Restores a {@code AdPlaybackState} from a {@link Bundle}. */
+  /**
+   * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+   */
+  @Deprecated
   public static AdPlaybackState fromBundle(Bundle bundle) {
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Restores a {@code AdPlaybackState} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
+  public static AdPlaybackState fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable ArrayList<Bundle> adGroupBundleList = bundle.getParcelableArrayList(FIELD_AD_GROUPS);
     @Nullable AdGroup[] adGroups;
     if (adGroupBundleList == null) {
@@ -1740,7 +1800,7 @@ public final class AdPlaybackState {
     } else {
       adGroups = new AdGroup[adGroupBundleList.size()];
       for (int i = 0; i < adGroupBundleList.size(); i++) {
-        adGroups[i] = AdGroup.fromBundle(adGroupBundleList.get(i));
+        adGroups[i] = AdGroup.fromBundle(adGroupBundleList.get(i), interfaceVersion);
       }
     }
     long adResumePositionUs =

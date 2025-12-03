@@ -4043,6 +4043,49 @@ public class MediaControllerListenerTest {
   }
 
   @Test
+  public void onMediaMetadataChanged_withLargeArtworkData_isNotifiedAndUpdatesGetter()
+      throws Exception {
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<MediaMetadata> mediaMetadataFromParamRef = new AtomicReference<>();
+    AtomicReference<MediaMetadata> mediaMetadataFromGetterRef = new AtomicReference<>();
+    AtomicReference<MediaMetadata> mediaMetadataFromOnEventsRef = new AtomicReference<>();
+    AtomicReference<Player.Events> eventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onMediaMetadataChanged(MediaMetadata mediaMetadata) {
+            mediaMetadataFromParamRef.set(mediaMetadata);
+            mediaMetadataFromGetterRef.set(controller.getMediaMetadata());
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            mediaMetadataFromOnEventsRef.set(player.getMediaMetadata());
+            eventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+    byte[] largeArtworkData = new byte[4_000_000];
+    largeArtworkData[0] = (byte) 1234;
+    MediaMetadata testMediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(largeArtworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .build();
+
+    remoteSession.getMockPlayer().notifyMediaMetadataChanged(testMediaMetadata);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(mediaMetadataFromParamRef.get()).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadataFromGetterRef.get()).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadataFromOnEventsRef.get()).isEqualTo(testMediaMetadata);
+    assertThat(getEventsAsList(eventsRef.get()))
+        .containsExactly(Player.EVENT_MEDIA_METADATA_CHANGED);
+  }
+
+  @Test
   public void onMediaMetadataChanged_isCalledByPlayerChange() throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);

@@ -971,7 +971,7 @@ import java.util.Objects;
       bundle.putBoolean(FIELD_SHUFFLE_MODE_ENABLED, shuffleModeEnabled);
     }
     if (!timeline.equals(Timeline.EMPTY)) {
-      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle());
+      bundle.putBundle(FIELD_TIMELINE, timeline.toBundle(interfaceVersion));
     }
     if (timelineChangeReason != TIMELINE_CHANGE_REASON_DEFAULT) {
       bundle.putInt(FIELD_TIMELINE_CHANGE_REASON, timelineChangeReason);
@@ -980,7 +980,7 @@ import java.util.Objects;
       bundle.putBundle(FIELD_VIDEO_SIZE, videoSize.toBundle());
     }
     if (!playlistMetadata.equals(MediaMetadata.EMPTY)) {
-      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle());
+      bundle.putBundle(FIELD_PLAYLIST_METADATA, playlistMetadata.toBundle(interfaceVersion));
     }
     if (volume != 1) {
       bundle.putFloat(FIELD_VOLUME, volume);
@@ -1025,7 +1025,7 @@ import java.util.Objects;
       bundle.putBoolean(FIELD_IS_LOADING, isLoading);
     }
     if (!mediaMetadata.equals(MediaMetadata.EMPTY)) {
-      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle());
+      bundle.putBundle(FIELD_MEDIA_METADATA, mediaMetadata.toBundle(interfaceVersion));
     }
     long defaultSeekBackIncrementMs = interfaceVersion < 6 ? 0 : C.DEFAULT_SEEK_BACK_INCREMENT_MS;
     if (seekBackIncrementMs != defaultSeekBackIncrementMs) {
@@ -1066,17 +1066,17 @@ import java.util.Objects;
     SessionPositionInfo sessionPositionInfo =
         sessionPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT
-            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle);
+            : SessionPositionInfo.fromBundle(sessionPositionInfoBundle, interfaceVersion);
     @Nullable Bundle oldPositionInfoBundle = bundle.getBundle(FIELD_OLD_POSITION_INFO);
     PositionInfo oldPositionInfo =
         oldPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.fromBundle(oldPositionInfoBundle);
+            : PositionInfo.fromBundle(oldPositionInfoBundle, interfaceVersion);
     @Nullable Bundle newPositionInfoBundle = bundle.getBundle(FIELD_NEW_POSITION_INFO);
     PositionInfo newPositionInfo =
         newPositionInfoBundle == null
             ? SessionPositionInfo.DEFAULT_POSITION_INFO
-            : PositionInfo.fromBundle(newPositionInfoBundle);
+            : PositionInfo.fromBundle(newPositionInfoBundle, interfaceVersion);
     int discontinuityReason =
         bundle.getInt(FIELD_DISCONTINUITY_REASON, DISCONTINUITY_REASON_DEFAULT);
     @Nullable Bundle playbackParametersBundle = bundle.getBundle(FIELD_PLAYBACK_PARAMETERS);
@@ -1090,7 +1090,9 @@ import java.util.Objects;
         bundle.getBoolean(FIELD_SHUFFLE_MODE_ENABLED, /* defaultValue= */ false);
     @Nullable Bundle timelineBundle = bundle.getBundle(FIELD_TIMELINE);
     Timeline timeline =
-        timelineBundle == null ? Timeline.EMPTY : Timeline.fromBundle(timelineBundle);
+        timelineBundle == null
+            ? Timeline.EMPTY
+            : Timeline.fromBundle(timelineBundle, interfaceVersion);
     int timelineChangeReason =
         bundle.getInt(
             FIELD_TIMELINE_CHANGE_REASON, /* defaultValue= */ TIMELINE_CHANGE_REASON_DEFAULT);
@@ -1101,7 +1103,7 @@ import java.util.Objects;
     MediaMetadata playlistMetadata =
         playlistMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.fromBundle(playlistMetadataBundle);
+            : MediaMetadata.fromBundle(playlistMetadataBundle, interfaceVersion);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     float unmuteVolume = bundle.getFloat(FIELD_UNMUTE_VOLUME, /* defaultValue= */ 1);
     int audioSessionId = bundle.getInt(FIELD_AUDIO_SESSION_ID, C.AUDIO_SESSION_ID_UNSET);
@@ -1136,7 +1138,7 @@ import java.util.Objects;
     MediaMetadata mediaMetadata =
         mediaMetadataBundle == null
             ? MediaMetadata.EMPTY
-            : MediaMetadata.fromBundle(mediaMetadataBundle);
+            : MediaMetadata.fromBundle(mediaMetadataBundle, interfaceVersion);
     long seekBackIncrementMs =
         bundle.getLong(
             FIELD_SEEK_BACK_INCREMENT_MS,

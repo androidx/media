@@ -553,13 +553,15 @@ public class AdPlaybackStateTest {
   public void adPlaybackStateWithNoAds_toBundleSkipsDefaultValues_fromBundleRestoresThem() {
     AdPlaybackState adPlaybackStateWithNoAds = AdPlaybackState.NONE;
 
-    Bundle adPlaybackStateWithNoAdsBundle = adPlaybackStateWithNoAds.toBundle();
+    Bundle adPlaybackStateWithNoAdsBundle =
+        adPlaybackStateWithNoAds.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(adPlaybackStateWithNoAdsBundle.keySet()).isEmpty();
 
     AdPlaybackState adPlaybackStateWithNoAdsFromBundle =
-        AdPlaybackState.fromBundle(adPlaybackStateWithNoAdsBundle);
+        AdPlaybackState.fromBundle(
+            adPlaybackStateWithNoAdsBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(adPlaybackStateWithNoAdsFromBundle.adsId).isEqualTo(adPlaybackStateWithNoAds.adsId);
     assertThat(adPlaybackStateWithNoAdsFromBundle.adGroupCount)
@@ -600,7 +602,10 @@ public class AdPlaybackStateTest {
             .withAdResumePositionUs(123)
             .withContentDurationUs(456);
 
-    AdPlaybackState restoredState = AdPlaybackState.fromBundle(originalState.toBundle());
+    AdPlaybackState restoredState =
+        AdPlaybackState.fromBundle(
+            originalState.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredState.adsId).isNull();
     assertThat(restoredState.adGroupCount).isEqualTo(originalState.adGroupCount);
@@ -632,7 +637,11 @@ public class AdPlaybackStateTest {
                     /* skipOffsetUs= */ 123, /* skipDurationUs= */ 456, "label"),
                 /* index= */ 0);
 
-    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
+    assertThat(
+            AdPlaybackState.AdGroup.fromBundle(
+                adGroup.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION))
+        .isEqualTo(adGroup);
   }
 
   @Test
@@ -661,10 +670,11 @@ public class AdPlaybackStateTest {
             .withAdDurationsUs(new long[] {1234, 5678})
             .withContentResumeOffsetUs(4444)
             .withIsServerSideInserted(true);
-    Bundle bundle = adGroup.toBundle();
+    Bundle bundle = adGroup.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     bundle.remove(AdPlaybackState.AdGroup.FIELD_MEDIA_ITEMS);
 
-    assertThat(AdPlaybackState.AdGroup.fromBundle(bundle)).isEqualTo(adGroup);
+    assertThat(AdPlaybackState.AdGroup.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION))
+        .isEqualTo(adGroup);
   }
 
   @SuppressWarnings({"deprecation", "InlineMeInliner"}) // testing deprecated API
@@ -1194,8 +1204,17 @@ public class AdPlaybackStateTest {
             .withAdId(/* adId= */ "2", /* index= */ 2);
 
     // Asserts that the missing @NullableType in fromBundle() isn't harmful.
-    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle()).ids[1]).isNull();
-    assertThat(AdPlaybackState.AdGroup.fromBundle(adGroup.toBundle())).isEqualTo(adGroup);
+    assertThat(
+            AdPlaybackState.AdGroup.fromBundle(
+                    adGroup.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                    MediaLibraryInfo.INTERFACE_VERSION)
+                .ids[1])
+        .isNull();
+    assertThat(
+            AdPlaybackState.AdGroup.fromBundle(
+                adGroup.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION))
+        .isEqualTo(adGroup);
   }
 
   @Test

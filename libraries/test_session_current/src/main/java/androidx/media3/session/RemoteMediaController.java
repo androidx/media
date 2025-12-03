@@ -152,28 +152,37 @@ public class RemoteMediaController {
   }
 
   public void setMediaItem(MediaItem mediaItem) throws RemoteException {
-    binder.setMediaItem(controllerId, mediaItem.toBundleIncludeLocalConfiguration());
+    binder.setMediaItem(
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void setMediaItemIncludeLocalConfiguration(MediaItem mediaItem) throws RemoteException {
-    binder.setMediaItem(controllerId, mediaItem.toBundleIncludeLocalConfiguration());
+    binder.setMediaItem(
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void setMediaItem(MediaItem mediaItem, long startPositionMs) throws RemoteException {
     binder.setMediaItemWithStartPosition(
-        controllerId, mediaItem.toBundleIncludeLocalConfiguration(), startPositionMs);
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION),
+        startPositionMs);
   }
 
   public void setMediaItem(MediaItem mediaItem, boolean resetPosition) throws RemoteException {
     binder.setMediaItemWithResetPosition(
-        controllerId, mediaItem.toBundleIncludeLocalConfiguration(), resetPosition);
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION),
+        resetPosition);
   }
 
   public void setMediaItems(List<MediaItem> mediaItems) throws RemoteException {
     binder.setMediaItems(
         controllerId,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void setMediaItemsIncludeLocalConfiguration(List<MediaItem> mediaItems)
@@ -181,14 +190,17 @@ public class RemoteMediaController {
     binder.setMediaItems(
         controllerId,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void setMediaItems(List<MediaItem> mediaItems, boolean resetPosition)
       throws RemoteException {
     binder.setMediaItemsWithResetPosition(
         controllerId,
-        BundleCollectionUtil.toBundleList(mediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+        BundleCollectionUtil.toBundleList(
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)),
         resetPosition);
   }
 
@@ -196,7 +208,9 @@ public class RemoteMediaController {
       throws RemoteException {
     binder.setMediaItemsWithStartIndex(
         controllerId,
-        BundleCollectionUtil.toBundleList(mediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+        BundleCollectionUtil.toBundleList(
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)),
         startIndex,
         startPositionMs);
   }
@@ -212,27 +226,35 @@ public class RemoteMediaController {
   }
 
   public void setPlaylistMetadata(MediaMetadata playlistMetadata) throws RemoteException {
-    binder.setPlaylistMetadata(controllerId, playlistMetadata.toBundle());
+    binder.setPlaylistMetadata(
+        controllerId, playlistMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void addMediaItem(MediaItem mediaItem) throws RemoteException {
-    binder.addMediaItem(controllerId, mediaItem.toBundleIncludeLocalConfiguration());
+    binder.addMediaItem(
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void addMediaItemIncludeLocalConfiguration(MediaItem mediaItem) throws RemoteException {
-    binder.addMediaItem(controllerId, mediaItem.toBundleIncludeLocalConfiguration());
+    binder.addMediaItem(
+        controllerId,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void addMediaItem(int index, MediaItem mediaItem) throws RemoteException {
     binder.addMediaItemWithIndex(
-        controllerId, index, mediaItem.toBundleIncludeLocalConfiguration());
+        controllerId,
+        index,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void addMediaItems(List<MediaItem> mediaItems) throws RemoteException {
     binder.addMediaItems(
         controllerId,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void addMediaItemsIncludeLocalConfiguration(List<MediaItem> mediaItems)
@@ -240,7 +262,8 @@ public class RemoteMediaController {
     binder.addMediaItems(
         controllerId,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void addMediaItems(int index, List<MediaItem> mediaItems) throws RemoteException {
@@ -248,7 +271,8 @@ public class RemoteMediaController {
         controllerId,
         index,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void removeMediaItem(int index) throws RemoteException {
@@ -272,7 +296,10 @@ public class RemoteMediaController {
   }
 
   public void replaceMediaItem(int index, MediaItem mediaItem) throws RemoteException {
-    binder.replaceMediaItem(controllerId, index, mediaItem.toBundleIncludeLocalConfiguration());
+    binder.replaceMediaItem(
+        controllerId,
+        index,
+        mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   public void replaceMediaItems(int fromIndex, int toIndex, List<MediaItem> mediaItems)
@@ -282,7 +309,8 @@ public class RemoteMediaController {
         fromIndex,
         toIndex,
         BundleCollectionUtil.toBundleList(
-            mediaItems, MediaItem::toBundleIncludeLocalConfiguration));
+            mediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)));
   }
 
   public void seekToPreviousMediaItem() throws RemoteException {
@@ -385,9 +413,11 @@ public class RemoteMediaController {
     binder.setMediaItemsPreparePlayAddItemsSeek(
         controllerId,
         BundleCollectionUtil.toBundleList(
-            initialMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+            initialMediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)),
         BundleCollectionUtil.toBundleList(
-            addedMediaItems, MediaItem::toBundleIncludeLocalConfiguration),
+            addedMediaItems,
+            item -> item.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION)),
         seekIndex);
   }
 

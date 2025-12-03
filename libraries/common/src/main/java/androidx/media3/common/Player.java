@@ -402,7 +402,7 @@ public interface Player {
 
     /**
      * Returns whether this position info and the other position info would result in the same
-     * {@link #toBundle() Bundle}.
+     * {@link #toBundle(int) Bundle}.
      */
     @UnstableApi
     public boolean equalsForBundling(PositionInfo other) {
@@ -457,7 +457,7 @@ public interface Player {
      * Returns a {@link Bundle} representing the information stored in this object.
      *
      * <p>It omits the {@link #windowUid} and {@link #periodUid} fields. The {@link #windowUid} and
-     * {@link #periodUid} of an instance restored by {@link #fromBundle(Bundle)} will always be
+     * {@link #periodUid} of an instance restored by {@link #fromBundle(Bundle, int)} will always be
      * {@code null}.
      *
      * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
@@ -470,7 +470,7 @@ public interface Player {
         bundle.putInt(FIELD_MEDIA_ITEM_INDEX, mediaItemIndex);
       }
       if (mediaItem != null) {
-        bundle.putBundle(FIELD_MEDIA_ITEM, mediaItem.toBundle());
+        bundle.putBundle(FIELD_MEDIA_ITEM, mediaItem.toBundle(interfaceVersion));
       }
       if (interfaceVersion < 3 || periodIndex != 0) {
         bundle.putInt(FIELD_PERIOD_INDEX, periodIndex);
@@ -499,13 +499,29 @@ public interface Player {
       return toBundle(Integer.MAX_VALUE);
     }
 
-    /** Restores a {@code PositionInfo} from a {@link Bundle}. */
+    /**
+     * @deprecated Use {@link #fromBundle(Bundle, int)} instead.
+     */
     @UnstableApi
+    @Deprecated
     public static PositionInfo fromBundle(Bundle bundle) {
+      return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+    }
+
+    /**
+     * Restores a {@code PositionInfo} from a {@link Bundle}.
+     *
+     * @param bundle The {@link Bundle}.
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending
+     *     process.
+     */
+    @UnstableApi
+    public static PositionInfo fromBundle(Bundle bundle, int interfaceVersion) {
       int mediaItemIndex = max(0, bundle.getInt(FIELD_MEDIA_ITEM_INDEX, /* defaultValue= */ 0));
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
       @Nullable
-      MediaItem mediaItem = mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle);
+      MediaItem mediaItem =
+          mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle, interfaceVersion);
       int periodIndex = max(0, bundle.getInt(FIELD_PERIOD_INDEX, /* defaultValue= */ 0));
       long positionMs = bundle.getLong(FIELD_POSITION_MS, /* defaultValue= */ 0);
       long contentPositionMs = bundle.getLong(FIELD_CONTENT_POSITION_MS, /* defaultValue= */ 0);

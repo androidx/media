@@ -76,6 +76,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -1265,7 +1266,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
             mediaButtonPreferencesWithUnavailableButtonsDisabled,
             /* backSlotAllowed= */ true,
-            /* forwardSlotAllowed= */ true);
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
     legacyExtras.putBoolean(
         MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
         !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));

@@ -60,7 +60,7 @@ public final class MediaLibraryInfo {
    * boundaries. If any cross-process interaction requires an incompatible change, this number
    * should be increased to allow the other process to offer backwards-compatible behavior.
    */
-  public static final int INTERFACE_VERSION = 8;
+  public static final int INTERFACE_VERSION = 9;
 
   // LINT.ThenChange()
 

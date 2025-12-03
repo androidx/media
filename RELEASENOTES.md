@@ -32,6 +32,8 @@
         preferred orientation for linear ads. If you wish to join the alpha
         testing group, please reach out to your account partner.
 *   Session:
+    *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
+        app.
 *   UI:
 *   Downloads:
 *   OkHttp extension:
