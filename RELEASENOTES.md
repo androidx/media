@@ -10,6 +10,10 @@
     *   Fix bug in `DefaultLoadErrorHandlingPolicy` where
         `FileNotFoundException` and similar exception types were retried
         multiple times.
+    *   Fix bug with dynamic scheduling where the calculated time for the next
+        `doSomeWork` was mistakenly reduced by the elapsed time of the current
+        iteration of `doSomeWork`. Addressing this hopefully extends CPU idle
+        time and saves power.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

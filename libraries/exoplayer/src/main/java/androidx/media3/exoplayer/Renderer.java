@@ -586,8 +586,8 @@ public interface Renderer extends PlayerMessage.Target {
   long getReadingPositionUs();
 
   /**
-   * Returns minimum amount of playback clock time that must pass in order for the {@link #render}
-   * call to make progress.
+   * Returns minimum amount of playback clock time that must pass from {@code elapsedRealtimeUs} in
+   * order for the {@link #render} call to make progress.
    *
    * <p>This method may be called when the renderer is in the following states: {@link
    * #STATE_ENABLED}, {@link #STATE_STARTED}.
