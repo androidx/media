@@ -32,11 +32,6 @@
 *   Effect:
 *   Muxers:
 *   IMA extension:
-    *   Add the `ImaAdTagUriBuilder`, a class that offers an alternative way to
-        construct an `adTagUri`. It contains the `setPreferredLinearOrientation`
-        API. This is an API in alpha testing that will allow for you to set your
-        preferred orientation for linear ads. If you wish to join the alpha
-        testing group, please reach out to your account partner.
 *   Session:
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.
