@@ -130,25 +130,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Checks if the CDD-requirement to support H264 720p at 60 fps is covered by PerformancePoints.
      */
     private static boolean shouldIgnorePerformancePoints() {
-      // The same check as below is tested in CTS for non-secure codecs and we should get reliable
-      // results from API 35.
-      @PerformancePointCoverageResult
-      int h264RequiredSupportResult =
-          SDK_INT >= 35
-              ? COVERAGE_RESULT_YES
-              : evaluateH264RequiredSupport(/* requiresSecureDecoder= */ false);
+      if (SDK_INT >= 37) {
+        // The same check as below is tested in CTS and we should get reliable results from API 37.
+        return false;
+      }
       @PerformancePointCoverageResult
       int h264SecureRequiredSupportResult =
           evaluateH264RequiredSupport(/* requiresSecureDecoder= */ true);
-
-      if (h264RequiredSupportResult == COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED) {
-        return true;
+      if (SDK_INT >= 35) {
+        // From API 35, only non-secure codecs are tested in CTS and we still need to check the
+        // secure codec is correctly marked as supported (or not defined at all).
+        return h264SecureRequiredSupportResult == COVERAGE_RESULT_NO;
       }
-      if (h264SecureRequiredSupportResult == COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED) {
-        return h264RequiredSupportResult != COVERAGE_RESULT_YES;
-      }
+      // Below API 35, we accept the performance points if the non-secure ones are correctly defined
+      // and the secure ones are either undefined or correctly marked as supported.
+      @PerformancePointCoverageResult
+      int h264RequiredSupportResult =
+          evaluateH264RequiredSupport(/* requiresSecureDecoder= */ false);
       return h264RequiredSupportResult != COVERAGE_RESULT_YES
-          || h264SecureRequiredSupportResult != COVERAGE_RESULT_YES;
+          || h264SecureRequiredSupportResult == COVERAGE_RESULT_NO;
     }
 
     private static @PerformancePointCoverageResult int evaluateH264RequiredSupport(
