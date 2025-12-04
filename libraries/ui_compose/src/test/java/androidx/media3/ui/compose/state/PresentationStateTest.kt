@@ -48,7 +48,7 @@ class PresentationStateTest {
 
     assertThat(state.coverSurface).isTrue()
     assertThat(state.keepContentOnReset).isFalse()
-    assertThat(state.videoSizeDp).isEqualTo(null)
+    assertThat(state.videoSizeDp).isNull()
   }
 
   @Test
