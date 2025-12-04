@@ -21,6 +21,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Log;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi
 public class GlTextureFrame implements Frame {
+  private static final String TAG = "GlTextureFrame";
 
   /** The {@link GlTextureInfo}. */
   public final GlTextureInfo glTextureInfo;
@@ -174,17 +176,23 @@ public class GlTextureFrame implements Frame {
   /**
    * {@inheritDoc}
    *
-   * @throws IllegalStateException if called after the frame has been released.
+   * <p>This implementation is idempotent if called after the frame has already been released. It
+   * will strictly release the underlying resources only when the count transitions from 1 to 0.
    */
   @Override
   public void release() {
-    // TODO: b/465289713 - Wait on a fence before releasing the texture.
-    int currentCount = referenceCount.decrementAndGet();
-    if (currentCount == 0) {
-      releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
-
-    } else if (currentCount < 0) {
-      throw new IllegalStateException("GlTextureFrame already released");
+    while (true) {
+      int currentCount = referenceCount.get();
+      if (currentCount == 0) {
+        Log.d(TAG, "release() called on an already released frame.");
+        return;
+      }
+      if (referenceCount.compareAndSet(currentCount, currentCount - 1)) {
+        if (currentCount == 1) {
+          releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
+        }
+        return;
+      }
     }
   }
 
