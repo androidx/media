@@ -221,9 +221,11 @@ import java.util.concurrent.atomic.AtomicReference;
   private void releaseInternal() throws VideoFrameProcessingException {
     if (currentInputFrame != null) {
       currentInputFrame.release();
+      currentInputFrame = null;
     }
     if (currentProcessedFrame != null) {
       currentProcessedFrame.release();
+      currentProcessedFrame = null;
     }
     shaderProgram.release();
   }

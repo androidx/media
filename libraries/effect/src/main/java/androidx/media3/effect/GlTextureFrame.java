@@ -23,6 +23,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi
@@ -64,6 +65,9 @@ public class GlTextureFrame implements Frame {
    * texture, as it is only expected to be produced and consumed within the same GL command stream.
    */
   public final long fenceSync;
+
+  /** The number of active references to this frame. */
+  private final AtomicInteger referenceCount;
 
   /** A builder for {@link GlTextureFrame} instances. */
   public static final class Builder {
@@ -159,6 +163,7 @@ public class GlTextureFrame implements Frame {
     this.releaseTextureExecutor = builder.releaseTextureExecutor;
     this.releaseTextureCallback = builder.releaseTextureCallback;
     this.fenceSync = builder.fenceSync;
+    this.referenceCount = new AtomicInteger(1);
   }
 
   @Override
@@ -166,9 +171,36 @@ public class GlTextureFrame implements Frame {
     return metadata;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @throws IllegalStateException if called after the frame has been released.
+   */
   @Override
   public void release() {
     // TODO: b/465289713 - Wait on a fence before releasing the texture.
-    releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
+    int currentCount = referenceCount.decrementAndGet();
+    if (currentCount == 0) {
+      releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
+
+    } else if (currentCount < 0) {
+      throw new IllegalStateException("GlTextureFrame already released");
+    }
+  }
+
+  /**
+   * Increases the reference count of this frame. For every call to this method there must be an
+   * extra {@link #release} call before this frame is released.
+   *
+   * @throws IllegalStateException if called after the frame has been released.
+   */
+  public void retain() {
+    int currentCount;
+    do {
+      currentCount = referenceCount.get();
+      if (currentCount <= 0) {
+        throw new IllegalStateException("Cannot retain a frame that has already been released.");
+      }
+    } while (!referenceCount.compareAndSet(currentCount, currentCount + 1));
   }
 }
