@@ -1027,7 +1027,7 @@ public final class AdsMediaSourceTest {
         .onSourceInfoRefreshed(any(), timelineArgumentCaptor.capture());
     ImmutableList<AdPlaybackState> capturedAdPlaybackStates =
         timelineArgumentCaptor.getAllValues().stream()
-            .map((timeline) -> timeline.getPeriod(0, new Timeline.Period()).adPlaybackState)
+            .map(timeline -> timeline.getPeriod(0, new Timeline.Period()).adPlaybackState)
             .collect(toImmutableList());
     // AdsMediaSource uses actual durations from ad sources, ignoring durations in AdPlaybackState.
     assertThat(capturedAdPlaybackStates)
@@ -1043,6 +1043,74 @@ public final class AdsMediaSourceTest {
                   new long[] {C.TIME_UNSET, 133_000_000L},
                   new long[] {133_000_000L}
                 }))
+        .inOrder();
+  }
+
+  @Test
+  public void onAdPlaybackState_withoutClipping_emptyAdDurationsArrayReplacedWithTimeUnset() {
+    AdViewProvider mockAdViewProvider = mock(AdViewProvider.class);
+    MediaSource.Factory adMediaSourceFactory = mock(MediaSource.Factory.class);
+    when(adMediaSourceFactory.createMediaSource(any(MediaItem.class)))
+        .thenReturn(new FakeMediaSource(new FakeTimeline()));
+    MediaSourceCaller mockMediaSourceCaller = mock(MediaSourceCaller.class);
+    AdsLoader mockAdsLoader = mock(AdsLoader.class);
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            contentMediaSource,
+            TEST_ADS_DATA_SPEC,
+            TEST_ADS_ID,
+            adMediaSourceFactory,
+            mockAdsLoader,
+            mockAdViewProvider,
+            /* useLazyContentSourcePreparation= */ false,
+            /* useAdMediaSourceClipping= */ false);
+    adsMediaSource.prepareSource(
+        mockMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    shadowOf(Looper.getMainLooper()).idle();
+    ArgumentCaptor<EventListener> eventListenerArgumentCaptor =
+        ArgumentCaptor.forClass(AdsLoader.EventListener.class);
+    verify(mockAdsLoader)
+        .start(
+            eq(adsMediaSource),
+            eq(TEST_ADS_DATA_SPEC),
+            eq(TEST_ADS_ID),
+            eq(mockAdViewProvider),
+            eventListenerArgumentCaptor.capture());
+    EventListener adsLoaderEventListener = eventListenerArgumentCaptor.getValue();
+    AdPlaybackState expectedInitialAdPlaybackState = new AdPlaybackState("adsId", 10_000_000L);
+
+    adsLoaderEventListener.onAdPlaybackState(expectedInitialAdPlaybackState);
+    shadowOf(Looper.getMainLooper()).idle();
+    adsMediaSource.createPeriod(
+        new MediaPeriodId(
+            new Object(),
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 1,
+            /* windowSequenceNumber= */ 0),
+        mock(Allocator.class),
+        /* startPositionUs= */ 0L);
+    adsLoaderEventListener.onAdPlaybackState(
+        expectedInitialAdPlaybackState.withNewAdGroup(
+            /* adGroupIndex= */ 1, /* adGroupTimeUs= */ 20_000_000L));
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<Timeline> timelineArgumentCaptor = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(2))
+        .onSourceInfoRefreshed(any(), timelineArgumentCaptor.capture());
+    ImmutableList<AdPlaybackState> capturedAdPlaybackStates =
+        timelineArgumentCaptor.getAllValues().stream()
+            .map(
+                timeline ->
+                    timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period()).adPlaybackState)
+            .collect(toImmutableList());
+    // AdsMediaSource replaces durations in empty array of the first ad group with C.TIME_UNSET
+    assertThat(capturedAdPlaybackStates)
+        .containsExactly(
+            expectedInitialAdPlaybackState,
+            expectedInitialAdPlaybackState
+                .withAdDurationsUs(
+                    /* adGroupIndex= */ 0, /* adDurationsUs...= */ C.TIME_UNSET, C.TIME_UNSET)
+                .withNewAdGroup(/* adGroupIndex= */ 1, /* adGroupTimeUs= */ 20_000_000L))
         .inOrder();
   }
 

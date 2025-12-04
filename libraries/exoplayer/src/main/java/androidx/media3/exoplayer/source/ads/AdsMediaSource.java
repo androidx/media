@@ -527,7 +527,10 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
               : adMediaSourceHolders[i].length;
       adDurationsUs[i] = new long[adCount];
       for (int j = 0; j < adCount; j++) {
-        long adDurationUs = adPlaybackState.getAdGroup(i).durationsUs[j];
+        long adDurationUs =
+            adPlaybackState.getAdGroup(i).durationsUs.length > j
+                ? adPlaybackState.getAdGroup(i).durationsUs[j]
+                : C.TIME_UNSET;
         if (adDurationUs != C.TIME_UNSET && useAdMediaSourceClipping) {
           adDurationsUs[i][j] = adDurationUs;
         } else if (adMediaSourceHolders[i].length > j && adMediaSourceHolders[i][j] != null) {
