@@ -123,7 +123,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * strongly recommended way to handle the intent is using the default implementation.
    */
   @Override
-  public void onReceive(Context context, @Nullable Intent intent) {
+  public void onReceive(Context context, Intent intent) {
+    checkNotNull(intent);
     handleIntentAndMaybeStartTheService(context, intent);
   }
 
@@ -136,9 +137,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    */
   @UnstableApi
   protected final void handleIntentAndMaybeStartTheService(
-      Context context, @Nullable Intent intent) {
-    if (intent == null
-        || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
+      Context context, Intent intent) {
+    if (!Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
       Log.d(TAG, "Ignore unsupported intent: " + intent);
       return;
