@@ -627,7 +627,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
-              context, videoFrameReleaseControl, packetConsumer);
+              context,
+              videoFrameReleaseControl,
+              packetConsumer,
+              executorService,
+              e -> internalListener.onError(VideoFrameProcessingException.from(e)));
     } else {
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;

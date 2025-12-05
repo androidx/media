@@ -61,9 +61,6 @@ private constructor(
   private var finalShaderProgramWrapper: FinalShaderProgramWrapper? = null
   @Volatile private var outputSurfaceInfo: SurfaceInfo? = null
 
-  override fun tryQueuePacket(packet: Packet<GlTextureFrame>): Boolean =
-    inputConsumer.tryQueuePacket(packet)
-
   override suspend fun queuePacket(packet: Packet<GlTextureFrame>) =
     inputConsumer.queuePacket(packet)
 

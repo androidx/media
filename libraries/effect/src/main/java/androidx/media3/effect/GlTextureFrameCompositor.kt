@@ -48,10 +48,6 @@ class GlTextureFrameCompositor(
     TexturePool(/* useHighPrecisionColorComponents= */ false, /* capacity= */ 1)
   @Volatile private var outputConsumer: PacketConsumer<GlTextureFrame>? = null
 
-  override fun tryQueuePacket(packet: Packet<List<GlTextureFrame>>): Boolean {
-    return inputConsumer.tryQueuePacket(packet)
-  }
-
   override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
     return inputConsumer.queuePacket(packet)
   }

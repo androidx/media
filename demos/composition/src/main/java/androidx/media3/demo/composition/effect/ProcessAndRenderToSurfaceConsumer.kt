@@ -118,14 +118,6 @@ private constructor(
 
   // PacketConsumer implementation which forwards frames to compositor.
 
-  override fun tryQueuePacket(packet: Packet<List<GlTextureFrame>>): Boolean {
-    // TODO: b/463336410 - Make a Composition-aware GlTextureFrameCompositor which updates
-    // videoCompositorSettings from CompositionFrameMetadata.
-    compositor.videoCompositorSettings =
-      (packet.payload[0].metadata as CompositionFrameMetadata).composition.videoCompositorSettings
-    return compositor.tryQueuePacket(packet)
-  }
-
   override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
     // TODO: b/463336410 - Make a Composition-aware GlTextureFrameCompositor which updates
     // videoCompositorSettings from CompositionFrameMetadata.

@@ -54,20 +54,6 @@ interface PacketConsumer<T> {
     fun create(): PacketConsumer<T>
   }
 
-  // TODO: b/449957627 - Remove this method and add a a utility class to call the suspending
-  //  queuePacket from a synchronous work loop.
-  /**
-   * Attempts to queue a [Packet] for processing without blocking.
-   *
-   * If this method returns `true`, the ownership of the [packet] is transferred to this
-   * [PacketConsumer] and the caller must not modify the [packet].
-   *
-   * @param packet The [Packet] to process.
-   * @return `true` if the packet was accepted and queued for processing. Returns `false` if the
-   *   consumer is at capacity and cannot accept the packet at this time.
-   */
-  fun tryQueuePacket(packet: Packet<T>): Boolean
-
   /**
    * Queues a [Packet] for processing, suspending the caller if the consumer is at capacity.
    *

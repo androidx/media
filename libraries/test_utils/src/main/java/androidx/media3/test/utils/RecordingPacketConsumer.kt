@@ -34,11 +34,6 @@ class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
 
   private val _queuedPackets: MutableList<MutableList<GlTextureFrame>> = ArrayList()
 
-  override fun tryQueuePacket(packet: Packet<MutableList<GlTextureFrame>>): Boolean {
-    queue(packet.payload)
-    return true
-  }
-
   override suspend fun queuePacket(packet: Packet<MutableList<GlTextureFrame>>) {
     queue(packet.payload)
   }

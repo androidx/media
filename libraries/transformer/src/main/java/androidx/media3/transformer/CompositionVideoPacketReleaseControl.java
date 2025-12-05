@@ -22,11 +22,13 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumer.Packet;
+import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
@@ -34,6 +36,7 @@ import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererL
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutorService;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
@@ -42,7 +45,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 /* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final PacketConsumer<List<GlTextureFrame>> downstreamConsumer;
+  private final PacketConsumerCaller<List<GlTextureFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<GlTextureFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final PlaceholderSurface placeholderSurface;
@@ -57,11 +60,15 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   public CompositionVideoPacketReleaseControl(
       Context context,
       VideoFrameReleaseControl videoFrameReleaseControl,
-      PacketConsumer<List<GlTextureFrame>> downstreamConsumer) {
+      PacketConsumer<List<GlTextureFrame>> downstreamConsumer,
+      ExecutorService glExecutorService,
+      Consumer<Exception> exceptionConsumer) {
     placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
     videoFrameReleaseControl.setOutputSurface(placeholderSurface);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
-    this.downstreamConsumer = downstreamConsumer;
+    this.downstreamConsumer =
+        PacketConsumerCaller.create(downstreamConsumer, glExecutorService, exceptionConsumer);
+    this.downstreamConsumer.run();
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
   }

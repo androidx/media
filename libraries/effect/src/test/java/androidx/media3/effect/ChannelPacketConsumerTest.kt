@@ -68,41 +68,6 @@ class ChannelPacketConsumerTest {
   }
 
   @Test
-  fun tryQueuePacket_forwardsToCallbacks() = doBlocking {
-    val inputFrame1 = TestFrame()
-    val inputFrame2 = TestFrame()
-    val inputFrame3 = TestFrame()
-    val consumedFrames = mutableListOf<TestFrame>()
-    val releasedFrames = mutableListOf<TestFrame>()
-    val consumer =
-      ChannelPacketConsumer<TestFrame>(
-        onConsume = { frame ->
-          consumedFrames.add(frame)
-          frameConsumed.complete(Unit)
-        },
-        onRelease = { frame -> releasedFrames.add(frame) },
-      )
-    launch { consumer.run() }
-
-    yield()
-    assertThat(consumer.tryQueuePacket(Packet.of(inputFrame1))).isTrue()
-    withTimeout(testTimeout) { frameConsumed.await() }
-    frameConsumed = CompletableDeferred()
-
-    assertThat(consumer.tryQueuePacket(Packet.of(inputFrame2))).isTrue()
-    withTimeout(testTimeout) { frameConsumed.await() }
-    frameConsumed = CompletableDeferred()
-
-    assertThat(consumer.tryQueuePacket(Packet.of(inputFrame3))).isTrue()
-    withTimeout(testTimeout) { frameConsumed.await() }
-
-    assertThat(consumedFrames).containsExactly(inputFrame1, inputFrame2, inputFrame3).inOrder()
-    assertThat(releasedFrames).containsExactly(inputFrame1, inputFrame2, inputFrame3).inOrder()
-
-    consumer.release()
-  }
-
-  @Test
   fun run_multipleCalls_throwsIllegalStateException() = doBlocking {
     val consumer =
       ChannelPacketConsumer<TestFrame>(onConsume = { frameConsumed.complete(Unit) }, onRelease = {})
@@ -319,26 +284,6 @@ class ChannelPacketConsumerTest {
       runBlocking { consumer.queuePacket(Packet.of(inputFrame1)) }
     }
 
-    assertThat(releasedFrames).isEmpty()
-    assertThat(consumedFrames).isEmpty()
-  }
-
-  @Test
-  fun tryQueuePacket_afterRelease_throwsClosedSendChannelException() = doBlocking {
-    val inputFrame1 = TestFrame()
-    val consumedFrames = mutableListOf<TestFrame>()
-    val releasedFrames = mutableListOf<TestFrame>()
-    val consumer =
-      ChannelPacketConsumer<TestFrame>(
-        onConsume = { frame -> consumedFrames.add(frame) },
-        onRelease = { frame -> releasedFrames.add(frame) },
-      )
-    launch { consumer.run() }
-    launch { consumer.release() }.join()
-
-    assertThrows(ClosedSendChannelException::class.java) {
-      consumer.tryQueuePacket(Packet.of(inputFrame1))
-    }
     assertThat(releasedFrames).isEmpty()
     assertThat(consumedFrames).isEmpty()
   }

@@ -20,7 +20,6 @@ import androidx.media3.effect.PacketConsumer.Packet
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.channels.onClosed
 
 /**
  * A [RunnablePacketConsumer] implementation that uses a [Channel] to receive and process packets of
@@ -54,23 +53,6 @@ class ChannelPacketConsumer<T>(
   private val inputChannel = Channel<Packet<T>>(Channel.RENDEZVOUS)
   private val isReleased = AtomicBoolean(false)
   private val isRunning = AtomicBoolean(false)
-
-  /**
-   * Tries to queue a [packet] for consumption without suspending.
-   *
-   * @param packet The [Packet] to queue.
-   * @return `true` if the packet was queued successfully, `false` otherwise. A `false` return value
-   *   indicates that the consumer is not ready to accept a packet (i.e., it is busy in its
-   *   [onConsume] block).
-   * @throws ClosedSendChannelException If the channel is closed.
-   */
-  override fun tryQueuePacket(packet: Packet<T>): Boolean =
-    inputChannel
-      .trySend(packet)
-      .onClosed { cause ->
-        throw cause ?: ClosedSendChannelException("Consumer channel is closed.")
-      }
-      .isSuccess
 
   /**
    * Queues a [packet] for consumption, suspending until the packet is accepted.

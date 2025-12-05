@@ -304,10 +304,6 @@ class GlTextureFrameCompositorTest {
     deferredFrame: CompletableDeferred<GlTextureFrame>
   ): PacketConsumer<GlTextureFrame> {
     return object : PacketConsumer<GlTextureFrame> {
-      override fun tryQueuePacket(packet: Packet<GlTextureFrame>): Boolean {
-        deferredFrame.complete(packet.payload)
-        return true
-      }
 
       override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
         deferredFrame.complete(packet.payload)
@@ -319,9 +315,6 @@ class GlTextureFrameCompositorTest {
 
   private fun createThrowingConsumer(exception: Exception): PacketConsumer<GlTextureFrame> {
     return object : PacketConsumer<GlTextureFrame> {
-      override fun tryQueuePacket(packet: Packet<GlTextureFrame>): Boolean {
-        throw exception
-      }
 
       override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
         throw exception

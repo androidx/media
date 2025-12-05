@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import android.content.Context;
 import androidx.media3.common.GlTextureInfo;
@@ -67,7 +68,14 @@ public class CompositionVideoPacketReleaseControlTest {
     videoFrameReleaseControl.onStarted();
     outputConsumer = new RecordingPacketConsumer(/* releaseIncomingFrames= */ false);
     compositionVideoPacketReleaseControl =
-        new CompositionVideoPacketReleaseControl(context, videoFrameReleaseControl, outputConsumer);
+        new CompositionVideoPacketReleaseControl(
+            context,
+            videoFrameReleaseControl,
+            outputConsumer,
+            newDirectExecutorService(),
+            exception -> {
+              throw new IllegalStateException(exception);
+            });
   }
 
   @After
