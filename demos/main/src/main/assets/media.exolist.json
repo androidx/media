@@ -726,6 +726,19 @@
     ]
   },
   {
+    "name": "Audio description",
+    "samples": [
+      {
+        "name": "DASH unified streaming - Audio description (ENG)",
+        "uri": "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-desc-aud.ism/.mpd"
+      },
+      {
+        "name": "HLS The Morning Show - Change: Season 2",
+        "uri": "https://play-edge.itunes.apple.com/WebObjects/MZPlayLocal.woa/hls/subscription/playlist.m3u8?cc=CH&svcId=tvs.vds.4021&a=1568297173&isExternal=true&brandId=tvs.sbd.4000&id=518034010&l=en-GB&aec=UHD"
+      }
+    ]
+  },
+  {
     "name": "Progressive",
     "samples": [
       {
