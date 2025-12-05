@@ -42,7 +42,7 @@
 *   RTMP extension:
 *   HLS extension:
     *   Support X-PLAYOUT-LIMIT with HLS interstitials
-        ([#2484](https://github.com/androidx/media/issues/24884)).
+        ([#2484](https://github.com/androidx/media/issues/2484)).
     *   Support the `QUERYPARAM` attribute with `#EXT-X-DEFINE`
         ([#1854](https://github.com/androidx/media/issues/1854)).
 *   DASH extension:
