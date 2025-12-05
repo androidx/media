@@ -23,6 +23,8 @@
 *   Audio:
     *   Change underlying decoding library for IAMF decoder extension from
         'libiamf' to 'iamf_tools'.
+    *   `IamfDecoder` now supports changing output mix (layout or ID) during
+        playback.
 *   Video:
 *   Text:
 *   Metadata:

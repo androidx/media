@@ -297,10 +297,15 @@ DECODER_FUNC(jint, iamfDecode, jobject inputBuffer, jint inputSize,
     return ERROR;
   }
 
-  uint8_t* in_buf =
-      reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(inputBuffer));
-  if (in_buf == nullptr && inputSize > 0) {
+  void* void_in_buff = env->GetDirectBufferAddress(inputBuffer);
+  if (void_in_buff == nullptr) {
     LOGE("Failed to get direct buffer address for input buffer.");
+    LOGE("inputSize: %d", inputSize);  //  TODO LOG SOMETHING
+    return ERROR;
+  }
+  uint8_t* in_buf = reinterpret_cast<uint8_t*>(void_in_buff);
+  if (in_buf == nullptr && inputSize > 0) {
+    LOGE("Failed to cast input buffer to uint8_t*.");
     return ERROR;
   }
   iamf_tools::api::IamfStatus decode_status =
@@ -320,10 +325,14 @@ DECODER_FUNC(jint, iamfGetOutputTemporalUnit, jobject outputBuffer,
     LOGE("iamfGetOutputTemporalUnit called with invalid decoder.");
     return ERROR;
   }
-  uint8_t* out_buf =
-      reinterpret_cast<uint8_t*>(env->GetDirectBufferAddress(outputBuffer));
-  if (out_buf == nullptr) {
+  void* void_out_buff = env->GetDirectBufferAddress(outputBuffer);
+  if (void_out_buff == nullptr) {
     LOGE("Failed to get direct buffer address for output buffer.");
+    return ERROR;
+  }
+  uint8_t* out_buf = reinterpret_cast<uint8_t*>(void_out_buff);
+  if (out_buf == nullptr) {
+    LOGE("Failed to cast buffer to uint8_t*.");
     return ERROR;
   }
   size_t bytes_written = 0;

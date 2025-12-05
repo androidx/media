@@ -16,7 +16,7 @@
 package androidx.media3.decoder.iamf;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
-import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import androidx.annotation.IntDef;
@@ -259,7 +259,11 @@ public final class IamfDecoder
         return new IamfDecoderException("Failed to reset decoder.");
       }
     }
-    ByteBuffer inputData = castNonNull(inputBuffer.data);
+    ByteBuffer inputData = checkNotNull(inputBuffer.data);
+    if (!inputData.isDirect()) {
+      // Only direct ByteBuffers are able to be read by GetDirectBufferAddress in the JNI.
+      return new IamfDecoderException("Input buffer's data is not direct.");
+    }
     @Status int decodeResult = iamfDecode(inputData, inputData.limit(), nativeDecoderPointer);
     if (decodeResult != STATUS_OK) {
       return new IamfDecoderException("Failed to decode.");
@@ -272,7 +276,7 @@ public final class IamfDecoder
         return e;
       }
       outputBuffer.init(inputBuffer.timeUs, bufferSize);
-      ByteBuffer outputData = castNonNull(outputBuffer.data);
+      ByteBuffer outputData = checkNotNull(outputBuffer.data);
       int bytesWritten =
           iamfGetOutputTemporalUnit(outputData, outputData.limit(), nativeDecoderPointer);
       if (bytesWritten == STATUS_ERROR) {
@@ -412,6 +416,74 @@ public final class IamfDecoder
     }
     int bytesPerSample = getBytesPerSample(outputSampleType);
     return channelCount * frameSize * bytesPerSample;
+  }
+
+  /**
+   * Resets the decoder to a clean state ready to decode new data.
+   *
+   * <p>This function can only be used if the decoder was created with Descriptor OBUs, i.e. with
+   * initialization data.
+   *
+   * <p>A clean state refers to a state in which descriptors OBUs have been parsed, but no other
+   * data has been parsed.
+   *
+   * <p>Useful for seeking applications.
+   *
+   * @throws IamfDecoderException if an exception occurs when resetting decoder. This will happen if
+   *     the underlying decoder was created without Descriptor OBUs (i.e. initialization data),
+   *     among other reasons.
+   */
+  public void reset() throws IamfDecoderException {
+    @Status int result = iamfReset(nativeDecoderPointer);
+    if (result != STATUS_OK) {
+      throw new IamfDecoderException("Failed to reset decoder.");
+    }
+  }
+
+  /**
+   * Resets the decoder to a clean state with a new output layout and/or Mix Presentation ID.
+   *
+   * <p>This function can only be used if the decoder was created with Descriptor OBUs, i.e. with
+   * initialization data.
+   *
+   * <p>A clean state refers to a state in which descriptors OBUs have been parsed, but no other
+   * data has been parsed.
+   *
+   * <p>Useful for dynamic playback layout changes, e.g. connect or disconnect headphones.
+   *
+   * @param requestedOutputLayout The desired output layout to request. Can be set to
+   *     OUTPUT_LAYOUT_UNSET to avoid specifying. The actual layout used may not be the same as
+   *     requested, so {@link #getSelectedOutputLayout} can be used to get the actual layout used.
+   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to
+   *     REQUESTED_MIX_PRESENTATION_ID_UNSET to avoid specifying. The actual Mix Presentation ID
+   *     used may not be the same as requested, so {@link #getSelectedMixPresentationId} can be used
+   *     to get the actual Mix Presentation ID used.
+   * @throws IamfDecoderException if an exception occurs when resetting decoder. This will happen if
+   *     the underlying decoder was created without Descriptor OBUs (i.e. initialization data),
+   *     among other reasons.
+   */
+  public void resetWithNewMix(
+      @OutputLayout int requestedOutputLayout, long requestedMixPresentationId)
+      throws IamfDecoderException {
+    @Status
+    int result =
+        iamfResetWithNewMix(
+            requestedOutputLayout, requestedMixPresentationId, nativeDecoderPointer);
+    if (result != STATUS_OK) {
+      throw new IamfDecoderException("Failed to reset decoder with new mix.");
+    }
+  }
+
+  /**
+   * Signals end of decoding to the decoder.
+   *
+   * @throws IamfDecoderException Thrown if an exception occurs when signaling end of decoding.
+   */
+  public void signalEndOfDecoding() throws IamfDecoderException {
+    @Status int result = iamfSignalEndOfDecoding(nativeDecoderPointer);
+    if (result != STATUS_OK) {
+      throw new IamfDecoderException("Failed to signal end of decoding.");
+    }
   }
 
   private static int getBytesPerSample(@OutputSampleType int outputSampleType) {
