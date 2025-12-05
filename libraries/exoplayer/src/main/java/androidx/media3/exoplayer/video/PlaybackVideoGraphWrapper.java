@@ -1263,8 +1263,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       VideoGraph.Factory factory;
       try {
         // LINT.IfChange
-        Class<?> singleInputVideoGraphFactoryClass =
-            Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory");
+        // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+        @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+        String className =
+            new StringBuilder()
+                .append("androidx.media3.effect.")
+                .append("SingleInputVideoGraph")
+                .append("$Factory")
+                .toString();
+        Class<?> singleInputVideoGraphFactoryClass = Class.forName(className);
         factory =
             (VideoGraph.Factory)
                 singleInputVideoGraphFactoryClass
@@ -1304,8 +1311,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
             () -> {
               try {
                 // LINT.IfChange
-                return Class.forName(
-                    "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
+                // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+                @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+                String className =
+                    new StringBuilder()
+                        .append("androidx.media3.effect.")
+                        .append("DefaultVideoFrameProcessor")
+                        .append("$Factory$Builder")
+                        .toString();
+                return Class.forName(className);
                 // LINT.ThenChange(../../../../../../../proguard-rules.txt)
               } catch (Exception e) {
                 throw new IllegalStateException(e);
