@@ -86,7 +86,7 @@ public final class CompositionPlayerAudioPlaybackTest {
 
   @Before
   public void setUp() {
-    capturingAudioSink = CapturingAudioSink.create();
+    capturingAudioSink = CapturingAudioSink.createForSampleCapturing();
   }
 
   @Test

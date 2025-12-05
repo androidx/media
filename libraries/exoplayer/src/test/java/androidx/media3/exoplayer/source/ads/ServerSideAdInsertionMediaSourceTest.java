@@ -849,7 +849,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
     }
 
     private DiscontinuitySkippingCapturingAudioSink(AudioSink sink) {
-      super(sink);
+      super(sink, /* shouldCaptureIndividualBuffers= */ true);
     }
 
     @Override

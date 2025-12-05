@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -29,6 +30,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,6 +47,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
 
   private final List<Dumper.Dumpable> interceptedData;
   private final AudioSink audioSink;
+  private final boolean shouldCaptureIndividualBuffers;
 
   private int bufferCount;
   private long lastPresentationTimeUs;
@@ -60,15 +63,31 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
                 .setAudioProcessorChain(
                     new DefaultAudioSink.DefaultAudioProcessorChain(
                         new TeeAudioProcessor(interceptingBufferSink)))
-                .build());
+                .build(),
+            /* shouldCaptureIndividualBuffers= */ true);
     interceptingBufferSink.setCapturingAudioSink(capturingAudioSink);
     return capturingAudioSink;
   }
 
-  protected CapturingAudioSink(AudioSink sink) {
+  public static CapturingAudioSink createForSampleCapturing() {
+    SampleInterceptingBufferSink interceptingSink = new SampleInterceptingBufferSink();
+    CapturingAudioSink capturingAudioSink =
+        new CapturingAudioSink(
+            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+                .setAudioProcessorChain(
+                    new DefaultAudioSink.DefaultAudioProcessorChain(
+                        new TeeAudioProcessor(interceptingSink)))
+                .build(),
+            /* shouldCaptureIndividualBuffers= */ false);
+    interceptingSink.setCapturingAudioSink(capturingAudioSink);
+    return capturingAudioSink;
+  }
+
+  protected CapturingAudioSink(AudioSink sink, boolean shouldCaptureIndividualBuffers) {
     super(sink);
     audioSink = sink;
     interceptedData = new ArrayList<>();
+    this.shouldCaptureIndividualBuffers = shouldCaptureIndividualBuffers;
   }
 
   /** Returns the wrapped {@link AudioSink}. */
@@ -98,7 +117,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     lastPresentationTimeUs = presentationTimeUs;
     // The handleBuffer is called repeatedly with the same buffer until it's been fully consumed by
     // the sink. We only want to dump each buffer once.
-    if (buffer != currentBuffer && !buffer.hasRemaining()) {
+    if (shouldCaptureIndividualBuffers && buffer != currentBuffer && !buffer.hasRemaining()) {
       // Empty buffers are not processed any further and need to be intercepted here.
       // TODO: b/174737370 - Output audio bytes in Robolectric to avoid this situation.
       interceptedData.add(
@@ -117,7 +136,10 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     if (interceptedData.isEmpty()) {
       return;
     }
-    dumper.startBlock("AudioSink").add("buffer count", bufferCount);
+    dumper.startBlock("AudioSink");
+    if (shouldCaptureIndividualBuffers) {
+      dumper.add("buffer count", bufferCount);
+    }
     for (int i = 0; i < interceptedData.size(); i++) {
       interceptedData.get(i).dump(dumper);
     }
@@ -151,6 +173,36 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
     }
   }
 
+  public static final class SampleInterceptingBufferSink
+      implements TeeAudioProcessor.AudioBufferSink {
+    private @MonotonicNonNull CapturingAudioSink capturingAudioSink;
+    private DumpableSamples dumpableSamples;
+
+    public SampleInterceptingBufferSink() {
+      dumpableSamples = new DumpableSamples();
+    }
+
+    public void setCapturingAudioSink(CapturingAudioSink capturingAudioSink) {
+      this.capturingAudioSink = capturingAudioSink;
+    }
+
+    @Override
+    public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {
+      // Only add non-empty blocks.
+      if (dumpableSamples.capturedSamples.size() <= 0) {
+        return;
+      }
+      dumpableSamples.close();
+      checkNotNull(capturingAudioSink).interceptedData.add(dumpableSamples);
+      this.dumpableSamples = new DumpableSamples();
+    }
+
+    @Override
+    public void handleBuffer(ByteBuffer buffer) {
+      checkNotNull(dumpableSamples).captureBuffer(buffer);
+    }
+  }
+
   private static final class DumpableConfiguration implements Dumper.Dumpable {
 
     private final Format inputFormat;
@@ -176,6 +228,37 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
       if (outputChannels != null) {
         dumper.add("outputChannels", Arrays.toString(outputChannels));
       }
+      dumper.endBlock();
+    }
+  }
+
+  private static final class DumpableSamples implements Dumper.Dumpable {
+    private final ByteArrayOutputStream capturedSamples;
+    private boolean isClosed;
+
+    private DumpableSamples() {
+      this.capturedSamples = new ByteArrayOutputStream();
+    }
+
+    private void captureBuffer(ByteBuffer buffer) {
+      checkState(!isClosed);
+      if (!buffer.hasRemaining()) {
+        return;
+      }
+
+      int position = buffer.position();
+      capturedSamples.writeBytes(createByteArray(buffer));
+      buffer.position(position);
+    }
+
+    private void close() {
+      isClosed = true;
+    }
+
+    @Override
+    public void dump(Dumper dumper) {
+      dumper.startBlock("SampleBlock");
+      dumper.add("buffers", capturedSamples.toByteArray());
       dumper.endBlock();
     }
   }
