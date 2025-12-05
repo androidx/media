@@ -2927,7 +2927,7 @@ public final class BoxParser {
       int fixedSampleSize = data.readUnsignedIntToInt();
       if (MimeTypes.AUDIO_RAW.equals(trackFormat.sampleMimeType)) {
         int pcmFrameSize = Util.getPcmFrameSize(trackFormat.pcmEncoding, trackFormat.channelCount);
-        if (fixedSampleSize == 0 || fixedSampleSize % pcmFrameSize != 0) {
+        if (fixedSampleSize % pcmFrameSize != 0) {
           // The sample size from the stsz box is inconsistent with the PCM encoding and channel
           // count derived from the stsd box. Choose stsd box as source of truth
           // [Internal ref: b/171627904].
