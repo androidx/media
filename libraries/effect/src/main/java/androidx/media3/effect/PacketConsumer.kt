@@ -28,22 +28,27 @@ import androidx.media3.common.util.ExperimentalApi
 interface PacketConsumer<T> {
 
   /**
-   * Represents a data packet that wraps a [payload].
+   * Represents a packet.
    *
-   * @param T The type of the [payload] contained within the packet.
+   * The [Packet] could carry either [Payload] or [EndOfStream].
+   *
+   * @param T The type of the [Payload.payload] contained within the packet.
    */
-  interface Packet<T> {
-    /** The data carried by this packet. */
-    val payload: T
+  sealed interface Packet<out T> {
+    /** A [Packet] implementation to wrap a [payload] of type [T]. */
+    data class Payload<T>(val payload: T) : Packet<T>
+
+    /** A [Packet] implementation to represent an end of stream (EOS) signal. */
+    data object EndOfStream : Packet<Nothing>
 
     companion object {
       /**
-       * Creates a default, immutable [Packet] implementation.
+       * Creates an immutable [Payload].
        *
        * @param payload The data to be carried by the packet.
        * @return A new [Packet] instance wrapping the payload.
        */
-      @JvmStatic fun <T> of(payload: T): Packet<T> = DefaultPacket(payload)
+      @JvmStatic fun <T> of(payload: T): Packet<T> = Payload(payload)
     }
   }
 
@@ -66,6 +71,4 @@ interface PacketConsumer<T> {
 
   /** Releases all resources. */
   suspend fun release()
-
-  private data class DefaultPacket<T>(override val payload: T) : Packet<T>
 }

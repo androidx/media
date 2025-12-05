@@ -83,12 +83,13 @@ class GlTextureFrameCompositorTest {
     compositor.queuePacket(packet)
     withTimeout(testTimeoutMs) { allReleased.await() }
 
+    val frames = getPacketPayloadOrException(packet)
     assertThat(releasedTextures)
       .containsExactly(
-        packet.payload[0].glTextureInfo,
-        packet.payload[1].glTextureInfo,
-        packet.payload[2].glTextureInfo,
-        packet.payload[3].glTextureInfo,
+        frames[0].glTextureInfo,
+        frames[1].glTextureInfo,
+        frames[2].glTextureInfo,
+        frames[3].glTextureInfo,
       )
       .inOrder()
 
@@ -119,12 +120,13 @@ class GlTextureFrameCompositorTest {
     // TODO: b/459374133 - Remove dependency on GlUtil in TexturePool and add a test that the
     //  output texture is also released.
     assertThat(thrownException).isEqualTo(exception)
+    val frames = getPacketPayloadOrException(packet)
     assertThat(releasedTextures)
       .containsExactly(
-        packet.payload[0].glTextureInfo,
-        packet.payload[1].glTextureInfo,
-        packet.payload[2].glTextureInfo,
-        packet.payload[3].glTextureInfo,
+        frames[0].glTextureInfo,
+        frames[1].glTextureInfo,
+        frames[2].glTextureInfo,
+        frames[3].glTextureInfo,
       )
       .inOrder()
   }
@@ -151,12 +153,14 @@ class GlTextureFrameCompositorTest {
         /* testId= */ null,
       )
     assertThat(averagePixelAbsoluteDifference).isLessThan(2.5f)
+
+    val frames = getPacketPayloadOrException(inputPacket)
     assertThat(releasedTextures)
       .containsExactly(
-        inputPacket.payload[0].glTextureInfo,
-        inputPacket.payload[1].glTextureInfo,
-        inputPacket.payload[2].glTextureInfo,
-        inputPacket.payload[3].glTextureInfo,
+        frames[0].glTextureInfo,
+        frames[1].glTextureInfo,
+        frames[2].glTextureInfo,
+        frames[3].glTextureInfo,
       )
       .inOrder()
 
@@ -306,7 +310,7 @@ class GlTextureFrameCompositorTest {
     return object : PacketConsumer<GlTextureFrame> {
 
       override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
-        deferredFrame.complete(packet.payload)
+        deferredFrame.complete(getPacketPayloadOrException(packet))
       }
 
       override suspend fun release() {}
@@ -322,5 +326,10 @@ class GlTextureFrameCompositorTest {
 
       override suspend fun release() {}
     }
+  }
+
+  private fun <T> getPacketPayloadOrException(packet: Packet<T>): T {
+    require(packet is Packet.Payload) { "Not data packet." }
+    return packet.payload
   }
 }

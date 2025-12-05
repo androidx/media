@@ -100,10 +100,17 @@ class ChannelPacketConsumer<T>(
     }
     try {
       for (packet in inputChannel) {
-        try {
-          onConsume(packet.payload)
-        } finally {
-          onRelease(packet.payload)
+
+        when (packet) {
+          is Packet.Payload -> {
+            try {
+              onConsume(packet.payload)
+            } finally {
+              onRelease(packet.payload)
+            }
+          }
+          // TODO: b/449956776 - Add EOS support
+          is Packet.EndOfStream -> continue
         }
       }
     } finally {
@@ -115,7 +122,10 @@ class ChannelPacketConsumer<T>(
   private fun drainChannel() {
     while (true) {
       val packet = inputChannel.tryReceive().getOrNull() ?: break
-      onRelease(packet.payload)
+      when (packet) {
+        is Packet.Payload -> onRelease(packet.payload)
+        else -> continue
+      }
     }
   }
 }

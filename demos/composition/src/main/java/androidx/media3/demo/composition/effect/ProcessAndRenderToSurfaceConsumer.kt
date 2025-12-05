@@ -121,8 +121,10 @@ private constructor(
   override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
     // TODO: b/463336410 - Make a Composition-aware GlTextureFrameCompositor which updates
     // videoCompositorSettings from CompositionFrameMetadata.
-    compositor.videoCompositorSettings =
-      (packet.payload[0].metadata as CompositionFrameMetadata).composition.videoCompositorSettings
+    if (packet is Packet.Payload) {
+      compositor.videoCompositorSettings =
+        (packet.payload[0].metadata as CompositionFrameMetadata).composition.videoCompositorSettings
+    }
     compositor.queuePacket(packet)
   }
 
