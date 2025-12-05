@@ -316,6 +316,38 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
+  public void loadAd_withoutMimeType_doesNotSetMimeTypeInAdPlaybackState() {
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    Ad mockFirstAd = mock(Ad.class);
+    AdPodInfo mockFirstAdPodInfo = mock(AdPodInfo.class);
+    when(mockFirstAdPodInfo.getPodIndex()).thenReturn(1);
+    when(mockFirstAdPodInfo.getTotalAds()).thenReturn(1);
+    when(mockFirstAdPodInfo.getAdPosition()).thenReturn(2);
+    when(mockFirstAd.getAdPodInfo()).thenReturn(mockFirstAdPodInfo);
+    when(mockFirstAd.getContentType()).thenReturn("application/x-mpegurl");
+
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockFirstAd));
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
+
+    // Verify that the preroll ad has not been marked with the MIME type provided in the delayed
+    // LOADED event.
+    assertThat(getAdPlaybackState(/* periodIndex= */ 0))
+        .isEqualTo(
+            new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 0)
+                .withContentDurationUs(CONTENT_PERIOD_DURATION_US)
+                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    TEST_MEDIA_ITEM.buildUpon().build())
+                .withAdDurationsUs(new long[][] {{TEST_AD_DURATION_US}})
+                .withAdResumePositionUs(/* adResumePositionUs= */ 0));
+  }
+
+  @Test
   public void playback_withPrerollAd_marksAdAsPlayed() {
     // Load the preroll ad.
     imaAdsLoader.start(

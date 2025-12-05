@@ -12,6 +12,10 @@
         `doSomeWork` was mistakenly reduced by the elapsed time of the current
         iteration of `doSomeWork`. Addressing this hopefully extends CPU idle
         time and saves power.
+*   IMA extension:
+    *   Bug fix: Corrected an issue where the ad MIME type did not match the
+        MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
+        type using the ad pod index and ad position.
 
 ## 1.9
 
