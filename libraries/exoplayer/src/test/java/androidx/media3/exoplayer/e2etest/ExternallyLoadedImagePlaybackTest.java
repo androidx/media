@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -58,11 +57,9 @@ import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using image content loaded from an injected image management framework. */
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public final class ExternallyLoadedImagePlaybackTest {
 
   private static final String INPUT_FILE_1 = "png/non-motion-photo-shortened.png";

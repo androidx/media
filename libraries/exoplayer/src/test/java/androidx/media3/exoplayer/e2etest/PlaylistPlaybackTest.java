@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -41,12 +40,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests for playlists. */
 @Config(sdk = 30) // TODO: b/382017156 - Remove this when the tests pass on API 31+.
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public final class PlaylistPlaybackTest {
 
   @Rule
