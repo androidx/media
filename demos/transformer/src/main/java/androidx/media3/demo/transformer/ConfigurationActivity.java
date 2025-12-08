@@ -64,7 +64,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String SHOULD_REMOVE_AUDIO = "should_remove_audio";
   public static final String SHOULD_REMOVE_VIDEO = "should_remove_video";
   public static final String SHOULD_FLATTEN_FOR_SLOW_MOTION = "should_flatten_for_slow_motion";
-  public static final String FORCE_AUDIO_TRACK = "force_audio_track";
   public static final String AUDIO_MIME_TYPE = "audio_mime_type";
   public static final String VIDEO_MIME_TYPE = "video_mime_type";
   public static final String RESOLUTION_HEIGHT = "resolution_height";
@@ -167,7 +166,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox removeAudioCheckbox;
   private CheckBox removeVideoCheckbox;
   private CheckBox flattenForSlowMotionCheckbox;
-  private CheckBox forceAudioTrackCheckbox;
   private Spinner audioMimeSpinner;
   private Spinner videoMimeSpinner;
   private Spinner resolutionHeightSpinner;
@@ -248,8 +246,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
     removeVideoCheckbox.setOnClickListener(this::onRemoveVideo);
 
     flattenForSlowMotionCheckbox = findViewById(R.id.flatten_for_slow_motion_checkbox);
-
-    forceAudioTrackCheckbox = findViewById(R.id.force_audio_track_checkbox);
 
     ArrayAdapter<String> audioMimeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
@@ -382,7 +378,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(SHOULD_REMOVE_AUDIO, removeAudioCheckbox.isChecked());
     bundle.putBoolean(SHOULD_REMOVE_VIDEO, removeVideoCheckbox.isChecked());
     bundle.putBoolean(SHOULD_FLATTEN_FOR_SLOW_MOTION, flattenForSlowMotionCheckbox.isChecked());
-    bundle.putBoolean(FORCE_AUDIO_TRACK, forceAudioTrackCheckbox.isChecked());
     String selectedAudioMimeType = String.valueOf(audioMimeSpinner.getSelectedItem());
     if (!SAME_AS_INPUT_OPTION.equals(selectedAudioMimeType)) {
       bundle.putString(AUDIO_MIME_TYPE, selectedAudioMimeType);
@@ -752,7 +747,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   }
 
   private void enableTrackSpecificOptions(boolean isAudioEnabled, boolean isVideoEnabled) {
-    forceAudioTrackCheckbox.setEnabled(isVideoEnabled);
     audioMimeSpinner.setEnabled(isAudioEnabled);
     videoMimeSpinner.setEnabled(isVideoEnabled);
     resolutionHeightSpinner.setEnabled(isVideoEnabled);

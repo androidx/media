@@ -115,6 +115,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -469,11 +470,9 @@ public final class TransformerActivity extends AppCompatActivity {
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
     EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
-        new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build());
-    if (bundle != null) {
-      editedMediaItemSequenceBuilder.experimentalSetForceAudioTrack(
-          bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
-    }
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+            .addItem(editedMediaItemBuilder.build());
+
     Composition.Builder compositionBuilder =
         new Composition.Builder(editedMediaItemSequenceBuilder.build());
     if (bundle != null) {
