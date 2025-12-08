@@ -23,17 +23,13 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.demo.session.service.R
-import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
-import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
-import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -51,33 +47,6 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     MediaItemTree.initialize(service.assets)
   }
 
-  private val commandButtons: List<CommandButton> =
-    listOf(
-      CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
-        .setDisplayName(
-          service.getString(androidx.media3.ui.R.string.exo_controls_shuffle_on_description)
-        )
-        .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON, Bundle.EMPTY))
-        .build(),
-      CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-        .setDisplayName(
-          service.getString(androidx.media3.ui.R.string.exo_controls_shuffle_off_description)
-        )
-        .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF, Bundle.EMPTY))
-        .build(),
-    )
-
-  @OptIn(UnstableApi::class) // MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-  private val sessionCommandsWithCustomCommands =
-    MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-      .also { builder ->
-        // Put all custom session commands in the list that may be used by the notification.
-        commandButtons.forEach { commandButton ->
-          commandButton.sessionCommand?.let { builder.add(it) }
-        }
-      }
-      .build()
-
   @OptIn(UnstableApi::class) // Player.Commands.Builder
   private val restrictedAccessPlayerCommands =
     Player.Commands.Builder()
@@ -88,48 +57,21 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
       )
       .build()
 
-  @OptIn(UnstableApi::class) // ConnectionResult.AcceptedResultBuilder
+  @OptIn(UnstableApi::class) // DEFAULT_ constants in MediaSession.ConnectionResult
   override fun onConnect(
     session: MediaSession,
     controller: MediaSession.ControllerInfo,
   ): MediaSession.ConnectionResult {
-    if (controller.isTrusted) {
-      // Provide full information and specify media button preferences.
-      val customButton = commandButtons[if (session.player.shuffleModeEnabled) 1 else 0]
-      return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-        .setAvailableSessionCommands(sessionCommandsWithCustomCommands)
-        .setMediaButtonPreferences(ImmutableList.of(customButton))
-        .build()
+    return if (controller.isTrusted) {
+      // Provide full information.
+      MediaSession.ConnectionResult.accept(
+        MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS,
+        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
+      )
     } else {
       // Restricted read-only view on currently playing item only.
-      return MediaSession.ConnectionResult.accept(
-        SessionCommands.EMPTY,
-        restrictedAccessPlayerCommands,
-      )
+      MediaSession.ConnectionResult.accept(SessionCommands.EMPTY, restrictedAccessPlayerCommands)
     }
-  }
-
-  @OptIn(UnstableApi::class) // MediaSession.isMediaNotificationController
-  override fun onCustomCommand(
-    session: MediaSession,
-    controller: MediaSession.ControllerInfo,
-    customCommand: SessionCommand,
-    args: Bundle,
-  ): ListenableFuture<SessionResult> {
-    if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON == customCommand.customAction) {
-      // Enable shuffling.
-      session.player.shuffleModeEnabled = true
-      // Change the media button preferences to contain the `Disable shuffling` button.
-      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[1]))
-      return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-    } else if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF == customCommand.customAction) {
-      // Disable shuffling.
-      session.player.shuffleModeEnabled = false
-      // Change the media button preferences to contain the `Enable shuffling` button.
-      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[0]))
-      return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-    }
-    return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
   }
 
   override fun onGetLibraryRoot(
@@ -313,12 +255,5 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     params: MediaLibraryService.LibraryParams?,
   ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
     return Futures.immediateFuture(LibraryResult.ofItemList(MediaItemTree.search(query), params))
-  }
-
-  companion object {
-    private const val CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON =
-      "android.media3.session.demo.SHUFFLE_ON"
-    private const val CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF =
-      "android.media3.session.demo.SHUFFLE_OFF"
   }
 }
