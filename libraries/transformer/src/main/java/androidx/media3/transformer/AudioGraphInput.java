@@ -75,7 +75,6 @@ import java.util.concurrent.atomic.AtomicLong;
   private final SilenceAppendingAudioProcessor silenceAppendingAudioProcessor;
 
   private AudioFormat lastInputFormat;
-  @Nullable private DecoderInputBuffer currentInputBufferBeingOutput;
   private AudioProcessingPipeline audioProcessingPipeline;
   private boolean processedFirstMediaItemChange;
   private boolean receivedEndOfStreamFromInput;
@@ -264,10 +263,7 @@ import java.util.concurrent.atomic.AtomicLong;
       // queueing it.
       clearAndAddToAvailableBuffers(availableInputBuffers.remove());
     }
-    if (currentInputBufferBeingOutput != null) {
-      clearAndAddToAvailableBuffers(currentInputBufferBeingOutput);
-      currentInputBufferBeingOutput = null;
-    }
+
     while (!pendingInputBuffers.isEmpty()) {
       clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
     }
@@ -318,84 +314,69 @@ import java.util.concurrent.atomic.AtomicLong;
     }
 
     if (!audioProcessingPipeline.isOperational()) {
-      return feedOutputFromInput();
+      return getQueuedInput();
     }
 
-    // Ensure APP progresses as much as possible.
-    while (feedProcessingPipelineFromInput()) {}
+    feedProcessingPipelineFromInput();
     return audioProcessingPipeline.getOutput();
   }
 
-  private boolean feedProcessingPipelineFromInput() {
-    @Nullable DecoderInputBuffer pendingInputBuffer = pendingInputBuffers.peek();
-    if (pendingInputBuffer == null) {
-      if (!pendingMediaItemChanges.isEmpty()) {
-        audioProcessingPipeline.queueEndOfStream();
+  /**
+   * Feeds input samples into {@link #audioProcessingPipeline} until the pipeline stops accepting
+   * new input.
+   *
+   * <p>This method {@linkplain AudioProcessingPipeline#queueEndOfStream() queues end of stream} to
+   * the pipeline at the end of a sequence or before an {@link EditedMediaItem} change.
+   */
+  private void feedProcessingPipelineFromInput() {
+    boolean madeProgress = true;
+    while (madeProgress) {
+      ByteBuffer byteBuffer = getQueuedInput();
+      if (!byteBuffer.hasRemaining()) {
+        if (receivedEndOfStreamFromInput || !pendingMediaItemChanges.isEmpty()) {
+          audioProcessingPipeline.queueEndOfStream();
+        }
+        return;
       }
-      return false;
-    }
 
-    if (pendingInputBuffer.isEndOfStream()) {
-      audioProcessingPipeline.queueEndOfStream();
-      receivedEndOfStreamFromInput = true;
-      clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
-      return false;
+      audioProcessingPipeline.queueInput(byteBuffer);
+      madeProgress = !byteBuffer.hasRemaining();
     }
-
-    ByteBuffer inputData = checkNotNull(pendingInputBuffer.data);
-    audioProcessingPipeline.queueInput(inputData);
-    if (inputData.hasRemaining()) {
-      return false;
-    }
-    clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
-    return true;
   }
 
-  private ByteBuffer feedOutputFromInput() {
-    // When output is fed directly from input, the output ByteBuffer is linked to a specific
-    // DecoderInputBuffer. Therefore it must be consumed by the downstream component before it can
-    // be used for fresh input.
-    if (currentInputBufferBeingOutput != null) {
-      ByteBuffer data = checkNotNull(currentInputBufferBeingOutput.data);
-      if (data.hasRemaining()) {
-        // Currently output data has not been consumed, return it.
-        return data;
+  /**
+   * Returns the next buffer to process or an empty buffer if no more buffers are available to
+   * process.
+   *
+   * <p>If {@link #pendingInputBuffers} is empty, or the next {@link DecoderInputBuffer} is
+   * signalling {@linkplain DecoderInputBuffer#isEndOfStream() end of stream}, this method returns
+   * an empty buffer.
+   *
+   * <p>This method releases any {@link DecoderInputBuffer} that has been processed and makes it
+   * available to {@link #getInputBuffer()}.
+   */
+  private ByteBuffer getQueuedInput() {
+    @Nullable DecoderInputBuffer currentInputBuffer;
+    while ((currentInputBuffer = pendingInputBuffers.peek()) != null) {
+      receivedEndOfStreamFromInput = currentInputBuffer.isEndOfStream();
+
+      if (receivedEndOfStreamFromInput) {
+        clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
+        return EMPTY_BUFFER;
       }
-      clearAndAddToAvailableBuffers(checkNotNull(currentInputBufferBeingOutput));
-      currentInputBufferBeingOutput = null;
-    }
 
-    @Nullable DecoderInputBuffer currentInputBuffer = pendingInputBuffers.poll();
-    if (currentInputBuffer == null) {
-      return EMPTY_BUFFER;
+      ByteBuffer currentInputBufferData = checkNotNull(currentInputBuffer.data);
+      if (currentInputBufferData.hasRemaining()) {
+        return currentInputBufferData;
+      }
+      clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
     }
-    @Nullable ByteBuffer currentInputBufferData = currentInputBuffer.data;
-    receivedEndOfStreamFromInput = currentInputBuffer.isEndOfStream();
-
-    // If there is no input data, make buffer available, ensuring underlying data reference is not
-    // kept. Data associated with EOS buffer is ignored.
-    if (currentInputBufferData == null
-        || !currentInputBufferData.hasRemaining()
-        || receivedEndOfStreamFromInput) {
-      clearAndAddToAvailableBuffers(currentInputBuffer);
-      return EMPTY_BUFFER;
-    }
-
-    currentInputBufferBeingOutput = currentInputBuffer;
-    // Bytes from currentInputBufferBeingOutput will be read over multiple calls to this method.
-    // Add all bytes now, this line will be reached only once per input buffer.
-    return currentInputBufferData;
+    return EMPTY_BUFFER;
   }
 
   private boolean hasDataToOutput() {
     if (!processedFirstMediaItemChange) {
       return false;
-    }
-
-    if (currentInputBufferBeingOutput != null
-        && currentInputBufferBeingOutput.data != null
-        && currentInputBufferBeingOutput.data.hasRemaining()) {
-      return true;
     }
 
     if (!pendingInputBuffers.isEmpty()) {
