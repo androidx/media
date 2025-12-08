@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -39,10 +38,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using MP4 samples. */
-@GraphicsMode(NATIVE)
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class Mp4PlaybackTest {
 

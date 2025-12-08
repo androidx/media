@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
 import androidx.media3.common.MediaItem;
@@ -30,11 +29,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using image samples. */
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public class ImagePlaybackTest {
 
   @Test

@@ -45,6 +45,7 @@ android {
     testOptions {
         unitTests.all {
             jvmArgs "-Xmx2g"
+            systemProperty "robolectric.graphicsMode", "NATIVE"
         }
         unitTests.includeAndroidResources true
         // See https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner
