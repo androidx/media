@@ -108,16 +108,17 @@ public final class ProgressiveMediaPeriodTest {
             /* imageDurationUs= */ C.TIME_UNSET,
             /* executor= */ null,
             /* executorReleased= */ null);
-
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
     // media/mp4/sample.mp4 has 2 tracks.
     TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
     assertThat(trackGroups.length).isAtLeast(2);
-    // Select only track 0.
-    ExoTrackSelection selection = new FakeTrackSelection(trackGroups.get(0), 0);
     @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
-    selections[0] = selection;
     @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
     boolean[] streamResetFlags = new boolean[trackGroups.length];
+
+    // Select only track 0.
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
     long unused =
         mediaPeriod.selectTracks(
             selections,
@@ -125,34 +126,28 @@ public final class ProgressiveMediaPeriodTest {
             streams,
             streamResetFlags,
             /* positionUs= */ 0);
+    // Run loader until source has finished loading.
+    boolean unusedResult =
+        mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+    runMainLooperUntil(() -> mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE);
 
-    // Run loader until stream 0 has samples ready or loading is finished.
-    SampleStream stream0 = streams[0];
-    while (!stream0.isReady() && mediaPeriod.isLoading()) {
-      Thread.sleep(10);
-      boolean result =
-          mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
-      assertThat(result).isTrue();
-    }
-
-    // Attempt to read from stream 1 (unselected)
-    int result =
-        mediaPeriod.readData(
-            /* sampleQueueIndex= */ 1,
-            new FormatHolder(),
-            new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL),
-            /* readFlags= */ 0);
-    assertThat(result).isEqualTo(C.RESULT_FORMAT_READ);
-    // Attempt to read from stream 1 (unselected)
-    result =
-        mediaPeriod.readData(
-            /* sampleQueueIndex= */ 1,
-            new FormatHolder(),
-            new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL),
-            /* readFlags= */ 0);
-    assertThat(result).isEqualTo(C.RESULT_NOTHING_READ);
+    // Read from stream 0 (selected) to check we successfully read the format and samples.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_FORMAT_READ);
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 0, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isFalse();
+    // Read from stream 1 (unselected) to check we get no samples.
+    assertThat(readProgressiveStream(mediaPeriod, /* trackIndex= */ 1, buffer))
+        .isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isTrue();
 
     mediaPeriod.release();
+  }
+
+  private static @SampleStream.ReadDataResult int readProgressiveStream(
+      ProgressiveMediaPeriod mediaPeriod, int trackIndex, DecoderInputBuffer buffer) {
+    return mediaPeriod.readData(trackIndex, new FormatHolder(), buffer, /* readFlags= */ 0);
   }
 
   private static ProgressiveMediaPeriod createMediaPeriod(
