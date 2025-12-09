@@ -38,10 +38,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListeningExecutorService
 import com.google.common.util.concurrent.MoreExecutors
-import java.util.concurrent.atomic.AtomicInteger
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -54,8 +55,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GlTextureFrameRendererTest {
 
-  private val width = 20
-  private val height = 10
   private lateinit var context: Context
   private lateinit var executorService: ListeningExecutorService
   private lateinit var glDispatcher: CoroutineDispatcher
@@ -98,102 +97,80 @@ class GlTextureFrameRendererTest {
 
   @Test
   fun queuePacket_multipleFrames_rendersToSurfaceAndReleasesFrame() = doBlocking {
-    val renderedCount = AtomicInteger()
-    val deferredBitmap1 = CompletableDeferred<Bitmap>()
-    val deferredBitmap2 = CompletableDeferred<Bitmap>()
-    val deferredBitmap3 = CompletableDeferred<Bitmap>()
-    val releasedTextures = mutableListOf<GlTextureInfo>()
-    val surface = setupOutputSurface { bitmap ->
-      val renderedCount = renderedCount.incrementAndGet()
-      when (renderedCount) {
-        1 -> deferredBitmap1.complete(bitmap)
-        2 -> deferredBitmap2.complete(bitmap)
-        3 -> deferredBitmap3.complete(bitmap)
-        else -> throw AssertionError("Unexpected output bitmap")
+    val releaseChannel =
+      Channel<GlTextureInfo>(capacity = 3) { _ ->
+        throw AssertionError("Unexpected texture release")
       }
-    }
-    val outputSurfaceInfo = SurfaceInfo(surface, width, height)
+    val outputChannel =
+      Channel<Bitmap>(capacity = 3) { _ -> throw AssertionError("Unexpected output bitmap") }
+    val surface = setupOutputSurface(outputChannel)
+    val outputSurfaceInfo = SurfaceInfo(surface, WIDTH, HEIGHT)
+    val inputs =
+      listOf(Color.RED, Color.BLUE, Color.GREEN).map { color ->
+        createFrameWithBitmap(color, WIDTH, HEIGHT, releaseChannel)
+      }
     consumer =
       GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
     consumer.setOutputSurfaceInfo(outputSurfaceInfo)
-    val inputFrameWithBitmap1 =
-      createFrameWithBitmap(Color.RED, width, height) { t -> releasedTextures.add(t) }
-    val inputFrameWithBitmap2 =
-      createFrameWithBitmap(Color.BLUE, width, height) { t -> releasedTextures.add(t) }
-    val inputFrameWithBitmap3 =
-      createFrameWithBitmap(Color.GREEN, width, height) { t -> releasedTextures.add(t) }
     launch { consumer.run() }
 
-    consumer.queuePacket(Packet.of(inputFrameWithBitmap1.frame))
-    val outputBitmap1 = withTimeout(TEST_TIMEOUT_MS) { deferredBitmap1.await() }
-    consumer.queuePacket(Packet.of(inputFrameWithBitmap2.frame))
-    val outputBitmap2 = withTimeout(TEST_TIMEOUT_MS) { deferredBitmap2.await() }
-    consumer.queuePacket(Packet.of(inputFrameWithBitmap3.frame))
-    val outputBitmap3 = withTimeout(TEST_TIMEOUT_MS) { deferredBitmap3.await() }
+    // Verify each input after it is queued to avoid the flakiness from the Surface dropping frames.
+    for (input in inputs) {
+      consumer.queuePacket(Packet.of(input.frame))
 
-    val pixelDiff1 =
-      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-        outputBitmap1,
-        inputFrameWithBitmap1.bitmap,
-        null,
-      )
-    val pixelDiff2 =
-      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-        outputBitmap2,
-        inputFrameWithBitmap2.bitmap,
-        null,
-      )
-    val pixelDiff3 =
-      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-        outputBitmap3,
-        inputFrameWithBitmap3.bitmap,
-        null,
-      )
-    assertThat(pixelDiff1).isEqualTo(0f)
-    assertThat(pixelDiff2).isEqualTo(0f)
-    assertThat(pixelDiff3).isEqualTo(0f)
-    assertThat(releasedTextures)
-      .containsExactly(
-        inputFrameWithBitmap1.frame.glTextureInfo,
-        inputFrameWithBitmap2.frame.glTextureInfo,
-        inputFrameWithBitmap3.frame.glTextureInfo,
-      )
-      .inOrder()
+      val capturedBitmap = withTimeout(TEST_TIMEOUT_MS) { outputChannel.receive() }
+      val capturedRelease = withTimeout(TEST_TIMEOUT_MS) { releaseChannel.receive() }
+      assertThat(
+          BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+            capturedBitmap,
+            input.bitmap,
+            null,
+          )
+        )
+        .isEqualTo(0f)
+      assertThat(capturedRelease).isEqualTo(input.frame.glTextureInfo)
+    }
+
     consumer.release()
   }
 
   @Test
   fun queuePacket_noOutputSurfaceSet_dropsFrames() = doBlocking {
-    val deferredReleasedTexture1 = CompletableDeferred<GlTextureInfo>()
-    val deferredReleasedTexture2 = CompletableDeferred<GlTextureInfo>()
+    val releaseChannel =
+      Channel<GlTextureInfo>(capacity = 3) { _ ->
+        throw AssertionError("Unexpected texture release")
+      }
+    val inputs =
+      listOf(Color.RED, Color.BLUE, Color.GREEN).map { color ->
+        createFrameWithBitmap(color, WIDTH, HEIGHT, releaseChannel)
+      }
     consumer =
       GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
-    val inputFrameWithBitmap1 =
-      createFrameWithBitmap(Color.RED, width, height) { t -> deferredReleasedTexture1.complete(t) }
-    val inputFrameWithBitmap2 =
-      createFrameWithBitmap(Color.BLUE, width, height) { t -> deferredReleasedTexture2.complete(t) }
     launch { consumer.run() }
 
-    consumer.queuePacket(Packet.of(inputFrameWithBitmap1.frame))
-    consumer.queuePacket(Packet.of(inputFrameWithBitmap2.frame))
+    for (input in inputs) {
+      consumer.queuePacket(Packet.of(input.frame))
+    }
 
-    val releasedTexture1 = withTimeout(TEST_TIMEOUT_MS) { deferredReleasedTexture1.await() }
-    val releasedTexture2 = withTimeout(TEST_TIMEOUT_MS) { deferredReleasedTexture2.await() }
-    assertThat(releasedTexture1).isEqualTo(inputFrameWithBitmap1.frame.glTextureInfo)
-    assertThat(releasedTexture2).isEqualTo(inputFrameWithBitmap2.frame.glTextureInfo)
+    val expectedReleases = inputs.map { it.frame.glTextureInfo }
+    val actualReleases =
+      List(inputs.size) { withTimeout(TEST_TIMEOUT_MS) { releaseChannel.receive() } }
+    assertThat(actualReleases).containsExactlyElementsIn(expectedReleases).inOrder()
+
     consumer.release()
   }
 
-  private fun setupOutputSurface(onFrameAvailable: (Bitmap) -> Unit): Surface {
-    val imageReader =
-      ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, /* maxImages= */ 1)
+  private fun setupOutputSurface(outputChannel: SendChannel<Bitmap>): Surface {
+    imageReader = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888, /* maxImages= */ 1)
     imageReader.setOnImageAvailableListener(
       { reader ->
-        val image = reader.acquireLatestImage()
+        val image = reader.acquireNextImage()
         if (image != null) {
-          onFrameAvailable(
+          val bitmap =
             createArgb8888BitmapFromRgba8888ImageBuffer(copyByteBufferFromRbga8888Image(image))
-          )
+          outputChannel.trySend(bitmap).onClosed {
+            throw AssertionError("Renderer produced more frames than expected")
+          }
           image.close()
         }
       },
@@ -206,7 +183,7 @@ class GlTextureFrameRendererTest {
     color: Int,
     width: Int,
     height: Int,
-    onRelease: (GlTextureInfo) -> Unit,
+    releaseChannel: SendChannel<GlTextureInfo>,
   ): GlTextureFrameWithBitmap =
     withContext(glDispatcher) {
       val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -214,13 +191,20 @@ class GlTextureFrameRendererTest {
       val textureId = GlUtil.createTexture(bitmap)
       val textureInfo = GlTextureInfo(textureId, /* fboId */ -1, /* rboId= */ -1, width, height)
       val frame =
-        GlTextureFrame.Builder(textureInfo, MoreExecutors.directExecutor(), onRelease).build()
+        GlTextureFrame.Builder(textureInfo, MoreExecutors.directExecutor()) { texture ->
+            releaseChannel.trySend(texture).onClosed {
+              throw AssertionError("Renderer released more textures than expected")
+            }
+          }
+          .build()
       GlTextureFrameWithBitmap(frame, bitmap)
     }
 
   private data class GlTextureFrameWithBitmap(val frame: GlTextureFrame, val bitmap: Bitmap)
 
   private companion object {
-    const val TEST_TIMEOUT_MS = 1000L
+    const val TEST_TIMEOUT_MS = 5000L
+    const val WIDTH = 20
+    const val HEIGHT = 10
   }
 }
