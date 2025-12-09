@@ -195,7 +195,7 @@ public final class Util {
       Pattern.compile(
           "(\\d\\d\\d\\d)\\-(\\d\\d)\\-(\\d\\d)[Tt ]"
               + "(\\d\\d):(\\d\\d):(\\d\\d)([\\.,](\\d+))?"
-              + "([Zz]|((\\+|\\-)(\\d?\\d):?(\\d\\d)))?");
+              + "([Zz]|((\\+|\\-)(\\d?\\d):?(\\d\\d)?))?");
   private static final Pattern XS_DURATION_PATTERN =
       Pattern.compile(
           "^(-)?P(([0-9]*)Y)?(([0-9]*)M)?(([0-9]*)D)?"
@@ -1737,6 +1737,10 @@ public final class Util {
    * Parses an xs:dateTime attribute value, returning the parsed timestamp in milliseconds since the
    * epoch.
    *
+   * <p>The parsing implemented here is deliberately more tolerant than the <a
+   * href="https://www.w3.org/TR/xmlschema-2/#dateTime">XML spec</a> allows, as this method is also
+   * used to parse ISO 8601 and RFC 3339 date-time strings.
+   *
    * @param value The attribute value to decode.
    * @return The parsed timestamp in milliseconds since the epoch.
    * @throws ParserException if an error occurs parsing the dateTime attribute value.
@@ -1759,8 +1763,11 @@ public final class Util {
     } else if (matcher.group(9).equalsIgnoreCase("Z")) {
       timezoneShift = 0;
     } else {
-      timezoneShift =
-          ((Integer.parseInt(matcher.group(12)) * 60 + Integer.parseInt(matcher.group(13))));
+      timezoneShift = Integer.parseInt(matcher.group(12)) * 60;
+      String timezoneOffsetMinutes = matcher.group(13);
+      if (timezoneOffsetMinutes != null) {
+        timezoneShift += Integer.parseInt(timezoneOffsetMinutes);
+      }
       if ("-".equals(matcher.group(11))) {
         timezoneShift *= -1;
       }

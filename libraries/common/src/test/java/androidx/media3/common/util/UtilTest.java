@@ -984,12 +984,17 @@ public class UtilTest {
         .isEqualTo(1407322800000L);
     assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-08:00"))
         .isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-0800"))
-        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+0100"))
+        .isEqualTo(1411129135000L);
     assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-0800"))
         .isEqualTo(1411161535000L);
     assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-800"))
         .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-08")).isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-8"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+01")).isEqualTo(1411129135000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+1")).isEqualTo(1411129135000L);
   }
 
   @Test
