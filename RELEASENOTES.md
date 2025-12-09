@@ -49,6 +49,10 @@
         app.
     *   Use type int for `@Player.Command` argument in the `ActionFactory`
         interface ([#2933](https://github.com/androidx/media/issues/2933)).
+    *   Make `MediaSessionService` and `MediaLibraryService` a
+        `LifecycleService`, more easily allowing to attach lifecycle-aware
+        operations to the service's lifecycle
+        ([#187](https://github.com/androidx/media/issues/187)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:

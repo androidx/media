@@ -2181,12 +2181,11 @@ package androidx.media3.session {
     field public static final int LEGACY_CONTROLLER_VERSION = 0; // 0x0
   }
 
-  public abstract class MediaSessionService extends android.app.Service {
+  public abstract class MediaSessionService extends androidx.lifecycle.LifecycleService {
     ctor public MediaSessionService();
     method public final void addSession(androidx.media3.session.MediaSession);
     method public final java.util.List<androidx.media3.session.MediaSession> getSessions();
     method public final boolean isSessionAdded(androidx.media3.session.MediaSession);
-    method @CallSuper @Nullable public android.os.IBinder onBind(@Nullable android.content.Intent);
     method @Nullable public abstract androidx.media3.session.MediaSession onGetSession(androidx.media3.session.MediaSession.ControllerInfo);
     method @Deprecated public void onUpdateNotification(androidx.media3.session.MediaSession);
     method public void onUpdateNotification(androidx.media3.session.MediaSession, boolean);

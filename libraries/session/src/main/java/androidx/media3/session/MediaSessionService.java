@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
@@ -25,7 +26,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
 import android.app.ForegroundServiceStartNotAllowedException;
-import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -41,6 +41,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
+import androidx.lifecycle.LifecycleService;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
@@ -146,7 +147,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * decide which session to handle the connection request. Pick the best session among the added
  * sessions, or create a new session and return it from {@link #onGetSession(ControllerInfo)}.
  */
-public abstract class MediaSessionService extends Service {
+public abstract class MediaSessionService extends LifecycleService {
 
   /**
    * Listener for {@link MediaSessionService}.
@@ -404,6 +405,10 @@ public abstract class MediaSessionService extends Service {
   @Override
   @Nullable
   public IBinder onBind(@Nullable Intent intent) {
+    // Casting to satisfy the nullness annotation of the super class. The Intent should not be null,
+    // but we check anyway to avoid crashing. We also can't remove the annotation as it's part of
+    // the stable API surface.
+    super.onBind(castNonNull(intent));
     if (intent == null) {
       return null;
     }
@@ -448,6 +453,7 @@ public abstract class MediaSessionService extends Service {
   @CallSuper
   @Override
   public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+    super.onStartCommand(intent, flags, startId);
     if (intent == null) {
       return START_STICKY;
     }
