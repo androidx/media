@@ -111,7 +111,7 @@ import androidx.media3.common.Player;
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   @Override
   public PendingIntent createMediaActionPendingIntent(
-      MediaSession mediaSession, @Player.Command long command) {
+      MediaSession mediaSession, @Player.Command int command) {
     int keyCode = toKeyCode(command);
     Intent intent = getMediaButtonIntent(mediaSession, keyCode);
     if (SDK_INT >= 26
@@ -141,7 +141,7 @@ import androidx.media3.common.Player;
     return intent;
   }
 
-  private int toKeyCode(@Player.Command long action) {
+  private int toKeyCode(@Player.Command int action) {
     if (action == COMMAND_SEEK_TO_NEXT_MEDIA_ITEM || action == COMMAND_SEEK_TO_NEXT) {
       return KEYCODE_MEDIA_NEXT;
     } else if (action == COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM

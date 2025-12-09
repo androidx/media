@@ -47,6 +47,8 @@
 *   Session:
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.
+    *   Use type int for `@Player.Command` argument in the `ActionFactory`
+        interface ([#2933](https://github.com/androidx/media/issues/2933)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:
