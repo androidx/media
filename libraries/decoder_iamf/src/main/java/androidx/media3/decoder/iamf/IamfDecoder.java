@@ -25,6 +25,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -36,78 +37,6 @@ import java.util.List;
 @VisibleForTesting(otherwise = PACKAGE_PRIVATE)
 public final class IamfDecoder
     extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, IamfDecoderException> {
-
-  /**
-   * Represents the different sound systems supported by IAMF.
-   *
-   * <p>NOTE: Values from iamf_tools_api_types.h but are translated by iamf_jni.cc.
-   */
-  @Documented
-  @Retention(SOURCE)
-  @Target(ElementType.TYPE_USE)
-  @IntDef({
-    OUTPUT_LAYOUT_UNSET,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0,
-    OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0,
-    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0,
-    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0,
-    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0,
-    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0
-  })
-  public @interface OutputLayout {}
-
-  /** Value to be used to not specify an output layout. */
-  public static final int OUTPUT_LAYOUT_UNSET = -1;
-
-  /** ITU-R B.S. 2051-3 sound system A (0+2+0), commonly known as stereo. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0 = 0;
-
-  /** ITU-R B.S. 2051-3 sound system B (0+5+0), commonly known as 5.1. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0 = 1;
-
-  /** ITU-R B.S. 2051-3 sound system C (2+5+0), commonly known as 5.1.2. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0 = 2;
-
-  /** ITU-R B.S. 2051-3 sound system D (4+5+0), commonly known as 5.1.4. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0 = 3;
-
-  /** ITU-R B.S. 2051-3 sound system E (4+5+1). */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1 = 4;
-
-  /** ITU-R B.S. 2051-3 sound system F (3+7+0). */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0 = 5;
-
-  /** ITU-R B.S. 2051-3 sound system G (4+9+0). */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0 = 6;
-
-  /** ITU-R B.S. 2051-3 sound system H (9+10+3). */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3 = 7;
-
-  /** ITU-R B.S. 2051-3 sound system I (0+7+0), commonly known as 7.1. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0 = 8;
-
-  /** ITU-R B.S. 2051-3 sound system J (4+7+0), commonly known as 7.1.4. */
-  public static final int OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0 = 9;
-
-  /** IAMF extension 7.1.2. */
-  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0 = 10;
-
-  /** IAMF extension 3.1.2. */
-  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0 = 11;
-
-  /** Mono. */
-  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0 = 12;
-
-  /** IAMF Extension 9.1.6. */
-  public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0 = 13;
 
   /**
    * Represents the different possible output sample types supported by the iamf_tools decoder.
@@ -186,9 +115,10 @@ public final class IamfDecoder
    * Creates an IAMF decoder from Descriptor OBUs.
    *
    * @param initializationData Descriptor OBUs data for the decoder.
-   * @param requestedOutputLayout The desired {@link OutputLayout} to request. Can be set to
-   *     OUTPUT_LAYOUT_UNSET to avoid specifying. The actual layout used may not be the same as
-   *     requested, so getSelectedOutputLayout() can be used to get the actual layout used.
+   * @param requestedOutputLayout The desired {@link IamfUtil.OutputLayout} to request. Can be set
+   *     to {@link IamfUtil#OUTPUT_LAYOUT_UNSET} to avoid specifying. The actual layout used may not
+   *     be the same as requested, so {@link #getSelectedOutputLayout} can be used to get the actual
+   *     layout used.
    * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to
    *     REQUESTED_MIX_PRESENTATION_ID_UNSET to avoid specifying. The actual Mix Presentation ID
    *     used may not be the same as requested, so getSelectedMixPresentationId() can be used to get
@@ -199,7 +129,7 @@ public final class IamfDecoder
    */
   public IamfDecoder(
       List<byte[]> initializationData,
-      @OutputLayout int requestedOutputLayout,
+      @IamfUtil.OutputLayout int requestedOutputLayout,
       long requestedMixPresentationId,
       @OutputSampleType int outputSampleType,
       @ChannelOrdering int channelOrdering)
@@ -327,7 +257,7 @@ public final class IamfDecoder
    * @throws IamfDecoderException Thrown if an exception occurs when getting selected output layout.
    *     Generally happens if Descriptor OBU processing has not completed.
    */
-  public int getSelectedOutputLayout() throws IamfDecoderException {
+  public @IamfUtil.OutputLayout int getSelectedOutputLayout() throws IamfDecoderException {
     int result = iamfGetSelectedOutputLayout(nativeDecoderPointer);
     if (result < 0) {
       throw new IamfDecoderException("Failed to get selected output layout.");
@@ -463,7 +393,7 @@ public final class IamfDecoder
    *     among other reasons.
    */
   public void resetWithNewMix(
-      @OutputLayout int requestedOutputLayout, long requestedMixPresentationId)
+      @IamfUtil.OutputLayout int requestedOutputLayout, long requestedMixPresentationId)
       throws IamfDecoderException {
     @Status
     int result =

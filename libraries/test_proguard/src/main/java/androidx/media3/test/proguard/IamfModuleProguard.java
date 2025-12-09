@@ -19,6 +19,7 @@ import static androidx.annotation.VisibleForTesting.NONE;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.decoder.iamf.IamfDecoder;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import com.google.common.collect.ImmutableList;
 
 /** Class executing native code in the IAMF module that relies on a correct proguard config. */
@@ -47,7 +48,7 @@ public final class IamfModuleProguard {
     IamfDecoder decoder =
         new IamfDecoder(
             IAMF_INITIALIZATION_DATA,
-            IamfDecoder.OUTPUT_LAYOUT_UNSET,
+            IamfUtil.OUTPUT_LAYOUT_UNSET,
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
@@ -58,7 +59,7 @@ public final class IamfModuleProguard {
     IamfDecoder decoder =
         new IamfDecoder(
             IAMF_INITIALIZATION_DATA,
-            IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+            IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
             IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);

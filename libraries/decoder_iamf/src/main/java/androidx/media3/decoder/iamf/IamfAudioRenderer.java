@@ -36,6 +36,7 @@ import androidx.media3.decoder.DecoderException;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -165,7 +166,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     IamfDecoder decoder =
         new IamfDecoder(
             format.initializationData,
-            getOutputLayoutForChannelMask(currentChannelMask),
+            IamfUtil.getOutputLayoutForChannelMask(currentChannelMask),
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             outputSampleType,
             channelOrdering);
@@ -200,33 +201,6 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
         return AudioFormat.ENCODING_PCM_FLOAT;
       default:
         throw new IllegalArgumentException("Unsupported sample type: " + sampleType);
-    }
-  }
-
-  private static @IamfDecoder.OutputLayout int getOutputLayoutForChannelMask(int channelMask) {
-    switch (channelMask) {
-      case AudioFormat.CHANNEL_OUT_MONO:
-        return IamfDecoder.OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0;
-      case AudioFormat.CHANNEL_OUT_STEREO:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0;
-      case AudioFormat.CHANNEL_OUT_5POINT1:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0;
-      case AudioFormat.CHANNEL_OUT_5POINT1POINT2:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0;
-      case AudioFormat.CHANNEL_OUT_5POINT1POINT4:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0;
-      case AudioFormat.CHANNEL_OUT_7POINT1_SURROUND:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0;
-      case AudioFormat.CHANNEL_OUT_7POINT1POINT2:
-        return IamfDecoder.OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0;
-      case AudioFormat.CHANNEL_OUT_7POINT1POINT4:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0;
-      case AudioFormat.CHANNEL_OUT_9POINT1POINT4:
-        return IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0;
-      case AudioFormat.CHANNEL_OUT_9POINT1POINT6:
-        return IamfDecoder.OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0;
-      default:
-        throw new IllegalArgumentException("Unsupported channel mask: " + channelMask);
     }
   }
 

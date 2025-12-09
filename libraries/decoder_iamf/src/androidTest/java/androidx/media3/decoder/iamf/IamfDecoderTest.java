@@ -20,6 +20,7 @@ import static org.junit.Assume.assumeTrue;
 
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -74,7 +75,7 @@ public final class IamfDecoderTest {
     IamfDecoder decoder =
         new IamfDecoder(
             ImmutableList.of(iacbObus),
-            IamfDecoder.OUTPUT_LAYOUT_UNSET,
+            IamfUtil.OUTPUT_LAYOUT_UNSET,
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
@@ -82,7 +83,7 @@ public final class IamfDecoderTest {
     assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
     assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(expectedNumOutputChannels);
     assertThat(decoder.getSelectedOutputLayout())
-        .isEqualTo(IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
     assertThat(decoder.getSelectedMixPresentationId()).isEqualTo(MIX_PRESENTATION_ID);
     assertThat(decoder.getSampleRate()).isEqualTo(SAMPLE_RATE);
     assertThat(decoder.getFrameSize()).isEqualTo(FRAME_SIZE);
@@ -103,7 +104,7 @@ public final class IamfDecoderTest {
     IamfDecoder decoder =
         new IamfDecoder(
             ImmutableList.of(iacbObus),
-            IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+            IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
             IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
@@ -111,7 +112,7 @@ public final class IamfDecoderTest {
     assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
     assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(expectedNumOutputChannels);
     assertThat(decoder.getSelectedOutputLayout())
-        .isEqualTo(IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0);
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0);
     assertThat(decoder.getSelectedMixPresentationId()).isEqualTo(MIX_PRESENTATION_ID);
     assertThat(decoder.getSampleRate()).isEqualTo(SAMPLE_RATE);
     assertThat(decoder.getFrameSize()).isEqualTo(FRAME_SIZE);
@@ -129,7 +130,7 @@ public final class IamfDecoderTest {
     IamfDecoder decoder =
         new IamfDecoder(
             ImmutableList.of(iacbObus),
-            IamfDecoder.OUTPUT_LAYOUT_UNSET,
+            IamfUtil.OUTPUT_LAYOUT_UNSET,
             IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
@@ -147,7 +148,7 @@ public final class IamfDecoderTest {
   @Test
   public void decoderResetWithNewMix_succeeds() throws Exception {
     // Initially request stereo
-    int initialOutputLayout = IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0;
+    int initialOutputLayout = IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0;
     int initialNumChannels = 2;
     IamfDecoder decoder =
         new IamfDecoder(
@@ -163,10 +164,10 @@ public final class IamfDecoderTest {
     assertThat(decoder.getSelectedOutputLayout()).isEqualTo(initialOutputLayout);
 
     // Request switch to 5.1.
-    int finalOutputLayout = IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0;
+    int finalOutputLayout = IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0;
     int finalNumChannels = 6;
     decoder.resetWithNewMix(
-        IamfDecoder.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
+        IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
         IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET);
 
     // Verify we see the requested output type after reset.
