@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.e2etest;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.max;
 
 import android.content.Context;
 import android.media.AudioTrack;
@@ -41,9 +42,8 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import org.junit.Before;
 import org.junit.Rule;
@@ -126,37 +126,10 @@ public class EndToEndOffloadFailureRecoveryTest {
         "playbackdumps/offloadRecovery/" + INPUT_FILE + ".offloadWriteFailureRecovery.dump");
   }
 
-  private static class OffloadRenderersFactory extends DefaultRenderersFactory
+  private static final class OffloadInitFailureRenderersFactory extends DefaultRenderersFactory
       implements Dumper.Dumpable {
 
-    protected DumpingAudioSink dumpingAudioSink;
-
-    /**
-     * @param context A {@link Context}.
-     */
-    public OffloadRenderersFactory(Context context) {
-      super(context);
-    }
-
-    @Override
-    protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
-      dumpingAudioSink =
-          new DumpingAudioSink(
-              new DefaultAudioSink.Builder(context)
-                  .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-                  .build());
-      return dumpingAudioSink;
-    }
-
-    @Override
-    public void dump(Dumper dumper) {
-      dumpingAudioSink.dump(dumper);
-    }
-  }
-
-  private static final class OffloadInitFailureRenderersFactory extends OffloadRenderersFactory {
+    private DumpingAudioSink dumpingAudioSink;
 
     /**
      * @param context A {@link Context}.
@@ -176,9 +149,17 @@ public class EndToEndOffloadFailureRecoveryTest {
                   .build());
       return dumpingAudioSink;
     }
+
+    @Override
+    public void dump(Dumper dumper) {
+      dumpingAudioSink.dump(dumper);
+    }
   }
 
-  private static final class OffloadWriteFailureRenderersFactory extends OffloadRenderersFactory {
+  private static final class OffloadWriteFailureRenderersFactory extends DefaultRenderersFactory
+      implements Dumper.Dumpable {
+
+    private DumpingAudioSink dumpingAudioSink;
 
     /**
      * @param context A {@link Context}.
@@ -198,12 +179,17 @@ public class EndToEndOffloadFailureRecoveryTest {
                   .build());
       return dumpingAudioSink;
     }
+
+    @Override
+    public void dump(Dumper dumper) {
+      dumpingAudioSink.dump(dumper);
+    }
   }
 
   /** A dumping audio sink that fails to initialize for offloaded playback. */
   private static class DumpingAudioSink extends ForwardingAudioSink implements Dumper.Dumpable {
     /** All handleBuffer interactions recorded with this audio sink. */
-    protected final List<DumpingAudioSink.CapturedInputBuffer> capturedInteractions;
+    protected final ByteArrayOutputStream capturedSamples;
 
     /**
      * If offload mode should be not supported until next {@linkplain
@@ -219,7 +205,7 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     public DumpingAudioSink(AudioSink sink) {
       super(sink);
-      this.capturedInteractions = new ArrayList<>();
+      this.capturedSamples = new ByteArrayOutputStream();
       this.isOffloadMode = false;
       this.offloadDisabledUntilNextConfiguration = false;
     }
@@ -250,26 +236,6 @@ public class EndToEndOffloadFailureRecoveryTest {
           .build();
     }
 
-    /**
-     * Captures audio data in {@link DumpingAudioSink}.
-     *
-     * @param buffer The buffer containing audio data.
-     * @param presentationTimeUs The presentation timestamp of the buffer in microseconds.
-     * @param encodedAccessUnitCount The number of encoded access units in the buffer, or 1 if the
-     *     buffer contains PCM audio. This allows batching multiple encoded access units in one
-     *     buffer.
-     * @return {@code True} if buffer successfully written.
-     */
-    @Override
-    public boolean handleBuffer(
-        ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
-        throws InitializationException, WriteException {
-      capturedInteractions.add(
-          new DumpingAudioSink.CapturedInputBuffer(
-              peekBytes(buffer, 0, buffer.limit() - buffer.position())));
-      return true;
-    }
-
     @Override
     public void reset() {
       offloadDisabledUntilNextConfiguration = false;
@@ -278,10 +244,7 @@ public class EndToEndOffloadFailureRecoveryTest {
     @Override
     public void dump(Dumper dumper) {
       dumper.startBlock("SinkDump (OggOpus)");
-      dumper.add("buffers.length", capturedInteractions.size());
-      for (int i = 0; i < capturedInteractions.size(); i++) {
-        dumper.add("buffers[" + i + "]", capturedInteractions.get(i).contents);
-      }
+      dumper.add("buffers", capturedSamples.toByteArray());
       dumper.endBlock();
     }
 
@@ -292,15 +255,6 @@ public class EndToEndOffloadFailureRecoveryTest {
       buffer.get(bytes);
       buffer.position(originalPosition);
       return bytes;
-    }
-
-    /** Data record. */
-    private static final class CapturedInputBuffer {
-      private final byte[] contents;
-
-      private CapturedInputBuffer(byte[] contents) {
-        this.contents = contents;
-      }
     }
   }
 
@@ -342,9 +296,7 @@ public class EndToEndOffloadFailureRecoveryTest {
             /* isRecoverable= */ true,
             /* audioTrackException= */ null);
       }
-      capturedInteractions.add(
-          new DumpingAudioSink.CapturedInputBuffer(
-              peekBytes(buffer, 0, buffer.limit() - buffer.position())));
+      capturedSamples.writeBytes(peekBytes(buffer, 0, buffer.limit() - buffer.position()));
       return true;
     }
   }
@@ -353,6 +305,8 @@ public class EndToEndOffloadFailureRecoveryTest {
    * A dumping audio sink that starts failing for offloaded playback after two successful writes.
    */
   private static final class DumpingAudioSinkWithOffloadWriteFailure extends DumpingAudioSink {
+
+    private static final int WRITE_ERROR_BYTE_LIMIT = 6000;
 
     private int writeCounter;
     private boolean hasThrownWriteException;
@@ -381,7 +335,14 @@ public class EndToEndOffloadFailureRecoveryTest {
     public boolean handleBuffer(
         ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
         throws WriteException {
-      if (isOffloadMode && writeCounter > 1) {
+      int newBytes = buffer.remaining();
+      if (isOffloadMode && writeCounter + newBytes > WRITE_ERROR_BYTE_LIMIT) {
+        // Ensure the current buffer is not written beyond the write error limit.
+        buffer.limit(buffer.position() + max(0, WRITE_ERROR_BYTE_LIMIT - writeCounter));
+      }
+      capturedSamples.writeBytes(peekBytes(buffer, 0, buffer.remaining()));
+      writeCounter += newBytes;
+      if (isOffloadMode && writeCounter > WRITE_ERROR_BYTE_LIMIT) {
         // Models that AudioTrack write throws error if configured for offloaded playback.
         if (hasThrownWriteException) {
           assertThat(offloadDisabledUntilNextConfiguration).isFalse();
@@ -392,10 +353,6 @@ public class EndToEndOffloadFailureRecoveryTest {
         throw new WriteException(
             AudioTrack.ERROR_DEAD_OBJECT, inputFormat, /* isRecoverable= */ true);
       }
-      capturedInteractions.add(
-          new DumpingAudioSink.CapturedInputBuffer(
-              peekBytes(buffer, 0, buffer.limit() - buffer.position())));
-      writeCounter++;
       return true;
     }
 
