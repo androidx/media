@@ -15,11 +15,13 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.media.AudioFormat;
 import androidx.annotation.IntDef;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -104,38 +106,216 @@ public final class IamfUtil {
   /** IAMF Extension 9.1.6. */
   public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0 = 13;
 
+  // ===== Additionally defined Channel Masks =====
+  // The following channel masks are supplements to those defined in {@link AudioFormat}, to allow
+  // more permissive matching of channel masks to output layouts.  In most cases, there are small
+  // differences between the channels used in AudioFormat and those used in IAMF or ITU spec.
+
+  // The Android defined 5.1.2 and 7.1.2 use top *side* left/right which does
+  // not match their ITU (ITU Sound System C) and IAMF equivalents. We will define the ITU/IAMF
+  // versions here.
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_C_2_5_0 =
+      (AudioFormat.CHANNEL_OUT_5POINT1
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT);
+
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_IAMF_7POINT1POINT2 =
+      (AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT);
+
+  // {@link AudioFormat#CHANNEL_OUT_9POINT1POINT4} and {@link AudioFormat#CHANNEL_OUT_9POINT1POINT6}
+  // use _WIDE_LEFT and _WIDE_RIGHT but the ITU spec for Sound System G says "left [/right] screen
+  // edge" and the ITU spec for Sound System H, which is the basis for the IAMF 9.1.6 uses
+  // LEFT/RIGHT_OF_CENTER so we'll allow permissive matching.
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_IAMF_9POINT1POINT4 =
+      (AudioFormat.CHANNEL_OUT_7POINT1POINT4
+          | AudioFormat.CHANNEL_OUT_FRONT_LEFT_OF_CENTER
+          | AudioFormat.CHANNEL_OUT_FRONT_RIGHT_OF_CENTER);
+
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_IAMF_9POINT1POINT6 =
+      (CHANNEL_OUT_IAMF_9POINT1POINT4
+          | AudioFormat.CHANNEL_OUT_TOP_SIDE_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_SIDE_RIGHT);
+
+  // Sound Systems E, F, and H are defined in ITU B.S. 2051-3 but are not defined by Android.
+  // We can make them from combinations of speakers available in Android.  Note that H is equivalent
+  // to AudioFormat.CHANNEL_OUT_22POINT2, which is hidden.
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_E_4_5_1 =
+      (AudioFormat.CHANNEL_OUT_5POINT1POINT4 | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER);
+
+  @RequiresApi(32)
+  private static final int ITU_2051_SOUND_SYSTEM_F_3_7_0 =
+      (AudioFormat.CHANNEL_OUT_7POINT1_SURROUND
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT
+          | AudioFormat.CHANNEL_OUT_TOP_BACK_CENTER
+          | AudioFormat.CHANNEL_OUT_LOW_FREQUENCY_2);
+
+  @RequiresApi(32)
+  public static final int CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_H_9_10_3 =
+      (AudioFormat.CHANNEL_OUT_7POINT1POINT4
+          | AudioFormat.CHANNEL_OUT_FRONT_LEFT_OF_CENTER
+          | AudioFormat.CHANNEL_OUT_FRONT_RIGHT_OF_CENTER
+          | AudioFormat.CHANNEL_OUT_BACK_CENTER
+          | AudioFormat.CHANNEL_OUT_TOP_CENTER
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER
+          | AudioFormat.CHANNEL_OUT_TOP_BACK_CENTER
+          | AudioFormat.CHANNEL_OUT_TOP_SIDE_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_SIDE_RIGHT
+          | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT
+          | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER
+          | AudioFormat.CHANNEL_OUT_LOW_FREQUENCY_2);
+
+  // This is just an IAMF layout that does not have an Android-defined version.
+  @RequiresApi(32)
+  private static final int CHANNEL_OUT_IAMF_3POINT1POINT2 =
+      (AudioFormat.CHANNEL_OUT_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_FRONT_RIGHT
+          | AudioFormat.CHANNEL_OUT_FRONT_CENTER
+          | AudioFormat.CHANNEL_OUT_LOW_FREQUENCY
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+          | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT);
+
   /**
    * Returns an IAMF output layout to try to match a given channel mask.
    *
    * <p>Where there are differences between the placement of speakers as defined by AudioFormat
    * channel masks and channel masks matching the IAMF/ITU standard, we permissively match both.
    *
-   * @throws IllegalArgumentException if the channelMask has no equivalent.
+   * @throws IllegalArgumentException if the channelMask has no matching IAMF output layout.
    */
   public static @OutputLayout int getOutputLayoutForChannelMask(int channelMask) {
     switch (channelMask) {
-      case AudioFormat.CHANNEL_OUT_MONO:
-        return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0;
       case AudioFormat.CHANNEL_OUT_STEREO:
         return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0;
+
       case AudioFormat.CHANNEL_OUT_5POINT1:
         return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0;
-      case AudioFormat.CHANNEL_OUT_5POINT1POINT2:
-        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0;
-      case AudioFormat.CHANNEL_OUT_5POINT1POINT4:
-        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0;
+
       case AudioFormat.CHANNEL_OUT_7POINT1_SURROUND:
-        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0;
-      case AudioFormat.CHANNEL_OUT_7POINT1POINT2:
-        return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0;
-      case AudioFormat.CHANNEL_OUT_7POINT1POINT4:
-        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0;
-      case AudioFormat.CHANNEL_OUT_9POINT1POINT4:
-        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0;
-      case AudioFormat.CHANNEL_OUT_9POINT1POINT6:
-        return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0;
+        return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0;
+
+      case AudioFormat.CHANNEL_OUT_MONO:
+        return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0;
+
       default:
-        throw new IllegalArgumentException("Unsupported channel mask: " + channelMask);
+        // Intentionally unhandled to check other cases if available.
+        break;
     }
+    if (SDK_INT >= 32) {
+      switch (channelMask) {
+        case AudioFormat.CHANNEL_OUT_5POINT1POINT2:
+        case CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_C_2_5_0:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0;
+
+        case AudioFormat.CHANNEL_OUT_5POINT1POINT4:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0;
+
+        case CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_E_4_5_1:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1;
+
+        case ITU_2051_SOUND_SYSTEM_F_3_7_0:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0;
+
+        case AudioFormat.CHANNEL_OUT_9POINT1POINT4:
+        case CHANNEL_OUT_IAMF_9POINT1POINT4:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0;
+
+        case CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_H_9_10_3:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3;
+
+        case AudioFormat.CHANNEL_OUT_7POINT1POINT4:
+          return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0;
+
+        case AudioFormat.CHANNEL_OUT_7POINT1POINT2:
+        case CHANNEL_OUT_IAMF_7POINT1POINT2:
+          return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0;
+
+        case CHANNEL_OUT_IAMF_3POINT1POINT2:
+          return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0;
+
+        case AudioFormat.CHANNEL_OUT_9POINT1POINT6:
+        case CHANNEL_OUT_IAMF_9POINT1POINT6:
+          return OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0;
+
+        default:
+          // Intentionally unhandled to throw.
+          break;
+      }
+    }
+    throw new IllegalArgumentException("Unsupported channel mask: " + channelMask);
+  }
+
+  /**
+   * Returns the Android channel mask that most closely matches the given IAMF output layout.
+   *
+   * <p>Some AudioFormat-defined channel masks do not exactly match IAMF/ITU spec. Where there are
+   * differences, this method returns the more exact IAMF version.
+   *
+   * @throws IllegalArgumentException for invalid values of OutputLayout or OUTPUT_LAYOUT_UNSET.
+   */
+  public static int getChannelMaskForOutputLayout(@OutputLayout int outputLayout) {
+    switch (outputLayout) {
+      case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0:
+        return AudioFormat.CHANNEL_OUT_STEREO;
+
+      case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0:
+        return AudioFormat.CHANNEL_OUT_5POINT1;
+
+      case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0:
+        return AudioFormat.CHANNEL_OUT_7POINT1_SURROUND;
+
+      case OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0:
+        return AudioFormat.CHANNEL_OUT_MONO;
+
+      default:
+        // Intentionally unhandled to check other cases if available.
+        break;
+    }
+    if (SDK_INT >= 32) {
+      switch (outputLayout) {
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_C_2_5_0:
+          return CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_C_2_5_0;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_D_4_5_0:
+          return AudioFormat.CHANNEL_OUT_5POINT1POINT4;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_E_4_5_1:
+          return CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_E_4_5_1;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_F_3_7_0:
+          return ITU_2051_SOUND_SYSTEM_F_3_7_0;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_G_4_9_0:
+          return CHANNEL_OUT_IAMF_9POINT1POINT4;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_H_9_10_3:
+          return CHANNEL_OUT_ITU_2051_SOUND_SYSTEM_H_9_10_3;
+
+        case OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_J_4_7_0:
+          return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
+
+        case OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0:
+          return CHANNEL_OUT_IAMF_7POINT1POINT2;
+
+        case OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0:
+          return CHANNEL_OUT_IAMF_3POINT1POINT2;
+
+        case OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0:
+          return CHANNEL_OUT_IAMF_9POINT1POINT6;
+
+        default:
+          // Intentionally unhandled to throw.
+          break;
+      }
+    }
+    throw new IllegalArgumentException("Unsupported output layout: " + outputLayout);
   }
 }
