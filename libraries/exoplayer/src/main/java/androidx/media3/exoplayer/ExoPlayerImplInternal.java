@@ -1146,7 +1146,7 @@ import java.util.Objects;
     if (pendingPauseAtEndOfPeriod && queue.getReadingPeriod() != queue.getPlayingPeriod()) {
       // When pausing is required, we need to set the streams of the playing period final. If we
       // already started reading the next period, we need to flush the renderers.
-      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
+      seekToCurrentPosition(/* sendDiscontinuity= */ true);
       handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
     }
   }
@@ -1168,7 +1168,7 @@ import java.util.Objects;
     @MediaPeriodQueue.UpdatePeriodQueueResult
     int result = queue.updateRepeatMode(playbackInfo.timeline, repeatMode);
     if ((result & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
+      seekToCurrentPosition(/* sendDiscontinuity= */ true);
     } else if ((result & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD) != 0) {
       disableAndResetPrewarmingRenderers();
     }
@@ -1181,7 +1181,7 @@ import java.util.Objects;
     @MediaPeriodQueue.UpdatePeriodQueueResult
     int result = queue.updateShuffleModeEnabled(playbackInfo.timeline, shuffleModeEnabled);
     if ((result & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
+      seekToCurrentPosition(/* sendDiscontinuity= */ true);
     } else if ((result & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD) != 0) {
       disableAndResetPrewarmingRenderers();
     }
@@ -1193,14 +1193,12 @@ import java.util.Objects;
     queue.updatePreloadConfiguration(playbackInfo.timeline, preloadConfiguration);
   }
 
-  private void seekToCurrentPosition(Timeline timeline, boolean sendDiscontinuity)
-      throws ExoPlaybackException {
+  private void seekToCurrentPosition(boolean sendDiscontinuity) throws ExoPlaybackException {
     // Renderers may have read from a period that's been removed. Seek back to the current
     // position of the playing period to make sure none of the removed period is played.
     MediaPeriodId periodId = queue.getPlayingPeriod().info.id;
     long newPositionUs =
         seekToPeriodPosition(
-            timeline,
             periodId,
             playbackInfo.positionUs,
             /* forceDisableRenderers= */ true,
@@ -1666,7 +1664,6 @@ import java.util.Objects;
 
         newPeriodPositionUs =
             seekToPeriodPosition(
-                playbackInfo.timeline,
                 periodId,
                 newPeriodPositionUs,
                 /* forceBufferingState= */ playbackInfo.playbackState == Player.STATE_ENDED);
@@ -1714,11 +1711,10 @@ import java.util.Objects;
   }
 
   private long seekToPeriodPosition(
-      Timeline timeline, MediaPeriodId periodId, long periodPositionUs, boolean forceBufferingState)
+      MediaPeriodId periodId, long periodPositionUs, boolean forceBufferingState)
       throws ExoPlaybackException {
     // Force disable renderers if they are reading from a period other than the one being played.
     return seekToPeriodPosition(
-        timeline,
         periodId,
         periodPositionUs,
         queue.getPlayingPeriod() != queue.getReadingPeriod(),
@@ -1726,7 +1722,6 @@ import java.util.Objects;
   }
 
   private long seekToPeriodPosition(
-      Timeline timeline,
       MediaPeriodId periodId,
       long periodPositionUs,
       boolean forceDisableRenderers,
@@ -1755,9 +1750,6 @@ import java.util.Objects;
         || (newPlayingPeriodHolder != null
             && newPlayingPeriodHolder.toRendererTime(periodPositionUs) < 0)) {
       disableRenderers();
-      for (RendererHolder renderer : renderers) {
-        renderer.setTimeline(timeline);
-      }
       if (newPlayingPeriodHolder != null) {
         // Update the queue and reenable renderers if the requested media period already exists.
         while (queue.getPlayingPeriod() != newPlayingPeriodHolder) {
@@ -2275,7 +2267,7 @@ import java.util.Objects;
 
   private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
     reselectTracksInternal();
-    seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
+    seekToCurrentPosition(/* sendDiscontinuity= */ true);
   }
 
   private void reselectTracksInternal() throws ExoPlaybackException {
@@ -2495,6 +2487,9 @@ import java.util.Objects;
             /* releaseMediaSourceList= */ false,
             /* resetError= */ true);
       }
+      for (RendererHolder rendererHolder : renderers) {
+        rendererHolder.setTimeline(timeline);
+      }
       if (!periodPositionChanged) {
         // We can keep the current playing period. Update the rest of the queued periods.
         long maxRendererReadPositionUs =
@@ -2513,7 +2508,7 @@ import java.util.Objects;
                 maxRendererReadPositionUs,
                 maxRendererPrewarmingPositionUs);
         if ((updateQueuedPeriodsResult & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-          seekToCurrentPosition(timeline, /* sendDiscontinuity= */ false);
+          seekToCurrentPosition(/* sendDiscontinuity= */ false);
         } else if ((updateQueuedPeriodsResult & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD)
             != 0) {
           disableAndResetPrewarmingRenderers();
@@ -2529,13 +2524,9 @@ import java.util.Objects;
           }
           periodHolder = periodHolder.getNext();
         }
-        newPositionUs =
-            seekToPeriodPosition(timeline, newPeriodId, newPositionUs, forceBufferingState);
+        newPositionUs = seekToPeriodPosition(newPeriodId, newPositionUs, forceBufferingState);
       }
     } finally {
-      for (RendererHolder rendererHolder : renderers) {
-        rendererHolder.setTimeline(timeline);
-      }
       updatePlaybackSpeedSettingsForNewPeriod(
           /* newTimeline= */ timeline,
           newPeriodId,
