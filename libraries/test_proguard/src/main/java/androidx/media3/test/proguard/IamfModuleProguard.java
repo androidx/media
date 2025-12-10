@@ -49,7 +49,7 @@ public final class IamfModuleProguard {
         new IamfDecoder(
             IAMF_INITIALIZATION_DATA,
             IamfUtil.OUTPUT_LAYOUT_UNSET,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
     decoder.release();
@@ -60,7 +60,7 @@ public final class IamfModuleProguard {
         new IamfDecoder(
             IAMF_INITIALIZATION_DATA,
             IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
             IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
 

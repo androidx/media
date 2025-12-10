@@ -35,6 +35,14 @@ public final class IamfUtil {
   private IamfUtil() {}
 
   /**
+   * Used to indicate no requested Mix Presentation ID when creating a decoder.
+   *
+   * <p>When this value is used, the decoder will select a Mix Presentation ID based on the default
+   * logic, including considering the requested OutputLayout, if provided.
+   */
+  public static final long REQUESTED_MIX_PRESENTATION_ID_UNSET = -1;
+
+  /**
    * Represents the different output sound systems supported by IAMF.
    *
    * <p>NOTE: Values are defined by iamf_tools_api_types.h.

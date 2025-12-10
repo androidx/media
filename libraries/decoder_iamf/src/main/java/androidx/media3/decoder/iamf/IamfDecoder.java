@@ -87,14 +87,6 @@ public final class IamfDecoder
   public static final int CHANNEL_ORDERING_ANDROID_ORDERING = 1;
 
   /**
-   * Used to indicate no requested Mix Presentation ID when creating a decoder.
-   *
-   * <p>When this value is used, the decoder will select a Mix Presentation ID based on the default
-   * logic, including considering the requested OutputLayout, if provided.
-   */
-  public static final long REQUESTED_MIX_PRESENTATION_ID_UNSET = -1;
-
-  /**
    * Status codes returned by the JNI wrapper around the decoder.
    *
    * <p>These values are also defined by the JNI and must be kept in sync.
@@ -119,10 +111,10 @@ public final class IamfDecoder
    *     to {@link IamfUtil#OUTPUT_LAYOUT_UNSET} to avoid specifying. The actual layout used may not
    *     be the same as requested, so {@link #getSelectedOutputLayout} can be used to get the actual
    *     layout used.
-   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to
-   *     REQUESTED_MIX_PRESENTATION_ID_UNSET to avoid specifying. The actual Mix Presentation ID
-   *     used may not be the same as requested, so getSelectedMixPresentationId() can be used to get
-   *     the actual Mix Presentation ID used.
+   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to {@link
+   *     IamfUtil#REQUESTED_MIX_PRESENTATION_ID_UNSET} to avoid specifying. The actual Mix
+   *     Presentation ID used may not be the same as requested, so getSelectedMixPresentationId()
+   *     can be used to get the actual Mix Presentation ID used.
    * @param outputSampleType The desired {@link OutputSampleType}.
    * @param channelOrdering The desired {@link ChannelOrdering}.
    * @throws IamfDecoderException Thrown if an exception occurs when initializing the decoder.
@@ -384,10 +376,10 @@ public final class IamfDecoder
    * @param requestedOutputLayout The desired output layout to request. Can be set to
    *     OUTPUT_LAYOUT_UNSET to avoid specifying. The actual layout used may not be the same as
    *     requested, so {@link #getSelectedOutputLayout} can be used to get the actual layout used.
-   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to
-   *     REQUESTED_MIX_PRESENTATION_ID_UNSET to avoid specifying. The actual Mix Presentation ID
-   *     used may not be the same as requested, so {@link #getSelectedMixPresentationId} can be used
-   *     to get the actual Mix Presentation ID used.
+   * @param requestedMixPresentationId The desired Mix Presentation ID. Can be set to {@link
+   *     IamfUtil#REQUESTED_MIX_PRESENTATION_ID_UNSET} to avoid specifying. The actual Mix
+   *     Presentation ID used may not be the same as requested, so {@link
+   *     #getSelectedMixPresentationId} can be used to get the actual Mix Presentation ID used.
    * @throws IamfDecoderException if an exception occurs when resetting decoder. This will happen if
    *     the underlying decoder was created without Descriptor OBUs (i.e. initialization data),
    *     among other reasons.

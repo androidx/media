@@ -76,7 +76,7 @@ public final class IamfDecoderTest {
         new IamfDecoder(
             ImmutableList.of(iacbObus),
             IamfUtil.OUTPUT_LAYOUT_UNSET,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
 
@@ -105,7 +105,7 @@ public final class IamfDecoderTest {
         new IamfDecoder(
             ImmutableList.of(iacbObus),
             IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
             IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
 
@@ -131,7 +131,7 @@ public final class IamfDecoderTest {
         new IamfDecoder(
             ImmutableList.of(iacbObus),
             IamfUtil.OUTPUT_LAYOUT_UNSET,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_UNSET,
             IamfDecoder.CHANNEL_ORDERING_UNSET);
     assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
@@ -154,7 +154,7 @@ public final class IamfDecoderTest {
         new IamfDecoder(
             ImmutableList.of(iacbObus),
             initialOutputLayout,
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
             IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
 
@@ -168,7 +168,7 @@ public final class IamfDecoderTest {
     int finalNumChannels = 6;
     decoder.resetWithNewMix(
         IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0,
-        IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET);
+        IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET);
 
     // Verify we see the requested output type after reset.
     assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(finalNumChannels);

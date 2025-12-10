@@ -167,7 +167,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
         new IamfDecoder(
             format.initializationData,
             IamfUtil.getOutputLayoutForChannelMask(currentChannelMask),
-            IamfDecoder.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             outputSampleType,
             channelOrdering);
     TraceUtil.endSection();
