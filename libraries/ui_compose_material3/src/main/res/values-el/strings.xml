@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Αναπαραγωγή</string>
+  <string name="playpause_button_pause">Παύση</string>
+  <string name="next_button">Επόμενο</string>
+  <string name="previous_button">Προηγούμενο</string>
+  <string name="seek_back_button">Επαναφορά</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Μετάβαση πίσω κατά %d δευτερόλεπτο</item>
+    <item quantity="other">Μετάβαση πίσω κατά %d δευτερόλεπτα</item>
+  </plurals>
+  <string name="seek_forward_button">Μετάβαση εμπρός</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Μετάβαση εμπρός κατά %d δευτερόλεπτο</item>
+    <item quantity="other">Μετάβαση εμπρός κατά %d δευτερόλεπτα</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Τρέχουσα λειτουργία: Καμία επανάληψη. Εναλλαγή λειτουργίας επανάληψης.</string>
+  <string name="repeat_button_repeat_one">Τρέχουσα λειτουργία: Επανάληψη ενός. Εναλλαγή λειτουργίας επανάληψης.</string>
+  <string name="repeat_button_repeat_all">Τρέχουσα λειτουργία: Επανάληψη όλων. Εναλλαγή λειτουργίας επανάληψης.</string>
+  <string name="shuffle_button_shuffle_on">Η λειτουργία τυχαίας αναπαραγωγής ενεργοποιήθηκε.</string>
+  <string name="shuffle_button_shuffle_off">Η λειτουργία τυχαίας αναπαραγωγής απενεργοποιήθηκε.</string>
+  <string name="mute_button_shown_unmuted">Σίγαση</string>
+  <string name="mute_button_shown_muted">Κατάργηση σίγασης</string>
+</resources>

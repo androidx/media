@@ -38,14 +38,14 @@ import org.junit.runner.RunWith;
 public class CmcdDataTest {
 
   @Test
-  public void createInstance_withInvalidFactoryState_throwsIllegalStateException() {
+  public void createInstance_withInvalidFactoryState_throwsException() {
     CmcdConfiguration cmcdConfiguration =
         CmcdConfiguration.Factory.DEFAULT.createCmcdConfiguration(MediaItem.EMPTY);
     ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
 
     assertThrows(
         "Track selection must be set",
-        IllegalStateException.class,
+        NullPointerException.class,
         () ->
             new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
                 .setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT)
@@ -630,5 +630,14 @@ public class CmcdDataTest {
     Uri updatedUri = CmcdData.removeFromUri(uri);
 
     assertThat(updatedUri.toString()).isEqualTo("https://test.test/test.mp4?key=value&key2=value2");
+  }
+
+  @Test
+  public void removeFromUri_nonHierarchicalUri_returnsUnmodifiedUri() {
+    Uri uri = Uri.parse("data:application/dash+xml;base64");
+
+    Uri updatedUri = CmcdData.removeFromUri(uri);
+
+    assertThat(updatedUri).isEqualTo(uri);
   }
 }

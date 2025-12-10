@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">დაკვრა</string>
+  <string name="playpause_button_pause">პაუზა</string>
+  <string name="next_button">შემდეგი</string>
+  <string name="previous_button">წინა</string>
+  <string name="seek_back_button">უკან გადახვევა</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d წამით უკან გადახვევა</item>
+    <item quantity="other">%d წამით უკან გადახვევა</item>
+  </plurals>
+  <string name="seek_forward_button">წინ გადახვევა</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d წამით წინ გადახვევა</item>
+    <item quantity="other">%d წამით წინ გადახვევა</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">მიმდინარე რეჟიმი: არაფრის გამეორება. გადართეთ გამეორების რეჟიმი.</string>
+  <string name="repeat_button_repeat_one">მიმდინარე რეჟიმი: ერთის გამეორება. გადართეთ გამეორების რეჟიმი.</string>
+  <string name="repeat_button_repeat_all">მიმდინარე რეჟიმი: ყველას გამეორება. გადართეთ გამეორების რეჟიმი.</string>
+  <string name="shuffle_button_shuffle_on">არეულად დაკვრის რეჟიმი ჩართულია.</string>
+  <string name="shuffle_button_shuffle_off">არეულად დაკვრის რეჟიმი გამორთულია.</string>
+  <string name="mute_button_shown_unmuted">დადუმება</string>
+  <string name="mute_button_shown_muted">დადუმების მოხსნა</string>
+</resources>

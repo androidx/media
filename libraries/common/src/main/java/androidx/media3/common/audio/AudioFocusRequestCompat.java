@@ -16,8 +16,8 @@
 package androidx.media3.common.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -67,7 +67,7 @@ public final class AudioFocusRequestCompat {
     if (SDK_INT >= 26) {
       this.frameworkAudioFocusRequest =
           new AudioFocusRequest.Builder(focusGain)
-              .setAudioAttributes(audioAttributes.getAudioAttributesV21().audioAttributes)
+              .setAudioAttributes(audioAttributes.getPlatformAudioAttributes())
               .setWillPauseWhenDucked(pauseOnDuck)
               .setOnAudioFocusChangeListener(onAudioFocusChangeListener, focusChangeHandler)
               .build();

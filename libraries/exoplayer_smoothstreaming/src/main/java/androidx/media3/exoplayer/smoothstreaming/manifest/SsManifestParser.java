@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.smoothstreaming.manifest;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -26,7 +28,6 @@ import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -370,7 +371,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       if (child instanceof StreamElement) {
         streamElements.add((StreamElement) child);
       } else if (child instanceof ProtectionElement) {
-        Assertions.checkState(protectionElement == null);
+        checkState(protectionElement == null);
         protectionElement = (ProtectionElement) child;
       }
     }

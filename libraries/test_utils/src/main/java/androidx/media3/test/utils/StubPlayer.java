@@ -297,6 +297,16 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
+  public void mute() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void unmute() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public float getVolume() {
     throw new UnsupportedOperationException();
   }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -29,6 +30,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowLooper;
@@ -39,9 +41,9 @@ public class FallbackListenerTest {
 
   private static final Composition PLACEHOLDER_COMPOSITION =
       new Composition.Builder(
-              new EditedMediaItemSequence.Builder(
-                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())
-                  .build())
+              withAudioFrom(
+                  ImmutableList.of(
+                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())))
           .build();
 
   @Test
@@ -149,7 +151,7 @@ public class FallbackListenerTest {
   }
 
   private static ListenerSet<Transformer.Listener> createListenerSet() {
-    return new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, (listener, flags) -> {});
+    return new ListenerSet<>(Looper.myLooper());
   }
 
   private static HandlerWrapper createHandler() {

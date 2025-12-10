@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -905,20 +905,36 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* stayInBounds= */ !playlistTracker.isLive() || previous == null);
       long mediaSequence = segmentIndexInPlaylist + mediaPlaylist.mediaSequence;
       int partIndex = C.INDEX_UNSET;
+      if (!playlistTracker.isLive()) {
+        // Early return as we don't need to pick a part for VOD.
+        return new Pair<>(mediaSequence, partIndex);
+      }
+
       if (segmentIndexInPlaylist >= 0) {
         // In case we are inside the live window, we try to pick a part if available.
-        Segment segment = mediaPlaylist.segments.get(segmentIndexInPlaylist);
-        List<HlsMediaPlaylist.Part> parts =
-            targetPositionInPlaylistUs < segment.relativeStartTimeUs + segment.durationUs
-                ? segment.parts
-                : mediaPlaylist.trailingParts;
+        List<HlsMediaPlaylist.Part> parts;
+        if (!mediaPlaylist.segments.isEmpty()) {
+          Segment segment = mediaPlaylist.segments.get(segmentIndexInPlaylist);
+          parts =
+              targetPositionInPlaylistUs < segment.relativeStartTimeUs + segment.durationUs
+                  ? segment.parts
+                  : mediaPlaylist.trailingParts;
+        } else {
+          // There are no full segments in the playlist, but we can still pick a trailing part.
+          parts = mediaPlaylist.trailingParts;
+        }
         for (int i = 0; i < parts.size(); i++) {
           HlsMediaPlaylist.Part part = parts.get(i);
           if (targetPositionInPlaylistUs < part.relativeStartTimeUs + part.durationUs) {
             if (part.isIndependent) {
               partIndex = i;
-              // Increase media sequence by one if the part is a trailing part.
-              mediaSequence += parts == mediaPlaylist.trailingParts ? 1 : 0;
+              // Increase media sequence by one if the part is a trailing part and
+              // mediaPlaylist.segments is not empty. When mediaPlaylist.segments is empty, the
+              // media sequence has already been increased by the stay-in-bound adjustment.
+              mediaSequence +=
+                  (parts == mediaPlaylist.trailingParts && !mediaPlaylist.segments.isEmpty())
+                      ? 1
+                      : 0;
             }
             break;
           }

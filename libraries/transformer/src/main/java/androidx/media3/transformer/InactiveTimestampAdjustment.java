@@ -16,11 +16,13 @@
 package androidx.media3.transformer;
 
 import android.content.Context;
+import androidx.annotation.Nullable;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
+import java.util.Objects;
 
 /* package */ class InactiveTimestampAdjustment implements GlEffect {
   public final SpeedProvider speedProvider;
@@ -42,5 +44,19 @@ import androidx.media3.effect.PassthroughShaderProgram;
   @Override
   public long getDurationAfterEffectApplied(long durationUs) {
     return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+  }
+
+  @Override
+  public boolean equals(@Nullable Object o) {
+    if (!(o instanceof InactiveTimestampAdjustment)) {
+      return false;
+    }
+    InactiveTimestampAdjustment that = (InactiveTimestampAdjustment) o;
+    return Objects.equals(speedProvider, that.speedProvider);
+  }
+
+  @Override
+  public int hashCode() {
+    return 17 + speedProvider.hashCode();
   }
 }

@@ -16,6 +16,8 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
     namespace 'androidx.media3.exoplayer.ima'
 
+    compileOptions.coreLibraryDesugaringEnabled true
+
     sourceSets {
         androidTest.assets.srcDir '../test_data/src/test/assets'
     }
@@ -28,7 +30,10 @@ android {
 }
 
 dependencies {
-    api 'com.google.ads.interactivemedia.v3:interactivemedia:3.35.1'
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:" + desugarJdkLibsVersion
+    api ('com.google.ads.interactivemedia.v3:interactivemedia:3.38.0') {
+        exclude group: 'androidx.media3', module: 'media3-common'
+    }
     api project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion

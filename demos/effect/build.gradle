@@ -63,12 +63,11 @@ android {
 }
 
 dependencies {
-    def composeBom = platform('androidx.compose:compose-bom:2024.10.00')
-    implementation composeBom
-
-    implementation 'androidx.activity:activity-compose:1.9.0'
+    implementation platform('androidx.compose:compose-bom:' + androidxComposeBomVersion)
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.compose.material3:material3'
+
+    implementation 'androidx.activity:activity-compose:1.9.0'
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
 
     implementation project(modulePrefix + 'lib-exoplayer')

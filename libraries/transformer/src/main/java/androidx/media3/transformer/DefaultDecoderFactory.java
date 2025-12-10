@@ -17,8 +17,8 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
@@ -35,6 +35,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -291,7 +292,8 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     }
 
     @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    Pair<Integer, Integer> codecProfileAndLevel =
+        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     if (codecProfileAndLevel != null) {
       MediaFormatUtil.maybeSetInteger(
           mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);

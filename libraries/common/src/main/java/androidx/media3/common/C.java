@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -31,6 +32,7 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.GLES20;
+import android.os.IBinder;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.media3.common.util.UnstableApi;
@@ -105,6 +107,14 @@ public final class C {
   @UnstableApi public static final String SSAI_SCHEME = "ssai";
 
   /**
+   * The suggested maximum size in bytes of data to be transferred for inter-process communication
+   * using the {@link IBinder} interface.
+   */
+  @UnstableApi
+  public static final int SUGGESTED_MAX_IPC_SIZE =
+      SDK_INT >= 30 ? IBinder.getSuggestedMaxIpcSizeBytes() : 64 * 1024;
+
+  /**
    * Types of crypto implementation. May be one of {@link #CRYPTO_TYPE_NONE}, {@link
    * #CRYPTO_TYPE_UNSUPPORTED} or {@link #CRYPTO_TYPE_FRAMEWORK}. May also be an app-defined value
    * (see {@link #CRYPTO_TYPE_CUSTOM_BASE}).
@@ -173,7 +183,6 @@ public final class C {
    * {@link #ENCODING_DTS}, {@link #ENCODING_DTS_HD}, {@link #ENCODING_DOLBY_TRUEHD} or {@link
    * #ENCODING_OPUS}.
    */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -233,79 +242,79 @@ public final class C {
   public @interface PcmEncoding {}
 
   /** See {@link AudioFormat#ENCODING_INVALID}. */
-  @UnstableApi public static final int ENCODING_INVALID = AudioFormat.ENCODING_INVALID;
+  public static final int ENCODING_INVALID = AudioFormat.ENCODING_INVALID;
 
   /** See {@link AudioFormat#ENCODING_PCM_8BIT}. */
-  @UnstableApi public static final int ENCODING_PCM_8BIT = AudioFormat.ENCODING_PCM_8BIT;
+  public static final int ENCODING_PCM_8BIT = AudioFormat.ENCODING_PCM_8BIT;
 
   /** See {@link AudioFormat#ENCODING_PCM_16BIT}. */
-  @UnstableApi public static final int ENCODING_PCM_16BIT = AudioFormat.ENCODING_PCM_16BIT;
+  public static final int ENCODING_PCM_16BIT = AudioFormat.ENCODING_PCM_16BIT;
 
   /** Like {@link #ENCODING_PCM_16BIT}, but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_16BIT_BIG_ENDIAN = 0x10000000;
 
   /** PCM encoding with 24 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;
+  public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;
 
   /** Like {@link #ENCODING_PCM_24BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_24BIT_BIG_ENDIAN = 0x50000000;
 
   /** PCM encoding with 32 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_32BIT = AudioFormat.ENCODING_PCM_32BIT;
+  public static final int ENCODING_PCM_32BIT = AudioFormat.ENCODING_PCM_32BIT;
 
   /** Like {@link #ENCODING_PCM_32BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_32BIT_BIG_ENDIAN = 0x60000000;
 
   /** See {@link AudioFormat#ENCODING_PCM_FLOAT}. */
-  @UnstableApi public static final int ENCODING_PCM_FLOAT = AudioFormat.ENCODING_PCM_FLOAT;
+  public static final int ENCODING_PCM_FLOAT = AudioFormat.ENCODING_PCM_FLOAT;
 
   /** See {@link AudioFormat#ENCODING_MP3}. */
-  @UnstableApi public static final int ENCODING_MP3 = AudioFormat.ENCODING_MP3;
+  public static final int ENCODING_MP3 = AudioFormat.ENCODING_MP3;
 
   /** See {@link AudioFormat#ENCODING_AAC_LC}. */
-  @UnstableApi public static final int ENCODING_AAC_LC = AudioFormat.ENCODING_AAC_LC;
+  public static final int ENCODING_AAC_LC = AudioFormat.ENCODING_AAC_LC;
 
   /** See {@link AudioFormat#ENCODING_AAC_HE_V1}. */
-  @UnstableApi public static final int ENCODING_AAC_HE_V1 = AudioFormat.ENCODING_AAC_HE_V1;
+  public static final int ENCODING_AAC_HE_V1 = AudioFormat.ENCODING_AAC_HE_V1;
 
   /** See {@link AudioFormat#ENCODING_AAC_HE_V2}. */
-  @UnstableApi public static final int ENCODING_AAC_HE_V2 = AudioFormat.ENCODING_AAC_HE_V2;
+  public static final int ENCODING_AAC_HE_V2 = AudioFormat.ENCODING_AAC_HE_V2;
 
   /** See {@link AudioFormat#ENCODING_AAC_XHE}. */
-  @UnstableApi public static final int ENCODING_AAC_XHE = AudioFormat.ENCODING_AAC_XHE;
+  public static final int ENCODING_AAC_XHE = AudioFormat.ENCODING_AAC_XHE;
 
   /** See {@link AudioFormat#ENCODING_AAC_ELD}. */
-  @UnstableApi public static final int ENCODING_AAC_ELD = AudioFormat.ENCODING_AAC_ELD;
+  public static final int ENCODING_AAC_ELD = AudioFormat.ENCODING_AAC_ELD;
 
   /** AAC Error Resilient Bit-Sliced Arithmetic Coding. */
   @UnstableApi public static final int ENCODING_AAC_ER_BSAC = 0x40000000;
 
   /** See {@link AudioFormat#ENCODING_AC3}. */
-  @UnstableApi public static final int ENCODING_AC3 = AudioFormat.ENCODING_AC3;
+  public static final int ENCODING_AC3 = AudioFormat.ENCODING_AC3;
 
   /** See {@link AudioFormat#ENCODING_E_AC3}. */
-  @UnstableApi public static final int ENCODING_E_AC3 = AudioFormat.ENCODING_E_AC3;
+  public static final int ENCODING_E_AC3 = AudioFormat.ENCODING_E_AC3;
 
   /** See {@link AudioFormat#ENCODING_E_AC3_JOC}. */
-  @UnstableApi public static final int ENCODING_E_AC3_JOC = AudioFormat.ENCODING_E_AC3_JOC;
+  public static final int ENCODING_E_AC3_JOC = AudioFormat.ENCODING_E_AC3_JOC;
 
   /** See {@link AudioFormat#ENCODING_AC4}. */
-  @UnstableApi public static final int ENCODING_AC4 = AudioFormat.ENCODING_AC4;
+  public static final int ENCODING_AC4 = AudioFormat.ENCODING_AC4;
 
   /** See {@link AudioFormat#ENCODING_DTS}. */
-  @UnstableApi public static final int ENCODING_DTS = AudioFormat.ENCODING_DTS;
+  public static final int ENCODING_DTS = AudioFormat.ENCODING_DTS;
 
   /** See {@link AudioFormat#ENCODING_DTS_HD}. */
-  @UnstableApi public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
+  public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
 
   /** See {@link AudioFormat#ENCODING_DTS_UHD_P2}. */
-  @UnstableApi public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;
+  public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;
 
   /** See {@link AudioFormat#ENCODING_DOLBY_TRUEHD}. */
-  @UnstableApi public static final int ENCODING_DOLBY_TRUEHD = AudioFormat.ENCODING_DOLBY_TRUEHD;
+  public static final int ENCODING_DOLBY_TRUEHD = AudioFormat.ENCODING_DOLBY_TRUEHD;
 
   /** See {@link AudioFormat#ENCODING_OPUS}. */
-  @UnstableApi public static final int ENCODING_OPUS = AudioFormat.ENCODING_OPUS;
+  public static final int ENCODING_OPUS = AudioFormat.ENCODING_OPUS;
 
   /**
    * Represents the behavior affecting whether spatialization will be used. One of {@link
@@ -414,6 +423,35 @@ public final class C {
 
   /** See {@link AudioManager#FLAG_VIBRATE}. */
   public static final int VOLUME_FLAG_VIBRATE = AudioManager.FLAG_VIBRATE;
+
+  /**
+   * Volume operation type. One of:
+   *
+   * <ul>
+   *   <li>{@link #VOLUME_OPERATION_TYPE_SET_VOLUME}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_MUTE}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_UNMUTE}
+   * </ul>
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target({TYPE_USE})
+  @IntDef({
+    VOLUME_OPERATION_TYPE_SET_VOLUME,
+    VOLUME_OPERATION_TYPE_MUTE,
+    VOLUME_OPERATION_TYPE_UNMUTE,
+  })
+  public @interface VolumeOperationType {}
+
+  /** A volume operation type constant for direct setting of the Player volume. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_SET_VOLUME = 0;
+
+  /** A volume operation type constant for muting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_MUTE = 1;
+
+  /** A volume operation type constant for unmuting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_UNMUTE = 2;
 
   /**
    * Content types for audio attributes. One of:
@@ -720,7 +758,7 @@ public final class C {
   @UnstableApi public static final int VIDEO_OUTPUT_MODE_SURFACE_YUV = 1;
 
   // LINT.ThenChange(
-  //     ../../../../../../../decoder_av1/src/main/jni/gav1_jni.cc,
+  //     ../../../../../../../decoder_av1/src/main/jni/dav1d_jni.cc,
   //     ../../../../../../../decoder_vp9/src/main/jni/vpx_jni.cc
   // )
 
@@ -1253,9 +1291,9 @@ public final class C {
   // LINT.ThenChange(
   //   util/MediaFormatUtil.java:color_transfer,
   //   ColorInfo.java:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_oetf_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_oetf_es3.glsl:color_transfer,
   // )
 
   // LINT.IfChange(color_range)
@@ -1448,7 +1486,8 @@ public final class C {
   /**
    * A wake mode that will not cause the player to hold any locks.
    *
-   * <p>This is suitable for applications that do not play media with the screen off.
+   * <p>This is suitable for applications that only play media with the screen on and do not require
+   * low-latency Wifi access.
    */
   public static final int WAKE_MODE_NONE = 0;
 
@@ -1456,8 +1495,8 @@ public final class C {
    * A wake mode that will cause the player to hold a {@link android.os.PowerManager.WakeLock}
    * during playback.
    *
-   * <p>This is suitable for applications that play media with the screen off and do not load media
-   * over wifi.
+   * <p>This is suitable for applications that play media with the screen off, but do not require
+   * low-latency Wifi access while the screen is on.
    */
   public static final int WAKE_MODE_LOCAL = 1;
 
@@ -1465,8 +1504,11 @@ public final class C {
    * A wake mode that will cause the player to hold a {@link android.os.PowerManager.WakeLock} and a
    * {@link android.net.wifi.WifiManager.WifiLock} during playback.
    *
-   * <p>This is suitable for applications that play media with the screen off and may load media
-   * over wifi.
+   * <p>This is suitable for applications that play media with the screen off or require low-latency
+   * Wifi access while the screen is on.
+   *
+   * <p>Note that on API 33 and below, this mode also puts the Wifi in "high-power" mode, which may
+   * help maintain a steady Wifi connection during screen off playback on some devices.
    */
   public static final int WAKE_MODE_NETWORK = 2;
 

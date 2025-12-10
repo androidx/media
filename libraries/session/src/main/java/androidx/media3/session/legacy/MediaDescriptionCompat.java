@@ -21,23 +21,24 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.media.MediaDescription;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Log;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
  * Builder.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class MediaDescriptionCompat implements Parcelable {
+
+  private static final String TAG = "MediaDescriptionCompat";
 
   /**
    * Used as a long extra field to indicate the bluetooth folder type of the media item as specified
@@ -163,6 +164,8 @@ public final class MediaDescriptionCompat implements Parcelable {
   /** A bitmap icon suitable for display or null. */
   @Nullable private final Bitmap icon;
 
+  @Nullable private byte[] compressedIcon;
+
   /** A Uri for an icon suitable for display or null. */
   @Nullable private final Uri iconUri;
 
@@ -286,6 +289,45 @@ public final class MediaDescriptionCompat implements Parcelable {
   }
 
   /**
+   * Returns the bytes for the compressed {@link #getIconBitmap()}, or null if there is no icon
+   * bitmap or the compression fails.
+   */
+  @Nullable
+  public byte[] getIconBitmapData() {
+    if (icon == null) {
+      return null;
+    }
+    if (compressedIcon == null) {
+      try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+        icon.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
+        compressedIcon = stream.toByteArray();
+      } catch (IOException e) {
+        Log.w(TAG, "Failed to compress MediaDescriptionCompat artwork", e);
+      }
+    }
+    return compressedIcon;
+  }
+
+  /**
+   * Attempts to preserve existing compressed icon bitmap data from the given previous instance.
+   *
+   * <p>The data is only preserved if the original icon bitmap is the same as in the current
+   * instance.
+   *
+   * @param previousInstance A previous instance that potentially has already compressed icon data
+   *     available.
+   */
+  public void preserveIconBitmapData(MediaDescriptionCompat previousInstance) {
+    if (previousInstance.compressedIcon == null || icon == null || previousInstance.icon == null) {
+      return;
+    }
+    if (!icon.sameAs(previousInstance.icon)) {
+      return;
+    }
+    compressedIcon = previousInstance.compressedIcon;
+  }
+
+  /**
    * Gets the underlying framework {@link android.media.MediaDescription} object.
    *
    * @return An equivalent {@link android.media.MediaDescription} object.
@@ -301,28 +343,9 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setDescription(description);
     bob.setIconBitmap(icon);
     bob.setIconUri(iconUri);
-    // Media URI was not added until API 23, so add it to the Bundle of extras to
-    // ensure the data is not lost - this ensures that
-    // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)) returns
-    // an equivalent MediaDescriptionCompat on all API levels
-    if (Build.VERSION.SDK_INT < 23 && mediaUri != null) {
-      Bundle extras;
-      if (this.extras == null) {
-        extras = new Bundle();
-        extras.putBoolean(DESCRIPTION_KEY_NULL_BUNDLE_FLAG, true);
-      } else {
-        extras = new Bundle(this.extras);
-      }
-      extras.putParcelable(DESCRIPTION_KEY_MEDIA_URI, mediaUri);
-      bob.setExtras(extras);
-    } else {
-      bob.setExtras(this.extras);
-    }
-    if (Build.VERSION.SDK_INT >= 23) {
-      Api23Impl.setMediaUri(bob, mediaUri);
-    }
+    bob.setExtras(this.extras);
+    bob.setMediaUri(mediaUri);
     descriptionFwk = bob.build();
-
     return descriptionFwk;
   }
 
@@ -366,8 +389,8 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setExtras(extras);
     if (mediaUri != null) {
       bob.setMediaUri(mediaUri);
-    } else if (Build.VERSION.SDK_INT >= 23) {
-      bob.setMediaUri(Api23Impl.getMediaUri(description));
+    } else {
+      bob.setMediaUri(description.getMediaUri());
     }
     MediaDescriptionCompat descriptionCompat = bob.build();
     descriptionCompat.descriptionFwk = description;
@@ -497,20 +520,6 @@ public final class MediaDescriptionCompat implements Parcelable {
     public MediaDescriptionCompat build() {
       return new MediaDescriptionCompat(
           mediaId, title, subtitle, description, icon, iconUri, extras, mediaUri);
-    }
-  }
-
-  @RequiresApi(23)
-  private static class Api23Impl {
-    private Api23Impl() {}
-
-    static void setMediaUri(MediaDescription.Builder builder, @Nullable Uri mediaUri) {
-      builder.setMediaUri(mediaUri);
-    }
-
-    @Nullable
-    static Uri getMediaUri(MediaDescription description) {
-      return description.getMediaUri();
     }
   }
 }

@@ -29,8 +29,6 @@ import android.text.TextUtils;
 import android.view.WindowManager;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
-import androidx.media3.common.Player;
-import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -136,34 +134,6 @@ public class TestUtils {
                   | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                   | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
     }
-  }
-
-  /**
-   * Returns an {@link ImmutableList} with the {@linkplain Player.Event Events} contained in {@code
-   * events}. The contents of the list are in matching order with the {@linkplain Player.Event
-   * Events} returned by {@link Player.Events#get(int)}.
-   */
-  // TODO(b/254265256): Move this method off test-session-common.
-  public static ImmutableList<@Player.Event Integer> getEventsAsList(Player.Events events) {
-    ImmutableList.Builder<@Player.Event Integer> list = new ImmutableList.Builder<>();
-    for (int i = 0; i < events.size(); i++) {
-      list.add(events.get(i));
-    }
-    return list.build();
-  }
-
-  /**
-   * Returns an {@link ImmutableList} with the {@linkplain Player.Command Commands} contained in
-   * {@code commands}. The contents of the list are in matching order with the {@linkplain
-   * Player.Command Commands} returned by {@link Player.Commands#get(int)}.
-   */
-  // TODO(b/254265256): Move this method off test-session-common.
-  public static ImmutableList<@Player.Command Integer> getCommandsAsList(Player.Commands commands) {
-    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
-    for (int i = 0; i < commands.size(); i++) {
-      list.add(commands.get(i));
-    }
-    return list.build();
   }
 
   /** Returns the bytes of a scaled asset file. */

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ဖွင့်ရန်</string>
+  <string name="playpause_button_pause">ခဏရပ်ရန်</string>
+  <string name="next_button">ရှေ့သို့</string>
+  <string name="previous_button">ယခင်</string>
+  <string name="seek_back_button">ပြန်ရစ်ရန်</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d စက္ကန့် နောက်သို့ပြန်ကျော်ရန်</item>
+    <item quantity="other">%d စက္ကန့် နောက်သို့ပြန်ကျော်ရန်</item>
+  </plurals>
+  <string name="seek_forward_button">ရှေ့သို့ ကျော်ရန်</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d စက္ကန့် ရှေ့သို့ကျော်ရန်</item>
+    <item quantity="other">%d စက္ကန့် ရှေ့သို့ကျော်ရန်</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">လက်ရှိမုဒ်- ပြန်မကျော့ပါနှင့်။ ပြန်ကျော့မုဒ် ပြောင်းရန်။</string>
+  <string name="repeat_button_repeat_one">လက်ရှိမုဒ်- တစ်ခုပြန်ကျော့ရန်။ ပြန်ကျော့မုဒ် ပြောင်းရန်။</string>
+  <string name="repeat_button_repeat_all">လက်ရှိမုဒ်- အားလုံးပြန်ကျော့ရန်။ ပြန်ကျော့မုဒ် ပြောင်းရန်။</string>
+  <string name="shuffle_button_shuffle_on">ရောသမမွှေမုဒ် ဖွင့်ထားသည်။</string>
+  <string name="shuffle_button_shuffle_off">ရောသမမွှေမုဒ် ပိတ်ထားသည်။</string>
+  <string name="mute_button_shown_unmuted">အသံပိတ်ရန်</string>
+  <string name="mute_button_shown_muted">အသံပြန်ဖွင့်ရန်</string>
+</resources>

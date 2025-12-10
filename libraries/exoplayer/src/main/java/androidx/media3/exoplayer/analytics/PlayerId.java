@@ -16,15 +16,14 @@
 package androidx.media3.exoplayer.analytics;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer.Builder;
-import java.util.Objects;
 
 /** Identifier for a player instance. */
 @UnstableApi
@@ -36,17 +35,18 @@ public final class PlayerId {
   public static final PlayerId UNSET = new PlayerId(/* playerName= */ "");
 
   /**
+   * A player identifier that is used when we preload media outside of a player but have to pass a
+   * {@link PlayerId} to the components requiring one.
+   */
+  public static final PlayerId PRELOAD = new PlayerId("preload");
+
+  /**
    * A name to identify the player. Use {@link Builder#setName(String)} to set the name, otherwise
    * an empty string is used as the default.
    */
   public final String name;
 
   @Nullable private final LogSessionIdApi31 logSessionIdApi31;
-
-  /**
-   * An object used for equals/hashCode below API 31 or when the MediaMetricsService is unavailable.
-   */
-  @Nullable private final Object equalityToken;
 
   /**
    * Creates an instance.
@@ -56,26 +56,6 @@ public final class PlayerId {
   public PlayerId(String playerName) {
     this.name = playerName;
     this.logSessionIdApi31 = SDK_INT >= 31 ? new LogSessionIdApi31() : null;
-    equalityToken = new Object();
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof PlayerId)) {
-      return false;
-    }
-    PlayerId playerId = (PlayerId) o;
-    return Objects.equals(name, playerId.name)
-        && Objects.equals(logSessionIdApi31, playerId.logSessionIdApi31)
-        && Objects.equals(equalityToken, playerId.equalityToken);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(name, logSessionIdApi31, equalityToken);
   }
 
   /** Returns the {@link LogSessionId} for this player instance. */

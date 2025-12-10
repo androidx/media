@@ -15,8 +15,8 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.ComponentName;
@@ -284,7 +284,10 @@ public final class SessionToken {
     return impl.getLibraryVersion();
   }
 
-  /** Returns the interface version of the session or {@link #UNKNOWN_INTERFACE_VERSION}. */
+  /**
+   * Returns the {@link MediaLibraryInfo#INTERFACE_VERSION} of the session or {@link
+   * #UNKNOWN_INTERFACE_VERSION}.
+   */
   @UnstableApi
   public int getInterfaceVersion() {
     return impl.getInterfaceVersion();

@@ -17,7 +17,7 @@
   <string name="app_name">Composition Demo</string>
   <string name="edit">Edit</string>
   <string name="add_effects">Add effects</string>
-  <string name="add_effects_hint">Click the star to apply effects</string>
+  <string name="add_effects_hint">Click the Media Item to apply effects</string>
   <string name="preview" translatable="false">Preview</string>
   <string name="preview_composition" translatable="false">Composition preview</string>
   <string name="video_sequence_items" translatable="false">Video sequence items</string>
@@ -27,11 +27,13 @@
   <string name="export_completed" translatable="false">Export completed in %.3f seconds.\nOutput: %s</string>
   <string name="export_error" translatable="false">Export error</string>
   <string name="export_started" translatable="false">Export started</string>
+  <string name="frame_consumer_enabled" translatable="false">Use FrameConsumer</string>
   <string name="add_background_audio" translatable="false">Add background audio</string>
   <string name="output_video_resolution" translatable="false">Output video resolution</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
   <string name="ok" translatable="false">OK</string>
   <string name="select" translatable="false">Select</string>
+  <string name="select_effects" translatable="false">Select Effects</string>
   <string name="cancel" translatable="false">Cancel</string>
   <string name="export_settings" translatable="false">Export Settings</string>
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
@@ -41,4 +43,19 @@
   <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
   <string name="layout_preset" translatable="false">Choose a sequence layout preset</string>
   <string name="title_activity_main">MainActivity</string>
+  <string name="effect_name_grayscale">Grayscale</string>
+  <string name="effect_name_dizzy_crop">Dizzy Crop</string>
+  <string name="lottie_effect_name_counter">Lottie: 10s Counter</string>
+  <string name="lottie_effect_name_counter_fast">Lottie: 10s Counter (2x Speed)</string>
+  <string name="lottie_effect_name_swoosh">Lottie: Swoosh</string>
+  <string name="lottie_effect_name_heart">Lottie: Heart</string>
+  <string name="lottie_effect_name_asset_folder">Lottie: Asset from folder</string>
+  <string name="lottie_effect_name_asset_encoded">Lottie: Assets encoded</string>
+  <string name="end_placement_mode">End Placement Mode</string>
+  <string name="overlay_preview">Overlay Preview</string>
+  <string name="placed_overlays">Placed Overlays</string>
+  <string name="delete_overlay">Delete Overlay</string>
+  <string name="add_new_overlay">Add New Overlay</string>
+  <string name="select_an_overlay_to_place">Select an Overlay to Place</string>
+  <string name="add_item">Add Item</string>
 </resources>

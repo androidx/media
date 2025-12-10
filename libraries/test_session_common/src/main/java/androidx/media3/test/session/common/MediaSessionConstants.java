@@ -36,10 +36,19 @@ public class MediaSessionConstants {
       "testSetShowPlayButtonIfSuppressedToFalse";
   public static final String TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST =
       "MediaControllerCompatCallbackWithMediaSessionTest";
+  public static final String TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE =
+      "testCustomActionWithProgressUpdate";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";
   public static final String KEY_COMMAND_GET_TASKS_UNAVAILABLE = "commandGetTasksUnavailable";
+
+  public static final String KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "customSessionActionResultForTest";
+  public static final String VALUE_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "custom session action default test result";
+
+  public static final String KEY_IS_LEGACY_CONTROLLER = "isLegacyController";
 
   public static final String BOUNCING_CUSTOM_COMMAND = "bouncingCustomCommand";
 

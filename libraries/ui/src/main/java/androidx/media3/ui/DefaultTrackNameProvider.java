@@ -15,13 +15,14 @@
  */
 package androidx.media3.ui;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.res.Resources;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Locale;
@@ -36,7 +37,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
    * @param resources Resources from which to obtain strings.
    */
   public DefaultTrackNameProvider(Resources resources) {
-    this.resources = Assertions.checkNotNull(resources);
+    this.resources = checkNotNull(resources);
   }
 
   @Override

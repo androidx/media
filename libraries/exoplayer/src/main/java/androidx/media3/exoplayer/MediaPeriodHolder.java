@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.MediaPeriodQueue.areDurationsCompatible;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;

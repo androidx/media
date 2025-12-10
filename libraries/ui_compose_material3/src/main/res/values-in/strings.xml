@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Putar</string>
+  <string name="playpause_button_pause">Jeda</string>
+  <string name="next_button">Berikutnya</string>
+  <string name="previous_button">Sebelumnya</string>
+  <string name="seek_back_button">Putar ulang</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Mundur %d detik</item>
+    <item quantity="other">Mundur %d detik</item>
+  </plurals>
+  <string name="seek_forward_button">Majukan</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Majukan %d detik</item>
+    <item quantity="other">Majukan %d detik</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Mode saat ini: Tidak berulang. Alihkan mode berulang.</string>
+  <string name="repeat_button_repeat_one">Mode saat ini: Ulang sekali. Alihkan mode berulang.</string>
+  <string name="repeat_button_repeat_all">Mode saat ini: Ulang semua. Alihkan mode berulang.</string>
+  <string name="shuffle_button_shuffle_on">Mode acak diaktifkan.</string>
+  <string name="shuffle_button_shuffle_off">Mode acak dinonaktifkan.</string>
+  <string name="mute_button_shown_unmuted">Bisukan</string>
+  <string name="mute_button_shown_muted">Bunyikan</string>
+</resources>

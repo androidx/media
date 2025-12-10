@@ -45,7 +45,3 @@ target_link_libraries(flacJNI
                       PRIVATE android
                       PRIVATE FLAC
                       PRIVATE ${android_log_lib})
-
-# Enable 16 KB ELF alignment.
-target_link_options(flacJNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")

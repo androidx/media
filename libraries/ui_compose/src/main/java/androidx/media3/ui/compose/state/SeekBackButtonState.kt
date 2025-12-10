@@ -24,7 +24,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -49,20 +48,37 @@ fun rememberSeekBackButtonState(player: Player): SeekBackButtonState {
  */
 @UnstableApi
 class SeekBackButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(isSeekBackEnabled(player))
+  var isEnabled by mutableStateOf(false)
     private set
 
-  var seekBackAmountMs by mutableLongStateOf(player.seekBackIncrement)
+  var seekBackAmountMs by mutableLongStateOf(0)
     private set
+
+  private val playerStateObserver =
+    player.observeState(
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+      Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
+    ) {
+      isEnabled = player.isCommandAvailable(Player.COMMAND_SEEK_BACK)
+      seekBackAmountMs = player.seekBackIncrement
+    }
 
   /**
-   * Handles the interaction with the SeekBackButton button by seeking back in the current
+   * Handles the interaction with the SeekBackButton by seeking back in the current
    * [androidx.media3.common.MediaItem] by [seekBackAmountMs] milliseconds.
    *
+   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
+   * it can be freely provided into containers that take care of skipping the [onClick] if a
+   * particular UI node is not enabled (see Compose Clickable Modifier).
+   *
    * @see [Player.seekBack]
+   * @see [Player.COMMAND_SEEK_BACK]
    */
   fun onClick() {
-    player.seekBack()
+    check(isEnabled)
+    if (player.isCommandAvailable(Player.COMMAND_SEEK_BACK)) {
+      player.seekBack()
+    }
   }
 
   /**
@@ -71,22 +87,5 @@ class SeekBackButtonState(private val player: Player) {
    *   enabled, i.e. respond to user input.
    * * [Player.EVENT_SEEK_BACK_INCREMENT_CHANGED] to get the newest seek back increment.
    */
-  suspend fun observe(): Nothing {
-    isEnabled = isSeekBackEnabled(player)
-    seekBackAmountMs = player.seekBackIncrement
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-          Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
-        )
-      ) {
-        isEnabled = isSeekBackEnabled(this)
-        seekBackAmountMs = seekBackIncrement
-      }
-    }
-  }
-
-  private fun isSeekBackEnabled(player: Player) =
-    player.isCommandAvailable(Player.COMMAND_SEEK_BACK)
+  suspend fun observe(): Nothing = playerStateObserver.observe()
 }

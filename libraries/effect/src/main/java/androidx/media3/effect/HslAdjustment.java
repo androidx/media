@@ -16,7 +16,7 @@
 
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import androidx.annotation.FloatRange;
@@ -67,8 +67,8 @@ public final class HslAdjustment implements GlEffect {
     public Builder adjustSaturation(@FloatRange(from = -100, to = 100) float saturationAdjustment) {
       checkArgument(
           -100 <= saturationAdjustment && saturationAdjustment <= 100,
-          "Can adjust the saturation by only 100 in either direction, but provided "
-              + saturationAdjustment);
+          "Can adjust the saturation by only 100 in either direction, but provided %s",
+          saturationAdjustment);
       this.saturationAdjustment = saturationAdjustment;
       return this;
     }
@@ -87,8 +87,8 @@ public final class HslAdjustment implements GlEffect {
     public Builder adjustLightness(@FloatRange(from = -100, to = 100) float lightnessAdjustment) {
       checkArgument(
           -100 <= lightnessAdjustment && lightnessAdjustment <= 100,
-          "Can adjust the lightness by only 100 in either direction, but provided "
-              + lightnessAdjustment);
+          "Can adjust the lightness by only 100 in either direction, but provided %s",
+          lightnessAdjustment);
       this.lightnessAdjustment = lightnessAdjustment;
       return this;
     }

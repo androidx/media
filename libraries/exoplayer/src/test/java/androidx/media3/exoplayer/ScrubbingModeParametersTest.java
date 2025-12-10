@@ -27,9 +27,17 @@ import org.junit.runner.RunWith;
 public final class ScrubbingModeParametersTest {
 
   @Test
+  @SuppressWarnings("deprecation") // Testing deprecated fields.
   public void defaultValues() {
     assertThat(ScrubbingModeParameters.DEFAULT.disabledTrackTypes)
         .containsExactly(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
+    assertThat(ScrubbingModeParameters.DEFAULT.fractionalSeekToleranceBefore).isNull();
+    assertThat(ScrubbingModeParameters.DEFAULT.fractionalSeekToleranceAfter).isNull();
+    assertThat(ScrubbingModeParameters.DEFAULT.shouldIncreaseCodecOperatingRate).isTrue();
     assertThat(ScrubbingModeParameters.DEFAULT.isMediaCodecFlushEnabled).isFalse();
+    assertThat(ScrubbingModeParameters.DEFAULT.allowSkippingMediaCodecFlush).isTrue();
+    assertThat(ScrubbingModeParameters.DEFAULT.allowSkippingKeyFrameReset).isTrue();
+    assertThat(ScrubbingModeParameters.DEFAULT.shouldEnableDynamicScheduling).isTrue();
+    assertThat(ScrubbingModeParameters.DEFAULT.useDecodeOnlyFlag).isTrue();
   }
 }

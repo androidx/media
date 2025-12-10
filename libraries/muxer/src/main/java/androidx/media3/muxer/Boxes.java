@@ -16,10 +16,10 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -905,8 +905,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long currentSampleTimeUs = presentationTimestampsUs.get(0);
     for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
       long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
+      // Convert timestamps in microseconds to VU first and then calculate the duration in VU to
+      // avoid error accumulation.
       long currentSampleDurationVu =
-          vuFromUs(nextSampleTimeUs - currentSampleTimeUs, videoUnitTimescale);
+          vuFromUs(nextSampleTimeUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
       checkState(
           currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
       durationsVu.add((int) currentSampleDurationVu);
@@ -1406,7 +1409,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 0x01); // configurationVersion
 
     ImmutableList<ByteBuffer> csd0NalUnits = AnnexBUtils.findNalUnits(csd0ByteBuffer);
-    checkArgument(csd0NalUnits.size() == 1, "SPS data not found in csd0 for avcC box.");
+    // TODO: b/436789610 - Handle more than one SPS data.
+    checkArgument(!csd0NalUnits.isEmpty(), "SPS data not found in csd0 for avcC box.");
 
     ByteBuffer sps = csd0NalUnits.get(0);
     byte[] spsData = new byte[sps.remaining()];
@@ -1426,7 +1430,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     sps.rewind();
 
     ImmutableList<ByteBuffer> csd1NalUnits = AnnexBUtils.findNalUnits(csd1ByteBuffer);
-    checkState(csd1NalUnits.size() == 1, "PPS data not found in csd1.");
+    // TODO: b/436789610 - Handle more than one PPS data.
+    checkState(!csd1NalUnits.isEmpty(), "PPS data not found in csd1 for avcC box.");
 
     contents.put((byte) 0x01); // numOfPictureParameterSets
 
@@ -1537,10 +1542,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static ByteBuffer apvCBox(Format format) {
     // For APV, the entire codec-specific box is packed into csd-0.
     checkArgument(
-        !format.initializationData.isEmpty(), "csd-0 is not found in the format for avpC box");
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for apvC box");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty for avpC box.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for apvC box.");
 
     int versionAndFlags = 0;
     ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + BYTES_PER_INTEGER);
@@ -1752,7 +1757,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
     checkNotNull(
         dolbyVisionConfig,
-        "Dolby Vision Initialization data is not found for format: %s" + format.sampleMimeType);
+        "Dolby Vision Initialization data is not found for format: %s",
+        format.sampleMimeType);
     switch (dolbyVisionConfig.profile) {
       case 5:
         return "dvh1";
@@ -1822,7 +1828,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     String mimeType = checkNotNull(format.sampleMimeType);
     boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
     ByteBuffer csdByteBuffer =
-        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+        isVorbis
+            ? CodecSpecificDataUtil.getVorbisInitializationData(format)
+            : ByteBuffer.wrap(csd0);
 
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
@@ -1891,35 +1899,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return sizeBuffer;
   }
 
-  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
-  private static ByteBuffer getVorbisInitializationData(Format format) {
-    checkArgument(
-        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
-    byte[] csd0 = format.initializationData.get(0); // identification Header
-
-    // csd0Size is represented using "Xiph lacing" style.
-    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
-    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
-    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
-    byte[] csd0Size = new byte[csd0.length / 255 + 1];
-    Arrays.fill(csd0Size, (byte) 0xFF);
-    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
-
-    byte[] csd1 = format.initializationData.get(1); // setUp Header
-    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
-
-    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
-    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
-    csd.put((byte) 0x02); // Vorbis audio
-    csd.put(csd0Size); // Size of identification header
-    csd.put((byte) 0); // Length of comment header
-    csd.put(csd0);
-    csd.put(csd1);
-    csd.flip();
-
-    return csd;
-  }
-
   /** Returns the audio damr box. */
   private static ByteBuffer damrBox(short mode) {
 
@@ -1939,16 +1918,47 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static ByteBuffer dOpsBox(Format format) {
     checkArgument(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
-
-    int opusHeaderLength = 8;
+    // If csd0 starts with "AOPUSHDR", it indicates a custom CSD structure of:
+    // Marker (AOPUSHDR) | Length (Length of OpusIdentificationHeader) |
+    // OpusIdentificationHeader("OpusHead" + data).
+    //     8 bytes       |                    8 bytes                  |   Length no. of bytes
+    // Reference:
+    // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/av/media/module/foundation/include/media/stagefright/foundation/OpusHeader.h;l=28
+    int aopushdrSignatureLength = 8;
+    int opusHeadSignatureLength = 8;
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(
-        csd0.length >= opusHeaderLength,
-        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
-    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
-    // Skip 8 bytes containing "OpusHead".
+    ParsableByteArray parsableCsd0 = new ParsableByteArray(csd0);
+    int payloadOffset = 0;
+    int payloadLength = csd0.length;
+    String csd0SignatureString = parsableCsd0.readString(aopushdrSignatureLength);
+    if (csd0SignatureString.equals("AOPUSHDR")) {
+      // The offset of the OpusIdentificationHeader data within the "AOPUSHDR" custom CSD.
+      int opusIdentificationHeaderOffset = 16;
+      checkArgument(csd0.length >= opusIdentificationHeaderOffset + opusHeadSignatureLength);
+      long identificationHeaderLength = parsableCsd0.readLittleEndianLong();
+      payloadOffset = opusIdentificationHeaderOffset;
+      payloadLength = (int) identificationHeaderLength;
+    } else {
+      // Otherwise, the OpusIdentificationHeader must start with "OpusHead" signature.
+      checkState(csd0SignatureString.equals("OpusHead"));
+    }
+    // Length of csd0 should be greater than opus header length.
+    checkArgument(payloadLength >= opusHeadSignatureLength);
+
+    ByteBuffer contents = ByteBuffer.allocate(payloadLength - opusHeadSignatureLength);
     contents.put(
-        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+        /* src */ csd0,
+        /* offset */ payloadOffset + opusHeadSignatureLength,
+        /* length */ payloadLength - opusHeadSignatureLength);
+
+    // For encapsulation of OPUS in MP4, the version byte (byte 0) in dOps box should be 0.
+    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box).
+    // And for Ogg containers, the version byte is
+    // expected to be 1 (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1, Section 5.1.2).
+    // The contents are otherwise identical.
+    checkState(contents.get(0) == 0 || contents.get(0) == 1);
+    contents.put(0, (byte) 0);
+
     contents.flip();
 
     return BoxUtils.wrapIntoBox("dOps", contents);

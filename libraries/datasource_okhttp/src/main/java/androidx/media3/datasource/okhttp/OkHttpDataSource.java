@@ -17,6 +17,7 @@ package androidx.media3.datasource.okhttp;
 
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.datasource.HttpUtil.buildRangeRequestHeader;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -24,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BaseDataSource;
@@ -202,7 +202,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
       @Nullable RequestProperties defaultRequestProperties,
       @Nullable Predicate<String> contentTypePredicate) {
     super(/* isNetwork= */ true);
-    this.callFactory = Assertions.checkNotNull(callFactory);
+    this.callFactory = checkNotNull(callFactory);
     this.userAgent = userAgent;
     this.cacheControl = cacheControl;
     this.defaultRequestProperties = defaultRequestProperties;
@@ -238,15 +238,15 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   @UnstableApi
   @Override
   public void setRequestProperty(String name, String value) {
-    Assertions.checkNotNull(name);
-    Assertions.checkNotNull(value);
+    checkNotNull(name);
+    checkNotNull(value);
     requestProperties.set(name, value);
   }
 
   @UnstableApi
   @Override
   public void clearRequestProperty(String name) {
-    Assertions.checkNotNull(name);
+    checkNotNull(name);
     requestProperties.remove(name);
   }
 
@@ -271,7 +271,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
     try {
       this.response = executeCall(call);
       response = this.response;
-      responseBody = Assertions.checkNotNull(response.body());
+      responseBody = checkNotNull(response.body());
       responseByteStream = responseBody.byteStream();
     } catch (IOException e) {
       throw HttpDataSourceException.createForIOException(
@@ -294,7 +294,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
 
       byte[] errorResponseBody;
       try {
-        errorResponseBody = ByteStreams.toByteArray(Assertions.checkNotNull(responseByteStream));
+        errorResponseBody = ByteStreams.toByteArray(checkNotNull(responseByteStream));
       } catch (IOException e) {
         errorResponseBody = Util.EMPTY_BYTE_ARRAY;
       }
@@ -530,7 +530,7 @@ public class OkHttpDataSource extends BaseDataSource implements HttpDataSource {
   /** Closes the current connection quietly, if there is one. */
   private void closeConnectionQuietly() {
     if (response != null) {
-      Assertions.checkNotNull(response.body()).close();
+      checkNotNull(response.body()).close();
     }
     responseByteStream = null;
   }

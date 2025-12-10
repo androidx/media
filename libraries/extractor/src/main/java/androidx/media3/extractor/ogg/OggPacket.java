@@ -17,10 +17,10 @@ package androidx.media3.extractor.ogg;
 
 import static androidx.media3.extractor.ExtractorUtil.readFullyQuietly;
 import static androidx.media3.extractor.ExtractorUtil.skipFullyQuietly;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.ExtractorInput;
 import java.io.IOException;
@@ -57,7 +57,7 @@ import java.util.Arrays;
    * @throws IOException If reading from the input fails.
    */
   public boolean populate(ExtractorInput input) throws IOException {
-    Assertions.checkState(input != null);
+    checkState(input != null);
 
     if (populated) {
       populated = false;

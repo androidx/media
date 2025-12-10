@@ -28,13 +28,17 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.media3.cast.MediaRouteButtonFactory
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
+import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
@@ -73,7 +77,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         browser.setMediaItems(
           subItemMediaList,
           /* startIndex= */ position,
-          /* startPositionMs= */ C.TIME_UNSET
+          /* startPositionMs= */ C.TIME_UNSET,
         )
         browser.shuffleModeEnabled = false
         browser.prepare()
@@ -81,7 +85,10 @@ class PlayableFolderActivity : AppCompatActivity() {
         browser.sessionActivity?.send()
       }
     }
-
+    findViewById<MediaRouteButton>(R.id.floating_media_route_button)?.also {
+      @OptIn(UnstableApi::class) // MediaRouteButtonFactory is unstable API.
+      val unused = MediaRouteButtonFactory.setUpMediaRouteButton(applicationContext, it)
+    }
     findViewById<Button>(R.id.shuffle_button).setOnClickListener {
       val browser = this.browser ?: return@setOnClickListener
       browser.setMediaItems(subItemMediaList)
@@ -131,7 +138,7 @@ class PlayableFolderActivity : AppCompatActivity() {
     browserFuture =
       MediaBrowser.Builder(
           this,
-          SessionToken(this, ComponentName(this, PlaybackService::class.java))
+          SessionToken(this, ComponentName(this, PlaybackService::class.java)),
         )
         .buildAsync()
     browserFuture.addListener({ displayFolder() }, ContextCompat.getMainExecutor(this))
@@ -153,7 +160,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         val result = mediaItemFuture.get()!!
         title.text = result.value!!.mediaMetadata.title
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
     childrenFuture.addListener(
       {
@@ -164,14 +171,14 @@ class PlayableFolderActivity : AppCompatActivity() {
         subItemMediaList.addAll(children)
         mediaListAdapter.notifyDataSetChanged()
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
   }
 
   private inner class PlayableMediaItemArrayAdapter(
     context: Context,
     viewID: Int,
-    mediaItemList: List<MediaItem>
+    mediaItemList: List<MediaItem>,
   ) : ArrayAdapter<MediaItem>(context, viewID, mediaItemList) {
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
       val mediaItem = getItem(position)!!
@@ -189,7 +196,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         Snackbar.make(
             findViewById<LinearLayout>(R.id.linear_layout),
             getString(R.string.added_media_item_format, mediaItem.mediaMetadata.title),
-            BaseTransientBottomBar.LENGTH_SHORT
+            BaseTransientBottomBar.LENGTH_SHORT,
           )
           .show()
       }

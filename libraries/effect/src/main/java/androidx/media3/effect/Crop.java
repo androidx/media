@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Matrix;
 import androidx.media3.common.util.GlUtil;
@@ -53,10 +53,8 @@ public final class Crop implements MatrixTransformation {
    * @param top The top edge of the output frame, in NDC. Must be greater than {@code bottom}.
    */
   public Crop(float left, float right, float bottom, float top) {
-    checkArgument(
-        right > left, "right value " + right + " should be greater than left value " + left);
-    checkArgument(
-        top > bottom, "top value " + top + " should be greater than bottom value " + bottom);
+    checkArgument(right > left, "right value %s should be greater than left value %s", right, left);
+    checkArgument(top > bottom, "top value %s should be greater than bottom value %s", top, bottom);
     this.left = left;
     this.right = right;
     this.bottom = bottom;
@@ -91,13 +89,13 @@ public final class Crop implements MatrixTransformation {
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(transformationMatrix, "configure must be called first");
+    return checkNotNull(transformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     Size outputSize = configure(inputWidth, inputHeight);
-    return checkStateNotNull(transformationMatrix).isIdentity()
+    return checkNotNull(transformationMatrix).isIdentity()
         && inputWidth == outputSize.getWidth()
         && inputHeight == outputSize.getHeight();
   }

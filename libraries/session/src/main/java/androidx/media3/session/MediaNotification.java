@@ -15,7 +15,7 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -110,10 +110,11 @@ public final class MediaNotification {
      * Creates a {@link PendingIntent} for a media action that will be handled by the library.
      *
      * @param mediaSession The media session to which the action will be sent.
-     * @param command The {@link PendingIntent}.
+     * @param command The {@link Player.Command}.
+     * @return The {@link PendingIntent}.
      */
     PendingIntent createMediaActionPendingIntent(
-        MediaSession mediaSession, @Player.Command long command);
+        MediaSession mediaSession, @Player.Command int command);
 
     /**
      * Creates a {@link PendingIntent} triggered when the notification is dismissed.

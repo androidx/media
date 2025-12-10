@@ -15,9 +15,8 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -71,6 +70,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private long startTimeOffsetUs;
 
+  /**
+   * If a Fragmentation Unit is lost then following units corresponding to the same NAL unit should
+   * be discarded (RFC7798 Section 4.4.3).
+   */
+  boolean discardPacketsUntilNextNalUnit;
+
   /** Creates an instance. */
   public RtpH265Reader(RtpPayloadFormat payloadFormat) {
     this.fuScratchBuffer = new ParsableByteArray();
@@ -98,7 +103,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // NAL Unit Header.type (RFC7798 Section 1.1.4).
     int payloadType = (data.getData()[0] >> 1) & 0x3F;
 
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
+
+    if (payloadType != RTP_PACKET_TYPE_FU) {
+      resetReaderStateForNewNalUnit();
+    }
+
     if (payloadType >= 0 && payloadType < RTP_PACKET_TYPE_AP) {
       processSingleNalUnitPacket(data);
     } else if (payloadType == RTP_PACKET_TYPE_AP) {
@@ -111,17 +121,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           /* cause= */ null);
     }
 
-    if (rtpMarker) {
-      if (firstReceivedTimestamp == C.TIME_UNSET) {
-        firstReceivedTimestamp = timestamp;
-      }
+    if (firstReceivedTimestamp == C.TIME_UNSET) {
+      firstReceivedTimestamp = timestamp;
+    }
 
+    if (rtpMarker && !discardPacketsUntilNextNalUnit) {
       long timeUs =
           toSampleTimeUs(
               startTimeOffsetUs, timestamp, firstReceivedTimestamp, MEDIA_CLOCK_FREQUENCY);
       trackOutput.sampleMetadata(
           timeUs, bufferFlags, fragmentedSampleSizeBytes, /* offset= */ 0, /* cryptoData= */ null);
-      fragmentedSampleSizeBytes = 0;
     }
 
     previousSequenceNumber = sequenceNumber;
@@ -277,6 +286,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     boolean isLastFuPacket = (fuHeader & 0x40) > 0;
 
     if (isFirstFuPacket) {
+      resetReaderStateForNewNalUnit();
       // Prepends starter code.
       fragmentedSampleSizeBytes += writeStartCode();
 
@@ -285,14 +295,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // RTP byte 1: repurposed as HEVC HALU byte 0, copy NALU type.
       // RTP Byte 2: repurposed as HEVC HALU byte 1, layerId required to be zero, copying only tid.
       // Set data position from byte 1 as byte 0 is ignored.
-      data.getData()[1] = (byte) ((nalUnitType << 1) & 0x7F);
-      data.getData()[2] = (byte) tid;
-      fuScratchBuffer.reset(data.getData());
+      fuScratchBuffer.reset(data.getData().clone());
+      fuScratchBuffer.getData()[1] = (byte) ((nalUnitType << 1) & 0x7F);
+      fuScratchBuffer.getData()[2] = (byte) tid;
       fuScratchBuffer.setPosition(1);
     } else {
+      if (discardPacketsUntilNextNalUnit) {
+        return;
+      }
       // Check that this packet is in the sequence of the previous packet.
       int expectedSequenceNumber = (previousSequenceNumber + 1) % RtpPacket.MAX_SEQUENCE_NUMBER;
       if (packetSequenceNumber != expectedSequenceNumber) {
+        discardPacketsUntilNextNalUnit = true;
         Log.w(
             TAG,
             Util.formatInvariant(
@@ -321,6 +335,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int bytesWritten = nalStartCodeArray.bytesLeft();
     checkNotNull(trackOutput).sampleData(nalStartCodeArray, bytesWritten);
     return bytesWritten;
+  }
+
+  private void resetReaderStateForNewNalUnit() {
+    discardPacketsUntilNextNalUnit = false;
+    fragmentedSampleSizeBytes = 0;
   }
 
   private static @C.BufferFlags int getBufferFlagsFromNalType(int nalType) {

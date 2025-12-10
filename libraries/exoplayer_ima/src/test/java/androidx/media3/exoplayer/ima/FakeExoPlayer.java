@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.ima;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import androidx.media3.common.C;

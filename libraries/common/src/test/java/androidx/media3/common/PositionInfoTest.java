@@ -41,7 +41,11 @@ public class PositionInfoTest {
             /* adGroupIndex= */ 2,
             /* adIndexInAdGroup= */ 444);
 
-    assertThat(PositionInfo.fromBundle(positionInfo.toBundle())).isEqualTo(positionInfo);
+    assertThat(
+            PositionInfo.fromBundle(
+                positionInfo.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION))
+        .isEqualTo(positionInfo);
   }
 
   @Test
@@ -58,7 +62,10 @@ public class PositionInfoTest {
             /* adGroupIndex= */ 2,
             /* adIndexInAdGroup= */ 444);
 
-    PositionInfo positionInfoFromBundle = PositionInfo.fromBundle(positionInfo.toBundle());
+    PositionInfo positionInfoFromBundle =
+        PositionInfo.fromBundle(
+            positionInfo.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
     assertThat(positionInfoFromBundle.windowUid).isNull();
   }
 
@@ -76,7 +83,10 @@ public class PositionInfoTest {
             /* adGroupIndex= */ 2,
             /* adIndexInAdGroup= */ 444);
 
-    PositionInfo positionInfoFromBundle = PositionInfo.fromBundle(positionInfo.toBundle());
+    PositionInfo positionInfoFromBundle =
+        PositionInfo.fromBundle(
+            positionInfo.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
     assertThat(positionInfoFromBundle.periodUid).isNull();
   }
 
@@ -94,7 +104,10 @@ public class PositionInfoTest {
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
 
-    PositionInfo roundTripValue = PositionInfo.fromBundle(defaultPositionInfo.toBundle());
+    PositionInfo roundTripValue =
+        PositionInfo.fromBundle(
+            defaultPositionInfo.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(roundTripValue).isEqualTo(defaultPositionInfo);
   }
@@ -113,8 +126,7 @@ public class PositionInfoTest {
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
 
-    Bundle bundle =
-        defaultPositionInfo.toBundle(/* controllerInterfaceVersion= */ Integer.MAX_VALUE);
+    Bundle bundle = defaultPositionInfo.toBundle(/* interfaceVersion= */ Integer.MAX_VALUE);
 
     assertThat(bundle.isEmpty()).isTrue();
   }
@@ -135,7 +147,7 @@ public class PositionInfoTest {
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
 
-    Bundle bundle = defaultPositionInfo.toBundle(/* controllerInterfaceVersion= */ 2);
+    Bundle bundle = defaultPositionInfo.toBundle(/* interfaceVersion= */ 2);
 
     assertThat(bundle.keySet())
         .containsAtLeast(

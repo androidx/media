@@ -99,7 +99,8 @@ public final class MediaUtilsTest {
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
-            availableCommands);
+            availableCommands,
+            /* keepOldUnmuteVolumeForMutedSessions= */ false);
 
     assertThat(mergeResult.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
     assertThat(mergeResult.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
@@ -139,7 +140,8 @@ public final class MediaUtilsTest {
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
-            availableCommands);
+            availableCommands,
+            /* keepOldUnmuteVolumeForMutedSessions= */ false);
 
     assertThat(mergeResult.timeline).isSameInstanceAs(Timeline.EMPTY);
     assertThat(mergeResult.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
@@ -179,9 +181,56 @@ public final class MediaUtilsTest {
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
-            availableCommands);
+            availableCommands,
+            /* keepOldUnmuteVolumeForMutedSessions= */ false);
 
     assertThat(mergeResult.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
     assertThat(mergeResult.currentTracks).isSameInstanceAs(Tracks.EMPTY);
+  }
+
+  @Test
+  public void mergePlayerInfo_keepOldUnmuteVolumeForMutedSessions_correctMerge() {
+    PlayerInfo oldPlayerInfo = PlayerInfo.DEFAULT.copyWithVolume(0.7f);
+    PlayerInfo newPlayerInfo = PlayerInfo.DEFAULT.copyWithVolume(0f).copyWithUnmuteVolume(0.5f);
+    Player.Commands availableCommands =
+        Player.Commands.EMPTY
+            .buildUpon()
+            .add(Player.COMMAND_GET_TIMELINE)
+            .add(Player.COMMAND_GET_TRACKS)
+            .build();
+
+    PlayerInfo mergeResult =
+        MediaUtils.mergePlayerInfo(
+            oldPlayerInfo,
+            newPlayerInfo,
+            BundlingExclusions.NONE,
+            availableCommands,
+            /* keepOldUnmuteVolumeForMutedSessions= */ true);
+
+    assertThat(mergeResult.volume).isEqualTo(newPlayerInfo.volume);
+    assertThat(mergeResult.unmuteVolume).isEqualTo(oldPlayerInfo.unmuteVolume);
+  }
+
+  @Test
+  public void mergePlayerInfo_keepOldUnmuteVolumeForUnmutedSessions_correctMerge() {
+    PlayerInfo oldPlayerInfo = PlayerInfo.DEFAULT.copyWithVolume(0.7f);
+    PlayerInfo newPlayerInfo = PlayerInfo.DEFAULT.copyWithVolume(0.5f); // unmuteVolume=0.5 as well
+    Player.Commands availableCommands =
+        Player.Commands.EMPTY
+            .buildUpon()
+            .add(Player.COMMAND_GET_TIMELINE)
+            .add(Player.COMMAND_GET_TRACKS)
+            .build();
+
+    PlayerInfo mergeResult =
+        MediaUtils.mergePlayerInfo(
+            oldPlayerInfo,
+            newPlayerInfo,
+            BundlingExclusions.NONE,
+            availableCommands,
+            /* keepOldUnmuteVolumeForMutedSessions= */ true);
+
+    assertThat(mergeResult.volume).isEqualTo(newPlayerInfo.volume);
+    assertThat(mergeResult.unmuteVolume).isEqualTo(newPlayerInfo.unmuteVolume);
   }
 }

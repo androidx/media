@@ -18,8 +18,6 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TRANSFORMER_INTERNAL;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_START;
@@ -38,6 +36,8 @@ import static androidx.media3.transformer.TransformerUtil.getValidColor;
 import static androidx.media3.transformer.TransformerUtil.maybeSetMuxerWrapperAdditionalRotationDegrees;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -46,7 +46,6 @@ import android.media.metrics.LogSessionId;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Log;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -63,6 +62,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.muxer.MuxerException;
@@ -192,7 +192,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      AssetLoader.Factory assetLoaderFactory,
+      @Nullable AssetLoader.Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -206,7 +206,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Clock clock,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
-      boolean applyMp4EditListTrim) {
+      boolean applyMp4EditListTrim,
+      boolean forceRemuxing) {
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
@@ -237,6 +238,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Looper internalLooper = internalHandlerThread.getLooper();
     assetLoaderLock = new Object();
     assetLoaderInputTracker = new AssetLoaderInputTracker(composition);
+    if (forceRemuxing || assetLoaderFactory == null) {
+      assetLoaderFactory =
+          new DefaultAssetLoaderFactory(
+              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
+    }
     for (int i = 0; i < composition.sequences.size(); i++) {
       SequenceAssetLoaderListener sequenceAssetLoaderListener =
           new SequenceAssetLoaderListener(
@@ -667,10 +673,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         GraphInput sampleExporterInput =
             sampleExporter.getInput(firstEditedMediaItem, assetLoaderOutputFormat, sequenceIndex);
         OnMediaItemChangedListener onMediaItemChangedListener =
-            (editedMediaItem, durationUs, decodedFormat, isLast) -> {
+            (editedMediaItem, durationUs, decodedFormat, isLast, positionOffsetUs) -> {
               onMediaItemChanged(trackType, durationUs, isLast);
               sampleExporterInput.onMediaItemChanged(
-                  editedMediaItem, durationUs, decodedFormat, isLast);
+                  editedMediaItem, durationUs, decodedFormat, isLast, positionOffsetUs);
             };
         sequenceAssetLoaders
             .get(sequenceIndex)
@@ -858,11 +864,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
         checkState(
             !applyMp4EditListTrim || !shouldTranscode,
-            String.format(
-                "Transcoding is required for track %s but MP4 edit list trimming is enabled."
-                    + " Disable mp4EditListTrimEnabled or ensure this track does not require"
-                    + " transcoding.",
-                inputFormat));
+            "Transcoding is required for track %s but MP4 edit list trimming is enabled."
+                + " Disable mp4EditListTrimEnabled or ensure this track does not require"
+                + " transcoding.",
+            inputFormat);
       }
       checkState(!shouldTranscode || assetLoaderCanOutputDecoded);
 

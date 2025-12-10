@@ -15,11 +15,12 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import android.os.Bundle;
 import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -58,8 +59,8 @@ public final class PlaybackParameters {
   public PlaybackParameters(
       @FloatRange(from = 0, fromInclusive = false) float speed,
       @FloatRange(from = 0, fromInclusive = false) float pitch) {
-    Assertions.checkArgument(speed > 0);
-    Assertions.checkArgument(pitch > 0);
+    checkArgument(speed > 0);
+    checkArgument(pitch > 0);
     this.speed = speed;
     this.pitch = pitch;
     scaledUsPerMs = Math.round(speed * 1000f);

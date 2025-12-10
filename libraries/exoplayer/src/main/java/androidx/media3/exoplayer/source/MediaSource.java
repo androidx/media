@@ -30,8 +30,10 @@ import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 
@@ -135,7 +137,7 @@ public interface MediaSource {
 
     /**
      * Sets the set of video codecs for which within GOP sample dependency information should be
-     * parsed as part of extraction. Defaults to {@code 0} - empty set of codecs.
+     * parsed as part of extraction. Defaults to H.264 and H.265.
      *
      * <p>Having access to additional sample dependency information can speed up seeking. See {@link
      * Mp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
@@ -150,6 +152,19 @@ public interface MediaSource {
     @CanIgnoreReturnValue
     default Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
         @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      return this;
+    }
+
+    /**
+     * Sets a supplier for an {@link ReleasableExecutor} that is used for loading the media.
+     *
+     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     ReleasableExecutor} for downloading and extraction.
+     * @return This factory, for convenience.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    default Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
       return this;
     }
 

@@ -143,12 +143,13 @@ public class MediaMetadataTest {
   public void toBundleSkipsDefaultValues_fromBundleRestoresThem() {
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().build();
 
-    Bundle mediaMetadataBundle = mediaMetadata.toBundle();
+    Bundle mediaMetadataBundle = mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(mediaMetadataBundle.keySet()).isEmpty();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadataBundle);
+    MediaMetadata mediaMetadataFromBundle =
+        MediaMetadata.fromBundle(mediaMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -159,7 +160,10 @@ public class MediaMetadataTest {
   public void createFullyPopulatedMediaMetadata_roundTripViaBundle_yieldsEqualInstance() {
     MediaMetadata mediaMetadata = getFullyPopulatedMediaMetadata();
 
-    MediaMetadata mediaMetadataFromBundle = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata mediaMetadataFromBundle =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaMetadataFromBundle).isEqualTo(mediaMetadata);
     // Extras is not implemented in MediaMetadata.equals(Object o).
@@ -173,11 +177,60 @@ public class MediaMetadataTest {
     extras.putString("key", "value");
     MediaMetadata mediaMetadata = new MediaMetadata.Builder().setExtras(extras).build();
 
-    MediaMetadata restoredMetadata = MediaMetadata.fromBundle(mediaMetadata.toBundle());
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredMetadata).isEqualTo(mediaMetadata);
     assertThat(restoredMetadata.extras).isNotNull();
     assertThat(restoredMetadata.extras.get("key")).isEqualTo("value");
+  }
+
+  @Test
+  public void roundTripViaBundle_withInterfaceVersionBelow9_restoresArtworkDataArray() {
+    byte[] artworkData = new byte[] {-88, 12, 3, 2, 124, -54, -33, 69};
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(/* interfaceVersion= */ 8), /* interfaceVersion= */ 8);
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+  }
+
+  @Test
+  public void roundTripViaBundle_withLargeArtworkData_restoresArtworkDataArray() {
+    byte[] artworkData = new byte[4_000_000];
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(restoredMetadata).isEqualTo(mediaMetadata);
+  }
+
+  @Test
+  public void roundTripViaBundle_withInterfaceVersionBelow9AndLargeArtworkData_doesNotCrash() {
+    byte[] artworkData = new byte[4_000_000];
+    MediaMetadata mediaMetadata =
+        new MediaMetadata.Builder()
+            .setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_MEDIA)
+            .build();
+
+    MediaMetadata restoredMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundle(/* interfaceVersion= */ 8), /* interfaceVersion= */ 8);
+
+    assertThat(restoredMetadata.artworkData).isNull();
   }
 
   @SuppressWarnings("deprecation") // Testing deprecated setter.

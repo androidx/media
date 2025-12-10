@@ -26,7 +26,9 @@ package androidx.media3.common {
   }
 
   public final class AudioAttributes {
-    method public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public static androidx.media3.common.AudioAttributes fromPlatformAudioAttributes(android.media.AudioAttributes);
+    method @Deprecated public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public android.media.AudioAttributes getPlatformAudioAttributes();
     field public static final androidx.media3.common.AudioAttributes DEFAULT;
     field @androidx.media3.common.C.AudioAllowedCapturePolicy public final int allowedCapturePolicy;
     field @androidx.media3.common.C.AudioContentType public final int contentType;
@@ -35,8 +37,8 @@ package androidx.media3.common {
     field @androidx.media3.common.C.AudioUsage public final int usage;
   }
 
-  public static final class AudioAttributes.AudioAttributesV21 {
-    field public final android.media.AudioAttributes audioAttributes;
+  @Deprecated public static final class AudioAttributes.AudioAttributesV21 {
+    field @Deprecated public final android.media.AudioAttributes audioAttributes;
   }
 
   public static final class AudioAttributes.Builder {
@@ -72,6 +74,27 @@ package androidx.media3.common {
     field public static final long DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS = 3000L; // 0xbb8L
     field public static final long DEFAULT_SEEK_BACK_INCREMENT_MS = 5000L; // 0x1388L
     field public static final long DEFAULT_SEEK_FORWARD_INCREMENT_MS = 15000L; // 0x3a98L
+    field public static final int ENCODING_AAC_ELD = 15; // 0xf
+    field public static final int ENCODING_AAC_HE_V1 = 11; // 0xb
+    field public static final int ENCODING_AAC_HE_V2 = 12; // 0xc
+    field public static final int ENCODING_AAC_LC = 10; // 0xa
+    field public static final int ENCODING_AAC_XHE = 16; // 0x10
+    field public static final int ENCODING_AC3 = 5; // 0x5
+    field public static final int ENCODING_AC4 = 17; // 0x11
+    field public static final int ENCODING_DOLBY_TRUEHD = 14; // 0xe
+    field public static final int ENCODING_DTS = 7; // 0x7
+    field public static final int ENCODING_DTS_HD = 8; // 0x8
+    field public static final int ENCODING_DTS_UHD_P2 = 30; // 0x1e
+    field public static final int ENCODING_E_AC3 = 6; // 0x6
+    field public static final int ENCODING_E_AC3_JOC = 18; // 0x12
+    field public static final int ENCODING_INVALID = 0; // 0x0
+    field public static final int ENCODING_MP3 = 9; // 0x9
+    field public static final int ENCODING_OPUS = 20; // 0x14
+    field public static final int ENCODING_PCM_16BIT = 2; // 0x2
+    field public static final int ENCODING_PCM_24BIT = 21; // 0x15
+    field public static final int ENCODING_PCM_32BIT = 22; // 0x16
+    field public static final int ENCODING_PCM_8BIT = 3; // 0x3
+    field public static final int ENCODING_PCM_FLOAT = 4; // 0x4
     field public static final int FLAG_AUDIBILITY_ENFORCED = 1; // 0x1
     field public static final int INDEX_UNSET = -1; // 0xffffffff
     field public static final String LANGUAGE_UNDETERMINED = "und";
@@ -155,6 +178,9 @@ package androidx.media3.common {
   }
 
   @IntDef(open=true, value={androidx.media3.common.C.CRYPTO_TYPE_UNSUPPORTED, androidx.media3.common.C.CRYPTO_TYPE_NONE, androidx.media3.common.C.CRYPTO_TYPE_FRAMEWORK}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface C.CryptoType {
+  }
+
+  @IntDef({androidx.media3.common.Format.NO_VALUE, androidx.media3.common.C.ENCODING_INVALID, androidx.media3.common.C.ENCODING_PCM_8BIT, androidx.media3.common.C.ENCODING_PCM_16BIT, 0x10000000, androidx.media3.common.C.ENCODING_PCM_24BIT, 0x50000000, androidx.media3.common.C.ENCODING_PCM_32BIT, 0x60000000, androidx.media3.common.C.ENCODING_PCM_FLOAT, androidx.media3.common.C.ENCODING_MP3, androidx.media3.common.C.ENCODING_AAC_LC, androidx.media3.common.C.ENCODING_AAC_HE_V1, androidx.media3.common.C.ENCODING_AAC_HE_V2, androidx.media3.common.C.ENCODING_AAC_XHE, androidx.media3.common.C.ENCODING_AAC_ELD, 0x40000000, androidx.media3.common.C.ENCODING_AC3, androidx.media3.common.C.ENCODING_E_AC3, androidx.media3.common.C.ENCODING_E_AC3_JOC, androidx.media3.common.C.ENCODING_AC4, androidx.media3.common.C.ENCODING_DTS, androidx.media3.common.C.ENCODING_DTS_HD, androidx.media3.common.C.ENCODING_DOLBY_TRUEHD, androidx.media3.common.C.ENCODING_OPUS, androidx.media3.common.C.ENCODING_DTS_UHD_P2}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface C.Encoding {
   }
 
   @IntDef(flag=true, value={androidx.media3.common.C.ROLE_FLAG_MAIN, androidx.media3.common.C.ROLE_FLAG_ALTERNATE, androidx.media3.common.C.ROLE_FLAG_SUPPLEMENTARY, androidx.media3.common.C.ROLE_FLAG_COMMENTARY, androidx.media3.common.C.ROLE_FLAG_DUB, androidx.media3.common.C.ROLE_FLAG_EMERGENCY, androidx.media3.common.C.ROLE_FLAG_CAPTION, androidx.media3.common.C.ROLE_FLAG_SUBTITLE, androidx.media3.common.C.ROLE_FLAG_SIGN, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_VIDEO, androidx.media3.common.C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND, androidx.media3.common.C.ROLE_FLAG_ENHANCED_DIALOG_INTELLIGIBILITY, androidx.media3.common.C.ROLE_FLAG_TRANSCRIBES_DIALOG, androidx.media3.common.C.ROLE_FLAG_EASY_TO_READ, androidx.media3.common.C.ROLE_FLAG_TRICK_PLAY, androidx.media3.common.C.ROLE_FLAG_AUXILIARY}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface C.RoleFlags {
@@ -925,6 +951,7 @@ package androidx.media3.common {
 
   public static final class Player.Events {
     method public boolean contains(@androidx.media3.common.Player.Event int);
+    method public boolean containsAny(androidx.media3.common.Player.Events);
     method public boolean containsAny(@androidx.media3.common.Player.Event int...);
     method @androidx.media3.common.Player.Event public int get(int);
     method public int size();
@@ -1385,6 +1412,7 @@ package androidx.media3.exoplayer {
     ctor public ExoPlayer.Builder(android.content.Context);
     method public androidx.media3.exoplayer.ExoPlayer build();
     method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioAttributes(androidx.media3.common.AudioAttributes, boolean);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioOutputProvider(androidx.media3.exoplayer.audio.AudioOutputProvider);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setHandleAudioBecomingNoisy(boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setMediaSourceFactory(androidx.media3.exoplayer.source.MediaSource.Factory);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekBackIncrementMs(@IntRange(from=1) long);
@@ -1397,6 +1425,231 @@ package androidx.media3.exoplayer {
 package androidx.media3.exoplayer.analytics {
 
   public interface AnalyticsListener {
+  }
+
+}
+
+package androidx.media3.exoplayer.audio {
+
+  public interface AudioOutput {
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void attachAuxEffect(int);
+    method public void flush();
+    method public int getAudioSessionId();
+    method public long getBufferSizeInFrames();
+    method public androidx.media3.common.PlaybackParameters getPlaybackParameters();
+    method public long getPositionUs();
+    method public int getSampleRate();
+    method public boolean isOffloadedPlayback();
+    method public boolean isStalled();
+    method public void pause();
+    method public void play();
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void setAuxEffectSendLevel(float);
+    method public void setOffloadDelayPadding(int, int);
+    method public void setOffloadEndOfStream();
+    method public void setPlaybackParameters(androidx.media3.common.PlaybackParameters);
+    method public void setPreferredDevice(@Nullable android.media.AudioDeviceInfo);
+    method public void setVolume(float);
+    method public void stop();
+    method public boolean write(java.nio.ByteBuffer, int, long) throws androidx.media3.exoplayer.audio.AudioOutput.WriteException;
+  }
+
+  public static interface AudioOutput.Listener {
+    method public void onOffloadDataRequest();
+    method public void onOffloadPresentationEnded();
+    method public void onPositionAdvancing(long);
+    method public void onReleased();
+    method public void onUnderrun();
+  }
+
+  public static final class AudioOutput.WriteException extends java.lang.Exception {
+    ctor public AudioOutput.WriteException(int, boolean);
+    field public final int errorCode;
+    field public final boolean isRecoverable;
+  }
+
+  public interface AudioOutputProvider {
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
+    method public androidx.media3.exoplayer.audio.AudioOutput getAudioOutput(androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.InitializationException;
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport getFormatSupport(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig getOutputConfig(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.ConfigurationException;
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
+    field public static final int FORMAT_SUPPORTED_DIRECTLY = 2; // 0x2
+    field public static final int FORMAT_SUPPORTED_WITH_TRANSCODING = 1; // 0x1
+    field public static final int FORMAT_UNSUPPORTED = 0; // 0x0
+  }
+
+  public static final class AudioOutputProvider.ConfigurationException extends java.lang.Exception {
+    ctor public AudioOutputProvider.ConfigurationException(String);
+  }
+
+  public static final class AudioOutputProvider.FormatConfig {
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder buildUpon();
+    field public final androidx.media3.common.AudioAttributes audioAttributes;
+    field public final int audioSessionId;
+    field public final boolean enableHighResolutionPcmOutput;
+    field public final boolean enableOffload;
+    field public final boolean enablePlaybackParameters;
+    field public final boolean enableTunneling;
+    field public final androidx.media3.common.Format format;
+    field public final int preferredBufferSize;
+    field @Nullable public final android.media.AudioDeviceInfo preferredDevice;
+    field public final int virtualDeviceId;
+  }
+
+  public static final class AudioOutputProvider.FormatConfig.Builder {
+    ctor public AudioOutputProvider.FormatConfig.Builder(androidx.media3.common.Format);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig build();
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setAudioAttributes(androidx.media3.common.AudioAttributes);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setAudioSessionId(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setEnableHighResolutionPcmOutput(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setEnableOffload(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setEnablePlaybackParameters(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setEnableTunneling(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setPreferredBufferSize(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setPreferredDevice(@Nullable android.media.AudioDeviceInfo);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig.Builder setVirtualDeviceId(int);
+  }
+
+  public static final class AudioOutputProvider.FormatSupport {
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder buildUpon();
+    field public static final androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport UNSUPPORTED;
+    field public final boolean isFormatSupportedForOffload;
+    field public final boolean isGaplessSupportedForOffload;
+    field public final boolean isSpeedChangeSupportedForOffload;
+    field @androidx.media3.exoplayer.audio.AudioOutputProvider.SupportLevel public final int supportLevel;
+  }
+
+  public static final class AudioOutputProvider.FormatSupport.Builder {
+    ctor public AudioOutputProvider.FormatSupport.Builder();
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport build();
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder setFormatSupportLevel(@androidx.media3.exoplayer.audio.AudioOutputProvider.SupportLevel int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder setIsFormatSupportedForOffload(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder setIsGaplessSupportedForOffload(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder setIsSpeedChangeSupportedForOffload(boolean);
+  }
+
+  public static final class AudioOutputProvider.InitializationException extends java.lang.Exception {
+    ctor public AudioOutputProvider.InitializationException();
+    ctor public AudioOutputProvider.InitializationException(Throwable);
+  }
+
+  public static interface AudioOutputProvider.Listener {
+    method public void onFormatSupportChanged();
+  }
+
+  public static final class AudioOutputProvider.OutputConfig {
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder buildUpon();
+    field public final androidx.media3.common.AudioAttributes audioAttributes;
+    field public final int audioSessionId;
+    field public final int bufferSize;
+    field public final int channelMask;
+    field @androidx.media3.common.C.Encoding public final int encoding;
+    field public final boolean isOffload;
+    field public final boolean isTunneling;
+    field public final int sampleRate;
+    field public final boolean useOffloadGapless;
+    field public final boolean usePlaybackParameters;
+    field public final int virtualDeviceId;
+  }
+
+  public static final class AudioOutputProvider.OutputConfig.Builder {
+    ctor public AudioOutputProvider.OutputConfig.Builder();
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig build();
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setAudioAttributes(androidx.media3.common.AudioAttributes);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setAudioSessionId(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setBufferSize(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setChannelMask(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setEncoding(@androidx.media3.common.C.Encoding int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setIsOffload(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setIsTunneling(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setSampleRate(int);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setUseOffloadGapless(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setUsePlaybackParameters(boolean);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder setVirtualDeviceId(int);
+  }
+
+  @IntDef({androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY, androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING, androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_UNSUPPORTED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface AudioOutputProvider.SupportLevel {
+  }
+
+  public final class AudioTrackAudioOutput implements androidx.media3.exoplayer.audio.AudioOutput {
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void attachAuxEffect(int);
+    method public void flush();
+    method public int getAudioSessionId();
+    method public android.media.AudioTrack getAudioTrack();
+    method public long getBufferSizeInFrames();
+    method public androidx.media3.common.PlaybackParameters getPlaybackParameters();
+    method public long getPositionUs();
+    method public int getSampleRate();
+    method public boolean isOffloadedPlayback();
+    method public boolean isStalled();
+    method public void pause();
+    method public void play();
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void setAuxEffectSendLevel(float);
+    method public void setOffloadDelayPadding(int, int);
+    method public void setOffloadEndOfStream();
+    method public void setPlaybackParameters(androidx.media3.common.PlaybackParameters);
+    method public void setPreferredDevice(@Nullable android.media.AudioDeviceInfo);
+    method public void setVolume(float);
+    method public void stop();
+    method public boolean write(java.nio.ByteBuffer, int, long) throws androidx.media3.exoplayer.audio.AudioOutput.WriteException;
+  }
+
+  public final class AudioTrackAudioOutputProvider implements androidx.media3.exoplayer.audio.AudioOutputProvider {
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
+    method public androidx.media3.exoplayer.audio.AudioTrackAudioOutput getAudioOutput(androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.InitializationException;
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport getFormatSupport(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig getOutputConfig(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.ConfigurationException;
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
+  }
+
+  public static final class AudioTrackAudioOutputProvider.Builder {
+    ctor public AudioTrackAudioOutputProvider.Builder(@Nullable android.content.Context);
+    method public androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider build();
+    method @RequiresApi(24) public androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider.Builder setAudioTrackBuilderModifier(java.util.function.BiConsumer<android.media.AudioTrack.Builder,androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig>);
+  }
+
+  public class ForwardingAudioOutput implements androidx.media3.exoplayer.audio.AudioOutput {
+    ctor public ForwardingAudioOutput(androidx.media3.exoplayer.audio.AudioOutput);
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void attachAuxEffect(int);
+    method public void flush();
+    method public int getAudioSessionId();
+    method public long getBufferSizeInFrames();
+    method public androidx.media3.common.PlaybackParameters getPlaybackParameters();
+    method public long getPositionUs();
+    method public int getSampleRate();
+    method public boolean isOffloadedPlayback();
+    method public boolean isStalled();
+    method public void pause();
+    method public void play();
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutput.Listener);
+    method public void setAuxEffectSendLevel(float);
+    method public void setOffloadDelayPadding(int, int);
+    method public void setOffloadEndOfStream();
+    method public void setPlaybackParameters(androidx.media3.common.PlaybackParameters);
+    method public void setPreferredDevice(@Nullable android.media.AudioDeviceInfo);
+    method public void setVolume(float);
+    method public void stop();
+    method public boolean write(java.nio.ByteBuffer, int, long) throws androidx.media3.exoplayer.audio.AudioOutput.WriteException;
+  }
+
+  public class ForwardingAudioOutputProvider implements androidx.media3.exoplayer.audio.AudioOutputProvider {
+    ctor public ForwardingAudioOutputProvider(androidx.media3.exoplayer.audio.AudioOutputProvider);
+    method public void addListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
+    method public androidx.media3.exoplayer.audio.AudioOutput getAudioOutput(androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.InitializationException;
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport getFormatSupport(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig);
+    method public androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig getOutputConfig(androidx.media3.exoplayer.audio.AudioOutputProvider.FormatConfig) throws androidx.media3.exoplayer.audio.AudioOutputProvider.ConfigurationException;
+    method public void release();
+    method public void removeListener(androidx.media3.exoplayer.audio.AudioOutputProvider.Listener);
   }
 
 }
@@ -1488,6 +1741,23 @@ package androidx.media3.exoplayer.util {
   public class EventLogger implements androidx.media3.exoplayer.analytics.AnalyticsListener {
     ctor public EventLogger();
     ctor public EventLogger(String);
+  }
+
+}
+
+package androidx.media3.muxer {
+
+  public final class MediaMuxerCompat {
+    ctor public MediaMuxerCompat(java.io.FileDescriptor, int) throws java.io.IOException;
+    ctor public MediaMuxerCompat(String, int) throws java.io.IOException;
+    method public int addTrack(android.media.MediaFormat);
+    method public void release();
+    method public void setLocation(@FloatRange(from=-90.0, to=90.0) float, @FloatRange(from=-180.0, to=180.0) float);
+    method public void setOrientationHint(int);
+    method public void start();
+    method public void stop();
+    method public void writeSampleData(int, java.nio.ByteBuffer, android.media.MediaCodec.BufferInfo);
+    field public static final int OUTPUT_FORMAT_MP4 = 0; // 0x0
   }
 
 }
@@ -1855,6 +2125,7 @@ package androidx.media3.session {
 
   @com.google.errorprone.annotations.DoNotMock public class MediaSession {
     method public final void broadcastCustomCommand(androidx.media3.session.SessionCommand, android.os.Bundle);
+    method public static int getBitmapDimensionLimit(android.content.Context);
     method public final java.util.List<androidx.media3.session.MediaSession.ControllerInfo> getConnectedControllers();
     method @Nullable public final androidx.media3.session.MediaSession.ControllerInfo getControllerForCurrentRequest();
     method public final String getId();
@@ -1910,12 +2181,11 @@ package androidx.media3.session {
     field public static final int LEGACY_CONTROLLER_VERSION = 0; // 0x0
   }
 
-  public abstract class MediaSessionService extends android.app.Service {
+  public abstract class MediaSessionService extends androidx.lifecycle.LifecycleService {
     ctor public MediaSessionService();
     method public final void addSession(androidx.media3.session.MediaSession);
     method public final java.util.List<androidx.media3.session.MediaSession> getSessions();
     method public final boolean isSessionAdded(androidx.media3.session.MediaSession);
-    method @CallSuper @Nullable public android.os.IBinder onBind(@Nullable android.content.Intent);
     method @Nullable public abstract androidx.media3.session.MediaSession onGetSession(androidx.media3.session.MediaSession.ControllerInfo);
     method @Deprecated public void onUpdateNotification(androidx.media3.session.MediaSession);
     method public void onUpdateNotification(androidx.media3.session.MediaSession, boolean);

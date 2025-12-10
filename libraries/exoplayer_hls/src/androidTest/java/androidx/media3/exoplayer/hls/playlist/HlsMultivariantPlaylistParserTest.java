@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -24,6 +25,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.hls.HlsTrackMetadataEntry;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -36,13 +38,13 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Test for {@link HlsMultivariantPlaylist}. */
+/** Test for {@link HlsPlaylistParser} to parse {@link HlsMultivariantPlaylist}. */
 // This is an instrumentation test to provide realistic regex behaviour for regression tests for
 // https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
 public class HlsMultivariantPlaylistParserTest {
 
-  private static final String PLAYLIST_URI = "https://example.com/test.m3u8";
+  private static final Uri PLAYLIST_URI = Uri.parse("https://example.com/test.m3u8");
 
   private static final String PLAYLIST_SIMPLE =
       " #EXTM3U \n"
@@ -161,6 +163,38 @@ public class HlsMultivariantPlaylistParserTest {
           + "#EXT-X-DEFINE:NAME=\"nested\",VALUE=\"This should not be inserted\"\n"
           + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"{$codecs}\"\n"
           + "http://example.com/{$tricky}\n";
+
+  private static final String PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"path\",VALUE=\"\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"codecs\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"{$codecs}\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_VARIABLE_AND_QUERY_PARAM_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:NAME=\"path\",VALUE=\"path/to/glory\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"path\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_VARIABLE_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:NAME=\"var_name\",VALUE=\"path/to/glory\"\n"
+          + "#EXT-X-DEFINE:NAME=\"var_name\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
+
+  private static final String PLAYLIST_WITH_DUPLICATE_QUERY_PARAM_NAMES =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"query_param\",VALUE=\"\"\n"
+          + "#EXT-X-DEFINE:QUERYPARAM=\"query_param\",VALUE=\"\"\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=65000,CODECS=\"mp4a.40.5\"\n"
+          + "http://example.com/{$path}\n";
 
   private static final String PLAYLIST_WITH_MATCHING_STREAM_INF_URLS =
       "#EXTM3U\n"
@@ -390,6 +424,138 @@ public class HlsMultivariantPlaylistParserTest {
   }
 
   @Test
+  public void parseMultivariantPlaylist_withQueryParams_placeholderSubstituted()
+      throws IOException {
+    Uri playlistUri = Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(playlistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+
+    HlsMultivariantPlaylist.Variant variant = playlistWithSubstitutions.variants.get(0);
+    assertThat(variant.format.codecs).isEqualTo("mp4a.40.5");
+    assertThat(variant.url).isEqualTo(Uri.parse("http://example.com/appended/path"));
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateVariableNameAndQueryParam_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5"),
+                    PLAYLIST_WITH_DUPLICATE_VARIABLE_AND_QUERY_PARAM_NAMES));
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"path\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateVariableName_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5"),
+                    PLAYLIST_WITH_DUPLICATE_VARIABLE_NAMES));
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"var_name\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDuplicateQueryParamName_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () ->
+                parseMultivariantPlaylist(
+                    Uri.parse("http://example.com/?query_param=value_1"),
+                    PLAYLIST_WITH_DUPLICATE_QUERY_PARAM_NAMES));
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("duplicate variable name \"query_param\"");
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_missingQueryParam_throws() {
+    ParserException parserException =
+        assertThrows(
+            ParserException.class,
+            () -> parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION));
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"path\" not found in playlist URI");
+  }
+
+  @Test
+  public void
+      parseMultivariantPlaylist_dependentPlaylistWithImportedQueryParam_placeholderSubstituted()
+          throws IOException {
+    String mediaPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-DEFINE:IMPORT=\"path\"\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/1.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/2.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/3.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/4.ts\n";
+    Uri multivariantPlaylistUri =
+        Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(multivariantPlaylistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(mediaPlaylistString));
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(playlistWithSubstitutions, /* previousMediaPlaylist= */ null)
+                .parse(Uri.parse("http://example.com/"), inputStream);
+
+    for (int i = 0; i < mediaPlaylist.segments.size(); i++) {
+      assertThat(mediaPlaylist.segments.get(i).url)
+          .isEqualTo("relative/from/appended/path/" + (i + 1) + ".ts");
+    }
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_dependentPlaylistWithoutImport_placeholderNotSubstituted()
+      throws IOException {
+    String mediaPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/1.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/2.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/3.ts\n"
+            + "#EXTINF:5.005,\n"
+            + "relative/from/{$path}/4.ts\n";
+    Uri multivariantPlaylistUri =
+        Uri.parse("http://example.com/?path=appended/path&codecs=mp4a.40.5");
+    HlsMultivariantPlaylist playlistWithSubstitutions =
+        parseMultivariantPlaylist(multivariantPlaylistUri, PLAYLIST_WITH_QUERY_PARAM_SUBSTITUTION);
+    ByteArrayInputStream inputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(mediaPlaylistString));
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(playlistWithSubstitutions, /* previousMediaPlaylist= */ null)
+                .parse(Uri.parse("http://example.com/"), inputStream);
+
+    for (int i = 0; i < mediaPlaylist.segments.size(); i++) {
+      assertThat(mediaPlaylist.segments.get(i).url)
+          .isEqualTo("relative/from/{$path}/" + (i + 1) + ".ts");
+    }
+  }
+
+  @Test
   public void parseMultivariantPlaylist_withVariableSubstitution_success() throws IOException {
     HlsMultivariantPlaylist playlistWithSubstitutions =
         parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_VARIABLE_SUBSTITUTION);
@@ -482,8 +648,7 @@ public class HlsMultivariantPlaylistParserTest {
   }
 
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
-      String uri, String playlistString) throws IOException {
-    Uri playlistUri = Uri.parse(uri);
+      Uri playlistUri, String playlistString) throws IOException {
     ByteArrayInputStream inputStream =
         new ByteArrayInputStream(playlistString.getBytes(StandardCharsets.UTF_8));
     return (HlsMultivariantPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);

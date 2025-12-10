@@ -170,7 +170,7 @@ public final class PlaybackStatsListenerTest {
     // Play close to the end of the first item to ensure the second session is already created, but
     // the first one isn't finished yet.
     TestPlayerRunHelper.playUntilPosition(
-        player, /* windowIndex= */ 0, /* positionMs= */ player.getDuration());
+        player, /* mediaItemIndex= */ 0, /* positionMs= */ player.getDuration());
     runUntilPendingCommandsAreFullyHandled(player);
     player.clearMediaItems();
     ShadowLooper.idleMainLooper();
@@ -199,7 +199,7 @@ public final class PlaybackStatsListenerTest {
     // Play close to the end of the first item to ensure the second session is already created, but
     // the first one isn't finished yet.
     TestPlayerRunHelper.playUntilPosition(
-        player, /* windowIndex= */ 0, /* positionMs= */ player.getDuration());
+        player, /* mediaItemIndex= */ 0, /* positionMs= */ player.getDuration());
     runUntilPendingCommandsAreFullyHandled(player);
     player.release();
     ShadowLooper.idleMainLooper();

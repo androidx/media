@@ -138,6 +138,7 @@ public class DefaultMediaSourceFactoryTest {
                     (source, timeline) -> {}, /* mediaTransferListener= */ null, PlayerId.UNSET));
     // We don't expect this to prepare successfully.
     RobolectricUtil.runMainLooperUntil(
+        /* maxTimeDiffMs= */ 10_000, // Account for internal timeouts and retries
         () -> {
           try {
             mediaSource.maybeThrowSourceInfoRefreshError();

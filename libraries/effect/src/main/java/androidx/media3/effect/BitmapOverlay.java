@@ -15,7 +15,7 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -111,7 +111,7 @@ public abstract class BitmapOverlay extends TextureOverlay {
       @Override
       public Bitmap getBitmap(long presentationTimeUs) throws VideoFrameProcessingException {
         if (lastBitmap == null) {
-          BitmapLoader bitmapLoader = new DataSourceBitmapLoader(context);
+          BitmapLoader bitmapLoader = new DataSourceBitmapLoader.Builder(context).build();
           ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(overlayBitmapUri);
           try {
             lastBitmap = future.get();

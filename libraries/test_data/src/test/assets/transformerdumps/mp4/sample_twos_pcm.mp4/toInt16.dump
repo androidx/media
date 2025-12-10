@@ -1,6 +1,6 @@
 format audio:
   averageBitrate = 131072
-  sampleMimeType = audio/mp4a-latm
+  sampleMimeType = audio/raw
   channelCount = 1
   sampleRate = 44100
   pcmEncoding = 2
@@ -19,7 +19,7 @@ format video:
   colorInfo:
     lumaBitdepth = 8
     chromaBitdepth = 8
-  metadata = entries=[xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+  metadata = entries=[xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
   initializationData:
     data = length 29, hash 4746B5D9
     data = length 10, hash 7A0D0F2B
@@ -27,6 +27,7 @@ container metadata:
   entry = Mp4AlternateGroup: 1
   entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
   entry = Mp4Timestamp: creation time=0, modification time=0, timescale=1000
+  entry = ThumbnailMetadata: presentationTimeUs=0
   entry = xyz: latitude=40.68, longitude=-74.5
   entry = xyz: latitude=40.68, longitude=-74.5
 sample:

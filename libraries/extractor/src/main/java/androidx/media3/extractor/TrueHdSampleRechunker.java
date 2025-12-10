@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;

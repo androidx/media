@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.io.IOException;
@@ -177,8 +177,7 @@ public abstract class BinarySearchSeeker {
   public int handlePendingSeek(ExtractorInput input, PositionHolder seekPositionHolder)
       throws IOException {
     while (true) {
-      SeekOperationParams seekOperationParams =
-          Assertions.checkStateNotNull(this.seekOperationParams);
+      SeekOperationParams seekOperationParams = checkNotNull(this.seekOperationParams);
       long floorPosition = seekOperationParams.getFloorBytePosition();
       long ceilingPosition = seekOperationParams.getCeilingBytePosition();
       long searchPosition = seekOperationParams.getNextSearchBytePosition();

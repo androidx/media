@@ -22,6 +22,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -30,9 +31,12 @@ import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.media3.cast.MediaRouteButtonFactory
 import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
@@ -93,6 +97,14 @@ class MainActivity : AppCompatActivity() {
     ) {
       requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), /* requestCode= */ 0)
     }
+  }
+
+  @OptIn(UnstableApi::class) // MediaRouteButtonFactory is unstable API.
+  override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    super.onCreateOptionsMenu(menu)
+    getMenuInflater().inflate(R.menu.menu, menu)
+    val unused = MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    return true
   }
 
   override fun onOptionsItemSelected(item: MenuItem): Boolean {

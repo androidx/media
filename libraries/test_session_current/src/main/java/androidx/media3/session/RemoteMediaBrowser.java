@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.os.RemoteException;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import com.google.common.collect.ImmutableList;
 
@@ -46,19 +47,19 @@ public class RemoteMediaBrowser extends RemoteMediaController {
   public LibraryResult<MediaItem> getLibraryRoot(@Nullable LibraryParams params)
       throws RemoteException {
     Bundle result = binder.getLibraryRoot(controllerId, params == null ? null : params.toBundle());
-    return LibraryResult.fromItemBundle(result);
+    return LibraryResult.fromItemBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<Void> subscribe(String parentId, @Nullable LibraryParams params)
       throws RemoteException {
     Bundle result =
         binder.subscribe(controllerId, parentId, params == null ? null : params.toBundle());
-    return LibraryResult.fromVoidBundle(result);
+    return LibraryResult.fromVoidBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<Void> unsubscribe(String parentId) throws RemoteException {
     Bundle result = binder.unsubscribe(controllerId, parentId);
-    return LibraryResult.fromVoidBundle(result);
+    return LibraryResult.fromVoidBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<ImmutableList<MediaItem>> getChildren(
@@ -67,18 +68,18 @@ public class RemoteMediaBrowser extends RemoteMediaController {
     Bundle result =
         binder.getChildren(
             controllerId, parentId, page, pageSize, params == null ? null : params.toBundle());
-    return LibraryResult.fromItemListBundle(result);
+    return LibraryResult.fromItemListBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<MediaItem> getItem(String mediaId) throws RemoteException {
     Bundle result = binder.getItem(controllerId, mediaId);
-    return LibraryResult.fromItemBundle(result);
+    return LibraryResult.fromItemBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<Void> search(String query, @Nullable LibraryParams params)
       throws RemoteException {
     Bundle result = binder.search(controllerId, query, params == null ? null : params.toBundle());
-    return LibraryResult.fromVoidBundle(result);
+    return LibraryResult.fromVoidBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   public LibraryResult<ImmutableList<MediaItem>> getSearchResult(
@@ -86,7 +87,7 @@ public class RemoteMediaBrowser extends RemoteMediaController {
     Bundle result =
         binder.getSearchResult(
             controllerId, query, page, pageSize, params == null ? null : params.toBundle());
-    return LibraryResult.fromItemListBundle(result);
+    return LibraryResult.fromItemListBundle(result, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   ////////////////////////////////////////////////////////////////////////////////

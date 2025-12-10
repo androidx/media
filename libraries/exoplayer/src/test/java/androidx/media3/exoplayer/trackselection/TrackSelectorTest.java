@@ -59,7 +59,7 @@ public class TrackSelectorTest {
 
   @Test
   public void getBandwidthMeter_beforeInitialization_throwsException() {
-    assertThrows(IllegalStateException.class, () -> trackSelector.getBandwidthMeter());
+    assertThrows(NullPointerException.class, () -> trackSelector.getBandwidthMeter());
   }
 
   @Test
@@ -79,7 +79,7 @@ public class TrackSelectorTest {
 
     trackSelector.release();
 
-    assertThrows(IllegalStateException.class, () -> trackSelector.getBandwidthMeter());
+    assertThrows(NullPointerException.class, () -> trackSelector.getBandwidthMeter());
   }
 
   @Test

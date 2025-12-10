@@ -15,9 +15,8 @@
  */
 package androidx.media3.decoder.midi;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -217,8 +216,7 @@ public final class MidiExtractor implements Extractor, SeekMap {
             outputEmptySample();
           } else { // Event time is sooner than the maximum threshold.
             currentTimestampUs = nextCommandTimestampUs;
-            nextChunk.outputFrontSample(
-                checkStateNotNull(trackOutput), /* skipNoteEvents= */ false);
+            nextChunk.outputFrontSample(checkNotNull(trackOutput), /* skipNoteEvents= */ false);
             nextChunk.populateFrontTrackEvent();
           }
 
@@ -339,7 +337,7 @@ public final class MidiExtractor implements Extractor, SeekMap {
   }
 
   private void outputEmptySample() {
-    checkStateNotNull(trackOutput)
+    checkNotNull(trackOutput)
         .sampleMetadata(
             currentTimestampUs,
             /* flags= */ 0,
@@ -354,7 +352,7 @@ public final class MidiExtractor implements Extractor, SeekMap {
       long nextTimestampUs = nextChunk.peekNextTimestampUs();
 
       if (nextTimestampUs != C.TIME_UNSET && nextTimestampUs < seekTimeUs) {
-        nextChunk.outputFrontSample(checkStateNotNull(trackOutput), /* skipNoteEvents= */ true);
+        nextChunk.outputFrontSample(checkNotNull(trackOutput), /* skipNoteEvents= */ true);
         nextChunk.populateFrontTrackEvent();
         trackPriorityQueue.add(nextChunk);
       }

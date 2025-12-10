@@ -20,11 +20,13 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
+import java.util.IdentityHashMap;
 import java.util.List;
 
 /**
@@ -55,6 +57,9 @@ public class ForwardingPlayer implements Player {
 
   private final Player player;
 
+  @GuardedBy("listeners")
+  private final IdentityHashMap<Listener, ForwardingListener> listeners = new IdentityHashMap<>();
+
   /** Creates a new instance that forwards all operations to {@code player}. */
   public ForwardingPlayer(Player player) {
     this.player = player;
@@ -78,7 +83,14 @@ public class ForwardingPlayer implements Player {
    */
   @Override
   public void addListener(Listener listener) {
-    player.addListener(new ForwardingListener(this, listener));
+    synchronized (listeners) {
+      ForwardingListener forwardingListener = listeners.get(listener);
+      if (forwardingListener == null) {
+        forwardingListener = new ForwardingListener(this, listener);
+      }
+      player.addListener(forwardingListener);
+      listeners.put(listener, forwardingListener);
+    }
   }
 
   /**
@@ -90,7 +102,12 @@ public class ForwardingPlayer implements Player {
    */
   @Override
   public void removeListener(Listener listener) {
-    player.removeListener(new ForwardingListener(this, listener));
+    synchronized (listeners) {
+      Listener forwardingListener = listeners.remove(listener);
+      // If forwardingListener is null, we don't know this listener. Just pass in the real listener
+      // as the underlying player would not know it either. It can decide to throw or ignore.
+      player.removeListener(forwardingListener != null ? forwardingListener : listener);
+    }
   }
 
   /** Calls {@link Player#setMediaItems(List)} on the delegate. */
@@ -678,6 +695,12 @@ public class ForwardingPlayer implements Player {
     return player.getAudioAttributes();
   }
 
+  /** Calls {@link Player#getAudioSessionId()} on the delegate and returns the result. */
+  @Override
+  public int getAudioSessionId() {
+    return player.getAudioSessionId();
+  }
+
   /** Calls {@link Player#setVolume(float)} on the delegate. */
   @Override
   public void setVolume(float volume) {
@@ -688,6 +711,18 @@ public class ForwardingPlayer implements Player {
   @Override
   public float getVolume() {
     return player.getVolume();
+  }
+
+  /** Calls {@link Player#mute()} on the delegate. */
+  @Override
+  public void mute() {
+    player.mute();
+  }
+
+  /** Calls {@link Player#unmute()} on the delegate. */
+  @Override
+  public void unmute() {
+    player.unmute();
   }
 
   /** Calls {@link Player#getVideoSize()} on the delegate and returns the result. */
@@ -1057,28 +1092,6 @@ public class ForwardingPlayer implements Player {
     @Override
     public void onDeviceVolumeChanged(int volume, boolean muted) {
       listener.onDeviceVolumeChanged(volume, muted);
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof ForwardingListener)) {
-        return false;
-      }
-      ForwardingListener that = (ForwardingListener) o;
-      if (!forwardingPlayer.equals(that.forwardingPlayer)) {
-        return false;
-      }
-      return listener.equals(that.listener);
-    }
-
-    @Override
-    public int hashCode() {
-      int result = forwardingPlayer.hashCode();
-      result = 31 * result + listener.hashCode();
-      return result;
     }
   }
 }

@@ -16,12 +16,11 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.AudioTrack;
 import androidx.annotation.Nullable;
@@ -101,7 +100,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private EditedMediaItemInfo currentEditedMediaItemInfo;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
+  private long offsetToEditedMediaItemStartUs;
   private boolean isConfigurationPending;
+  private boolean isFlushPending;
 
   public AudioGraphInputAudioSink(Controller controller) {
     this.controller = controller;
@@ -114,12 +115,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param editedMediaItem The {@link EditedMediaItem}.
    * @param offsetToCompositionTimeUs The offset to add to the audio buffer timestamps to convert
    *     them to the composition time, in microseconds.
+   * @param offsetToEditedMediaItemStartUs The position of the current {@link EditedMediaItem}'s
+   *     start relative to the audio buffer's presentation timestamp.
    * @param isLastInSequence Whether this is the last item in the sequence.
    */
   public void onMediaItemChanged(
-      EditedMediaItem editedMediaItem, long offsetToCompositionTimeUs, boolean isLastInSequence) {
+      EditedMediaItem editedMediaItem,
+      long offsetToCompositionTimeUs,
+      long offsetToEditedMediaItemStartUs,
+      boolean isLastInSequence) {
     currentEditedMediaItemInfo = new EditedMediaItemInfo(editedMediaItem, isLastInSequence);
     this.offsetToCompositionTimeUs = offsetToCompositionTimeUs;
+    this.offsetToEditedMediaItemStartUs = offsetToEditedMediaItemStartUs;
   }
 
   // AudioSink methods
@@ -136,7 +143,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isEnded() {
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return inputStreamEnded;
     }
 
@@ -149,13 +157,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws InitializationException {
     checkState(!inputStreamEnded);
 
-    EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
+    EditedMediaItem editedMediaItem = checkNotNull(currentEditedMediaItemInfo).editedMediaItem;
     if (outputGraphInput == null) {
 
       AudioGraphInput outputGraphInput;
       try {
         outputGraphInput =
-            controller.getAudioGraphInput(editedMediaItem, checkStateNotNull(currentInputFormat));
+            controller.getAudioGraphInput(editedMediaItem, checkNotNull(currentInputFormat));
       } catch (ExportException e) {
         throw new InitializationException(
             "Error creating AudioGraphInput",
@@ -177,8 +185,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // TODO: b/406185875 - Propagate media duration after implementing handling for seeks in
       //  transitions.
       this.outputGraphInput.onMediaItemChanged(
-          editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+          editedMediaItem,
+          /* durationUs= */ C.TIME_UNSET,
+          currentInputFormat,
+          /* isLast= */ false,
+          /* positionOffsetUs= */ presentationTimeUs - offsetToEditedMediaItemStartUs);
       isConfigurationPending = false;
+      isFlushPending = false;
+    } else if (isFlushPending) {
+      this.outputGraphInput.flush(
+          /* positionOffsetUs= */ presentationTimeUs - offsetToEditedMediaItemStartUs);
+      isFlushPending = false;
     }
 
     return handleBufferInternal(buffer, presentationTimeUs, /* flags= */ 0);
@@ -187,11 +204,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void playToEndOfStream() {
     inputStreamEnded = true;
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return;
     }
     // Queue end-of-stream only if playing the last media item in the sequence.
-    if (!signalledEndOfStream && checkStateNotNull(currentEditedMediaItemInfo).isLastInSequence) {
+    if (!signalledEndOfStream && checkNotNull(currentEditedMediaItemInfo).isLastInSequence) {
       signalledEndOfStream =
           handleBufferInternal(
               EMPTY_BUFFER, C.TIME_END_OF_SOURCE, /* flags= */ C.BUFFER_FLAG_END_OF_STREAM);
@@ -236,14 +254,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void flush() {
     inputStreamEnded = false;
     signalledEndOfStream = false;
+    isFlushPending = true;
   }
 
   @Override
   public void reset() {
-    flush();
+    inputStreamEnded = false;
+    signalledEndOfStream = false;
     currentInputFormat = null;
     currentEditedMediaItemInfo = null;
+    offsetToEditedMediaItemStartUs = 0;
+    offsetToCompositionTimeUs = 0;
     isConfigurationPending = false;
+    isFlushPending = false;
   }
 
   // Unsupported interface functionality.
@@ -311,7 +334,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private boolean handleBufferInternal(ByteBuffer buffer, long presentationTimeUs, int flags) {
-    checkStateNotNull(currentInputFormat);
+    checkNotNull(currentInputFormat);
     checkState(!signalledEndOfStream);
     AudioGraphInput outputGraphInput = checkNotNull(this.outputGraphInput);
 
@@ -322,6 +345,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int bytesToWrite = buffer.remaining();
     outputBuffer.ensureSpaceForWrite(bytesToWrite);
     checkNotNull(outputBuffer.data).put(buffer).flip();
+    // This is the presentation time relative to the composition.
     outputBuffer.timeUs =
         presentationTimeUs == C.TIME_END_OF_SOURCE
             ? C.TIME_END_OF_SOURCE

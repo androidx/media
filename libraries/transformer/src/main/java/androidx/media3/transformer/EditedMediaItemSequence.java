@@ -15,15 +15,22 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import java.util.Set;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * A sequence of {@link EditedMediaItem} instances.
@@ -32,22 +39,104 @@ import java.util.List;
  */
 @UnstableApi
 public final class EditedMediaItemSequence {
+  private static final ImmutableSet<@C.TrackType Integer> ALLOWED_TRACK_TYPES =
+      ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO);
+
+  /**
+   * Creates an audio-only sequence from a list of {@link EditedMediaItem}s.
+   *
+   * <p>This is equivalent to using the {@link Builder} and setting the track types to only include
+   * {@link C#TRACK_TYPE_AUDIO}. The sequence will only produce an audio output.
+   *
+   * @param editedMediaItems The list of {@link EditedMediaItem}s to add to the sequence.
+   * @return A new audio-only {@link EditedMediaItemSequence}.
+   */
+  public static EditedMediaItemSequence withAudioFrom(List<EditedMediaItem> editedMediaItems) {
+    return new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+        .addItems(editedMediaItems)
+        .build();
+  }
+
+  /**
+   * Creates an video-only sequence from a list of {@link EditedMediaItem}s.
+   *
+   * <p>This is equivalent to using the {@link Builder} and setting the track types to only include
+   * {@link C#TRACK_TYPE_VIDEO}. The sequence will only produce a video output.
+   *
+   * @param editedMediaItems The list of {@link EditedMediaItem}s to add to the sequence.
+   * @return A new video-only {@link EditedMediaItemSequence}.
+   */
+  public static EditedMediaItemSequence withVideoFrom(List<EditedMediaItem> editedMediaItems) {
+    return new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
+        .addItems(editedMediaItems)
+        .build();
+  }
+
+  /**
+   * Creates a sequence with both audio and video from a list of {@link EditedMediaItem}s.
+   *
+   * <p>This is equivalent to using the {@link Builder} and setting the track types to include
+   * {@link C#TRACK_TYPE_AUDIO} and {@link C#TRACK_TYPE_VIDEO}. The sequence will produce both audio
+   * and video output.
+   *
+   * @param editedMediaItems The list of {@link EditedMediaItem}s to add to the sequence.
+   * @return A new audio and video {@link EditedMediaItemSequence}.
+   */
+  public static EditedMediaItemSequence withAudioAndVideoFrom(
+      List<EditedMediaItem> editedMediaItems) {
+    return new EditedMediaItemSequence.Builder(
+            ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+        .addItems(editedMediaItems)
+        .build();
+  }
 
   /** A builder for instances of {@link EditedMediaItemSequence}. */
   public static final class Builder {
     private final ImmutableList.Builder<EditedMediaItem> items;
+    private ImmutableSet<@C.TrackType Integer> trackTypes;
     private boolean isLooping;
-    private boolean forceAudioTrack;
-    private boolean forceVideoTrack;
 
-    /** Creates an instance. */
-    public Builder(EditedMediaItem... editedMediaItems) {
-      items = new ImmutableList.Builder<EditedMediaItem>().add(editedMediaItems);
+    /**
+     * Creates an instance.
+     *
+     * @param trackTypes The non-empty set of track types enabled for this sequence. Must only
+     *     contain {@link C#TRACK_TYPE_AUDIO} and/or {@link C#TRACK_TYPE_VIDEO}. This determines
+     *     which tracks will be included in this sequence's output. For example, passing a set
+     *     containing only {@link C#TRACK_TYPE_AUDIO} will result in an audio-only sequence.
+     */
+    public Builder(Set<@C.TrackType Integer> trackTypes) {
+      checkState(!trackTypes.isEmpty());
+      checkState(
+          ALLOWED_TRACK_TYPES.containsAll(trackTypes),
+          "trackTypes must only contain TRACK_TYPE_AUDIO and/or TRACK_TYPE_VIDEO.");
+      this.trackTypes = ImmutableSet.copyOf(trackTypes);
+      this.items = new ImmutableList.Builder<>();
     }
 
-    /* Creates an instance. */
+    /**
+     * @deprecated Use {@link Builder#Builder(Set)} to create the builder, and {@link
+     *     #addItems(List)} to add the {@link EditedMediaItem}s, or use the static factory methods
+     *     like {@link #withAudioFrom(List)}, {@link #withVideoFrom(List)}, or {@link
+     *     #withAudioAndVideoFrom(List)}.
+     */
+    // TODO: b/445884217 - Remove deprecated builders.
+    @Deprecated
+    public Builder(EditedMediaItem... editedMediaItems) {
+      this.trackTypes = ImmutableSet.of(C.TRACK_TYPE_NONE);
+      this.items = new ImmutableList.Builder<EditedMediaItem>().add(editedMediaItems);
+    }
+
+    /**
+     * @deprecated Use {@link Builder#Builder(Set)} to create the builder, and {@link
+     *     #addItems(List)} to add the {@link EditedMediaItem}s, or use the static factory methods
+     *     like {@link #withAudioFrom(List)}, {@link #withVideoFrom(List)}, or {@link
+     *     #withAudioAndVideoFrom(List)}.
+     */
+    // TODO: b/445884217 - Remove deprecated builders.
+    @Deprecated
     public Builder(List<EditedMediaItem> editedMediaItems) {
-      items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
+      this.trackTypes = ImmutableSet.of(C.TRACK_TYPE_NONE);
+      this.items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
     }
 
     /** Creates a new instance to build upon the provided {@link EditedMediaItemSequence}. */
@@ -56,8 +145,7 @@ public final class EditedMediaItemSequence {
           new ImmutableList.Builder<EditedMediaItem>()
               .addAll(editedMediaItemSequence.editedMediaItems);
       isLooping = editedMediaItemSequence.isLooping;
-      forceAudioTrack = editedMediaItemSequence.forceAudioTrack;
-      forceVideoTrack = editedMediaItemSequence.forceVideoTrack;
+      trackTypes = editedMediaItemSequence.trackTypes;
     }
 
     /**
@@ -101,9 +189,7 @@ public final class EditedMediaItemSequence {
      *
      * <p>A gap is a period of time with no media.
      *
-     * <p>If the gap is added at the start of the sequence, then {@linkplain
-     * #experimentalSetForceAudioTrack(boolean) force audio track} or/and {@linkplain
-     * #experimentalSetForceVideoTrack(boolean) force video track} flag must be set appropriately.
+     * <p>The gap's tracks match the {@link EditedMediaItemSequence#trackTypes}.
      *
      * @param durationUs The duration of the gap, in milliseconds.
      * @return This builder, for convenience.
@@ -133,78 +219,38 @@ public final class EditedMediaItemSequence {
     }
 
     /**
-     * Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}.
-     *
-     * <p>This flag is necessary when:
-     *
-     * <ul>
-     *   <li>The first {@link EditedMediaItem} in the sequence does not contain audio, but
-     *       subsequent items do.
-     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
-     *       {@linkplain EditedMediaItem media items} contain audio.
-     * </ul>
-     *
-     * <p>If the flag is not set appropriately, then the export will {@linkplain
-     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
-     *
-     * <p>If the first {@link EditedMediaItem} already contains audio, this flag has no effect.
-     *
-     * <p>The MIME type of the output's audio track can be set using {@link
-     * Transformer.Builder#setAudioMimeType(String)}. The sample rate and channel count can be set
-     * by passing relevant {@link AudioProcessor} instances to the {@link Composition}.
-     *
-     * <p>Forcing an audio track and {@linkplain Composition.Builder#setTransmuxAudio(boolean)
-     * requesting audio transmuxing} are not allowed together because generating silence requires
-     * transcoding.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @param forceAudioTrack Whether to force audio track.
+     * @deprecated Use {@link #Builder(Set)} to set sequence track types instead.
      */
+    // TODO: b/445884217 - Remove deprecated methods.
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder experimentalSetForceAudioTrack(boolean forceAudioTrack) {
-      this.forceAudioTrack = forceAudioTrack;
+      checkState(trackTypes.contains(C.TRACK_TYPE_NONE));
+      if (forceAudioTrack) {
+        trackTypes =
+            new ImmutableSet.Builder<Integer>().addAll(trackTypes).add(C.TRACK_TYPE_AUDIO).build();
+      } else {
+        trackTypes =
+            Sets.difference(trackTypes, ImmutableSet.of(C.TRACK_TYPE_AUDIO)).immutableCopy();
+      }
       return this;
     }
 
     /**
-     * Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}.
-     *
-     * <p>This flag is necessary when:
-     *
-     * <ul>
-     *   <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
-     *       subsequent items do.
-     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
-     *       {@linkplain EditedMediaItem media items} contain video.
-     * </ul>
-     *
-     * <p>If the flag is not set appropriately, then the export will {@linkplain
-     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
-     *
-     * <p>If the first {@link EditedMediaItem} already contains video, this flag has no effect.
-     *
-     * <p>The MIME type of the output's video track can be set using {@link
-     * Transformer.Builder#setVideoMimeType(String)}.
-     *
-     * <p>The output resolution must be set using a {@link Presentation} effect on the {@link
-     * Composition}.
-     *
-     * <p>Forcing a video track and {@linkplain Composition.Builder#setTransmuxVideo(boolean)
-     * requesting video transmuxing} are not allowed together because generating blank frames
-     * requires transcoding.
-     *
-     * <p>The default value is {@code false}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @param forceVideoTrack Whether to force video track.
+     * @deprecated Use {@link #Builder(Set)} to set sequence track types instead.
      */
+    // TODO: b/445884217 - Remove deprecated methods.
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder experimentalSetForceVideoTrack(boolean forceVideoTrack) {
-      this.forceVideoTrack = forceVideoTrack;
+      checkState(trackTypes.contains(C.TRACK_TYPE_NONE));
+      if (forceVideoTrack) {
+        trackTypes =
+            new ImmutableSet.Builder<Integer>().addAll(trackTypes).add(C.TRACK_TYPE_VIDEO).build();
+      } else {
+        trackTypes =
+            Sets.difference(trackTypes, ImmutableSet.of(C.TRACK_TYPE_VIDEO)).immutableCopy();
+      }
       return this;
     }
 
@@ -228,6 +274,15 @@ public final class EditedMediaItemSequence {
   public final ImmutableList<EditedMediaItem> editedMediaItems;
 
   /**
+   * The track types enabled for this sequence.
+   *
+   * <p>This set, containing {@link C#TRACK_TYPE_AUDIO} and/or {@link C#TRACK_TYPE_VIDEO},
+   * determines which tracks will be included in the sequence's output. For example, a set
+   * containing only {@link C#TRACK_TYPE_AUDIO} will result in an audio-only output.
+   */
+  public final ImmutableSet<@C.TrackType Integer> trackTypes;
+
+  /**
    * Whether this sequence is looping.
    *
    * <p>This value indicates whether to loop over the {@link EditedMediaItem} instances in this
@@ -239,36 +294,17 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
-  /** Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}. */
-  public final boolean forceAudioTrack;
-
-  /** Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}. */
-  public final boolean forceVideoTrack;
-
+  // TODO: b/445884217 - Remove deprecated field.
   /**
-   * @deprecated Use {@link Builder}.
+   * @deprecated Use {@code trackTypes.contains(C.TRACK_TYPE_AUDIO)} instead.
    */
-  @Deprecated
-  public EditedMediaItemSequence(
-      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    this(new Builder().addItem(editedMediaItem).addItems(editedMediaItems));
-  }
+  @Deprecated public final boolean forceAudioTrack;
 
+  // TODO: b/445884217 - Remove deprecated field.
   /**
-   * @deprecated Use {@link Builder}.
+   * @deprecated Use {@code trackTypes.contains(C.TRACK_TYPE_VIDEO)} instead.
    */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
-    this(new Builder().addItems(editedMediaItems));
-  }
-
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems, boolean isLooping) {
-    this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
-  }
+  @Deprecated public final boolean forceVideoTrack;
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
@@ -300,17 +336,50 @@ public final class EditedMediaItemSequence {
     return sequence.editedMediaItems.get(mediaItemIndex);
   }
 
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItemSequence}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      JSONArray editedMediaItemsJsonArray = new JSONArray();
+      for (int i = 0; i < editedMediaItems.size(); i++) {
+        editedMediaItemsJsonArray.put(editedMediaItems.get(i).toJsonObject());
+      }
+      jsonObject.put("mediaItems", editedMediaItemsJsonArray);
+      jsonObject.put("trackTypes", new JSONArray(trackTypes));
+      jsonObject.put("isLooping", isLooping);
+      return jsonObject;
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedSequence", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
+  }
+
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
     this.editedMediaItems = builder.items.build();
     checkArgument(
         !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
-    checkArgument(
-        !editedMediaItems.get(0).isGap() || builder.forceAudioTrack || builder.forceVideoTrack,
-        "If the first item in the sequence is a Gap, then forceAudioTrack or forceVideoTrack flag"
-            + " must be set");
+
+    ImmutableSet<@C.TrackType Integer> trackTypes = builder.trackTypes;
+    // TODO: b/445884217 - Remove TRACK_TYPE_NONE logic.
+    if (trackTypes.contains(C.TRACK_TYPE_NONE)) {
+      // When using the deprecated builder, we still need to check that the flags are set when
+      // sequence starts with a gap.
+      checkArgument(
+          !editedMediaItems.get(0).isGap()
+              || trackTypes.contains(C.TRACK_TYPE_AUDIO)
+              || trackTypes.contains(C.TRACK_TYPE_VIDEO),
+          "If the first item in the sequence is a Gap, then forceAudioTrack or forceVideoTrack flag"
+              + " must be set");
+    }
+    this.trackTypes = trackTypes;
     this.isLooping = builder.isLooping;
-    this.forceAudioTrack = builder.forceAudioTrack;
-    this.forceVideoTrack = builder.forceVideoTrack;
+    this.forceAudioTrack = trackTypes.contains(C.TRACK_TYPE_AUDIO);
+    this.forceVideoTrack = trackTypes.contains(C.TRACK_TYPE_VIDEO);
   }
 
   /** Return whether any items are a {@linkplain Builder#addGap(long) gap}. */
@@ -321,5 +390,25 @@ public final class EditedMediaItemSequence {
       }
     }
     return false;
+  }
+
+  /**
+   * Returns a copy of this sequence replacing its {@link EditedMediaItem} list with {@code items}.
+   */
+  /* package */ EditedMediaItemSequence copyWithEditedMediaItems(List<EditedMediaItem> items) {
+    checkArgument(!items.isEmpty());
+    // TODO: b/445884217 - Remove TRACK_TYPE_NONE logic
+    if (this.trackTypes.contains(C.TRACK_TYPE_NONE)) {
+      return new EditedMediaItemSequence.Builder(items)
+          .setIsLooping(this.isLooping)
+          .experimentalSetForceAudioTrack(this.forceAudioTrack)
+          .experimentalSetForceVideoTrack(this.forceVideoTrack)
+          .build();
+    } else {
+      return new EditedMediaItemSequence.Builder(this.trackTypes)
+          .addItems(items)
+          .setIsLooping(this.isLooping)
+          .build();
+    }
   }
 }

@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.text;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Handler;
@@ -223,7 +223,8 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame) {
     lastRendererPositionUs = positionUs;
     if (cuesResolver != null) {
       cuesResolver.clear();
@@ -618,11 +619,9 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_CEA608)
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_MP4CEA608)
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_CEA708),
-        "Legacy decoding is disabled, can't handle "
-            + streamFormat.sampleMimeType
-            + " samples (expected "
-            + MimeTypes.APPLICATION_MEDIA3_CUES
-            + ").");
+        "Legacy decoding is disabled, can't handle %s samples (expected %s).",
+        streamFormat.sampleMimeType,
+        MimeTypes.APPLICATION_MEDIA3_CUES);
   }
 
   /** Returns whether {@link Format#sampleMimeType} is {@link MimeTypes#APPLICATION_MEDIA3_CUES}. */

@@ -15,11 +15,12 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,11 +28,13 @@ import java.util.Arrays;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * A {@link BitmapLoader} that caches the result of the last {@link #decodeBitmap(byte[])} or {@link
- * #loadBitmap(Uri)} request. Requests are fulfilled from the last bitmap load request when the last
- * bitmap is requested from the same {@code data} or the last bitmap is requested from the same
- * {@code uri}. If it's not the above two cases, the request is forwarded to the provided {@link
- * BitmapLoader} and the result is cached.
+ * A {@link BitmapLoader} that caches the result of the last {@link #decodeBitmap(byte[])}, {@link
+ * #loadBitmap(Uri)} or {@link #loadBitmapFromMetadata(MediaMetadata)} request.
+ *
+ * <p>Requests are fulfilled from the last bitmap load request when the last bitmap is requested
+ * from the same {@code data}, the same {@code uri}, or the same {@link MediaMetadata#artworkUri} or
+ * {@link MediaMetadata#artworkData}. If the request doesn't match the previous request, the request
+ * is forwarded to the provided {@link BitmapLoader} and the result is cached.
  */
 @UnstableApi
 public final class CacheBitmapLoader implements BitmapLoader {
@@ -73,6 +76,20 @@ public final class CacheBitmapLoader implements BitmapLoader {
     return future;
   }
 
+  @Nullable
+  @Override
+  public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+    if (lastBitmapLoadRequest != null && lastBitmapLoadRequest.matches(metadata)) {
+      return lastBitmapLoadRequest.getFuture();
+    }
+    ListenableFuture<Bitmap> future = bitmapLoader.loadBitmapFromMetadata(metadata);
+    if (future == null) {
+      return null;
+    }
+    lastBitmapLoadRequest = new BitmapLoadRequest(metadata, future);
+    return future;
+  }
+
   /**
    * Stores the result of a bitmap load request. Requests are identified either by a byte array, if
    * the bitmap is loaded from compressed data, or a URI, if the bitmap was loaded from a URI.
@@ -82,31 +99,49 @@ public final class CacheBitmapLoader implements BitmapLoader {
     @Nullable private final Uri uri;
     @Nullable private final ListenableFuture<Bitmap> future;
 
-    public BitmapLoadRequest(byte[] data, ListenableFuture<Bitmap> future) {
+    /** Creates load request for byte array. */
+    private BitmapLoadRequest(byte[] data, ListenableFuture<Bitmap> future) {
       this.data = data;
       this.uri = null;
       this.future = future;
     }
 
-    public BitmapLoadRequest(Uri uri, ListenableFuture<Bitmap> future) {
+    /** Creates load request for URI. */
+    private BitmapLoadRequest(Uri uri, ListenableFuture<Bitmap> future) {
       this.data = null;
       this.uri = uri;
       this.future = future;
     }
 
+    /** Creates load request for media metadata. */
+    private BitmapLoadRequest(MediaMetadata metadata, ListenableFuture<Bitmap> future) {
+      this.data = metadata.artworkData;
+      this.uri = metadata.artworkUri;
+      this.future = future;
+    }
+
     /** Whether the bitmap load request was performed for {@code data}. */
-    public boolean matches(@Nullable byte[] data) {
+    private boolean matches(byte[] data) {
       return this.data != null && Arrays.equals(this.data, data);
     }
 
     /** Whether the bitmap load request was performed for {@code uri}. */
-    public boolean matches(@Nullable Uri uri) {
+    private boolean matches(Uri uri) {
       return this.uri != null && this.uri.equals(uri);
     }
 
+    /**
+     * Whether the bitmap load request was performed for either {@code metadata.artworkUri} or
+     * {@code metadata.artworkData}.
+     */
+    private boolean matches(MediaMetadata metadata) {
+      return (this.uri != null && this.uri.equals(metadata.artworkUri))
+          || (this.data != null && Arrays.equals(this.data, metadata.artworkData));
+    }
+
     /** Returns the future that set for the bitmap load request. */
-    public ListenableFuture<Bitmap> getFuture() {
-      return checkStateNotNull(future);
+    private ListenableFuture<Bitmap> getFuture() {
+      return checkNotNull(future);
     }
   }
 }

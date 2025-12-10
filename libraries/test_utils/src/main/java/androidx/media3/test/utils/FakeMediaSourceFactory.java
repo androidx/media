@@ -15,9 +15,8 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
@@ -27,7 +26,6 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceFactory;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
-import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Fake {@link MediaSourceFactory} that creates a {@link FakeMediaSource}. */
@@ -39,7 +37,24 @@ public final class FakeMediaSourceFactory implements MediaSourceFactory {
   /** The window UID used by media sources that are created by the factory. */
   public static final Object DEFAULT_WINDOW_UID = new Object();
 
+  private final TimelineWindowDefinition.Builder timelineWindowDefintionBuilder;
+
   private @MonotonicNonNull FakeMediaSource lastCreatedSource;
+
+  /** Creates an instance. */
+  public FakeMediaSourceFactory() {
+    this(
+        new TimelineWindowDefinition.Builder()
+            .setUid(DEFAULT_WINDOW_UID)
+            .setDurationUs(10 * C.MICROS_PER_SECOND)
+            .setDefaultPositionUs(2 * C.MICROS_PER_SECOND)
+            .setWindowPositionInFirstPeriodUs(Util.msToUs(123456789)));
+  }
+
+  /** Creates an instance with a custom {@link TimelineWindowDefinition.Builder} */
+  public FakeMediaSourceFactory(TimelineWindowDefinition.Builder timelineWindowDefintionBuilder) {
+    this.timelineWindowDefintionBuilder = timelineWindowDefintionBuilder;
+  }
 
   /**
    * Returns the last created {@link FakeMediaSource}.
@@ -70,20 +85,9 @@ public final class FakeMediaSourceFactory implements MediaSourceFactory {
 
   @Override
   public MediaSource createMediaSource(MediaItem mediaItem) {
-    TimelineWindowDefinition timelineWindowDefinition =
-        new TimelineWindowDefinition(
-            /* periodCount= */ 1,
-            /* id= */ DEFAULT_WINDOW_UID,
-            /* isSeekable= */ true,
-            /* isDynamic= */ false,
-            /* isLive= */ false,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ 1000 * C.MICROS_PER_SECOND,
-            /* defaultPositionUs= */ 2 * C.MICROS_PER_SECOND,
-            /* windowOffsetInFirstPeriodUs= */ Util.msToUs(123456789),
-            ImmutableList.of(AdPlaybackState.NONE),
-            mediaItem);
-    lastCreatedSource = new FakeMediaSource(new FakeTimeline(timelineWindowDefinition));
+    lastCreatedSource =
+        new FakeMediaSource(
+            new FakeTimeline(timelineWindowDefintionBuilder.setMediaItem(mediaItem).build()));
     return lastCreatedSource;
   }
 }

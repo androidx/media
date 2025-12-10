@@ -15,7 +15,8 @@
  */
 package androidx.media3.extractor.ts;
 
-import androidx.media3.common.util.Assertions;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 
@@ -65,7 +66,7 @@ public final class NalUnitTargetBuffer {
    * @param type The type of the NAL unit.
    */
   public void startNalUnit(int type) {
-    Assertions.checkState(!isFilling);
+    checkState(!isFilling);
     isFilling = type == targetType;
     if (isFilling) {
       // Skip the three byte start code when writing data.

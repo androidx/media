@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.ima;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
@@ -25,6 +25,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
 import androidx.media3.common.util.UnstableApi;
+import com.google.ads.interactivemedia.v3.api.CustomUiOptions;
 import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
 import com.google.ads.interactivemedia.v3.api.StreamRequest;
 import com.google.ads.interactivemedia.v3.api.StreamRequest.StreamFormat;
@@ -50,6 +51,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
   private static final String API_KEY = "apiKey";
   private static final String CONTENT_SOURCE_ID = "contentSourceId";
   private static final String VIDEO_ID = "videoId";
+  private static final String NETWORK_CODE = "networkCode";
   private static final String AD_TAG_PARAMETERS = "adTagParameters";
   private static final String MANIFEST_SUFFIX = "manifestSuffix";
   private static final String CONTENT_URL = "contentUrl";
@@ -57,17 +59,23 @@ public final class ImaServerSideAdInsertionUriBuilder {
   private static final String STREAM_ACTIVITY_MONITOR_ID = "streamActivityMonitorId";
   private static final String FORMAT = "format";
   private static final String LOAD_VIDEO_TIMEOUT_MS = "loadVideoTimeoutMs";
+  private static final String CUSTOM_UI_OPTIONS_SKIPPABLE_SUPPORT =
+      "customUiOptionsSkippableSupport";
+  private static final String CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT =
+      "customUiOptionsAboutThisAdSupport";
 
   @Nullable private String adsId;
   @Nullable private String assetKey;
   @Nullable private String apiKey;
   @Nullable private String contentSourceId;
   @Nullable private String videoId;
+  @Nullable private String networkCode;
   @Nullable private String manifestSuffix;
   @Nullable private String contentUrl;
   @Nullable private String authToken;
   @Nullable private String streamActivityMonitorId;
   private ImmutableMap<String, String> adTagParameters;
+  @Nullable private CustomUiOptions customUiOptions;
   public @ContentType int format;
   private int loadVideoTimeoutMs;
 
@@ -87,7 +95,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @return This instance, for convenience.
    */
   @CanIgnoreReturnValue
-  public ImaServerSideAdInsertionUriBuilder setAdsId(String adsId) {
+  public ImaServerSideAdInsertionUriBuilder setAdsId(@Nullable String adsId) {
     this.adsId = adsId;
     return this;
   }
@@ -139,6 +147,18 @@ public final class ImaServerSideAdInsertionUriBuilder {
   @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setVideoId(@Nullable String videoId) {
     this.videoId = videoId;
+    return this;
+  }
+
+  /**
+   * The stream request network code.
+   *
+   * @param networkCode The request's network code.
+   * @return This instance, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public ImaServerSideAdInsertionUriBuilder setNetworkCode(@Nullable String networkCode) {
+    this.networkCode = networkCode;
     return this;
   }
 
@@ -200,6 +220,19 @@ public final class ImaServerSideAdInsertionUriBuilder {
   public ImaServerSideAdInsertionUriBuilder setAdTagParameters(
       Map<String, String> adTagParameters) {
     this.adTagParameters = ImmutableMap.copyOf(adTagParameters);
+    return this;
+  }
+
+  /**
+   * Sets the custom UI options for the stream request.
+   *
+   * @param customUiOptions Custom UI options for the stream request.
+   * @return This instance, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public ImaServerSideAdInsertionUriBuilder setCustomUiOptions(
+      @Nullable CustomUiOptions customUiOptions) {
+    this.customUiOptions = customUiOptions;
     return this;
   }
 
@@ -283,6 +316,9 @@ public final class ImaServerSideAdInsertionUriBuilder {
     if (videoId != null) {
       dataUriBuilder.appendQueryParameter(VIDEO_ID, videoId);
     }
+    if (networkCode != null) {
+      dataUriBuilder.appendQueryParameter(NETWORK_CODE, networkCode);
+    }
     if (manifestSuffix != null) {
       dataUriBuilder.appendQueryParameter(MANIFEST_SUFFIX, manifestSuffix);
     }
@@ -304,6 +340,15 @@ public final class ImaServerSideAdInsertionUriBuilder {
           AD_TAG_PARAMETERS, adTagParametersUriBuilder.build().toString());
     }
     dataUriBuilder.appendQueryParameter(FORMAT, String.valueOf(format));
+    if (customUiOptions != null) {
+      CustomUiOptions customUiOptions = this.customUiOptions;
+      dataUriBuilder.appendQueryParameter(
+          CUSTOM_UI_OPTIONS_SKIPPABLE_SUPPORT,
+          String.valueOf(customUiOptions.getSkippableSupport()));
+      dataUriBuilder.appendQueryParameter(
+          CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT,
+          String.valueOf(customUiOptions.getAboutThisAdSupport()));
+    }
     return dataUriBuilder.build();
   }
 
@@ -337,12 +382,15 @@ public final class ImaServerSideAdInsertionUriBuilder {
     @Nullable String apiKey = uri.getQueryParameter(API_KEY);
     @Nullable String contentSourceId = uri.getQueryParameter(CONTENT_SOURCE_ID);
     @Nullable String videoId = uri.getQueryParameter(VIDEO_ID);
+    @Nullable String networkCode = uri.getQueryParameter(NETWORK_CODE);
     if (!TextUtils.isEmpty(assetKey)) {
-      streamRequest = ImaSdkFactory.getInstance().createLiveStreamRequest(assetKey, apiKey);
+      streamRequest =
+          ImaSdkFactory.getInstance().createLiveStreamRequest(assetKey, apiKey, networkCode);
     } else {
       streamRequest =
           ImaSdkFactory.getInstance()
-              .createVodStreamRequest(checkNotNull(contentSourceId), checkNotNull(videoId), apiKey);
+              .createVodStreamRequest(
+                  checkNotNull(contentSourceId), checkNotNull(videoId), apiKey, networkCode);
     }
     int format = Integer.parseInt(uri.getQueryParameter(FORMAT));
     if (format == C.CONTENT_TYPE_DASH) {
@@ -380,6 +428,24 @@ public final class ImaServerSideAdInsertionUriBuilder {
     @Nullable String streamActivityMonitorId = uri.getQueryParameter(STREAM_ACTIVITY_MONITOR_ID);
     if (streamActivityMonitorId != null) {
       streamRequest.setStreamActivityMonitorId(streamActivityMonitorId);
+    }
+
+    @Nullable
+    String customUiOptionsSkippableSupport =
+        uri.getQueryParameter(CUSTOM_UI_OPTIONS_SKIPPABLE_SUPPORT);
+    @Nullable
+    String customUiOptionsAboutThisAdSupport =
+        uri.getQueryParameter(CUSTOM_UI_OPTIONS_ABOUT_THIS_AD_SUPPORT);
+    if (customUiOptionsSkippableSupport != null || customUiOptionsAboutThisAdSupport != null) {
+      CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();
+      if (customUiOptionsSkippableSupport != null) {
+        customUiOptions.setSkippableSupport(Boolean.parseBoolean(customUiOptionsSkippableSupport));
+      }
+      if (customUiOptionsAboutThisAdSupport != null) {
+        customUiOptions.setAboutThisAdSupport(
+            Boolean.parseBoolean(customUiOptionsAboutThisAdSupport));
+      }
+      streamRequest.setCustomUiOptions(customUiOptions);
     }
     return streamRequest;
   }

@@ -23,7 +23,6 @@ import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
@@ -31,7 +30,9 @@ import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -51,9 +52,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -70,11 +73,13 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -84,6 +89,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests for {@link MediaSession.Callback} working with {@link MediaControllerCompat}. */
+@SuppressWarnings("deprecation") // Testing compatibility with deprecated MediaControllerCompat
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 public class MediaSessionCallbackWithMediaControllerCompatTest {
@@ -112,7 +118,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
     handler = threadTestRule.getHandler();
-    player = new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
+    player =
+        new MockPlayer.Builder()
+            .setApplicationLooper(handler.getLooper())
+            .setChangePlayerStateWithTransportControl(true)
+            .build();
     audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
     // Intentionally use an Executor with another thread to test asynchronous workflows involving
     // background tasks.
@@ -543,7 +553,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -591,7 +602,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -639,7 +651,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -671,7 +684,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+    List<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
     handler.postAndSync(
         () -> {
           player.setMediaItems(mediaItems);
@@ -782,7 +796,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -813,7 +827,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             /* waitForConnection= */ true);
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -828,8 +842,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void dispatchMediaButtonEvent_playWithEmptyTimeline_callsPlaybackResumptionPrepareAndPlay()
       throws Exception {
-    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    ArrayList<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     AtomicReference<MediaSession> session = new AtomicReference<>();
+    AtomicBoolean isForPlaybackParameter = new AtomicBoolean();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
     session.set(
         mediaSessionTestRule.ensureReleaseAfterTest(
@@ -840,8 +856,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                       @Override
                       public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                           onPlaybackResumption(
-                              MediaSession mediaSession, ControllerInfo controller) {
-                        return Futures.immediateFuture(
+                              MediaSession mediaSession,
+                              ControllerInfo controller,
+                              boolean isForPlayback) {
+                        isForPlaybackParameter.set(isForPlayback);
+                        return immediateFuture(
                             new MediaSession.MediaItemsWithStartPosition(
                                 mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
                       }
@@ -869,6 +888,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     for (ControllerInfo controllerInfo : callerCollectorPlayer.callers) {
       assertThat(session.get().isMediaNotificationController(controllerInfo)).isFalse();
     }
+    assertThat(isForPlaybackParameter.get()).isTrue();
   }
 
   @Test
@@ -936,13 +956,14 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build();
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    List<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
-            return Futures.immediateFuture(
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
+            return immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
                     mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
           }
@@ -976,7 +997,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelineWithMediaNotificationController_callsPlaybackResumptionPrepareAndPlay()
           throws Exception {
-    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    ArrayList<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
     session.set(
@@ -988,8 +1010,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                       @Override
                       public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                           onPlaybackResumption(
-                              MediaSession mediaSession, ControllerInfo controller) {
-                        return Futures.immediateFuture(
+                              MediaSession mediaSession,
+                              ControllerInfo controller,
+                              boolean isForPlayback) {
+                        return immediateFuture(
                             new MediaSession.MediaItemsWithStartPosition(
                                 mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
                       }
@@ -1030,14 +1054,14 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelinePlaybackResumptionFailure_callsHandlePlayButtonAction()
           throws Exception {
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFailedFuture(new UnsupportedOperationException());
           }
         };
@@ -1070,7 +1094,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void dispatchMediaButtonEvent_playWithNonEmptyTimeline_callsHandlePlayButtonAction()
       throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
@@ -1109,7 +1133,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
       dispatchMediaButtonEvent_playWithNonEmptyTimelineWithMediaNotificationController_callsHandlePlayButtonAction()
           throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
@@ -1506,7 +1530,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             assertThat(sessionCommand.customAction).isEqualTo(testCommand);
             assertThat(TestUtils.equals(testArgs, args)).isTrue();
             latch.countDown();
-            return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+            return immediateFuture(new SessionResult(RESULT_SUCCESS));
           }
         };
     session =
@@ -1530,7 +1554,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     String testCommand = "test_custom_command";
     Bundle testArgs = new Bundle();
     testArgs.putString("args", "test_custom_args");
-    SessionCommand customCommand = new SessionCommand(testCommand, /* extras= */ Bundle.EMPTY);
+    SessionCommand customCommand = new SessionCommand(testCommand, testArgs);
     CountDownLatch latch = new CountDownLatch(1);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1557,10 +1581,11 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               SessionCommand sessionCommand,
               Bundle args) {
             if (sessionCommand.customAction.equals(testCommand)
-                && TestUtils.equals(testArgs, args)) {
+                && TestUtils.equals(testArgs, args)
+                && TestUtils.equals(testArgs, sessionCommand.customExtras)) {
               latch.countDown();
             }
-            return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+            return immediateFuture(new SessionResult(RESULT_SUCCESS));
           }
         };
     session =
@@ -1939,7 +1964,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(ImmutableList.of(resolvedMediaItem));
+            return immediateFuture(ImmutableList.of(resolvedMediaItem));
           }
         };
     player.commands =
@@ -1971,7 +1996,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(ImmutableList.of(resolvedMediaItem));
+            return immediateFuture(ImmutableList.of(resolvedMediaItem));
           }
         };
     player.commands =
@@ -2004,7 +2029,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(ImmutableList.of(resolvedMediaItem));
+            return immediateFuture(ImmutableList.of(resolvedMediaItem));
           }
         };
     player.commands =
@@ -2050,12 +2075,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             assertThat(mediaIdOut).isEqualTo(mediaId);
             assertThat(ratingOut).isEqualTo(new StarRating(5, 3.5f));
             latch.countDown();
-            return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+            return immediateFuture(new SessionResult(RESULT_SUCCESS));
           }
         };
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(mediaId);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, mediaId);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
         });
     session =
@@ -2080,7 +2106,6 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public int onPlayerCommandRequest(
               MediaSession session, ControllerInfo controllerInfo, @Player.Command int command) {
-            assertThat(controllerInfo.isTrusted()).isFalse();
             commands.add(command);
             if (command == COMMAND_PLAY_PAUSE) {
               latchForPause.countDown();
@@ -2231,10 +2256,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         new TestSessionCallback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
-            return Futures.immediateFuture(
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
+            return immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
-                    MediaTestUtils.createMediaItems(2),
+                    MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true),
                     /* startIndex= */ 1,
                     /* startPositionMs= */ 123L));
           }
@@ -2278,7 +2303,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return immediateFuture(MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override
@@ -2323,7 +2348,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return immediateFuture(MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override
@@ -2366,7 +2391,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return immediateFuture(MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override
@@ -2393,6 +2418,660 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_ADD_MEDIA_ITEMS)).isTrue();
     assertThat(onPlayerInteractionFinishedCommands.get())
         .isEqualTo(new Player.Commands.Builder().add(Player.COMMAND_CHANGE_MEDIA_ITEMS).build());
+  }
+
+  @Test
+  public void sendCustomAction_malformedPredefinedCommand_doesNotCrash() throws Exception {
+    session = new MediaSession.Builder(context, player).build();
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.sendCustomCommand(
+        new SessionCommand("androidx.media3.session.PLAYER_COMMAND_invalid", Bundle.EMPTY),
+        Bundle.EMPTY);
+
+    // Do something else to know that the malformed custom command has been handled and ignored.
+    controller.getTransportControls().prepare();
+    player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setRating_callsOnSetRating() throws Exception {
+    Rating rating = new StarRating(5, 3.5f);
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
+            .setSessionCommand(
+                new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING), rating)
+            .setDisplayName("test")
+            .build();
+    SettableFuture<Rating> ratingFuture = SettableFuture.create();
+    handler.postAndSync(
+        () -> {
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, "media_id");
+          player.timeline = MediaTestUtils.createTimeline(mediaItems);
+        });
+    MediaSession.Callback callback =
+        new TestSessionCallback() {
+          @Override
+          public ListenableFuture<SessionResult> onSetRating(
+              MediaSession session,
+              ControllerInfo controller,
+              String mediaIdOut,
+              Rating ratingOut) {
+            ratingFuture.set(ratingOut);
+            return immediateFuture(new SessionResult(RESULT_SUCCESS));
+          }
+        };
+    session = new MediaSession.Builder(context, player).setCallback(callback).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    assertThat(ratingFuture.get(TIMEOUT_MS, MILLISECONDS)).isEqualTo(rating);
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_playPauseWithoutParamToFalse_togglesPlayWhenReady()
+          throws Exception {
+    player.playWhenReady = true;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_PLAY_WHEN_READY, TIMEOUT_MS);
+    assertThat(player.playWhenReady).isFalse();
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_playPauseWithParamToFalse_setsPlayWhenReady()
+      throws Exception {
+    player.playWhenReady = true;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PAUSE)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE, false)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_PLAY_WHEN_READY, TIMEOUT_MS);
+    assertThat(player.playWhenReady).isFalse();
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_playPauseWithoutParamToTrue_preparesAndSetsPlayWhenReady()
+          throws Exception {
+    player.playWhenReady = false;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    assertThat(player.playWhenReady).isTrue();
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_playPauseWithParamToTrue_preparesAndSetsPlayWhenReady()
+          throws Exception {
+    player.playWhenReady = false;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PAUSE)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE, true)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    assertThat(player.playWhenReady).isTrue();
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_prepare_callsPrepare() throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setPlayerCommand(Player.COMMAND_PREPARE)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_stop_callsStop() throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_STOP)
+            .setPlayerCommand(Player.COMMAND_STOP)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekToPrevious_callsSeekToPrevious()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekToNext_callsSeekToNext() throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_NEXT)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_seekToPreviousMediaItem_callsSeekToPreviousMediaItem()
+          throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS_MEDIA_ITEM, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekToNextMediaItem_callsSeekToNextMediaItem()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_NEXT)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT_MEDIA_ITEM, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekInCurrentMediaItem_seeksToPosition()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_REWIND)
+            .setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, 1234L)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
+    assertThat(player.seekPositionMs).isEqualTo(1234L);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekBack_callsSeekBack() throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+            .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_BACK, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekForward_callsSeekForward()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
+            .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_FORWARD, TIMEOUT_MS);
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_seekToDefaultPosition_callsSeekToDefaultPosition()
+          throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_seekToMediaItem_seeksToMediaItem()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_NEXT)
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_MEDIA_ITEM, 1)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(
+        MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION_WITH_MEDIA_ITEM_INDEX, TIMEOUT_MS);
+    assertThat(player.seekMediaItemIndex).isEqualTo(1);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setSpeed_setsPlaybackSpeed() throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAYBACK_SPEED)
+            .setPlayerCommand(Player.COMMAND_SET_SPEED_AND_PITCH, 1.5f)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_PLAYBACK_SPEED, TIMEOUT_MS);
+    assertThat(player.playbackParameters.speed).isEqualTo(1.5f);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setShuffleModeWithoutParam_togglesShuffleMode()
+      throws Exception {
+    player.shuffleModeEnabled = false;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+            .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_SHUFFLE_MODE, TIMEOUT_MS);
+    assertThat(player.shuffleModeEnabled).isTrue();
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setShuffleModeWithParam_setsShuffleMode()
+      throws Exception {
+    player.shuffleModeEnabled = false;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+            .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE, true)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_SHUFFLE_MODE, TIMEOUT_MS);
+    assertThat(player.shuffleModeEnabled).isTrue();
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setRepeatMode_setsRepeatMode()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_REPEAT_ONE)
+            .setPlayerCommand(Player.COMMAND_SET_REPEAT_MODE, Player.REPEAT_MODE_ONE)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_REPEAT_MODE, TIMEOUT_MS);
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setMediaItem_setsMediaItem() throws Exception {
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("id").build();
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setPlayerCommand(Player.COMMAND_SET_MEDIA_ITEM, mediaItem)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player)
+            .setCallback(
+                new TestSessionCallback() {
+                  @Override
+                  public ListenableFuture<List<MediaItem>> onAddMediaItems(
+                      MediaSession mediaSession,
+                      ControllerInfo controller,
+                      List<MediaItem> mediaItems) {
+                    return immediateFuture(
+                        ImmutableList.of(
+                            mediaItems.get(0).buildUpon().setUri("http://test.test").build()));
+                  }
+                })
+            .build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION, TIMEOUT_MS);
+    assertThat(player.mediaItems)
+        .containsExactly(mediaItem.buildUpon().setUri("http://test.test").build());
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setPlaylistMetadata_setsPlaylistMetadata()
+      throws Exception {
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setTitle("title").build();
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAYLIST_ADD)
+            .setPlayerCommand(Player.COMMAND_SET_PLAYLIST_METADATA, mediaMetadata)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_PLAYLIST_METADATA, TIMEOUT_MS);
+    assertThat(player.playlistMetadata).isEqualTo(mediaMetadata);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setVolumeWithParam_setsVolume()
+      throws Exception {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_VOLUME_UP)
+            .setPlayerCommand(Player.COMMAND_SET_VOLUME, 0.5f)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_VOLUME, TIMEOUT_MS);
+    assertThat(player.volume).isEqualTo(0.5f);
+  }
+
+  @Test
+  public void sendCustomActionWithPredefinedCommand_setVolumeWithoutParam_togglesMute()
+      throws Exception {
+    player.deviceMuted = false;
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_VOLUME_OFF)
+            .setPlayerCommand(Player.COMMAND_SET_VOLUME)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_VOLUME, TIMEOUT_MS);
+    assertThat(player.getVolume()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      sendCustomActionWithPredefinedCommand_setTrackSelectionParameters_setsTrackSelectionParameters()
+          throws Exception {
+    TrackSelectionParameters trackSelectionParameters =
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_QUALITY)
+            .setPlayerCommand(
+                Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS, trackSelectionParameters)
+            .setSlots(CommandButton.SLOT_OVERFLOW)
+            .setDisplayName("test")
+            .build();
+    session =
+        new MediaSession.Builder(context, player).setCallback(new TestSessionCallback()).build();
+    session.setMediaButtonPreferences(ImmutableList.of(button));
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+
+    controller.getTransportControls().sendCustomActionByIndex(/* customActionIndex= */ 0);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SET_TRACK_SELECTION_PARAMETERS, TIMEOUT_MS);
+    assertThat(player.trackSelectionParameters).isEqualTo(trackSelectionParameters);
   }
 
   private static class TestSessionCallback implements MediaSession.Callback {

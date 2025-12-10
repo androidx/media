@@ -15,8 +15,8 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;

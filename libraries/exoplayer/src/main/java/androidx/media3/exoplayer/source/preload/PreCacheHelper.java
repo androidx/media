@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -43,11 +43,14 @@ import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.offline.Downloader;
 import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A helper for pre-caching a single media. */
 @UnstableApi
@@ -260,7 +263,7 @@ public final class PreCacheHelper {
           new DefaultDownloaderFactory(cacheDataSourceFactory, downloadExecutor);
       return new PreCacheHelper(
           mediaItem,
-          /* mediaSourceFactory= */ null,
+          /* testMediaSourceFactory= */ null,
           downloadHelperFactory,
           downloaderFactory,
           preCacheLooper,
@@ -271,7 +274,9 @@ public final class PreCacheHelper {
   @VisibleForTesting /* package */ static final int DEFAULT_MIN_RETRY_COUNT = 5;
 
   private final MediaItem mediaItem;
-  private final Supplier<DownloadHelper> downloadHelperSupplier;
+
+  @Nullable private final MediaSource.Factory testMediaSourceFactory;
+  private final DownloadHelper.Factory downloadHelperFactory;
   private final DownloaderFactory downloaderFactory;
   @Nullable private final Listener listener;
   private final Handler preCacheHandler;
@@ -280,17 +285,14 @@ public final class PreCacheHelper {
 
   /* package */ PreCacheHelper(
       MediaItem mediaItem,
-      @Nullable MediaSource.Factory mediaSourceFactory,
+      @Nullable MediaSource.Factory testMediaSourceFactory,
       DownloadHelper.Factory downloadHelperFactory,
       DownloaderFactory downloaderFactory,
       Looper preCacheLooper,
       @Nullable Listener listener) {
     this.mediaItem = mediaItem;
-    this.downloadHelperSupplier =
-        () ->
-            mediaSourceFactory != null
-                ? downloadHelperFactory.create(mediaSourceFactory.createMediaSource(mediaItem))
-                : downloadHelperFactory.create(mediaItem);
+    this.testMediaSourceFactory = testMediaSourceFactory;
+    this.downloadHelperFactory = downloadHelperFactory;
     this.downloaderFactory = downloaderFactory;
     this.listener = listener;
     this.preCacheHandler = Util.createHandler(preCacheLooper, /* callback= */ null);
@@ -352,14 +354,84 @@ public final class PreCacheHelper {
         });
   }
 
+  private static final class ReleasableSingleThreadExecutor implements ReleasableExecutor {
+
+    private final ExecutorService executor;
+    private final Runnable releaseRunnable;
+
+    private ReleasableSingleThreadExecutor(Runnable releaseRunnable) {
+      this.executor = Util.newSingleThreadExecutor("PreCacheHelper:Loader");
+      this.releaseRunnable = releaseRunnable;
+    }
+
+    @Override
+    public void release() {
+      execute(releaseRunnable);
+      executor.shutdown();
+    }
+
+    @Override
+    public void execute(Runnable command) {
+      executor.execute(command);
+    }
+  }
+
+  private static final class ReleasableExecutorSupplier implements Supplier<ReleasableExecutor> {
+    private final Handler preCacheHandler;
+    private @MonotonicNonNull DownloadCallback downloadCallback;
+
+    @GuardedBy("this")
+    private int executorCount;
+
+    private ReleasableExecutorSupplier(Handler preCacheHandler) {
+      this.preCacheHandler = preCacheHandler;
+    }
+
+    public void setDownloadCallback(DownloadCallback downloadCallback) {
+      this.downloadCallback = downloadCallback;
+    }
+
+    @Override
+    public ReleasableSingleThreadExecutor get() {
+      synchronized (ReleasableExecutorSupplier.this) {
+        executorCount++;
+      }
+      return new ReleasableSingleThreadExecutor(this::onExecutorReleased);
+    }
+
+    private void onExecutorReleased() {
+      synchronized (ReleasableExecutorSupplier.this) {
+        checkState(executorCount > 0);
+        executorCount--;
+        if (wereExecutorsReleased()) {
+          preCacheHandler.post(
+              () -> {
+                checkState(wereExecutorsReleased());
+                if (downloadCallback != null) {
+                  downloadCallback.maybeSubmitPendingDownloadRequest();
+                }
+              });
+        }
+      }
+    }
+
+    public boolean wereExecutorsReleased() {
+      synchronized (ReleasableExecutorSupplier.this) {
+        return executorCount == 0;
+      }
+    }
+  }
+
   private final class DownloadCallback implements DownloadHelper.Callback {
 
     private final Object lock;
     private final long startPositionMs;
     private final long durationMs;
+    @Nullable private final ReleasableExecutorSupplier releasableExecutorSupplier;
     private final DownloadHelper downloadHelper;
 
     private boolean isPreparationOngoing;
+    @Nullable private DownloadRequest pendingDownloadRequest;
     @Nullable private Downloader downloader;
     @Nullable private Task downloaderTask;
 
@@ -371,7 +443,16 @@ public final class PreCacheHelper {
       this.lock = new Object();
       this.startPositionMs = startPositionMs;
       this.durationMs = durationMs;
-      this.downloadHelper = downloadHelperSupplier.get();
+      if (testMediaSourceFactory != null) {
+        this.releasableExecutorSupplier = null;
+        this.downloadHelper =
+            downloadHelperFactory.create(testMediaSourceFactory.createMediaSource(mediaItem));
+      } else {
+        this.releasableExecutorSupplier = new ReleasableExecutorSupplier(preCacheHandler);
+        downloadHelperFactory.setLoadExecutor(releasableExecutorSupplier);
+        this.downloadHelper = downloadHelperFactory.create(mediaItem);
+        this.releasableExecutorSupplier.setDownloadCallback(this);
+      }
       this.isPreparationOngoing = true;
       this.downloadHelper.prepare(this);
     }
@@ -386,14 +467,11 @@ public final class PreCacheHelper {
       downloadHelper.release();
       MediaItem updatedMediaItem = downloadRequest.toMediaItem(mediaItem.buildUpon());
       notifyListeners(listener -> listener.onPrepared(mediaItem, updatedMediaItem));
-      downloader = downloaderFactory.createDownloader(downloadRequest);
-      downloaderTask =
-          new Task(
-              downloader,
-              /* isRemove= */ false,
-              DEFAULT_MIN_RETRY_COUNT,
-              /* downloadCallback= */ this);
-      downloaderTask.start();
+      pendingDownloadRequest = downloadRequest;
+      if (releasableExecutorSupplier == null
+          || releasableExecutorSupplier.wereExecutorsReleased()) {
+        maybeSubmitPendingDownloadRequest();
+      }
     }
 
     @Override
@@ -403,6 +481,21 @@ public final class PreCacheHelper {
       isPreparationOngoing = false;
       downloadHelper.release();
       notifyListeners(listener -> listener.onPrepareError(mediaItem, e));
+    }
+
+    public void maybeSubmitPendingDownloadRequest() {
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      if (pendingDownloadRequest != null) {
+        downloader = downloaderFactory.createDownloader(pendingDownloadRequest);
+        downloaderTask =
+            new Task(
+                downloader,
+                /* isRemove= */ false,
+                DEFAULT_MIN_RETRY_COUNT,
+                /* downloadCallback= */ this);
+        downloaderTask.start();
+        pendingDownloadRequest = null;
+      }
     }
 
     public void onDownloadStopped(Task task) {
@@ -440,6 +533,7 @@ public final class PreCacheHelper {
       synchronized (lock) {
         isCanceled = true;
       }
+      pendingDownloadRequest = null;
       downloadHelper.release();
       if (downloaderTask != null && downloaderTask.isRemove) {
         return;

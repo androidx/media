@@ -18,10 +18,16 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.test.utils.FakePlayer
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,9 +40,7 @@ class NextButtonStateTest {
 
   @Test
   fun addSeekNextCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
 
     lateinit var state: NextButtonState
@@ -52,9 +56,7 @@ class NextButtonStateTest {
 
   @Test
   fun removeSeekNextCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
@@ -68,11 +70,52 @@ class NextButtonStateTest {
   }
 
   @Test
-  fun clickNextOnPenultimateMediaItem_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+  fun stateIsDisabledStraightAway() {
+    val player = FakePlayer()
+    val state = NextButtonState(player)
 
+    assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun onClick_stateIsDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    val state = NextButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: NextButtonState
+    composeTestRule.setContent { state = rememberNextButtonState(player) }
+
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    composeTestRule.waitForIdle()
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: NextButtonState
+    composeTestRule.setContent { state = rememberNextButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.currentMediaItemIndex).isEqualTo(0)
+  }
+
+  @Test
+  fun clickNextOnPenultimateMediaItem_buttonStateTogglesFromEnabledToDisabled() {
+    val player = createReadyPlayerWithTwoItems()
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
 
@@ -86,9 +129,7 @@ class NextButtonStateTest {
 
   @Test
   fun playerInReadyState_buttonClicked_nextItemPlaying() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     val state = NextButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
@@ -99,8 +140,40 @@ class NextButtonStateTest {
   }
 
   @Test
+  fun playerInEndedState_singleDynamicLiveItem_onClickToDefaultPosition() {
+    val player =
+      FakePlayer(
+        playbackState = STATE_ENDED,
+        playWhenReady = true,
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000)
+              .setIsDynamic(true)
+              .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(2000).build()
+              )
+              .build()
+          ),
+      )
+    player.setPosition(10_000)
+    val state = NextButtonState(player)
+    assertThat(player.currentPosition).isEqualTo(10_000)
+    assertThat(player.isPlaying).isFalse()
+
+    state.onClick()
+
+    // Position is masked immediately
+    assertThat(player.currentPosition).isEqualTo(0)
+
+    advance(player).untilState(Player.STATE_READY)
+    // Player starts playing once the buffering from the seek is complete.
+    assertThat(player.isPlaying).isTrue()
+  }
+
+  @Test
   fun playerReachesLastItemWithDisabledNextButtonBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: NextButtonState
     composeTestRule.setContent {

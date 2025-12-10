@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
@@ -23,7 +24,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -260,6 +260,6 @@ public class FakeAdaptiveMediaPeriod
 
   @Override
   public void onContinueLoadingRequested(ChunkSampleStream<FakeChunkSource> source) {
-    Assertions.checkStateNotNull(callback).onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 }

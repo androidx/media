@@ -33,8 +33,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.decoder.CryptoInfo;
 import com.google.common.base.Supplier;
@@ -44,13 +42,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in asynchronous mode,
  * routes {@link MediaCodec.Callback} callbacks on a dedicated thread that is managed internally,
  * and queues input buffers asynchronously.
  */
-@RequiresApi(23)
 /* package */ final class AsynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
   /** A factory for {@link AsynchronousMediaCodecAdapter} instances. */
@@ -87,7 +85,7 @@ import java.nio.ByteBuffer;
         Supplier<HandlerThread> queueingThreadSupplier) {
       this.callbackThreadSupplier = callbackThreadSupplier;
       this.queueingThreadSupplier = queueingThreadSupplier;
-      enableSynchronousBufferQueueingWithAsyncCryptoFlag = false;
+      enableSynchronousBufferQueueingWithAsyncCryptoFlag = true;
     }
 
     /**
@@ -113,7 +111,7 @@ import java.nio.ByteBuffer;
         int flags = 0;
         MediaCodecBufferEnqueuer bufferEnqueuer;
         if (enableSynchronousBufferQueueingWithAsyncCryptoFlag
-            && useSynchronousBufferQueueingWithAsyncCryptoFlag(configuration.format)) {
+            && useSynchronousBufferQueueingWithAsyncCryptoFlag()) {
           bufferEnqueuer = new SynchronousMediaCodecBufferEnqueuer(codec);
           flags |= MediaCodec.CONFIGURE_FLAG_USE_CRYPTO_ASYNC;
         } else {
@@ -145,13 +143,10 @@ import java.nio.ByteBuffer;
       }
     }
 
-    @ChecksSdkIntAtLeast(api = 34)
-    private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag(Format format) {
-      if (SDK_INT < 34) {
-        return false;
-      }
-      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC only works for audio on API 35+ (see b/316565675).
-      return SDK_INT >= 35 || MimeTypes.isVideo(format.sampleMimeType);
+    @ChecksSdkIntAtLeast(api = 36)
+    private static boolean useSynchronousBufferQueueingWithAsyncCryptoFlag() {
+      // CONFIGURE_FLAG_USE_CRYPTO_ASYNC causes timeout errors on API < 36, see b/362450802.
+      return SDK_INT >= 36;
     }
   }
 
@@ -255,6 +250,15 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  public void useInputBuffer(Runnable runnable) {
+    asynchronousMediaCodecCallback.useInputBuffer(
+        () -> {
+          bufferEnqueuer.maybeThrowException();
+          asynchronousMediaCodecCallback.useInputBuffer(runnable);
+        });
+  }
+
+  @Override
   @Nullable
   public ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);
@@ -343,6 +347,18 @@ import java.nio.ByteBuffer;
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     return codec.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    codec.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    codec.unsubscribeFromVendorParameters(names);
   }
 
   @VisibleForTesting

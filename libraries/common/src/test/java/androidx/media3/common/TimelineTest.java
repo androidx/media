@@ -288,7 +288,10 @@ public class TimelineTest {
                 ImmutableList.of(AdPlaybackState.NONE),
                 new MediaItem.Builder().setMediaId("mediaId3").build()));
 
-    Timeline restoredTimeline = Timeline.fromBundle(timeline.toBundle());
+    Timeline restoredTimeline =
+        Timeline.fromBundle(
+            timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     TimelineAsserts.assertEqualsExceptIdsAndManifest(
         /* expectedTimeline= */ timeline, /* actualTimeline= */ restoredTimeline);
@@ -299,7 +302,10 @@ public class TimelineTest {
     int windowCount = 10;
     FakeTimeline timeline = new FakeTimeline(windowCount);
 
-    Timeline restoredTimeline = Timeline.fromBundle(timeline.toBundle());
+    Timeline restoredTimeline =
+        Timeline.fromBundle(
+            timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredTimeline.getLastWindowIndex(/* shuffleModeEnabled= */ false))
         .isEqualTo(timeline.getLastWindowIndex(/* shuffleModeEnabled= */ false));
@@ -337,7 +343,10 @@ public class TimelineTest {
 
   @Test
   public void roundTripViaBundle_ofEmptyTimeline_returnsEmptyTimeline() {
-    TimelineAsserts.assertEmpty(Timeline.fromBundle(Timeline.EMPTY.toBundle()));
+    TimelineAsserts.assertEmpty(
+        Timeline.fromBundle(
+            Timeline.EMPTY.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION));
   }
 
   @Test
@@ -351,12 +360,13 @@ public class TimelineTest {
     window.durationUs = C.TIME_UNSET;
     window.mediaItem = new MediaItem.Builder().build();
 
-    Bundle windowBundle = window.toBundle();
+    Bundle windowBundle = window.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(windowBundle.keySet()).isEmpty();
 
-    Timeline.Window restoredWindow = Timeline.Window.fromBundle(windowBundle);
+    Timeline.Window restoredWindow =
+        Timeline.Window.fromBundle(windowBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredWindow.manifest).isNull();
     TimelineAsserts.assertWindowEqualsExceptUidAndManifest(
@@ -389,7 +399,10 @@ public class TimelineTest {
     window.lastPeriodIndex = 7;
     window.positionInFirstPeriodUs = 888;
 
-    Timeline.Window restoredWindow = Timeline.Window.fromBundle(window.toBundle());
+    Timeline.Window restoredWindow =
+        Timeline.Window.fromBundle(
+            window.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredWindow.manifest).isNull();
     TimelineAsserts.assertWindowEqualsExceptUidAndManifest(
@@ -403,12 +416,13 @@ public class TimelineTest {
     // backwards compatibility.
     period.durationUs = C.TIME_UNSET;
 
-    Bundle periodBundle = period.toBundle();
+    Bundle periodBundle = period.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(periodBundle.keySet()).isEmpty();
 
-    Timeline.Period restoredPeriod = Timeline.Period.fromBundle(periodBundle);
+    Timeline.Period restoredPeriod =
+        Timeline.Period.fromBundle(periodBundle, MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredPeriod.id).isNull();
     assertThat(restoredPeriod.uid).isNull();
@@ -426,7 +440,10 @@ public class TimelineTest {
     period.positionInWindowUs = 4_000;
     period.isPlaceholder = true;
 
-    Timeline.Period restoredPeriod = Timeline.Period.fromBundle(period.toBundle());
+    Timeline.Period restoredPeriod =
+        Timeline.Period.fromBundle(
+            period.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredPeriod.id).isNull();
     assertThat(restoredPeriod.uid).isNull();

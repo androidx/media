@@ -6,7 +6,7 @@ Provides support for HTTP Live Streaming (HLS) content in ExoPlayer.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-exoplayer-hls:1.X.X'
 ```
 

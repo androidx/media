@@ -10,6 +10,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/apv
+    codecs = apv1.apvf33.apvl60.apvb0
     width = 640
     height = 480
     colorInfo:

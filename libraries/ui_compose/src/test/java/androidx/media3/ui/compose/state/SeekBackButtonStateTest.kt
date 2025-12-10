@@ -20,9 +20,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,9 +37,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun addSeekBackCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_BACK)
 
     lateinit var state: SeekBackButtonState
@@ -53,10 +53,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun removeSeekBackCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
-
+    val player = createReadyPlayerWithTwoItems()
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
 
@@ -69,8 +66,46 @@ class SeekBackButtonStateTest {
   }
 
   @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_SEEK_BACK)
+    val state = SeekBackButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: SeekBackButtonState
+    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
+
+    player.removeCommands(Player.COMMAND_SEEK_BACK)
+    composeTestRule.waitForIdle()
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
+    player.setPosition(1000)
+    lateinit var state: SeekBackButtonState
+    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SEEK_BACK)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.currentPosition).isEqualTo(1000)
+  }
+
+  @Test
   fun playerChangeSeekBackIncrement_buttonStateGetsUpdatedValue() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
@@ -85,9 +120,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionAtTheStart_buttonClicked_positionDoesNotChange() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     val state = SeekBackButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -99,9 +132,8 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsBackBySpecifiedAmount() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(700)
     player.setSeekBackIncrementMs(300)
     val state = SeekBackButtonState(player)
@@ -115,7 +147,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent {

@@ -16,16 +16,19 @@
 
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
 import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static androidx.media3.common.util.Util.scaleLargeValue;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -38,7 +41,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.function.LongConsumer;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 
 /**
  * An {@link AudioProcessor} that changes the speed of audio samples depending on their timestamp.
@@ -66,6 +68,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   @GuardedBy("lock")
   private final Queue<TimestampConsumer> pendingCallbacks;
 
+  private final boolean shouldAdjustTimestamps;
+
   private float currentSpeed;
   private long framesRead;
   private boolean endOfStreamQueuedToSonic;
@@ -78,7 +82,20 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   private AudioFormat pendingOutputAudioFormat;
   private boolean inputEnded;
 
+  /** Creates a new instance. */
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
+    this(speedProvider, /* shouldAdjustTimestamps= */ true);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param speedProvider The {@link SpeedProvider} to apply over the audio stream.
+   * @param shouldAdjustTimestamps Whether the processor should adjust the {@linkplain
+   *     #getDurationAfterProcessorApplied audio stream's timestamps}.
+   */
+  @RestrictTo(Scope.LIBRARY_GROUP)
+  public SpeedChangingAudioProcessor(SpeedProvider speedProvider, boolean shouldAdjustTimestamps) {
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     inputAudioFormat = AudioFormat.NOT_SET;
@@ -89,7 +106,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
         new SynchronizedSonicAudioProcessor(lock, /* keepActiveWithDefaultParameters= */ true);
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
-    resetInternalState(/* shouldResetSpeed= */ true);
+    currentSpeed = 1f;
+    this.shouldAdjustTimestamps = shouldAdjustTimestamps;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -142,7 +160,10 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
-    return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    if (shouldAdjustTimestamps) {
+      return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    }
+    return durationUs;
   }
 
   @Override
@@ -202,19 +223,21 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   }
 
   @Override
-  public void flush() {
+  public void flush(StreamMetadata streamMetadata) {
     inputEnded = false;
     resetInternalState(/* shouldResetSpeed= */ false);
     synchronized (lock) {
       inputAudioFormat = pendingInputAudioFormat;
-      sonicAudioProcessor.flush();
+      sonicAudioProcessor.flush(streamMetadata);
       processPendingCallbacks();
+      framesRead =
+          durationUsToSampleCount(streamMetadata.positionOffsetUs, inputAudioFormat.sampleRate);
     }
   }
 
   @Override
   public void reset() {
-    flush();
+    flush(StreamMetadata.DEFAULT);
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     synchronized (lock) {
@@ -224,6 +247,11 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     }
     resetInternalState(/* shouldResetSpeed= */ true);
     sonicAudioProcessor.reset();
+  }
+
+  /** Returns the {@link SpeedProvider} set for this instance. */
+  public SpeedProvider getSpeedProvider() {
+    return this.speedProvider;
   }
 
   /**
@@ -361,7 +389,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
       sonicAudioProcessor.setSpeed(newSpeed);
       sonicAudioProcessor.setPitch(newSpeed);
       // Invalidate any previously created buffers in SonicAudioProcessor and the base class.
-      sonicAudioProcessor.flush();
+      sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
       endOfStreamQueuedToSonic = false;
     }
   }
@@ -374,8 +402,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
    *
    * @param shouldResetSpeed Whether {@link #currentSpeed} should be reset to its default value.
    */
-  private void resetInternalState(
-      @UnknownInitialization SpeedChangingAudioProcessor this, boolean shouldResetSpeed) {
+  private void resetInternalState(boolean shouldResetSpeed) {
     if (shouldResetSpeed) {
       currentSpeed = 1f;
     }

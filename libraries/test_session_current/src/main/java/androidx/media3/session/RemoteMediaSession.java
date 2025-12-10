@@ -73,6 +73,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -85,6 +86,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Size;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -207,7 +209,7 @@ public class RemoteMediaSession {
   public void setCustomLayout(List<CommandButton> layout) throws RemoteException {
     List<Bundle> bundleList = new ArrayList<>();
     for (CommandButton button : layout) {
-      bundleList.add(button.toBundle());
+      bundleList.add(button.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
     binder.setCustomLayout(sessionId, bundleList);
   }
@@ -216,7 +218,7 @@ public class RemoteMediaSession {
       throws RemoteException {
     List<Bundle> bundleList = new ArrayList<>();
     for (CommandButton button : mediaButtonPreferences) {
-      bundleList.add(button.toBundle());
+      bundleList.add(button.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
     binder.setMediaButtonPreferences(sessionId, bundleList);
   }
@@ -361,7 +363,10 @@ public class RemoteMediaSession {
         PositionInfo oldPosition, PositionInfo newPosition, @DiscontinuityReason int reason)
         throws RemoteException {
       binder.notifyPositionDiscontinuity(
-          sessionId, oldPosition.toBundle(), newPosition.toBundle(), reason);
+          sessionId,
+          oldPosition.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+          newPosition.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+          reason);
     }
 
     public void notifyPlaybackParametersChanged(PlaybackParameters playbackParameters)
@@ -379,12 +384,16 @@ public class RemoteMediaSession {
       binder.notifyAudioAttributesChanged(sessionId, audioAttributes.toBundle());
     }
 
+    public void notifyAudioSessionIdChanged(int audioSessionId) throws RemoteException {
+      binder.notifyAudioSessionIdChanged(sessionId, audioSessionId);
+    }
+
     public void notifyAvailableCommandsChanged(Player.Commands commands) throws RemoteException {
       binder.notifyAvailableCommandsChanged(sessionId, commands.toBundle());
     }
 
     public void setTimeline(Timeline timeline) throws RemoteException {
-      binder.setTimeline(sessionId, timeline.toBundle());
+      binder.setTimeline(sessionId, timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
 
     /**
@@ -398,7 +407,8 @@ public class RemoteMediaSession {
     }
 
     public void setPlaylistMetadata(MediaMetadata playlistMetadata) throws RemoteException {
-      binder.setPlaylistMetadata(sessionId, playlistMetadata.toBundle());
+      binder.setPlaylistMetadata(
+          sessionId, playlistMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
 
     public void setRepeatMode(@Player.RepeatMode int repeatMode) throws RemoteException {
@@ -413,13 +423,23 @@ public class RemoteMediaSession {
       binder.setCurrentMediaItemIndex(sessionId, index);
     }
 
+    public void setCurrentMediaItemIndexAndPeriodIndex(int mediaItemIndex, int periodIndex)
+        throws RemoteException {
+      binder.setCurrentMediaItemIndexAndPeriodIndex(sessionId, mediaItemIndex, periodIndex);
+    }
+
+    public void setCurrentPeriodIndex(int index) throws RemoteException {
+      binder.setCurrentPeriodIndex(sessionId, index);
+    }
+
     public void setTrackSelectionParameters(TrackSelectionParameters parameters)
         throws RemoteException {
       binder.setTrackSelectionParameters(sessionId, parameters.toBundle());
     }
 
     public void setMediaMetadata(MediaMetadata mediaMetadata) throws RemoteException {
-      binder.setMediaMetadata(sessionId, mediaMetadata.toBundle());
+      binder.setMediaMetadata(
+          sessionId, mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
 
     public void notifyTimelineChanged(@Player.TimelineChangeReason int reason)
@@ -456,6 +476,10 @@ public class RemoteMediaSession {
       return binder.surfaceExists(sessionId);
     }
 
+    public Size getSurfaceSize() throws RemoteException {
+      return Size.fromBundle(binder.getSurfaceSize(sessionId));
+    }
+
     public void notifyDeviceVolumeChanged() throws RemoteException {
       binder.notifyDeviceVolumeChanged(sessionId);
     }
@@ -473,7 +497,8 @@ public class RemoteMediaSession {
     }
 
     public void notifyMediaMetadataChanged(MediaMetadata mediaMetadata) throws RemoteException {
-      binder.notifyMediaMetadataChanged(sessionId, mediaMetadata.toBundle());
+      binder.notifyMediaMetadataChanged(
+          sessionId, mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     }
 
     public void notifyRenderedFirstFrame() throws RemoteException {
@@ -663,7 +688,7 @@ public class RemoteMediaSession {
 
     @CanIgnoreReturnValue
     public MockPlayerConfigBuilder setTimeline(Timeline timeline) {
-      bundle.putBundle(KEY_TIMELINE, timeline.toBundle());
+      bundle.putBundle(KEY_TIMELINE, timeline.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       return this;
     }
 
@@ -681,7 +706,8 @@ public class RemoteMediaSession {
 
     @CanIgnoreReturnValue
     public MockPlayerConfigBuilder setPlaylistMetadata(MediaMetadata playlistMetadata) {
-      bundle.putBundle(KEY_PLAYLIST_METADATA, playlistMetadata.toBundle());
+      bundle.putBundle(
+          KEY_PLAYLIST_METADATA, playlistMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       return this;
     }
 
@@ -772,7 +798,8 @@ public class RemoteMediaSession {
 
     @CanIgnoreReturnValue
     public MockPlayerConfigBuilder setMediaMetadata(MediaMetadata mediaMetadata) {
-      bundle.putBundle(KEY_MEDIA_METADATA, mediaMetadata.toBundle());
+      bundle.putBundle(
+          KEY_MEDIA_METADATA, mediaMetadata.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       return this;
     }
 

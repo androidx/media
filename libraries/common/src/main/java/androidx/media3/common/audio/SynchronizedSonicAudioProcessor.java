@@ -116,9 +116,9 @@ import java.nio.ByteBuffer;
   }
 
   @Override
-  public final void flush() {
+  public final void flush(StreamMetadata streamMetadata) {
     synchronized (lock) {
-      sonicAudioProcessor.flush();
+      sonicAudioProcessor.flush(streamMetadata);
     }
   }
 

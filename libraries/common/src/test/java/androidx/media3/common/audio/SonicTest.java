@@ -18,12 +18,16 @@ package androidx.media3.common.audio;
 import static androidx.media3.common.audio.Sonic.calculateAccumulatedTruncationErrorForResampling;
 import static androidx.media3.common.audio.Sonic.getExpectedFrameCountAfterProcessorApplied;
 import static androidx.media3.common.audio.Sonic.getExpectedInputFrameCountForOutputFrameCount;
+import static androidx.media3.test.utils.TestUtil.createByteBuffer;
+import static androidx.media3.test.utils.TestUtil.createFloatArray;
+import static androidx.media3.test.utils.TestUtil.createShortArray;
 import static androidx.media3.test.utils.TestUtil.getPeriodicSamplesBuffer;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.math.BigDecimal;
-import java.nio.ShortBuffer;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
@@ -36,81 +40,187 @@ public class SonicTest {
   @Rule public final Timeout globalTimeout = Timeout.millis(1000);
 
   @Test
-  public void resample_toDoubleRate_linearlyInterpolatesSamples() {
-    ShortBuffer inputBuffer = ShortBuffer.wrap(new short[] {0, 10, 20, 30, 40, 50});
+  public void resample_toDoubleRate_linearlyInterpolatesShortSamples() {
+    ByteBuffer inputBuffer = createByteBuffer(new short[] {0, 10, 20, 30, 40, 50});
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ 44100,
             /* channelCount= */ 1,
             /* speed= */ 1,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 88200);
+            /* outputSampleRateHz= */ 88200,
+            /* useFloatSamples= */ false);
     sonic.queueInput(inputBuffer);
     sonic.queueEndOfStream();
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
     sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
 
     // End of stream is padded with silence, so last sample will be interpolated between (50; 0).
-    assertThat(outputBuffer.array())
+    assertThat(createShortArray(outputBuffer))
         .isEqualTo(new short[] {0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 25});
   }
 
   @Test
-  public void resample_toHalfRate_linearlyInterpolatesSamples() {
-    ShortBuffer inputBuffer =
-        ShortBuffer.wrap(new short[] {-40, -30, -20, -10, 0, 10, 20, 30, 40, 50});
+  public void resample_toDoubleRate_linearlyInterpolatesFloatSamples() {
+    ByteBuffer inputBuffer = createByteBuffer(new float[] {0f, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f});
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ 44100,
             /* channelCount= */ 1,
             /* speed= */ 1,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 22050);
+            /* outputSampleRateHz= */ 88200,
+            /* useFloatSamples= */ true);
     sonic.queueInput(inputBuffer);
     sonic.queueEndOfStream();
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
     sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
+
+    // End of stream is padded with silence, so last sample will be interpolated between (50; 0).
+    assertThat(createFloatArray(outputBuffer))
+        .isEqualTo(
+            new float[] {
+              0f, 0.05f, 0.1f, 0.15f, 0.2f, 0.25f, 0.30f, 0.35f, 0.40f, 0.45f, 0.50f, 0.25f
+            });
+  }
+
+  @Test
+  public void resample_toHalfRate_linearlyInterpolatesShortSamples() {
+    ByteBuffer inputBuffer =
+        createByteBuffer(new short[] {-40, -30, -20, -10, 0, 10, 20, 30, 40, 50});
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 44100,
+            /* channelCount= */ 1,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 22050,
+            /* useFloatSamples= */ false);
+    sonic.queueInput(inputBuffer);
+    sonic.queueEndOfStream();
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
+    sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
 
     // TODO (b/361768785): Remove this unexpected last sample when Sonic's resampler returns the
     //  right number of samples.
-    assertThat(outputBuffer.array()).isEqualTo(new short[] {-40, -20, 0, 20, 40, 0});
+    assertThat(createShortArray(outputBuffer)).isEqualTo(new short[] {-40, -20, 0, 20, 40, 0});
   }
 
   @Test
-  public void resample_withOneSample_doesNotHang() {
-    ShortBuffer inputBuffer = ShortBuffer.wrap(new short[] {10});
+  public void resample_toHalfRate_linearlyInterpolatesFloatSamples() {
+    ByteBuffer inputBuffer =
+        createByteBuffer(new float[] {-0.4f, -0.3f, -0.2f, -0.1f, 0, 0.1f, 0.2f, 0.3f, 0.4f, 0.5f});
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ 44100,
             /* channelCount= */ 1,
             /* speed= */ 1,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 88200);
+            /* outputSampleRateHz= */ 22050,
+            /* useFloatSamples= */ true);
     sonic.queueInput(inputBuffer);
     sonic.queueEndOfStream();
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
     sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
+
+    // TODO (b/361768785): Remove this unexpected last sample when Sonic's resampler returns the
+    //  right number of samples.
+    assertThat(createFloatArray(outputBuffer))
+        .isEqualTo(new float[] {-0.4f, -0.2f, 0, 0.2f, 0.4f, 0});
+  }
+
+  @Test
+  public void resample_withOneShortSample_doesNotHang() {
+    ByteBuffer inputBuffer = createByteBuffer(new short[] {10});
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 44100,
+            /* channelCount= */ 1,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 88200,
+            /* useFloatSamples= */ false);
+    sonic.queueInput(inputBuffer);
+    sonic.queueEndOfStream();
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
+    sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
 
     // End of stream is padded with silence, so last sample will be interpolated between (10; 0).
-    assertThat(outputBuffer.array()).isEqualTo(new short[] {10, 5});
+    assertThat(createShortArray(outputBuffer)).isEqualTo(new short[] {10, 5});
   }
 
   @Test
-  public void resample_withFractionalOutputSampleCount_roundsNumberOfOutputSamples() {
-    ShortBuffer inputBuffer = ShortBuffer.wrap(new short[] {0, 2, 4, 6, 8});
+  public void resample_withOneFloatSample_doesNotHang() {
+    ByteBuffer inputBuffer = createByteBuffer(new float[] {1f});
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ 44100,
             /* channelCount= */ 1,
             /* speed= */ 1,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 22050);
+            /* outputSampleRateHz= */ 88200,
+            /* useFloatSamples= */ true);
     sonic.queueInput(inputBuffer);
     sonic.queueEndOfStream();
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
     sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
 
-    assertThat(outputBuffer.array()).isEqualTo(new short[] {0, 4, 8});
+    // End of stream is padded with silence, so last sample will be interpolated between (1f; 0).
+    assertThat(createFloatArray(outputBuffer)).isEqualTo(new float[] {1f, 0.5f});
+  }
+
+  @Test
+  public void resampleShortSamples_withFractionalOutputSampleCount_roundsNumberOfOutputSamples() {
+    ByteBuffer inputBuffer = createByteBuffer(new short[] {0, 2, 4, 6, 8});
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 44100,
+            /* channelCount= */ 1,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 22050,
+            /* useFloatSamples= */ false);
+    sonic.queueInput(inputBuffer);
+    sonic.queueEndOfStream();
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
+    sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
+
+    assertThat(createShortArray(outputBuffer)).isEqualTo(new short[] {0, 4, 8});
+  }
+
+  @Test
+  public void resampleFloatSamples_withFractionalOutputSampleCount_roundsNumberOfOutputSamples() {
+    ByteBuffer inputBuffer = createByteBuffer(new float[] {0, 0.2f, 0.4f, 0.6f, 0.8f});
+    Sonic sonic =
+        new Sonic(
+            /* inputSampleRateHz= */ 44100,
+            /* channelCount= */ 1,
+            /* speed= */ 1,
+            /* pitch= */ 1,
+            /* outputSampleRateHz= */ 22050,
+            /* useFloatSamples= */ true);
+    sonic.queueInput(inputBuffer);
+    sonic.queueEndOfStream();
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
+    sonic.getOutput(outputBuffer);
+    outputBuffer.flip();
+
+    assertThat(createFloatArray(outputBuffer)).isEqualTo(new float[] {0, 0.4f, 0.8f});
   }
 
   @Test
@@ -122,18 +232,19 @@ public class SonicTest {
     // (inputFrameCount - remainingInputToCopyFrameCount) / speed + remainingInputToCopyFrameCount,
     // which could result in a negative number if inputFrameCount < remainingInputToCopyFrameCount
     // and 0.5 <= speed < 1. #getOutputSize() should still always return a non-negative number.
-    ShortBuffer inputBuffer =
-        getPeriodicSamplesBuffer(/* sampleCount= */ 1700, /* period= */ 192).asShortBuffer();
+    ByteBuffer inputBuffer = getPeriodicSamplesBuffer(/* sampleCount= */ 1700, /* period= */ 192);
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ 48000,
             /* channelCount= */ 1,
             /* speed= */ 0.95f,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 48000);
+            /* outputSampleRateHz= */ 48000,
+            /* useFloatSamples= */ false);
 
     sonic.queueInput(inputBuffer);
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
     // Drain output, so that pending output frame count is 0.
     sonic.getOutput(outputBuffer);
     assertThat(sonic.getOutputSize()).isEqualTo(0);
@@ -151,8 +262,10 @@ public class SonicTest {
             /* channelCount= */ 1,
             /* speed= */ 0.95f,
             /* pitch= */ 1,
-            /* outputSampleRateHz= */ 48000);
-    ShortBuffer outputBuffer = ShortBuffer.allocate(sonic.getOutputSize() / 2);
+            /* outputSampleRateHz= */ 48000,
+            /* useFloatSamples= */ false);
+    ByteBuffer outputBuffer =
+        ByteBuffer.allocateDirect(sonic.getOutputSize()).order(ByteOrder.nativeOrder());
 
     sonic.getOutput(outputBuffer);
     sonic.queueEndOfStream();

@@ -33,6 +33,7 @@ import androidx.media3.extractor.metadata.id3.Id3Frame;
 import androidx.media3.extractor.metadata.id3.Id3Util;
 import androidx.media3.extractor.metadata.id3.InternalFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 /** Utilities for handling metadata in MP4. */
@@ -52,6 +53,8 @@ import com.google.common.collect.ImmutableList;
   private static final int SHORT_TYPE_COMPOSER_2 = 0x00777274;
   private static final int SHORT_TYPE_LYRICS = 0x006c7972;
   private static final int SHORT_TYPE_GENRE = 0x0067656e;
+  private static final int SHORT_TYPE_MOVEMENT_NAME = 0x006d766e; // ©mvn
+  private static final int SHORT_TYPE_MOVEMENT_INDEX = 0x006d7669; // ©mvi
 
   // Codes that have equivalent ID3 frames.
   private static final int TYPE_COVER_ART = 0x636f7672;
@@ -100,20 +103,14 @@ import com.google.common.collect.ImmutableList;
       @Nullable Metadata existingMetadata,
       @NullableType Metadata... additionalMetadata) {
     Metadata formatMetadata = existingMetadata != null ? existingMetadata : new Metadata();
-
     if (mdtaMetadata != null) {
-      for (int i = 0; i < mdtaMetadata.length(); i++) {
-        Metadata.Entry entry = mdtaMetadata.get(i);
-        if (entry instanceof MdtaMetadataEntry) {
-          MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
-          // This key is present in the moov.meta box.
-          if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
-            if (trackType == C.TRACK_TYPE_VIDEO) {
-              formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
-            }
-          } else {
-            formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
-          }
+      for (MdtaMetadataEntry mdtaMetadataEntry :
+          mdtaMetadata.getEntriesOfType(MdtaMetadataEntry.class)) {
+        // If KEY_ANDROID_CAPTURE_FPS key is present in the moov.meta box it should only be exposed
+        // in video track metadata. All other mdta entries can be added to all tracks.
+        if (!mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)
+            || trackType == C.TRACK_TYPE_VIDEO) {
+          formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
         }
       }
     }
@@ -177,6 +174,10 @@ import com.google.common.collect.ImmutableList;
           return parseTextAttribute(type, "TCON", ilst);
         } else if (shortType == TYPE_GROUPING) {
           return parseTextAttribute(type, "TIT1", ilst);
+        } else if (shortType == SHORT_TYPE_MOVEMENT_NAME) {
+          return parseTextAttribute(type, "MVNM", ilst);
+        } else if (shortType == SHORT_TYPE_MOVEMENT_INDEX) {
+          return parseIntegerAttribute(type, "MVIN", ilst, true, false);
         }
       } else if (type == TYPE_GENRE) {
         return parseStandardGenreAttribute(ilst);
@@ -249,13 +250,10 @@ import com.google.common.collect.ImmutableList;
   }
 
   /**
-   * Returns the {@link MdtaMetadataEntry} for a given key, or {@code null} if the key is not
-   * present.
-   *
-   * @param metadata The {@link Metadata} to retrieve the {@link MdtaMetadataEntry} from.
-   * @param key The metadata key to search.
+   * @deprecated Use {@link Metadata#getFirstMatchingEntry(Class, Predicate)} instead.
    */
   @Nullable
+  @Deprecated
   public static MdtaMetadataEntry findMdtaMetadataEntryWithKey(Metadata metadata, String key) {
     for (int i = 0; i < metadata.length(); i++) {
       Metadata.Entry entry = metadata.get(i);

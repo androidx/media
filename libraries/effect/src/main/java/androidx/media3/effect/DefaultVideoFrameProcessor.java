@@ -16,16 +16,15 @@
 package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_ENDED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getFirst;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -144,8 +143,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   public static final int WORKING_COLOR_SPACE_LINEAR = 2;
 
   // LINT.ThenChange(
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_external_es2.glsl:working_color_space,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_internal_es2.glsl:working_color_space,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:working_color_space,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_internal_es2.glsl:working_color_space,
   // )
 
   /** A factory for {@link DefaultVideoFrameProcessor} instances. */
@@ -492,9 +491,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final boolean renderFramesAutomatically;
   private final FinalShaderProgramWrapper finalShaderProgramWrapper;
 
-  // Shader programs that apply Effects.
+  // Shader programs that apply Effects, this doesn't include the frame cache (if present).
   private final List<GlShaderProgram> intermediateGlShaderPrograms;
   private final ConditionVariable inputStreamRegisteredCondition;
+  private final ConditionVariable isConfiguring;
 
   private @MonotonicNonNull InputStreamInfo currentInputStreamInfo;
 
@@ -555,6 +555,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     this.intermediateGlShaderPrograms = new ArrayList<>();
     this.inputStreamRegisteredCondition = new ConditionVariable();
     inputStreamRegisteredCondition.open();
+    this.isConfiguring = new ConditionVariable();
+    isConfiguring.open();
     this.finalShaderProgramWrapper.setListener(
         new FinalShaderProgramWrapper.Listener() {
           @Override
@@ -767,7 +769,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean registerInputFrame() {
     checkState(!inputStreamEnded);
-    checkStateNotNull(
+    checkNotNull(
         nextInputFrameInfo, "registerInputStream must be called before registering input frames");
     if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;
@@ -835,11 +837,16 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
    */
   @Override
   public void flush() {
-    if (!inputSwitcher.hasActiveInput()) {
-      return;
-    }
-    inputStreamEnded = false;
     try {
+      // The method is synchronized with configure(), which could modify the TextureManager used in
+      // the InputSwitcher. If running concurrently, the flush call could be routed to the changed
+      // TextureManager, where the onFlushCompleteListener is not set, thus blocking the latch
+      // indefinitely.
+      isConfiguring.block();
+      inputStreamEnded = false;
+      if (!inputSwitcher.hasActiveInput()) {
+        return;
+      }
       TextureManager textureManager = inputSwitcher.activeTextureManager();
       textureManager.dropIncomingRegisteredFrames();
       // Flush pending tasks to prevent any operation to be executed on the frames being processed
@@ -852,6 +859,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
       textureManager.setOnFlushCompleteListener(null);
+      videoFrameProcessingTaskExecutor.invoke(finalShaderProgramWrapper::flushFinished);
       // Block until configurePendingInputStream returns. Ensures that any pending configuration is
       // actually submitted if the pending tasks on videoFrameProcessingTaskExecutor are flushed
       // before the configuration has a chance to take place.
@@ -1125,66 +1133,77 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     checkColors(
         /* inputColorInfo= */ checkNotNull(inputStreamInfo.format.colorInfo), outputColorInfo);
 
-    if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
-      if (!intermediateGlShaderPrograms.isEmpty()) {
-        // If frameCache is present, it's the first item in the list, skip releasing it.
-        int startIndex = frameCache == null ? 0 : 1;
-        for (int i = startIndex; i < intermediateGlShaderPrograms.size(); i++) {
+    isConfiguring.close();
+    try {
+      if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
+        for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
           intermediateGlShaderPrograms.get(i).release();
         }
         intermediateGlShaderPrograms.clear();
+
+        ImmutableList.Builder<Effect> effectsListBuilder =
+            new ImmutableList.Builder<Effect>().addAll(inputStreamInfo.effects);
+        if (debugViewProvider != DebugViewProvider.NONE) {
+          effectsListBuilder.add(new DebugViewEffect(debugViewProvider, outputColorInfo));
+        }
+
+        // The GlShaderPrograms that should be inserted in between the frame cache and
+        // FinalShaderProgramWrapper.
+        intermediateGlShaderPrograms.addAll(
+            createGlShaderPrograms(
+                context, effectsListBuilder.build(), outputColorInfo, finalShaderProgramWrapper));
+
+        ImmutableList.Builder<GlShaderProgram> shaderProgramsToChain =
+            new ImmutableList.Builder<>();
+        if (frameCache != null) {
+          inputSwitcher.setDownstreamShaderProgram(frameCache);
+          shaderProgramsToChain.add(frameCache);
+        } else {
+          inputSwitcher.setDownstreamShaderProgram(
+              getFirst(
+                  intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
+        }
+        shaderProgramsToChain.addAll(intermediateGlShaderPrograms);
+        chainShaderProgramsWithListeners(
+            glObjectsProvider,
+            shaderProgramsToChain.build(),
+            finalShaderProgramWrapper,
+            videoFrameProcessingTaskExecutor,
+            listener,
+            listenerExecutor);
+
+        activeEffects.clear();
+        activeEffects.addAll(inputStreamInfo.effects);
       }
 
       if (frameCache != null) {
-        intermediateGlShaderPrograms.add(frameCache);
+        frameCache.onNewInputStream();
       }
 
-      ImmutableList.Builder<Effect> effectsListBuilder =
-          new ImmutableList.Builder<Effect>().addAll(inputStreamInfo.effects);
-      if (debugViewProvider != DebugViewProvider.NONE) {
-        effectsListBuilder.add(new DebugViewEffect(debugViewProvider, outputColorInfo));
+      inputSwitcher.switchToInput(
+          inputStreamInfo.inputType,
+          new FrameInfo(inputStreamInfo.format, inputStreamInfo.offsetToAddUs));
+      inputStreamRegisteredCondition.open();
+      synchronized (lock) {
+        if (onInputSurfaceReadyListener != null) {
+          onInputSurfaceReadyListener.run();
+          onInputSurfaceReadyListener = null;
+        }
       }
 
-      // The GlShaderPrograms that should be inserted in between the frame cache and
-      // FinalShaderProgramWrapper.
-      intermediateGlShaderPrograms.addAll(
-          createGlShaderPrograms(
-              context, effectsListBuilder.build(), outputColorInfo, finalShaderProgramWrapper));
-      inputSwitcher.setDownstreamShaderProgram(
-          getFirst(intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
-      chainShaderProgramsWithListeners(
-          glObjectsProvider,
-          intermediateGlShaderPrograms,
-          finalShaderProgramWrapper,
-          videoFrameProcessingTaskExecutor,
-          listener,
-          listenerExecutor);
-
-      activeEffects.clear();
-      activeEffects.addAll(inputStreamInfo.effects);
-    }
-
-    inputSwitcher.switchToInput(
-        inputStreamInfo.inputType,
-        new FrameInfo(inputStreamInfo.format, inputStreamInfo.offsetToAddUs));
-    inputStreamRegisteredCondition.open();
-    synchronized (lock) {
-      if (onInputSurfaceReadyListener != null) {
-        onInputSurfaceReadyListener.run();
-        onInputSurfaceReadyListener = null;
-      }
-    }
-
-    listenerExecutor.execute(
-        () ->
-            listener.onInputStreamRegistered(
-                inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
-    if (currentInputStreamInfo == null
-        || inputStreamInfo.format.frameRate != currentInputStreamInfo.format.frameRate) {
       listenerExecutor.execute(
-          () -> listener.onOutputFrameRateChanged(inputStreamInfo.format.frameRate));
+          () ->
+              listener.onInputStreamRegistered(
+                  inputStreamInfo.inputType, inputStreamInfo.format, inputStreamInfo.effects));
+      if (currentInputStreamInfo == null
+          || inputStreamInfo.format.frameRate != currentInputStreamInfo.format.frameRate) {
+        listenerExecutor.execute(
+            () -> listener.onOutputFrameRateChanged(inputStreamInfo.format.frameRate));
+      }
+      this.currentInputStreamInfo = inputStreamInfo;
+    } finally {
+      isConfiguring.open();
     }
-    this.currentInputStreamInfo = inputStreamInfo;
   }
 
   /** Checks that color configuration is valid for {@link DefaultVideoFrameProcessor}. */
@@ -1244,6 +1263,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     try {
       try {
         inputSwitcher.release();
+        if (frameCache != null) {
+          frameCache.release();
+        }
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
           intermediateGlShaderPrograms.get(i).release();
         }

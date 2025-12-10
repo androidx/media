@@ -16,13 +16,6 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
     namespace 'androidx.media3.container'
 
-    defaultConfig {
-        // The following argument makes the Android Test Orchestrator run its
-        // "pm clear" command after each test invocation. This command ensures
-        // that the app's state is completely cleared between tests.
-        testInstrumentationRunnerArguments clearPackageData: 'true'
-    }
-
     buildTypes {
         debug {
             testCoverageEnabled = true

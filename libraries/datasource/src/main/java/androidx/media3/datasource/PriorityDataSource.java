@@ -15,11 +15,12 @@
  */
 package androidx.media3.datasource;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PriorityTaskManager;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.List;
@@ -85,14 +86,14 @@ public final class PriorityDataSource implements DataSource {
    */
   public PriorityDataSource(
       DataSource upstream, PriorityTaskManager priorityTaskManager, @C.Priority int priority) {
-    this.upstream = Assertions.checkNotNull(upstream);
-    this.priorityTaskManager = Assertions.checkNotNull(priorityTaskManager);
+    this.upstream = checkNotNull(upstream);
+    this.priorityTaskManager = checkNotNull(priorityTaskManager);
     this.priority = priority;
   }
 
   @Override
   public void addTransferListener(TransferListener transferListener) {
-    Assertions.checkNotNull(transferListener);
+    checkNotNull(transferListener);
     upstream.addTransferListener(transferListener);
   }
 

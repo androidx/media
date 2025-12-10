@@ -55,7 +55,10 @@ public final class CommonEncryptionDrmTest {
           .seekAndWait(732000)
           .build();
 
-  @Rule public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
+  // TODO: b/464266190 - Migrate to ActivityScenarioRule
+  @SuppressWarnings("deprecation")
+  @Rule
+  public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
 
   private DashTestRunner testRunner;
 

@@ -15,12 +15,13 @@
  */
 package androidx.media3.container;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,6 +76,9 @@ public final class ObuParser {
    * Binding</a>. That is, each OBU has the {@code obu_has_size_field} set to 1 except for the last
    * OBU in the sample, for which {@code obu_has_size_field} may be set to 0.
    *
+   * <p>If the provided sample is truncated, only returns the OBUs that are fully contained in the
+   * sample.
+   *
    * @param sample The sample data.
    * @return The list of OBUs contained within the sample data.
    */
@@ -84,20 +88,32 @@ public final class ObuParser {
     ByteBuffer readOnlySample = sample.asReadOnlyBuffer();
     List<Obu> obuList = new ArrayList<>();
     while (readOnlySample.hasRemaining()) {
-      int headerByte = readOnlySample.get();
-      int obuType = (headerByte >> 3) & 0xF;
-      int extensionFlag = (headerByte >> 2) & 0x1;
-      if (extensionFlag != 0) {
-        readOnlySample.get(); // skip obu_extension_header()
-      }
-      int obuHasSizeField = (headerByte >> 1) & 0x1;
+      int obuType;
       int obuSize;
-      if (obuHasSizeField != 0) {
-        obuSize = leb128(readOnlySample);
-      } else {
-        // Only the last sample is allowed to have obu_has_size_field == 0, and the size is assumed
-        // to fill the remainder of the sample.
-        obuSize = readOnlySample.remaining();
+      try {
+        int headerByte = readOnlySample.get();
+        obuType = (headerByte >> 3) & 0xF;
+        int extensionFlag = (headerByte >> 2) & 0x1;
+        if (extensionFlag != 0) {
+          readOnlySample.get(); // skip obu_extension_header()
+        }
+        int obuHasSizeField = (headerByte >> 1) & 0x1;
+        if (obuHasSizeField != 0) {
+          obuSize = leb128(readOnlySample);
+        } else {
+          // Only the last sample is allowed to have obu_has_size_field == 0, and the size is
+          // assumed to fill the remainder of the sample.
+          obuSize = readOnlySample.remaining();
+        }
+      } catch (BufferUnderflowException ignored) {
+        // Intentionally ignoring this exception because this method supports truncated input
+        // which means the contents are cut off.
+        // ByteBuffer reading fails with underflow exception if the input sample is truncated.
+        break;
+      }
+      if (readOnlySample.position() + obuSize > readOnlySample.limit()) {
+        // The input sample was truncated and doesn't hold the full OBU.
+        break;
       }
       ByteBuffer payload = readOnlySample.duplicate();
       payload.limit(readOnlySample.position() + obuSize);

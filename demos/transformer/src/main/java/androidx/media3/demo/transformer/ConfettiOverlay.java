@@ -16,7 +16,7 @@
 
 package androidx.media3.demo.transformer;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -94,7 +94,7 @@ import java.util.Random;
 
   /** Stops the confetti. */
   public void stop() {
-    checkStateNotNull(runnable);
+    checkNotNull(runnable);
     handler.removeCallbacks(runnable);
     confettiList.clear();
     started = false;

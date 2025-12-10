@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
@@ -23,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
@@ -42,9 +43,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 public class SeparableConvolutionShaderProgram implements GlShaderProgram {
-  private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_PATH =
-      "shaders/fragment_shader_separable_convolution_es2.glsl";
 
   // TODO (b/282767994): Fix TAP hanging issue and update samples per texel.
   private static final int RASTER_SAMPLES_PER_TEXEL = 5;
@@ -123,7 +121,11 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
     lastConvolutionFunction = null;
 
     try {
-      glProgram = new GlProgram(context, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+      glProgram =
+          new GlProgram(
+              context,
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_separable_convolution_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }
@@ -151,7 +153,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
   @Override
   public final void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-    Assertions.checkState(
+    checkState(
         !outputTextureInUse,
         "The shader program does not currently accept input frames. Release prior output frames"
             + " first.");

@@ -15,9 +15,10 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.util.Objects;
@@ -95,9 +96,9 @@ import java.util.Objects;
       boolean isLastInTimelinePeriod,
       boolean isLastInTimelineWindow,
       boolean isFinal) {
-    Assertions.checkArgument(!isFinal || isLastInTimelinePeriod);
-    Assertions.checkArgument(!isLastInTimelineWindow || isLastInTimelinePeriod);
-    Assertions.checkArgument(
+    checkArgument(!isFinal || isLastInTimelinePeriod);
+    checkArgument(!isLastInTimelineWindow || isLastInTimelinePeriod);
+    checkArgument(
         !isFollowedByTransitionToSameStream
             || (!isLastInTimelinePeriod && !isLastInTimelineWindow && !isFinal));
     this.id = id;

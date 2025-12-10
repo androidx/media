@@ -21,17 +21,15 @@ import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.demo.session.service.R
-import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
-import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
-import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -49,79 +47,31 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     MediaItemTree.initialize(service.assets)
   }
 
-  private val commandButtons: List<CommandButton> =
-    listOf(
-      CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
-        .setDisplayName(service.getString(R.string.exo_controls_shuffle_on_description))
-        .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON, Bundle.EMPTY))
-        .build(),
-      CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-        .setDisplayName(service.getString(R.string.exo_controls_shuffle_off_description))
-        .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF, Bundle.EMPTY))
-        .build(),
-    )
-
-  @OptIn(UnstableApi::class) // MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-  val mediaNotificationSessionCommands =
-    MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-      .also { builder ->
-        // Put all custom session commands in the list that may be used by the notification.
-        commandButtons.forEach { commandButton ->
-          commandButton.sessionCommand?.let { builder.add(it) }
-        }
-      }
+  @OptIn(UnstableApi::class) // Player.Commands.Builder
+  private val restrictedAccessPlayerCommands =
+    Player.Commands.Builder()
+      .addAll(
+        Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+        Player.COMMAND_GET_TRACKS,
+        Player.COMMAND_GET_METADATA,
+      )
       .build()
 
-  // ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-  // ConnectionResult.AcceptedResultBuilder
-  @OptIn(UnstableApi::class)
+  @OptIn(UnstableApi::class) // DEFAULT_ constants in MediaSession.ConnectionResult
   override fun onConnect(
     session: MediaSession,
     controller: MediaSession.ControllerInfo,
   ): MediaSession.ConnectionResult {
-    if (
-      session.isMediaNotificationController(controller) ||
-        session.isAutomotiveController(controller) ||
-        session.isAutoCompanionController(controller)
-    ) {
-      // Select the button to display.
-      val customButton = commandButtons[if (session.player.shuffleModeEnabled) 1 else 0]
-      return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-        .setAvailableSessionCommands(mediaNotificationSessionCommands)
-        .setMediaButtonPreferences(ImmutableList.of(customButton))
-        .build()
-    }
-    // Default commands without media button preferences for common controllers.
-    return MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
-  }
-
-  @OptIn(UnstableApi::class) // MediaSession.isMediaNotificationController
-  override fun onCustomCommand(
-    session: MediaSession,
-    controller: MediaSession.ControllerInfo,
-    customCommand: SessionCommand,
-    args: Bundle,
-  ): ListenableFuture<SessionResult> {
-    if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON == customCommand.customAction) {
-      // Enable shuffling.
-      session.player.shuffleModeEnabled = true
-      // Change the media button preferences to contain the `Disable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[1]),
+    return if (controller.isTrusted) {
+      // Provide full information.
+      MediaSession.ConnectionResult.accept(
+        MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS,
+        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
       )
-      return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
-    } else if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF == customCommand.customAction) {
-      // Disable shuffling.
-      session.player.shuffleModeEnabled = false
-      // Change the media button preferences to contain the `Enable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[0]),
-      )
-      return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+    } else {
+      // Restricted read-only view on currently playing item only.
+      MediaSession.ConnectionResult.accept(SessionCommands.EMPTY, restrictedAccessPlayerCommands)
     }
-    return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
   }
 
   override fun onGetLibraryRoot(
@@ -191,39 +141,55 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
   override fun onPlaybackResumption(
     mediaSession: MediaSession,
     controller: MediaSession.ControllerInfo,
+    isForPlayback: Boolean,
   ): ListenableFuture<MediaItemsWithStartPosition> {
     return CoroutineScope(Dispatchers.Unconfined).future {
-      service.retrieveLastStoredMediaItem()?.let {
-        var extras: Bundle? = null
-        if (it.durationMs != C.TIME_UNSET) {
-          extras = Bundle()
-          extras.putInt(
-            MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
-            MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
-          )
-          extras.putDouble(
-            MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
-            max(0.0, min(1.0, it.positionMs.toDouble() / it.durationMs)),
-          )
-        }
-        maybeExpandSingleItemToPlaylist(
-            mediaItem =
-              MediaItem.Builder()
-                .setMediaId(it.mediaId)
+      service.retrieveLastStoredMediaItem()?.apply {
+        if (isForPlayback) {
+          maybeExpandSingleItemToPlaylist(
+              mediaItem = MediaItem.Builder().setMediaId(this.mediaId).build(),
+              startIndex = 0,
+              startPositionMs = this.positionMs,
+            )
+            ?.also {
+              return@future it
+            }
+        } else {
+          MediaItemTree.getItem(this.mediaId)?.also {
+            var extras: Bundle? = null
+            if (this.durationMs != C.TIME_UNSET) {
+              extras = Bundle()
+              extras.putInt(
+                MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
+                MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
+              )
+              extras.putDouble(
+                MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
+                max(0.0, min(1.0, this.positionMs.toDouble() / this.durationMs)),
+              )
+            }
+            val updatedItem =
+              it
+                .buildUpon()
                 .setMediaMetadata(
-                  MediaMetadata.Builder()
-                    .setArtworkUri(it.artworkOriginalUri.toUri())
-                    .setArtworkData(it.artworkData.toByteArray(), MediaMetadata.PICTURE_TYPE_MEDIA)
+                  it.mediaMetadata
+                    .buildUpon()
+                    .setArtworkUri(this.artworkOriginalUri.toUri())
+                    .setArtworkData(
+                      this.artworkData.toByteArray(),
+                      MediaMetadata.PICTURE_TYPE_MEDIA,
+                    )
                     .setExtras(extras)
                     .build()
                 )
-                .build(),
-            startIndex = 0,
-            startPositionMs = it.positionMs,
-          )
-          ?.let {
-            return@future it
+                .build()
+            return@future MediaItemsWithStartPosition(
+              listOf(updatedItem),
+              /* startIndex= */ 0,
+              /* startPositionMs= */ C.TIME_UNSET,
+            )
           }
+        }
       }
       throw IllegalStateException("previous media id not found")
     }
@@ -289,12 +255,5 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     params: MediaLibraryService.LibraryParams?,
   ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
     return Futures.immediateFuture(LibraryResult.ofItemList(MediaItemTree.search(query), params))
-  }
-
-  companion object {
-    private const val CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON =
-      "android.media3.session.demo.SHUFFLE_ON"
-    private const val CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF =
-      "android.media3.session.demo.SHUFFLE_OFF"
   }
 }

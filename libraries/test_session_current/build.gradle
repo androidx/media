@@ -32,7 +32,10 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
-    sourceSets.main.assets.srcDir '../test_data/src/test/assets/'
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+        main.assets.srcDir '../test_data/src/test/assets'
+    }
 }
 
 dependencies {
@@ -44,6 +47,7 @@ dependencies {
     implementation project(modulePrefix + 'test-data')
     androidTestImplementation project(modulePrefix + 'lib-exoplayer')
     androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     androidTestImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion
     androidTestImplementation 'androidx.test.ext:truth:' + androidxTestTruthVersion
     androidTestImplementation 'androidx.test:core:' + androidxTestCoreVersion

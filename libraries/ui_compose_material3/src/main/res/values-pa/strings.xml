@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ਚਲਾਓ</string>
+  <string name="playpause_button_pause">ਰੋਕੋ</string>
+  <string name="next_button">ਅੱਗੇ</string>
+  <string name="previous_button">ਪਿੱਛੇ</string>
+  <string name="seek_back_button">ਪਿੱਛੇ ਕਰੋ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d ਸਕਿੰਟ ਪਿੱਛੇ ਕਰੋ</item>
+    <item quantity="other">%d ਸਕਿੰਟ ਪਿੱਛੇ ਕਰੋ</item>
+  </plurals>
+  <string name="seek_forward_button">ਅੱਗੇ ਕਰੋ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d ਸਕਿੰਟ ਅੱਗੇ ਕਰੋ</item>
+    <item quantity="other">%d ਸਕਿੰਟ ਅੱਗੇ ਕਰੋ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">ਮੌਜੂਦਾ ਮੋਡ: ਕਿਸੇ ਨੂੰ ਨਾ ਦੁਹਰਾਓ। ਦੁਹਰਾਓ ਮੋਡ ਟੌਗਲ ਕਰੋ।</string>
+  <string name="repeat_button_repeat_one">ਮੌਜੂਦਾ ਮੋਡ: ਇੱਕ ਨੂੰ ਦੁਹਰਾਓ। ਦੁਹਰਾਓ ਮੋਡ ਟੌਗਲ ਕਰੋ।</string>
+  <string name="repeat_button_repeat_all">ਮੌਜੂਦਾ ਮੋਡ: ਸਭ ਦੁਹਰਾਓ। ਦੁਹਰਾਓ ਮੋਡ ਟੌਗਲ ਕਰੋ।</string>
+  <string name="shuffle_button_shuffle_on">\'ਬੇਤਰਤੀਬ ਕਰੋ\' ਮੋਡ ਚਾਲੂ ਹੈ।</string>
+  <string name="shuffle_button_shuffle_off">\'ਬੇਤਰਤੀਬ ਕਰੋ\' ਮੋਡ ਬੰਦ ਹੈ।</string>
+  <string name="mute_button_shown_unmuted">ਮਿਊਟ ਕਰੋ</string>
+  <string name="mute_button_shown_muted">ਅਣਮਿਊਟ ਕਰੋ</string>
+</resources>

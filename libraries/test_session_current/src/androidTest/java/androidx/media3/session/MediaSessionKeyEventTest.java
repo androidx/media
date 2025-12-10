@@ -27,10 +27,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
+import android.content.Intent;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.KeyEvent;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaSession.ControllerInfo;
@@ -39,8 +42,10 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.R;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -55,7 +60,7 @@ import org.junit.runner.RunWith;
  * Tests for key event handling of {@link MediaSession}. In order to get the media key events, the
  * player state is set to 'Playing' before every test method.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 @LargeTest
 public class MediaSessionKeyEventTest {
 
@@ -267,51 +272,51 @@ public class MediaSessionKeyEventTest {
   }
 
   @Test
-  public void playPauseKeyEvent_paused_play() throws Exception {
+  public void playPauseKeyEvent_paused_play(@TestParameter PlayPauseEvent playPauseEvent)
+      throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
     assumeTrue(SDK_INT >= 26);
-
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
   @Test
-  public void playPauseKeyEvent_fromIdle_prepareAndPlay() throws Exception {
+  public void playPauseKeyEvent_fromIdle_prepareAndPlay(
+      @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
     assumeTrue(SDK_INT >= 26);
-
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_IDLE;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
   @Test
-  public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay() throws Exception {
+  public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay(
+      @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
     assumeTrue(SDK_INT >= 26);
-
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
           player.playbackState = STATE_ENDED;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -325,7 +330,20 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_playing_pause() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
   }
@@ -344,7 +362,7 @@ public class MediaSessionKeyEventTest {
   }
 
   @Test
-  public void playPauseKeyEvent_doubleTapOnHeadsetHook_seekNext() throws Exception {
+  public void headsetHookKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
@@ -354,6 +372,62 @@ public class MediaSessionKeyEventTest {
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ true);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
+  }
+
+  @Test
+  public void longPress_repeatedThreeTimesTheActionUp_dispatchedToPlayingSession()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(5);
+    sessionCallback.setOnMediaButtonEventLatch(latch);
+    KeyEvent longPressKeyEvent0 =
+        KeyEvent.changeTimeRepeat(
+            new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY),
+            SystemClock.uptimeMillis(),
+            /* newRepeat= */ 0);
+    KeyEvent longPressKeyEvent1 =
+        KeyEvent.changeTimeRepeat(
+            longPressKeyEvent0,
+            longPressKeyEvent0.getEventTime() + 100,
+            /* newRepeat= */ 1,
+            KeyEvent.FLAG_LONG_PRESS);
+    KeyEvent longPressKeyEvent2 =
+        KeyEvent.changeTimeRepeat(
+            longPressKeyEvent0,
+            longPressKeyEvent0.getEventTime() + 200,
+            /* newRepeat= */ 2,
+            KeyEvent.FLAG_LONG_PRESS);
+    KeyEvent longPressKeyEvent3 =
+        KeyEvent.changeTimeRepeat(
+            longPressKeyEvent0,
+            longPressKeyEvent0.getEventTime() + 300,
+            /* newRepeat= */ 3,
+            KeyEvent.FLAG_LONG_PRESS);
+    KeyEvent actionUpKeyEvent = new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY);
+
+    audioManager.dispatchMediaKeyEvent(longPressKeyEvent0);
+    audioManager.dispatchMediaKeyEvent(longPressKeyEvent1);
+    audioManager.dispatchMediaKeyEvent(longPressKeyEvent2);
+    audioManager.dispatchMediaKeyEvent(longPressKeyEvent3);
+    audioManager.dispatchMediaKeyEvent(actionUpKeyEvent);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    ImmutableList<KeyEvent> expectedEvents =
+        ImmutableList.of(
+            longPressKeyEvent0,
+            longPressKeyEvent1,
+            longPressKeyEvent2,
+            longPressKeyEvent3,
+            actionUpKeyEvent);
+    assertThat(sessionCallback.mediaButtonKeyEvents).hasSize(expectedEvents.size());
+    for (int i = 0; i < expectedEvents.size(); i++) {
+      KeyEvent expected = expectedEvents.get(i);
+      KeyEvent actual = sessionCallback.mediaButtonKeyEvents.get(i);
+      assertThat(actual.getAction()).isEqualTo(expected.getAction());
+      assertThat(actual.getEventTime()).isEqualTo(expected.getEventTime());
+      assertThat(actual.getRepeatCount()).isEqualTo(expected.getRepeatCount());
+      assertThat(actual.getFlags()).isEqualTo(expected.getFlags());
+    }
   }
 
   private MediaController connectMediaNotificationController() throws Exception {
@@ -393,12 +467,27 @@ public class MediaSessionKeyEventTest {
       // API 24 - 27: KeyEvent from system service has the package name "android".
       return "android";
     } else {
-      // API 21 - 23: Fallback set by MediaSessionCompat#getCurrentControllerInfo
+      // API 23: Fallback set by MediaSessionCompat#getCurrentControllerInfo
       return LEGACY_CONTROLLER;
     }
   }
 
   private static class TestSessionCallback implements MediaSession.Callback {
+
+    private final List<KeyEvent> mediaButtonKeyEvents;
+    @Nullable private CountDownLatch latch;
+
+    private TestSessionCallback() {
+      mediaButtonKeyEvents = new ArrayList<>();
+    }
+
+    /**
+     * Set the latch to be count down for each call to {@link #onMediaButtonEvent(MediaSession,
+     * ControllerInfo, Intent)}.
+     */
+    public void setOnMediaButtonEventLatch(CountDownLatch latch) {
+      this.latch = latch;
+    }
 
     @Override
     public MediaSession.ConnectionResult onConnect(
@@ -408,6 +497,16 @@ public class MediaSessionKeyEventTest {
         return MediaSession.Callback.super.onConnect(session, controller);
       }
       return MediaSession.ConnectionResult.reject();
+    }
+
+    @Override
+    public boolean onMediaButtonEvent(
+        MediaSession session, ControllerInfo controllerInfo, Intent intent) {
+      mediaButtonKeyEvents.add(DefaultActionFactory.getKeyEvent(intent));
+      if (latch != null) {
+        latch.countDown();
+      }
+      return MediaSession.Callback.super.onMediaButtonEvent(session, controllerInfo, intent);
     }
   }
 
@@ -429,6 +528,18 @@ public class MediaSessionKeyEventTest {
     public void seekBack() {
       callers.add(session.getControllerForCurrentRequest());
       super.seekBack();
+    }
+  }
+
+  private enum PlayPauseEvent {
+    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    MEDIA_PLAY(KeyEvent.KEYCODE_MEDIA_PLAY),
+    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
+
+    final int keyCode;
+
+    PlayPauseEvent(int keyCode) {
+      this.keyCode = keyCode;
     }
   }
 }

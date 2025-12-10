@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Тоглуулах</string>
+  <string name="playpause_button_pause">Түр зогсоох</string>
+  <string name="next_button">Дараах</string>
+  <string name="previous_button">Өмнөх</string>
+  <string name="seek_back_button">Ухраах</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d секундээр ухраах</item>
+    <item quantity="other">%d секундээр ухраах</item>
+  </plurals>
+  <string name="seek_forward_button">Гүйлгэх</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d секундээр гүйлгэх</item>
+    <item quantity="other">%d секундээр гүйлгэх</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Одоогийн горим: Алийг нь ч дахин тоглуулахгүй. Дахин тоглуулах горимыг асаана уу/унтраана уу.</string>
+  <string name="repeat_button_repeat_one">Одоогийн горим: Нэгийг дахин тоглуулна. Дахин тоглуулах горимыг асаана уу/унтраана уу.</string>
+  <string name="repeat_button_repeat_all">Одоогийн горим: Бүгдийг дахин тоглуулна. Дахин тоглуулах горимыг асаана уу/унтраана уу.</string>
+  <string name="shuffle_button_shuffle_on">Холих горимыг идэвхжүүлсэн.</string>
+  <string name="shuffle_button_shuffle_off">Холих горимыг идэвхгүй болгосон.</string>
+  <string name="mute_button_shown_unmuted">Дууг хаах</string>
+  <string name="mute_button_shown_muted">Дууг нээх</string>
+</resources>

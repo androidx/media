@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.text;
 
 import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -23,7 +24,6 @@ import android.text.Layout.Alignment;
 import android.text.Spanned;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.TextAnnotation;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.webvtt.WebvttParser;
@@ -480,6 +480,6 @@ public final class DelegatingSubtitleDecoderWithWebvttParserTest {
   }
 
   private Spanned getUniqueSpanTextAt(Subtitle sub, long timeUs) {
-    return (Spanned) Assertions.checkNotNull(sub.getCues(timeUs).get(0).text);
+    return (Spanned) checkNotNull(sub.getCues(timeUs).get(0).text);
   }
 }

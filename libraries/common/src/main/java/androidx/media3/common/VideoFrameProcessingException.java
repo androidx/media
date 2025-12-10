@@ -67,7 +67,7 @@ public final class VideoFrameProcessingException extends Exception {
    * @param presentationTimeUs The timestamp of the frame for which the exception occurred.
    */
   public VideoFrameProcessingException(String message, long presentationTimeUs) {
-    super(message);
+    super(message + getPresentationTimeUsString(presentationTimeUs));
     this.presentationTimeUs = presentationTimeUs;
   }
 
@@ -89,7 +89,7 @@ public final class VideoFrameProcessingException extends Exception {
    * @param presentationTimeUs The timestamp of the frame for which the exception occurred.
    */
   public VideoFrameProcessingException(String message, Throwable cause, long presentationTimeUs) {
-    super(message, cause);
+    super(message + getPresentationTimeUsString(presentationTimeUs), cause);
     this.presentationTimeUs = presentationTimeUs;
   }
 
@@ -109,7 +109,11 @@ public final class VideoFrameProcessingException extends Exception {
    * @param presentationTimeUs The timestamp of the frame for which the exception occurred.
    */
   public VideoFrameProcessingException(Throwable cause, long presentationTimeUs) {
-    super(cause);
+    super(getPresentationTimeUsString(presentationTimeUs), cause);
     this.presentationTimeUs = presentationTimeUs;
+  }
+
+  private static String getPresentationTimeUsString(long presentationTimeUs) {
+    return presentationTimeUs == C.TIME_UNSET ? " @UNSET" : " @" + presentationTimeUs;
   }
 }

@@ -15,9 +15,8 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.ComponentName;
 import android.media.session.MediaSession;
@@ -263,8 +262,8 @@ import java.util.Objects;
     int interfaceVersion =
         bundle.getInt(
             FIELD_INTERFACE_VERSION, /* defaultValue= */ SessionToken.UNKNOWN_INTERFACE_VERSION);
-    String packageName =
-        checkNotEmpty(bundle.getString(FIELD_PACKAGE_NAME), "package name should be set.");
+    String packageName = bundle.getString(FIELD_PACKAGE_NAME);
+    checkArgument(!TextUtils.isEmpty(packageName), "package name should be set.");
     String serviceName = bundle.getString(FIELD_SERVICE_NAME, /* defaultValue= */ "");
     @Nullable IBinder iSession = BundleCompat.getBinder(bundle, FIELD_ISESSION);
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);

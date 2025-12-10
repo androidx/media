@@ -17,8 +17,8 @@
 package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
@@ -205,14 +205,14 @@ public class ReplayCacheTest {
               });
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
                                   .build(),
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())
-                          .build())
+                                  .build())))
                   .setEffects(
                       new Effects(
                           /* audioProcessors= */ ImmutableList.of(),
@@ -255,14 +255,14 @@ public class ReplayCacheTest {
           compositionPlayer.addListener(playerTestListener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
                                   .build(),
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())
-                          .build())
+                                  .build())))
                   .setEffects(
                       new Effects(
                           /* audioProcessors= */ ImmutableList.of(),

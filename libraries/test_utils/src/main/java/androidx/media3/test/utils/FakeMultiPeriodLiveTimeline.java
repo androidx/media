@@ -15,10 +15,10 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.sum;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;

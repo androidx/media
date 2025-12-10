@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.util.Arrays;
 
 /** Configurable loader for native libraries. */
@@ -39,7 +41,7 @@ public abstract class LibraryLoader {
    * #isAvailable()}.
    */
   public synchronized void setLibraries(String... libraries) {
-    Assertions.checkState(!loadAttempted, "Cannot set libraries after loading");
+    checkState(!loadAttempted, "Cannot set libraries after loading");
     nativeLibraries = libraries;
   }
 
@@ -57,7 +59,7 @@ public abstract class LibraryLoader {
     } catch (UnsatisfiedLinkError exception) {
       // Log a warning as an attempt to check for the library indicates that the app depends on an
       // extension and generally would expect its native libraries to be available.
-      Log.w(TAG, "Failed to load " + Arrays.toString(nativeLibraries));
+      Log.w(TAG, "Failed to load " + Arrays.toString(nativeLibraries), exception);
     }
     return isAvailable;
   }

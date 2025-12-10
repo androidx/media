@@ -55,6 +55,8 @@ project(modulePrefix + 'demo-transformer').projectDir = new File(rootDir, 'demos
 // Modules that only contain tests (not utils used by other test modules)
 include modulePrefix + 'test-exoplayer-playback'
 project(modulePrefix + 'test-exoplayer-playback').projectDir = new File(rootDir, 'libraries/test_exoplayer_playback')
+include modulePrefix + 'test-proguard'
+project(modulePrefix + 'test-proguard').projectDir = new File(rootDir, 'libraries/test_proguard')
 include modulePrefix + 'test-session-common'
 project(modulePrefix + 'test-session-common').projectDir = new File(rootDir, 'libraries/test_session_common')
 include modulePrefix + 'test-session-current'
@@ -63,5 +65,9 @@ project(modulePrefix + 'test-session-current').projectDir = new File(rootDir, 'l
 // MediaController test app.
 include modulePrefix + 'testapp-controller'
 project(modulePrefix + 'testapp-controller').projectDir = new File(rootDir, 'testapps/controller')
+
+// Documentation samples.
+include modulePrefix + 'doc-samples'
+project(modulePrefix + 'doc-samples').projectDir = new File(rootDir, 'docsamples')
 
 apply from: 'core_settings.gradle'

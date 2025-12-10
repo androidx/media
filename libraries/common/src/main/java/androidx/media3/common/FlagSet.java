@@ -16,8 +16,8 @@
 package androidx.media3.common;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkIndex;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseBooleanArray;
 import androidx.annotation.Nullable;
@@ -196,6 +196,21 @@ public final class FlagSet {
     return false;
   }
 
+  /**
+   * Returns whether this FlagSet contains at least one of the flags in the other Flagset.
+   *
+   * @param other The flag.
+   * @return Whether the set contains the flag.
+   */
+  public boolean containsAny(FlagSet other) {
+    for (int i = 0; i < other.size(); i++) {
+      if (contains(other.get(i))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Returns the number of flags in this set. */
   public int size() {
     return flags.size();
@@ -209,7 +224,7 @@ public final class FlagSet {
    * @throws IndexOutOfBoundsException If index is outside the allowed range.
    */
   public int get(int index) {
-    checkIndex(index, /* start= */ 0, /* limit= */ size());
+    checkElementIndex(index, size());
     return flags.keyAt(index);
   }
 

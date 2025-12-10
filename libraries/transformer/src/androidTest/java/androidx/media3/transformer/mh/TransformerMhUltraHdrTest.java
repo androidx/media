@@ -18,18 +18,18 @@
 package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
+import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
-import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createVideoOnlyComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -44,7 +44,9 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.Set;
 import org.json.JSONException;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
@@ -75,7 +77,9 @@ public final class TransformerMhUltraHdrTest {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
         createUltraHdrComposition(
-            /* tonemap= */ false, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
+            /* tonemap= */ false,
+            /* trackTypes= */ ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
@@ -92,7 +96,7 @@ public final class TransformerMhUltraHdrTest {
   public void exportHdrVideoThenUltraHdrImage_exportsHdr() throws Exception {
     assumeDeviceSupportsUltraHdrEditing();
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
             oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
@@ -114,6 +118,7 @@ public final class TransformerMhUltraHdrTest {
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ false,
+            /* trackTypes= */ ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
             oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT),
             clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS));
 
@@ -134,6 +139,7 @@ public final class TransformerMhUltraHdrTest {
     Composition composition =
         createUltraHdrComposition(
             /* tonemap= */ true,
+            /* trackTypes= */ ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
             clippedVideo(MP4_ASSET_1080P_5_SECOND_HLG10.uri, NO_EFFECT, ONE_FRAME_END_POSITION_MS),
             oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
@@ -146,10 +152,14 @@ public final class TransformerMhUltraHdrTest {
   }
 
   private static Composition createUltraHdrComposition(
-      boolean tonemap, EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
+      boolean tonemap,
+      Set<@C.TrackType Integer> trackTypes,
+      EditedMediaItem editedMediaItem,
+      EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem)
+                new EditedMediaItemSequence.Builder(trackTypes)
+                    .addItem(editedMediaItem)
                     .addItems(editedMediaItems)
                     .build())
             .experimentalSetRetainHdrFromUltraHdrImage(true);

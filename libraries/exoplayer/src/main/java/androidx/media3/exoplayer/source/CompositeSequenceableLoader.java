@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
 import androidx.media3.common.C;

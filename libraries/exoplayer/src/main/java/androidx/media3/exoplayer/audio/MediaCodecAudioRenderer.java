@@ -16,10 +16,10 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -36,7 +36,6 @@ import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -51,6 +50,7 @@ import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -91,11 +91,26 @@ import java.util.Objects;
  *   <li>Message with type {@link #MSG_SET_AUX_EFFECT_INFO} to set the auxiliary effect. The message
  *       payload should be an {@link AuxEffectInfo} instance that will configure the underlying
  *       audio track.
+ *   <li>Message with type {@link #MSG_SET_PREFERRED_AUDIO_DEVICE} to set the preferred audio output
+ *       device. The message payload should be an {@link AudioDeviceInfo} instance.
+ *   <li>Message with type {@link #MSG_SET_VIRTUAL_DEVICE_ID} to set the virtual device id. The
+ *       message payload should be an {@link Integer} for the virtual device id or {@link
+ *       C#INDEX_UNSET} if unspecified.
  *   <li>Message with type {@link #MSG_SET_SKIP_SILENCE_ENABLED} to enable or disable skipping
  *       silences. The message payload should be a {@link Boolean}.
  *   <li>Message with type {@link #MSG_SET_AUDIO_SESSION_ID} to set the audio session ID. The
  *       message payload should be a session ID {@link Integer} that will be attached to the
  *       underlying audio track.
+ *   <li>Message with type {@link #MSG_SET_PRIORITY} to set the priority of the renderer. The
+ *       message payload should be an {@link Integer}.
+ *   <li>Message with type {@link #MSG_SET_AUDIO_OUTPUT_PROVIDER} to set the audio output provider.
+ *       The message payload must be an {@link AudioOutputProvider} instance.
+ *   <li>Message with type {@link #MSG_SET_CODEC_PARAMETERS} to set a collection of codec
+ *       parameters. The message payload should be a {@link CodecParameters} instance. This is only
+ *       supported on API level 29 and above.
+ *   <li>Message with type {@link #MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS} to set the parameter
+ *       keys that the renderer should monitor for changes. The message payload should be an {@code
+ *       ImmutableSet<String>}. This is only supported on API level 29 and above.
  * </ul>
  */
 @UnstableApi
@@ -126,6 +141,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private boolean allowPositionDiscontinuity;
   private boolean audioSinkNeedsReset;
   private boolean hasPendingReportedSkippedSilence;
+  private boolean hasReportedAudioPositionAdvancing;
   private int rendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
@@ -522,7 +538,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected long getDurationToProgressUs(
       long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
-    boolean audioSinkBufferFull = nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
+    boolean audioSinkBufferFull =
+        audioSink.hasPendingData() && nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
     if (!isStarted) {
       // When not started we can only make further progress if the audio track buffer isn't filled
       // yet and there is more data to fill it.
@@ -531,9 +548,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           : DEFAULT_DURATION_TO_PROGRESS_US;
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    if (!audioSinkBufferFull || audioTrackBufferDurationUs == C.TIME_UNSET) {
-      // If the AudioSink buffer is not yet full or getting the audio track buffer size is
-      // unsupported, continue calling with default duration to progress.
+    if (!hasReportedAudioPositionAdvancing
+        || !audioSinkBufferFull
+        || audioTrackBufferDurationUs == C.TIME_UNSET) {
+      // If audio has not yet advanced, the AudioSink buffer is not yet full, or getting the audio
+      // track buffer size is unsupported, continue calling with default duration to progress.
       return DEFAULT_DURATION_TO_PROGRESS_US;
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
@@ -544,8 +563,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
-    // Account for the elapsed time since the start of this iteration of the rendering loop.
-    bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 
@@ -688,13 +705,16 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-    super.onPositionReset(positionUs, joining);
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     audioSink.flush();
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
   }
 
@@ -711,6 +731,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     isStarted = false;
     audioSink.pause();
     super.onStopped();
+    hasReportedAudioPositionAdvancing = false;
   }
 
   @Override
@@ -718,6 +739,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     audioSinkNeedsReset = true;
     inputFormat = null;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    hasReportedAudioPositionAdvancing = false;
     try {
       audioSink.flush();
     } finally {
@@ -732,6 +754,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onReset() {
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     try {
       super.onReset();
@@ -758,7 +781,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData() || super.isReady();
+    return audioSink.hasPendingData();
   }
 
   @Override
@@ -820,6 +843,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     if (isDecodeOnlyBuffer) {
       if (codec != null) {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(
+              DEBUG_LOG_TAG,
+              "audio, release output, pts="
+                  + bufferPresentationTimeUs
+                  + ", pos="
+                  + positionUs
+                  + ", decode-only");
+        }
         codec.releaseOutputBuffer(bufferIndex, false);
       }
       decoderCounters.skippedOutputBufferCount += sampleCount;
@@ -852,6 +884,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     if (fullyConsumed) {
       if (codec != null) {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(
+              DEBUG_LOG_TAG,
+              "audio, release output, pts="
+                  + bufferPresentationTimeUs
+                  + ", pos="
+                  + positionUs
+                  + (isLastBuffer ? ", last-buffer" : ""));
+        }
         codec.releaseOutputBuffer(bufferIndex, false);
       }
       decoderCounters.renderedOutputBufferCount += sampleCount;
@@ -863,6 +904,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
 
     return false;
+  }
+
+  @Override
+  protected void onCodecParametersChanged(CodecParameters codecParameters) {
+    eventDispatcher.audioCodecParametersChanged(codecParameters);
   }
 
   @Override
@@ -904,9 +950,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         audioSink.setAuxEffectInfo(checkNotNull(auxEffectInfo));
         break;
       case MSG_SET_PREFERRED_AUDIO_DEVICE:
-        if (SDK_INT >= 23) {
-          Api23.setAudioSinkPreferredDevice(audioSink, message);
-        }
+        audioSink.setPreferredDevice((AudioDeviceInfo) message);
+        break;
+      case MSG_SET_VIRTUAL_DEVICE_ID:
+        audioSink.setVirtualDeviceId((Integer) checkNotNull(message));
         break;
       case MSG_SET_SKIP_SILENCE_ENABLED:
         audioSink.setSkipSilenceEnabled((Boolean) checkNotNull(message));
@@ -917,6 +964,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       case MSG_SET_PRIORITY:
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
+        break;
+      case MSG_SET_AUDIO_OUTPUT_PROVIDER:
+        audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
         break;
       default:
         super.handleMessage(messageType, message);
@@ -979,7 +1029,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       // Android TV running M, so there's no point requesting a non-default input size. Doing so may
       // cause a native crash, whereas not doing so will cause a more controlled failure when
       // attempting to fill an input buffer. See: https://github.com/google/ExoPlayer/issues/4057.
-      if (SDK_INT < 24 && !(SDK_INT == 23 && Util.isTv(context))) {
+      if (SDK_INT == 23 && !Util.isTv(context)) {
         return Format.NO_VALUE;
       }
     }
@@ -1009,11 +1059,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     // Set codec max values.
     MediaFormatUtil.maybeSetInteger(mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxInputSize);
     // Set codec configuration values.
-    if (SDK_INT >= 23) {
-      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
-      if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET && !deviceDoesntSupportOperatingRate()) {
-        mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
-      }
+    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
+    if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET && !deviceDoesntSupportOperatingRate()) {
+      mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
     }
     if (MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
       Pair<Integer, Integer> profileLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
@@ -1039,6 +1087,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
+    applyCodecParametersToMediaFormat(mediaFormat);
     return mediaFormat;
   }
 
@@ -1126,6 +1175,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
+      hasReportedAudioPositionAdvancing = true;
       eventDispatcher.positionAdvancing(playoutStartSystemTimeMs);
     }
 
@@ -1182,17 +1232,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         loudnessCodecController.setAudioSessionId(audioSessionId);
       }
       eventDispatcher.audioSessionIdChanged(audioSessionId);
-    }
-  }
-
-  @RequiresApi(23)
-  private static final class Api23 {
-    private Api23() {}
-
-    public static void setAudioSinkPreferredDevice(
-        AudioSink audioSink, @Nullable Object messagePayload) {
-      @Nullable AudioDeviceInfo audioDeviceInfo = (AudioDeviceInfo) messagePayload;
-      audioSink.setPreferredDevice(audioDeviceInfo);
     }
   }
 }

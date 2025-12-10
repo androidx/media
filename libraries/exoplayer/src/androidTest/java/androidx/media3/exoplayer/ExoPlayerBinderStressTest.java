@@ -27,7 +27,6 @@ import androidx.media3.test.utils.BinderStressCreator;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -36,7 +35,6 @@ import org.junit.runner.RunWith;
  * verifying that no binder calls happen on the ExoPlayer main thread.
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 23)
 public class ExoPlayerBinderStressTest {
 
   @Test

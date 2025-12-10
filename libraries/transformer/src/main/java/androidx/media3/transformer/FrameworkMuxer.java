@@ -16,11 +16,11 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.transformer.TransformerUtil.getMediaCodecFlags;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Integer.max;
 
 import android.annotation.SuppressLint;
@@ -37,6 +37,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.muxer.BufferInfo;
@@ -50,7 +51,8 @@ import java.nio.ByteBuffer;
 import java.util.Locale;
 
 /** {@link Muxer} implementation that uses a {@link MediaMuxer}. */
-/* package */ final class FrameworkMuxer implements Muxer {
+@UnstableApi
+public final class FrameworkMuxer implements Muxer {
   /** {@link Muxer.Factory} for {@link FrameworkMuxer}. */
   public static final class Factory implements Muxer.Factory {
     private long videoDurationUs;
@@ -169,6 +171,13 @@ import java.util.Locale;
     return trackIndex;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param trackId The track id, previously returned by {@link #addTrack(Format)}.
+   * @param data A buffer containing the sample data to write to the container.
+   * @param bufferInfo The {@link BufferInfo} of the sample.
+   */
   @Override
   public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
       throws MuxerException {
@@ -203,11 +212,9 @@ import java.util.Locale;
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
         SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,
-        "Samples not in presentation order ("
-            + presentationTimeUs
-            + " < "
-            + lastSamplePresentationTimeUs
-            + ") unsupported on this API version");
+        "Samples not in presentation order (%s < %s) unsupported on this API version",
+        presentationTimeUs,
+        lastSamplePresentationTimeUs);
     trackIdToLastPresentationTimeUs.put(trackId, presentationTimeUs);
 
     checkState(
@@ -336,7 +343,7 @@ import java.util.Locale;
    *
    * <p>Refer to <a
    * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">Dolby
-   * Vision profiles and levels.</a>.
+   * Vision profiles and levels</a>.
    */
   @RequiresApi(33)
   private static int getDvProfile() {

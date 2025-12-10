@@ -15,6 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -22,7 +25,6 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BaseDataSource;
@@ -90,7 +92,7 @@ public class FakeDataSource extends BaseDataSource {
 
   public FakeDataSource(FakeDataSet fakeDataSet, boolean isNetwork) {
     super(isNetwork);
-    Assertions.checkNotNull(fakeDataSet);
+    checkNotNull(fakeDataSet);
     this.fakeDataSet = fakeDataSet;
     this.openedDataSpecs = new ArrayList<>();
   }
@@ -101,7 +103,7 @@ public class FakeDataSource extends BaseDataSource {
 
   @Override
   public final long open(DataSpec dataSpec) throws IOException {
-    Assertions.checkState(!openCalled);
+    checkState(!openCalled);
     openCalled = true;
 
     // DataSpec requires a matching close call even if open fails.
@@ -157,7 +159,7 @@ public class FakeDataSource extends BaseDataSource {
 
   @Override
   public final int read(byte[] buffer, int offset, int length) throws IOException {
-    Assertions.checkState(sourceOpened);
+    checkState(sourceOpened);
     while (true) {
       FakeData fakeData = Util.castNonNull(this.fakeData);
       if (currentSegmentIndex == fakeData.getSegments().size() || bytesRemaining == 0) {
@@ -180,7 +182,7 @@ public class FakeDataSource extends BaseDataSource {
         // Do not allow crossing of the segment boundary.
         length = min(length, current.length - current.bytesRead);
         // Perform the read and return.
-        Assertions.checkArgument(buffer.length - offset >= length);
+        checkArgument(buffer.length - offset >= length);
         if (current.data != null) {
           System.arraycopy(current.data, current.bytesRead, buffer, offset, length);
         }
@@ -204,7 +206,7 @@ public class FakeDataSource extends BaseDataSource {
 
   @Override
   public final void close() {
-    Assertions.checkState(openCalled);
+    checkState(openCalled);
     openCalled = false;
     uri = null;
     if (fakeData != null && currentSegmentIndex < fakeData.getSegments().size()) {

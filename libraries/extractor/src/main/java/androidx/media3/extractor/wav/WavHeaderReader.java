@@ -16,11 +16,11 @@
 package androidx.media3.extractor.wav;
 
 import static androidx.media3.extractor.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
@@ -112,7 +112,7 @@ import java.util.Arrays;
     ParsableByteArray scratch = new ParsableByteArray(16);
     // Skip chunks until we find the format chunk.
     ChunkHeader chunkHeader = skipToChunk(/* chunkId= */ WavUtil.FMT_FOURCC, input, scratch);
-    Assertions.checkState(chunkHeader.size >= 16);
+    checkState(chunkHeader.size >= 16);
     input.peekFully(scratch.getData(), 0, 16);
     scratch.setPosition(0);
     int audioFormatType = scratch.readLittleEndianUnsignedShort();

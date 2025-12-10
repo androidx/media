@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableBitArray;

@@ -19,8 +19,8 @@ import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.GLU.gluErrorString;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -41,6 +41,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -56,9 +57,18 @@ public final class GlUtil {
 
   /** Thrown when an OpenGL error occurs. */
   public static final class GlException extends Exception {
+    /** The OpenGL error codes if present, empty if the error is not from the OpenGL engine. */
+    public final ImmutableList<Integer> errorCodes;
+
     /** Creates an instance with the specified error message. */
     public GlException(String message) {
+      this(message, /* errorCodes= */ ImmutableList.of());
+    }
+
+    /** Creates an instance with the specified error message and error codes. */
+    public GlException(String message, List<Integer> errorCodes) {
       super(message);
+      this.errorCodes = ImmutableList.copyOf(errorCodes);
     }
   }
 
@@ -101,6 +111,9 @@ public final class GlUtil {
         EGL14.EGL_STENCIL_SIZE, /* stencilSize= */ 0,
         EGL14.EGL_NONE
       };
+
+  /** Marker value for when no fence sync is set. */
+  @ExperimentalApi public static final long GL_FENCE_SYNC_UNSET = -1;
 
   // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glFenceSync.xhtml
   private static final long GL_FENCE_SYNC_FAILED = 0;
@@ -182,7 +195,7 @@ public final class GlUtil {
    *
    * <p>If {@code true}, the device supports a protected output path for DRM content when using GL.
    */
-  public static boolean isProtectedContentExtensionSupported(Context context) {
+  public static boolean isProtectedContentExtensionSupported(Context context) throws GlException {
     if (SDK_INT < 24) {
       return false;
     }
@@ -211,7 +224,7 @@ public final class GlUtil {
    * surfaces in a call to {@link EGL14#eglMakeCurrent(EGLDisplay, EGLSurface, EGLSurface,
    * EGLContext)}.
    */
-  public static boolean isSurfacelessContextExtensionSupported() {
+  public static boolean isSurfacelessContextExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_SURFACELESS_CONTEXT);
   }
 
@@ -242,7 +255,8 @@ public final class GlUtil {
   }
 
   /** Returns whether the given {@link C.ColorTransfer} is supported. */
-  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer) {
+  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer)
+      throws GlException {
     if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
       return GlUtil.isBt2020PqExtensionSupported();
     } else if (colorTransfer == C.COLOR_TRANSFER_HLG) {
@@ -252,14 +266,14 @@ public final class GlUtil {
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_PQ} is supported. */
-  public static boolean isBt2020PqExtensionSupported() {
+  public static boolean isBt2020PqExtensionSupported() throws GlException {
     // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
     // GL extension is supported. Context: http://b/252537203#comment5.
     return SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_HLG} is supported. */
-  public static boolean isBt2020HlgExtensionSupported() {
+  public static boolean isBt2020HlgExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_COLORSPACE_BT2020_HLG);
   }
 
@@ -275,7 +289,7 @@ public final class GlUtil {
             /* unusedMinor */ new int[1],
             /* minorOffset= */ 0),
         "Error in eglInitialize.");
-    checkGlError();
+    checkEglException("Error in getDefaultEglDisplay");
     return eglDisplay;
   }
 
@@ -327,7 +341,7 @@ public final class GlUtil {
               + " version "
               + openGlVersion);
     }
-    checkGlError();
+    checkEglException("Error in createEglContext");
     return eglContext;
   }
 
@@ -495,15 +509,21 @@ public final class GlUtil {
 
   /** Releases the GL sync object if set, suppressing any error. */
   public static void deleteSyncObjectQuietly(long syncObject) {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     GLES30.glDeleteSync(syncObject);
   }
 
   /**
    * Ensures that following commands on the current OpenGL context will not be executed until the
-   * sync point has been reached. If {@code syncObject} equals {@code 0}, this does not block the
-   * CPU, and only affects the current OpenGL context. Otherwise, this will block the CPU.
+   * sync point has been reached. If {@code syncObject} equals {@code #GL_FENCE_SYNC_UNSET}, this is
+   * a no-op. This method does not block the CPU.
    */
   public static void awaitSyncObject(long syncObject) throws GlException {
+    if (syncObject == GL_FENCE_SYNC_UNSET) {
+      return;
+    }
     if (syncObject == GL_FENCE_SYNC_FAILED) {
       // Fallback to using glFinish for synchronization when fence creation failed.
       GLES20.glFinish();
@@ -526,6 +546,7 @@ public final class GlUtil {
     StringBuilder errorMessageBuilder = new StringBuilder();
     boolean foundError = false;
     int error;
+    ImmutableList.Builder<Integer> errorCodes = new ImmutableList.Builder<>();
     while ((error = GLES20.glGetError()) != GLES20.GL_NO_ERROR) {
       if (foundError) {
         errorMessageBuilder.append('\n');
@@ -536,9 +557,10 @@ public final class GlUtil {
       }
       errorMessageBuilder.append("glError: ").append(errorString);
       foundError = true;
+      errorCodes.add(error);
     }
     if (foundError) {
-      throw new GlException(errorMessageBuilder.toString());
+      throw new GlException(errorMessageBuilder.toString(), errorCodes.build());
     }
   }
 
@@ -843,6 +865,10 @@ public final class GlUtil {
       EGL14.eglDestroyContext(eglDisplay, eglContext);
       checkEglException("Error destroying context");
     }
+  }
+
+  /** Terminates the {@link EGLDisplay} connection. */
+  public static void terminate(EGLDisplay eglDisplay) throws GlException {
     EGL14.eglReleaseThread();
     checkEglException("Error releasing thread");
     EGL14.eglTerminate(eglDisplay);
@@ -1081,8 +1107,8 @@ public final class GlUtil {
     return eglConfigs[0];
   }
 
-  private static boolean isExtensionSupported(String extensionName) {
-    EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+  private static boolean isExtensionSupported(String extensionName) throws GlException {
+    EGLDisplay display = getDefaultEglDisplay();
     @Nullable String eglExtensions = EGL14.eglQueryString(display, EGL10.EGL_EXTENSIONS);
     return eglExtensions != null && eglExtensions.contains(extensionName);
   }
@@ -1103,7 +1129,9 @@ public final class GlUtil {
   private static void checkEglException(String errorMessage) throws GlException {
     int error = EGL14.eglGetError();
     if (error != EGL14.EGL_SUCCESS) {
-      throw new GlException(errorMessage + ", error code: 0x" + Integer.toHexString(error));
+      throw new GlException(
+          errorMessage + ", error code: 0x" + Integer.toHexString(error),
+          /* errorCodes= */ ImmutableList.of(error));
     }
   }
 }

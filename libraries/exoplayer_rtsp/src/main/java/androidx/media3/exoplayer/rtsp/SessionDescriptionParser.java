@@ -16,9 +16,9 @@
 
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.SUPPORTED_SDP_VERSION;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import android.net.Uri;
@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
 
   // SDP line always starts with an one letter tag, followed by an equal sign. The information
   // under the given tag follows an optional space.
-  private static final Pattern SDP_LINE_PATTERN = Pattern.compile("([a-z])=\\s?((?:.|\f)+)");
+  private static final Pattern SDP_LINE_PATTERN = Pattern.compile("([a-z])=\\s?((?:.|\f)++)");
   // SDP line with a one letter tag, an equal sign, and an empty value.
   private static final Pattern SDP_LINE_WITH_EMPTY_VALUE_PATTERN = Pattern.compile("^([a-z])=$");
   // Matches an attribute line (with a= sdp tag removed. Example: range:npt=0-50.0).
@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
   // Page 43, under "token-char".
   private static final Pattern ATTRIBUTE_PATTERN =
       Pattern.compile(
-          "([\\x21\\x23-\\x27\\x2a\\x2b\\x2d\\x2e\\x30-\\x39\\x41-\\x5a\\x5e-\\x7e]+)(?::((?:.|\f)*))?");
+          "([\\x21\\x23-\\x27\\x2a\\x2b\\x2d\\x2e\\x30-\\x39\\x41-\\x5a\\x5e-\\x7e]+)(?::((?:.|\f)*+))?");
   // SDP media description line: <mediaType> <port> <transmissionProtocol> <rtpPayloadType>
   // For instance: audio 0 RTP/AVP 97
   private static final Pattern MEDIA_DESCRIPTION_PATTERN =

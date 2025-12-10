@@ -15,13 +15,16 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -45,32 +48,53 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
      * @param errorCode The error code.
      */
     void onError(String message, Exception cause, @PlaybackException.ErrorCode int errorCode);
+
+    /**
+     * Reports dropped frames from the video graph wrapper. Dropped frames are reported whenever the
+     * video graph is {@linkplain #stopRendering() stopped} having dropped frames, and whenever the
+     * count reaches a specified threshold whilst the video graph is started.
+     *
+     * @param droppedFrameCount The number of dropped frames.
+     * @param elapsedMs The duration in milliseconds over which the frames were dropped. This
+     *     duration is timed from when the video graph was started or from when dropped frames were
+     *     last reported (whichever was more recent), and not from when the first of the reported
+     *     drops occurred.
+     */
+    void onDroppedVideoFrames(int droppedFrameCount, long elapsedMs);
   }
+
+  /** Timeout for {@link #release()}. */
+  public static final long RELEASE_TIMEOUT_MS = 500;
 
   private static final String TAG = "CompPlayerInternal";
   private static final int MSG_SET_COMPOSITION = 0;
   private static final int MSG_START_RENDERING = 1;
   private static final int MSG_STOP_RENDERING = 2;
   private static final int MSG_SET_VOLUME = 3;
-  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 4;
-  private static final int MSG_CLEAR_OUTPUT_SURFACE = 5;
-  private static final int MSG_START_SEEK = 6;
-  private static final int MSG_END_SEEK = 7;
-  private static final int MSG_RELEASE = 8;
+  private static final int MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER = 4;
+  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 5;
+  private static final int MSG_CLEAR_OUTPUT_SURFACE = 6;
+  private static final int MSG_START_SEEK = 7;
+  private static final int MSG_END_SEEK = 8;
+  private static final int MSG_RELEASE = 9;
+  private static final int MSG_SET_AUDIO_ATTRIBUTES = 10;
 
   private final Clock clock;
   private final HandlerWrapper handler;
 
   /** Must be accessed on the playback thread only. */
-  private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
+  private PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
 
   /** Must be accessed on the playback thread only. */
   private final PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
+  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
-  private boolean hasSetComposition;
+  private int droppedFrames;
+  private long droppedFrameAccumulationStartTimeMs;
+
   private boolean released;
 
   /**
@@ -89,21 +113,21 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
       Listener listener,
-      HandlerWrapper listenerHandler) {
+      HandlerWrapper listenerHandler,
+      @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl) {
     this.clock = clock;
     this.handler = clock.createHandler(playbackLooper, /* callback= */ this);
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.playbackVideoGraphWrapper = playbackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
+    this.videoPacketReleaseControl = videoPacketReleaseControl;
   }
 
   // Public methods
 
-  public void setComposition(Composition composition, long startPositionUs) {
-    handler
-        .obtainMessage(MSG_SET_COMPOSITION, Pair.create(composition, startPositionUs))
-        .sendToTarget();
+  public void setComposition(Composition composition) {
+    handler.obtainMessage(MSG_SET_COMPOSITION, composition).sendToTarget();
   }
 
   public void startRendering() {
@@ -126,8 +150,19 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   /** Clears the output surface from the video pipeline. */
-  public void clearOutputSurface() {
-    handler.sendEmptyMessage(MSG_CLEAR_OUTPUT_SURFACE);
+  public void clearOutputSurface(ConditionVariable surfaceCleared) {
+    handler.obtainMessage(MSG_CLEAR_OUTPUT_SURFACE, surfaceCleared).sendToTarget();
+  }
+
+  /**
+   * Releases the current {@link PlaybackAudioGraphWrapper} and replaces it with the provided
+   * instance.
+   */
+  public void replacePlaybackAudioGraphWrapper(
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+    handler
+        .obtainMessage(MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER, playbackAudioGraphWrapper)
+        .sendToTarget();
   }
 
   public void startSeek(long positionMs) {
@@ -140,26 +175,49 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   /**
    * Releases internal components on the playback thread and blocks the current thread until the
-   * components are released.
+   * components are released, with a {@linkplain #RELEASE_TIMEOUT_MS timeout}.
+   *
+   * @return Whether the internal components are released correctly before timing out.
    */
-  public void release() {
+  public boolean release() {
     checkState(!released);
     // Set released to true now to silence any pending listener callback.
     released = true;
-    ConditionVariable conditionVariable = new ConditionVariable();
+    ConditionVariable conditionVariable = new ConditionVariable(clock);
     handler.obtainMessage(MSG_RELEASE, conditionVariable).sendToTarget();
-    clock.onThreadBlocked();
-    try {
-      conditionVariable.block();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException(e);
+    return conditionVariable.blockUninterruptible(RELEASE_TIMEOUT_MS);
+  }
+
+  public void setAudioAttributes(AudioAttributes attributes) {
+    handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
+  }
+
+  /**
+   * Reports that an output frame was dropped from the video graph.
+   *
+   * <p>Must be called on the playback thread.
+   */
+  /* package */ void onFrameDropped() {
+    droppedFrames++;
+    if (droppedFrames >= MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
+      maybeNotifyDroppedFrames();
+    }
+  }
+
+  private void maybeNotifyDroppedFrames() {
+    if (droppedFrames > 0) {
+      long now = clock.elapsedRealtime();
+      long elapsedMs = now - droppedFrameAccumulationStartTimeMs;
+      int droppedFramesToBeReported = droppedFrames;
+      listenerHandler.post(
+          () -> listener.onDroppedVideoFrames(droppedFramesToBeReported, elapsedMs));
+      droppedFrames = 0;
+      droppedFrameAccumulationStartTimeMs = now;
     }
   }
 
   // Handler.Callback methods
 
-  @SuppressWarnings("unchecked")
   @Override
   public boolean handleMessage(Message message) {
     try {
@@ -171,14 +229,17 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           stopRenderingInternal();
           break;
         case MSG_SET_VOLUME:
-          playbackAudioGraphWrapper.setVolume(/* volume= */ (float) message.obj);
+          checkNotNull(playbackAudioGraphWrapper).setVolume(/* volume= */ (float) message.obj);
+          break;
+        case MSG_REPLACE_PLAYBACK_AUDIO_GRAPH_WRAPPER:
+          replacePlaybackAudioGraphWrapperInternal((PlaybackAudioGraphWrapper) message.obj);
           break;
         case MSG_SET_OUTPUT_SURFACE_INFO:
           setOutputSurfaceInfoOnInternalThread(
               /* outputSurfaceInfo= */ (OutputSurfaceInfo) message.obj);
           break;
         case MSG_CLEAR_OUTPUT_SURFACE:
-          clearOutputSurfaceInternal();
+          clearOutputSurfaceInternal((ConditionVariable) message.obj);
           break;
         case MSG_START_SEEK:
           // Video seeking is currently handled by the video renderers, specifically in
@@ -192,7 +253,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
           break;
         case MSG_SET_COMPOSITION:
-          setCompositionInternal((Pair<Composition, Long>) message.obj);
+          setCompositionInternal((Composition) message.obj);
+          break;
+        case MSG_SET_AUDIO_ATTRIBUTES:
+          playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
           break;
         default:
           maybeRaiseError(
@@ -211,20 +275,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Internal methods
 
-  private void setCompositionInternal(Pair<Composition, Long> compositionAndStartTimeUs) {
-    Composition composition = compositionAndStartTimeUs.first;
-    long startTimeUs = compositionAndStartTimeUs.second;
-    if (!hasSetComposition) {
-      // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
-      playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
-      hasSetComposition = true;
-    }
-
-    // Resets the position of the AudioGraph, or the AudioGraph retains its location in the previous
-    // Composition
-
-    playbackAudioGraphWrapper.startSeek(/* positionUs= */ startTimeUs);
-    playbackAudioGraphWrapper.endSeek();
+  private void setCompositionInternal(Composition composition) {
+    // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
+    playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
 
     playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
     playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);
@@ -236,6 +289,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void releaseInternal(ConditionVariable conditionVariable) {
     try {
+      maybeNotifyDroppedFrames();
       playbackAudioGraphWrapper.release();
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       playbackVideoGraphWrapper.release();
@@ -246,19 +300,34 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     }
   }
 
-  public void startRenderingInternal() {
+  private void startRenderingInternal() {
+    droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStarted();
+    }
   }
 
-  public void stopRenderingInternal() {
+  private void stopRenderingInternal() {
+    maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStopped();
+    }
   }
 
-  private void clearOutputSurfaceInternal() {
+  private void replacePlaybackAudioGraphWrapperInternal(
+      PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+    this.playbackAudioGraphWrapper.release();
+    this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
+  }
+
+  private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
     try {
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
+      surfaceCleared.open();
     } catch (RuntimeException e) {
       maybeRaiseError(
           /* message= */ "error clearing video output",

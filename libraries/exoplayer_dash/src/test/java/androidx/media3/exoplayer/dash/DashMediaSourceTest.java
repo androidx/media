@@ -40,6 +40,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +60,10 @@ public final class DashMediaSourceTest {
       "media/mpd/sample_mpd_live_with_complete_service_description";
   private static final String SAMPLE_MPD_LIVE_WITH_OFFSET_INSIDE_WINDOW =
       "media/mpd/sample_mpd_live_with_offset_inside_window";
+  private static final String SAMPLE_MPD_LIVE_WITH_TIME_SHIFT_BUFFER_16_SECS =
+      "media/mpd/sample_mpd_live_with_time_shift_buffer_16_secs";
+  private static final String SAMPLE_MPD_LIVE_WITH_TIME_SHIFT_BUFFER_60_SECS =
+      "media/mpd/sample_mpd_live_with_time_shift_buffer_60_secs";
   private static final String SAMPLE_MPD_LIVE_WITH_OFFSET_TOO_SHORT =
       "media/mpd/sample_mpd_live_with_offset_too_short";
   private static final String SAMPLE_MPD_LIVE_WITH_OFFSET_TOO_LONG =
@@ -443,6 +450,45 @@ public final class DashMediaSourceTest {
   }
 
   @Test
+  public void prepare_targetLiveOffsetConstrainedByManifest_resetByRelease() throws Exception {
+    LiveConfiguration mediaItemLiveConfiguration =
+        new LiveConfiguration.Builder().setTargetOffsetMs(25_000L).build();
+    AtomicBoolean hasCreatedFirstDataSource = new AtomicBoolean();
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(
+                () -> {
+                  if (!hasCreatedFirstDataSource.getAndSet(true)) {
+                    // Delivers a manifest with a window duration shorter than the declared offset.
+                    return createSampleMpdDataSource(
+                        SAMPLE_MPD_LIVE_WITH_TIME_SHIFT_BUFFER_16_SECS);
+                  }
+                  // Delivers a manifest with a window duration larger than the declared offset.
+                  return createSampleMpdDataSource(SAMPLE_MPD_LIVE_WITH_TIME_SHIFT_BUFFER_60_SECS);
+                })
+            .createMediaSource(
+                new MediaItem.Builder()
+                    .setUri(Uri.EMPTY)
+                    .setLiveConfiguration(mediaItemLiveConfiguration)
+                    .build());
+    List<Window> capturedWindows = new ArrayList<>();
+    MediaSource.MediaSourceCaller mediaSourceCaller =
+        (source, timeline) ->
+            capturedWindows.add(timeline.getWindow(/* windowIndex= */ 0, new Window()));
+
+    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+
+    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
+    // Assert that the offset defined by the media item was overridden.
+    assertThat(capturedWindows.get(0).liveConfiguration.targetOffsetMs).isEqualTo(9_000L);
+
+    mediaSource.releaseSource(mediaSourceCaller);
+    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+
+    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
+    assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(25_000L);
+  }
+
+  @Test
   public void canUpdateMediaItem_withIrrelevantFieldsChanged_returnsTrue() {
     MediaItem initialMediaItem =
         new MediaItem.Builder()
@@ -546,28 +592,6 @@ public final class DashMediaSourceTest {
   }
 
   @Test
-  public void canUpdateMediaItem_withChangedLiveConfiguration_returnsFalse() {
-    MediaItem initialMediaItem =
-        new MediaItem.Builder()
-            .setUri("http://test.test")
-            .setLiveConfiguration(new LiveConfiguration.Builder().setTargetOffsetMs(2000).build())
-            .build();
-    MediaItem updatedMediaItem =
-        new MediaItem.Builder()
-            .setUri("http://test.test")
-            .setLiveConfiguration(new LiveConfiguration.Builder().setTargetOffsetMs(5000).build())
-            .build();
-    MediaSource mediaSource =
-        new DashMediaSource.Factory(
-                () -> createSampleMpdDataSource(SAMPLE_MPD_LIVE_WITHOUT_LIVE_CONFIGURATION))
-            .createMediaSource(initialMediaItem);
-
-    boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
-
-    assertThat(canUpdateMediaItem).isFalse();
-  }
-
-  @Test
   public void updateMediaItem_createsTimelineWithUpdatedItem() throws Exception {
     MediaItem initialMediaItem =
         new MediaItem.Builder().setUri("http://test.test").setTag("tag1").build();
@@ -582,6 +606,45 @@ public final class DashMediaSourceTest {
     Timeline.Window window = prepareAndWaitForTimelineRefresh(mediaSource);
 
     assertThat(window.mediaItem).isEqualTo(updatedMediaItem);
+  }
+
+  @Test
+  public void updateMediaItem_targetLiveOffsetConstrainedByManifest_resetByUpdatedMediaItem()
+      throws Exception {
+    // A live configuration with a target offset larger than the window duration.
+    LiveConfiguration initialLiveConfiguration =
+        new LiveConfiguration.Builder().setTargetOffsetMs(25_000L).build();
+    DashMediaSource mediaSource =
+        new DashMediaSource.Factory(
+                () -> createSampleMpdDataSource(SAMPLE_MPD_LIVE_WITH_TIME_SHIFT_BUFFER_16_SECS))
+            .createMediaSource(
+                new MediaItem.Builder()
+                    .setUri(Uri.EMPTY)
+                    .setLiveConfiguration(initialLiveConfiguration)
+                    .build());
+    List<Window> capturedWindows = new ArrayList<>();
+    MediaSource.MediaSourceCaller mediaSourceCaller =
+        (source, timeline) ->
+            capturedWindows.add(timeline.getWindow(/* windowIndex= */ 0, new Window()));
+
+    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+
+    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
+    // Assert that the offset defined by the media item was overridden.
+    assertThat(capturedWindows.get(0).liveConfiguration.targetOffsetMs).isEqualTo(9_000L);
+
+    mediaSource.releaseSource(mediaSourceCaller);
+    // Set a new live configuration with a target offset within the window duration.
+    mediaSource.updateMediaItem(
+        new MediaItem.Builder()
+            .setUri(Uri.EMPTY)
+            .setLiveConfiguration(new LiveConfiguration.Builder().setTargetOffsetMs(5_000L).build())
+            .build());
+
+    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+
+    RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
+    assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(5_000L);
   }
 
   private static Window prepareAndWaitForTimelineRefresh(MediaSource mediaSource) throws Exception {

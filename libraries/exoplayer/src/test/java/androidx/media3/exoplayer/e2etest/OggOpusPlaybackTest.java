@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -34,12 +35,10 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -83,9 +82,10 @@ public final class OggOpusPlaybackTest {
             .build();
     player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -104,9 +104,10 @@ public final class OggOpusPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
     player.prepare();
     player.seekTo(/* positionMs= */ 1415);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -129,12 +130,12 @@ public final class OggOpusPlaybackTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSink(
               new DefaultAudioSink.Builder(context)
                   .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
     }
@@ -149,17 +150,16 @@ public final class OggOpusPlaybackTest {
   private static final class DumpingAudioSink extends ForwardingAudioSink
       implements Dumper.Dumpable {
     /** All handleBuffer interactions recorded with this audio sink. */
-    private final List<CapturedInputBuffer> capturedInteractions;
+    private final ByteArrayOutputStream capturedSamples;
 
     public DumpingAudioSink(AudioSink sink) {
       super(sink);
-      capturedInteractions = new ArrayList<>();
+      capturedSamples = new ByteArrayOutputStream();
     }
 
     @Override
     public void configure(
-        Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-        throws ConfigurationException {
+        Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels) {
       // Bypass configure of base DefaultAudioSink
     }
 
@@ -179,20 +179,15 @@ public final class OggOpusPlaybackTest {
 
     @Override
     public boolean handleBuffer(
-        ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
-        throws InitializationException, WriteException {
-      capturedInteractions.add(
-          new CapturedInputBuffer(peekBytes(buffer, 0, buffer.limit() - buffer.position())));
+        ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount) {
+      capturedSamples.writeBytes(peekBytes(buffer, 0, buffer.limit() - buffer.position()));
       return true;
     }
 
     @Override
     public void dump(Dumper dumper) {
       dumper.startBlock("SinkDump (OggOpus)");
-      dumper.add("buffers.length", capturedInteractions.size());
-      for (int i = 0; i < capturedInteractions.size(); i++) {
-        dumper.add("buffers[" + i + "]", capturedInteractions.get(i).contents);
-      }
+      dumper.add("buffers", capturedSamples.toByteArray());
       dumper.endBlock();
     }
 
@@ -203,15 +198,6 @@ public final class OggOpusPlaybackTest {
       buffer.get(bytes);
       buffer.position(originalPosition);
       return bytes;
-    }
-
-    /** Data record */
-    private static final class CapturedInputBuffer {
-      private final byte[] contents;
-
-      private CapturedInputBuffer(byte[] contents) {
-        this.contents = contents;
-      }
     }
   }
 }

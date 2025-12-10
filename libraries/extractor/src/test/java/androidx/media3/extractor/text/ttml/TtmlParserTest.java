@@ -16,6 +16,7 @@
 package androidx.media3.extractor.text.ttml;
 
 import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.text.Layout;
@@ -23,7 +24,6 @@ import android.text.Spanned;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser.OutputOptions;
@@ -1114,7 +1114,7 @@ public final class TtmlParserTest {
   private static Spanned getOnlyCueTextAtIndex(List<CuesWithTiming> allCues, int index) {
     Cue cue = getOnlyCueAtIndex(allCues, index);
     assertThat(cue.text).isInstanceOf(Spanned.class);
-    return (Spanned) Assertions.checkNotNull(cue.text);
+    return (Spanned) checkNotNull(cue.text);
   }
 
   private static Cue getOnlyCueAtIndex(List<CuesWithTiming> allCues, int index) {

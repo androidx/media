@@ -144,7 +144,8 @@ public class SsMediaPeriodTest {
         new MediaSourceEventListener.EventDispatcher()
             .withParameters(/* windowIndex= */ 0, mediaPeriodId),
         mock(LoaderErrorThrower.class),
-        mock(Allocator.class));
+        mock(Allocator.class),
+        /* downloadExecutorSupplier= */ null);
   }
 
   private static Format createVideoFormat(int bitrate) {

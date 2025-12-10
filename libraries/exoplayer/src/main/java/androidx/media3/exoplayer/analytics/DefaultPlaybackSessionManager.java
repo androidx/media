@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.util.Base64;
@@ -113,7 +113,8 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
       return;
     }
     if (eventTime.mediaPeriodId != null) {
-      if (eventTime.mediaPeriodId.windowSequenceNumber < getMinWindowSequenceNumber()) {
+      if (eventTime.mediaPeriodId.windowSequenceNumber != C.INDEX_UNSET
+          && eventTime.mediaPeriodId.windowSequenceNumber < getMinWindowSequenceNumber()) {
         // Ignore event because it is part of a past window that has already been finished.
         return;
       }
@@ -184,10 +185,10 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
       if (!session.tryResolvingToNewTimeline(previousTimeline, currentTimeline)
           || session.isFinishedAtEventTime(eventTime)) {
         iterator.remove();
+        if (session.sessionId.equals(currentSessionId)) {
+          clearCurrentSession(session);
+        }
         if (session.isCreated) {
-          if (session.sessionId.equals(currentSessionId)) {
-            clearCurrentSession(session);
-          }
           listener.onSessionFinished(
               eventTime, session.sessionId, /* automaticTransitionToNextPlayback= */ false);
         }
@@ -206,13 +207,13 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
       SessionDescriptor session = iterator.next();
       if (session.isFinishedAtEventTime(eventTime)) {
         iterator.remove();
+        boolean isRemovingCurrentSession = session.sessionId.equals(currentSessionId);
+        if (isRemovingCurrentSession) {
+          clearCurrentSession(session);
+        }
         if (session.isCreated) {
-          boolean isRemovingCurrentSession = session.sessionId.equals(currentSessionId);
           boolean isAutomaticTransition =
               hasAutomaticTransition && isRemovingCurrentSession && session.isActive;
-          if (isRemovingCurrentSession) {
-            clearCurrentSession(session);
-          }
           listener.onSessionFinished(eventTime, session.sessionId, isAutomaticTransition);
         }
       }
@@ -278,7 +279,7 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
   }
 
   private void clearCurrentSession(SessionDescriptor currentSession) {
-    if (currentSession.windowSequenceNumber != C.INDEX_UNSET) {
+    if (currentSession.windowSequenceNumber != C.INDEX_UNSET && currentSession.isCreated) {
       lastRemovedCurrentWindowSequenceNumber = currentSession.windowSequenceNumber;
     }
     currentSessionId = null;
@@ -375,7 +376,7 @@ public final class DefaultPlaybackSessionManager implements PlaybackSessionManag
 
     public boolean belongsToSession(
         int eventWindowIndex, @Nullable MediaPeriodId eventMediaPeriodId) {
-      if (eventMediaPeriodId == null) {
+      if (eventMediaPeriodId == null || eventMediaPeriodId.windowSequenceNumber == C.INDEX_UNSET) {
         // Events without concrete media period id are for all sessions of the same window.
         return eventWindowIndex == windowIndex;
       }

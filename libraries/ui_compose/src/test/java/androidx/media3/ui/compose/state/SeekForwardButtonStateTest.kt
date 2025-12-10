@@ -20,9 +20,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,9 +37,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun addSeekForwardCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
 
     lateinit var state: SeekForwardButtonState
@@ -53,10 +53,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun removeSeekForwardCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
-
+    val player = createReadyPlayerWithTwoItems()
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
 
@@ -69,8 +66,47 @@ class SeekForwardButtonStateTest {
   }
 
   @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = FakePlayer()
+    player.removeCommands(Player.COMMAND_SEEK_FORWARD)
+    lateinit var state: SeekForwardButtonState
+    composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: SeekForwardButtonState
+    composeTestRule.setContent { state = rememberSeekForwardButtonState(player) }
+
+    player.removeCommands(Player.COMMAND_SEEK_FORWARD)
+    composeTestRule.waitForIdle()
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
+    player.setPosition(1000)
+    lateinit var state: SeekForwardButtonState
+    composeTestRule.setContent { state = rememberSeekForwardButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SEEK_FORWARD)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.currentPosition).isEqualTo(1000)
+  }
+
+  @Test
   fun playerChangeSeekForwardIncrement_buttonStateGetsUpdatedValue() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
@@ -85,9 +121,8 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsForwardBySpecifiedAmount() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(500)
     player.setSeekForwardIncrementMs(300)
     val state = SeekForwardButtonState(player)
@@ -101,9 +136,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun remainingDurationSmallerThanIncrement_buttonClicked_positionJumpsToTheEndOfCurrentMediaItem() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     val state = SeekForwardButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -116,9 +149,8 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionAtTheEnd_buttonClicked_positionDoesNotMove() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(player.duration)
     val state = SeekForwardButtonState(player)
 
@@ -131,7 +163,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent {

@@ -27,6 +27,10 @@ android {
         aarMetadata {
             minCompileSdk = project.ext.compileSdkVersion
         }
+        // This requires the ANDROIDX_TEST_ORCHESTRATOR and
+        // androidx.test:orchestrator config below.
+        // See https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner
+        testInstrumentationRunnerArguments clearPackageData: 'true'
     }
 
     lintOptions {
@@ -41,7 +45,15 @@ android {
     testOptions {
         unitTests.all {
             jvmArgs "-Xmx2g"
+            systemProperty "robolectric.graphicsMode", "NATIVE"
         }
         unitTests.includeAndroidResources true
+        // See https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner
+        execution 'ANDROIDX_TEST_ORCHESTRATOR'
     }
+}
+
+dependencies {
+    // See https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner
+    androidTestUtil 'androidx.test:orchestrator:1.6.1'
 }

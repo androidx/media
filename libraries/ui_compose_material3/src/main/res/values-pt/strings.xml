@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Tocar</string>
+  <string name="playpause_button_pause">Pausar</string>
+  <string name="next_button">Próxima</string>
+  <string name="previous_button">Anterior</string>
+  <string name="seek_back_button">Voltar</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Voltar %d segundo</item>
+    <item quantity="other">Voltar %d segundos</item>
+  </plurals>
+  <string name="seek_forward_button">Avançar</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Avançar %d segundo</item>
+    <item quantity="other">Avançar %d segundos</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Modo atual: não repetir. Alternar modo de repetição.</string>
+  <string name="repeat_button_repeat_one">Modo atual: repetir um item. Alternar modo de repetição.</string>
+  <string name="repeat_button_repeat_all">Modo atual: repetir tudo. Alternar modo de repetição.</string>
+  <string name="shuffle_button_shuffle_on">Modo aleatório ativado.</string>
+  <string name="shuffle_button_shuffle_off">Modo aleatório desativado.</string>
+  <string name="mute_button_shown_unmuted">Desativar som</string>
+  <string name="mute_button_shown_muted">Ativar som</string>
+</resources>

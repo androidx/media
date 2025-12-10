@@ -29,8 +29,6 @@ import java.io.IOException;
  * horizontal tiling effect.
  */
 /* package */ final class ThumbnailStripShaderProgram extends BaseGlShaderProgram {
-  private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_thumbnail_strip_es2.glsl";
-  private static final String FRAGMENT_SHADER_PATH = "shaders/fragment_shader_copy_es2.glsl";
 
   private final GlProgram glProgram;
   private final ThumbnailStripEffect thumbnailStripEffect;
@@ -43,7 +41,11 @@ import java.io.IOException;
     this.thumbnailStripEffect = thumbnailStripEffect;
 
     try {
-      this.glProgram = new GlProgram(context, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+      this.glProgram =
+          new GlProgram(
+              context,
+              /* vertexShaderResId= */ R.raw.vertex_shader_thumbnail_strip_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_copy_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw VideoFrameProcessingException.from(e);
     }

@@ -30,6 +30,7 @@ import org.junit.runner.RunWith;
 public final class DownloadHelperTest {
 
   @Test
+  @SuppressWarnings("deprecation") // Deliberately testing deprecated API
   public void staticDownloadHelperForSmoothStreaming_doesNotThrow() {
     DownloadHelper.forMediaItem(
         ApplicationProvider.getApplicationContext(),

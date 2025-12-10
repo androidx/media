@@ -17,11 +17,9 @@ package androidx.media3.demo.transformer;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.Activity;
 import android.app.Notification;
@@ -92,7 +90,6 @@ import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
-import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -105,7 +102,6 @@ import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.InAppFragmentedMp4Muxer;
-import androidx.media3.transformer.InAppMp4Muxer;
 import androidx.media3.transformer.JsonUtil;
 import androidx.media3.transformer.MediaProjectionAssetLoader;
 import androidx.media3.transformer.ProgressHolder;
@@ -119,6 +115,7 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -394,11 +391,7 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setMaxDelayBetweenMuxerSamplesMs(C.TIME_UNSET);
       }
 
-      if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_MP4_MUXER)) {
-        transformerBuilder.setMuxerFactory(new InAppMp4Muxer.Factory());
-      }
-
-      if (bundle.getBoolean(ConfigurationActivity.USE_MEDIA3_FRAGMENTED_MP4_MUXER)) {
+      if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
         transformerBuilder.setMuxerFactory(new InAppFragmentedMp4Muxer.Factory());
       }
 
@@ -477,11 +470,9 @@ public final class TransformerActivity extends AppCompatActivity {
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
     EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
-        new EditedMediaItemSequence.Builder(editedMediaItemBuilder.build());
-    if (bundle != null) {
-      editedMediaItemSequenceBuilder.experimentalSetForceAudioTrack(
-          bundle.getBoolean(ConfigurationActivity.FORCE_AUDIO_TRACK));
-    }
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+            .addItem(editedMediaItemBuilder.build());
+
     Composition.Builder compositionBuilder =
         new Composition.Builder(editedMediaItemSequenceBuilder.build());
     if (bundle != null) {
@@ -816,17 +807,7 @@ public final class TransformerActivity extends AppCompatActivity {
     outputPlayerView.setPlayer(null);
     releasePlayers();
 
-    ExoPlayer outputPlayer =
-        new ExoPlayer.Builder(/* context= */ this)
-            .setLoadControl(
-                new DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        LOAD_CONTROL_MIN_BUFFER_MS,
-                        LOAD_CONTROL_MAX_BUFFER_MS,
-                        DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                        DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
-                    .build())
-            .build();
+    ExoPlayer outputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
     outputPlayerView.setPlayer(outputPlayer);
     outputPlayerView.setControllerAutoShow(false);
     outputPlayer.setMediaItem(outputMediaItem);
@@ -840,7 +821,8 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.VISIBLE);
       inputTextView.setText(getString(R.string.input_image));
 
-      BitmapLoader bitmapLoader = new DataSourceBitmapLoader(getApplicationContext());
+      BitmapLoader bitmapLoader =
+          new DataSourceBitmapLoader.Builder(getApplicationContext()).build();
       ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri);
       try {
         Bitmap bitmap = future.get();
@@ -859,17 +841,7 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.GONE);
       inputTextView.setText(getString(R.string.input_video_no_sound));
 
-      ExoPlayer inputPlayer =
-          new ExoPlayer.Builder(/* context= */ this)
-              .setLoadControl(
-                  new DefaultLoadControl.Builder()
-                      .setBufferDurationsMs(
-                          LOAD_CONTROL_MIN_BUFFER_MS,
-                          LOAD_CONTROL_MAX_BUFFER_MS,
-                          DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                          DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS)
-                      .build())
-              .build();
+      ExoPlayer inputPlayer = new ExoPlayer.Builder(/* context= */ this).build();
       inputPlayerView.setPlayer(inputPlayer);
       inputPlayerView.setControllerAutoShow(false);
       inputPlayerView.setOnClickListener(this::handlePlayerViewClick);
@@ -993,7 +965,7 @@ public final class TransformerActivity extends AppCompatActivity {
         Notification notification =
             new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setOngoing(true)
-                .setSmallIcon(R.drawable.exo_icon_play)
+                .setSmallIcon(androidx.media3.ui.R.drawable.exo_icon_play)
                 .build();
         if (SDK_INT >= 26) {
           NotificationChannel channel =

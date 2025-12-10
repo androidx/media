@@ -15,15 +15,14 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -91,7 +90,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                 controllerKey, new SequencedFutureManager(), sessionCommands, playerCommands));
       } else {
         // already exist. Only update allowed commands.
-        ConnectedControllerRecord<T> record = checkStateNotNull(controllerRecords.get(savedInfo));
+        ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(savedInfo));
         record.sessionCommands = sessionCommands;
         record.playerCommands = playerCommands;
       }
@@ -176,7 +175,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     synchronized (lock) {
       @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
       if (record != null) {
-        Assertions.checkStateNotNull(record.playbackException);
+        checkNotNull(record.playbackException);
         record.playerInfoForPlaybackException = playerInfo;
       }
     }
@@ -297,7 +296,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     synchronized (lock) {
       info = controllerRecords.get(controllerInfo);
     }
-    return info != null && info.sessionCommands.contains(command);
+    return info != null
+        && (info.sessionCommands.contains(command)
+            || CommandButton.isPredefinedCustomCommandButtonCode(command.customAction));
   }
 
   public boolean isSessionCommandAvailable(

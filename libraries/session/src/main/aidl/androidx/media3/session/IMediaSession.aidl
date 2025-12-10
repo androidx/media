@@ -33,6 +33,8 @@ oneway interface IMediaSession {
   // Id < 3000 is reserved to avoid potential collision with media2 1.x.
 
   void setVolume(IMediaController caller, int seq, float volume) = 3001;
+  void mute(IMediaController caller, int seq) = 3057;
+  void unmute(IMediaController caller, int seq) = 3058;
   void setDeviceVolume(IMediaController caller, int seq, int volume) = 3002;
   void setDeviceVolumeWithFlags(IMediaController caller, int seq, int volume, int flags) = 3050;
   void increaseDeviceVolume(IMediaController caller, int seq) = 3003;
@@ -76,6 +78,12 @@ oneway interface IMediaSession {
   void connect(IMediaController caller, int seq, in Bundle connectionRequest) = 3014;
   void onCustomCommand(
       IMediaController caller, int seq, in Bundle sessionCommand, in Bundle args) = 3015;
+  void onCustomCommandWithProgressUpdate(
+      IMediaController caller,
+      int seq,
+      in Bundle sessionCommand,
+      in Bundle args,
+      boolean progressUpdateRequested) = 3059;
   void setRepeatMode(IMediaController caller, int seq, int repeatMode) = 3016;
   void setShuffleModeEnabled(IMediaController caller, int seq, boolean shuffleModeEnabled) = 3017;
   void removeMediaItem(IMediaController caller, int seq, int index) = 3018;
@@ -114,6 +122,8 @@ oneway interface IMediaSession {
   void seekToPreviousMediaItem(IMediaController caller, int seq) = 3041;
   void seekToNextMediaItem(IMediaController caller, int seq) = 3042;
   void setVideoSurface(IMediaController caller, int seq, in Surface surface) = 3043;
+  void setVideoSurfaceWithSize(IMediaController caller, int seq, in Surface surface, int width, int height) = 3060;
+  void onSurfaceSizeChanged(IMediaController caller, int seq, int width, int height) = 3061;
   void flushCommandQueue(IMediaController caller) = 3044;
   void seekToPrevious(IMediaController caller, int seq) = 3045;
   void seekToNext(IMediaController caller, int seq) = 3046;
@@ -122,7 +132,9 @@ oneway interface IMediaSession {
   void setRatingWithMediaId(
        IMediaController caller, int seq, String mediaId, in Bundle rating) = 3048;
   void setRating(IMediaController caller, int seq, in Bundle rating) = 3049;
-  // Next Id for MediaSession: 3057
+  // LINT.IfChange
+  // Next Id for MediaSession: 3062
+  // LINT.ThenChange(../../../../../../../common/src/main/java/androidx/media3/common/MediaLibraryInfo.java:interface_version)
 
   void getLibraryRoot(IMediaController caller, int seq, in Bundle libraryParams) = 4000;
   void getItem(IMediaController caller, int seq, String mediaId) = 4001;
@@ -144,5 +156,7 @@ oneway interface IMediaSession {
   void subscribe(
       IMediaController caller, int seq, String parentId, in Bundle libraryParams) = 4005;
   void unsubscribe(IMediaController caller, int seq, String parentId) = 4006;
+  // LINT.IfChange
   // Next Id for MediaLibrarySession: 4007
+  // LINT.ThenChange(../../../../../../../common/src/main/java/androidx/media3/common/MediaLibraryInfo.java:interface_version)
 }

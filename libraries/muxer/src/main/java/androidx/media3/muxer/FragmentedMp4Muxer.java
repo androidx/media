@@ -15,8 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.util.SparseArray;
 import androidx.media3.common.Format;
@@ -30,9 +29,12 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 
 /**
  * A muxer for creating a fragmented MP4 file.
@@ -90,19 +92,31 @@ public final class FragmentedMp4Muxer implements Muxer {
 
   /** A builder for {@link FragmentedMp4Muxer} instances. */
   public static final class Builder {
-    private final OutputStream outputStream;
+    private final WritableByteChannel outputChannel;
 
     private long fragmentDurationMs;
     private boolean sampleCopyEnabled;
 
     /**
+     * @deprecated Use {@link FragmentedMp4Muxer.Builder#Builder(WritableByteChannel)} instead.
+     */
+    @InlineMe(
+        replacement = "this(Channels.newChannel(outputStream))",
+        imports = "java.nio.channels.Channels")
+    @Deprecated
+    public Builder(OutputStream outputStream) {
+      this(Channels.newChannel(outputStream));
+    }
+
+    /**
      * Creates a {@link Builder} instance with default values.
      *
-     * @param outputStream The {@link OutputStream} to write the media data to. This stream will be
-     *     automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is called.
+     * @param outputChannel The {@link WritableByteChannel} to write the media data to. This channel
+     *     will be automatically closed by the muxer when {@link FragmentedMp4Muxer#close()} is
+     *     called.
      */
-    public Builder(OutputStream outputStream) {
-      this.outputStream = outputStream;
+    public Builder(WritableByteChannel outputChannel) {
+      this.outputChannel = outputChannel;
       fragmentDurationMs = DEFAULT_FRAGMENT_DURATION_MS;
       sampleCopyEnabled = true;
     }
@@ -139,7 +153,7 @@ public final class FragmentedMp4Muxer implements Muxer {
 
     /** Builds a {@link FragmentedMp4Muxer} instance. */
     public FragmentedMp4Muxer build() {
-      return new FragmentedMp4Muxer(outputStream, fragmentDurationMs, sampleCopyEnabled);
+      return new FragmentedMp4Muxer(outputChannel, fragmentDurationMs, sampleCopyEnabled);
     }
   }
 
@@ -173,12 +187,11 @@ public final class FragmentedMp4Muxer implements Muxer {
   private final SparseArray<Track> trackIdToTrack;
 
   private FragmentedMp4Muxer(
-      OutputStream outputStream, long fragmentDurationMs, boolean sampleCopyEnabled) {
-    checkNotNull(outputStream);
+      WritableByteChannel outputChannel, long fragmentDurationMs, boolean sampleCopyEnabled) {
     metadataCollector = new MetadataCollector();
     fragmentedMp4Writer =
         new FragmentedMp4Writer(
-            outputStream,
+            outputChannel,
             metadataCollector,
             AnnexBToAvccConverter.DEFAULT,
             fragmentDurationMs,

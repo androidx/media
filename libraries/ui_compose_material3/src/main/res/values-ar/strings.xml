@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">تشغيل</string>
+  <string name="playpause_button_pause">إيقاف مؤقت</string>
+  <string name="next_button">التالي</string>
+  <string name="previous_button">السابق</string>
+  <string name="seek_back_button">ترجيع</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="zero">تخطّي %d ثانية إلى الخلف</item>
+    <item quantity="one">تخطّي ثانية واحدة (%d) إلى الخلف</item>
+    <item quantity="two">تخطّي ثانيتَين (%d) إلى الخلف</item>
+    <item quantity="few">تخطّي %d ثوانٍ إلى الخلف</item>
+    <item quantity="many">تخطّي %d ثانية إلى الخلف</item>
+    <item quantity="other">تخطّي %d ثانية إلى الخلف</item>
+  </plurals>
+  <string name="seek_forward_button">التخطّي إلى الأمام</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="zero">تخطّي %d ثانية إلى الأمام</item>
+    <item quantity="one">تخطّي ثانية واحدة (%d) إلى الأمام</item>
+    <item quantity="two">تخطّي ثانيتَين (%d) إلى الأمام</item>
+    <item quantity="few">تخطّي %d ثوانٍ إلى الأمام</item>
+    <item quantity="many">تخطّي %d ثانية إلى الأمام</item>
+    <item quantity="other">تخطّي %d ثانية إلى الأمام</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">الوضع الحالي: عدم التكرار. يؤدي النقر على الزر إلى تبديل وضع التكرار.</string>
+  <string name="repeat_button_repeat_one">الوضع الحالي: التكرار مرة واحدة. يؤدي النقر على الزر إلى تبديل وضع التكرار.</string>
+  <string name="repeat_button_repeat_all">الوضع الحالي: تكرار الكل. يؤدي النقر على الزر إلى تبديل وضع التكرار.</string>
+  <string name="shuffle_button_shuffle_on">تم تفعيل وضع الترتيب العشوائي.</string>
+  <string name="shuffle_button_shuffle_off">تم إيقاف وضع الترتيب العشوائي.</string>
+  <string name="mute_button_shown_unmuted">كتم الصوت</string>
+  <string name="mute_button_shown_muted">إعادة الصوت</string>
+</resources>

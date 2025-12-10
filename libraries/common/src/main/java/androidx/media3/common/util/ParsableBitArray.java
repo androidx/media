@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -108,7 +109,7 @@ public final class ParsableBitArray {
    * @throws IllegalStateException If the position isn't byte aligned.
    */
   public int getBytePosition() {
-    Assertions.checkState(bitOffset == 0);
+    checkState(bitOffset == 0);
     return byteOffset;
   }
 
@@ -259,7 +260,7 @@ public final class ParsableBitArray {
    * @throws IllegalStateException If the position isn't byte aligned.
    */
   public void readBytes(byte[] buffer, int offset, int length) {
-    Assertions.checkState(bitOffset == 0);
+    checkState(bitOffset == 0);
     System.arraycopy(data, byteOffset, buffer, offset, length);
     byteOffset += length;
     assertValidOffset();
@@ -272,7 +273,7 @@ public final class ParsableBitArray {
    * @throws IllegalStateException If the position isn't byte aligned.
    */
   public void skipBytes(int length) {
-    Assertions.checkState(bitOffset == 0);
+    checkState(bitOffset == 0);
     byteOffset += length;
     assertValidOffset();
   }
@@ -341,7 +342,7 @@ public final class ParsableBitArray {
 
   private void assertValidOffset() {
     // It is fine for position to be at the end of the array, but no further.
-    Assertions.checkState(
+    checkState(
         byteOffset >= 0 && (byteOffset < byteLimit || (byteOffset == byteLimit && bitOffset == 0)));
   }
 }

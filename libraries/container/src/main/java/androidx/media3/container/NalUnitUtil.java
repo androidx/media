@@ -15,7 +15,7 @@
  */
 package androidx.media3.container;
 
-import static androidx.media3.common.MimeTypes.containsCodecsCorrespondingToMimeType;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.DoubleMath.log2;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -638,11 +637,10 @@ public final class NalUnitUtil {
    *     the {@code MimeType} is {@code null}.
    */
   public static boolean isNalUnitSei(Format format, byte nalUnitHeaderFirstByte) {
-    return ((Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)
-                || containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H264))
+    String mimeType = getNalStructureMimeType(format);
+    return (Objects.equals(mimeType, MimeTypes.VIDEO_H264)
             && (nalUnitHeaderFirstByte & 0x1F) == H264_NAL_UNIT_TYPE_SEI)
-        || ((Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
-                || containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265))
+        || (Objects.equals(mimeType, MimeTypes.VIDEO_H265)
             && ((nalUnitHeaderFirstByte & 0x7E) >> 1) == H265_NAL_UNIT_TYPE_PREFIX_SEI);
   }
 
@@ -705,11 +703,11 @@ public final class NalUnitUtil {
    * @param format The sample {@link Format}.
    */
   public static int numberOfBytesInNalUnitHeader(Format format) {
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+    String mimeType = getNalStructureMimeType(format);
+    if (Objects.equals(mimeType, MimeTypes.VIDEO_H264)) {
       return 1;
     }
-    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
-        || MimeTypes.containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265)) {
+    if (Objects.equals(mimeType, MimeTypes.VIDEO_H265)) {
       return 2;
     }
     return 0;
@@ -1900,7 +1898,7 @@ public final class NalUnitUtil {
       byte[] data, int startOffset, int endOffset, boolean[] prefixFlags) {
     int length = endOffset - startOffset;
 
-    Assertions.checkState(length >= 0);
+    checkState(length >= 0);
     if (length == 0) {
       return endOffset;
     }
@@ -2541,6 +2539,31 @@ public final class NalUnitUtil {
       previousDeltaPocS0 = deltaPocS0;
       previousDeltaPocS1 = deltaPocS1;
     }
+  }
+
+  /**
+   * Returns {@link Format#sampleMimeType}, or the MIME type of the structure of the underlying NAL
+   * units if different.
+   *
+   * <p>For example, Dolby Vision content (with MIME type {@link MimeTypes#VIDEO_DOLBY_VISION}) can
+   * be encoded with H.264 or H.265 NAL units.
+   *
+   * <p>Note: This only indicates the structure of the NAL units, it does not necessarily mean the
+   * content can be correctly decoded by a decoder of the returned MIME type (backwards
+   * compatibility). This can be queried with {@code
+   * androidx.media3.exoplayer.decoder.MediaCodecUtil#getAlternativeCodecMimeType(Format)} instead.
+   */
+  @Nullable
+  private static String getNalStructureMimeType(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+        && format.codecs != null) {
+      if (format.codecs.startsWith("dva1") || format.codecs.startsWith("dvav")) {
+        return MimeTypes.VIDEO_H264;
+      } else if (format.codecs.startsWith("dvh1") || format.codecs.startsWith("dvhe")) {
+        return MimeTypes.VIDEO_H265;
+      }
+    }
+    return format.sampleMimeType;
   }
 
   private NalUnitUtil() {

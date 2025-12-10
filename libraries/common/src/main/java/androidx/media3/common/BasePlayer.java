@@ -317,6 +317,12 @@ public abstract class BasePlayer implements Player {
 
   @Override
   public final int getBufferedPercentage() {
+    // This method is not guarded by COMMAND_GET_CURRENT_MEDIA_ITEM, but the implementation below
+    // relies on methods that are, so we have to check the command and exit early with the 0
+    // 'unknown value'.
+    if (!isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+      return 0;
+    }
     long position = getBufferedPosition();
     long duration = getDuration();
     return position == C.TIME_UNSET || duration == C.TIME_UNSET

@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.PendingIntent;
@@ -47,13 +46,13 @@ public class ConnectionStateTest {
     ConnectionState connectionState =
         new ConnectionState(
             MediaLibraryInfo.VERSION_INT,
-            MediaSessionStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ PendingIntent.getActivity(
                 context,
                 /* requestCode= */ 0,
                 new Intent(),
-                /* flags= */ SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
+                /* flags= */ PendingIntent.FLAG_IMMUTABLE),
             /* customLayout= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_ARTIST)
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
@@ -80,7 +79,7 @@ public class ConnectionStateTest {
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(
-            connectionState.toBundleForRemoteProcess(MediaControllerStub.VERSION_INT));
+            connectionState.toBundleForRemoteProcess(MediaLibraryInfo.INTERFACE_VERSION));
     session.release();
     player.release();
 
@@ -114,7 +113,7 @@ public class ConnectionStateTest {
     ConnectionState connectionState =
         new ConnectionState(
             MediaLibraryInfo.VERSION_INT,
-            MediaSessionStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ null,
             /* customLayout= */ ImmutableList.of(),
@@ -133,7 +132,7 @@ public class ConnectionStateTest {
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(
-            connectionState.toBundleForRemoteProcess(/* controllerInterfaceVersion= */ 6));
+            connectionState.toBundleForRemoteProcess(/* interfaceVersion= */ 6));
     session.release();
     player.release();
 

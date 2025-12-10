@@ -17,43 +17,53 @@
 def addMissingAarTypeToXml(xml) {
     // Dependencies that have JARs only (=don't contain an AAR file).
     def jar_only_dependencies = [
+        // go/keep-sorted start
         "androidx.annotation:annotation",
         "androidx.collection:collection",
         "androidx.concurrent:concurrent-futures",
-        "junit:junit",
-        "com.google.ads.interactivemedia.v3:interactivemedia",
-        "com.google.guava:guava",
-        "com.google.truth:truth",
-        "com.google.truth.extensions:truth-java8-extension",
-        "com.squareup.okhttp3:okhttp",
-        "com.squareup.okhttp3:mockwebserver",
-        "org.mockito:mockito-core",
-        "org.robolectric:robolectric",
         "com.github.philburk:jsyn",
+        "com.google.guava:guava",
+        "com.google.truth.extensions:truth-java8-extension",
+        "com.google.truth:truth",
+        "com.squareup.okhttp3:mockwebserver",
+        "com.squareup.okhttp3:okhttp",
+        "junit:junit",
         "org.jetbrains.kotlin:kotlin-stdlib",
         "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-core",
         "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-core",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-guava",
+        "org.jetbrains.kotlinx:kotlinx-coroutines-test",
+        "org.mockito:mockito-core",
+        "org.robolectric:robolectric",
+        // go/keep-sorted end
     ]
     // Dependencies that have AAR files.
     def aar_dependencies = [
+        // go/keep-sorted start
         "androidx.annotation:annotation-experimental",
         "androidx.appcompat:appcompat",
         "androidx.compose.foundation:foundation",
+        "androidx.compose.material3:material3",
         "androidx.core:core",
         "androidx.core:core-ktx",
         "androidx.exifinterface:exifinterface",
         "androidx.leanback:leanback",
         "androidx.media:media",
+        "androidx.mediarouter:mediarouter",
         "androidx.recyclerview:recyclerview",
-        "androidx.test:core",
         "androidx.test.ext:junit",
         "androidx.test.ext:truth",
+        "androidx.test:core",
         "androidx.work:work-runtime",
+        "com.airbnb.android:lottie",
+        "com.google.ads.interactivemedia.v3:interactivemedia",
         "com.google.android.gms:play-services-cast-framework",
         "com.google.android.gms:play-services-cronet",
         "com.google.android.material:material",
+        "com.google.testparameterinjector:test-parameter-injector",
         "io.antmedia:rtmp-client",
+        // go/keep-sorted end
     ]
     xml.asNode().children().stream()
         .filter { it.name().toString().endsWith("dependencies") }

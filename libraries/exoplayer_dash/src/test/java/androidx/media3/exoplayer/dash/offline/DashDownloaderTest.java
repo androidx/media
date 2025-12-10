@@ -57,7 +57,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
 
 /** Unit tests for {@link DashDownloader}. */
 @RunWith(AndroidJUnit4.class)
@@ -69,7 +68,6 @@ public class DashDownloaderTest {
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
     tempFolder =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
     cache =

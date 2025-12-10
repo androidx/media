@@ -16,25 +16,25 @@
 package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.abs;
 
 import android.content.Context;
 import android.hardware.display.DisplayManager;
 import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Message;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.Display;
 import android.view.Surface;
+import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A helper to release video frames to a {@link Surface}. This helper:
@@ -61,7 +61,7 @@ public final class VideoFrameReleaseHelper {
    * The minimum change in media frame rate that will trigger a change in surface frame rate, given
    * a high confidence estimate.
    */
-  private static final float MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE = 0.02f;
+  private static final float MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE = 0.1f;
 
   /**
    * The minimum change in media frame rate that will trigger a change in surface frame rate, given
@@ -77,7 +77,7 @@ public final class VideoFrameReleaseHelper {
       2 * FixedFrameRateEstimator.CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC;
 
   /** The period between sampling display VSYNC timestamps, in milliseconds. */
-  private static final long VSYNC_SAMPLE_UPDATE_PERIOD_MS = 500;
+  @VisibleForTesting public static final long VSYNC_SAMPLE_UPDATE_PERIOD_MS = 500;
 
   /**
    * The maximum adjustment that can be made to a frame release timestamp, in nanoseconds, excluding
@@ -93,9 +93,10 @@ public final class VideoFrameReleaseHelper {
   private static final long VSYNC_OFFSET_PERCENTAGE = 80;
 
   private final FixedFrameRateEstimator frameRateEstimator;
-  @Nullable private final DisplayHelper displayHelper;
-  @Nullable private final VSyncSampler vsyncSampler;
+  private final Context context;
 
+  private boolean vsyncSampleBuilt;
+  @Nullable private VSyncSampler vsyncSampler;
   private boolean started;
   @Nullable private Surface surface;
 
@@ -115,26 +116,25 @@ public final class VideoFrameReleaseHelper {
   private float playbackSpeed;
   private @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy;
 
-  private long vsyncDurationNs;
-  private long vsyncOffsetNs;
+  private long lastVsyncHysteresisOffsetNs;
+  private long pendingVsyncHysteresisOffsetNs;
 
   private long frameIndex;
   private long pendingLastAdjustedFrameIndex;
   private long pendingLastAdjustedReleaseTimeNs;
+  private long pendingLastPresentationTimeUs;
   private long lastAdjustedFrameIndex;
   private long lastAdjustedReleaseTimeNs;
+  private long lastAdjustedPresentationTimeUs;
 
   /**
    * Constructs an instance.
    *
    * @param context A context from which information about the default display can be retrieved.
    */
-  public VideoFrameReleaseHelper(@Nullable Context context) {
+  public VideoFrameReleaseHelper(Context context) {
+    this.context = context;
     frameRateEstimator = new FixedFrameRateEstimator();
-    displayHelper = maybeBuildDisplayHelper(context);
-    vsyncSampler = displayHelper != null ? VSyncSampler.getInstance() : null;
-    vsyncDurationNs = C.TIME_UNSET;
-    vsyncOffsetNs = C.TIME_UNSET;
     formatFrameRate = Format.NO_VALUE;
     playbackSpeed = 1f;
     changeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS;
@@ -159,9 +159,11 @@ public final class VideoFrameReleaseHelper {
   public void onStarted() {
     started = true;
     resetAdjustment();
-    if (displayHelper != null) {
-      checkNotNull(vsyncSampler).addObserver();
-      displayHelper.register();
+    if (!vsyncSampleBuilt) {
+      vsyncSampler = VSyncSampler.maybeBuildInstance(context);
+    }
+    if (vsyncSampler != null) {
+      vsyncSampler.register();
     }
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ false);
   }
@@ -192,7 +194,6 @@ public final class VideoFrameReleaseHelper {
    */
   public void onPlaybackSpeed(float playbackSpeed) {
     this.playbackSpeed = playbackSpeed;
-    resetAdjustment();
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ false);
   }
 
@@ -216,6 +217,8 @@ public final class VideoFrameReleaseHelper {
     if (pendingLastAdjustedFrameIndex != C.INDEX_UNSET) {
       lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
       lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
+      lastAdjustedPresentationTimeUs = pendingLastPresentationTimeUs;
+      lastVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
     }
     frameIndex++;
     frameRateEstimator.onNextFrame(framePresentationTimeUs * 1000);
@@ -225,9 +228,8 @@ public final class VideoFrameReleaseHelper {
   /** Called when rendering stops. */
   public void onStopped() {
     started = false;
-    if (displayHelper != null) {
-      displayHelper.unregister();
-      checkNotNull(vsyncSampler).removeObserver();
+    if (vsyncSampler != null) {
+      vsyncSampler.unregister();
     }
     clearSurfaceFrameRate();
   }
@@ -245,18 +247,26 @@ public final class VideoFrameReleaseHelper {
    *
    * @param releaseTimeNs The frame's unadjusted release time, in nanoseconds and in the same time
    *     base as {@link System#nanoTime()}.
+   * @param presentationTimeUs The frame's presentation timestamp in microsecond.
    * @return The adjusted frame release timestamp, in nanoseconds and in the same time base as
    *     {@link System#nanoTime()}.
    */
-  public long adjustReleaseTime(long releaseTimeNs) {
+  public long adjustReleaseTime(long releaseTimeNs, long presentationTimeUs) {
     // Until we know better, the adjustment will be a no-op.
     long adjustedReleaseTimeNs = releaseTimeNs;
 
-    if (lastAdjustedFrameIndex != C.INDEX_UNSET && frameRateEstimator.isSynced()) {
-      long frameDurationNs = frameRateEstimator.getFrameDurationNs();
+    if (lastAdjustedFrameIndex != C.INDEX_UNSET) {
+      long elapsedReleaseTimeSinceLastFrameNs;
+      if (frameRateEstimator.isSynced()) {
+        long frameDurationNs = frameRateEstimator.getFrameDurationNs();
+        elapsedReleaseTimeSinceLastFrameNs =
+            (long) ((frameDurationNs * (frameIndex - lastAdjustedFrameIndex)) / playbackSpeed);
+      } else {
+        elapsedReleaseTimeSinceLastFrameNs =
+            (long) ((presentationTimeUs - lastAdjustedPresentationTimeUs) * 1000 / playbackSpeed);
+      }
       long candidateAdjustedReleaseTimeNs =
-          lastAdjustedReleaseTimeNs
-              + (long) ((frameDurationNs * (frameIndex - lastAdjustedFrameIndex)) / playbackSpeed);
+          lastAdjustedReleaseTimeNs + elapsedReleaseTimeSinceLastFrameNs;
       if (adjustmentAllowed(releaseTimeNs, candidateAdjustedReleaseTimeNs)) {
         adjustedReleaseTimeNs = candidateAdjustedReleaseTimeNs;
       } else {
@@ -265,29 +275,41 @@ public final class VideoFrameReleaseHelper {
     }
     pendingLastAdjustedFrameIndex = frameIndex;
     pendingLastAdjustedReleaseTimeNs = adjustedReleaseTimeNs;
+    pendingLastPresentationTimeUs = presentationTimeUs;
 
-    if (vsyncSampler == null || vsyncDurationNs == C.TIME_UNSET) {
+    if (vsyncSampler == null) {
       return adjustedReleaseTimeNs;
     }
     long sampledVsyncTimeNs = vsyncSampler.sampledVsyncTimeNs;
-    if (sampledVsyncTimeNs == C.TIME_UNSET) {
+    long vsyncDurationNs = vsyncSampler.vsyncDurationNs;
+    if (sampledVsyncTimeNs == C.TIME_UNSET || vsyncDurationNs == C.TIME_UNSET) {
       return adjustedReleaseTimeNs;
     }
     // Find the timestamp of the closest vsync. This is the vsync that we're targeting.
-    long snappedTimeNs = closestVsync(adjustedReleaseTimeNs, sampledVsyncTimeNs, vsyncDurationNs);
+    long snappedTimeNs =
+        findClosestVsyncAndUpdateHysteresis(
+            adjustedReleaseTimeNs, sampledVsyncTimeNs, vsyncDurationNs);
     // Apply an offset so that we release before the target vsync, but after the previous one.
-    return snappedTimeNs - vsyncOffsetNs;
+    return snappedTimeNs - (vsyncDurationNs * VSYNC_OFFSET_PERCENTAGE) / 100;
+  }
+
+  @VisibleForTesting
+  public void setVsyncData(long vsyncSampleTimeNs, long vsyncDurationNs) {
+    checkNotNull(vsyncSampler).sampledVsyncTimeNs = vsyncSampleTimeNs;
+    vsyncSampler.vsyncDurationNs = vsyncDurationNs;
   }
 
   private void resetAdjustment() {
     frameIndex = 0;
     lastAdjustedFrameIndex = C.INDEX_UNSET;
     pendingLastAdjustedFrameIndex = C.INDEX_UNSET;
+    lastVsyncHysteresisOffsetNs = 0;
+    pendingVsyncHysteresisOffsetNs = 0;
   }
 
   private static boolean adjustmentAllowed(
       long unadjustedReleaseTimeNs, long adjustedReleaseTimeNs) {
-    return Math.abs(unadjustedReleaseTimeNs - adjustedReleaseTimeNs) <= MAX_ALLOWED_ADJUSTMENT_NS;
+    return abs(unadjustedReleaseTimeNs - adjustedReleaseTimeNs) <= MAX_ALLOWED_ADJUSTMENT_NS;
   }
 
   // Surface frame rate adjustment.
@@ -320,7 +342,7 @@ public final class VideoFrameReleaseHelper {
           candidateIsHighConfidence
               ? MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE
               : MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_LOW_CONFIDENCE;
-      shouldUpdate = Math.abs(candidateFrameRate - surfaceMediaFrameRate) >= minimumChangeForUpdate;
+      shouldUpdate = abs(candidateFrameRate - surfaceMediaFrameRate) >= minimumChangeForUpdate;
     } else if (candidateFrameRate != Format.NO_VALUE) {
       shouldUpdate = true;
     } else {
@@ -348,7 +370,8 @@ public final class VideoFrameReleaseHelper {
   private void updateSurfacePlaybackFrameRate(boolean forceUpdate) {
     if (SDK_INT < 30
         || surface == null
-        || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF) {
+        || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+        || !surface.isValid()) {
       return;
     }
 
@@ -375,55 +398,56 @@ public final class VideoFrameReleaseHelper {
     if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
-        || surfacePlaybackFrameRate == 0) {
+        || surfacePlaybackFrameRate == 0
+        || !surface.isValid()) {
       return;
     }
     surfacePlaybackFrameRate = 0;
     Api30.setSurfaceFrameRate(surface, /* frameRate= */ 0);
   }
 
-  // Display refresh rate and vsync logic.
-
-  private void updateDefaultDisplayRefreshRateParams(@Nullable Display defaultDisplay) {
-    if (defaultDisplay != null) {
-      double defaultDisplayRefreshRate = defaultDisplay.getRefreshRate();
-      vsyncDurationNs = (long) (C.NANOS_PER_SECOND / defaultDisplayRefreshRate);
-      vsyncOffsetNs = (vsyncDurationNs * VSYNC_OFFSET_PERCENTAGE) / 100;
-    } else {
-      Log.w(TAG, "Unable to query display refresh rate");
-      vsyncDurationNs = C.TIME_UNSET;
-      vsyncOffsetNs = C.TIME_UNSET;
-    }
-  }
-
-  private static long closestVsync(long releaseTime, long sampledVsyncTime, long vsyncDuration) {
-    long vsyncCount = (releaseTime - sampledVsyncTime) / vsyncDuration;
-    long snappedTimeNs = sampledVsyncTime + (vsyncDuration * vsyncCount);
+  private long findClosestVsyncAndUpdateHysteresis(
+      long releaseTimeNs, long sampledVsyncTimeNs, long vsyncDurationNs) {
+    long vsyncCount = (releaseTimeNs - sampledVsyncTimeNs) / vsyncDurationNs;
+    long snappedTimeNs = sampledVsyncTimeNs + (vsyncDurationNs * vsyncCount);
     long snappedBeforeNs;
     long snappedAfterNs;
-    if (releaseTime <= snappedTimeNs) {
-      snappedBeforeNs = snappedTimeNs - vsyncDuration;
+    if (releaseTimeNs <= snappedTimeNs) {
+      snappedBeforeNs = snappedTimeNs - vsyncDurationNs;
       snappedAfterNs = snappedTimeNs;
     } else {
       snappedBeforeNs = snappedTimeNs;
-      snappedAfterNs = snappedTimeNs + vsyncDuration;
+      snappedAfterNs = snappedTimeNs + vsyncDurationNs;
     }
-    long snappedAfterDiff = snappedAfterNs - releaseTime;
-    long snappedBeforeDiff = releaseTime - snappedBeforeNs;
-    return snappedAfterDiff < snappedBeforeDiff ? snappedAfterNs : snappedBeforeNs;
-  }
+    long snappedAfterDiffNs = snappedAfterNs - releaseTimeNs;
+    long snappedBeforeDiffNs = releaseTimeNs - snappedBeforeNs;
 
-  @Nullable
-  private DisplayHelper maybeBuildDisplayHelper(@Nullable Context context) {
-    if (context == null) {
-      return null;
+    // Many frame rates oscillate between a clear match and an ambiguous match (e.g. 60fps on 90Hz).
+    // Only evaluate hysteresis if the diffs are sufficiently close for it to matter and ignore the
+    // clearer matches in between.
+    long snappedDiffsDiffNs = abs(snappedAfterDiffNs - snappedBeforeDiffNs);
+    boolean shouldEvaluateHysteresis = snappedDiffsDiffNs < vsyncDurationNs / 2;
+    if (shouldEvaluateHysteresis) {
+      // Apply hysteresis logic: Clear if outside of range, initialize if newly within range.
+      long hysteresisRangeNs = vsyncDurationNs / 4;
+      boolean isInHysteresisRange = snappedDiffsDiffNs < hysteresisRangeNs;
+      if (isInHysteresisRange) {
+        if (lastVsyncHysteresisOffsetNs != 0) {
+          pendingVsyncHysteresisOffsetNs = lastVsyncHysteresisOffsetNs;
+        } else {
+          pendingVsyncHysteresisOffsetNs =
+              snappedAfterDiffNs < snappedBeforeDiffNs ? -hysteresisRangeNs : hysteresisRangeNs;
+        }
+      } else {
+        pendingVsyncHysteresisOffsetNs = 0;
+      }
+    } else {
+      pendingVsyncHysteresisOffsetNs = lastVsyncHysteresisOffsetNs;
     }
-    DisplayManager displayManager =
-        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
-    return displayManager != null ? new DisplayHelper(displayManager) : null;
+    return snappedAfterDiffNs + pendingVsyncHysteresisOffsetNs < snappedBeforeDiffNs
+        ? snappedAfterNs
+        : snappedBeforeNs;
   }
-
-  // Nested classes.
 
   @RequiresApi(30)
   private static final class Api30 {
@@ -440,141 +464,161 @@ public final class VideoFrameReleaseHelper {
     }
   }
 
-  private final class DisplayHelper implements DisplayManager.DisplayListener {
+  private abstract static class VSyncSampler implements DisplayManager.DisplayListener {
 
-    private final DisplayManager displayManager;
+    @Nullable
+    private static VSyncSampler maybeBuildInstance(Context context) {
+      DisplayManager displayManager =
+          (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+      if (displayManager == null) {
+        return null;
+      }
+      Choreographer choreographer;
+      try {
+        choreographer = Choreographer.getInstance();
+      } catch (RuntimeException e) {
+        // See [Internal: b/213926330].
+        Log.w(TAG, "Vsync sampling disabled due to platform error", e);
+        return null;
+      }
+      return SDK_INT >= 33
+          ? new VSyncSamplerV33(choreographer, displayManager)
+          : new VSyncSamplerBase(choreographer, displayManager);
+    }
 
-    public DisplayHelper(DisplayManager displayManager) {
+    /* package */ final Choreographer choreographer;
+    /* package */ final DisplayManager displayManager;
+
+    /* package */ volatile long sampledVsyncTimeNs;
+    /* package */ volatile long vsyncDurationNs;
+
+    private VSyncSampler(Choreographer choreographer, DisplayManager displayManager) {
+      this.choreographer = choreographer;
       this.displayManager = displayManager;
+      sampledVsyncTimeNs = C.TIME_UNSET;
+      vsyncDurationNs = C.TIME_UNSET;
     }
 
-    public void register() {
+    @CallSuper
+    /* package */ void register() {
       displayManager.registerDisplayListener(this, Util.createHandlerForCurrentLooper());
-      updateDefaultDisplayRefreshRateParams(getDefaultDisplay());
     }
 
-    public void unregister() {
+    @CallSuper
+    /* package */ void unregister() {
       displayManager.unregisterDisplayListener(this);
     }
 
     @Override
-    public void onDisplayChanged(int displayId) {
-      if (displayId == Display.DEFAULT_DISPLAY) {
-        updateDefaultDisplayRefreshRateParams(getDefaultDisplay());
-      }
-    }
-
-    @Override
-    public void onDisplayAdded(int displayId) {
+    public final void onDisplayAdded(int displayId) {
       // Do nothing.
     }
 
     @Override
-    public void onDisplayRemoved(int displayId) {
+    public final void onDisplayRemoved(int displayId) {
       // Do nothing.
-    }
-
-    private Display getDefaultDisplay() {
-      return displayManager.getDisplay(Display.DEFAULT_DISPLAY);
     }
   }
 
-  /**
-   * Samples display vsync timestamps. A single instance using a single {@link Choreographer} is
-   * shared by all {@link VideoFrameReleaseHelper} instances. This is done to avoid a resource leak
-   * in the platform on API levels prior to 23. See [Internal: b/12455729].
-   */
-  private static final class VSyncSampler implements FrameCallback, Handler.Callback {
+  /** Samples display vsync timestamps. */
+  private static final class VSyncSamplerBase extends VSyncSampler implements FrameCallback {
 
-    public volatile long sampledVsyncTimeNs;
-
-    private static final int CREATE_CHOREOGRAPHER = 1;
-    private static final int MSG_ADD_OBSERVER = 2;
-    private static final int MSG_REMOVE_OBSERVER = 3;
-
-    private static final VSyncSampler INSTANCE = new VSyncSampler();
-
-    private final Handler handler;
-    private final HandlerThread choreographerOwnerThread;
-    private @MonotonicNonNull Choreographer choreographer;
-    private int observerCount;
-
-    public static VSyncSampler getInstance() {
-      return INSTANCE;
+    private VSyncSamplerBase(Choreographer choreographer, DisplayManager displayManager) {
+      super(choreographer, displayManager);
     }
 
-    private VSyncSampler() {
-      sampledVsyncTimeNs = C.TIME_UNSET;
-      choreographerOwnerThread = new HandlerThread("ExoPlayer:FrameReleaseChoreographer");
-      choreographerOwnerThread.start();
-      handler = Util.createHandler(choreographerOwnerThread.getLooper(), /* callback= */ this);
-      handler.sendEmptyMessage(CREATE_CHOREOGRAPHER);
-    }
-
-    /**
-     * Notifies the sampler that a {@link VideoFrameReleaseHelper} is observing {@link
-     * #sampledVsyncTimeNs}, and hence that the value should be periodically updated.
-     */
-    public void addObserver() {
-      handler.sendEmptyMessage(MSG_ADD_OBSERVER);
+    @Override
+    /* package */ void register() {
+      super.register();
+      choreographer.postFrameCallback(this);
+      vsyncDurationNs = getVsyncDurationNsFromDefaultDisplay(displayManager);
     }
 
     /**
      * Notifies the sampler that a {@link VideoFrameReleaseHelper} is no longer observing {@link
      * #sampledVsyncTimeNs}.
      */
-    public void removeObserver() {
-      handler.sendEmptyMessage(MSG_REMOVE_OBSERVER);
+    @Override
+    /* package */ void unregister() {
+      super.unregister();
+      choreographer.removeFrameCallback(this);
+      sampledVsyncTimeNs = C.TIME_UNSET;
+      vsyncDurationNs = C.TIME_UNSET;
     }
 
     @Override
     public void doFrame(long vsyncTimeNs) {
       sampledVsyncTimeNs = vsyncTimeNs;
-      checkNotNull(choreographer).postFrameCallbackDelayed(this, VSYNC_SAMPLE_UPDATE_PERIOD_MS);
+      choreographer.postFrameCallbackDelayed(this, VSYNC_SAMPLE_UPDATE_PERIOD_MS);
     }
 
     @Override
-    public boolean handleMessage(Message message) {
-      switch (message.what) {
-        case CREATE_CHOREOGRAPHER:
-          createChoreographerInstanceInternal();
-          return true;
-        case MSG_ADD_OBSERVER:
-          addObserverInternal();
-          return true;
-        case MSG_REMOVE_OBSERVER:
-          removeObserverInternal();
-          return true;
-        default:
-          return false;
+    public void onDisplayChanged(int displayId) {
+      if (displayId == Display.DEFAULT_DISPLAY) {
+        choreographer.postFrameCallback(this);
+        vsyncDurationNs = getVsyncDurationNsFromDefaultDisplay(displayManager);
       }
     }
 
-    private void createChoreographerInstanceInternal() {
-      try {
-        choreographer = Choreographer.getInstance();
-      } catch (RuntimeException e) {
-        // See [Internal: b/213926330].
-        Log.w(TAG, "Vsync sampling disabled due to platform error", e);
+    private static long getVsyncDurationNsFromDefaultDisplay(DisplayManager displayManager) {
+      Display defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY);
+      if (defaultDisplay != null) {
+        double defaultDisplayRefreshRate = defaultDisplay.getRefreshRate();
+        return (long) (C.NANOS_PER_SECOND / defaultDisplayRefreshRate);
+      } else {
+        Log.w(TAG, "Unable to query display refresh rate");
+        return C.TIME_UNSET;
       }
     }
+  }
 
-    private void addObserverInternal() {
-      if (choreographer != null) {
-        observerCount++;
-        if (observerCount == 1) {
-          choreographer.postFrameCallback(this);
-        }
-      }
+  /** Samples display vsync timestamps using APIs available from API 33. */
+  @RequiresApi(33)
+  private static final class VSyncSamplerV33 extends VSyncSampler
+      implements Choreographer.VsyncCallback {
+
+    private final Handler handler;
+
+    private VSyncSamplerV33(Choreographer choreographer, DisplayManager displayManager) {
+      super(choreographer, displayManager);
+      this.handler = Util.createHandlerForCurrentLooper();
     }
 
-    private void removeObserverInternal() {
-      if (choreographer != null) {
-        observerCount--;
-        if (observerCount == 0) {
-          choreographer.removeFrameCallback(this);
-          sampledVsyncTimeNs = C.TIME_UNSET;
-        }
+    @Override
+    /* package */ void register() {
+      super.register();
+      choreographer.postVsyncCallback(this);
+    }
+
+    @Override
+    /* package */ void unregister() {
+      super.unregister();
+      handler.removeCallbacksAndMessages(/* token= */ null);
+      choreographer.removeVsyncCallback(this);
+      sampledVsyncTimeNs = C.TIME_UNSET;
+      vsyncDurationNs = C.TIME_UNSET;
+    }
+
+    @Override
+    public void onVsync(Choreographer.FrameData data) {
+      sampledVsyncTimeNs = data.getFrameTimeNanos();
+      Choreographer.FrameTimeline[] frameTimelines = data.getFrameTimelines();
+      if (frameTimelines.length >= 2) {
+        long vsyncDurationNs =
+            frameTimelines[1].getExpectedPresentationTimeNanos()
+                - frameTimelines[0].getExpectedPresentationTimeNanos();
+        this.vsyncDurationNs = vsyncDurationNs == 0 ? C.TIME_UNSET : vsyncDurationNs;
+      } else {
+        vsyncDurationNs = C.TIME_UNSET;
+      }
+      handler.postDelayed(
+          () -> choreographer.postVsyncCallback(this), VSYNC_SAMPLE_UPDATE_PERIOD_MS);
+    }
+
+    @Override
+    public void onDisplayChanged(int displayId) {
+      if (displayId == Display.DEFAULT_DISPLAY) {
+        choreographer.postVsyncCallback(this);
       }
     }
   }

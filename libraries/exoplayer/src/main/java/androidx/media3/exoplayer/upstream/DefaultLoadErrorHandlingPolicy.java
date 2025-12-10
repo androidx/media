@@ -20,6 +20,7 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.HttpDataSource.CleartextNotPermittedException;
@@ -108,20 +109,15 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
   }
 
   /**
-   * Retries for any exception that is not a subclass of {@link ParserException}, {@link
-   * FileNotFoundException}, {@link CleartextNotPermittedException} or {@link
-   * UnexpectedLoaderException}, and for which {@link
-   * DataSourceException#isCausedByPositionOutOfRange} returns {@code false}. The retry delay is
-   * calculated as {@code Math.min((errorCount - 1) * 1000, 5000)}.
+   * Retries for any exception or exception cause that is not a subclass of {@link ParserException},
+   * {@link FileNotFoundException}, {@link CleartextNotPermittedException} or {@link
+   * UnexpectedLoaderException}, and for {@link DataSourceException} with reasons other than {@link
+   * PlaybackException#ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE}. The retry delay is calculated as
+   * {@code Math.min((errorCount - 1) * 1000, 5000)}.
    */
   @Override
   public long getRetryDelayMsFor(LoadErrorInfo loadErrorInfo) {
-    IOException exception = loadErrorInfo.exception;
-    return exception instanceof ParserException
-            || exception instanceof FileNotFoundException
-            || exception instanceof CleartextNotPermittedException
-            || exception instanceof UnexpectedLoaderException
-            || DataSourceException.isCausedByPositionOutOfRange(exception)
+    return isAnyCauseNonRetriable(loadErrorInfo.exception)
         ? C.TIME_UNSET
         : min((loadErrorInfo.errorCount - 1) * 1000, 5000);
   }
@@ -154,5 +150,25 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
         || invalidResponseCodeException.responseCode == 416 // HTTP 416 Range Not Satisfiable.
         || invalidResponseCodeException.responseCode == 500 // HTTP 500 Internal Server Error.
         || invalidResponseCodeException.responseCode == 503; // HTTP 503 Service Unavailable.
+  }
+
+  private boolean isAnyCauseNonRetriable(@Nullable Throwable exception) {
+    while (exception != null) {
+      if (isNonRetriableException(exception)) {
+        return true;
+      }
+      exception = exception.getCause();
+    }
+    return false;
+  }
+
+  private boolean isNonRetriableException(Throwable exception) {
+    return exception instanceof ParserException
+        || exception instanceof FileNotFoundException
+        || exception instanceof CleartextNotPermittedException
+        || exception instanceof UnexpectedLoaderException
+        || (exception instanceof DataSourceException
+            && ((DataSourceException) exception).reason
+                == PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE);
   }
 }

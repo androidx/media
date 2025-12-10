@@ -15,17 +15,17 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
@@ -206,7 +206,7 @@ public final class MediaBrowser extends MediaController {
     public ListenableFuture<MediaBrowser> buildAsync() {
       MediaControllerHolder<MediaBrowser> holder = new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
       }
       MediaBrowser browser =
           new MediaBrowser(
@@ -359,7 +359,7 @@ public final class MediaBrowser extends MediaController {
   public ListenableFuture<LibraryResult<Void>> subscribe(
       String parentId, @Nullable LibraryParams params) {
     verifyApplicationThread();
-    checkNotEmpty(parentId, "parentId must not be empty");
+    checkArgument(!TextUtils.isEmpty(parentId), "parentId must not be empty");
     if (isConnected()) {
       return checkNotNull(impl).subscribe(parentId, params);
     }
@@ -378,7 +378,7 @@ public final class MediaBrowser extends MediaController {
    */
   public ListenableFuture<LibraryResult<Void>> unsubscribe(String parentId) {
     verifyApplicationThread();
-    checkNotEmpty(parentId, "parentId must not be empty");
+    checkArgument(!TextUtils.isEmpty(parentId), "parentId must not be empty");
     if (isConnected()) {
       return checkNotNull(impl).unsubscribe(parentId);
     }
@@ -402,7 +402,7 @@ public final class MediaBrowser extends MediaController {
       @IntRange(from = 1) int pageSize,
       @Nullable LibraryParams params) {
     verifyApplicationThread();
-    checkNotEmpty(parentId, "parentId must not be empty");
+    checkArgument(!TextUtils.isEmpty(parentId), "parentId must not be empty");
     checkArgument(page >= 0, "page must not be negative");
     checkArgument(pageSize >= 1, "pageSize must not be less than 1");
     if (isConnected()) {
@@ -421,7 +421,7 @@ public final class MediaBrowser extends MediaController {
    */
   public ListenableFuture<LibraryResult<MediaItem>> getItem(String mediaId) {
     verifyApplicationThread();
-    checkNotEmpty(mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(mediaId), "mediaId must not be empty");
     if (isConnected()) {
       return checkNotNull(impl).getItem(mediaId);
     }
@@ -443,7 +443,7 @@ public final class MediaBrowser extends MediaController {
   public ListenableFuture<LibraryResult<Void>> search(
       String query, @Nullable LibraryParams params) {
     verifyApplicationThread();
-    checkNotEmpty(query, "query must not be empty");
+    checkArgument(!TextUtils.isEmpty(query), "query must not be empty");
     if (isConnected()) {
       return checkNotNull(impl).search(query, params);
     }
@@ -468,7 +468,7 @@ public final class MediaBrowser extends MediaController {
       @IntRange(from = 1) int pageSize,
       @Nullable LibraryParams params) {
     verifyApplicationThread();
-    checkNotEmpty(query, "query must not be empty");
+    checkArgument(!TextUtils.isEmpty(query), "query must not be empty");
     checkArgument(page >= 0, "page must not be negative");
     checkArgument(pageSize >= 1, "pageSize must not be less than 1");
     if (isConnected()) {

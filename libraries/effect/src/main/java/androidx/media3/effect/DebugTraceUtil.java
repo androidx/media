@@ -16,8 +16,8 @@
 
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.formatInvariant;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.JsonWriter;
@@ -44,6 +44,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import org.json.JSONObject;
 
 /** A debugging tracing utility. Debug logging is disabled at compile time by default. */
 @UnstableApi
@@ -60,6 +61,10 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
+    EVENT_SET_COMPOSITION,
+    EVENT_SEEK_TO,
+    EVENT_SET_VIDEO_OUTPUT,
+    EVENT_RELEASE,
     EVENT_START,
     EVENT_INPUT_FORMAT,
     EVENT_OUTPUT_FORMAT,
@@ -84,6 +89,11 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Event {}
 
+  // TODO: b/443718535 - Remove excessive debug trace logging.
+  public static final String EVENT_SET_COMPOSITION = "SetComposition";
+  public static final String EVENT_SEEK_TO = "SeekTo";
+  public static final String EVENT_SET_VIDEO_OUTPUT = "SetVideoOutput";
+  public static final String EVENT_RELEASE = "Release";
   public static final String EVENT_START = "Start";
   public static final String EVENT_INPUT_FORMAT = "InputFormat";
   public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
@@ -109,6 +119,7 @@ public final class DebugTraceUtil {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @StringDef({
+    COMPONENT_COMPOSITION_PLAYER,
     COMPONENT_TRANSFORMER_INTERNAL,
     COMPONENT_ASSET_LOADER,
     COMPONENT_AUDIO_DECODER,
@@ -127,6 +138,7 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Component {}
 
+  public static final String COMPONENT_COMPOSITION_PLAYER = "CompositionPlayer";
   public static final String COMPONENT_TRANSFORMER_INTERNAL = "TransformerInternal";
   public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
@@ -145,6 +157,10 @@ public final class DebugTraceUtil {
   // For a given component, events are in the rough expected order that they occur.
   private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
       ImmutableMap.<String, List<String>>builder()
+          .put(
+              COMPONENT_COMPOSITION_PLAYER,
+              ImmutableList.of(
+                  EVENT_SET_COMPOSITION, EVENT_SEEK_TO, EVENT_SET_VIDEO_OUTPUT, EVENT_RELEASE))
           .put(COMPONENT_TRANSFORMER_INTERNAL, ImmutableList.of(EVENT_START))
           .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
           .put(
@@ -263,22 +279,24 @@ public final class DebugTraceUtil {
     if (!enableTracing) {
       return;
     }
-    long eventTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
+    logEventInternal(
+        component,
+        event,
+        new StringEventLog(
+            presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));
+  }
 
-    if (!componentsToEventsToLogs.containsKey(component)) {
-      componentsToEventsToLogs.put(component, new LinkedHashMap<>());
+  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
+  public static synchronized void logEvent(
+      @Component String component,
+      @Event String event,
+      long presentationTimeUs,
+      JSONObject jsonObject) {
+    if (!enableTracing) {
+      return;
     }
-    Map<@Event String, EventLogger> events = componentsToEventsToLogs.get(component);
-    if (!events.containsKey(event)) {
-      events.put(event, new EventLogger());
-    }
-    EventLogger logger = events.get(event);
-    String extra = Util.formatInvariant(extraFormat, extraArgs);
-    EventLog eventLog = new EventLog(presentationTimeUs, eventTimeMs, extra);
-    logger.addLog(eventLog);
-    if (ENABLE_TRACES_IN_LOGCAT) {
-      Log.d("DebugTrace-" + component, event + ": " + eventLog);
-    }
+    logEventInternal(
+        component, event, new JsonEventLog(presentationTimeUs, getEventTimeMs(), jsonObject));
   }
 
   /**
@@ -383,9 +401,28 @@ public final class DebugTraceUtil {
                   componentEvent,
                   eventLog.eventTimeMs,
                   presentationTimeToString(eventLog.presentationTimeUs),
-                  eventLog.extra));
+                  eventLog.toString()));
         }
       }
+    }
+  }
+
+  private static synchronized long getEventTimeMs() {
+    return SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
+  }
+
+  private static synchronized void logEventInternal(
+      String component, String event, EventLog eventLog) {
+    if (!componentsToEventsToLogs.containsKey(component)) {
+      componentsToEventsToLogs.put(component, new LinkedHashMap<>());
+    }
+    Map<@Event String, EventLogger> events = componentsToEventsToLogs.get(component);
+    if (!events.containsKey(event)) {
+      events.put(event, new EventLogger());
+    }
+    events.get(event).addLog(eventLog);
+    if (ENABLE_TRACES_IN_LOGCAT) {
+      Log.d("DebugTrace-" + component, event + ": " + eventLog);
     }
   }
 
@@ -415,14 +452,24 @@ public final class DebugTraceUtil {
     }
   }
 
-  private static final class EventLog {
+  private abstract static class EventLog {
     public final long presentationTimeUs;
     public final long eventTimeMs;
-    public final String extra;
 
-    private EventLog(long presentationTimeUs, long eventTimeMs, String extra) {
+    protected EventLog(long presentationTimeUs, long eventTimeMs) {
       this.presentationTimeUs = presentationTimeUs;
       this.eventTimeMs = eventTimeMs;
+    }
+
+    @Override
+    public abstract String toString();
+  }
+
+  private static final class StringEventLog extends EventLog {
+    public final String extra;
+
+    private StringEventLog(long presentationTimeUs, long eventTimeMs, String extra) {
+      super(presentationTimeUs, eventTimeMs);
       this.extra = extra;
     }
 
@@ -430,6 +477,20 @@ public final class DebugTraceUtil {
     public String toString() {
       return formatInvariant("%s@%dms", presentationTimeToString(presentationTimeUs), eventTimeMs)
           + (extra.isEmpty() ? "" : formatInvariant("(%s)", extra));
+    }
+  }
+
+  private static final class JsonEventLog extends EventLog {
+    public final JSONObject jsonObject;
+
+    public JsonEventLog(long presentationTimeUs, long eventTimeMs, JSONObject jsonObject) {
+      super(presentationTimeUs, eventTimeMs);
+      this.jsonObject = jsonObject;
+    }
+
+    @Override
+    public String toString() {
+      return jsonObject.toString();
     }
   }
 

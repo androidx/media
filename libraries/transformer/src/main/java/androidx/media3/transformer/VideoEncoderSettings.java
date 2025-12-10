@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;

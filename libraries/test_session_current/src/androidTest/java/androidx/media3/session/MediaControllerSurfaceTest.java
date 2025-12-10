@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.os.Looper;
 import android.os.RemoteException;
@@ -27,12 +28,15 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.media3.common.Player;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
+import java.util.concurrent.CountDownLatch;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -131,10 +135,7 @@ public class MediaControllerSurfaceTest {
     MediaController controller = createController();
     SurfaceHolder testSurfaceHolder = activity.getFirstSurfaceHolder();
 
-    activityRule.runOnUiThread(
-        () -> {
-          controller.setVideoSurfaceHolder(testSurfaceHolder);
-        });
+    activityRule.runOnUiThread(() -> controller.setVideoSurfaceHolder(testSurfaceHolder));
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isTrue();
     activityRule.runOnUiThread(controller::release);
@@ -257,10 +258,7 @@ public class MediaControllerSurfaceTest {
     SurfaceView testSurfaceView = activity.getFirstSurfaceView();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceView(testSurfaceView));
 
-    activityRule.runOnUiThread(
-        () -> {
-          testSurfaceView.setVisibility(View.GONE);
-        });
+    activityRule.runOnUiThread(() -> testSurfaceView.setVisibility(View.GONE));
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -271,15 +269,9 @@ public class MediaControllerSurfaceTest {
     MediaController controller = createController();
     SurfaceView testSurfaceView = activity.getFirstSurfaceView();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceView(testSurfaceView));
-    activityRule.runOnUiThread(
-        () -> {
-          testSurfaceView.setVisibility(View.GONE);
-        });
+    activityRule.runOnUiThread(() -> testSurfaceView.setVisibility(View.GONE));
 
-    activityRule.runOnUiThread(
-        () -> {
-          testSurfaceView.setVisibility(View.VISIBLE);
-        });
+    activityRule.runOnUiThread(() -> testSurfaceView.setVisibility(View.VISIBLE));
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isTrue();
     activityRule.runOnUiThread(controller::release);
@@ -315,7 +307,6 @@ public class MediaControllerSurfaceTest {
     MediaController controller = createController();
     SurfaceView testSurfaceView = activity.getFirstSurfaceView();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceView(testSurfaceView));
-    SurfaceView anotherTestSurfaceView = activity.getSecondSurfaceView();
 
     activityRule.runOnUiThread(() -> controller.clearVideoSurfaceView(null));
 
@@ -431,7 +422,7 @@ public class MediaControllerSurfaceTest {
     Surface testSurface = activity.getFirstSurfaceHolder().getSurface();
     activityRule.runOnUiThread(() -> controller.setVideoSurface(testSurface));
 
-    activityRule.runOnUiThread(() -> controller.clearVideoSurface());
+    activityRule.runOnUiThread(controller::clearVideoSurface);
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -443,7 +434,7 @@ public class MediaControllerSurfaceTest {
     SurfaceHolder testSurfaceHolder = activity.getFirstSurfaceHolder();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceHolder(testSurfaceHolder));
 
-    activityRule.runOnUiThread(() -> controller.clearVideoSurface());
+    activityRule.runOnUiThread(controller::clearVideoSurface);
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -455,7 +446,7 @@ public class MediaControllerSurfaceTest {
     SurfaceView testSurfaceView = activity.getFirstSurfaceView();
     activityRule.runOnUiThread(() -> controller.setVideoSurfaceView(testSurfaceView));
 
-    activityRule.runOnUiThread(() -> controller.clearVideoSurface());
+    activityRule.runOnUiThread(controller::clearVideoSurface);
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
     activityRule.runOnUiThread(controller::release);
@@ -467,9 +458,52 @@ public class MediaControllerSurfaceTest {
     TextureView testTextureView = activity.getFirstTextureView();
     activityRule.runOnUiThread(() -> controller.setVideoTextureView(testTextureView));
 
-    activityRule.runOnUiThread(() -> controller.clearVideoSurface());
+    activityRule.runOnUiThread(controller::clearVideoSurface);
 
     assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
+    activityRule.runOnUiThread(controller::release);
+  }
+
+  @Test
+  public void setVideoSurfaceHolder_withSizeChange_propagatesToPlayerAndBackToController()
+      throws Throwable {
+    MediaController controller = createController();
+    Surface testSurface = activity.getFirstSurfaceHolder().getSurface();
+    MediaSessionStub.SurfaceHolderWithSize testHolder =
+        new MediaSessionStub.SurfaceHolderWithSize(testSurface);
+    int testWidth = 1920;
+    int testHeight = 1080;
+    CountDownLatch latch = new CountDownLatch(1);
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onSurfaceSizeChanged(int width, int height) {
+            if (latch.getCount() == 0) {
+              return;
+            }
+            if (width == testWidth && height == testHeight) {
+              latch.countDown();
+            }
+          }
+        });
+    assertThat(remoteSession.getMockPlayer().surfaceExists()).isFalse();
+
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> controller.setVideoSurfaceHolder(testHolder));
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> testHolder.setFixedSize(testWidth, testHeight));
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              assertThat(controller.getSurfaceSize().getWidth()).isEqualTo(testWidth);
+              assertThat(controller.getSurfaceSize().getHeight()).isEqualTo(testHeight);
+            });
+    assertThat(remoteSession.getMockPlayer().surfaceExists()).isTrue();
+    assertThat(remoteSession.getMockPlayer().getSurfaceSize().getWidth()).isEqualTo(testWidth);
+    assertThat(remoteSession.getMockPlayer().getSurfaceSize().getHeight()).isEqualTo(testHeight);
+
     activityRule.runOnUiThread(controller::release);
   }
 

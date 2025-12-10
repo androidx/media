@@ -31,6 +31,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * Abstracts {@link MediaCodec} operations.
@@ -207,6 +208,18 @@ public interface MediaCodecAdapter {
   ByteBuffer getInputBuffer(int index);
 
   /**
+   * Uses an acquired input buffer (e.g. to write data to it).
+   *
+   * <p>This can be used for error handling, e.g. to guarantee no operation can invalidate the
+   * buffer while it's being used.
+   *
+   * @param runnable The {@link Runnable} using an acquired input buffer.
+   */
+  default void useInputBuffer(Runnable runnable) {
+    runnable.run();
+  }
+
+  /**
    * Returns a read-only ByteBuffer for a dequeued output buffer index.
    *
    * @see MediaCodec#getOutputBuffer(int)
@@ -268,7 +281,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#setOnFrameRenderedListener
    */
-  @RequiresApi(23)
   void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler);
 
   /**
@@ -290,7 +302,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#setOutputSurface(Surface)
    */
-  @RequiresApi(23)
   void setOutputSurface(Surface surface);
 
   /**
@@ -325,4 +336,23 @@ public interface MediaCodecAdapter {
    */
   @RequiresApi(26)
   PersistableBundle getMetrics();
+
+  /**
+   * Subscribe to vendor parameters, so that these parameters will be present in {@link
+   * #getOutputFormat} and changes to these parameters generate output format change event.
+   *
+   * @see MediaCodec#subscribeToVendorParameters(List)
+   */
+  @RequiresApi(31)
+  void subscribeToVendorParameters(List<String> names);
+
+  /**
+   * Unsubscribe from vendor parameters, so that these parameters will not be present in {@link
+   * #getOutputFormat} and changes to these parameters no longer generate output format change
+   * event.
+   *
+   * @see MediaCodec#unsubscribeFromVendorParameters(List)
+   */
+  @RequiresApi(31)
+  void unsubscribeFromVendorParameters(List<String> names);
 }

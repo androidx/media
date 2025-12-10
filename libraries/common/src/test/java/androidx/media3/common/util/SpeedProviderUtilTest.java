@@ -19,6 +19,7 @@ import static androidx.media3.common.util.SpeedProviderUtil.getDurationAfterSpee
 import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
 import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.SpeedProvider;
@@ -39,6 +40,36 @@ public class SpeedProviderUtilTest {
 
     assertThat(getDurationAfterSpeedProviderApplied(speedProvider, /* durationUs= */ 150))
         .isEqualTo(100);
+  }
+
+  @Test
+  public void getDurationAfterProcessorApplied_withInvalidSpeedProvider_throws() throws Exception {
+    SpeedProvider speedProvider =
+        new SpeedProvider() {
+          @Override
+          public float getSpeed(long timeUs) {
+            if (timeUs >= 1_000_000) {
+              return 2f;
+            }
+            return 0.5f;
+          }
+
+          @Override
+          public long getNextSpeedChangeTimeUs(long timeUs) {
+            // If timeUs is a speed change, the next speed change time should point to the following
+            // speed change. However, the next speed change at 1_000_000 points to itself, causing
+            // an
+            // infinite loop.
+            if (timeUs > 1_000_000) {
+              return C.TIME_UNSET;
+            }
+            return 1_000_000;
+          }
+        };
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> getDurationAfterSpeedProviderApplied(speedProvider, /* durationUs= */ 2_000_000));
   }
 
   @Test

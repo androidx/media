@@ -16,12 +16,14 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.app.UiModeManager;
 import android.content.Context;
@@ -51,6 +53,7 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -60,8 +63,8 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.AudioProfileBuilder;
 import org.robolectric.shadows.ShadowAudioManager;
+import org.robolectric.shadows.ShadowAudioSystem;
 import org.robolectric.shadows.ShadowAudioTrack;
-import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.shadows.ShadowUIModeManager;
 
@@ -351,7 +354,7 @@ public final class DefaultAudioSinkTest {
 
   @Config(minSdk = Config.OLDEST_SDK)
   @Test
-  public void floatOutputSupportedIfFloatOutputEnabledFromApi21() {
+  public void floatOutputSupportedIfFloatOutputEnabled() {
     defaultAudioSink = new DefaultAudioSink.Builder().setEnableFloatOutput(true).build();
     Format floatFormat =
         STEREO_44_1_FORMAT
@@ -393,7 +396,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = 23)
+  @Config(minSdk = Config.OLDEST_SDK)
   public void audioSinkWithNonNullContext_audioCapabilitiesObtainedFromContext() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -446,7 +449,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = 23) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void bluetoothDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -488,8 +491,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(
-      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void hdmiDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -577,7 +579,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   @Test
-  @Config(minSdk = 23, maxSdk = 32) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 32)
   public void setPreferredDevice_audioCapabilitiesUpdated() {
     // Initially setup the audio sink with Bluetooth and HDMI device connected.
     AudioDeviceInfo hdmiDevice =
@@ -652,13 +654,12 @@ public final class DefaultAudioSinkTest {
 
     // Changed the routing to HDMI and assert that the surround sound is now supported.
     ShadowAudioTrack.setRoutedDevice(hdmiDevice);
-    ShadowLooper.idleMainLooper();
 
-    assertThat(audioSink.supportsFormat(surroundFormat)).isTrue();
+    runMainLooperUntil(() -> audioSink.supportsFormat(surroundFormat));
   }
 
   @Test
-  @Config(minSdk = 23) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_bluetoothDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -689,8 +690,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(
-      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_hdmiDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -756,6 +756,103 @@ public final class DefaultAudioSinkTest {
     assertThrows(IllegalStateException.class, defaultAudioSinkBuilder::build);
   }
 
+  @Test
+  public void handleBuffer_recoverableWriteError_throwsWriteException() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean writeShouldFail = new AtomicBoolean();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (writeShouldFail.get()) {
+                  throw new WriteException(/* errorCode= */ 1234, /* isRecoverable= */ true);
+                }
+                return super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    // First write succeeds
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Second write fails with recoverable error
+    writeShouldFail.set(true);
+    AudioSink.WriteException e =
+        assertThrows(
+            AudioSink.WriteException.class,
+            () ->
+                defaultAudioSink.handleBuffer(
+                    create1Sec44100HzSilenceBuffer(),
+                    /* presentationTimeUs= */ 1_000_000,
+                    /* encodedAccessUnitCount= */ 1));
+    assertThat(e.isRecoverable).isTrue();
+  }
+
+  @Config(sdk = ALL_SDKS)
+  @Test
+  public void getAudioTrackBufferDurationUs_withPcm_calculatesCorrectValue() throws Exception {
+    configureDefaultAudioSink(/* channelCount= */ 2);
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(250_000L);
+  }
+
+  @Config(minSdk = 30)
+  @Test
+  public void getAudioTrackBufferDurationUs_withNonPcm_returnsTimeUnset() throws Exception {
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_AAC_LC)
+            .build();
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
+            .setUsage(C.USAGE_MEDIA)
+            .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_ALL)
+            .build();
+    ShadowAudioSystem.setOffloadSupported(
+        audioFormat, audioAttributes.getPlatformAudioAttributes(), true);
+    ShadowAudioSystem.setOffloadPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.PLAYBACK_OFFLOAD_SUPPORTED);
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+
+    configureDefaultAudioSinkWithOffload();
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(400_000_000L);
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }
@@ -774,54 +871,60 @@ public final class DefaultAudioSinkTest {
     defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
   }
 
+  private void configureDefaultAudioSinkWithOffload() throws AudioSink.ConfigurationException {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(/* channelCount= */ 2)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setCodecs("mp4a.40.02")
+            .build();
+
+    defaultAudioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
+    defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+  }
+
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void addHdmiDevice() {
-    if (SDK_INT >= 23) {
-      // AudioFormat.getChannelIndexMask() in the implementation of
-      // ShadowAudioTrack.addDirectPlaybackSupport requires API 23+.
-      // https://cs.android.com/android/platform/superproject/main/+/main:external/robolectric/shadows/framework/src/main/java/org/robolectric/shadows/ShadowAudioTrack.java?q=format.getChannelIndexMask()
-      ShadowAudioTrack.addAllowedNonPcmEncoding(AudioFormat.ENCODING_DTS_HD);
-      ShadowAudioTrack.addDirectPlaybackSupport(
-          new AudioFormat.Builder()
-              .setEncoding(AudioFormat.ENCODING_DTS_HD)
-              .setSampleRate(AudioCapabilities.DEFAULT_SAMPLE_RATE_HZ)
-              .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
-              .build(),
-          new android.media.AudioAttributes.Builder()
-              .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-              .setContentType(android.media.AudioAttributes.CONTENT_TYPE_UNKNOWN)
-              .setFlags(0)
-              .build());
-      // AudioDeviceInfoBuilder requires API 23+.
-      // https://cs.android.com/android/platform/superproject/main/+/main:external/robolectric/shadows/framework/src/main/java/org/robolectric/shadows/AudioDeviceInfoBuilder.java?q=VERSION_CODES.M
-      AudioDeviceInfoBuilder hdmiDeviceBuilder =
-          AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
-      if (SDK_INT >= 33) {
-        ImmutableList<AudioProfile> expectedProfiles =
-            ImmutableList.of(
-                AudioProfileBuilder.newBuilder()
-                    .setFormat(AudioFormat.ENCODING_DTS_HD)
-                    .setSamplingRates(new int[] {48_000})
-                    .setChannelMasks(
-                        new int[] {Util.getAudioTrackChannelConfig(DEFAULT_MAX_CHANNEL_COUNT)})
-                    .setChannelIndexMasks(new int[] {})
-                    .setEncapsulationType(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE)
-                    .build(),
-                AudioProfileBuilder.newBuilder()
-                    .setFormat(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSamplingRates(new int[] {48_000})
-                    .setChannelMasks(new int[] {AudioFormat.CHANNEL_OUT_STEREO})
-                    .setChannelIndexMasks(new int[] {})
-                    .setEncapsulationType(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE)
-                    .build());
-        hdmiDeviceBuilder.setProfiles(expectedProfiles);
-      }
-      hdmiDevice = hdmiDeviceBuilder.build();
-      getShadowAudioManager()
-          .addOutputDevice(checkNotNull(hdmiDevice), /* notifyAudioDeviceCallbacks= */ true);
-      getShadowAudioManager().addOutputDeviceWithDirectProfiles(checkNotNull(hdmiDevice));
+    ShadowAudioTrack.addAllowedNonPcmEncoding(AudioFormat.ENCODING_DTS_HD);
+    ShadowAudioTrack.addDirectPlaybackSupport(
+        new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_DTS_HD)
+            .setSampleRate(AudioCapabilities.DEFAULT_SAMPLE_RATE_HZ)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build(),
+        new android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_UNKNOWN)
+            .setFlags(0)
+            .build());
+    AudioDeviceInfoBuilder hdmiDeviceBuilder =
+        AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
+    if (SDK_INT >= 33) {
+      ImmutableList<AudioProfile> expectedProfiles =
+          ImmutableList.of(
+              AudioProfileBuilder.newBuilder()
+                  .setFormat(AudioFormat.ENCODING_DTS_HD)
+                  .setSamplingRates(new int[] {48_000})
+                  .setChannelMasks(
+                      new int[] {Util.getAudioTrackChannelConfig(DEFAULT_MAX_CHANNEL_COUNT)})
+                  .setChannelIndexMasks(new int[] {})
+                  .setEncapsulationType(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE)
+                  .build(),
+              AudioProfileBuilder.newBuilder()
+                  .setFormat(AudioFormat.ENCODING_PCM_16BIT)
+                  .setSamplingRates(new int[] {48_000})
+                  .setChannelMasks(new int[] {AudioFormat.CHANNEL_OUT_STEREO})
+                  .setChannelIndexMasks(new int[] {})
+                  .setEncapsulationType(AudioProfile.AUDIO_ENCAPSULATION_TYPE_NONE)
+                  .build());
+      hdmiDeviceBuilder.setProfiles(expectedProfiles);
     }
+    hdmiDevice = hdmiDeviceBuilder.build();
+    getShadowAudioManager()
+        .addOutputDevice(checkNotNull(hdmiDevice), /* notifyAudioDeviceCallbacks= */ true);
+    getShadowAudioManager().addOutputDeviceWithDirectProfiles(checkNotNull(hdmiDevice));
     Intent intent = new Intent(AudioManager.ACTION_HDMI_AUDIO_PLUG);
     intent.putExtra(AudioManager.EXTRA_AUDIO_PLUG_STATE, 1);
     intent.putExtra(
@@ -836,7 +939,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   private void removeHdmiDevice() {
-    if (SDK_INT >= 23 && hdmiDevice != null) {
+    if (hdmiDevice != null) {
       ShadowAudioTrack.clearAllowedNonPcmEncodings();
       ShadowAudioTrack.clearDirectPlaybackSupportedFormats();
       getShadowAudioManager().removeOutputDeviceWithDirectProfiles(hdmiDevice);
@@ -854,28 +957,26 @@ public final class DefaultAudioSinkTest {
   }
 
   private void addBluetoothDevice() {
-    if (SDK_INT >= 23) {
-      // For API 33+, AudioManager.getDirectProfilesForAttributes returns the AudioProfile for the
-      // routed device. To simulate the Bluetooth is connected and routed, we need to remove the
-      // profile of the HDMI device, which means that the HDMI device is no longer routed, but
-      // still be connected.
-      removeHdmiDevice();
-      AudioDeviceInfoBuilder bluetoothDeviceBuilder =
-          AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
-      if (SDK_INT >= 33) {
-        bluetoothDeviceBuilder.setProfiles(ImmutableList.of(createPcmProfile()));
-      }
-      bluetoothDevice = bluetoothDeviceBuilder.build();
-      getShadowAudioManager()
-          .addOutputDevice(checkNotNull(bluetoothDevice), /* notifyAudioDeviceCallbacks= */ true);
-      getShadowAudioManager().addOutputDeviceWithDirectProfiles(checkNotNull(bluetoothDevice));
+    // For API 33+, AudioManager.getDirectProfilesForAttributes returns the AudioProfile for the
+    // routed device. To simulate the Bluetooth is connected and routed, we need to remove the
+    // profile of the HDMI device, which means that the HDMI device is no longer routed, but
+    // still be connected.
+    removeHdmiDevice();
+    AudioDeviceInfoBuilder bluetoothDeviceBuilder =
+        AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
+    if (SDK_INT >= 33) {
+      bluetoothDeviceBuilder.setProfiles(ImmutableList.of(createPcmProfile()));
     }
+    bluetoothDevice = bluetoothDeviceBuilder.build();
+    getShadowAudioManager()
+        .addOutputDevice(checkNotNull(bluetoothDevice), /* notifyAudioDeviceCallbacks= */ true);
+    getShadowAudioManager().addOutputDeviceWithDirectProfiles(checkNotNull(bluetoothDevice));
 
     shadowOf(Looper.getMainLooper()).idle();
   }
 
   private void removeBluetoothDevice() {
-    if (SDK_INT >= 23 && bluetoothDevice != null) {
+    if (bluetoothDevice != null) {
       // Add back the HDMI device back as the routed device to simulate that the bluetooth device
       // has gone and is no longer routed.
       addHdmiDevice();

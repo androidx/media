@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Lejátszás</string>
+  <string name="playpause_button_pause">Szüneteltetés</string>
+  <string name="next_button">Következő</string>
+  <string name="previous_button">Előző</string>
+  <string name="seek_back_button">Visszatekerés</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Vissza %d másodperccel</item>
+    <item quantity="other">Vissza %d másodperccel</item>
+  </plurals>
+  <string name="seek_forward_button">Ugrás előre</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Előre %d másodperccel</item>
+    <item quantity="other">Előre %d másodperccel</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Jelenlegi mód: Nincs ismétlés. Az ismétlési mód be-/kikapcsolása.</string>
+  <string name="repeat_button_repeat_one">Jelenlegi mód: Egy szám ismétlése. Az ismétlési mód be-/kikapcsolása.</string>
+  <string name="repeat_button_repeat_all">Jelenlegi mód: Az összes ismétlése. Az ismétlési mód be-/kikapcsolása.</string>
+  <string name="shuffle_button_shuffle_on">A keverés mód be van kapcsolva.</string>
+  <string name="shuffle_button_shuffle_off">A keverés mód ki van kapcsolva.</string>
+  <string name="mute_button_shown_unmuted">Némítás</string>
+  <string name="mute_button_shown_muted">Némítás feloldása</string>
+</resources>

@@ -16,10 +16,9 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.IntRange;
-import androidx.media3.common.C;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import java.util.Objects;
@@ -117,7 +116,6 @@ import java.util.concurrent.atomic.AtomicInteger;
       transformerListenerHandler.post(
           () ->
               transformerListeners.sendEvent(
-                  /* eventFlag= */ C.INDEX_UNSET,
                   listener ->
                       listener.onFallbackApplied(
                           composition,

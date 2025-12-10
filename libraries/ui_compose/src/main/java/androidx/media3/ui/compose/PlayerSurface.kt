@@ -17,21 +17,29 @@
 package androidx.media3.ui.compose
 
 import android.content.Context
+import android.graphics.Canvas
+import android.os.Build.FINGERPRINT
+import android.os.Build.VERSION.SDK_INT
+import android.view.SurfaceControl
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
+import android.window.SurfaceSyncGroup
 import androidx.annotation.IntDef
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -55,14 +63,51 @@ fun PlayerSurface(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
 ) {
   when (surfaceType) {
-    SURFACE_TYPE_SURFACE_VIEW ->
+    SURFACE_TYPE_SURFACE_VIEW -> {
+      var surfaceSyncGroup: SurfaceSyncGroup? by remember { mutableStateOf(null) }
+
+      val createSurfaceView: (Context) -> SurfaceView = { context ->
+        object : SurfaceView(context) {
+          override fun dispatchDraw(canvas: Canvas) {
+            super.dispatchDraw(canvas)
+            if (SDK_INT == 34) {
+              surfaceSyncGroup?.markSyncReady()
+              surfaceSyncGroup = null
+            }
+          }
+        }
+      }
+
+      val coroutineScope = rememberCoroutineScope()
+      val onSurfaceSizeChanged: (SurfaceView) -> Unit = { surfaceView ->
+        if (SDK_INT == 34 && !FINGERPRINT.equals("robolectric", ignoreCase = true)) {
+          coroutineScope.launch(Dispatchers.Main) {
+            surfaceView.rootSurfaceControl?.let { rootSurfaceControl ->
+              // Register a SurfaceSyncGroup to work around
+              // https://github.com/androidx/media/issues/1237
+              // (only present on API 34, fixed on API 35).
+              surfaceSyncGroup =
+                SurfaceSyncGroup("exo-sync-b-334901521").apply {
+                  check(add(rootSurfaceControl) {}) {
+                    "Failed to add rootSurfaceControl to SurfaceSyncGroup"
+                  }
+                }
+              surfaceView.invalidate()
+              rootSurfaceControl.applyTransactionOnDraw(SurfaceControl.Transaction())
+            }
+          }
+        }
+      }
+
       PlayerSurfaceInternal(
         player,
         modifier,
-        createView = ::SurfaceView,
+        createView = createSurfaceView,
         setVideoView = Player::setVideoSurfaceView,
         clearVideoView = Player::clearVideoSurfaceView,
+        onSurfaceSizeChanged = onSurfaceSizeChanged,
       )
+    }
     SURFACE_TYPE_TEXTURE_VIEW ->
       PlayerSurfaceInternal(
         player,
@@ -82,6 +127,7 @@ private fun <T : View> PlayerSurfaceInternal(
   createView: (Context) -> T,
   setVideoView: Player.(T) -> Unit,
   clearVideoView: Player.(T) -> Unit,
+  onSurfaceSizeChanged: (T) -> Unit = {},
 ) {
   var view by remember { mutableStateOf<T?>(null) }
 
@@ -93,14 +139,29 @@ private fun <T : View> PlayerSurfaceInternal(
   )
 
   view?.let { view ->
+    DisposableEffect(view, player) {
+      val listener =
+        if (player != null) {
+          object : Player.Listener {
+              override fun onSurfaceSizeChanged(width: Int, height: Int) {
+                onSurfaceSizeChanged(view)
+              }
+            }
+            .also { player.addListener(it) }
+        } else null
+
+      onDispose { listener?.let { player?.removeListener(it) } }
+    }
+
     LaunchedEffect(view, player) {
       if (player != null) {
         view.attachedPlayer?.let { previousPlayer ->
           if (
             previousPlayer != player &&
               previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)
-          )
+          ) {
             previousPlayer.clearVideoView(view)
+          }
         }
         if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
           player.setVideoView(view)
@@ -113,8 +174,9 @@ private fun <T : View> PlayerSurfaceInternal(
         // unnecessarily creating a Surface placeholder.
         withContext(Dispatchers.Main) {
           view.attachedPlayer?.let { previousPlayer ->
-            if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+            if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
               previousPlayer.clearVideoView(view)
+            }
             view.attachedPlayer = null
           }
         }

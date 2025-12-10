@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.extractor.ts.TsExtractor.DEFAULT_TIMESTAMP_SEARCH_BYTES;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.net.Uri;
@@ -83,6 +83,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
    */
   public DefaultHlsExtractorFactory() {
     this(/* payloadReaderFactoryFlags= */ 0, /* exposeCea608WhenMissingDeclarations */ true);
+    codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
   }
 
   /**
@@ -352,13 +353,9 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     if (metadata == null) {
       return false;
     }
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof HlsTrackMetadataEntry) {
-        return !((HlsTrackMetadataEntry) entry).variantInfos.isEmpty();
-      }
-    }
-    return false;
+    return metadata.getFirstMatchingEntry(
+            HlsTrackMetadataEntry.class, trackMetadata -> !trackMetadata.variantInfos.isEmpty())
+        != null;
   }
 
   private static boolean sniffQuietly(Extractor extractor, ExtractorInput input)

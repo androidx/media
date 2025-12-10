@@ -15,7 +15,7 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -24,7 +24,6 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.media.AudioManager;
 import android.net.ConnectivityManager;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
@@ -46,7 +45,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>Use {@link #verifyNoSystemBinderCalls} to verify no system binder calls happen in a test.
  */
 @UnstableApi
-@RequiresApi(23)
 public final class BinderStressCreator implements AutoCloseable {
 
   /**

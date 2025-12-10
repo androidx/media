@@ -16,8 +16,8 @@
  */
 package androidx.media3.decoder.midi;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.content.Context;
@@ -112,7 +112,7 @@ import java.io.InputStreamReader;
 
   private static byte[] loadWaveTableFile(Context context) throws MidiDecoderException {
     try (InputStream inputStream =
-        checkStateNotNull(context.getAssets().open("sonivox_wave_data.dat"))) {
+        checkNotNull(context.getAssets().open("sonivox_wave_data.dat"))) {
       StringBuilder fileContents = new StringBuilder();
       BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
       String line;

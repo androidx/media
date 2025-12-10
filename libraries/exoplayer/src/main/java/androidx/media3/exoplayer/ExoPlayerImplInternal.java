@@ -15,15 +15,17 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD;
 import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD;
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED;
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_DISABLE_OFFLOAD_SCHEDULING;
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_DISABLED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -36,6 +38,7 @@ import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -52,11 +55,12 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.common.audio.AudioFocusManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.StuckPlayerException;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceException;
@@ -125,7 +129,7 @@ import java.util.Objects;
           && this.discontinuityReason != Player.DISCONTINUITY_REASON_INTERNAL) {
         // We always prefer non-internal discontinuity reasons. We also assume that we won't report
         // more than one non-internal discontinuity per message iteration.
-        Assertions.checkArgument(discontinuityReason == Player.DISCONTINUITY_REASON_INTERNAL);
+        checkArgument(discontinuityReason == Player.DISCONTINUITY_REASON_INTERNAL);
         return;
       }
       hasPendingChange = true;
@@ -187,13 +191,19 @@ import java.util.Objects;
    * not be ready, there must be more media available to load, and the LoadControl must be refusing
    * to load it.
    */
-  private static final long PLAYBACK_STUCK_AFTER_MS = 4000;
+  private static final int PLAYBACK_STUCK_AFTER_MS = 4000;
 
   /**
    * Threshold under which a buffered duration is assumed to be empty. We cannot use zero to account
    * for buffers currently hold but not played by the renderer.
    */
   private static final long PLAYBACK_BUFFER_EMPTY_THRESHOLD_US = 500_000;
+
+  /**
+   * If the playback duration to the next media item is under this threshold then the reading period
+   * may advance.
+   */
+  private static final long DURATION_TO_ADVANCE_READING_THRESHOLD_US = 10 * C.MICROS_PER_SECOND;
 
   private final RendererHolder[] renderers;
   private final RendererCapabilities[] rendererCapabilities;
@@ -229,6 +239,7 @@ import java.util.Objects;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
+  private int droppedSeeksWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
   private boolean releasedOnApplicationThread;
@@ -372,7 +383,7 @@ import java.util.Objects;
         rendererCapabilities,
         rendererPositionOffsetUs,
         trackSelector,
-        loadControl.getAllocator(),
+        loadControl.getAllocator(playerId),
         mediaSourceList,
         mediaPeriodInfo,
         emptyTrackSelectorResult,
@@ -696,12 +707,12 @@ import java.util.Objects;
           doSomeWork();
           break;
         case MSG_SEEK_TO:
-          seekToInternal((SeekPosition) msg.obj, /* incrementAcks= */ true);
+          seekToInternal((SeekPosition) msg.obj);
           break;
         case MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE:
           seekIsPendingWhileScrubbing = false;
           if (queuedSeekWhileScrubbing != null) {
-            seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+            seekToInternal(queuedSeekWhileScrubbing);
             queuedSeekWhileScrubbing = null;
           }
           break;
@@ -1098,7 +1109,8 @@ import java.util.Objects;
     playWhenReadyChangeReason =
         updatePlayWhenReadyChangeReason(playerCommand, playWhenReadyChangeReason);
     playbackSuppressionReason =
-        updatePlaybackSuppressionReason(playerCommand, playbackSuppressionReason);
+        updatePlaybackSuppressionReason(
+            playerCommand, playbackSuppressionReason, scrubbingModeEnabled);
     if (playbackInfo.playWhenReady == playWhenReady
         && playbackInfo.playbackSuppressionReason == playbackSuppressionReason
         && playbackInfo.playWhenReadyChangeReason == playWhenReadyChangeReason) {
@@ -1134,7 +1146,7 @@ import java.util.Objects;
     if (pendingPauseAtEndOfPeriod && queue.getReadingPeriod() != queue.getPlayingPeriod()) {
       // When pausing is required, we need to set the streams of the playing period final. If we
       // already started reading the next period, we need to flush the renderers.
-      seekToCurrentPosition(/* sendDiscontinuity= */ true);
+      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
       handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
     }
   }
@@ -1156,7 +1168,7 @@ import java.util.Objects;
     @MediaPeriodQueue.UpdatePeriodQueueResult
     int result = queue.updateRepeatMode(playbackInfo.timeline, repeatMode);
     if ((result & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-      seekToCurrentPosition(/* sendDiscontinuity= */ true);
+      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
     } else if ((result & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD) != 0) {
       disableAndResetPrewarmingRenderers();
     }
@@ -1169,7 +1181,7 @@ import java.util.Objects;
     @MediaPeriodQueue.UpdatePeriodQueueResult
     int result = queue.updateShuffleModeEnabled(playbackInfo.timeline, shuffleModeEnabled);
     if ((result & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-      seekToCurrentPosition(/* sendDiscontinuity= */ true);
+      seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
     } else if ((result & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD) != 0) {
       disableAndResetPrewarmingRenderers();
     }
@@ -1181,12 +1193,14 @@ import java.util.Objects;
     queue.updatePreloadConfiguration(playbackInfo.timeline, preloadConfiguration);
   }
 
-  private void seekToCurrentPosition(boolean sendDiscontinuity) throws ExoPlaybackException {
+  private void seekToCurrentPosition(Timeline timeline, boolean sendDiscontinuity)
+      throws ExoPlaybackException {
     // Renderers may have read from a period that's been removed. Seek back to the current
     // position of the playing period to make sure none of the removed period is played.
     MediaPeriodId periodId = queue.getPlayingPeriod().info.id;
     long newPositionUs =
         seekToPeriodPosition(
+            timeline,
             periodId,
             playbackInfo.positionUs,
             /* forceDisableRenderers= */ true,
@@ -1247,7 +1261,7 @@ import java.util.Objects;
         handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
         maybeContinueLoading();
       }
-      resetRendererPosition(discontinuityPositionUs);
+      resetRendererPosition(discontinuityPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       // A MediaPeriod may report a discontinuity at the current playback position to ensure the
       // renderers are flushed. Only report the discontinuity externally if the position changed.
       if (discontinuityPositionUs != playbackInfo.positionUs) {
@@ -1446,7 +1460,8 @@ import java.util.Objects;
     } else if (playbackMaybeBecameStuckAtMs == C.TIME_UNSET) {
       playbackMaybeBecameStuckAtMs = clock.elapsedRealtime();
     } else if (clock.elapsedRealtime() - playbackMaybeBecameStuckAtMs >= PLAYBACK_STUCK_AFTER_MS) {
-      throw new IllegalStateException("Playback stuck buffering and not loading");
+      throw new StuckPlayerException(
+          StuckPlayerException.STUCK_BUFFERING_NOT_LOADING, PLAYBACK_STUCK_AFTER_MS);
     }
 
     boolean isPlaying = shouldPlayWhenReady() && playbackInfo.playbackState == Player.STATE_READY;
@@ -1545,14 +1560,16 @@ import java.util.Objects;
         : BUFFERING_MAXIMUM_INTERVAL_MS;
   }
 
-  private void seekToInternal(SeekPosition seekPosition, boolean incrementAcks)
-      throws ExoPlaybackException {
-    playbackInfoUpdate.incrementPendingOperationAcks(incrementAcks ? 1 : 0);
+  private void seekToInternal(SeekPosition seekPosition) throws ExoPlaybackException {
     if (seekIsPendingWhileScrubbing) {
+      if (queuedSeekWhileScrubbing != null) {
+        droppedSeeksWhileScrubbing++;
+        playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
+      }
       queuedSeekWhileScrubbing = seekPosition;
       return;
     }
-
+    playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
     MediaPeriodId periodId;
     long periodPositionUs;
     long requestedContentPositionUs;
@@ -1592,6 +1609,9 @@ import java.util.Objects;
                 ? period.getAdResumePositionUs()
                 : 0;
         seekPositionAdjusted = true;
+        AdGroup adGroup = period.adPlaybackState.getAdGroup(periodId.adGroupIndex);
+        requestedContentPositionUs =
+            max(requestedContentPositionUs, adGroup.timeUs + adGroup.contentResumeOffsetUs);
       } else {
         periodPositionUs = resolvedContentPositionUs;
         seekPositionAdjusted = seekPosition.windowPositionUs == C.TIME_UNSET;
@@ -1632,9 +1652,21 @@ import java.util.Objects;
             return;
           }
         }
-        seekIsPendingWhileScrubbing = scrubbingModeEnabled;
+
+        if (scrubbingModeEnabled) {
+          for (RendererHolder renderer : renderers) {
+            // TODO: b/451939261 - Remove video-only condition once image-playback scrubbing mode
+            //  supports skipping intermittent seeks.
+            if (renderer.isRendererEnabled() && renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
+              seekIsPendingWhileScrubbing = true;
+              break;
+            }
+          }
+        }
+
         newPeriodPositionUs =
             seekToPeriodPosition(
+                playbackInfo.timeline,
                 periodId,
                 newPeriodPositionUs,
                 /* forceBufferingState= */ playbackInfo.playbackState == Player.STATE_ENDED);
@@ -1682,10 +1714,11 @@ import java.util.Objects;
   }
 
   private long seekToPeriodPosition(
-      MediaPeriodId periodId, long periodPositionUs, boolean forceBufferingState)
+      Timeline timeline, MediaPeriodId periodId, long periodPositionUs, boolean forceBufferingState)
       throws ExoPlaybackException {
     // Force disable renderers if they are reading from a period other than the one being played.
     return seekToPeriodPosition(
+        timeline,
         periodId,
         periodPositionUs,
         queue.getPlayingPeriod() != queue.getReadingPeriod(),
@@ -1693,6 +1726,7 @@ import java.util.Objects;
   }
 
   private long seekToPeriodPosition(
+      Timeline timeline,
       MediaPeriodId periodId,
       long periodPositionUs,
       boolean forceDisableRenderers,
@@ -1721,6 +1755,9 @@ import java.util.Objects;
         || (newPlayingPeriodHolder != null
             && newPlayingPeriodHolder.toRendererTime(periodPositionUs) < 0)) {
       disableRenderers();
+      for (RendererHolder renderer : renderers) {
+        renderer.setTimeline(timeline);
+      }
       if (newPlayingPeriodHolder != null) {
         // Update the queue and reenable renderers if the requested media period already exists.
         while (queue.getPlayingPeriod() != newPlayingPeriodHolder) {
@@ -1740,20 +1777,28 @@ import java.util.Objects;
     // Do the actual seeking.
     if (newPlayingPeriodHolder != null) {
       queue.removeAfter(newPlayingPeriodHolder);
+      boolean hasResetToKeyFrame = true;
       if (!newPlayingPeriodHolder.prepared) {
         newPlayingPeriodHolder.info =
             newPlayingPeriodHolder.info.copyWithStartPositionUs(periodPositionUs);
       } else if (newPlayingPeriodHolder.hasEnabledTracks) {
-        periodPositionUs = newPlayingPeriodHolder.mediaPeriod.seekToUs(periodPositionUs);
-        newPlayingPeriodHolder.mediaPeriod.discardBuffer(
-            periodPositionUs - backBufferDurationUs, retainBackBufferFromKeyframe);
+        if (scrubbingModeEnabled
+            && scrubbingModeParameters.allowSkippingKeyFrameReset
+            && shouldSkipKeyFrameReset(newPlayingPeriodHolder, periodPositionUs)) {
+          hasResetToKeyFrame = false;
+        } else {
+          periodPositionUs = newPlayingPeriodHolder.mediaPeriod.seekToUs(periodPositionUs);
+          newPlayingPeriodHolder.mediaPeriod.discardBuffer(
+              periodPositionUs - backBufferDurationUs, retainBackBufferFromKeyframe);
+        }
       }
-      resetRendererPosition(periodPositionUs);
+      resetRendererPosition(
+          periodPositionUs, /* sampleStreamIsResetToKeyFrame= */ hasResetToKeyFrame);
       maybeContinueLoading();
     } else {
       // New period has not been prepared.
       queue.clear();
-      resetRendererPosition(periodPositionUs);
+      resetRendererPosition(periodPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
     }
 
     handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
@@ -1761,7 +1806,32 @@ import java.util.Objects;
     return periodPositionUs;
   }
 
-  private void resetRendererPosition(long periodPositionUs) throws ExoPlaybackException {
+  private boolean shouldSkipKeyFrameReset(MediaPeriodHolder playingPeriod, long periodPositionUs) {
+    if (playbackInfo.timeline.isEmpty() || !playingPeriod.info.id.equals(playbackInfo.periodId)) {
+      return false;
+    }
+    long rendererPositionUs = playingPeriod.toRendererTime(periodPositionUs);
+    boolean renderersSupportSkipKeyFrameReset = true;
+    for (RendererHolder renderer : renderers) {
+      if (renderer.isRendererEnabled()) {
+        renderersSupportSkipKeyFrameReset &=
+            renderer.supportsResetPositionWithoutKeyFrameReset(playingPeriod, rendererPositionUs);
+      }
+    }
+    if (!renderersSupportSkipKeyFrameReset) {
+      return false;
+    }
+    long adjustedCurrentPositionSyncUs =
+        playingPeriod.mediaPeriod.getAdjustedSeekPositionUs(
+            playbackInfo.positionUs, SeekParameters.PREVIOUS_SYNC);
+    long adjustedSeekPositionSyncUs =
+        playingPeriod.mediaPeriod.getAdjustedSeekPositionUs(
+            periodPositionUs, SeekParameters.PREVIOUS_SYNC);
+    return adjustedCurrentPositionSyncUs == adjustedSeekPositionSyncUs;
+  }
+
+  private void resetRendererPosition(long periodPositionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     MediaPeriodHolder playingMediaPeriod = queue.getPlayingPeriod();
     rendererPositionUs =
         playingMediaPeriod == null
@@ -1769,7 +1839,8 @@ import java.util.Objects;
             : playingMediaPeriod.toRendererTime(periodPositionUs);
     mediaClock.resetPosition(rendererPositionUs);
     for (RendererHolder rendererHolder : renderers) {
-      rendererHolder.resetPosition(playingMediaPeriod, rendererPositionUs);
+      rendererHolder.resetPosition(
+          playingMediaPeriod, rendererPositionUs, sampleStreamIsResetToKeyFrame);
     }
     notifyTrackSelectionDiscontinuity();
   }
@@ -1787,12 +1858,25 @@ import java.util.Objects;
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
     if (!scrubbingModeEnabled) {
+      if (queuedSeekWhileScrubbing != null
+          && seekIsPendingWhileScrubbing
+          && !handler.hasMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE)) {
+        droppedSeeksWhileScrubbing++;
+      }
+      if (droppedSeeksWhileScrubbing > 0) {
+        int localDroppedSeeksCount = droppedSeeksWhileScrubbing;
+        applicationLooperHandler.post(
+            () -> analyticsCollector.onDroppedSeeksWhileScrubbing(localDroppedSeeksCount));
+      }
+      droppedSeeksWhileScrubbing = 0;
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
       if (queuedSeekWhileScrubbing != null) {
         // Immediately seek to the latest received scrub position (interrupting a pending seek).
-        seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+        seekToInternal(queuedSeekWhileScrubbing);
         queuedSeekWhileScrubbing = null;
+        // Set value to false as subsequent seeks should pre-empt the newly-queued seek.
+        seekIsPendingWhileScrubbing = false;
       }
     }
     this.scrubbingModeEnabled = scrubbingModeEnabled;
@@ -1850,7 +1934,7 @@ import java.util.Objects;
         /* resetError= */ false);
     playbackInfoUpdate.incrementPendingOperationAcks(acknowledgeStop ? 1 : 0);
     loadControl.onStopped(playerId);
-    audioFocusManager.updateAudioFocus(playbackInfo.playWhenReady, Player.STATE_IDLE);
+    int unused = audioFocusManager.updateAudioFocus(playbackInfo.playWhenReady, Player.STATE_IDLE);
     setState(Player.STATE_IDLE);
   }
 
@@ -1880,7 +1964,10 @@ import java.util.Objects;
       boolean resetError) {
     handler.removeMessages(MSG_DO_SOME_WORK);
     seekIsPendingWhileScrubbing = false;
-    queuedSeekWhileScrubbing = null;
+    if (queuedSeekWhileScrubbing != null) {
+      playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
+      queuedSeekWhileScrubbing = null;
+    }
     pendingRecoverableRendererError = null;
     updateRebufferingState(/* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ true);
     mediaClock.stop();
@@ -2188,7 +2275,7 @@ import java.util.Objects;
 
   private void reselectTracksInternalAndSeek() throws ExoPlaybackException {
     reselectTracksInternal();
-    seekToCurrentPosition(/* sendDiscontinuity= */ true);
+    seekToCurrentPosition(playbackInfo.timeline, /* sendDiscontinuity= */ true);
   }
 
   private void reselectTracksInternal() throws ExoPlaybackException {
@@ -2249,7 +2336,7 @@ import java.util.Objects;
               hasDiscontinuity,
               Player.DISCONTINUITY_REASON_INTERNAL);
       if (hasDiscontinuity) {
-        resetRendererPosition(periodPositionUs);
+        resetRendererPosition(periodPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       }
 
       // Disable pre-warming renderers.
@@ -2408,9 +2495,6 @@ import java.util.Objects;
             /* releaseMediaSourceList= */ false,
             /* resetError= */ true);
       }
-      for (RendererHolder rendererHolder : renderers) {
-        rendererHolder.setTimeline(timeline);
-      }
       if (!periodPositionChanged) {
         // We can keep the current playing period. Update the rest of the queued periods.
         long maxRendererReadPositionUs =
@@ -2429,7 +2513,7 @@ import java.util.Objects;
                 maxRendererReadPositionUs,
                 maxRendererPrewarmingPositionUs);
         if ((updateQueuedPeriodsResult & UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD) != 0) {
-          seekToCurrentPosition(/* sendDiscontinuity= */ false);
+          seekToCurrentPosition(timeline, /* sendDiscontinuity= */ false);
         } else if ((updateQueuedPeriodsResult & UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD)
             != 0) {
           disableAndResetPrewarmingRenderers();
@@ -2445,9 +2529,13 @@ import java.util.Objects;
           }
           periodHolder = periodHolder.getNext();
         }
-        newPositionUs = seekToPeriodPosition(newPeriodId, newPositionUs, forceBufferingState);
+        newPositionUs =
+            seekToPeriodPosition(timeline, newPeriodId, newPositionUs, forceBufferingState);
       }
     } finally {
+      for (RendererHolder rendererHolder : renderers) {
+        rendererHolder.setTimeline(timeline);
+      }
       updatePlaybackSpeedSettingsForNewPeriod(
           /* newTimeline= */ timeline,
           newPeriodId,
@@ -2471,7 +2559,7 @@ import java.util.Objects;
                 newPeriodId,
                 newPositionUs,
                 newRequestedContentPositionUs,
-                playbackInfo.discontinuityStartPositionUs,
+                reportDiscontinuity ? newPositionUs : playbackInfo.discontinuityStartPositionUs,
                 reportDiscontinuity,
                 timeline.getIndexOfPeriod(oldPeriodUid) == C.INDEX_UNSET
                     ? Player.DISCONTINUITY_REASON_REMOVE
@@ -2584,7 +2672,7 @@ import java.util.Objects;
           handler.obtainMessage(MSG_PERIOD_PREPARED, mediaPeriodHolder.mediaPeriod).sendToTarget();
         }
         if (queue.getPlayingPeriod() == mediaPeriodHolder) {
-          resetRendererPosition(info.startPositionUs);
+          resetRendererPosition(info.startPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
         }
         handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
         loadingPeriodChanged = true;
@@ -2614,6 +2702,12 @@ import java.util.Objects;
         || prewarmingPeriodHolder != queue.getReadingPeriod()
         || prewarmingPeriodHolder.getNext() == null
         || !prewarmingPeriodHolder.getNext().prepared) {
+      return;
+    }
+
+    // Only start pre-warming if under the threshold to advance the reading period.
+    long durationToNextMediaPeriodUs = getDurationToMediaPeriodUs(prewarmingPeriodHolder.getNext());
+    if (durationToNextMediaPeriodUs > DURATION_TO_ADVANCE_READING_THRESHOLD_US) {
       return;
     }
 
@@ -2693,6 +2787,12 @@ import java.util.Objects;
     if (!readingPeriodHolder.getNext().prepared
         && rendererPositionUs < readingPeriodHolder.getNext().getStartPositionRendererTime()) {
       // The successor is not prepared yet and playback hasn't reached the transition point.
+      return;
+    }
+
+    if (readingPeriodHolder.getNext().prepared
+        && getDurationToMediaPeriodUs(readingPeriodHolder.getNext())
+            > DURATION_TO_ADVANCE_READING_THRESHOLD_US) {
       return;
     }
 
@@ -2828,6 +2928,7 @@ import java.util.Objects;
         || (preloading.prepareCalled && !preloading.prepared)
         || preloading.mediaPeriod.isLoading()
         || !loadControl.shouldContinuePreloading(
+            playerId,
             playbackInfo.timeline,
             preloading.info.id,
             preloading.prepared ? preloading.mediaPeriod.getBufferedPositionUs() : 0L)) {
@@ -2999,7 +3100,8 @@ import java.util.Objects;
         loadingPeriodHolder.getTrackSelectorResult());
     if (loadingPeriodHolder == queue.getPlayingPeriod()) {
       // This is the first prepared period, so update the position and the renderers.
-      resetRendererPosition(loadingPeriodHolder.info.startPositionUs);
+      resetRendererPosition(
+          loadingPeriodHolder.info.startPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       enableRenderers();
       loadingPeriodHolder.allRenderersInCorrectState = true;
       playbackInfo =
@@ -3325,6 +3427,13 @@ import java.util.Objects;
     return max(0, totalBufferedDurationUs);
   }
 
+  private long getDurationToMediaPeriodUs(MediaPeriodHolder mediaPeriodHolder) {
+    checkState(mediaPeriodHolder.prepared);
+    return (long)
+        ((mediaPeriodHolder.getStartPositionRendererTime() - rendererPositionUs)
+            / mediaClock.getPlaybackParameters().speed);
+  }
+
   private void updateLoadControlTrackSelection(
       MediaPeriodId mediaPeriodId,
       TrackGroupArray trackGroups,
@@ -3520,6 +3629,13 @@ import java.util.Objects;
             timeline.getPeriodPositionUs(window, period, windowIndex, windowPositionUs);
         newPeriodUid = periodPositionUs.first;
         newContentPositionUs = periodPositionUs.second;
+      } else {
+        // For all other periods, we may need to clip the duration again.
+        long newPeriodDurationUs = timeline.getPeriodByUid(newPeriodUid, period).durationUs;
+        if (newPeriodDurationUs != C.TIME_UNSET) {
+          newContentPositionUs =
+              constrainValue(newContentPositionUs, /* min= */ 0, /* max= */ period.durationUs - 1);
+        }
       }
       // Use an explicitly requested content position as new target live offset.
       setTargetLiveOffset = true;
@@ -3579,6 +3695,27 @@ import java.util.Objects;
             newPeriodId.adIndexInAdGroup == period.getFirstAdIndexToPlay(newPeriodId.adGroupIndex)
                 ? period.getAdResumePositionUs()
                 : 0;
+      }
+    } else if (sameOldAndNewPeriodUid && oldPeriodId.isAd()) {
+      // Transition to content after ad.
+      AdPlaybackState adPlaybackState =
+          timeline.getPeriodByUid(newPeriodUid, period).adPlaybackState;
+      AdGroup adGroup = adPlaybackState.getAdGroup(oldPeriodId.adGroupIndex);
+      long contentResumeOffsetUs = adGroup.contentResumeOffsetUs;
+      boolean useRequestedContentPosition =
+          playbackInfo.requestedContentPositionUs != C.TIME_UNSET
+              && adGroup.timeUs != C.TIME_END_OF_SOURCE
+              && adGroup.timeUs + contentResumeOffsetUs <= playbackInfo.requestedContentPositionUs;
+      if (!useRequestedContentPosition
+          && adGroup.count > oldPeriodId.adIndexInAdGroup
+          && adGroup.states[oldPeriodId.adIndexInAdGroup] == AdPlaybackState.AD_STATE_SKIPPED) {
+        // An ad period was skipped and playback continues on content. Apply resume offset.
+        long durationUs = timeline.getPeriodByUid(newPeriodUid, period).durationUs;
+        periodPositionUs =
+            durationUs != C.TIME_UNSET
+                ? min(durationUs - 1, periodPositionUs + contentResumeOffsetUs)
+                : periodPositionUs + contentResumeOffsetUs;
+        newContentPositionUs = periodPositionUs;
       }
     }
 
@@ -3879,13 +4016,16 @@ import java.util.Objects;
 
   private static @Player.PlaybackSuppressionReason int updatePlaybackSuppressionReason(
       @AudioFocusManager.PlayerCommand int playerCommand,
-      @Player.PlaybackSuppressionReason int playbackSuppressionReason) {
+      @Player.PlaybackSuppressionReason int playbackSuppressionReason,
+      boolean isScrubbingModeEnabled) {
     if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
       return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
     if (playbackSuppressionReason
         == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
-      return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
+      return isScrubbingModeEnabled
+          ? Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING
+          : Player.PLAYBACK_SUPPRESSION_REASON_NONE;
     }
     return playbackSuppressionReason;
   }

@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.scheduler;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -100,12 +100,7 @@ public final class RequirementsWatcher {
       filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
     }
     if (requirements.isIdleRequired()) {
-      if (SDK_INT >= 23) {
-        filter.addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED);
-      } else {
-        filter.addAction(Intent.ACTION_SCREEN_ON);
-        filter.addAction(Intent.ACTION_SCREEN_OFF);
-      }
+      filter.addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED);
     }
     if (requirements.isStorageNotLowRequired()) {
       filter.addAction(Intent.ACTION_DEVICE_STORAGE_LOW);

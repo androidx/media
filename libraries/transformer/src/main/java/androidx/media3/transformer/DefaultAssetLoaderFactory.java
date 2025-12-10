@@ -17,8 +17,8 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.TransformerUtil.isImage;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.graphics.BitmapFactory;
@@ -33,7 +33,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceBitmapLoader;
-import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
@@ -91,11 +90,12 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
       options.inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB);
     }
     this.bitmapLoader =
-        new DataSourceBitmapLoader(
-            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
-            new DefaultDataSource.Factory(context),
-            options,
-            GlUtil.MAX_BITMAP_DECODING_SIZE);
+        new DataSourceBitmapLoader.Builder(context)
+            .setExecutorService(
+                MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()))
+            .setBitmapFactoryOptions(options)
+            .setMaximumOutputDimension(GlUtil.MAX_BITMAP_DECODING_SIZE)
+            .build();
   }
 
   /**

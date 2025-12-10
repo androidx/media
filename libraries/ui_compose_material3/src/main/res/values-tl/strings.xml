@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">I-play</string>
+  <string name="playpause_button_pause">I-pause</string>
+  <string name="next_button">Susunod</string>
+  <string name="previous_button">Nakaraan</string>
+  <string name="seek_back_button">I-rewind</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Lumaktaw pabalik nang %d segundo</item>
+    <item quantity="other">Lumaktaw pabalik nang %d na segundo</item>
+  </plurals>
+  <string name="seek_forward_button">Lumaktaw pasulong</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Lumaktaw pasulong nang %d segundo</item>
+    <item quantity="other">Lumaktaw pasulong nang %d na segundo</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Kasalukuyang mode: Walang uulitin. I-toggle ang repeat mode.</string>
+  <string name="repeat_button_repeat_one">Kasalukuyang mode: Ulitin ang isa. I-toggle ang repeat mode.</string>
+  <string name="repeat_button_repeat_all">Kasalukuyang mode: Ulitin lahat. I-toggle ang repeat mode.</string>
+  <string name="shuffle_button_shuffle_on">Naka-enable ang shuffle mode.</string>
+  <string name="shuffle_button_shuffle_off">Naka-disable ang shuffle mode.</string>
+  <string name="mute_button_shown_unmuted">I-mute</string>
+  <string name="mute_button_shown_muted">I-unmute</string>
+</resources>

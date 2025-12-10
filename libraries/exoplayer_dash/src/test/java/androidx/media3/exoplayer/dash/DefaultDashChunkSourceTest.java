@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy.DEFAULT_LOCATION_EXCLUSION_MS;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
@@ -26,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
@@ -638,7 +638,7 @@ public class DefaultDashChunkSourceTest {
 
   private DashChunkSource createDashChunkSource(
       int numberOfTracks, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
-    Assertions.checkArgument(numberOfTracks < 6);
+    checkArgument(numberOfTracks < 6);
     DashManifest manifest =
         new DashManifestParser()
             .parse(

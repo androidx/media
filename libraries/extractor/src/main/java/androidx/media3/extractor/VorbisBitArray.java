@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -120,7 +120,7 @@ public final class VorbisBitArray {
 
   private void assertValidOffset() {
     // It is fine for position to be at the end of the array, but no further.
-    Assertions.checkState(
+    checkState(
         byteOffset >= 0 && (byteOffset < byteLimit || (byteOffset == byteLimit && bitOffset == 0)));
   }
 }

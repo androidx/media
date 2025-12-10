@@ -74,6 +74,7 @@ public class DownloadTracker {
 
   private final Context context;
   private final DataSource.Factory dataSourceFactory;
+  private final DownloadHelper.Factory downloadHelperFactory;
   private final CopyOnWriteArraySet<Listener> listeners;
   private final HashMap<Uri, Download> downloads;
   private final DownloadIndex downloadIndex;
@@ -84,6 +85,8 @@ public class DownloadTracker {
       Context context, DataSource.Factory dataSourceFactory, DownloadManager downloadManager) {
     this.context = context.getApplicationContext();
     this.dataSourceFactory = dataSourceFactory;
+    this.downloadHelperFactory =
+        new DownloadHelper.Factory().setDataSourceFactory(dataSourceFactory);
     listeners = new CopyOnWriteArraySet<>();
     downloads = new HashMap<>();
     downloadIndex = downloadManager.getDownloadIndex();
@@ -123,7 +126,7 @@ public class DownloadTracker {
       startDownloadDialogHelper =
           new StartDownloadDialogHelper(
               fragmentManager,
-              DownloadHelper.forMediaItem(context, mediaItem, renderersFactory, dataSourceFactory),
+              downloadHelperFactory.setRenderersFactory(renderersFactory).create(mediaItem),
               mediaItem);
     }
   }
@@ -326,7 +329,7 @@ public class DownloadTracker {
       }
       trackSelectionDialog =
           TrackSelectionDialog.createForTracksAndParameters(
-              /* titleId= */ R.string.exo_download_description,
+              /* titleId= */ androidx.media3.exoplayer.R.string.exo_download_description,
               tracks,
               DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
               /* allowAdaptiveSelections= */ false,
@@ -409,10 +412,8 @@ public class DownloadTracker {
               () -> {
                 OfflineLicenseHelper offlineLicenseHelper =
                     OfflineLicenseHelper.newWidevineInstance(
-                        drmConfiguration.licenseUri.toString(),
-                        drmConfiguration.forceDefaultLicenseUri,
+                        drmConfiguration,
                         dataSourceFactory,
-                        drmConfiguration.licenseRequestHeaders,
                         new DrmSessionEventListener.EventDispatcher());
                 try {
                   keySetId = offlineLicenseHelper.downloadLicense(format);

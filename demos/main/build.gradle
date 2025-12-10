@@ -23,6 +23,7 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     defaultConfig {
@@ -70,6 +71,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:" + desugarJdkLibsVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
@@ -83,7 +85,6 @@ dependencies {
     implementation project(modulePrefix + 'lib-datasource-cronet')
     implementation project(modulePrefix + 'lib-exoplayer-ima')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-av1')
-    withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-dav1d')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-ffmpeg')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-flac')
     withDecoderExtensionsImplementation project(modulePrefix + 'lib-decoder-opus')
