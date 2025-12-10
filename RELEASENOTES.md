@@ -16,11 +16,6 @@
         `doSomeWork` was mistakenly reduced by the elapsed time of the current
         iteration of `doSomeWork`. Addressing this hopefully extends CPU idle
         time and saves power.
-    *   Add support for dynamic scheduling in `MediaCodecVideoRenderer` to
-        better align scheduling work and CPU wake-cycles to when video frames
-        can be processed. You can enable this using
-        `experimentalSetEnableMediaCodecVideoRendererDurationToProgressUs()` via
-        the `DefaultRenderersFactory`.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

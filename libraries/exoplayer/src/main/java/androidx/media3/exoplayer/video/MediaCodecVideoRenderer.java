@@ -60,7 +60,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.CodecSpecificDataUtil;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Size;
@@ -77,7 +76,6 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage.Target;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
@@ -214,7 +212,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
   private final boolean enableMediaCodecBufferDecodeOnlyFlag;
-  private final boolean enableDurationToProgressUs;
 
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
@@ -252,7 +249,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private boolean pendingVideoSinkInputStreamChange;
 
   private int consecutiveDroppedInputBufferCount;
-  private long nextOutputBufferToProcessPresentationTimeUs;
 
   /** A builder to create {@link MediaCodecVideoRenderer} instances. */
   public static final class Builder {
@@ -270,7 +266,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private boolean parseAv1SampleDependencies;
     private long lateThresholdToDropDecoderInputUs;
     private boolean enableMediaCodecBufferDecodeOnlyFlag;
-    private boolean enableDurationToProgressUs;
 
     /**
      * Creates a new builder.
@@ -434,29 +429,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
         boolean enableMediaCodecBufferDecodeOnlyFlag) {
       this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
-      return this;
-    }
-
-    /**
-     * Sets whether the {@link #getDurationToProgressUs} is enabled.
-     *
-     * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-     * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better
-     * align when it wakes the CPU with when player progress can be made.
-     *
-     * <p>If {@code true}, then if the {@link MediaCodec} decoder is set up in asynchronous mode
-     * with a registered {@link MediaCodec.Callback} listener, {@link #getDurationToProgressUs} will
-     * return durations based on the next output frame's presentation time. This will increase CPU
-     * Idle time thereby reducing power consumption. The default value is {@code false}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)
-     */
-    @CanIgnoreReturnValue
-    @ExperimentalApi
-    public Builder setEnableDurationToProgressUs(boolean enableDurationToProgressUs) {
-      this.enableDurationToProgressUs = enableDurationToProgressUs;
       return this;
     }
 
@@ -660,8 +632,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoFrameReleaseEarlyTimeForecaster = null;
     }
     enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
-    enableDurationToProgressUs = builder.enableDurationToProgressUs;
-    nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     scrubbingModeParameters = null;
   }
 
@@ -1101,7 +1071,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
-    nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
   }
 
   @Override
@@ -1179,7 +1148,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
     isFlushRequired = true;
-    nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     try {
       super.onDisabled();
     } finally {
@@ -1195,7 +1163,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } finally {
       hasSetVideoSink = false;
       startPositionUs = C.TIME_UNSET;
-      nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
       releasePlaceholderSurface();
     }
   }
@@ -1420,7 +1387,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     buffersInCodecCount = 0;
     consecutiveDroppedInputBufferCount = 0;
     isFlushRequired = false;
-    nextOutputBufferToProcessPresentationTimeUs = C.TIME_UNSET;
     if (av1SampleDependencyParser != null) {
       av1SampleDependencyParser.reset();
     }
@@ -1512,58 +1478,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         // Leave the default max input size.
         return Format.NO_VALUE;
     }
-  }
-
-  @Override
-  protected long getDurationToProgressUs(
-      long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
-    if (!enableDurationToProgressUs || !isOnBufferAvailableListenerRegistered) {
-      return super.getDurationToProgressUs(
-          positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
-    }
-
-    if (getState() != STATE_STARTED) {
-      // When not started, we can only make further progress if we don't have a first frame rendered
-      // or a frame ready to render.
-      return isReady() || isEnded()
-          ? DEFAULT_IDLE_DURATION_TO_PROGRESS_US
-          : DEFAULT_DURATION_TO_PROGRESS_US;
-    }
-
-    if (nextOutputBufferToProcessPresentationTimeUs == C.TIME_UNSET || videoSink != null) {
-      return DEFAULT_DURATION_TO_PROGRESS_US;
-    }
-
-    if (isEnded()) {
-      // If processed all output then return half of the duration to the end.
-      long durationUs = (nextOutputBufferToProcessPresentationTimeUs - positionUs);
-      durationUs = (long) (durationUs / getPlaybackSpeed() / 2);
-      return max(DEFAULT_DURATION_TO_PROGRESS_US, durationUs);
-    }
-
-    try {
-      @VideoFrameReleaseControl.FrameReleaseAction
-      int frameReleaseAction =
-          videoFrameReleaseControl.getFrameReleaseAction(
-              nextOutputBufferToProcessPresentationTimeUs,
-              positionUs,
-              elapsedRealtimeUs,
-              getOutputStreamStartPositionUs(),
-              /* isDecodeOnlyFrame= */ false,
-              /* isLastFrame= */ false,
-              videoFrameReleaseInfo);
-      if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
-        return 0;
-      }
-      long durationUs = videoFrameReleaseInfo.getEarlyUs();
-      // Rebase duration to the start of this iteration of the rendering loop.
-      durationUs += Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
-      // Set a lower bound of waking within 1.5*VSync rate at 60 fps(25 ms).
-      return max(0, durationUs - 25_000);
-    } catch (ExoPlaybackException exoPlaybackException) {
-      Log.w(TAG, "Error while evaluating frame release action");
-    }
-    return DEFAULT_DURATION_TO_PROGRESS_US;
   }
 
   @Override
@@ -1998,10 +1912,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           videoFrameReleaseInfo,
           lastFrameReleaseTimeNs);
     }
-    nextOutputBufferToProcessPresentationTimeUs =
-        frameReleaseAction == VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
-            ? bufferPresentationTimeUs
-            : C.TIME_UNSET;
     switch (frameReleaseAction) {
       case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         long releaseTimeNs = getClock().nanoTime();
@@ -2037,8 +1947,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void renderToEndOfStream() {
     if (videoSink != null) {
       videoSink.signalEndOfCurrentInputStream();
-    } else if (getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET) {
-      nextOutputBufferToProcessPresentationTimeUs = getLastBufferInStreamPresentationTimeUs();
     }
   }
 

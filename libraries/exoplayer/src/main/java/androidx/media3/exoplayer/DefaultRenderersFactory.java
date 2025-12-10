@@ -30,7 +30,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioOutput;
@@ -120,7 +119,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean parseAv1SampleDependencies;
   private long lateThresholdToDropDecoderInputUs;
   private boolean enableMediaCodecBufferDecodeOnlyFlag;
-  private boolean enableMediaCodecVideoRendererDurationToProgressUs;
 
   /**
    * @param context A {@link Context}.
@@ -340,34 +338,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets whether {@link MediaCodecVideoRenderer} supports {@link Renderer#getDurationToProgressUs
-   * getDurationToProgressUs}.
-   *
-   * <p>When ExoPlayer's {@link ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled dynamic
-   * scheduling} is enabled, ExoPlayer uses {@link Renderer#getDurationToProgressUs} to better align
-   * when it wakes the CPU with when player progress can be made.
-   *
-   * <p>If {@code true}, then {@link MediaCodecVideoRenderer} will support {@link
-   * Renderer#getDurationToProgressUs getDurationToProgressUs} and only if its {@link MediaCodec}
-   * decoder is set up in asynchronous mode with a registered {@link MediaCodec.Callback} listener.
-   * With these conditions met {@link ExoPlayer} will adjust its task scheduling with when {@link
-   * MediaCodecVideoRenderer} can schedule its next output. This will increase CPU Idle time thereby
-   * reducing power consumption. The default value is {@code false}.
-   *
-   * <p>This method is experimental and will be renamed or removed in a future release.
-   *
-   * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled
-   */
-  @CanIgnoreReturnValue
-  @ExperimentalApi
-  public DefaultRenderersFactory setEnableMediaCodecVideoRendererDurationToProgressUs(
-      boolean enableMediaCodecVideoRendererDurationToProgressUs) {
-    this.enableMediaCodecVideoRendererDurationToProgressUs =
-        enableMediaCodecVideoRendererDurationToProgressUs;
-    return this;
-  }
-
-  /**
    * Sets the maximum duration for which video renderers can attempt to seamlessly join an ongoing
    * playback.
    *
@@ -489,8 +459,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setEventListener(eventListener)
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
             .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
-            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
-            .setEnableDurationToProgressUs(enableMediaCodecVideoRendererDurationToProgressUs);
+            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs);
     if (SDK_INT >= 34) {
       videoRendererBuilder =
           videoRendererBuilder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
