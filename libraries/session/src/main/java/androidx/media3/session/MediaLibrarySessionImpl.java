@@ -81,7 +81,8 @@ import java.util.concurrent.Future;
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     super(
         instance,
         context,
@@ -97,7 +98,8 @@ import java.util.concurrent.Future;
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
-        /* useLegacySurfaceHandling= */ false);
+        /* useLegacySurfaceHandling= */ false,
+        systemUiPlaybackResumptionOptIn);
     this.instance = instance;
     this.callback = callback;
     this.libraryErrorReplicationMode = libraryErrorReplicationMode;
