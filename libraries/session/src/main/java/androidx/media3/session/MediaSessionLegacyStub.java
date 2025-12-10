@@ -63,7 +63,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
@@ -147,7 +146,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
   @Nullable private final ComponentName broadcastReceiverComponentName;
   private final boolean playIfSuppressed;
-  private final HandlerThread compatSessionInteractionThread;
   private final Runnable callOnNotificationRefreshRequiredRunnable =
       this::callOnNotificationRefreshRequiredIfNeeded;
 
@@ -179,7 +177,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       SessionCommands availableSessionCommands,
       Player.Commands availablePlayerCommands,
       Bundle legacyExtras,
-      @Nullable String packageNameOverride) {
+      @Nullable String packageNameOverride,
+      Looper backgroundLooper) {
     this.sessionImpl = session;
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
@@ -197,8 +196,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     connectionTimeoutHandler =
         new ConnectionTimeoutHandler(
             session.getApplicationHandler().getLooper(), connectedControllersManager);
-    compatSessionInteractionThread = new HandlerThread("MSLegacyStub:CompatSIT");
-    compatSessionInteractionThread.start();
     mayNeedButtonReservationWorkaroundForSeekbar =
         mayNeedButtonReservationWorkaroundForSeekbar(context);
 
@@ -268,7 +265,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             session.getSessionActivity(),
             /* sessionInfo= */ tokenExtras,
             packageNameOverride,
-            compatSessionInteractionThread.getLooper());
+            backgroundLooper);
     if (SDK_INT >= 31 && broadcastReceiverComponentName != null) {
       Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
     }
@@ -477,7 +474,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     sessionCompat.release();
-    compatSessionInteractionThread.quitSafely();
   }
 
   public MediaSessionCompat.Token getSessionToken() {
