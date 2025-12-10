@@ -27,6 +27,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
@@ -110,7 +111,7 @@ import java.util.concurrent.atomic.AtomicLong;
     audioProcessingPipeline =
         configureProcessing(
             editedMediaItem,
-            inputFormat,
+            inputFormat.metadata,
             inputAudioFormat,
             requestedOutputAudioFormat,
             silenceAppendingAudioProcessor);
@@ -404,10 +405,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
     isCurrentItemLast = pendingChange.isLast;
     AudioFormat pendingAudioFormat;
+    Metadata metadata = null;
     boolean onlyGenerateSilence = false;
     if (pendingChange.format != null) {
       currentItemExpectedInputDurationUs = pendingChange.durationUs;
       pendingAudioFormat = new AudioFormat(pendingChange.format);
+      metadata = pendingChange.format.metadata;
     } else { // Generating silence
       // No audio track. Generate silence based on video track duration after applying effects.
       if (pendingChange.editedMediaItem.effects.audioProcessors.isEmpty()) {
@@ -432,7 +435,7 @@ import java.util.concurrent.atomic.AtomicLong;
       audioProcessingPipeline =
           configureProcessing(
               pendingChange.editedMediaItem,
-              pendingChange.format,
+              metadata,
               pendingAudioFormat,
               /* requiredOutputAudioFormat= */ outputAudioFormat,
               silenceAppendingAudioProcessor);
@@ -458,7 +461,7 @@ import java.util.concurrent.atomic.AtomicLong;
    */
   private static AudioProcessingPipeline configureProcessing(
       EditedMediaItem editedMediaItem,
-      @Nullable Format inputFormat,
+      @Nullable Metadata metadata,
       AudioFormat inputAudioFormat,
       AudioFormat requiredOutputAudioFormat,
       SilenceAppendingAudioProcessor silenceAppendingAudioProcessor)
@@ -466,11 +469,8 @@ import java.util.concurrent.atomic.AtomicLong;
     ImmutableList.Builder<AudioProcessor> audioProcessors = new ImmutableList.Builder<>();
     audioProcessors.add(silenceAppendingAudioProcessor);
 
-    if (editedMediaItem.flattenForSlowMotion
-        && inputFormat != null
-        && inputFormat.metadata != null) {
-      audioProcessors.add(
-          new SpeedChangingAudioProcessor(new SegmentSpeedProvider(inputFormat.metadata)));
+    if (editedMediaItem.flattenForSlowMotion && metadata != null) {
+      audioProcessors.add(new SpeedChangingAudioProcessor(new SegmentSpeedProvider(metadata)));
     }
     audioProcessors.addAll(editedMediaItem.effects.audioProcessors);
 
