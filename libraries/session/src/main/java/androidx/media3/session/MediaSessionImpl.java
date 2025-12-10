@@ -48,6 +48,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
@@ -138,6 +139,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean isPeriodicPositionUpdateEnabled;
   private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
+  private final HandlerThread backgroundThread;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
@@ -207,6 +209,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     sessionStub = new MediaSessionStub(thisRef);
 
+    backgroundThread = new HandlerThread("MediaSessionImpl:bg");
+    backgroundThread.start();
+
     mainHandler = new Handler(Looper.getMainLooper());
     Looper applicationLooper = player.getApplicationLooper();
     applicationHandler = new Handler(applicationLooper);
@@ -246,7 +251,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             mediaButtonPreferences,
             connectionResult.availableSessionCommands,
             connectionResult.availablePlayerCommands,
-            sessionExtras);
+            sessionExtras,
+            backgroundThread.getLooper());
 
     Token platformToken = sessionLegacyStub.getSessionToken().getToken();
     sessionToken =
@@ -341,6 +347,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     sessionLegacyStub.release();
     sessionStub.release();
+    backgroundThread.quitSafely();
   }
 
   public PlayerWrapper getPlayerWrapper() {
