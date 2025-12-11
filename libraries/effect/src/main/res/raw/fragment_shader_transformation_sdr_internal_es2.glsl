@@ -109,16 +109,16 @@ vec3 smpte170mOetf(vec3 opticalColor) {
 // [0, 1].
 vec3 convertToWorkingColors(vec3 inputColor) {
   if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
-    if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
-      return smpte170mOetf(srgbEotf(inputColor));
-    } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
-      return inputColor;
+    if (uInputColorTransfer == COLOR_TRANSFER_SRGB ||
+        uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+          return inputColor;
     } else {
       return ERROR_COLOR_BLUE;
     }
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
     return inputColor;
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
+    //TODO: b/466337201 - Treat sRGB and SMPTE 170M consistently.
     if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
       return srgbEotf(inputColor);
     } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
@@ -131,13 +131,15 @@ vec3 convertToWorkingColors(vec3 inputColor) {
   }
 }
 
-// Optionally applies the appropriate OETF to convert linear optical signals to
-// nonlinear electrical signals. Input and output are both normalized to [0, 1].
+// Optionally applies the appropriate transfer function (OETF or EOTF) to
+// convert between linear and nonlinear colors.
 highp vec3 convertToOutputColors(highp vec3 workingColors) {
   if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
     if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
+      //TODO: b/466337201 - Treat sRGB and SMPTE 170M consistently.
       return smpte170mEotf(workingColors);
-    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
+    } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO ||
+               uOutputColorTransfer == COLOR_TRANSFER_SRGB) {
       return workingColors;
     } else {
       return ERROR_COLOR_RED;

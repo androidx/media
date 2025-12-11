@@ -115,10 +115,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   public @interface WorkingColorSpace {}
 
   /**
-   * Use BT709 color primaries with the standard SDR transfer function (SMPTE 170m) as the working
-   * color space.
-   *
-   * <p>Any SDR content in a different color space will be transferred to this one.
+   * For SDR content, uses the input color space as the working color space if the color transfer is
+   * {@link C#COLOR_TRANSFER_SRGB} or {@link C#COLOR_TRANSFER_SDR}. No conversions are applied
+   * between sRGB and SMPTE 170M, reflecting Android platform behavior where these are treated as
+   * equivalent.
    */
   public static final int WORKING_COLOR_SPACE_DEFAULT = 0;
 
