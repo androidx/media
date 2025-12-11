@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
@@ -232,6 +233,60 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             217033L, 250400L, 283766L, 317133L, 350500L, 383866L, 417233L, 451200L, 517932L,
             584666L, 651400L, 718132L, 784866L, 851600L, 918332L, 985066L, 1051800L, 1118532L,
             1185266L);
+  }
+
+  @Test
+  public void setSpeed_withTargetFrameRate_outputFrameCountIsCorrect() throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {5f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // 5 sec video with 5X speed = 1 sec = ~30 frames
+    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(30);
+  }
+
+  @Test
+  public void setSpeed_withHighSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+      throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {20f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // 5 sec video with 20X speed = 0.25 sec = ~8 frames
+    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(8);
+  }
+
+  @Test
+  public void setSpeed_withVariableSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+      throws Exception {
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(
+                TestSpeedProvider.createWithStartTimes(
+                    new long[] {0, 2_500_000L, 4_500_000L}, new float[] {5f, 1f, 0.5f}))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .build();
+
+    ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
+
+    // (2.5 sec at 5X = 0.5 sec) + (2 sec at 1X = 2 sec) + (0.5 sec at 0.5X = 1 sec) = 3.5 sec =
+    // ~105
+    // frames
+    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(105);
   }
 
   private ImmutableList<Long> getTimestampsFromCompositionPlayer(EditedMediaItem item)

@@ -62,6 +62,7 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -398,6 +399,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
+    private long nextSampleExpectedTimestampUs;
+    private long expectedTimestampDeltaUs;
 
     public SequenceVideoRenderer(
         Context context,
@@ -417,6 +420,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setVideoSink(bufferingVideoSink));
       this.bufferingVideoSink = bufferingVideoSink;
       this.pendingEffects = ImmutableList.of();
+      nextSampleExpectedTimestampUs = C.TIME_UNSET;
+      expectedTimestampDeltaUs = C.TIME_UNSET;
     }
 
     public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
@@ -466,6 +471,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+      nextSampleExpectedTimestampUs = C.TIME_UNSET;
+    }
+
+    @Override
     protected void onStreamChanged(
         Format[] formats,
         long startPositionUs,
@@ -481,7 +494,65 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       pendingEffects = editedMediaItem.effects.videoEffects;
+      if (editedMediaItem.frameRate == C.RATE_UNSET_INT) {
+        expectedTimestampDeltaUs = C.TIME_UNSET;
+      } else {
+        expectedTimestampDeltaUs = C.MICROS_PER_SECOND / editedMediaItem.frameRate;
+      }
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    }
+
+    @Override
+    protected boolean processOutputBuffer(
+        long positionUs,
+        long elapsedRealtimeUs,
+        @Nullable MediaCodecAdapter codec,
+        @Nullable ByteBuffer buffer,
+        int bufferIndex,
+        int bufferFlags,
+        int sampleCount,
+        long bufferPresentationTimeUs,
+        boolean isDecodeOnlyBuffer,
+        boolean isLastBuffer,
+        Format format)
+        throws ExoPlaybackException {
+      long outputStreamOffsetUs = getOutputStreamOffsetUs();
+      long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
+      // This algorithm will always pick the first sample that is after desired timestamp and then
+      // it will start looking for the next desired timestamp.
+      // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
+      // When seeking is performed, the desired timestamps are shifted accordingly.
+      // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
+      // 1_066_666....
+      // This algorithm has no impact if the target frame rate is greater that input frame rate.
+      if (shouldMaintainTargetFrameRate()
+          && nextSampleExpectedTimestampUs != C.TIME_UNSET
+          && presentationTimeUs < nextSampleExpectedTimestampUs
+          && !isLastBuffer) {
+        skipOutputBuffer(checkNotNull(codec), bufferIndex, presentationTimeUs);
+        return true;
+      }
+      if (super.processOutputBuffer(
+          positionUs,
+          elapsedRealtimeUs,
+          codec,
+          buffer,
+          bufferIndex,
+          bufferFlags,
+          sampleCount,
+          bufferPresentationTimeUs,
+          isDecodeOnlyBuffer,
+          isLastBuffer,
+          format)) {
+        if (shouldMaintainTargetFrameRate()) {
+          nextSampleExpectedTimestampUs =
+              (nextSampleExpectedTimestampUs == C.TIME_UNSET)
+                  ? (presentationTimeUs + expectedTimestampDeltaUs)
+                  : (nextSampleExpectedTimestampUs + expectedTimestampDeltaUs);
+        }
+        return true;
+      }
+      return false;
     }
 
     @Override
@@ -569,6 +640,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* presentationTimeUs= */ releaseTimeNs / 1000, indexOfItem);
       }
       super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+    }
+
+    private boolean shouldMaintainTargetFrameRate() {
+      return expectedTimestampDeltaUs != C.TIME_UNSET;
     }
 
     private void activateBufferingVideoSink() {

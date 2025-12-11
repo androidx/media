@@ -21,6 +21,7 @@ import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -540,6 +541,35 @@ public class CompositionPlaybackTest {
     Composition composition = new Composition.Builder(videoSequence, audioSequence).build();
 
     runCompositionPlayer(composition);
+  }
+
+  @Test
+  public void playback_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // Input: 5 sec video at 60 fps; Output: 5 sec video at 30 fps = ~150 frames
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
+        .isWithin(2)
+        .of(150);
   }
 
   private void runCompositionPlayer(Composition composition)
