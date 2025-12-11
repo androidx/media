@@ -118,7 +118,6 @@ vec3 convertToWorkingColors(vec3 inputColor) {
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_ORIGINAL) {
     return inputColor;
   } else if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
-    //TODO: b/466337201 - Treat sRGB and SMPTE 170M consistently.
     if (uInputColorTransfer == COLOR_TRANSFER_SRGB) {
       return srgbEotf(inputColor);
     } else if (uInputColorTransfer == COLOR_TRANSFER_SDR_VIDEO) {
@@ -136,7 +135,6 @@ vec3 convertToWorkingColors(vec3 inputColor) {
 highp vec3 convertToOutputColors(highp vec3 workingColors) {
   if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
     if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
-      //TODO: b/466337201 - Treat sRGB and SMPTE 170M consistently.
       return smpte170mEotf(workingColors);
     } else if (uOutputColorTransfer == COLOR_TRANSFER_SDR_VIDEO ||
                uOutputColorTransfer == COLOR_TRANSFER_SRGB) {
