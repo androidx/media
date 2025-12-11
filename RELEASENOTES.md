@@ -19,6 +19,12 @@
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
         type using the ad pod index and ad position.
+*   Downloads:
+    *   Fix potential infinite loops when a `PriorityTooLowException` is handled
+        by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom
+        overrides of `SegmentDownloader` using the protected `execute` method
+        need to provide their task wrapped in a `Supplier` so it can be
+        recreated ([#2931](https://github.com/androidx/media/issues/2931)).
 
 ## 1.9
 
