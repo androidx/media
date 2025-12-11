@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.app.NotificationManager;
 import android.content.Context;
@@ -791,6 +792,21 @@ public class MediaSessionServiceTest {
     assertThat(service.callers).hasSize(1);
     assertThat(service.session.isMediaNotificationController(service.callers.get(0))).isTrue();
     controller.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void onStartCommand_playbackResumption_emptyResultWillThrow() {
+    Intent playIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+    playIntent.putExtra(
+        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY));
+    ServiceController<TestServiceWithPlaybackResumption> serviceController =
+        Robolectric.buildService(TestServiceWithPlaybackResumption.class, playIntent);
+    TestServiceWithPlaybackResumption service = serviceController.create().get();
+    service.setMediaItems(ImmutableList.of());
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> serviceController.startCommand(/* flags= */ 0, /* startId= */ 0));
     serviceController.destroy();
   }
 
