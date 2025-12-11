@@ -50,19 +50,58 @@ private constructor(
   private val glObjectsProvider: GlObjectsProvider,
   private val videoFrameProcessingTaskExecutor: VideoFrameProcessingTaskExecutor,
 ) :
-  RunnablePacketConsumer<GlTextureFrame>,
+  PacketConsumer<GlTextureFrame>,
   GlShaderProgram.InputListener,
   FinalShaderProgramWrapper.Listener {
 
   private val glDispatcher = glExecutorService.asCoroutineDispatcher()
-  private val inputConsumer = ChannelPacketConsumer(this::consume) { frame -> frame.release() }
   private val isReleased = AtomicBoolean(false)
   private var hasRenderedPendingFrame = CompletableDeferred<Unit>(Unit)
   private var finalShaderProgramWrapper: FinalShaderProgramWrapper? = null
   @Volatile private var outputSurfaceInfo: SurfaceInfo? = null
 
-  override suspend fun queuePacket(packet: Packet<GlTextureFrame>) =
-    inputConsumer.queuePacket(packet)
+  /**
+   * Consumes a single [GlTextureFrame], first configuring the renderer if required and queuing the
+   * frame to the shader program.
+   *
+   * This method suspends until the frame is fully rendered. If the renderer is released while
+   * waiting, it gracefully exits.
+   */
+  override suspend fun queuePacket(packet: Packet<GlTextureFrame>): Unit =
+    withContext(glDispatcher) {
+      when (packet) {
+        is Packet.Payload -> {
+          val frame = packet.payload
+          if (isReleased.get()) return@withContext
+          // TODO: b/449957627 - Investigate reconfiguring when the output ColorInfo changes.
+          val finalShaderProgramWrapper =
+            finalShaderProgramWrapper
+              ?: initializeFinalShaderProgramWrapper(
+                frame.format.colorInfo ?: ColorInfo.SDR_BT709_LIMITED
+              )
+          hasRenderedPendingFrame = CompletableDeferred()
+          finalShaderProgramWrapper.queueInputFrame(
+            glObjectsProvider,
+            frame.glTextureInfo,
+            frame.presentationTimeUs,
+          )
+          finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, frame.releaseTimeNs)
+          try {
+            // Suspend until the frame is rendered to stop the caller releasing this frame.
+            hasRenderedPendingFrame.await()
+          } catch (_: CancellationException) {
+            // This happens when release() is called while we are waiting.
+            // We can safely ignore it and return, allowing the queuePacket method to exit.
+            return@withContext
+          }
+          frame.release()
+        }
+
+        is Packet.EndOfStream -> {
+          finalShaderProgramWrapper?.signalEndOfCurrentInputStream()
+        }
+      }
+    }
 
   /**
    * Releases all resources associated with this renderer.
@@ -73,14 +112,9 @@ private constructor(
    */
   override suspend fun release() {
     if (isReleased.compareAndSet(false, true)) {
-      inputConsumer.release()
       hasRenderedPendingFrame.cancel()
       withContext(glDispatcher) { finalShaderProgramWrapper?.release() }
     }
-  }
-
-  override suspend fun run() {
-    withContext(glDispatcher) { inputConsumer.run() }
   }
 
   /**
@@ -102,39 +136,6 @@ private constructor(
   override fun onInputStreamProcessed() {}
 
   override fun onFrameRendered(presentationTimeUs: Long) {}
-
-  /**
-   * Consumes a single [GlTextureFrame], first configuring the renderer if required and queuing the
-   * frame to the shader program.
-   *
-   * This method suspends until the frame is fully rendered. If the renderer is released while
-   * waiting, it gracefully exits.
-   */
-  private suspend fun consume(frame: GlTextureFrame) {
-    if (isReleased.get()) return
-    // TODO: b/449957627 - Investigate reconfiguring when the output ColorInfo changes.
-    val finalShaderProgramWrapper =
-      finalShaderProgramWrapper
-        ?: initializeFinalShaderProgramWrapper(
-          frame.format.colorInfo ?: ColorInfo.SDR_BT709_LIMITED
-        )
-    hasRenderedPendingFrame = CompletableDeferred()
-    finalShaderProgramWrapper.queueInputFrame(
-      glObjectsProvider,
-      frame.glTextureInfo,
-      frame.presentationTimeUs,
-    )
-    finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, frame.releaseTimeNs)
-    try {
-      // Suspend until the frame is rendered to stop the input consumer releasing this frame and
-      // accepting another.
-      hasRenderedPendingFrame.await()
-    } catch (_: CancellationException) {
-      // This happens when release() is called while we are waiting.
-      // We can safely ignore it and return, allowing the run loop to exit.
-      return
-    }
-  }
 
   /**
    * Configures the internal GL environment (EGL Context and Surface) based on the provided

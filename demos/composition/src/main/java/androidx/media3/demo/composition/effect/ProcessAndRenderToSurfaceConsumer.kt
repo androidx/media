@@ -34,7 +34,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
 
 // TODO: b/449957627 - Remove once pipeline has been migrated to PacketConsumer interface.
 /**
@@ -110,10 +109,6 @@ private constructor(
 
     // Forward the compositor output to the renderer.
     compositor.setOutput(surfaceViewRenderer)
-
-    // Run each processor's loop as a coroutine on the GL thread.
-    scope.launch { surfaceViewRenderer.run() }
-    scope.launch { compositor.run() }
   }
 
   // PacketConsumer implementation which forwards frames to compositor.

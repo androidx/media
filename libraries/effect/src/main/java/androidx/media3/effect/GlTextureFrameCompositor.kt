@@ -37,48 +37,52 @@ class GlTextureFrameCompositor(
   private val dispatcher: CoroutineDispatcher,
   private val glObjectsProvider: GlObjectsProvider,
   @Volatile var videoCompositorSettings: VideoCompositorSettings? = null,
-) :
-  RunnablePacketConsumer<List<GlTextureFrame>>,
-  PacketProcessor<List<GlTextureFrame>, GlTextureFrame> {
+) : PacketConsumer<List<GlTextureFrame>>, PacketProcessor<List<GlTextureFrame>, GlTextureFrame> {
 
-  private val inputConsumer = ChannelPacketConsumer(this::consume, this::releaseFrames)
   private val glProgram = DefaultCompositorGlProgram(context)
   // TODO: b/449957627 - Handle HDR.
   private val outputTexturePool: TexturePool =
     TexturePool(/* useHighPrecisionColorComponents= */ false, /* capacity= */ 1)
   @Volatile private var outputConsumer: PacketConsumer<GlTextureFrame>? = null
 
-  override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
-    return inputConsumer.queuePacket(packet)
-  }
-
-  override suspend fun run() {
-    // Switch to the GL thread for the run loop.
-    withContext(dispatcher) { inputConsumer.run() }
-  }
+  /**
+   * Composites the [GlTextureFrame]s in the [packet] and forwards the composited frame to the
+   * [outputConsumer].
+   *
+   * This method suspends until the frame has been composited and queued to the [outputConsumer].
+   * The input [GlTextureFrame]s are released after suspending the queueing to [outputConsumer].
+   */
+  override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>): Unit =
+    withContext(dispatcher) {
+      when (packet) {
+        is Packet.Payload -> {
+          val frames = packet.payload
+          var compositedFrame: GlTextureFrame? = null
+          try {
+            // TODO: b/449957627 - Investigate whether blocking until an output is set is a safer
+            // approach.
+            outputConsumer?.let { outputConsumer ->
+              compositedFrame = compositeFrames(frames)
+              outputConsumer.queuePacket(Packet.of(compositedFrame))
+            }
+          } finally {
+            compositedFrame?.release()
+            for (frame in frames) {
+              frame.release()
+            }
+          }
+        }
+        is Packet.EndOfStream -> outputConsumer?.queuePacket(Packet.EndOfStream)
+      }
+    }
 
   override fun setOutput(output: PacketConsumer<GlTextureFrame>) {
     this.outputConsumer = output
   }
 
   override suspend fun release() {
-    inputConsumer.release()
     // Release the internal glProgram on the GL thread.
     withContext(dispatcher) { glProgram.release() }
-  }
-
-  private suspend fun consume(frames: List<GlTextureFrame>) {
-    var compositedFrame: GlTextureFrame? = null
-    try {
-      // TODO: b/449957627 - Investigate whether blocking until an output is set is a safer
-      // approach.
-      outputConsumer?.let { outputConsumer ->
-        compositedFrame = compositeFrames(frames)
-        outputConsumer.queuePacket(Packet.of(compositedFrame))
-      }
-    } finally {
-      compositedFrame?.release()
-    }
   }
 
   private fun compositeFrames(frames: List<GlTextureFrame>): GlTextureFrame {
@@ -114,11 +118,5 @@ class GlTextureFrameCompositor(
       .setPresentationTimeUs(frames[0].presentationTimeUs)
       .setReleaseTimeNs(frames[0].releaseTimeNs)
       .build()
-  }
-
-  private fun releaseFrames(frames: List<GlTextureFrame>) {
-    for (frame in frames) {
-      frame.release()
-    }
   }
 }

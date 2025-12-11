@@ -43,7 +43,6 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.onClosed
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -112,7 +111,6 @@ class GlTextureFrameRendererTest {
     consumer =
       GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
     consumer.setOutputSurfaceInfo(outputSurfaceInfo)
-    launch { consumer.run() }
 
     // Verify each input after it is queued to avoid the flakiness from the Surface dropping frames.
     for (input in inputs) {
@@ -146,7 +144,6 @@ class GlTextureFrameRendererTest {
       }
     consumer =
       GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
-    launch { consumer.run() }
 
     for (input in inputs) {
       consumer.queuePacket(Packet.of(input.frame))

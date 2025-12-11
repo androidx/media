@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Before
@@ -78,7 +77,6 @@ class GlTextureFrameCompositorTest {
         allReleased.complete(Unit)
       }
     }
-    launch { compositor.run() }
 
     compositor.queuePacket(packet)
     withTimeout(testTimeoutMs) { allReleased.await() }
@@ -103,18 +101,15 @@ class GlTextureFrameCompositorTest {
     val compositor = buildCompositor(createVideoCompositorSettings())
     val outputConsumer = createThrowingConsumer(exception)
     compositor.setOutput(outputConsumer)
-    launch {
-      try {
-        compositor.run()
-      } catch (e: Exception) {
-        thrownExceptionDeferred.complete(e)
-      }
-    }
-
     val releasedTextures = mutableListOf<GlTextureInfo>()
     val packet = createTestPacket { t -> releasedTextures.add(t) }
 
-    compositor.queuePacket(packet)
+    try {
+      compositor.queuePacket(packet)
+    } catch (e: Exception) {
+      thrownExceptionDeferred.complete(e)
+    }
+
     val thrownException = withTimeout(testTimeoutMs) { thrownExceptionDeferred.await() }
 
     // TODO: b/459374133 - Remove dependency on GlUtil in TexturePool and add a test that the
@@ -140,7 +135,6 @@ class GlTextureFrameCompositorTest {
     val expectedBitmap = createExpectedBitmap()
     val outputConsumer = createConsumer(outputFrameDeferred)
     compositor.setOutput(outputConsumer)
-    launch { compositor.run() }
 
     compositor.queuePacket(inputPacket)
 
