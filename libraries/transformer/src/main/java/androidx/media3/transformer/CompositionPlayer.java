@@ -993,7 +993,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     if (packetConsumer != null) {
       checkNotNull(videoPacketReleaseControl).reset();
-      checkNotNull(frameAggregator).releaseAllFrames();
     }
     compositionPlayerInternal.endSeek();
     return Futures.immediateVoidFuture();
@@ -1398,7 +1397,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
       // CompositionTextureListener.
       textureListener =
-          new CompositionTextureListener(composition, sequenceIndex, checkNotNull(frameAggregator));
+          new CompositionTextureListener(
+              composition,
+              sequenceIndex,
+              checkNotNull(frameAggregator),
+              checkNotNull(executorService));
     }
     VideoSink inputSink =
         packetConsumer != null
@@ -1916,6 +1919,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .build();
     singleInputVideoGraphWrapper.setTotalVideoInputCount(1);
     singleInputVideoGraphWrapper.addListener(internalListener);
+    singleInputVideoGraphWrapper.addListener(
+        new PlaybackVideoGraphWrapper.Listener() {
+          @Override
+          public void onEnded(long finalFramePresentationTimeUs) {
+            textureListener.onEnded();
+          }
+        });
     return singleInputVideoGraphWrapper;
   }
 

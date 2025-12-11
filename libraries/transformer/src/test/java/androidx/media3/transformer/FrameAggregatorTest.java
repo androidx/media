@@ -175,27 +175,207 @@ public class FrameAggregatorTest {
   }
 
   @Test
-  public void queueFrame_primarySeekBackwards_flushesHeldFrames() {
+  public void flush_thenQueueFramesWithEarlierPresentationTimeUs_aggregatesCorrectly() {
     FrameAggregator frameAggregator =
         new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    frameAggregator.queueFrame(createFrame(100), 0);
-    frameAggregator.queueFrame(createFrame(100), 1);
+    GlTextureFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+    GlTextureFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(primaryFrame1, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame1, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(primaryFrame1, secondaryFrame1).inOrder();
+
+    frameAggregator.flush(/* sequenceIndex= */ 0);
+    frameAggregator.flush(/* sequenceIndex= */ 1);
+
+    GlTextureFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 50);
+    GlTextureFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 50);
+
+    frameAggregator.queueFrame(primaryFrame2, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame2, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(1)).containsExactly(primaryFrame2, secondaryFrame2).inOrder();
+  }
+
+  @Test
+  public void queueEndOfStream_withInvalidSequenceIndex_throwsIllegalArgumentException() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+
+    assertThrows(IllegalArgumentException.class, () -> frameAggregator.queueEndOfStream(2));
+  }
+
+  @Test
+  public void queueEndOfStream_secondaryStream_aggregatesWithoutSecondaryFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).isEmpty();
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(primaryFrame);
+  }
+
+  @Test
+  public void queueEndOfStream_oneOfTwoSecondaryStreams_aggregatesWithAvailableFrames() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 3, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
+    GlTextureFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(secondaryFrame1, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).isEmpty();
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 2);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame1);
+  }
+
+  @Test
+  public void queueEndOfStream_thenFlush_resetsEndedState() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+
+    frameAggregator.queueFrame(createFrame(/* presentationTimeUs= */ 100), /* sequenceIndex= */ 0);
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
     assertThat(outputFrames).hasSize(1);
 
-    GlTextureFrame heldSecondaryFrame1 = createFrame(200);
-    GlTextureFrame heldSecondaryFrame2 = createFrame(300);
-    frameAggregator.queueFrame(heldSecondaryFrame1, 1);
-    frameAggregator.queueFrame(heldSecondaryFrame2, 1);
-    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame1.glTextureInfo);
-    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame2.glTextureInfo);
+    frameAggregator.flush(/* sequenceIndex= */ 1);
 
-    GlTextureFrame seekFrame = createFrame(50);
-    frameAggregator.queueFrame(seekFrame, 0);
+    frameAggregator.queueFrame(createFrame(/* presentationTimeUs= */ 200), /* sequenceIndex= */ 0);
 
-    assertThat(releasedTextures).hasSize(2);
-    assertThat(releasedTextures).contains(heldSecondaryFrame1.glTextureInfo);
-    assertThat(releasedTextures).contains(heldSecondaryFrame2.glTextureInfo);
     assertThat(outputFrames).hasSize(1);
+
+    GlTextureFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 200);
+    frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(1)).contains(secondaryFrame);
+  }
+
+  @Test
+  public void queueEndOfStream_secondaryStreamAlreadyHasFrames_usesFramesBeforeSkipping() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+    GlTextureFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 200);
+    GlTextureFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(primaryFrame1, 0);
+    frameAggregator.queueFrame(primaryFrame2, 0);
+
+    frameAggregator.queueFrame(secondaryFrame1, 1);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(primaryFrame1, secondaryFrame1);
+
+    frameAggregator.queueEndOfStream(1);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(1)).containsExactly(primaryFrame2);
+  }
+
+  @Test
+  public void queueEndOfStream_primarySequence_outputsEndOfStreamFrame() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void queueEndOfStream_primarySequenceAfterFrames_outputsFramesThenEndOfStream() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(frame1, /* sequenceIndex= */ 0);
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(0)).containsExactly(frame1);
+    assertThat(outputFrames.get(1)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void queueEndOfStream_primarySequence_ignoresSubsequentFrames() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
+
+    frameAggregator.queueFrame(frame1, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(1);
+  }
+
+  @Test
+  public void queueEndOfStream_primarySequence_idempotent() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void queueEndOfStream_thenFlushPrimary_allowsNewFrames() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+    assertThat(outputFrames.get(0)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
+
+    frameAggregator.flush(/* sequenceIndex= */ 0);
+
+    GlTextureFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
+    frameAggregator.queueFrame(frame1, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(1)).containsExactly(frame1);
+  }
+
+  @Test
+  public void queueEndOfStream_primaryEndsWhileWaitingForSecondary_outputsFramesThenEos() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+    GlTextureFrame primaryFrame = createFrame(100);
+    GlTextureFrame secondaryFrame = createFrame(100);
+
+    frameAggregator.queueFrame(primaryFrame, 0);
+    frameAggregator.queueEndOfStream(0);
+
+    assertThat(outputFrames).isEmpty();
+
+    frameAggregator.queueFrame(secondaryFrame, 1);
+
+    assertThat(outputFrames).hasSize(1);
+    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame);
+
+    frameAggregator.queueEndOfStream(1);
+
+    assertThat(outputFrames).hasSize(2);
+    assertThat(outputFrames.get(1)).containsExactly(GlTextureFrame.END_OF_STREAM_FRAME);
   }
 
   /** Creates a {@link GlTextureFrame} for testing. */

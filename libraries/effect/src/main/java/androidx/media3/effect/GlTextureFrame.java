@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
@@ -29,6 +31,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi
 public class GlTextureFrame implements Frame {
+  public static final GlTextureFrame END_OF_STREAM_FRAME =
+      new Builder(
+              new GlTextureInfo(
+                  C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET, C.LENGTH_UNSET, C.LENGTH_UNSET),
+              directExecutor(),
+              textureInfo -> {})
+          .build();
   private static final String TAG = "GlTextureFrame";
 
   /** The {@link GlTextureInfo}. */

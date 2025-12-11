@@ -89,6 +89,10 @@ import java.util.concurrent.ExecutorService;
    */
   public void queue(List<GlTextureFrame> packet) {
     checkArgument(!packet.isEmpty());
+    // TODO: b/449956776 - Propagate EOS signal.
+    if (packet.get(0).equals(GlTextureFrame.END_OF_STREAM_FRAME)) {
+      return;
+    }
     // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
     // manually release all frames to handle this discontinuity.
     // TODO: b/449956936 - There is still a race condition in this check that could result in an

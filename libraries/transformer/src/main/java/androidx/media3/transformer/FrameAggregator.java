@@ -19,12 +19,12 @@ package androidx.media3.transformer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.effect.GlTextureFrame;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
@@ -36,9 +36,9 @@ import java.util.Queue;
  */
 /* package */ class FrameAggregator {
   private final Consumer<List<GlTextureFrame>> downstreamConsumer;
-  private final SparseArray<Queue<GlTextureFrame>> inputFrames;
+  private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
-  private long lastQueuedPresentationTimeUs;
+  private boolean isEnded;
 
   /**
    * Creates a new {@link FrameAggregator}.
@@ -49,9 +49,9 @@ import java.util.Queue;
   public FrameAggregator(int numSequences, Consumer<List<GlTextureFrame>> downstreamConsumer) {
     this.numSequences = numSequences;
     this.downstreamConsumer = downstreamConsumer;
-    inputFrames = new SparseArray<>();
+    inputFrameQueues = new ArrayList<>();
     for (int i = 0; i < numSequences; i++) {
-      inputFrames.put(i, new ArrayDeque<>());
+      inputFrameQueues.add(new FrameQueue());
     }
   }
 
@@ -68,15 +68,23 @@ import java.util.Queue;
   public void queueFrame(GlTextureFrame frame, int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
-    if (sequenceIndex == 0) {
-      // If a primary frame arrived out of order it indicates a seek backwards, flush all frames to
-      // ensure aggregation continues to work correctly.
-      if (frame.presentationTimeUs < lastQueuedPresentationTimeUs) {
-        releaseAllFrames();
-      }
-      lastQueuedPresentationTimeUs = frame.presentationTimeUs;
-    }
-    inputFrames.get(sequenceIndex).add(frame);
+    inputFrameQueues.get(sequenceIndex).frames.add(frame);
+    maybeAggregate();
+  }
+
+  /**
+   * Notifies the {@code FrameAggregator} that the given sequence has ended.
+   *
+   * <p>Once called, {@link #flush} the sequenceIndex to reset the ended state.
+   *
+   * @param sequenceIndex The index of the sequence that has ended.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
+   *     equal to {@link #numSequences}.
+   */
+  public void queueEndOfStream(int sequenceIndex) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    inputFrameQueues.get(sequenceIndex).isEnded = true;
     maybeAggregate();
   }
 
@@ -86,41 +94,71 @@ import java.util.Queue;
   // TODO: b/449956936 - Ensure this does not throw away frames in the case where a new decoded
   //   frame is not forwarded from the renderer on a discontinuity.
   public void releaseAllFrames() {
-    for (int i = 0; i < inputFrames.size(); i++) {
+    for (int i = 0; i < inputFrameQueues.size(); i++) {
       @Nullable GlTextureFrame nextFrame;
-      while ((nextFrame = inputFrames.get(i).poll()) != null) {
+      while ((nextFrame = inputFrameQueues.get(i).frames.poll()) != null) {
         nextFrame.release();
       }
     }
   }
 
   /**
+   * Removes all frames from the given sequence.
+   *
+   * @param sequenceIndex The index of the sequence to flush.
+   * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
+   *     equal to {@link #numSequences}.
+   */
+  public void flush(int sequenceIndex) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    @Nullable GlTextureFrame nextFrame;
+    while ((nextFrame = inputFrameQueues.get(sequenceIndex).frames.poll()) != null) {
+      nextFrame.release();
+    }
+    if (sequenceIndex == 0) {
+      isEnded = false;
+    }
+    inputFrameQueues.get(sequenceIndex).isEnded = false;
+  }
+
+  /**
    * Selects the next frame greater than or equal to the current frame from the primary input stream
    * from each secondary stream.
    */
-  // TODO: Handle when sequences end at different times.
   private void maybeAggregate() {
-    @Nullable GlTextureFrame nextPrimaryFrame = checkNotNull(inputFrames.get(0)).peek();
+    if (isEnded) {
+      return;
+    }
+    @Nullable GlTextureFrame nextPrimaryFrame = checkNotNull(inputFrameQueues.get(0).frames).peek();
     if (nextPrimaryFrame == null) {
+      // When the primary sequence ends, send an EOS frame downstream.
+      if (inputFrameQueues.get(0).isEnded) {
+        downstreamConsumer.accept(ImmutableList.of(GlTextureFrame.END_OF_STREAM_FRAME));
+        isEnded = true;
+      }
       return;
     }
     ImmutableList.Builder<GlTextureFrame> outputFramesBuilder = new ImmutableList.Builder<>();
     outputFramesBuilder.add(nextPrimaryFrame);
-    for (int i = 1; i < inputFrames.size(); i++) {
-      Queue<GlTextureFrame> nextInputFrameQueue = inputFrames.get(i);
-      @Nullable GlTextureFrame nextFrame = nextInputFrameQueue.peek();
+    for (int i = 1; i < inputFrameQueues.size(); i++) {
+      FrameQueue frameQueue = inputFrameQueues.get(i);
+      @Nullable GlTextureFrame nextFrame = frameQueue.frames.peek();
       while (nextFrame != null) {
         // Release all frames from the secondary sequence that arrived before the primary sequence
         // frame.
         if (nextFrame.presentationTimeUs < nextPrimaryFrame.presentationTimeUs) {
           nextFrame.release();
-          nextInputFrameQueue.poll();
-          nextFrame = nextInputFrameQueue.peek();
+          frameQueue.frames.poll();
+          nextFrame = frameQueue.frames.peek();
         } else {
           break;
         }
       }
       if (nextFrame == null) {
+        if (frameQueue.isEnded) {
+          continue;
+        }
         return;
       }
       outputFramesBuilder.add(nextFrame);
@@ -129,7 +167,17 @@ import java.util.Queue;
     // TODO: b/449956936 - Allow reusing frames from secondary sequences to handle different frame
     //  rates.
     for (int i = 0; i < numSequences; i++) {
-      checkNotNull(inputFrames.get(i)).poll();
+      checkNotNull(inputFrameQueues.get(i).frames).poll();
+    }
+  }
+
+  /** A helper class representing a {@link Queue<GlTextureFrame>} that can end. */
+  private static class FrameQueue {
+    final Queue<GlTextureFrame> frames;
+    boolean isEnded;
+
+    FrameQueue() {
+      frames = new ArrayDeque<>();
     }
   }
 }

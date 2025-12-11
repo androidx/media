@@ -27,6 +27,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureProducer;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /** A {@link GlTextureProducer.Listener} that queues frames to a {@link FrameAggregator}. */
@@ -37,6 +38,7 @@ import java.util.concurrent.LinkedBlockingQueue;
   private final Composition composition;
   private final int sequenceIndex;
   private final FrameAggregator frameAggregator;
+  private final ExecutorService glExecutor;
 
   /**
    * A blocking queue containing a sequence of presentation timestamps and the corresponding {@link
@@ -49,10 +51,14 @@ import java.util.concurrent.LinkedBlockingQueue;
   private final BlockingQueue<Pair<Long, Integer>> pendingFrameInformation;
 
   CompositionTextureListener(
-      Composition composition, int sequenceIndex, FrameAggregator frameAggregator) {
+      Composition composition,
+      int sequenceIndex,
+      FrameAggregator frameAggregator,
+      ExecutorService glExecutor) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.frameAggregator = frameAggregator;
+    this.glExecutor = glExecutor;
     pendingFrameInformation = new LinkedBlockingQueue<>();
   }
 
@@ -112,6 +118,16 @@ import java.util.concurrent.LinkedBlockingQueue;
       }
     } while (presentationTimeAndItemIndex.first != C.TIME_UNSET);
     checkState(presentationTimeAndItemIndex.second == C.INDEX_UNSET);
+    frameAggregator.flush(sequenceIndex);
+  }
+
+  /**
+   * Notifies the texture listener that this {@linkplain #sequenceIndex sequence} has ended.
+   *
+   * <p>Called on the playback thread.
+   */
+  void onEnded() {
+    glExecutor.execute(() -> frameAggregator.queueEndOfStream(sequenceIndex));
   }
 
   /**

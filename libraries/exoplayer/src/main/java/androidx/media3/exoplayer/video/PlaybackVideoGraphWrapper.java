@@ -102,6 +102,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
      * @param videoFrameProcessingException The error.
      */
     default void onError(VideoFrameProcessingException videoFrameProcessingException) {}
+
+    /** Called when an input sequence ends. */
+    default void onEnded(long finalFramePresentationTimeUs) {}
   }
 
   /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
@@ -544,7 +547,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   @Override
   public void onEnded(long finalFramePresentationTimeUs) {
-    // Ignored.
+    for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+      listener.onEnded(finalFramePresentationTimeUs);
+    }
   }
 
   @Override
