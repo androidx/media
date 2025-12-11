@@ -77,6 +77,10 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
           new SmoothStreamingMediaParser(null, uri.toString());
       return (SsManifest) smoothStreamingMediaParser.parse(xmlParser);
     } catch (XmlPullParserException e) {
+      if (e.getDetail() instanceof IOException) {
+        // Forward IOException from input stream directly instead of wrapping in a ParserException
+        throw (IOException) e.getDetail();
+      }
       throw ParserException.createForMalformedManifest(/* message= */ null, /* cause= */ e);
     }
   }

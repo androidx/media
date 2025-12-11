@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.dash.manifest;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -24,11 +25,16 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSourceInputStream;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.Representation.SingleSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentTimelineElement;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
+import androidx.media3.test.utils.FakeDataSet;
+import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -88,6 +94,40 @@ public class DashManifestParserTest {
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
+
+  @Test
+  public void parse_withUpstreamError_throwsUpstreamException() {
+    DashManifestParser parser = new DashManifestParser();
+    IOException expectedException = new IOException("expected");
+    Uri uri = Uri.parse("http://test.test");
+    DataSourceInputStream inputStream =
+        new DataSourceInputStream(
+            new FakeDataSource(
+                new FakeDataSet()
+                    .newData(uri)
+                    .appendReadError(expectedException)
+                    .appendReadData(TestUtil.buildTestData(/* length= */ 100))
+                    .endData()),
+            new DataSpec(uri));
+
+    IOException thrownException =
+        assertThrows(IOException.class, () -> parser.parse(uri, inputStream));
+    assertThat(thrownException).isEqualTo(expectedException);
+  }
+
+  @Test
+  public void parse_withMalformedManifest_throwsParserExceptionForMalformedContent() {
+    DashManifestParser parser = new DashManifestParser();
+    Uri uri = Uri.parse("http://test.test");
+    DataSourceInputStream inputStream =
+        new DataSourceInputStream(
+            new FakeDataSource(new FakeDataSet().setRandomData(uri, /* length= */ 100)),
+            new DataSpec(uri));
+
+    ParserException thrownException =
+        assertThrows(ParserException.class, () -> parser.parse(uri, inputStream));
+    assertThat(thrownException.contentIsMalformed).isTrue();
+  }
 
   /** Simple test to ensure the sample manifests parse without any exceptions being thrown. */
   @Test
