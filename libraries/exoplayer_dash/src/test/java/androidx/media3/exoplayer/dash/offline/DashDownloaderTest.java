@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.dash.offline.DashDownloadTestData.TEST_M
 import static androidx.media3.test.utils.CacheAsserts.assertCacheEmpty;
 import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,8 +30,10 @@ import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
@@ -50,6 +53,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import org.junit.After;
@@ -505,18 +509,72 @@ public class DashDownloaderTest {
     assertCacheEmpty(cache);
   }
 
+  @Test
+  public void download_afterPriorityTooLow_succeeds() throws Exception {
+    PriorityTaskManager priorityTaskManager = new PriorityTaskManager();
+    FakeDataSet data = new FakeDataSet();
+    Runnable priorityTooLowReadAction =
+        () -> {
+          // This only interrupts the download the next time the DataSource checks for the
+          // priority, so delay the removal of the playback priority slightly. As we can't
+          // check when the DataSource throws the PriorityTooLowException exactly, we need to
+          // use an arbitrary delay.
+          priorityTaskManager.add(C.PRIORITY_PLAYBACK);
+          new Thread(
+                  () -> {
+                    sleepUninterruptibly(Duration.ofMillis(200));
+                    priorityTaskManager.remove(C.PRIORITY_PLAYBACK);
+                  })
+              .start();
+        };
+    // Insert blocked priority in manifest load, index load and one segment load.
+    data.newData(TEST_MPD_URI)
+        .appendReadAction(priorityTooLowReadAction)
+        .appendReadData(TEST_MPD)
+        .endData();
+    data.newData("audio_init_data")
+        .appendReadAction(priorityTooLowReadAction)
+        .appendReadData(TestUtil.buildTestData(/* length= */ 10))
+        .endData();
+    data.newData("audio_segment_1")
+        .appendReadAction(priorityTooLowReadAction)
+        .appendReadData(TestUtil.buildTestData(/* length= */ 4))
+        .endData();
+    // Let the other segments load normally.
+    data.setRandomData("audio_segment_2", /* length= */ 5)
+        .setRandomData("audio_segment_3", /* length= */ 6);
+    DataSource.Factory upstreamDataSource = new FakeDataSource.Factory().setFakeDataSet(data);
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_MPD_URI)
+            .setStreamKeys(keysList(new StreamKey(0, 0, 0)))
+            .build();
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstreamDataSource)
+            .setUpstreamPriorityTaskManager(priorityTaskManager);
+    DashDownloader dashDownloader =
+        new DashDownloader.Factory(cacheDataSourceFactory).create(mediaItem);
+
+    // Download expected to finish (despite the interruption by the higher playback priority).
+    dashDownloader.download(progressListener);
+
+    assertCachedData(cache, new RequestSet(data).useBoundedDataSpecFor("audio_init_data"));
+  }
+
   private DashDownloader getDashDownloader(FakeDataSet fakeDataSet, StreamKey... keys) {
     return getDashDownloader(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet), keys);
   }
 
   private DashDownloader getDashDownloader(
-      FakeDataSource.Factory upstreamDataSourceFactory, StreamKey... keys) {
+      DataSource.Factory upstreamDataSourceFactory, StreamKey... keys) {
     return getDashDownloader(
         upstreamDataSourceFactory, /* startPositionUs= */ 0, /* durationUs= */ C.TIME_UNSET, keys);
   }
 
   private DashDownloader getDashDownloader(
-      FakeDataSource.Factory upstreamDataSourceFactory,
+      DataSource.Factory upstreamDataSourceFactory,
       long startPositionUs,
       long durationUs,
       StreamKey... keys) {

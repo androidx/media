@@ -37,6 +37,7 @@ import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.datasource.cache.ContentMetadata;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -394,30 +395,33 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   protected final M getManifest(DataSource dataSource, DataSpec dataSpec, boolean removing)
       throws InterruptedException, IOException {
     return execute(
-        new RunnableFutureTask<M, IOException>() {
-          @Override
-          protected M doWork() throws IOException {
-            return ParsingLoadable.load(dataSource, manifestParser, dataSpec, C.DATA_TYPE_MANIFEST);
-          }
-        },
+        () ->
+            new RunnableFutureTask<M, IOException>() {
+              @Override
+              protected M doWork() throws IOException {
+                return ParsingLoadable.load(
+                    dataSource, manifestParser, dataSpec, C.DATA_TYPE_MANIFEST);
+              }
+            },
         removing);
   }
 
   /**
    * Executes the provided {@link RunnableFutureTask}.
    *
-   * @param runnable The {@link RunnableFutureTask} to execute.
+   * @param runnable A supplier for the {@link RunnableFutureTask} to execute.
    * @param removing Whether the execution is part of the download being removed.
    * @return The result.
    * @throws InterruptedException If the thread on which the method is called is interrupted.
    * @throws IOException If an error occurs during execution.
    */
-  protected final <T> T execute(RunnableFutureTask<T, ?> runnable, boolean removing)
+  protected final <T> T execute(Supplier<RunnableFutureTask<T, ?>> runnable, boolean removing)
       throws InterruptedException, IOException {
     if (removing) {
-      runnable.run();
+      RunnableFutureTask<T, ?> task = runnable.get();
+      task.run();
       try {
-        return runnable.get();
+        return task.get();
       } catch (ExecutionException e) {
         Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof IOException) {
@@ -436,10 +440,11 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       if (priorityTaskManager != null) {
         priorityTaskManager.proceed(C.PRIORITY_DOWNLOAD);
       }
-      addActiveRunnable(runnable);
-      executor.execute(runnable);
+      RunnableFutureTask<T, ?> task = runnable.get();
+      addActiveRunnable(task);
+      executor.execute(task);
       try {
-        return runnable.get();
+        return task.get();
       } catch (ExecutionException e) {
         Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof PriorityTooLowException) {
@@ -452,8 +457,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
         }
       } finally {
         // We don't want to return for as long as the runnable might still be doing work.
-        runnable.blockUntilFinished();
-        removeActiveRunnable(runnable);
+        task.blockUntilFinished();
+        removeActiveRunnable(task);
       }
     }
   }

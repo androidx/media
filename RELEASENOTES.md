@@ -55,6 +55,11 @@
         ([#187](https://github.com/androidx/media/issues/187)).
 *   UI:
 *   Downloads:
+    *   Fix potential infinite loops when a `PriorityTooLowException` is handled
+        by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom
+        overrides of `SegmentDownloader` using the protected `execute` method
+        need to provide their task wrapped in a `Supplier` so it can be
+        recreated ([#2931](https://github.com/androidx/media/issues/2931)).
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
