@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -108,6 +109,17 @@ class ProgressStateWithTickCount(
   var bufferedPositionProgress by mutableFloatStateOf(0f)
     private set
 
+  /**
+   * Whether the user is allowed to change the progress of the player, for example by dragging or
+   * tapping a slider ob the UI side or programmatically calling [updateCurrentPositionProgress].
+   *
+   * This value is derived from the underlying [Player] state. It will be `true` only if
+   * [Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM] is available and the duration of the current media
+   * item is known (i.e., not [C.TIME_UNSET]).
+   */
+  var changingProgressEnabled by mutableStateOf(false)
+    private set
+
   private val updateJob =
     ProgressStateJob(
       player,
@@ -128,6 +140,25 @@ class ProgressStateWithTickCount(
     if (totalTickCount != newTotalTickCount) {
       totalTickCount = newTotalTickCount
       updateJob.cancelPendingUpdatesAndMaybeRelaunch()
+    }
+  }
+
+  /**
+   * Moves the player to a position represented by [progress] which is a value between 0..1,
+   * effectively updating [currentPositionProgress].
+   *
+   * This method must only be called if [changingProgressEnabled][changing of progress is enabled on
+   * the state]. Throws an `IllegalStateException` otherwise.
+   */
+  fun updateCurrentPositionProgress(progress: Float) {
+    check(changingProgressEnabled)
+    val durationMs = getDurationMsOrDefault(player)
+    if (
+      durationMs != C.TIME_UNSET &&
+        durationMs > 0L &&
+        player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+    ) {
+      player.seekTo((progress * durationMs).toLong())
     }
   }
 
@@ -158,6 +189,9 @@ class ProgressStateWithTickCount(
       positionToProgress(getCurrentPositionMsOrDefault(player), duration, totalTickCount)
     bufferedPositionProgress =
       positionToProgress(getBufferedPositionMsOrDefault(player), duration, totalTickCount)
+    changingProgressEnabled =
+      player.isCommandAvailable(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) &&
+        getDurationMsOrDefault(player) != C.TIME_UNSET
   }
 
   private fun getPositionTick(position: Long, duration: Long, totalTickCount: Int): Int {

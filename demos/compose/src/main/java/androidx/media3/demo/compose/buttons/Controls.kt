@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
@@ -42,6 +41,7 @@ import androidx.media3.ui.compose.material3.buttons.SeekBackButton
 import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 
 @Composable
 private fun RowControls(
@@ -92,7 +92,7 @@ internal fun BoxScope.Controls(player: Player) {
   )
   // Button panel controls
   Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-    HorizontalLinearProgressIndicator(player, Modifier.fillMaxWidth())
+    ProgressSlider(player, Modifier.fillMaxWidth())
     Row(
       modifier =
         Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.4f)).padding(start = 15.dp),
