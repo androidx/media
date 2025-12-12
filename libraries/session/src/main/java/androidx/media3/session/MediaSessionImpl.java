@@ -48,6 +48,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
@@ -138,6 +139,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean isPeriodicPositionUpdateEnabled;
   private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
+  private final HandlerThread backgroundThread;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
@@ -207,6 +209,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     sessionStub = new MediaSessionStub(thisRef);
 
+    backgroundThread = new HandlerThread("MediaSessionImpl:bg");
+    backgroundThread.start();
+
     mainHandler = new Handler(Looper.getMainLooper());
     Looper applicationLooper = player.getApplicationLooper();
     applicationHandler = new Handler(applicationLooper);
@@ -240,16 +245,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         new MediaSessionLegacyStub(
             /* session= */ thisRef,
             sessionUri,
-            applicationHandler,
             tokenExtras,
             playIfSuppressed,
             customLayout,
             mediaButtonPreferences,
             connectionResult.availableSessionCommands,
             connectionResult.availablePlayerCommands,
-            sessionExtras);
+            sessionExtras,
+            backgroundThread.getLooper());
 
-    Token platformToken = sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
+    Token platformToken = sessionLegacyStub.getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -342,6 +347,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     sessionLegacyStub.release();
     sessionStub.release();
+    backgroundThread.quitSafely();
   }
 
   public PlayerWrapper getPlayerWrapper() {
@@ -513,7 +519,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformCustomLayout(customLayout);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
     }
     return dispatchRemoteControllerTask(
         controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
@@ -538,7 +544,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
     }
     return dispatchRemoteControllerTask(
         controller,
@@ -993,7 +999,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding confusion by just using "Token"
   public android.media.session.MediaSession.Token getPlatformToken() {
-    return sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
+    return sessionLegacyStub.getSessionToken().getToken();
   }
 
   public void setLegacyControllerConnectionTimeoutMs(long timeoutMs) {
@@ -1062,8 +1068,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {
       if (browserServiceLegacyStub == null) {
-        browserServiceLegacyStub =
-            createLegacyBrowserService(sessionLegacyStub.getSessionCompat().getSessionToken());
+        browserServiceLegacyStub = createLegacyBrowserService(sessionLegacyStub.getSessionToken());
       }
       legacyStub = browserServiceLegacyStub;
     }
@@ -1494,7 +1499,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         sessionLegacyStub.onSkipToNext();
         return true;
       } else if (callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
-        sessionLegacyStub.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+        sessionLegacyStub.getControllerCompat().dispatchMediaButtonEvent(keyEvent);
         return true;
       }
       // This is an unhandled framework event. Return false to let the framework resolve by calling
