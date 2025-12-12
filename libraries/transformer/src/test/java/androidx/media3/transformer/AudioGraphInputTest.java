@@ -424,7 +424,7 @@ public class AudioGraphInputTest {
     checkState(audioGraphInput.queueInputBuffer());
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
-    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(inputData));
+    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(inputData)).inOrder();
   }
 
   @Test
@@ -663,7 +663,7 @@ public class AudioGraphInputTest {
     checkState(audioGraphInput.queueInputBuffer());
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
-    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(inputData));
+    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(inputData)).inOrder();
   }
 
   @Test
@@ -837,7 +837,7 @@ public class AudioGraphInputTest {
     checkState(audioGraphInput.queueInputBuffer());
 
     List<Byte> output = drainAudioGraphInputUntilEnded(audioGraphInput);
-    assertThat(output).containsExactlyElementsIn(Bytes.asList(inputData));
+    assertThat(output).containsExactlyElementsIn(Bytes.asList(inputData)).inOrder();
   }
 
   @Test
