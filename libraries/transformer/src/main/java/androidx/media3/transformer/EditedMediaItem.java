@@ -59,6 +59,7 @@ public final class EditedMediaItem {
     private int frameRate;
     private Effects effects;
     private SpeedProvider speedProvider;
+    private ImmutableList<AudioProcessor> preProcessingAudioProcessors;
     private boolean allowMatchingSpeedChangingEffectForSpeedProvider;
 
     /**
@@ -86,6 +87,7 @@ public final class EditedMediaItem {
       frameRate = C.RATE_UNSET_INT;
       effects = Effects.EMPTY;
       speedProvider = SpeedProvider.DEFAULT;
+      preProcessingAudioProcessors = ImmutableList.of();
     }
 
     private Builder(EditedMediaItem editedMediaItem) {
@@ -97,6 +99,7 @@ public final class EditedMediaItem {
       this.frameRate = editedMediaItem.frameRate;
       this.effects = editedMediaItem.effects;
       this.speedProvider = editedMediaItem.speedProvider;
+      this.preProcessingAudioProcessors = editedMediaItem.preProcessingAudioProcessors;
       this.allowMatchingSpeedChangingEffectForSpeedProvider =
           editedMediaItem.allowMatchingSpeedChangingEffectForSpeedProvider;
     }
@@ -276,6 +279,7 @@ public final class EditedMediaItem {
      *
      * @return This builder.
      */
+    // TODO: b/456485329 - Move SpeedChangingAudioProcessor to the pre-processing pipeline.
     @CanIgnoreReturnValue
     /* package */ Builder setSpeedChangingEffects(
         SpeedChangingAudioProcessor processor, @Nullable TimestampAdjustment effect) {
@@ -294,6 +298,22 @@ public final class EditedMediaItem {
                   .addAll(effects.videoEffects)
                   .build();
       this.effects = new Effects(audioProcessors, videoEffects);
+      return this;
+    }
+
+    /**
+     * Sets a list of {@link AudioProcessor} instances as the pre-processing pipeline for the item's
+     * {@link AudioGraphInput}.
+     *
+     * <p>The pre-processing pipeline holds processors that should be applied to an audio stream
+     * prior to feeding said stream to {@linkplain #setEffects(Effects) user-set processors}.
+     *
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Builder setPreProcessingAudioProcessors(
+        ImmutableList<AudioProcessor> preProcessingAudioProcessors) {
+      this.preProcessingAudioProcessors = preProcessingAudioProcessors;
       return this;
     }
   }
@@ -342,6 +362,8 @@ public final class EditedMediaItem {
 
   public final SpeedProvider speedProvider;
 
+  /* package */ final ImmutableList<AudioProcessor> preProcessingAudioProcessors;
+
   private final boolean allowMatchingSpeedChangingEffectForSpeedProvider;
 
   /** The duration for which this {@code EditedMediaItem} should be presented, in microseconds. */
@@ -375,6 +397,7 @@ public final class EditedMediaItem {
     this.frameRate = builder.frameRate;
     this.effects = builder.effects;
     this.speedProvider = builder.speedProvider;
+    this.preProcessingAudioProcessors = builder.preProcessingAudioProcessors;
     this.allowMatchingSpeedChangingEffectForSpeedProvider =
         builder.allowMatchingSpeedChangingEffectForSpeedProvider;
     presentationDurationUs = C.TIME_UNSET;

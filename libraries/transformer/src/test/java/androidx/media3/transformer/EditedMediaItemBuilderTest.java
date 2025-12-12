@@ -26,6 +26,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -265,6 +266,21 @@ public final class EditedMediaItemBuilderTest {
             new EditedMediaItem.Builder(MediaItem.EMPTY)
                 .setSpeedChangingEffects(processor, timestampAdjustment)
                 .build());
+  }
+
+  @Test
+  public void setPreProcessingAudioProcessors_populatesPreProcessingAudioProcessors() {
+    ToInt16PcmAudioProcessor processor = new ToInt16PcmAudioProcessor();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setPreProcessingAudioProcessors(ImmutableList.of(processor))
+            .build();
+
+    assertThat(item.preProcessingAudioProcessors).containsExactly(processor);
+
+    EditedMediaItem duplicateItem = item.buildUpon().build();
+
+    assertThat(duplicateItem.preProcessingAudioProcessors).containsExactly(processor);
   }
 
   @Test

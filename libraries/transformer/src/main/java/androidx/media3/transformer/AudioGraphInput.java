@@ -39,6 +39,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.decoder.DecoderInputBuffer;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -76,7 +77,30 @@ import java.util.concurrent.atomic.AtomicLong;
   private final SilenceAppendingAudioProcessor silenceAppendingAudioProcessor;
 
   private AudioFormat lastInputFormat;
-  private AudioProcessingPipeline audioProcessingPipeline;
+
+  /**
+   * Pipeline containing {@link AudioProcessor} instances to apply immediately before {@link
+   * #userPipeline}.
+   *
+   * <p>The output of this pipeline corresponds to the semantic input of the {@link AudioGraphInput}
+   * and the stream should be congruent with values passed in {@link #onMediaItemChanged}.
+   *
+   * <p>The pre-processing pipeline is meant for modifying the input audio stream with effects like
+   * speed changing or format conversion before reaching user-provided {@link AudioProcessor}
+   * instance.
+   */
+  private AudioProcessingPipeline preProcessingPipeline;
+
+  /**
+   * Pipeline containing {@linkplain EditedMediaItem#effects user-provided} {@link AudioProcessor}
+   * instances, and format/duration normalizing processors.
+   *
+   * <p>The end of the pipeline might contain format converting processors to normalize the stream's
+   * format to a requested output format. The beginning of the pipeline might contain a {@link
+   * SilenceAppendingAudioProcessor} to normalize the input stream's duration if requested.
+   */
+  private AudioProcessingPipeline userPipeline;
+
   private boolean processedFirstMediaItemChange;
   private boolean receivedEndOfStreamFromInput;
   private boolean inputBlocked;
@@ -108,17 +132,21 @@ import java.util.concurrent.atomic.AtomicLong;
     pendingInputBuffers = new ConcurrentLinkedQueue<>();
     pendingMediaItemChanges = new ConcurrentLinkedQueue<>();
     silenceAppendingAudioProcessor = new SilenceAppendingAudioProcessor();
-    audioProcessingPipeline =
+    preProcessingPipeline =
+        new AudioProcessingPipeline(editedMediaItem.preProcessingAudioProcessors);
+    AudioFormat preProcessingAudioFormat = preProcessingPipeline.configure(inputAudioFormat);
+    preProcessingPipeline.flush(StreamMetadata.DEFAULT);
+    userPipeline =
         configureProcessing(
             editedMediaItem,
             inputFormat.metadata,
-            inputAudioFormat,
+            preProcessingAudioFormat,
             requestedOutputAudioFormat,
             silenceAppendingAudioProcessor);
-    lastInputFormat = inputAudioFormat;
+    lastInputFormat = preProcessingAudioFormat;
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
-    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
-    outputAudioFormat = audioProcessingPipeline.getOutputAudioFormat();
+    userPipeline.flush(StreamMetadata.DEFAULT);
+    outputAudioFormat = userPipeline.getOutputAudioFormat();
     checkArgument(
         outputAudioFormat.encoding == C.ENCODING_PCM_16BIT, /* errorMessage= */ outputAudioFormat);
     startTimeUs = new AtomicLong(C.TIME_UNSET);
@@ -269,7 +297,10 @@ import java.util.concurrent.atomic.AtomicLong;
       clearAndAddToAvailableBuffers(pendingInputBuffers.remove());
     }
     checkState(availableInputBuffers.size() == MAX_INPUT_BUFFER_COUNT);
-    audioProcessingPipeline.flush(new StreamMetadata(positionOffsetUs));
+    // positionOffsetUs and the output of preProcessingPipeline should be congruent, so we don't
+    // allow preProcessingPipeline to modify the position offset.
+    preProcessingPipeline.flush(new StreamMetadata(positionOffsetUs));
+    userPipeline.flush(new StreamMetadata(positionOffsetUs));
     receivedEndOfStreamFromInput = false;
     startTimeUs.set(C.TIME_UNSET);
     currentItemExpectedInputDurationUs = C.TIME_UNSET;
@@ -282,7 +313,8 @@ import java.util.concurrent.atomic.AtomicLong;
    * <p>Should only be called by the processing thread.
    */
   public void release() {
-    audioProcessingPipeline.reset();
+    preProcessingPipeline.reset();
+    userPipeline.reset();
     lastInputFormat = AudioFormat.NOT_SET;
   }
 
@@ -314,35 +346,49 @@ import java.util.concurrent.atomic.AtomicLong;
       return EMPTY_BUFFER;
     }
 
-    if (!audioProcessingPipeline.isOperational()) {
-      return getQueuedInput();
+    feedPreProcessingPipeline();
+    if (!userPipeline.isOperational()) {
+      return getOutputFromPreProcessingPipeline();
     }
 
-    feedProcessingPipelineFromInput();
-    return audioProcessingPipeline.getOutput();
+    feedUserPipeline();
+    return userPipeline.getOutput();
   }
 
   /**
-   * Feeds input samples into {@link #audioProcessingPipeline} until the pipeline stops accepting
-   * new input.
+   * Feeds input samples into {@link #userPipeline} until the pipeline stops accepting new input.
    *
    * <p>This method {@linkplain AudioProcessingPipeline#queueEndOfStream() queues end of stream} to
    * the pipeline at the end of a sequence or before an {@link EditedMediaItem} change.
    */
-  private void feedProcessingPipelineFromInput() {
-    boolean madeProgress = true;
-    while (madeProgress) {
-      ByteBuffer byteBuffer = getQueuedInput();
-      if (!byteBuffer.hasRemaining()) {
-        if (receivedEndOfStreamFromInput || !pendingMediaItemChanges.isEmpty()) {
-          audioProcessingPipeline.queueEndOfStream();
-        }
-        return;
-      }
+  private void feedUserPipeline() {
+    feedPipeline(
+        userPipeline, this::getOutputFromPreProcessingPipeline, this::isPreProcessingPipelineEnded);
+  }
 
-      audioProcessingPipeline.queueInput(byteBuffer);
-      madeProgress = !byteBuffer.hasRemaining();
+  private ByteBuffer getOutputFromPreProcessingPipeline() {
+    if (preProcessingPipeline.isOperational()) {
+      return preProcessingPipeline.getOutput();
     }
+    return getQueuedInput();
+  }
+
+  private boolean isPreProcessingPipelineEnded() {
+    if (preProcessingPipeline.isOperational()) {
+      return preProcessingPipeline.isEnded();
+    }
+    return hasMediaItemInputEnded();
+  }
+
+  private void feedPreProcessingPipeline() {
+    if (!preProcessingPipeline.isOperational()) {
+      return;
+    }
+    feedPipeline(preProcessingPipeline, this::getQueuedInput, this::hasMediaItemInputEnded);
+  }
+
+  private boolean hasMediaItemInputEnded() {
+    return receivedEndOfStreamFromInput || !pendingMediaItemChanges.isEmpty();
   }
 
   /**
@@ -384,7 +430,8 @@ import java.util.concurrent.atomic.AtomicLong;
       return true;
     }
 
-    return audioProcessingPipeline.isOperational() && !audioProcessingPipeline.isEnded();
+    return (userPipeline.isOperational() && !userPipeline.isEnded())
+        || (preProcessingPipeline.isOperational() && !preProcessingPipeline.isEnded());
   }
 
   private void clearAndAddToAvailableBuffers(DecoderInputBuffer inputBuffer) {
@@ -432,21 +479,56 @@ import java.util.concurrent.atomic.AtomicLong;
 
     if (processedFirstMediaItemChange) {
       // APP is configured in constructor for first media item.
-      audioProcessingPipeline =
+      preProcessingPipeline =
+          new AudioProcessingPipeline(pendingChange.editedMediaItem.preProcessingAudioProcessors);
+      AudioFormat postAudioFormat = preProcessingPipeline.configure(pendingAudioFormat);
+
+      userPipeline =
           configureProcessing(
               pendingChange.editedMediaItem,
               metadata,
-              pendingAudioFormat,
+              postAudioFormat,
               /* requiredOutputAudioFormat= */ outputAudioFormat,
               silenceAppendingAudioProcessor);
-      lastInputFormat = pendingAudioFormat;
+      lastInputFormat = postAudioFormat;
     }
-    audioProcessingPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
+
+    // positionOffsetUs and the output of preProcessingPipeline should be congruent, so we don't
+    // allow preProcessingPipeline to modify the position offset.
+    preProcessingPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
+    userPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
     receivedEndOfStreamFromInput = false;
     processedFirstMediaItemChange = true;
     if (onlyGenerateSilence) {
-      audioProcessingPipeline.queueEndOfStream();
+      preProcessingPipeline.reset();
+      userPipeline.queueEndOfStream();
     }
+  }
+
+  /**
+   * Feeds an {@link AudioProcessingPipeline} with buffers from {@code inputSupplier} until no more
+   * input can be processed.
+   *
+   * <p>If {@code inputSupplier} returns and empty buffer and {@code shouldQueueEndOfStream} returns
+   * true, this method {@linkplain AudioProcessingPipeline#queueEndOfStream() signals end of stream}
+   * to the provided pipeline.
+   */
+  private static void feedPipeline(
+      AudioProcessingPipeline pipeline,
+      Supplier<ByteBuffer> inputSupplier,
+      Supplier<Boolean> shouldQueueEndOfStream) {
+    ByteBuffer byteBuffer;
+    do {
+      byteBuffer = inputSupplier.get();
+      if (!byteBuffer.hasRemaining()) {
+        if (shouldQueueEndOfStream.get()) {
+          pipeline.queueEndOfStream();
+        }
+        return;
+      }
+
+      pipeline.queueInput(byteBuffer);
+    } while (!byteBuffer.hasRemaining());
   }
 
   /**
@@ -469,6 +551,7 @@ import java.util.concurrent.atomic.AtomicLong;
     ImmutableList.Builder<AudioProcessor> audioProcessors = new ImmutableList.Builder<>();
     audioProcessors.add(silenceAppendingAudioProcessor);
 
+    // TODO: b/467992561 - Move SEF SpeedChangingAudioProcessor into pre-processing pipeline.
     if (editedMediaItem.flattenForSlowMotion && metadata != null) {
       audioProcessors.add(new SpeedChangingAudioProcessor(new SegmentSpeedProvider(metadata)));
     }
