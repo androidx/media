@@ -1392,34 +1392,40 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private SequencePlayerHolder createSequencePlayer(Composition composition, int sequenceIndex) {
     boolean requestMediaCodecToneMapping =
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
-    CompositionTextureListener textureListener = null;
+    SequenceRenderersFactory renderersFactory;
     if (packetConsumer != null) {
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
       // CompositionTextureListener.
-      textureListener =
+      CompositionTextureListener textureListener =
           new CompositionTextureListener(
               composition,
               sequenceIndex,
               checkNotNull(frameAggregator),
               checkNotNull(executorService));
-    }
-    VideoSink inputSink =
-        packetConsumer != null
-            ? getFrameConsumerInputSink(checkNotNull(textureListener))
-            : checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
-    SequenceRenderersFactory renderersFactory =
-        SequenceRenderersFactory.create(
-            context,
-            checkNotNull(playbackAudioGraphWrapper),
-            inputSink,
-            imageDecoderFactory,
-            /* inputIndex= */ sequenceIndex,
-            videoPrewarmingEnabled);
-    if (packetConsumer != null && sequenceIndex == 0) {
-      renderersFactory.setOnRenderListener(checkNotNull(videoPacketReleaseControl));
-    }
-    if (packetConsumer != null) {
-      renderersFactory.setCompositionTextureListener(checkNotNull(textureListener));
+      VideoSink inputSink = getFrameConsumerInputSink(textureListener);
+      renderersFactory =
+          new SequenceRenderersFactory(
+              context,
+              checkNotNull(playbackAudioGraphWrapper),
+              inputSink,
+              imageDecoderFactory,
+              /* inputIndex= */ sequenceIndex,
+              videoPrewarmingEnabled,
+              videoPacketReleaseControl,
+              textureListener);
+
+    } else {
+      VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
+      renderersFactory =
+          new SequenceRenderersFactory(
+              context,
+              checkNotNull(playbackAudioGraphWrapper),
+              inputSink,
+              imageDecoderFactory,
+              /* inputIndex= */ sequenceIndex,
+              videoPrewarmingEnabled,
+              /* compositionRendererListener= */ null,
+              /* compositionTextureListener= */ null);
     }
     SequencePlayerHolder playerHolder =
         new SequencePlayerHolder(

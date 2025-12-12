@@ -103,44 +103,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final ImageDecoder.Factory imageDecoderFactory;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
+  @Nullable private final CompositionRendererListener compositionRendererListener;
+  @Nullable private final CompositionTextureListener compositionTextureListener;
 
   private @MonotonicNonNull SequenceAudioRenderer audioRenderer;
   private @MonotonicNonNull SequenceVideoRenderer primaryVideoRenderer;
   private @MonotonicNonNull SequenceVideoRenderer secondaryVideoRenderer;
   private @MonotonicNonNull SequenceImageRenderer imageRenderer;
-  private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
-  private @MonotonicNonNull CompositionTextureListener compositionTextureListener;
 
-  /** Creates a renderers factory for a player that will play video, image and audio. */
-  public static SequenceRenderersFactory create(
-      Context context,
-      PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
-      VideoSink videoSink,
-      ImageDecoder.Factory imageDecoderFactory,
-      int inputIndex,
-      boolean videoPrewarmingEnabled) {
-    return new SequenceRenderersFactory(
-        context,
-        playbackAudioGraphWrapper,
-        videoSink,
-        imageDecoderFactory,
-        inputIndex,
-        videoPrewarmingEnabled);
-  }
-
-  private SequenceRenderersFactory(
+  /** Creates an instance. */
+  public SequenceRenderersFactory(
       Context context,
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       @Nullable VideoSink videoSink,
       @Nullable ImageDecoder.Factory imageDecoderFactory,
       int inputIndex,
-      boolean videoPrewarmingEnabled) {
+      boolean videoPrewarmingEnabled,
+      @Nullable CompositionRendererListener compositionRendererListener,
+      @Nullable CompositionTextureListener compositionTextureListener) {
     this.context = context;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.videoSink = videoSink;
     this.imageDecoderFactory = imageDecoderFactory;
     this.inputIndex = inputIndex;
     this.videoPrewarmingEnabled = videoPrewarmingEnabled;
+    this.compositionRendererListener = compositionRendererListener;
+    this.compositionTextureListener = compositionTextureListener;
   }
 
   public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
@@ -149,35 +137,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     if (secondaryVideoRenderer != null) {
       secondaryVideoRenderer.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
-    }
-  }
-
-  public void setOnRenderListener(CompositionRendererListener listener) {
-    this.compositionRendererListener = listener;
-    if (primaryVideoRenderer != null) {
-      primaryVideoRenderer.setOnRenderListener(listener);
-    }
-    if (secondaryVideoRenderer != null) {
-      secondaryVideoRenderer.setOnRenderListener(listener);
-    }
-    if (imageRenderer != null) {
-      imageRenderer.setOnRenderListener(listener);
-    }
-    if (audioRenderer != null) {
-      audioRenderer.setOnRenderListener(listener);
-    }
-  }
-
-  public void setCompositionTextureListener(CompositionTextureListener compositionTextureListener) {
-    this.compositionTextureListener = compositionTextureListener;
-    if (primaryVideoRenderer != null) {
-      primaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
-    }
-    if (secondaryVideoRenderer != null) {
-      secondaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
-    }
-    if (imageRenderer != null) {
-      imageRenderer.setCompositionTextureListener(compositionTextureListener);
     }
   }
 
