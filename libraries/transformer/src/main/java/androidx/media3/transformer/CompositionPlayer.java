@@ -1067,10 +1067,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           // SpeedChangingAudioProcessor does not need to adjust them.
           newEditedMediaItems.add(
               item.buildUpon()
-                  .setSpeedChangingEffects(
-                      new SpeedChangingAudioProcessor(
-                          item.speedProvider, /* shouldAdjustTimestamps= */ false),
-                      /* effect= */ null)
+                  .setPreProcessingAudioProcessors(
+                      ImmutableList.of(
+                          new SpeedChangingAudioProcessor(
+                              item.speedProvider, /* shouldAdjustTimestamps= */ false)))
                   .build());
         } else {
           newEditedMediaItems.add(deactivateSpeedAdjustingVideoEffects(item));
