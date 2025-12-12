@@ -55,8 +55,6 @@ public class DefaultVideoFrameProcessorMultipleTextureOutputPixelTest {
   private static final String ORIGINAL_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/original.png";
   private static final String MEDIA3_TEST_PNG_ASSET_PATH = "media/png/media3test.png";
-  private static final String SRGB_TO_ELECTRICAL_ORIGINAL_PNG_ASSET_PATH =
-      "test-generated-goldens/sample_mp4_first_frame/electrical_colors/srgb_to_electrical_original.png";
   private static final String SRGB_TO_ELECTRICAL_MEDIA3_TEST_PNG_ASSET_PATH =
       "test-generated-goldens/sample_mp4_first_frame/electrical_colors/srgb_to_electrical_media3test.png";
 
@@ -79,7 +77,7 @@ public class DefaultVideoFrameProcessorMultipleTextureOutputPixelTest {
   }
 
   @Test
-  public void textureOutput_queueBitmap_matchesGoldenFile() throws Exception {
+  public void textureOutput_queueBitmap_matchesOriginalFile() throws Exception {
     videoFrameProcessorTestRunner = getFrameProcessorTestRunnerBuilder(testId).build();
     ImmutableList<Long> inputTimestamps = ImmutableList.of(1_000_000L, 2_000_000L, 3_000_000L);
 
@@ -93,13 +91,13 @@ public class DefaultVideoFrameProcessorMultipleTextureOutputPixelTest {
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     float averagePixelAbsoluteDifference =
         BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-            readBitmap(SRGB_TO_ELECTRICAL_ORIGINAL_PNG_ASSET_PATH), actualBitmap, testId);
+            readBitmap(ORIGINAL_PNG_ASSET_PATH), actualBitmap, testId);
     assertThat(averagePixelAbsoluteDifference)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE);
   }
 
   @Test
-  public void textureOutput_queueTwoBitmaps_matchesGoldenFiles() throws Exception {
+  public void textureOutput_queueTwoBitmaps_matchesOriginalFiles() throws Exception {
     videoFrameProcessorTestRunner = getFrameProcessorTestRunnerBuilder(testId).build();
     ImmutableList<Long> inputTimestamps1 = ImmutableList.of(1_000_000L, 1_500_000L);
     ImmutableList<Long> inputTimestamps2 = ImmutableList.of(2_000_000L, 3_000_000L, 4_000_000L);
@@ -119,7 +117,7 @@ public class DefaultVideoFrameProcessorMultipleTextureOutputPixelTest {
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual2", actualBitmap2, /* path= */ null);
     float averagePixelAbsoluteDifference1 =
         BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-            readBitmap(SRGB_TO_ELECTRICAL_ORIGINAL_PNG_ASSET_PATH), actualBitmap1, testId);
+            readBitmap(ORIGINAL_PNG_ASSET_PATH), actualBitmap1, testId);
     assertThat(averagePixelAbsoluteDifference1)
         .isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE);
     float averagePixelAbsoluteDifference2 =
