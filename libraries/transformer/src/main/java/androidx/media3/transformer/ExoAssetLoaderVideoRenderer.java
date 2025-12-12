@@ -39,10 +39,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
+  private final long expectedTimestampDeltaUs;
   @Nullable private final LogSessionId logSessionId;
 
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
+  private long nextSampleExpectedTimestampUs;
 
   public ExoAssetLoaderVideoRenderer(
       boolean flattenForSlowMotion,
@@ -50,7 +52,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Composition.HdrMode int hdrMode,
       TransformerMediaClock mediaClock,
       AssetLoader.Listener assetLoaderListener,
-      @Nullable LogSessionId logSessionId) {
+      @Nullable LogSessionId logSessionId,
+      int targetFrameRate) {
     super(C.TRACK_TYPE_VIDEO, mediaClock, assetLoaderListener);
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
@@ -58,6 +61,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     maxDecoderPendingFrameCount = C.INDEX_UNSET;
+    nextSampleExpectedTimestampUs = C.TIME_UNSET;
+    expectedTimestampDeltaUs =
+        targetFrameRate == C.RATE_UNSET_INT ? C.TIME_UNSET : C.MICROS_PER_SECOND / targetFrameRate;
   }
 
   @Override
@@ -183,6 +189,20 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return true;
     }
 
+    // This algorithm will always pick the first sample that is after desired timestamp and then
+    // it will start looking for the next desired timestamp.
+    // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
+    // When seeking is performed, the desired timestamps are shifted accordingly.
+    // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
+    // 1_066_666....
+    // This algorithm has no impact if the target frame rate is greater that input frame rate.
+    if (shouldMaintainTargetFrameRate()
+        && nextSampleExpectedTimestampUs != C.TIME_UNSET
+        && presentationTimeUs < nextSampleExpectedTimestampUs) {
+      decoder.releaseOutputBuffer(/* render= */ false);
+      return true;
+    }
+
     if (sampleConsumer.getPendingVideoFrameCount() == maxDecoderPendingFrameCount) {
       return false;
     }
@@ -192,7 +212,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     decoder.releaseOutputBuffer(presentationTimeUs);
+    if (shouldMaintainTargetFrameRate()) {
+      nextSampleExpectedTimestampUs =
+          (nextSampleExpectedTimestampUs == C.TIME_UNSET)
+              ? (presentationTimeUs + expectedTimestampDeltaUs)
+              : (nextSampleExpectedTimestampUs + expectedTimestampDeltaUs);
+    }
     return true;
+  }
+
+  private boolean shouldMaintainTargetFrameRate() {
+    return expectedTimestampDeltaUs != C.TIME_UNSET;
   }
 
   private boolean isDecodeOnlyBuffer(long presentationTimeUs) {

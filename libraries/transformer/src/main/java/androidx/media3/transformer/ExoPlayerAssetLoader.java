@@ -384,7 +384,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                 hdrMode,
                 mediaClock,
                 assetLoaderListener,
-                logSessionId));
+                logSessionId,
+                editedMediaItem.frameRate));
       }
       return renderers.toArray(new Renderer[0]);
     }

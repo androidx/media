@@ -494,11 +494,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       pendingEffects = editedMediaItem.effects.videoEffects;
-      if (editedMediaItem.frameRate == C.RATE_UNSET_INT) {
-        expectedTimestampDeltaUs = C.TIME_UNSET;
-      } else {
-        expectedTimestampDeltaUs = C.MICROS_PER_SECOND / editedMediaItem.frameRate;
-      }
+      expectedTimestampDeltaUs =
+          editedMediaItem.frameRate == C.RATE_UNSET_INT
+              ? C.TIME_UNSET
+              : C.MICROS_PER_SECOND / editedMediaItem.frameRate;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 

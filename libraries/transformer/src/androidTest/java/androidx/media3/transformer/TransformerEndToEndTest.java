@@ -28,6 +28,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
@@ -3004,6 +3005,42 @@ public class TransformerEndToEndTest {
     // The encoder-delay for AAC is 1600 PCM samples.
     assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(1600);
     assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+  }
+
+  // TODO: b/449957963 - Add test for setSpeed() + setFrameRate() once Transformer starts using
+  // SpeedChangingMediaSource.
+  @Test
+  public void export_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder()
+                                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                    .build())
+                            .setFrameRate(30)
+                            .build())))
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    // Input at 60 fps; output at 30 fps, so half of original frames.
+    assertThat(videoTrackOutput.getSampleCount())
+        .isWithin(2)
+        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFrameCount / 2);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
