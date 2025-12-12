@@ -109,7 +109,13 @@ class GlTextureFrameRendererTest {
         createFrameWithBitmap(color, WIDTH, HEIGHT, releaseChannel)
       }
     consumer =
-      GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
+      GlTextureFrameRenderer.create(
+        context,
+        executorService,
+        glObjectsProvider,
+        errorConsumer,
+        GlTextureFrameRenderer.Listener.NO_OP,
+      )
     consumer.setOutputSurfaceInfo(outputSurfaceInfo)
 
     // Verify each input after it is queued to avoid the flakiness from the Surface dropping frames.
@@ -143,7 +149,13 @@ class GlTextureFrameRendererTest {
         createFrameWithBitmap(color, WIDTH, HEIGHT, releaseChannel)
       }
     consumer =
-      GlTextureFrameRenderer.create(context, executorService, glObjectsProvider, errorConsumer)
+      GlTextureFrameRenderer.create(
+        context,
+        executorService,
+        glObjectsProvider,
+        errorConsumer,
+        GlTextureFrameRenderer.Listener.NO_OP,
+      )
 
     for (input in inputs) {
       consumer.queuePacket(Packet.of(input.frame))

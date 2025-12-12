@@ -114,6 +114,15 @@ public class GlTextureFrame implements Frame {
       fenceSync = GlUtil.GL_FENCE_SYNC_UNSET;
     }
 
+    private Builder(GlTextureFrame frame) {
+      this(frame.glTextureInfo, frame.releaseTextureExecutor, frame.releaseTextureCallback);
+      this.metadata = frame.metadata;
+      this.presentationTimeUs = frame.presentationTimeUs;
+      this.format = frame.format;
+      this.releaseTimeNs = frame.releaseTimeNs;
+      this.fenceSync = frame.fenceSync;
+    }
+
     /** Sets the {@link GlTextureFrame#presentationTimeUs}. */
     @CanIgnoreReturnValue
     public Builder setPresentationTimeUs(long presentationTimeUs) {
@@ -175,6 +184,11 @@ public class GlTextureFrame implements Frame {
     this.releaseTextureCallback = builder.releaseTextureCallback;
     this.fenceSync = builder.fenceSync;
     this.referenceCount = new AtomicInteger(1);
+  }
+
+  /** Returns a {@link Builder} initialized with the values of this instance. */
+  public Builder buildUpon() {
+    return new Builder(this);
   }
 
   @Override

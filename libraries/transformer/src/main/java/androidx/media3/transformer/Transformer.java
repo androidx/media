@@ -47,6 +47,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -63,6 +64,8 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
@@ -81,6 +84,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -141,6 +145,12 @@ public final class Transformer {
     private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
         metricsReporterFactory;
 
+    @Nullable
+    private PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+
+    @Nullable private GlObjectsProvider glObjectsProvider;
+    @Nullable private ExecutorService glExecutorService;
+
     /**
      * Creates a builder with default values.
      *
@@ -195,6 +205,9 @@ public final class Transformer {
       this.debugViewProvider = transformer.debugViewProvider;
       this.clock = transformer.clock;
       this.metricsReporterFactory = transformer.metricsReporterFactory;
+      this.packetProcessor = transformer.packetProcessor;
+      this.glObjectsProvider = transformer.glObjectsProvider;
+      this.glExecutorService = transformer.glExecutorService;
     }
 
     /**
@@ -672,7 +685,10 @@ public final class Transformer {
           looper,
           debugViewProvider,
           clock,
-          metricsReporterFactory);
+          metricsReporterFactory,
+          packetProcessor,
+          glObjectsProvider,
+          glExecutorService);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -866,6 +882,12 @@ public final class Transformer {
   private final ExportResult.Builder exportResultBuilder;
   @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
+  @Nullable
+  private final PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+
+  @Nullable private final GlObjectsProvider glObjectsProvider;
+  @Nullable private final ExecutorService glExecutorService;
+
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
   private @MonotonicNonNull Composition composition;
@@ -904,7 +926,10 @@ public final class Transformer {
       Looper looper,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory) {
+      @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
+      @Nullable PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+      @Nullable GlObjectsProvider glObjectsProvider,
+      @Nullable ExecutorService glExecutorService) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -928,6 +953,9 @@ public final class Transformer {
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
+    this.packetProcessor = packetProcessor;
+    this.glObjectsProvider = glObjectsProvider;
+    this.glExecutorService = glExecutorService;
     this.metricsReporterFactory = metricsReporterFactory;
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
@@ -1757,6 +1785,9 @@ public final class Transformer {
             applicationHandler,
             debugViewProvider,
             clock,
+            packetProcessor,
+            glExecutorService,
+            glObjectsProvider,
             initialTimestampOffsetUs,
             logSessionId,
             shouldApplyMp4EditListTrim(),

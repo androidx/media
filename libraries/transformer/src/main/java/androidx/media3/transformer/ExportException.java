@@ -344,7 +344,7 @@ public final class ExportException extends Exception {
    * @param cause The cause of the failure.
    * @return The created instance.
    */
-  public static ExportException createForUnexpected(Exception cause) {
+  public static ExportException createForUnexpected(Throwable cause) {
     if (cause instanceof RuntimeException) {
       return new ExportException(
           "Unexpected runtime error", cause, ERROR_CODE_FAILED_RUNTIME_CHECK);

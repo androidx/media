@@ -86,9 +86,9 @@ private constructor(
       context,
       listeningDecorator(glExecutorService),
       glObjectsProvider,
-    ) { t ->
-      errorListener.accept(t)
-    }
+      errorHandler = { t -> errorListener.accept(t) },
+      GlTextureFrameRenderer.Listener.NO_OP,
+    )
 
   /**
    * A packet processor which inputs a list of [GlTextureFrame]s and outputs a single

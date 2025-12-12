@@ -19,7 +19,6 @@ import android.content.Context
 import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
-import androidx.annotation.RestrictTo
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
@@ -27,10 +26,12 @@ import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.VideoFrameProcessingException
 import androidx.media3.common.VideoFrameProcessor
 import androidx.media3.common.util.Consumer
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.GlUtil.GlException
 import androidx.media3.effect.PacketConsumer.Packet
 import com.google.common.util.concurrent.ListeningExecutorService
+import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
@@ -42,17 +43,35 @@ import kotlinx.coroutines.withContext
  * A [PacketConsumer] implementation that renders [GlTextureFrame]s to an output
  * [android.view.Surface].
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+@ExperimentalApi
 class GlTextureFrameRenderer
 private constructor(
   private val context: Context,
   private val glExecutorService: ExecutorService,
   private val glObjectsProvider: GlObjectsProvider,
   private val videoFrameProcessingTaskExecutor: VideoFrameProcessingTaskExecutor,
+  private val errorHandler: Consumer<VideoFrameProcessingException>,
+  private var listener: Listener,
 ) :
   PacketConsumer<GlTextureFrame>,
   GlShaderProgram.InputListener,
   FinalShaderProgramWrapper.Listener {
+
+  interface Listener {
+    /** Called when the output size changes. */
+    fun onOutputSizeChanged(width: Int, height: Int) {}
+
+    /**
+     * Called when an output frame with the given {@code presentationTimeUs} becomes available for
+     * rendering.
+     */
+    fun onOutputFrameAvailableForRendering(presentationTimeUs: Long) {}
+
+    /** Called after the [GlTextureFrameRenderer] has rendered its final output frame. */
+    fun onEnded() {}
+
+    object NO_OP : Listener
+  }
 
   private val glDispatcher = glExecutorService.asCoroutineDispatcher()
   private val isReleased = AtomicBoolean(false)
@@ -133,7 +152,9 @@ private constructor(
     hasRenderedPendingFrame.complete(Unit)
   }
 
-  override fun onInputStreamProcessed() {}
+  override fun onInputStreamProcessed() {
+    listener.onEnded()
+  }
 
   override fun onFrameRendered(presentationTimeUs: Long) {}
 
@@ -163,8 +184,23 @@ private constructor(
         eglContextAndSurface.second,
         outputColorInfo,
         videoFrameProcessingTaskExecutor,
-        glExecutorService,
-        object : VideoFrameProcessor.Listener {},
+        directExecutor(),
+        object : VideoFrameProcessor.Listener {
+          override fun onOutputSizeChanged(width: Int, height: Int) {
+            listener.onOutputSizeChanged(width, height)
+          }
+
+          override fun onOutputFrameAvailableForRendering(
+            presentationTimeUs: Long,
+            isRedrawnFrame: Boolean,
+          ) {
+            listener.onOutputFrameAvailableForRendering(presentationTimeUs)
+          }
+
+          override fun onError(e: VideoFrameProcessingException) {
+            errorHandler.accept(e)
+          }
+        },
         /* textureOutputListener= */ null,
         /* textureOutputCapacity= */ 0,
         DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
@@ -185,6 +221,7 @@ private constructor(
      * @param glExecutorService The executor service to be used for GL operations.
      * @param glObjectsProvider Provider for GL objects (textures, buffers, etc.).
      * @param errorHandler A consumer to handle any [VideoFrameProcessingException]s that occur.
+     * @param listener A [Listener] to be notified of events from the renderer.
      * @return A newly created [GlTextureFrameRenderer].
      */
     @JvmStatic
@@ -193,6 +230,7 @@ private constructor(
       glExecutorService: ListeningExecutorService,
       glObjectsProvider: GlObjectsProvider,
       errorHandler: Consumer<VideoFrameProcessingException>,
+      listener: Listener,
     ): GlTextureFrameRenderer {
       val videoFrameProcessingTaskExecutor =
         VideoFrameProcessingTaskExecutor(
@@ -205,6 +243,8 @@ private constructor(
         glExecutorService,
         glObjectsProvider,
         videoFrameProcessingTaskExecutor,
+        errorHandler,
+        listener,
       )
     }
 

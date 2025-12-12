@@ -18,6 +18,7 @@ package androidx.media3.effect
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.effect.PacketConsumer.Packet
+import com.google.common.util.concurrent.ListenableFuture
 import java.lang.Exception
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +29,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.RENDEZVOUS
 import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.channels.onClosed
+import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 
 /**
@@ -81,6 +83,18 @@ private constructor(
       .trySend(packet)
       .onClosed { t -> throw t ?: ClosedSendChannelException("Channel is closed") }
       .isSuccess
+
+  /**
+   * Queues a [Packet] for processing.
+   *
+   * The ownership of the [packet] is transferred to the wrapped [PacketConsumer] and the caller
+   * must not modify the [packet].
+   */
+  fun queuePacket(packet: Packet<T>): ListenableFuture<Void?> =
+    scope.future {
+      packetChannel.send(packet)
+      null
+    }
 
   /**
    * Releases the internal [Channel] and cancels coroutine to queue [Packet] to the wrapped

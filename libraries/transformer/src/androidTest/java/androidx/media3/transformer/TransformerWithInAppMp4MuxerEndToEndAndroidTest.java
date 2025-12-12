@@ -24,13 +24,20 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
+import androidx.media3.common.util.Util;
+import androidx.media3.effect.GlTextureFrameCompositor;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import kotlinx.coroutines.ExecutorsKt;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,12 +52,24 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
   private static final String H264_MP4 = "sample_no_bframes.mp4";
   private static final String H265_MP4 = "h265_with_metadata_track.mp4";
 
-  @Parameters(name = "{0}")
-  public static ImmutableList<String> mediaFiles() {
-    return ImmutableList.of(H264_MP4, H265_MP4);
+  @Parameters(name = "{0}, usePacketProcessor={1}")
+  public static ImmutableList<Object[]> mediaFiles() {
+    ImmutableList.Builder<Object[]> parametersBuilder = new ImmutableList.Builder<>();
+    ImmutableList<String> mediaFiles = ImmutableList.of(H264_MP4, H265_MP4);
+    ImmutableList<Boolean> usePacketProcessor = ImmutableList.of(true, false);
+    for (int i = 0; i < mediaFiles.size(); i++) {
+      for (int j = 0; j < usePacketProcessor.size(); j++) {
+        parametersBuilder.add(new Object[] {mediaFiles.get(i), usePacketProcessor.get(j)});
+      }
+    }
+    return parametersBuilder.build();
   }
 
-  @Parameter public @MonotonicNonNull String inputFile;
+  @Parameter(0)
+  public @MonotonicNonNull String inputFile;
+
+  @Parameter(1)
+  public boolean usePacketProcessor;
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
@@ -65,8 +84,25 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-    Transformer transformer =
-        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
+
+    Transformer.Builder transformerBuilder =
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory());
+
+    if (usePacketProcessor) {
+      GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
+      ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
+      transformerBuilder.setPacketProcessor(
+          new GlTextureFrameCompositor(
+              context,
+              ExecutorsKt.from(glExecutorService),
+              singleContextGlObjectsProvider,
+              VideoCompositorSettings.DEFAULT),
+          singleContextGlObjectsProvider,
+          glExecutorService);
+    }
+
+    Transformer transformer = transformerBuilder.build();
+
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFile));
     EditedMediaItem editedMediaItem =

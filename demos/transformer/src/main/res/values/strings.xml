@@ -36,6 +36,7 @@
   <string name="trim" translatable="false">Trim</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
   <string name="enable_trim_optimization" translatable="false">Enable trim optimization</string>
+  <string name="enable_packet_processor" translatable="false">Enable Packet Processor</string>
   <string name="enable_mp4_edit_list_trimming" translatable="false">Enable MP4 edit list trimming</string>
   <string name="enable_codecdb_lite" translatable="false">Enable CodecDB Lite</string>
   <string name="select_audio_effects" translatable="false">Add audio effects</string>

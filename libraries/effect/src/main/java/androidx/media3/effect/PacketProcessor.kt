@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.media3.effect
+
+import androidx.media3.common.util.ExperimentalApi
 
 /**
  * A [PacketConsumer] that processes [Packet]s and forwards them to a downstream [PacketConsumer].
@@ -24,7 +25,8 @@ package androidx.media3.effect
  * @param I The type of the input packets.
  * @param O The type of the output packets.
  */
-internal interface PacketProcessor<I, O> : PacketConsumer<I> {
+@ExperimentalApi
+interface PacketProcessor<I, O> : PacketConsumer<I> {
 
   /**
    * Sets the output [PacketConsumer] that will receive the processed packets.

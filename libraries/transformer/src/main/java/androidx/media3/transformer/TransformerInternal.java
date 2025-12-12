@@ -37,6 +37,7 @@ import static androidx.media3.transformer.TransformerUtil.maybeSetMuxerWrapperAd
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -55,6 +56,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
@@ -65,6 +67,8 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.PacketProcessor;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
@@ -74,6 +78,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /* package */ final class TransformerInternal {
@@ -127,6 +132,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Listener listener;
   private final HandlerWrapper applicationHandler;
   private final Clock clock;
+
+  @Nullable
+  private final PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+
+  @Nullable private final ExecutorService glExecutorService;
+  @Nullable private final GlObjectsProvider glObjectsProvider;
 
   /**
    * The presentation timestamp offset for all the video samples. It will be set when resuming video
@@ -204,6 +215,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
+      @Nullable PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+      @Nullable ExecutorService glExecutorService,
+      @Nullable GlObjectsProvider glObjectsProvider,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
@@ -216,6 +230,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
+    this.packetProcessor = packetProcessor;
+    this.glExecutorService = glExecutorService;
+    this.glObjectsProvider = glObjectsProvider;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
@@ -748,25 +765,48 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   "assetLoaderOutputFormat has to have a audio, video or image mimetype."));
         }
 
-        assetLoaderInputTracker.registerSampleExporter(
-            C.TRACK_TYPE_VIDEO,
-            new VideoSampleExporter(
-                context,
-                firstFormat,
-                transformationRequest,
-                composition.videoCompositorSettings,
-                composition.effects.videoEffects,
-                videoFrameProcessorFactory,
-                encoderFactory,
-                muxerWrapper,
-                /* errorConsumer= */ this::onError,
-                fallbackListener,
-                debugViewProvider,
-                videoSampleTimestampOffsetUs,
-                /* hasMultipleInputs= */ assetLoaderInputTracker.hasMultipleConcurrentVideoTracks(),
-                allowedEncodingRotationDegrees,
-                maxFramesInEncoder,
-                logSessionId));
+        if (packetProcessor == null) {
+          assetLoaderInputTracker.registerSampleExporter(
+              C.TRACK_TYPE_VIDEO,
+              new VideoSampleExporter(
+                  context,
+                  firstFormat,
+                  transformationRequest,
+                  composition.videoCompositorSettings,
+                  composition.effects.videoEffects,
+                  videoFrameProcessorFactory,
+                  encoderFactory,
+                  muxerWrapper,
+                  /* errorConsumer= */ this::onError,
+                  fallbackListener,
+                  debugViewProvider,
+                  videoSampleTimestampOffsetUs,
+                  /* hasMultipleInputs= */ assetLoaderInputTracker
+                      .hasMultipleConcurrentVideoTracks(),
+                  allowedEncodingRotationDegrees,
+                  maxFramesInEncoder,
+                  logSessionId));
+        } else {
+          PacketConsumerVideoSampleExporter videoSampleExporter =
+              new PacketConsumerVideoSampleExporter(
+                  context,
+                  composition,
+                  firstFormat,
+                  transformationRequest,
+                  videoFrameProcessorFactory,
+                  packetProcessor,
+                  checkNotNull(glObjectsProvider),
+                  checkNotNull(glExecutorService),
+                  encoderFactory,
+                  muxerWrapper,
+                  /* errorConsumer= */ this::onError,
+                  fallbackListener,
+                  debugViewProvider,
+                  videoSampleTimestampOffsetUs,
+                  allowedEncodingRotationDegrees,
+                  logSessionId);
+          assetLoaderInputTracker.registerSampleExporter(C.TRACK_TYPE_VIDEO, videoSampleExporter);
+        }
       }
     }
 

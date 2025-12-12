@@ -54,6 +54,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
@@ -62,6 +63,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -78,6 +80,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.GlTextureFrameCompositor;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -87,6 +90,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
+import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
@@ -124,7 +128,9 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import kotlinx.coroutines.ExecutorsKt;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -292,8 +298,8 @@ public final class TransformerActivity extends AppCompatActivity {
     @Nullable Bundle bundle = intent.getExtras();
     MediaItem mediaItem = createMediaItem(bundle, inputUri);
     Util.maybeRequestReadStoragePermission(/* activity= */ this, mediaItem);
-    Transformer transformer = createTransformer(bundle, inputUri, outputFilePath);
     Composition composition = createComposition(mediaItem, bundle);
+    Transformer transformer = createTransformer(bundle, composition, inputUri, outputFilePath);
     exportStopwatch.reset();
     exportStopwatch.start();
     if (oldOutputFile == null) {
@@ -358,7 +364,9 @@ public final class TransformerActivity extends AppCompatActivity {
     return mediaItemBuilder.build();
   }
 
-  private Transformer createTransformer(@Nullable Bundle bundle, Uri inputUri, String filePath) {
+  @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
+  private Transformer createTransformer(
+      @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(/* context= */ this)
             .addListener(
@@ -405,6 +413,19 @@ public final class TransformerActivity extends AppCompatActivity {
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_MP4_EDIT_LIST_TRIMMING)) {
         transformerBuilder.experimentalSetMp4EditListTrimEnabled(true);
+      }
+
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
+        GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
+        ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
+        transformerBuilder.setPacketProcessor(
+            new GlTextureFrameCompositor(
+                this.getApplicationContext(),
+                ExecutorsKt.from(glExecutorService),
+                singleContextGlObjectsProvider,
+                composition.videoCompositorSettings),
+            singleContextGlObjectsProvider,
+            glExecutorService);
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {

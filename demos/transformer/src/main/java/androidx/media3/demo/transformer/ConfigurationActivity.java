@@ -100,6 +100,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TEXT_OVERLAY_TEXT = "text_overlay_text";
   public static final String TEXT_OVERLAY_TEXT_COLOR = "text_overlay_text_color";
   public static final String TEXT_OVERLAY_ALPHA = "text_overlay_alpha";
+  public static final String ENABLE_PACKET_PROCESSOR = "enable_packet_processor";
 
   // Video effect selections.
   public static final int DIZZY_CROP_INDEX = 0;
@@ -180,6 +181,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox produceFragmentedMp4;
   private Spinner hdrModeSpinner;
   private CheckBox enableTrimOptimization;
+  private CheckBox enablePacketProcessorCheckBox;
   private CheckBox enableMp4EditListTrimming;
   private CheckBox enableCodecDbLite;
   private Button selectAudioEffectsButton;
@@ -314,6 +316,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
             enableMp4EditListTrimming.setChecked(false);
           }
         });
+    enablePacketProcessorCheckBox = findViewById(R.id.enable_packet_processor);
     enableMp4EditListTrimming.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
           if (isChecked) {
@@ -411,6 +414,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
     bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4.isChecked());
     bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
+    bundle.putBoolean(ENABLE_PACKET_PROCESSOR, enablePacketProcessorCheckBox.isChecked());
     bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
     bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());

@@ -17,7 +17,7 @@ package androidx.media3.effect
 
 import androidx.media3.common.util.ExperimentalApi
 import com.google.common.util.concurrent.ListenableFuture
-import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.guava.future
@@ -29,11 +29,11 @@ object PacketConsumerUtil {
    * Releases the [PacketConsumer] from Java by wrapping the suspend call in a [ListenableFuture].
    *
    * @param consumer The [PacketConsumer] to release.
-   * @param executor The [Executor] to launch the coroutine on.
+   * @param executor The [ExecutorService] to launch the coroutine on.
    * @return A [ListenableFuture] that completes when the consumer has been released.
    */
   @JvmStatic
-  fun <T> release(consumer: PacketConsumer<T>, executor: Executor): ListenableFuture<Void?> =
+  fun <T> release(consumer: PacketConsumer<T>, executor: ExecutorService): ListenableFuture<Void?> =
     CoroutineScope(executor.asCoroutineDispatcher()).future {
       consumer.release()
       null
