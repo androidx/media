@@ -275,13 +275,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         new ExoPlayer.Builder(
                 context,
                 new RenderersFactoryImpl(
-                    editedMediaItem.removeAudio,
-                    editedMediaItem.removeVideo,
-                    editedMediaItem.flattenForSlowMotion,
-                    this.decoderFactory,
-                    hdrMode,
-                    listener,
-                    logSessionId))
+                    editedMediaItem, this.decoderFactory, hdrMode, listener, logSessionId))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
@@ -349,25 +343,19 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   private static final class RenderersFactoryImpl implements RenderersFactory {
 
     private final TransformerMediaClock mediaClock;
-    private final boolean removeAudio;
-    private final boolean removeVideo;
-    private final boolean flattenForSlowMotion;
+    private final EditedMediaItem editedMediaItem;
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
     @Nullable private final LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
-        boolean removeAudio,
-        boolean removeVideo,
-        boolean flattenForSlowMotion,
+        EditedMediaItem editedMediaItem,
         Codec.DecoderFactory decoderFactory,
         @Composition.HdrMode int hdrMode,
         Listener assetLoaderListener,
         @Nullable LogSessionId logSessionId) {
-      this.removeAudio = removeAudio;
-      this.removeVideo = removeVideo;
-      this.flattenForSlowMotion = flattenForSlowMotion;
+      this.editedMediaItem = editedMediaItem;
       this.decoderFactory = decoderFactory;
       this.hdrMode = hdrMode;
       this.assetLoaderListener = assetLoaderListener;
@@ -383,15 +371,15 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
       ArrayList<Renderer> renderers = new ArrayList<>();
-      if (!removeAudio) {
+      if (!editedMediaItem.removeAudio) {
         renderers.add(
             new ExoAssetLoaderAudioRenderer(
                 decoderFactory, mediaClock, assetLoaderListener, logSessionId));
       }
-      if (!removeVideo) {
+      if (!editedMediaItem.removeVideo) {
         renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion,
+                editedMediaItem.flattenForSlowMotion,
                 decoderFactory,
                 hdrMode,
                 mediaClock,
