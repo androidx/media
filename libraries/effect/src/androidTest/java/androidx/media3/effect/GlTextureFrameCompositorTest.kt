@@ -38,9 +38,11 @@ import com.google.common.util.concurrent.MoreExecutors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,15 +50,13 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GlTextureFrameCompositorTest {
 
-  private val testTimeoutMs = 1000L
-  private val inputLength = 10
-  lateinit var dispatcher: CoroutineDispatcher
+  lateinit var glDispatcher: CoroutineDispatcher
   lateinit var glObjectsProvider: GlObjectsProvider
 
   @Before
   fun setup() {
-    dispatcher = Util.newSingleThreadExecutor("GlThread").asCoroutineDispatcher()
-    runBlocking(dispatcher) {
+    glDispatcher = Util.newSingleThreadExecutor("GlThread").asCoroutineDispatcher()
+    runBlocking(glDispatcher) {
       glObjectsProvider = DefaultGlObjectsProvider()
       val eglDisplay = GlUtil.getDefaultEglDisplay()
       val eglContext =
@@ -79,7 +79,7 @@ class GlTextureFrameCompositorTest {
     }
 
     compositor.queuePacket(packet)
-    withTimeout(testTimeoutMs) { allReleased.await() }
+    withTimeout(TEST_TIMEOUT_MS) { allReleased.await() }
 
     val frames = getPacketPayloadOrException(packet)
     assertThat(releasedTextures)
@@ -90,6 +90,98 @@ class GlTextureFrameCompositorTest {
         frames[3].glTextureInfo,
       )
       .inOrder()
+
+    compositor.release()
+  }
+
+  @Test
+  fun queuePacket_withDownstreamConsumer_forwardsCompositedFrames() = doBlocking {
+    val compositor = buildCompositor(createVideoCompositorSettings())
+    val releasedTextures = mutableListOf<GlTextureInfo>()
+    val expectedTexturesReleased = CompletableDeferred<Unit>()
+    val numTexturesReleased = AtomicInteger()
+    val onRelease = { textureInfo: GlTextureInfo ->
+      releasedTextures.add(textureInfo)
+      // Expect 4 textures from each of the 3 inputs to be released.
+      if (numTexturesReleased.incrementAndGet() == 12) {
+        expectedTexturesReleased.complete(Unit)
+      }
+    }
+    val inputPacket1 = createTestPacket(onRelease)
+    val inputPacket2 = createTestPacket(onRelease)
+    val inputPacket3 = createTestPacket(onRelease)
+    val expectedBitmap = createExpectedBitmap()
+    val outputFrameDeferred1 = CompletableDeferred<GlTextureFrame>()
+    val outputFrameDeferred2 = CompletableDeferred<GlTextureFrame>()
+    val outputFrameDeferred3 = CompletableDeferred<GlTextureFrame>()
+    val outputConsumer =
+      createConsumer(outputFrameDeferred1, outputFrameDeferred2, outputFrameDeferred3)
+    compositor.setOutput(outputConsumer)
+
+    compositor.queuePacket(inputPacket1)
+    compositor.queuePacket(inputPacket2)
+    compositor.queuePacket(inputPacket3)
+
+    withTimeout(TEST_TIMEOUT_MS) { expectedTexturesReleased.await() }
+    val outputFrame1 = withTimeout(TEST_TIMEOUT_MS) { outputFrameDeferred1.await() }
+    val outputFrame2 = withTimeout(TEST_TIMEOUT_MS) { outputFrameDeferred2.await() }
+    val outputFrame3 = withTimeout(TEST_TIMEOUT_MS) { outputFrameDeferred3.await() }
+    val averagePixelAbsoluteDifference1 =
+      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+        expectedBitmap,
+        /* actual= */ createBitmap(outputFrame1.glTextureInfo),
+        /* testId= */ null,
+      )
+    val averagePixelAbsoluteDifference2 =
+      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+        expectedBitmap,
+        /* actual= */ createBitmap(outputFrame2.glTextureInfo),
+        /* testId= */ null,
+      )
+    val averagePixelAbsoluteDifference3 =
+      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+        expectedBitmap,
+        /* actual= */ createBitmap(outputFrame3.glTextureInfo),
+        /* testId= */ null,
+      )
+    assertThat(averagePixelAbsoluteDifference1).isAtMost(ALLOWED_PIXEL_DIFFERENCE)
+    assertThat(averagePixelAbsoluteDifference2).isAtMost(ALLOWED_PIXEL_DIFFERENCE)
+    assertThat(averagePixelAbsoluteDifference3).isAtMost(ALLOWED_PIXEL_DIFFERENCE)
+    val frames1 = getPacketPayloadOrException(inputPacket1)
+    val frames2 = getPacketPayloadOrException(inputPacket2)
+    val frames3 = getPacketPayloadOrException(inputPacket3)
+    assertThat(releasedTextures)
+      .containsExactly(
+        frames1[0].glTextureInfo,
+        frames1[1].glTextureInfo,
+        frames1[2].glTextureInfo,
+        frames1[3].glTextureInfo,
+        frames2[0].glTextureInfo,
+        frames2[1].glTextureInfo,
+        frames2[2].glTextureInfo,
+        frames2[3].glTextureInfo,
+        frames3[0].glTextureInfo,
+        frames3[1].glTextureInfo,
+        frames3[2].glTextureInfo,
+        frames3[3].glTextureInfo,
+      )
+      .inOrder()
+
+    compositor.release()
+  }
+
+  @Test
+  fun queuePacket_compositedFrameNotReleased_hangs() = doBlocking {
+    val compositor = buildCompositor(createVideoCompositorSettings())
+    val outputFrameDeferred = CompletableDeferred<GlTextureFrame>()
+    val outputConsumer =
+      createConsumer(outputFrameDeferred, CompletableDeferred(), releaseInputFrames = false)
+    val packet = createTestPacket(onRelease = {})
+    compositor.setOutput(outputConsumer)
+
+    assertThrows(TimeoutCancellationException::class.java) {
+      runBlocking { withTimeout(timeMillis = TEST_TIMEOUT_MS) { compositor.queuePacket(packet) } }
+    }
 
     compositor.release()
   }
@@ -110,7 +202,7 @@ class GlTextureFrameCompositorTest {
       thrownExceptionDeferred.complete(e)
     }
 
-    val thrownException = withTimeout(testTimeoutMs) { thrownExceptionDeferred.await() }
+    val thrownException = withTimeout(TEST_TIMEOUT_MS) { thrownExceptionDeferred.await() }
 
     // TODO: b/459374133 - Remove dependency on GlUtil in TexturePool and add a test that the
     //  output texture is also released.
@@ -124,41 +216,6 @@ class GlTextureFrameCompositorTest {
         frames[3].glTextureInfo,
       )
       .inOrder()
-  }
-
-  @Test
-  fun compositeTwoInputs_stacked_matchesExpectedBitmap() = doBlocking {
-    val compositor = buildCompositor(createVideoCompositorSettings())
-    val outputFrameDeferred = CompletableDeferred<GlTextureFrame>()
-    val releasedTextures = mutableListOf<GlTextureInfo>()
-    val inputPacket = createTestPacket { t -> releasedTextures.add(t) }
-    val expectedBitmap = createExpectedBitmap()
-    val outputConsumer = createConsumer(outputFrameDeferred)
-    compositor.setOutput(outputConsumer)
-
-    compositor.queuePacket(inputPacket)
-
-    val outputFrame = withTimeout(testTimeoutMs) { outputFrameDeferred.await() }
-    val receivedBitmap = createBitmap(outputFrame.glTextureInfo)
-    val averagePixelAbsoluteDifference =
-      BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-        expectedBitmap,
-        receivedBitmap,
-        /* testId= */ null,
-      )
-    assertThat(averagePixelAbsoluteDifference).isLessThan(2.5f)
-
-    val frames = getPacketPayloadOrException(inputPacket)
-    assertThat(releasedTextures)
-      .containsExactly(
-        frames[0].glTextureInfo,
-        frames[1].glTextureInfo,
-        frames[2].glTextureInfo,
-        frames[3].glTextureInfo,
-      )
-      .inOrder()
-
-    compositor.release()
   }
 
   private fun createVideoCompositorSettings(): VideoCompositorSettings {
@@ -225,9 +282,9 @@ class GlTextureFrameCompositorTest {
    * [createVideoCompositorSettings].
    */
   private fun createExpectedBitmap(): Bitmap {
-    val blockLength = inputLength / 2
-    val width = inputLength
-    val height = inputLength
+    val blockLength = INPUT_SIDE_LENGTH / 2
+    val width = INPUT_SIDE_LENGTH
+    val height = INPUT_SIDE_LENGTH
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val paint = Paint()
@@ -255,12 +312,16 @@ class GlTextureFrameCompositorTest {
     @ColorInt color: Int,
     onRelease: (t: GlTextureInfo) -> Unit = {},
   ): GlTextureFrame {
-    return runBlocking(dispatcher) {
+    return runBlocking(glDispatcher) {
       val textureId =
-        GlUtil.createTexture(inputLength, inputLength, /* useHighPrecisionColorComponents= */ false)
+        GlUtil.createTexture(
+          INPUT_SIDE_LENGTH,
+          INPUT_SIDE_LENGTH,
+          /* useHighPrecisionColorComponents= */ false,
+        )
       val fboId = GlUtil.createFboForTexture(textureId)
       GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
-      GLES20.glViewport(0, 0, inputLength, inputLength)
+      GLES20.glViewport(0, 0, INPUT_SIDE_LENGTH, INPUT_SIDE_LENGTH)
       GLES20.glClearColor(
         Color.red(color) / 255f,
         Color.green(color) / 255f,
@@ -269,14 +330,14 @@ class GlTextureFrameCompositorTest {
       )
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
-      val textureInfo = GlTextureInfo(textureId, fboId, -1, inputLength, inputLength)
+      val textureInfo = GlTextureInfo(textureId, fboId, -1, INPUT_SIDE_LENGTH, INPUT_SIDE_LENGTH)
       GlTextureFrame.Builder(textureInfo, MoreExecutors.directExecutor(), onRelease).build()
     }
   }
 
   /** Creates a [Bitmap] matching the given [GlTextureFrame]. */
   private fun createBitmap(glTextureInfo: GlTextureInfo): Bitmap {
-    return runBlocking(dispatcher) {
+    return runBlocking(glDispatcher) {
       val fboId = GlUtil.createFboForTexture(glTextureInfo.texId)
       GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId)
       val bitmap =
@@ -292,19 +353,26 @@ class GlTextureFrameCompositorTest {
   private fun buildCompositor(settings: VideoCompositorSettings): GlTextureFrameCompositor {
     return GlTextureFrameCompositor(
       getInstrumentation().context,
-      dispatcher,
+      glDispatcher,
       DefaultGlObjectsProvider(),
       settings,
     )
   }
 
   private fun createConsumer(
-    deferredFrame: CompletableDeferred<GlTextureFrame>
+    vararg deferredFrames: CompletableDeferred<GlTextureFrame>,
+    releaseInputFrames: Boolean = true,
   ): PacketConsumer<GlTextureFrame> {
+    val deferredIterator = deferredFrames.iterator()
+
     return object : PacketConsumer<GlTextureFrame> {
 
       override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
-        deferredFrame.complete(getPacketPayloadOrException(packet))
+        val frame = getPacketPayloadOrException(packet)
+        if (releaseInputFrames) {
+          frame.release()
+        }
+        deferredIterator.next().complete(frame)
       }
 
       override suspend fun release() {}
@@ -325,5 +393,11 @@ class GlTextureFrameCompositorTest {
   private fun <T> getPacketPayloadOrException(packet: Packet<T>): T {
     require(packet is Packet.Payload) { "Not data packet." }
     return packet.payload
+  }
+
+  private companion object {
+    const val TEST_TIMEOUT_MS = 1000L
+    const val INPUT_SIDE_LENGTH = 10
+    const val ALLOWED_PIXEL_DIFFERENCE = 0f
   }
 }

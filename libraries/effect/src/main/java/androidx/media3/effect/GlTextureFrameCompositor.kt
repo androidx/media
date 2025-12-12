@@ -23,6 +23,7 @@ import androidx.media3.common.VideoCompositorSettings
 import androidx.media3.common.util.Size
 import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.PacketConsumer.Packet
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.withContext
@@ -62,11 +63,17 @@ class GlTextureFrameCompositor(
             // TODO: b/449957627 - Investigate whether blocking until an output is set is a safer
             // approach.
             outputConsumer?.let { outputConsumer ->
-              compositedFrame = compositeFrames(frames)
+              // TODO: 459374133 - Implement a TexturePool that suspends until a Texture is
+              // available, and remove this CompletableDeferred.
+              val frameComposited = CompletableDeferred<Unit>()
+              compositedFrame = compositeFrames(frames, frameComposited)
               outputConsumer.queuePacket(Packet.of(compositedFrame))
+              frameComposited.await()
             }
-          } finally {
+          } catch (e: Exception) {
             compositedFrame?.release()
+            throw e
+          } finally {
             for (frame in frames) {
               frame.release()
             }
@@ -85,7 +92,10 @@ class GlTextureFrameCompositor(
     withContext(dispatcher) { glProgram.release() }
   }
 
-  private fun compositeFrames(frames: List<GlTextureFrame>): GlTextureFrame {
+  private fun compositeFrames(
+    frames: List<GlTextureFrame>,
+    frameComposited: CompletableDeferred<Unit>,
+  ): GlTextureFrame {
     val inputSizes = mutableListOf<Size>()
     val framesToComposite = mutableListOf<InputFrameInfo>()
 
@@ -106,13 +116,17 @@ class GlTextureFrameCompositor(
     val outputTexture = outputTexturePool.useTexture()
     glProgram.drawFrame(framesToComposite, outputTexture)
     // TODO: b/449957627 - Does this need a sync fence?
-    return GlTextureFrame.Builder(outputTexture, dispatcher.asExecutor()) { c ->
-        // TODO: b/459374133 - Remove dependency on GlUtil in TexturePool so this can be unit
-        // tested.
-        if (outputTexturePool.freeTextureCount() < outputTexturePool.capacity()) {
-          outputTexturePool.freeTexture()
-        }
-      }
+    return GlTextureFrame.Builder(
+        outputTexture,
+        dispatcher.asExecutor(),
+        /* releaseTextureCallback= */ { glTextureInfo ->
+          // TODO: b/459374133 - Remove dependency on GlUtil in TexturePool so this can be unit
+          //  tested.
+          outputTexturePool.freeTexture(glTextureInfo)
+          // Allow the queueFrame call to complete once the texture has been returned to the pool.
+          frameComposited.complete(Unit)
+        },
+      )
       .setMetadata(frames[0].metadata)
       .setFormat(frames[0].format)
       .setPresentationTimeUs(frames[0].presentationTimeUs)
