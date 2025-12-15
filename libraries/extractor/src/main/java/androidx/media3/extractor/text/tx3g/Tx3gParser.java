@@ -17,7 +17,7 @@ package androidx.media3.extractor.text.tx3g;
 
 import static androidx.media3.common.text.Cue.ANCHOR_TYPE_START;
 import static androidx.media3.common.text.Cue.LINE_TYPE_FRACTION;
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.graphics.Color;
 import android.graphics.Typeface;

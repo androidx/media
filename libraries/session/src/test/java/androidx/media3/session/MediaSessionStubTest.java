@@ -25,6 +25,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -70,33 +71,42 @@ public class MediaSessionStubTest {
     binder.setMediaItem(
         /* caller= */ null,
         /* seq= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.setMediaItemWithStartPosition(
         /* caller= */ null,
         /* seq= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle(),
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION),
         /* startPositionMs= */ 0);
     binder.setMediaItemWithResetPosition(
         /* caller= */ null,
         /* seq= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle(),
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION),
         /* resetPosition= */ false);
     binder.setMediaItems(
         /* caller= */ null,
         /* seq= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.setMediaItemsWithResetPosition(
         /* caller= */ null,
         /* seq= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())),
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))),
         /* resetPosition= */ false);
     binder.setMediaItemsWithStartIndex(
         /* caller= */ null,
         /* seq= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())),
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))),
         /* startIndex= */ 0,
         /* startPositionMs= */ 0);
     binder.setPlayWhenReady(/* caller= */ null, /* seq= */ 0, /* playWhenReady= */ false);
@@ -133,14 +143,17 @@ public class MediaSessionStubTest {
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.replaceMediaItems(
         /* caller= */ null,
         /* seq= */ 0,
         /* fromIndex= */ 0,
         /* toIndex= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.play(/* caller= */ null, /* seq= */ 0);
     binder.pause(/* caller= */ null, /* seq= */ 0);
     binder.prepare(/* caller= */ null, /* seq= */ 0);
@@ -152,27 +165,35 @@ public class MediaSessionStubTest {
     binder.addMediaItem(
         /* caller= */ null,
         /* seq= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.addMediaItemWithIndex(
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ 0,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.addMediaItems(
         /* caller= */ null,
         /* seq= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.addMediaItemsWithIndex(
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.setPlaylistMetadata(
         /* caller= */ null,
         /* seq= */ 0,
-        /* playlistMetadata= */ new MediaMetadata.Builder().build().toBundle());
+        /* playlistMetadata= */ new MediaMetadata.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.stop(/* caller= */ null, /* seq= */ 0);
     binder.release(/* caller= */ null, /* seq= */ 0);
     binder.seekToDefaultPosition(/* caller= */ null, /* seq= */ 0);
@@ -192,7 +213,7 @@ public class MediaSessionStubTest {
     binder.setTrackSelectionParameters(
         /* caller= */ null,
         /* seq= */ 0,
-        /* trackSelectionParametersBundle= */ new TrackSelectionParameters.Builder(context)
+        /* trackSelectionParametersBundle= */ new TrackSelectionParameters.Builder()
             .build()
             .toBundle());
     binder.setRatingWithMediaId(
@@ -426,7 +447,8 @@ public class MediaSessionStubTest {
         /* caller= */ null,
         /* seq= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())),
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))),
         /* startIndex= */ -1,
         /* startPositionMs= */ 0);
     binder.setRepeatMode(/* caller= */ null, /* seq= */ 0, /* repeatMode= */ -1);
@@ -449,34 +471,41 @@ public class MediaSessionStubTest {
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ -1,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.replaceMediaItems(
         /* caller= */ null,
         /* seq= */ 0,
         /* fromIndex= */ -1,
         /* toIndex= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.replaceMediaItems(
         /* caller= */ null,
         /* seq= */ 0,
         /* fromIndex= */ 1,
         /* toIndex= */ 0,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.setPlaybackSpeed(/* caller= */ null, /* seq= */ 0, /* speed= */ -0.0001f);
     binder.setPlaybackSpeed(/* caller= */ null, /* seq= */ 0, /* speed= */ Float.NaN);
     binder.addMediaItemWithIndex(
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ -1,
-        /* mediaItemBundle= */ new MediaItem.Builder().build().toBundle());
+        /* mediaItemBundle= */ new MediaItem.Builder()
+            .build()
+            .toBundle(MediaLibraryInfo.INTERFACE_VERSION));
     binder.addMediaItemsWithIndex(
         /* caller= */ null,
         /* seq= */ 0,
         /* index= */ -1,
         /* mediaItems= */ new BundleListRetriever(
-            ImmutableList.of(new MediaItem.Builder().build().toBundle())));
+            ImmutableList.of(
+                new MediaItem.Builder().build().toBundle(MediaLibraryInfo.INTERFACE_VERSION))));
     binder.seekToDefaultPositionWithMediaItemIndex(
         /* caller= */ null, /* seq= */ 0, /* mediaItemIndex= */ -1);
     binder.seekToWithMediaItemIndex(

@@ -15,15 +15,20 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static android.graphics.Bitmap.createBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmapUnpremultipliedAlpha;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;
 import androidx.media3.common.C;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -94,11 +99,108 @@ public class DefaultVideoFrameProcessorFlushTest {
     assertThat(outputFrameCount).isEqualTo(inputFrameCount);
   }
 
+  @Test
+  public void textureOutput_flushAfterAllFramesOutput_outputsAllFramesAndReceivesFlush()
+      throws Exception {
+    Bitmap bitmap = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
+    Queue<Long> textureListenerEvents = new ConcurrentLinkedQueue<>();
+    videoFrameProcessorTestRunner =
+        createDefaultVideoFrameProcessorTestRunner(
+            testId,
+            new DefaultVideoFrameProcessor.Factory.Builder()
+                .setTextureOutput(
+                    new GlTextureProducer.Listener() {
+                      @Override
+                      public void onTextureRendered(
+                          GlTextureProducer textureProducer,
+                          GlTextureInfo outputTexture,
+                          long presentationTimeUs,
+                          long syncObject) {
+                        textureListenerEvents.add(presentationTimeUs);
+                        textureProducer.releaseOutputTexture(presentationTimeUs);
+                      }
+
+                      @Override
+                      public void flush() {
+                        textureListenerEvents.add(C.TIME_UNSET);
+                      }
+                    },
+                    /* textureOutputCapacity= */ 1)
+                .build());
+
+    videoFrameProcessorTestRunner.queueInputBitmap(
+        bitmap, /* durationUs= */ 300_000, /* offsetToAddUs= */ 0, /* frameRate= */ 10);
+    videoFrameProcessorTestRunner.endFrameProcessing();
+    videoFrameProcessorTestRunner.flush();
+
+    assertThat(textureListenerEvents)
+        .containsExactly(0L, 100_000L, 200_000L, C.TIME_UNSET)
+        .inOrder();
+  }
+
+  @Test
+  public void textureOutput_flush_outputsOnlyTexturesFromSecondItemAfterFlush() throws Exception {
+    Bitmap bitmap = createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
+    Queue<Long> textureListenerEventsSinceLastFlush = new ConcurrentLinkedQueue<>();
+    ConditionVariable firstFrameReceived = new ConditionVariable();
+    videoFrameProcessorTestRunner =
+        createDefaultVideoFrameProcessorTestRunner(
+            testId,
+            new DefaultVideoFrameProcessor.Factory.Builder()
+                .setTextureOutput(
+                    new GlTextureProducer.Listener() {
+                      @Override
+                      public void onTextureRendered(
+                          GlTextureProducer textureProducer,
+                          GlTextureInfo outputTexture,
+                          long presentationTimeUs,
+                          long syncObject) {
+                        firstFrameReceived.open();
+                        textureListenerEventsSinceLastFlush.add(presentationTimeUs);
+                        textureProducer.releaseOutputTexture(presentationTimeUs);
+                      }
+
+                      @Override
+                      public void flush() {
+                        textureListenerEventsSinceLastFlush.clear();
+                        textureListenerEventsSinceLastFlush.add(C.TIME_UNSET);
+                      }
+                    },
+                    /* textureOutputCapacity= */ 1)
+                .build());
+
+    // Video frame processor may recycle the bitmap. Use a copy.
+    videoFrameProcessorTestRunner.queueInputBitmap(
+        bitmap.copy(bitmap.getConfig(), /* isMutable= */ false),
+        /* durationUs= */ 300_000,
+        /* offsetToAddUs= */ 0,
+        /* frameRate= */ 10);
+    firstFrameReceived.block(/* timeoutMs= */ 1_000);
+    videoFrameProcessorTestRunner.flush();
+    videoFrameProcessorTestRunner.queueInputBitmap(
+        bitmap.copy(bitmap.getConfig(), /* isMutable= */ false),
+        /* durationUs= */ 300_000,
+        /* offsetToAddUs= */ 1_000_000,
+        /* frameRate= */ 10);
+    videoFrameProcessorTestRunner.endFrameProcessing();
+
+    assertThat(textureListenerEventsSinceLastFlush)
+        .containsExactly(C.TIME_UNSET, 1_000_000L, 1_100_000L, 1_200_000L)
+        .inOrder();
+  }
+
   private VideoFrameProcessorTestRunner createDefaultVideoFrameProcessorTestRunner(String testId)
+      throws VideoFrameProcessingException {
+    return createDefaultVideoFrameProcessorTestRunner(
+        testId, new DefaultVideoFrameProcessor.Factory.Builder().build());
+  }
+
+  private VideoFrameProcessorTestRunner createDefaultVideoFrameProcessorTestRunner(
+      String testId, DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory)
       throws VideoFrameProcessingException {
     return new VideoFrameProcessorTestRunner.Builder()
         .setTestId(testId)
-        .setVideoFrameProcessorFactory(new DefaultVideoFrameProcessor.Factory.Builder().build())
+        .setVideoFrameProcessorFactory(videoFrameProcessorFactory)
         .setOnOutputFrameAvailableForRenderingListener(unused -> outputFrameCount++)
         .build();
   }

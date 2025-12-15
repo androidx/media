@@ -27,7 +27,7 @@ track 0:
       chromaBitdepth = 8
     roleFlags = [main]
     language = en
-    metadata = entries=[TSSE: description=null: values=[Lavf58.42.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.42.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 32, hash 1F3D6E87
       data = length 10, hash 7A0D0F2B

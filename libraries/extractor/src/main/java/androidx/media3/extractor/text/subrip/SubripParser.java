@@ -16,6 +16,7 @@
 package androidx.media3.extractor.text.subrip;
 
 import static androidx.annotation.VisibleForTesting.PRIVATE;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.Html;
 import android.text.Spanned;
@@ -26,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Format.CueReplacementBehavior;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
@@ -282,9 +282,8 @@ public final class SubripParser implements SubtitleParser {
   private static long parseTimecode(Matcher matcher, int groupOffset) {
     @Nullable String hours = matcher.group(groupOffset + 1);
     long timestampMs = hours != null ? Long.parseLong(hours) * 60 * 60 * 1000 : 0;
-    timestampMs +=
-        Long.parseLong(Assertions.checkNotNull(matcher.group(groupOffset + 2))) * 60 * 1000;
-    timestampMs += Long.parseLong(Assertions.checkNotNull(matcher.group(groupOffset + 3))) * 1000;
+    timestampMs += Long.parseLong(checkNotNull(matcher.group(groupOffset + 2))) * 60 * 1000;
+    timestampMs += Long.parseLong(checkNotNull(matcher.group(groupOffset + 3))) * 1000;
     @Nullable String millis = matcher.group(groupOffset + 4);
     if (millis != null) {
       timestampMs += Long.parseLong(millis);

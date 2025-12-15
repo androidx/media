@@ -24,6 +24,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -35,7 +36,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.test.utils.FakeTimeline;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -157,14 +157,12 @@ public class PlayerInfoTest {
             .setSeekForwardIncrement(6000)
             .setShuffleModeEnabled(true)
             .setTrackSelectionParameters(
-                new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-                    .setMaxAudioBitrate(5000)
-                    .build())
+                new TrackSelectionParameters.Builder().setMaxAudioBitrate(5000).build())
             .setVideoSize(new VideoSize(/* width= */ 1024, /* height= */ 768))
             .build();
 
     PlayerInfo infoAfterBundling =
-        PlayerInfo.fromBundle(playerInfo.toBundleInProcess(), MediaSessionStub.VERSION_INT);
+        PlayerInfo.fromBundle(playerInfo.toBundleInProcess(), MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -204,6 +202,7 @@ public class PlayerInfoTest {
     assertThat(infoAfterBundling.mediaMetadata.title.toString()).isEqualTo("title");
     assertThat(infoAfterBundling.playlistMetadata.artist.toString()).isEqualTo("artist");
     assertThat(infoAfterBundling.volume).isEqualTo(0.5f);
+    assertThat(infoAfterBundling.unmuteVolume).isEqualTo(0.5f);
     assertThat(infoAfterBundling.deviceVolume).isEqualTo(10);
     assertThat(infoAfterBundling.deviceMuted).isTrue();
     assertThat(infoAfterBundling.audioAttributes.contentType)
@@ -294,7 +293,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(5);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(4);
@@ -416,7 +415,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ true,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.oldPositionInfo.mediaItemIndex).isEqualTo(0);
     assertThat(infoAfterBundling.oldPositionInfo.periodIndex).isEqualTo(0);
@@ -486,7 +485,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.mediaMetadata).isEqualTo(MediaMetadata.EMPTY);
     assertThat(infoAfterBundling.playlistMetadata).isEqualTo(MediaMetadata.EMPTY);
@@ -507,7 +506,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.volume).isEqualTo(1f);
   }
@@ -528,7 +527,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.deviceVolume).isEqualTo(0);
     assertThat(infoAfterBundling.deviceMuted).isFalse();
@@ -553,7 +552,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.audioAttributes).isEqualTo(AudioAttributes.DEFAULT);
   }
@@ -576,7 +575,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ false)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.cueGroup).isEqualTo(CueGroup.EMPTY_TIME_ZERO);
   }
@@ -607,7 +606,7 @@ public class PlayerInfoTest {
                     /* excludeTimeline= */ false,
                     /* excludeTracks= */ true)
                 .toBundleInProcess(),
-            MediaSessionStub.VERSION_INT);
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(infoAfterBundling.currentTracks).isEqualTo(Tracks.EMPTY);
   }
@@ -615,7 +614,8 @@ public class PlayerInfoTest {
   @Test
   public void toBundleFromBundle_withDefaultValues_restoresAllData() {
     PlayerInfo roundTripValue =
-        PlayerInfo.fromBundle(PlayerInfo.DEFAULT.toBundleInProcess(), MediaSessionStub.VERSION_INT);
+        PlayerInfo.fromBundle(
+            PlayerInfo.DEFAULT.toBundleInProcess(), MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(roundTripValue.oldPositionInfo).isEqualTo(PlayerInfo.DEFAULT.oldPositionInfo);
     assertThat(roundTripValue.newPositionInfo).isEqualTo(PlayerInfo.DEFAULT.newPositionInfo);
@@ -663,8 +663,7 @@ public class PlayerInfoTest {
   @Test
   public void toBundleForRemoteProcess_withDefaultValues_omitsAllData() {
     Bundle bundle =
-        PlayerInfo.DEFAULT.toBundleForRemoteProcess(
-            /* controllerInterfaceVersion= */ Integer.MAX_VALUE);
+        PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* interfaceVersion= */ Integer.MAX_VALUE);
 
     assertThat(bundle.isEmpty()).isTrue();
   }
@@ -674,8 +673,7 @@ public class PlayerInfoTest {
       toBundleForRemoteProcess_withDefaultValuesForControllerInterfaceBefore6_includesSeekLimits() {
     // Controller before version 6 uses 0 values for the three seek limit default values. The
     // Bundle should include these to overwrite the presumed 0 on the controller side.
-    Bundle bundle =
-        PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* controllerInterfaceVersion= */ 5);
+    Bundle bundle = PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* interfaceVersion= */ 5);
 
     assertThat(bundle.keySet())
         .containsAtLeast(
@@ -689,8 +687,7 @@ public class PlayerInfoTest {
       toBundleForRemoteProcess_withDefaultValuesForControllerInterfaceBefore3_includesPositionInfos() {
     // Controller before version 3 uses invalid default values for indices in (Session)PositionInfo.
     // The Bundle should always include these fields to avoid using the invalid defaults.
-    Bundle bundle =
-        PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* controllerInterfaceVersion= */ 2);
+    Bundle bundle = PlayerInfo.DEFAULT.toBundleForRemoteProcess(/* interfaceVersion= */ 2);
 
     assertThat(bundle.keySet())
         .containsAtLeast(
@@ -704,7 +701,7 @@ public class PlayerInfoTest {
     // Session before version 4 uses 0 values for the three seek limit default values. We need to
     // restore those instead of current default.
 
-    PlayerInfo playerInfo = PlayerInfo.fromBundle(Bundle.EMPTY, /* sessionInterfaceVersion= */ 3);
+    PlayerInfo playerInfo = PlayerInfo.fromBundle(Bundle.EMPTY, /* interfaceVersion= */ 3);
 
     assertThat(playerInfo.seekBackIncrementMs).isEqualTo(0);
     assertThat(playerInfo.seekForwardIncrementMs).isEqualTo(0);

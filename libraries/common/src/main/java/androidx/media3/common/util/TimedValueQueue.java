@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import java.util.Arrays;
 
@@ -122,7 +124,7 @@ public final class TimedValueQueue<V> {
 
   @Nullable
   private V popFirst() {
-    Assertions.checkState(size > 0);
+    checkState(size > 0);
     @Nullable V value = values[first];
     values[first] = null;
     first = (first + 1) % values.length;

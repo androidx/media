@@ -308,4 +308,11 @@ public interface AnalyticsCollector
    *     {@link MediaCodec}, or a {@link DecoderException} if the renderer uses a software decoder.
    */
   void onVideoCodecError(Exception videoCodecError);
+
+  /**
+   * Called when seeks are dropped when scrubbing.
+   *
+   * @param droppedSeekCount The number of dropped seeks.
+   */
+  void onDroppedSeeksWhileScrubbing(int droppedSeekCount);
 }

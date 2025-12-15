@@ -16,7 +16,7 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
@@ -140,7 +140,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     if (intent == null
         || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
-      android.util.Log.d(TAG, "Ignore unsupported intent: " + intent);
+      Log.d(TAG, "Ignore unsupported intent: " + intent);
       return;
     }
 
@@ -163,7 +163,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         // playback is started and the MediaSessionService/MediaLibraryService is put into the
         // foreground (see https://developer.android.com/media/legacy/media-buttons and
         // https://developer.android.com/about/versions/oreo/android-8.0-changes#back-all).
-        android.util.Log.w(
+        Log.w(
             TAG,
             "Ignore key event that is not a `play` command on API 26 or above to avoid an"
                 + " 'ForegroundServiceDidNotStartInTimeException'");
@@ -190,7 +190,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
           if (SDK_INT >= 31 && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
             onForegroundServiceStartNotAllowedException(
-                serviceIntent, Api31.castToForegroundServiceStartNotAllowedException(e));
+                context, serviceIntent, Api31.castToForegroundServiceStartNotAllowedException(e));
           } else {
             throw e;
           }
@@ -227,6 +227,21 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   /**
+   * @deprecated Use {@link #onForegroundServiceStartNotAllowedException(Context, Intent,
+   *     ForegroundServiceStartNotAllowedException)} instead.
+   */
+  @Deprecated
+  @RequiresApi(31)
+  protected void onForegroundServiceStartNotAllowedException(
+      Intent intent, ForegroundServiceStartNotAllowedException e) {
+    Log.e(
+        TAG,
+        "caught exception when trying to start a foreground service from the "
+            + "background: "
+            + e.getMessage());
+  }
+
+  /**
    * This method is called when an exception is thrown when calling {@link
    * Context#startForegroundService(Intent)} as a result of receiving a media button event.
    *
@@ -240,27 +255,24 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * Intent#ACTION_MEDIA_BUTTON}. If this happens on API 31+ and the app is in the background then
    * an exception is thrown.
    *
-   * <p>With the exception of devices that are running API 20 and below, a media button intent is
-   * only required to be sent to this receiver for a Bluetooth media button event that wants to
-   * restart the service. In such a case the app gets an exemption and is allowed to start the
-   * foreground service. In this case this method will never be called.
+   * <p>A media button intent is only required to be sent to this receiver for a Bluetooth media
+   * button event that wants to restart the service. In such a case the app gets an exemption and is
+   * allowed to start the foreground service. In this case this method will never be called.
    *
    * <p>In all other cases of attempting to start a Media3 service or to send a media button event,
    * apps must use a {@link MediaBrowser} or {@link MediaController} to bind to the service instead
    * of broadcasting an intent.
    *
+   * @param context The broadcast receiver's {@linkplain Context}
    * @param intent The intent that was used {@linkplain Context#startForegroundService(Intent) for
    *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
+  @SuppressWarnings("deprecation")
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
-      Intent intent, ForegroundServiceStartNotAllowedException e) {
-    Log.e(
-        TAG,
-        "caught exception when trying to start a foreground service from the "
-            + "background: "
-            + e.getMessage());
+      Context context, Intent intent, ForegroundServiceStartNotAllowedException e) {
+    onForegroundServiceStartNotAllowedException(intent, e);
   }
 
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.

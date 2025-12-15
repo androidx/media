@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment.BY_START_THEN_END_THEN_DIVISOR;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -28,8 +28,7 @@ import androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
-import java.util.ArrayList;
-import java.util.List;
+import com.google.common.collect.Iterables;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -93,24 +92,16 @@ import java.util.TreeMap;
   }
 
   private static float getCaptureFrameRate(Metadata metadata) {
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof SmtaMetadataEntry) {
-        return ((SmtaMetadataEntry) entry).captureFrameRate;
-      }
-    }
-
-    return C.RATE_UNSET;
+    SmtaMetadataEntry smtaEntry = metadata.getFirstEntryOfType(SmtaMetadataEntry.class);
+    return smtaEntry != null ? smtaEntry.captureFrameRate : C.RATE_UNSET;
   }
 
   private static ImmutableList<Segment> extractSlowMotionSegments(Metadata metadata) {
-    List<Segment> segments = new ArrayList<>();
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof SlowMotionData) {
-        segments.addAll(((SlowMotionData) entry).segments);
-      }
-    }
-    return ImmutableList.sortedCopyOf(BY_START_THEN_END_THEN_DIVISOR, segments);
+    ImmutableList<SlowMotionData> slowMotionDataList =
+        metadata.getEntriesOfType(SlowMotionData.class);
+    return ImmutableList.sortedCopyOf(
+        BY_START_THEN_END_THEN_DIVISOR,
+        Iterables.concat(
+            Iterables.transform(slowMotionDataList, slowMotionData -> slowMotionData.segments)));
   }
 }

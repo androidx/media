@@ -1,17 +1,12 @@
 seekMap:
-  isSeekable = true
+  isSeekable = false
   duration = UNSET TIME
   getPosition(0) = [[timeUs=0, position=0]]
-  getPosition(1) = [[timeUs=1, position=0]]
 numberOfTracks = 1
 track 1024:
-  total output bytes = 57672
-  sample count = 1
+  total output bytes = 0
+  sample count = 0
   format 0:
-    containerMimeType = image/heif
-    sampleMimeType = image/heif
-  sample 0:
-    time = 0
-    flags = 1
-    data = length 57672, hash 2A173284
+    containerMimeType = image/heic
+    metadata = entries=[Motion photo metadata: photoStartPosition=0, photoSize=28853, photoPresentationTimestampUs=-9223372036854775807, videoStartPosition=28869, videoSize=28803]
 tracksEnded = true

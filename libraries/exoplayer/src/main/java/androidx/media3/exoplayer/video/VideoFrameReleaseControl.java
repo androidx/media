@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.video;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -231,6 +231,7 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+    frameReleaseHelper.onPositionReset();
   }
 
   /** Called when rendering starts. */
@@ -372,7 +373,6 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_SKIP;
     }
     if (!hasOutputSurface) {
-      frameReadyWithoutSurface = true;
       // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
       if (frameTimingEvaluator.shouldIgnoreFrame(
           frameReleaseInfo.earlyUs,
@@ -382,9 +382,11 @@ public final class VideoFrameReleaseControl {
           /* treatDroppedBuffersAsSkipped= */ true)) {
         return FRAME_RELEASE_IGNORE;
       }
-      return started && frameReleaseInfo.earlyUs < 30_000
-          ? FRAME_RELEASE_SKIP
-          : FRAME_RELEASE_TRY_AGAIN_LATER;
+      if (started && frameReleaseInfo.earlyUs < 30_000) {
+        return FRAME_RELEASE_SKIP;
+      }
+      frameReadyWithoutSurface = true;
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
     }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
       return FRAME_RELEASE_IMMEDIATELY;
@@ -396,7 +398,8 @@ public final class VideoFrameReleaseControl {
     // Calculate release time and adjust earlyUs to screen vsync.
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
-        frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));
+        frameReleaseHelper.adjustReleaseTime(
+            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000), presentationTimeUs);
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
     // While joining, late frames are skipped while we catch up with the playback position.
     boolean treatDropAsSkip =

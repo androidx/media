@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'kotlin-android'
 android {
     namespace 'androidx.media3.effect'
-
-    defaultConfig {
-        // The following argument makes the Android Test Orchestrator run its
-        // "pm clear" command after each test invocation. This command ensures
-        // that the app's state is completely cleared between tests.
-        testInstrumentationRunnerArguments clearPackageData: 'true'
-    }
 
     buildTypes {
         debug {
             testCoverageEnabled = true
         }
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 
     sourceSets {
@@ -47,8 +45,11 @@ android {
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     api project(modulePrefix + 'lib-common')
     implementation project(modulePrefix + 'lib-datasource')
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:" + kotlinxCoroutinesVersion
+    api 'com.airbnb.android:lottie:' + lottieVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
@@ -57,6 +58,7 @@ dependencies {
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     testImplementation 'com.google.truth:truth:' + truthVersion
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
     androidTestImplementation project(modulePrefix + 'lib-exoplayer')
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion

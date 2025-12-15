@@ -15,13 +15,11 @@
  */
 package androidx.media3.session.legacy;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.PolyNull;
@@ -30,7 +28,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
  * Utilities to convert {@link android.os.Parcelable} instances to and from legacy package names
  * when writing to or reading them from a {@link android.os.Bundle}.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class LegacyParcelableUtil {
 
@@ -50,13 +47,11 @@ public final class LegacyParcelableUtil {
     if (value == null) {
       return null;
     }
-    value = maybeApplyMediaDescriptionParcelableBugWorkaround(value);
     Parcel parcel = Parcel.obtain();
     try {
       value.writeToParcel(parcel, /* flags= */ 0);
       parcel.setDataPosition(0);
       T result = creator.createFromParcel(parcel);
-      result = maybeApplyMediaDescriptionParcelableBugWorkaround(result);
       return result;
     } finally {
       parcel.recycle();
@@ -83,40 +78,5 @@ public final class LegacyParcelableUtil {
       output.add(convert(value.get(i), creator));
     }
     return output;
-  }
-
-  // TODO: b/335804969 - Remove this workaround once the bug fix is in the androidx.media dependency
-  @SuppressWarnings("unchecked")
-  private static <T> T maybeApplyMediaDescriptionParcelableBugWorkaround(T value) {
-    if (SDK_INT >= 23) {
-      return value;
-    }
-    if (value instanceof android.support.v4.media.MediaBrowserCompat.MediaItem) {
-      android.support.v4.media.MediaBrowserCompat.MediaItem mediaItem =
-          (android.support.v4.media.MediaBrowserCompat.MediaItem) value;
-      return (T)
-          new android.support.v4.media.MediaBrowserCompat.MediaItem(
-              rebuildMediaDescriptionCompat(mediaItem.getDescription()), mediaItem.getFlags());
-    } else if (value instanceof android.support.v4.media.MediaDescriptionCompat) {
-      android.support.v4.media.MediaDescriptionCompat description =
-          (android.support.v4.media.MediaDescriptionCompat) value;
-      return (T) rebuildMediaDescriptionCompat(description);
-    } else {
-      return value;
-    }
-  }
-
-  private static android.support.v4.media.MediaDescriptionCompat rebuildMediaDescriptionCompat(
-      android.support.v4.media.MediaDescriptionCompat value) {
-    return new android.support.v4.media.MediaDescriptionCompat.Builder()
-        .setMediaId(value.getMediaId())
-        .setTitle(value.getTitle())
-        .setSubtitle(value.getSubtitle())
-        .setDescription(value.getDescription())
-        .setIconBitmap(value.getIconBitmap())
-        .setIconUri(value.getIconUri())
-        .setExtras(value.getExtras())
-        .setMediaUri(value.getMediaUri())
-        .build();
   }
 }

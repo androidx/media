@@ -16,6 +16,7 @@
 package androidx.media3.decoder.flac;
 
 import static androidx.media3.common.util.Util.getPcmEncoding;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -24,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.flac.FlacBinarySearchSeeker.OutputFrameHolder;
@@ -187,7 +187,7 @@ public final class FlacExtractor implements Extractor {
   @EnsuresNonNull({"decoderJni", "extractorOutput", "trackOutput"}) // Ensures initialized.
   @SuppressWarnings("nullness:contracts.postcondition")
   private FlacDecoderJni initDecoderJni(ExtractorInput input) {
-    FlacDecoderJni decoderJni = Assertions.checkNotNull(this.decoderJni);
+    FlacDecoderJni decoderJni = checkNotNull(this.decoderJni);
     decoderJni.setData(input);
     return decoderJni;
   }

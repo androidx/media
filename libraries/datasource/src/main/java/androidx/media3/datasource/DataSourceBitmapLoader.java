@@ -15,8 +15,9 @@
  */
 package androidx.media3.datasource;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
+import static androidx.media3.datasource.BitmapUtil.decode;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -31,6 +32,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.concurrent.Executors;
 
@@ -49,57 +51,152 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
       Suppliers.memoize(
           () -> MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()));
 
+  /** A builder for {@link DataSourceBitmapLoader} instances. */
+  public static final class Builder {
+
+    private final Context context;
+
+    @Nullable private ListeningExecutorService listeningExecutorService;
+    @Nullable private DataSource.Factory dataSourceFactory;
+    @Nullable private BitmapFactory.Options options;
+    private int maximumOutputDimension;
+    private boolean makeShared;
+
+    /**
+     * Creates a builder.
+     *
+     * @param context The context.
+     */
+    public Builder(Context context) {
+      this.context = context;
+      this.maximumOutputDimension = C.LENGTH_UNSET;
+    }
+
+    /**
+     * Sets the {@link DataSource.Factory} to be used to create {@link DataSource} instances for
+     * loading bitmaps.
+     *
+     * <p>If not set, a {@link DefaultDataSource.Factory} will be used.
+     *
+     * @param dataSourceFactory A {@link DataSource.Factory}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDataSourceFactory(DataSource.Factory dataSourceFactory) {
+      this.dataSourceFactory = dataSourceFactory;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ListeningExecutorService} to be used for loading bitmaps.
+     *
+     * <p>If not set, {@link #DEFAULT_EXECUTOR_SERVICE} will be used.
+     *
+     * @param listeningExecutorService A {@link ListeningExecutorService}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setExecutorService(ListeningExecutorService listeningExecutorService) {
+      this.listeningExecutorService = listeningExecutorService;
+      return this;
+    }
+
+    /**
+     * Sets the {@link BitmapFactory.Options} to be used for decoding bitmaps.
+     *
+     * @param options A {@link BitmapFactory.Options}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setBitmapFactoryOptions(@Nullable BitmapFactory.Options options) {
+      this.options = options;
+      return this;
+    }
+
+    /**
+     * Sets the maximum output dimension for decoded bitmaps.
+     *
+     * @param maximumOutputDimension The maximum output dimension in pixels.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaximumOutputDimension(int maximumOutputDimension) {
+      this.maximumOutputDimension = maximumOutputDimension;
+      return this;
+    }
+
+    /**
+     * Sets whether the {@link Bitmap} should be converted to an immutable, sharable instance that
+     * is most efficient for repeated transfer over binder interfaces.
+     *
+     * @param makeShared Whether to make the {@link Bitmap} shared.
+     * @return This builder.
+     * @see BitmapUtil#makeShared(Bitmap)
+     */
+    @CanIgnoreReturnValue
+    public Builder setMakeShared(boolean makeShared) {
+      this.makeShared = makeShared;
+      return this;
+    }
+
+    /** Builds a {@link DataSourceBitmapLoader}. */
+    public DataSourceBitmapLoader build() {
+      return new DataSourceBitmapLoader(this);
+    }
+  }
+
   private final ListeningExecutorService listeningExecutorService;
   private final DataSource.Factory dataSourceFactory;
   @Nullable private final BitmapFactory.Options options;
   private final int maximumOutputDimension;
+  private final boolean makeShared;
 
   /**
-   * Creates an instance that uses a {@link DefaultHttpDataSource} for image loading and delegates
-   * loading tasks to a {@link Executors#newSingleThreadExecutor()}.
+   * @deprecated Use {@link Builder} instead.
    */
+  @Deprecated
   public DataSourceBitmapLoader(Context context) {
-    this(checkStateNotNull(DEFAULT_EXECUTOR_SERVICE.get()), new DefaultDataSource.Factory(context));
+    this(new Builder(context));
   }
 
   /**
-   * Creates an instance that delegates loading tasks to the {@link ListeningExecutorService}.
-   *
-   * @param listeningExecutorService The {@link ListeningExecutorService}.
-   * @param dataSourceFactory The {@link DataSource.Factory} that creates the {@link DataSource}
-   *     used to load the image.
+   * @deprecated Use {@link Builder} instead.
    */
+  @Deprecated
+  public DataSourceBitmapLoader(Context context, int maximumOutputDimension) {
+    this(new Builder(context).setMaximumOutputDimension(maximumOutputDimension));
+  }
+
+  /**
+   * @deprecated Use {@link Builder} instead.
+   */
+  @SuppressWarnings("deprecation") // Calling deprecated constructor.
+  @Deprecated
   public DataSourceBitmapLoader(
       ListeningExecutorService listeningExecutorService, DataSource.Factory dataSourceFactory) {
     this(listeningExecutorService, dataSourceFactory, /* options= */ null);
   }
 
   /**
-   * Creates an instance that delegates loading tasks to the {@link ListeningExecutorService}.
-   *
-   * @param listeningExecutorService The {@link ListeningExecutorService}.
-   * @param dataSourceFactory The {@link DataSource.Factory} that creates the {@link DataSource}
-   *     used to load the image.
-   * @param options The {@link BitmapFactory.Options} the image should be loaded with.
+   * @deprecated Use {@link Builder} instead.
    */
+  @SuppressWarnings("deprecation") // Calling deprecated constructor.
+  @Deprecated
   public DataSourceBitmapLoader(
       ListeningExecutorService listeningExecutorService,
       DataSource.Factory dataSourceFactory,
       @Nullable BitmapFactory.Options options) {
-    this(listeningExecutorService, dataSourceFactory, options, C.LENGTH_UNSET);
+    this(
+        listeningExecutorService,
+        dataSourceFactory,
+        options,
+        /* maximumOutputDimension= */ C.LENGTH_UNSET);
   }
 
   /**
-   * Creates an instance that delegates loading tasks to the {@link ListeningExecutorService}.
-   *
-   * <p>Use {@code maximumOutputDimension} to limit memory usage when loading large Bitmaps.
-   *
-   * @param listeningExecutorService The {@link ListeningExecutorService}.
-   * @param dataSourceFactory The {@link DataSource.Factory} that creates the {@link DataSource}
-   *     used to load the image.
-   * @param options The {@link BitmapFactory.Options} the image should be loaded with.
-   * @param maximumOutputDimension The maximum dimension of the output Bitmap.
+   * @deprecated Use {@link Builder} instead.
    */
+  @Deprecated
   public DataSourceBitmapLoader(
       ListeningExecutorService listeningExecutorService,
       DataSource.Factory dataSourceFactory,
@@ -109,6 +206,21 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
     this.dataSourceFactory = dataSourceFactory;
     this.options = options;
     this.maximumOutputDimension = maximumOutputDimension;
+    this.makeShared = false;
+  }
+
+  private DataSourceBitmapLoader(Builder builder) {
+    this.dataSourceFactory =
+        builder.dataSourceFactory != null
+            ? builder.dataSourceFactory
+            : new DefaultDataSource.Factory(builder.context);
+    this.listeningExecutorService =
+        builder.listeningExecutorService != null
+            ? builder.listeningExecutorService
+            : checkNotNull(DEFAULT_EXECUTOR_SERVICE.get());
+    this.options = builder.options;
+    this.maximumOutputDimension = builder.maximumOutputDimension;
+    this.makeShared = builder.makeShared;
   }
 
   @Override
@@ -119,28 +231,41 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
     return listeningExecutorService.submit(
-        () -> BitmapUtil.decode(data, data.length, options, maximumOutputDimension));
+        () ->
+            maybeAsShared(makeShared, decode(data, data.length, options, maximumOutputDimension)));
   }
 
   @Override
   public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
     return listeningExecutorService.submit(
-        () -> load(dataSourceFactory.createDataSource(), uri, options, maximumOutputDimension));
+        () ->
+            load(
+                dataSourceFactory.createDataSource(),
+                uri,
+                options,
+                maximumOutputDimension,
+                makeShared));
   }
 
   private static Bitmap load(
       DataSource dataSource,
       Uri uri,
       @Nullable BitmapFactory.Options options,
-      int maximumOutputDimension)
+      int maximumOutputDimension,
+      boolean makeShared)
       throws IOException {
     try {
       DataSpec dataSpec = new DataSpec(uri);
       dataSource.open(dataSpec);
       byte[] readData = DataSourceUtil.readToEnd(dataSource);
-      return BitmapUtil.decode(readData, readData.length, options, maximumOutputDimension);
+      return maybeAsShared(
+          makeShared, decode(readData, readData.length, options, maximumOutputDimension));
     } finally {
       dataSource.close();
     }
+  }
+
+  private static Bitmap maybeAsShared(boolean makeShared, Bitmap bitmap) {
+    return makeShared ? BitmapUtil.makeShared(bitmap) : bitmap;
   }
 }

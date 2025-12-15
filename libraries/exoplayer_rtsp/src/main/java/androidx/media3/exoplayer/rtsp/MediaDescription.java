@@ -16,11 +16,11 @@
 
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.rtsp.RtspMessageUtil.parseInt;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_FMTP;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_RTPMAP;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;

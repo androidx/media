@@ -90,7 +90,8 @@ public final class InAppFragmentedMp4Muxer implements Muxer {
         throw new MuxerException("Error creating file output stream", e);
       }
 
-      FragmentedMp4Muxer.Builder builder = new FragmentedMp4Muxer.Builder(outputStream);
+      FragmentedMp4Muxer.Builder builder =
+          new FragmentedMp4Muxer.Builder(outputStream.getChannel());
       if (fragmentDurationMs != C.TIME_UNSET) {
         builder.setFragmentDurationMs(fragmentDurationMs);
       }

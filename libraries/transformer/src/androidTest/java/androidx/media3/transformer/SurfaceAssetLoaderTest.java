@@ -92,7 +92,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -129,11 +129,12 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 
   @Test
@@ -163,7 +164,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -202,10 +203,11 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 }

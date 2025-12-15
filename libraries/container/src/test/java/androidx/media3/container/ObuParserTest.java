@@ -76,6 +76,40 @@ public class ObuParserTest {
   }
 
   @Test
+  public void split_truncatedSequenceHeaderAndFrame_failsToGetByte_returnsFullObuOnly() {
+    ByteBuffer truncatedSample = SEQUENCE_HEADER_AND_FRAME.duplicate();
+    truncatedSample.limit(17);
+
+    List<ObuParser.Obu> obuList = ObuParser.split(truncatedSample);
+
+    assertThat(obuList).hasSize(1);
+    assertThat(obuList.get(0).type).isEqualTo(OBU_SEQUENCE_HEADER);
+    assertThat(obuList.get(0).payload.remaining()).isEqualTo(14);
+  }
+
+  @Test
+  public void split_truncatedSequenceHeaderAndFrame_failsToSetLimit_returnsFullObuOnly() {
+    ByteBuffer truncatedSample = SEQUENCE_HEADER_AND_FRAME.asReadOnlyBuffer();
+    truncatedSample.limit(18);
+
+    List<ObuParser.Obu> obuList = ObuParser.split(truncatedSample);
+
+    assertThat(obuList).hasSize(1);
+    assertThat(obuList.get(0).type).isEqualTo(OBU_SEQUENCE_HEADER);
+    assertThat(obuList.get(0).payload.remaining()).isEqualTo(14);
+  }
+
+  @Test
+  public void split_truncatedSequenceHeaderAndFrame_failsToGetByte_returnsNoObu() {
+    ByteBuffer truncatedSample = SEQUENCE_HEADER_AND_FRAME.asReadOnlyBuffer();
+    truncatedSample.limit(1);
+
+    List<ObuParser.Obu> obuList = ObuParser.split(truncatedSample);
+
+    assertThat(obuList).isEmpty();
+  }
+
+  @Test
   public void sequenceHeader_parses() {
     ObuParser.Obu sequenceHeaderObu = ObuParser.split(SEQUENCE_HEADER_AND_FRAME).get(0);
 

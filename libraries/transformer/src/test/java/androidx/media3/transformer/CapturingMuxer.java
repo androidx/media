@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
@@ -43,6 +43,7 @@ import java.util.Comparator;
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all
  * interactions (for testing purposes) and forwards method calls to the underlying {@link Muxer}.
  */
+// TODO: b/445455798 - Delete CapturingMuxer and directly validate output file.
 public final class CapturingMuxer implements Muxer, Dumpable {
 
   /**
@@ -61,7 +62,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
      *     dumping}, where PCM audio is captured in batches of a fixed size.
      */
     public Factory(boolean handleAudioAsPcm) {
-      this(handleAudioAsPcm, new DefaultMuxer.Factory());
+      this(handleAudioAsPcm, new InAppMp4Muxer.Factory());
     }
 
     /**

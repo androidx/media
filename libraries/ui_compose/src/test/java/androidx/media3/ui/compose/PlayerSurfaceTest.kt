@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
@@ -43,8 +43,10 @@ import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.inOrder
+import org.mockito.Mockito.mock
 import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
@@ -56,51 +58,48 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withSurfaceViewType_setsSurfaceViewOnPlayer() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isInstanceOf(SurfaceView::class.java)
   }
 
   @Test
   fun playerSurface_withTextureViewType_setsTextureViewOnPlayer() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isInstanceOf(TextureView::class.java)
   }
 
   @Test
   fun playerSurface_withoutSupportedCommand_doesNotSetSurfaceOnPlayer() {
-    val player = TestPlayer()
+    val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_VIDEO_SURFACE)
 
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isNull()
   }
 
   @Test
   fun playerSurface_withUpdateSurfaceType_setsNewSurfaceOnPlayer() {
-    val player = TestPlayer()
+    val player = FakePlayer()
 
     lateinit var surfaceType: MutableIntState
     composeTestRule.setContent {
       surfaceType = remember { mutableIntStateOf(SURFACE_TYPE_TEXTURE_VIEW) }
       PlayerSurface(player = player, surfaceType = surfaceType.intValue)
     }
-    composeTestRule.waitForIdle()
+
     surfaceType.intValue = SURFACE_TYPE_SURFACE_VIEW
     composeTestRule.waitForIdle()
 
@@ -109,10 +108,10 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withNewPlayer_unsetsSurfaceOnOldPlayerFirst() {
-    val player0 = TestPlayer()
-    val player1 = TestPlayer()
-    val spyPlayer0 = spy(ForwardingPlayer(player0))
-    val spyPlayer1 = spy(ForwardingPlayer(player1))
+    val player0 = FakePlayer()
+    val player1 = FakePlayer()
+    val spyPlayer0 = mock(Player::class.java, delegatesTo<Player>(player0))
+    val spyPlayer1 = mock(Player::class.java, delegatesTo<Player>(player1))
 
     lateinit var playerIndex: MutableIntState
     composeTestRule.setContent {
@@ -122,7 +121,7 @@ class PlayerSurfaceTest {
         surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       )
     }
-    composeTestRule.waitForIdle()
+
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -141,7 +140,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_fromPlayerToNull_unsetsSurfaceOnOldPlayer() {
-    val nonNullPlayer = TestPlayer()
+    val nonNullPlayer = FakePlayer()
     val spyPlayer = spy(ForwardingPlayer(nonNullPlayer))
 
     lateinit var playerIndex: MutableIntState
@@ -152,7 +151,7 @@ class PlayerSurfaceTest {
         surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       )
     }
-    composeTestRule.waitForIdle()
+
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -172,7 +171,6 @@ class PlayerSurfaceTest {
       PlayerSurface(player = if (playerIndex.intValue == 0) player1 else player0)
     }
 
-    composeTestRule.waitForIdle()
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -195,7 +193,6 @@ class PlayerSurfaceTest {
       PlayerSurface(player = if (playerIndex.intValue == 0) null else player)
     }
 
-    composeTestRule.waitForIdle()
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
     playerIndex.intValue = 0
@@ -231,7 +228,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -285,7 +281,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -331,7 +326,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -375,7 +369,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -419,7 +412,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -469,7 +461,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)

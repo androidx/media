@@ -64,8 +64,8 @@ import java.io.IOException;
       sharpTransformGlProgram =
           new GlProgram(
               context,
-              "shaders/vertex_shader_transformation_es2.glsl",
-              "shaders/fragment_shader_copy_es2.glsl");
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_copy_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }

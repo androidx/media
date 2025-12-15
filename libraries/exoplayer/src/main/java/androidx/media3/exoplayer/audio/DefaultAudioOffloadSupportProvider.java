@@ -16,7 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.media.AudioFormat;
@@ -103,13 +103,11 @@ public final class DefaultAudioOffloadSupportProvider
     if (SDK_INT >= 31) {
       return Api31.getOffloadedPlaybackSupport(
           audioFormat,
-          audioAttributes.getAudioAttributesV21().audioAttributes,
+          audioAttributes.getPlatformAudioAttributes(),
           isOffloadVariableRateSupported);
     }
     return Api29.getOffloadedPlaybackSupport(
-        audioFormat,
-        audioAttributes.getAudioAttributesV21().audioAttributes,
-        isOffloadVariableRateSupported);
+        audioFormat, audioAttributes.getPlatformAudioAttributes(), isOffloadVariableRateSupported);
   }
 
   private boolean isOffloadVariableRateSupported(@Nullable Context context) {

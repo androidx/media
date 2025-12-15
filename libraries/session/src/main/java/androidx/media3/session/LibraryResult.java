@@ -15,20 +15,21 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -325,7 +326,7 @@ public final class LibraryResult<V> {
   }
 
   private static void verifyMediaItem(MediaItem item) {
-    checkNotEmpty(item.mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(item.mediaId), "mediaId must not be empty");
     checkArgument(item.mediaMetadata.isBrowsable != null, "mediaMetadata must specify isBrowsable");
     checkArgument(item.mediaMetadata.isPlayable != null, "mediaMetadata must specify isPlayable");
   }
@@ -337,10 +338,19 @@ public final class LibraryResult<V> {
   private static final String FIELD_VALUE_TYPE = Util.intToStringMaxRadix(4);
   private static final String FIELD_SESSION_ERROR = Util.intToStringMaxRadix(5);
 
+  /**
+   * @deprecated Use {@link #toBundle(int)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public Bundle toBundle() {
+    return toBundle(MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
   // Casting V to ImmutableList<MediaItem> is safe if valueType == VALUE_TYPE_ITEM_LIST.
   @SuppressWarnings("unchecked")
   @UnstableApi
-  public Bundle toBundle() {
+  public Bundle toBundle(int interfaceVersion) {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_RESULT_CODE, resultCode);
     bundle.putLong(FIELD_COMPLETION_TIME_MS, completionTimeMs);
@@ -357,7 +367,7 @@ public final class LibraryResult<V> {
     }
     switch (valueType) {
       case VALUE_TYPE_ITEM:
-        bundle.putBundle(FIELD_VALUE, ((MediaItem) value).toBundle());
+        bundle.putBundle(FIELD_VALUE, ((MediaItem) value).toBundle(interfaceVersion));
         break;
       case VALUE_TYPE_ITEM_LIST:
         BundleCompat.putBinder(
@@ -365,7 +375,7 @@ public final class LibraryResult<V> {
             FIELD_VALUE,
             new BundleListRetriever(
                 BundleCollectionUtil.toBundleList(
-                    (ImmutableList<MediaItem>) value, MediaItem::toBundle)));
+                    (ImmutableList<MediaItem>) value, item -> item.toBundle(interfaceVersion))));
         break;
       case VALUE_TYPE_VOID:
       case VALUE_TYPE_ERROR:
@@ -375,34 +385,95 @@ public final class LibraryResult<V> {
     return bundle;
   }
 
-  /** Restores a {@code LibraryResult<Void>} from a {@link Bundle}. */
+  /**
+   * @deprecated USe {@link #fromVoidBundle(Bundle, int)} instead.
+   */
   // fromBundle will throw if the bundle doesn't have the right value type.
   @UnstableApi
-  @SuppressWarnings("unchecked")
+  @Deprecated
   public static LibraryResult<Void> fromVoidBundle(Bundle bundle) {
-    return (LibraryResult<Void>) fromUnknownBundle(bundle);
+    return fromVoidBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
-  /** Restores a {@code LibraryResult<MediaItem>} from a {@link Bundle}. */
+  /**
+   * Restores a {@code LibraryResult<Void>} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
   // fromBundle will throw if the bundle doesn't have the right value type.
   @UnstableApi
   @SuppressWarnings("unchecked")
+  public static LibraryResult<Void> fromVoidBundle(Bundle bundle, int interfaceVersion) {
+    return (LibraryResult<Void>) fromUnknownBundle(bundle, interfaceVersion);
+  }
+
+  /**
+   * @deprecated Use {@link #fromItemBundle(Bundle, int)} instead.
+   */
+  // fromBundle will throw if the bundle doesn't have the right value type.
+  @UnstableApi
+  @Deprecated
   public static LibraryResult<MediaItem> fromItemBundle(Bundle bundle) {
-    return (LibraryResult<MediaItem>) fromBundle(bundle, VALUE_TYPE_ITEM);
+    return fromItemBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
-  /** Restores a {@code LibraryResult<ImmutableList<MediaItem>} from a {@link Bundle}. */
+  /**
+   * Restores a {@code LibraryResult<MediaItem>} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
   // fromBundle will throw if the bundle doesn't have the right value type.
   @UnstableApi
   @SuppressWarnings("unchecked")
-  public static LibraryResult<ImmutableList<MediaItem>> fromItemListBundle(Bundle bundle) {
-    return (LibraryResult<ImmutableList<MediaItem>>) fromBundle(bundle, VALUE_TYPE_ITEM_LIST);
+  public static LibraryResult<MediaItem> fromItemBundle(Bundle bundle, int interfaceVersion) {
+    return (LibraryResult<MediaItem>) fromBundle(bundle, VALUE_TYPE_ITEM, interfaceVersion);
   }
 
-  /** Restores a {@code LibraryResult} with unknown value type from a {@link Bundle}. */
+  /**
+   * @deprecated Use {@link #fromItemListBundle(Bundle, int)} instead.
+   */
+  // fromBundle will throw if the bundle doesn't have the right value type.
   @UnstableApi
+  @Deprecated
+  public static LibraryResult<ImmutableList<MediaItem>> fromItemListBundle(Bundle bundle) {
+    return fromItemListBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Restores a {@code LibraryResult<ImmutableList<MediaItem>} from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
+  // fromBundle will throw if the bundle doesn't have the right value type.
+  @UnstableApi
+  @SuppressWarnings("unchecked")
+  public static LibraryResult<ImmutableList<MediaItem>> fromItemListBundle(
+      Bundle bundle, int interfaceVersion) {
+    return (LibraryResult<ImmutableList<MediaItem>>)
+        fromBundle(bundle, VALUE_TYPE_ITEM_LIST, interfaceVersion);
+  }
+
+  /**
+   * @deprecated Use {@link #fromUnknownBundle(Bundle, int)} instead.
+   */
+  @UnstableApi
+  @Deprecated
   public static LibraryResult<?> fromUnknownBundle(Bundle bundle) {
-    return fromBundle(bundle, /* expectedType= */ null);
+    return fromUnknownBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
+  }
+
+  /**
+   * Restores a {@code LibraryResult} with unknown value type from a {@link Bundle}.
+   *
+   * @param bundle The {@link Bundle}.
+   * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the sending process.
+   */
+  @UnstableApi
+  public static LibraryResult<?> fromUnknownBundle(Bundle bundle, int interfaceVersion) {
+    return fromBundle(bundle, /* expectedType= */ null, interfaceVersion);
   }
 
   /**
@@ -412,7 +483,7 @@ public final class LibraryResult<V> {
    *     type read from {@code bundle}.
    */
   private static LibraryResult<?> fromBundle(
-      Bundle bundle, @Nullable @ValueType Integer expectedType) {
+      Bundle bundle, @Nullable @ValueType Integer expectedType, int interfaceVersion) {
     int resultCode = bundle.getInt(FIELD_RESULT_CODE, /* defaultValue= */ RESULT_SUCCESS);
     long completionTimeMs =
         bundle.getLong(FIELD_COMPLETION_TIME_MS, /* defaultValue= */ SystemClock.elapsedRealtime());
@@ -434,7 +505,7 @@ public final class LibraryResult<V> {
       case VALUE_TYPE_ITEM:
         checkState(expectedType == null || expectedType == VALUE_TYPE_ITEM);
         @Nullable Bundle valueBundle = bundle.getBundle(FIELD_VALUE);
-        value = valueBundle == null ? null : MediaItem.fromBundle(valueBundle);
+        value = valueBundle == null ? null : MediaItem.fromBundle(valueBundle, interfaceVersion);
         break;
       case VALUE_TYPE_ITEM_LIST:
         checkState(expectedType == null || expectedType == VALUE_TYPE_ITEM_LIST);
@@ -443,7 +514,8 @@ public final class LibraryResult<V> {
             valueRetriever == null
                 ? null
                 : BundleCollectionUtil.fromBundleList(
-                    MediaItem::fromBundle, BundleListRetriever.getList(valueRetriever));
+                    item -> MediaItem.fromBundle(item, interfaceVersion),
+                    BundleListRetriever.getList(valueRetriever));
         break;
       case VALUE_TYPE_VOID:
       case VALUE_TYPE_ERROR:

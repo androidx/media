@@ -15,12 +15,14 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -82,7 +84,9 @@ public class FakeRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     if (playbackPositionUs == positionUs && lastSamplePositionUs == Long.MIN_VALUE && !isEnded) {
       // Nothing change, ignore reset operation.
       return;
@@ -109,7 +113,7 @@ public class FakeRenderer extends BaseRenderer {
         if (result == C.RESULT_FORMAT_READ) {
           DrmSession.replaceSession(currentDrmSession, formatHolder.drmSession);
           currentDrmSession = formatHolder.drmSession;
-          Format format = Assertions.checkNotNull(formatHolder.format);
+          Format format = checkNotNull(formatHolder.format);
           if (MimeTypes.getTrackType(format.sampleMimeType) != getTrackType()) {
             throw ExoPlaybackException.createForRenderer(
                 new IllegalStateException(
@@ -133,7 +137,7 @@ public class FakeRenderer extends BaseRenderer {
           }
           hasPendingBuffer = true;
         } else {
-          Assertions.checkState(result == C.RESULT_NOTHING_READ);
+          checkState(result == C.RESULT_NOTHING_READ);
           return;
         }
       }

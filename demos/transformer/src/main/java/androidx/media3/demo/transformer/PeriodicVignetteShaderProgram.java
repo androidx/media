@@ -15,7 +15,7 @@
  */
 package androidx.media3.demo.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.opengl.GLES20;
@@ -24,7 +24,6 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import androidx.media3.effect.BaseGlShaderProgram;
-import androidx.media3.effect.GlShaderProgram;
 import java.io.IOException;
 
 /**

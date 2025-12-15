@@ -108,11 +108,6 @@ public final class LibflacAudioRenderer extends DecoderAudioRenderer<FlacDecoder
     }
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected FlacDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws FlacDecoderException {
@@ -123,11 +118,6 @@ public final class LibflacAudioRenderer extends DecoderAudioRenderer<FlacDecoder
     return decoder;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected Format getOutputFormat(FlacDecoder decoder) {
     return getOutputFormat(decoder.getStreamMetadata());

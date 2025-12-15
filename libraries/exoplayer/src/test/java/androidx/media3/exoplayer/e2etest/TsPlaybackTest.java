@@ -15,18 +15,19 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
@@ -79,20 +80,32 @@ public class TsPlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    MediaItem mediaItem = MediaItem.fromUri("asset:///media/ts/" + inputFile);
+    if (inputFile.equals("elephants_dream.mpg")) {
+      // Shorten this sample to avoid test timeouts as it is too long.
+      mediaItem =
+          mediaItem
+              .buildUpon()
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(10000).build())
+              .build();
+    }
 
-    player.setMediaItem(MediaItem.fromUri("asset:///media/ts/" + inputFile));
+    player.setMediaItem(mediaItem);
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 

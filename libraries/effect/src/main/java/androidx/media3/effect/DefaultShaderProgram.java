@@ -19,9 +19,9 @@ import static android.opengl.GLES20.GL_FALSE;
 import static android.opengl.GLES20.GL_TRUE;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.content.Context;
@@ -64,27 +64,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class DefaultShaderProgram extends BaseGlShaderProgram
     implements ExternalShaderProgram, RepeatingGainmapShaderProgram {
 
-  private static final String VERTEX_SHADER_TRANSFORMATION_PATH =
-      "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String VERTEX_SHADER_TRANSFORMATION_ES3_PATH =
-      "shaders/vertex_shader_transformation_es3.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_PATH =
-      "shaders/fragment_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_COPY_PATH = "shaders/fragment_shader_copy_es2.glsl";
-  private static final String FRAGMENT_SHADER_OETF_ES3_PATH =
-      "shaders/fragment_shader_oetf_es3.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH =
-      "shaders/fragment_shader_transformation_sdr_oetf_es2.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_EXTERNAL_YUV_ES3_PATH =
-      "shaders/fragment_shader_transformation_external_yuv_es3.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_SDR_EXTERNAL_PATH =
-      "shaders/fragment_shader_transformation_sdr_external_es2.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_HDR_INTERNAL_ES3_PATH =
-      "shaders/fragment_shader_transformation_hdr_internal_es3.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_ULTRA_HDR_ES3_PATH =
-      "shaders/fragment_shader_transformation_ultra_hdr_es3.glsl";
-  private static final String FRAGMENT_SHADER_TRANSFORMATION_SDR_INTERNAL_PATH =
-      "shaders/fragment_shader_transformation_sdr_internal_es2.glsl";
   private static final ImmutableList<float[]> NDC_SQUARE =
       ImmutableList.of(
           new float[] {-1, -1, 0, 1},
@@ -181,14 +160,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<RgbMatrix> rgbMatrices,
       boolean useHdr)
       throws VideoFrameProcessingException {
-    String fragmentShaderFilePath =
+    int fragmentShaderResId =
         rgbMatrices.isEmpty()
             // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can create
             // color shifts on electrical pq tonemapped content.
-            ? FRAGMENT_SHADER_COPY_PATH
-            : FRAGMENT_SHADER_TRANSFORMATION_PATH;
+            ? R.raw.fragment_shader_copy_es2
+            : R.raw.fragment_shader_transformation_es2;
     GlProgram glProgram =
-        createGlProgram(context, VERTEX_SHADER_TRANSFORMATION_PATH, fragmentShaderFilePath);
+        createGlProgram(
+            context,
+            /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+            fragmentShaderResId);
 
     // No transfer functions needed/applied, because input and output are in the same color space.
     return new DefaultShaderProgram(
@@ -230,17 +212,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
     boolean isUsingUltraHdr =
         inputType == INPUT_TYPE_BITMAP && outputColorInfo.colorSpace == C.COLOR_SPACE_BT2020;
-    String vertexShaderFilePath =
+    int vertexShaderResId =
         isInputTransferHdr || isUsingUltraHdr
-            ? VERTEX_SHADER_TRANSFORMATION_ES3_PATH
-            : VERTEX_SHADER_TRANSFORMATION_PATH;
-    String fragmentShaderFilePath =
+            ? R.raw.vertex_shader_transformation_es3
+            : R.raw.vertex_shader_transformation_es2;
+    int fragmentShaderResId =
         isUsingUltraHdr
-            ? FRAGMENT_SHADER_TRANSFORMATION_ULTRA_HDR_ES3_PATH
+            ? R.raw.fragment_shader_transformation_ultra_hdr_es3
             : isInputTransferHdr
-                ? FRAGMENT_SHADER_TRANSFORMATION_HDR_INTERNAL_ES3_PATH
-                : FRAGMENT_SHADER_TRANSFORMATION_SDR_INTERNAL_PATH;
-    GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+                ? R.raw.fragment_shader_transformation_hdr_internal_es3
+                : R.raw.fragment_shader_transformation_sdr_internal_es2;
+    GlProgram glProgram = createGlProgram(context, vertexShaderResId, fragmentShaderResId);
     if (!isUsingUltraHdr) {
       checkArgument(
           isInputTransferHdr
@@ -298,15 +280,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       boolean sampleWithNearest)
       throws VideoFrameProcessingException {
     boolean isInputTransferHdr = ColorInfo.isTransferHdr(inputColorInfo);
-    String vertexShaderFilePath =
+    int vertexShaderResId =
         isInputTransferHdr
-            ? VERTEX_SHADER_TRANSFORMATION_ES3_PATH
-            : VERTEX_SHADER_TRANSFORMATION_PATH;
-    String fragmentShaderFilePath =
+            ? R.raw.vertex_shader_transformation_es3
+            : R.raw.vertex_shader_transformation_es2;
+    int fragmentShaderResId =
         isInputTransferHdr
-            ? FRAGMENT_SHADER_TRANSFORMATION_EXTERNAL_YUV_ES3_PATH
-            : FRAGMENT_SHADER_TRANSFORMATION_SDR_EXTERNAL_PATH;
-    GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+            ? R.raw.fragment_shader_transformation_external_yuv_es3
+            : R.raw.fragment_shader_transformation_sdr_external_es2;
+    GlProgram glProgram = createGlProgram(context, vertexShaderResId, fragmentShaderResId);
     if (isInputTransferHdr) {
       // In HDR editing mode the decoder output is sampled in YUV.
       if (!GlUtil.isYuvTargetExtensionSupported()) {
@@ -362,19 +344,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws VideoFrameProcessingException {
     boolean outputIsHdr = ColorInfo.isTransferHdr(outputColorInfo);
     boolean shouldApplyOetf = sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR;
-    String vertexShaderFilePath =
-        outputIsHdr ? VERTEX_SHADER_TRANSFORMATION_ES3_PATH : VERTEX_SHADER_TRANSFORMATION_PATH;
-    String fragmentShaderFilePath =
+    int vertexShaderResId =
         outputIsHdr
-            ? FRAGMENT_SHADER_OETF_ES3_PATH
+            ? R.raw.vertex_shader_transformation_es3
+            : R.raw.vertex_shader_transformation_es2;
+    int fragmentShaderResId =
+        outputIsHdr
+            ? R.raw.fragment_shader_oetf_es3
             : shouldApplyOetf
-                ? FRAGMENT_SHADER_TRANSFORMATION_SDR_OETF_ES2_PATH
+                ? R.raw.fragment_shader_transformation_sdr_oetf_es2
                 : rgbMatrices.isEmpty()
                     // Ensure colors not multiplied by a uRgbMatrix (even the identity) as it can
                     // create color shifts on electrical pq tonemapped content.
-                    ? FRAGMENT_SHADER_COPY_PATH
-                    : FRAGMENT_SHADER_TRANSFORMATION_PATH;
-    GlProgram glProgram = createGlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+                    ? R.raw.fragment_shader_copy_es2
+                    : R.raw.fragment_shader_transformation_es2;
+    GlProgram glProgram = createGlProgram(context, vertexShaderResId, fragmentShaderResId);
 
     @C.ColorTransfer int outputColorTransfer = outputColorInfo.colorTransfer;
     if (outputIsHdr) {
@@ -489,12 +473,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static GlProgram createGlProgram(
-      Context context, String vertexShaderFilePath, String fragmentShaderFilePath)
+      Context context, int vertexShaderResId, int fragmentShaderResId)
       throws VideoFrameProcessingException {
 
     GlProgram glProgram;
     try {
-      glProgram = new GlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+      glProgram = new GlProgram(context, vertexShaderResId, fragmentShaderResId);
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }

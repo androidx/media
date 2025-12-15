@@ -15,10 +15,11 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
@@ -40,6 +41,7 @@ public final class MimeTypes {
   // video/ MIME types
 
   public static final String VIDEO_MP4 = BASE_TYPE_VIDEO + "/mp4";
+  @UnstableApi public static final String VIDEO_QUICK_TIME = BASE_TYPE_VIDEO + "/quicktime";
   @UnstableApi public static final String VIDEO_MATROSKA = BASE_TYPE_VIDEO + "/x-matroska";
   public static final String VIDEO_WEBM = BASE_TYPE_VIDEO + "/webm";
   public static final String VIDEO_H263 = BASE_TYPE_VIDEO + "/3gpp";
@@ -147,6 +149,8 @@ public final class MimeTypes {
   @UnstableApi
   public static final String APPLICATION_CAMERA_MOTION = BASE_TYPE_APPLICATION + "/x-camera-motion";
 
+  @UnstableApi public static final String APPLICATION_META = BASE_TYPE_APPLICATION + "/meta";
+
   @UnstableApi
   public static final String APPLICATION_DEPTH_METADATA =
       BASE_TYPE_APPLICATION + "/x-depth-metadata";
@@ -213,6 +217,17 @@ public final class MimeTypes {
       }
     }
     customMimeTypes.add(customMimeType);
+  }
+
+  /**
+   * Clears all previously registered custom MIME types.
+   *
+   * @see #registerCustomMimeType(String, String, int)
+   */
+  @UnstableApi
+  @VisibleForTesting
+  public static void clearRegisteredCustomMimeTypes() {
+    customMimeTypes.clear();
   }
 
   /** Returns whether the given string is an audio MIME type. */
@@ -634,7 +649,8 @@ public final class MimeTypes {
         || APPLICATION_EMSG.equals(mimeType)
         || APPLICATION_SCTE35.equals(mimeType)
         || APPLICATION_ICY.equals(mimeType)
-        || APPLICATION_AIT.equals(mimeType)) {
+        || APPLICATION_AIT.equals(mimeType)
+        || APPLICATION_META.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;
@@ -820,7 +836,7 @@ public final class MimeTypes {
     if (!matcher.matches()) {
       return null;
     }
-    String objectTypeIndicationHex = Assertions.checkNotNull(matcher.group(1));
+    String objectTypeIndicationHex = checkNotNull(matcher.group(1));
     @Nullable String audioObjectTypeIndicationDec = matcher.group(2);
     int objectTypeIndication;
     int audioObjectTypeIndication = 0;

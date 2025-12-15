@@ -15,10 +15,11 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -34,7 +35,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public abstract class CanvasOverlay extends BitmapOverlay {
   private final boolean useInputFrameSize;
 
-  private @MonotonicNonNull Bitmap lastBitmap;
+  @Nullable private Bitmap lastBitmap;
   private @MonotonicNonNull Canvas lastCanvas;
   private volatile int width;
   private volatile int height;
@@ -85,7 +86,7 @@ public abstract class CanvasOverlay extends BitmapOverlay {
       lastCanvas = new Canvas(lastBitmap);
     }
     onDraw(checkNotNull(lastCanvas), presentationTimeUs);
-    return lastBitmap;
+    return checkNotNull(lastBitmap);
   }
 
   @Override
@@ -93,6 +94,8 @@ public abstract class CanvasOverlay extends BitmapOverlay {
     super.release();
     if (lastBitmap != null) {
       lastBitmap.recycle();
+      // After recycling, the reference must be nulled to prevent reuse of the recycled bitmap.
+      lastBitmap = null;
     }
   }
 }

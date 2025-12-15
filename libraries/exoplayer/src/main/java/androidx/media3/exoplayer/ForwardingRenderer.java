@@ -151,8 +151,14 @@ public class ForwardingRenderer implements Renderer {
   }
 
   @Override
-  public void resetPosition(long positionUs) throws ExoPlaybackException {
-    renderer.resetPosition(positionUs);
+  public void resetPosition(long positionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    renderer.resetPosition(positionUs, sampleStreamIsResetToKeyFrame);
+  }
+
+  @Override
+  public boolean supportsResetPositionWithoutKeyFrameReset(long positionUs) {
+    return renderer.supportsResetPositionWithoutKeyFrameReset(positionUs);
   }
 
   @Override

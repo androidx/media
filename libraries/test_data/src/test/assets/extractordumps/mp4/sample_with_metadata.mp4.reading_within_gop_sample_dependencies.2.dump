@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
   duration = 1024000
-  getPosition(0) = [[timeUs=0, position=2636]]
-  getPosition(1) = [[timeUs=0, position=2636]]
-  getPosition(512000) = [[timeUs=0, position=2636]]
-  getPosition(1024000) = [[timeUs=0, position=2636]]
+  getPosition(0) = [[timeUs=0, position=2715]]
+  getPosition(1) = [[timeUs=0, position=2715]]
+  getPosition(512000) = [[timeUs=0, position=2715]]
+  getPosition(1024000) = [[timeUs=0, position=2715]]
 numberOfTracks = 2
 track 0:
   total output bytes = 89876
@@ -25,7 +25,7 @@ track 0:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TRCK: description=null: values=[2/12], TPOS: description=null: values=[2/3], TDRC: description=null: values=[2024], TCON: description=null: values=[Gorpcore], TBPM: description=null: values=[120], TCMP: description=null: values=[1], COMM: language=und, description=ITUNESADVISORY, text=2, COMM: language=und, description=ITUNESGAPLESS, text=1, TSOP: description=null: values=[Sorting Artist], TSOA: description=null: values=[Sorting Album], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3796909510, timescale=1000]
+    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TRCK: description=null: values=[2/12], TPOS: description=null: values=[2/3], TDRC: description=null: values=[2024], TCON: description=null: values=[Gorpcore], TBPM: description=null: values=[120], TCMP: description=null: values=[1], COMM: language=und, description=ITUNESADVISORY, text=2, COMM: language=und, description=ITUNESGAPLESS, text=1, TSOP: description=null: values=[Sorting Artist], TSOA: description=null: values=[Sorting Album], MVIN: description=null: values=[2], MVNM: description=null: values=[foo], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3796909510, timescale=1000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 29, hash 4746B5D9
       data = length 10, hash 7A0D0F2B
@@ -164,7 +164,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf56.1.0], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TRCK: description=null: values=[2/12], TPOS: description=null: values=[2/3], TDRC: description=null: values=[2024], TCON: description=null: values=[Gorpcore], TBPM: description=null: values=[120], TCMP: description=null: values=[1], COMM: language=und, description=ITUNESADVISORY, text=2, COMM: language=und, description=ITUNESGAPLESS, text=1, TSOP: description=null: values=[Sorting Artist], TSOA: description=null: values=[Sorting Album], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3796909510, timescale=1000]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf56.1.0], TPE1: description=null: values=[Test Artist], TALB: description=null: values=[Test Album], TRCK: description=null: values=[2/12], TPOS: description=null: values=[2/3], TDRC: description=null: values=[2024], TCON: description=null: values=[Gorpcore], TBPM: description=null: values=[120], TCMP: description=null: values=[1], COMM: language=und, description=ITUNESADVISORY, text=2, COMM: language=und, description=ITUNESGAPLESS, text=1, TSOP: description=null: values=[Sorting Artist], TSOA: description=null: values=[Sorting Album], MVIN: description=null: values=[2], MVNM: description=null: values=[foo], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3796909510, timescale=1000]
     initializationData:
       data = length 2, hash 5F7
   sample 0:

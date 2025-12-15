@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -29,7 +30,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseIOException;
@@ -534,7 +534,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
     String[] streamKeysStrings = Util.split(encodedStreamKeys, ",");
     for (String streamKeysString : streamKeysStrings) {
       String[] indices = Util.split(streamKeysString, "\\.");
-      Assertions.checkState(indices.length == 3);
+      checkState(indices.length == 3);
       streamKeys.add(
           new StreamKey(
               Integer.parseInt(indices[0]),

@@ -15,11 +15,11 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 
@@ -99,7 +99,9 @@ public class FakeMediaPeriod implements MediaPeriod {
         long initialSampleTimeUs, float sampleRate, long durationUs, int keyFrameInterval) {
       return (unusedFormat, unusedMediaPeriodId) -> {
         ImmutableList.Builder<FakeSampleStreamItem> samples = ImmutableList.builder();
-        for (int frameIndex = 0; frameIndex < durationUs / 33_333; frameIndex++) {
+        long frameCount =
+            DoubleMath.roundToLong(durationUs * sampleRate / C.MICROS_PER_SECOND, RoundingMode.UP);
+        for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
           long frameTimeUs =
               initialSampleTimeUs
                   + DoubleMath.roundToLong(
@@ -414,7 +416,7 @@ public class FakeMediaPeriod implements MediaPeriod {
     boolean seekedInsideStreams = true;
     for (FakeSampleStream sampleStream : sampleStreams) {
       seekedInsideStreams &=
-          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ false);
+          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ isLoadingFinished());
     }
     if (!seekedInsideStreams) {
       for (FakeSampleStream sampleStream : sampleStreams) {
@@ -436,11 +438,9 @@ public class FakeMediaPeriod implements MediaPeriod {
               syncSampleTimestampsUs, positionUs, /* inclusive= */ true, /* stayInBounds= */ false);
       checkState(
           firstSyncTimestampIndex >= 0,
-          "Seek positionUs ("
-              + positionUs
-              + ") is smaller than first sync sample timestamp ("
-              + syncSampleTimestampsUs[0]
-              + ")");
+          "Seek positionUs (%s) is smaller than first sync sample timestamp (%s)",
+          positionUs,
+          syncSampleTimestampsUs[0]);
       long firstSyncUs = syncSampleTimestampsUs[firstSyncTimestampIndex];
       long secondSyncUs =
           firstSyncTimestampIndex < syncSampleTimestampsUs.length - 1

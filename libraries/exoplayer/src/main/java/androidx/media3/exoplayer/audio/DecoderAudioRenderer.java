@@ -15,13 +15,13 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_DRM_SESSION_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_REUSE_NOT_IMPLEMENTED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -32,7 +32,6 @@ import android.os.SystemClock;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -41,11 +40,9 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderException;
@@ -86,11 +83,18 @@ import java.lang.annotation.RetentionPolicy;
  *   <li>Message with type {@link #MSG_SET_AUX_EFFECT_INFO} to set the auxiliary effect. The message
  *       payload should be an {@link AuxEffectInfo} instance that will configure the underlying
  *       audio track.
+ *   <li>Message with type {@link #MSG_SET_PREFERRED_AUDIO_DEVICE} to set the preferred audio output
+ *       device. The message payload should be an {@link AudioDeviceInfo} instance.
+ *   <li>Message with type {@link #MSG_SET_VIRTUAL_DEVICE_ID} to set the virtual device id. The
+ *       message payload should be an {@link Integer} for the virtual device id or {@link
+ *       C#INDEX_UNSET} if unspecified.
  *   <li>Message with type {@link #MSG_SET_SKIP_SILENCE_ENABLED} to enable or disable skipping
  *       silences. The message payload should be a {@link Boolean}.
  *   <li>Message with type {@link #MSG_SET_AUDIO_SESSION_ID} to set the audio session ID. The
  *       message payload should be a session ID {@link Integer} that will be attached to the
  *       underlying audio track.
+ *   <li>Message with type {@link #MSG_SET_AUDIO_OUTPUT_PROVIDER} to set the audio output provider.
+ *       The message payload must be an {@link AudioOutputProvider} instance.
  * </ul>
  */
 @UnstableApi
@@ -167,6 +171,7 @@ public abstract class DecoderAudioRenderer<
   private final long[] pendingOutputStreamOffsetsUs;
   private int pendingOutputStreamOffsetCount;
   private boolean hasPendingReportedSkippedSilence;
+  private boolean hasReportedAudioPositionAdvancing;
   private boolean isStarted;
   private long largestQueuedPresentationTimeUs;
   private long lastBufferInStreamPresentationTimeUs;
@@ -245,7 +250,8 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
-    boolean audioSinkBufferFull = nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
+    boolean audioSinkBufferFull =
+        audioSink.hasPendingData() && nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
     if (!isStarted) {
       // When not started we can only make further progress if the audio track buffer isn't filled
       // yet and there is more data to fill it.
@@ -254,9 +260,11 @@ public abstract class DecoderAudioRenderer<
           : DEFAULT_DURATION_TO_PROGRESS_US;
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    if (!audioSinkBufferFull || audioTrackBufferDurationUs == C.TIME_UNSET) {
-      // If the AudioSink buffer is not yet full or getting the audio track buffer size is
-      // unsupported, continue calling with default duration to progress.
+    if (!hasReportedAudioPositionAdvancing
+        || !audioSinkBufferFull
+        || audioTrackBufferDurationUs == C.TIME_UNSET) {
+      // If audio has not yet advanced, the AudioSink buffer is not yet full, or getting the audio
+      // track buffer size is unsupported, continue calling with default duration to progress.
       return DEFAULT_DURATION_TO_PROGRESS_US;
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
@@ -267,8 +275,6 @@ public abstract class DecoderAudioRenderer<
             (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
-    // Account for the elapsed time since the start of this iteration of the rendering loop.
-    bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 
@@ -335,7 +341,7 @@ public abstract class DecoderAudioRenderer<
         onInputFormatChanged(formatHolder);
       } else if (result == C.RESULT_BUFFER_READ) {
         // End of stream read having not read a format.
-        Assertions.checkState(flagsOnlyBuffer.isEndOfStream());
+        checkState(flagsOnlyBuffer.isEndOfStream());
         inputStreamEnded = true;
         try {
           processEndOfStream();
@@ -625,8 +631,7 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData()
-        || (inputFormat != null && (isSourceReady() || outputBuffer != null));
+    return audioSink.hasPendingData();
   }
 
   @Override
@@ -669,12 +674,15 @@ public abstract class DecoderAudioRenderer<
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     audioSink.flush();
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
     inputStreamEnded = false;
     outputStreamEnded = false;
@@ -694,6 +702,7 @@ public abstract class DecoderAudioRenderer<
     updateCurrentPosition();
     audioSink.pause();
     isStarted = false;
+    hasReportedAudioPositionAdvancing = false;
   }
 
   @Override
@@ -702,6 +711,7 @@ public abstract class DecoderAudioRenderer<
     audioTrackNeedsConfigure = true;
     setOutputStreamOffsetUs(C.TIME_UNSET);
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     try {
       setSourceDrmSession(null);
@@ -758,9 +768,13 @@ public abstract class DecoderAudioRenderer<
         audioSink.setAudioSessionId((Integer) message);
         break;
       case MSG_SET_PREFERRED_AUDIO_DEVICE:
-        if (SDK_INT >= 23) {
-          Api23.setAudioSinkPreferredDevice(audioSink, message);
-        }
+        audioSink.setPreferredDevice((AudioDeviceInfo) message);
+        break;
+      case MSG_SET_VIRTUAL_DEVICE_ID:
+        audioSink.setVirtualDeviceId((Integer) checkNotNull(message));
+        break;
+      case MSG_SET_AUDIO_OUTPUT_PROVIDER:
+        audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
         break;
       case MSG_SET_CAMERA_MOTION_LISTENER:
       case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
@@ -772,6 +786,11 @@ public abstract class DecoderAudioRenderer<
         super.handleMessage(messageType, message);
         break;
     }
+  }
+
+  /** Returns whether the renderer is ready to start or continue decoding. */
+  protected final boolean isReadyForDecoding() {
+    return inputFormat != null && (isSourceReady() || outputBuffer != null);
   }
 
   private void maybeInitDecoder() throws ExoPlaybackException {
@@ -846,7 +865,7 @@ public abstract class DecoderAudioRenderer<
   }
 
   private void onInputFormatChanged(FormatHolder formatHolder) throws ExoPlaybackException {
-    Format newFormat = Assertions.checkNotNull(formatHolder.format);
+    Format newFormat = checkNotNull(formatHolder.format);
     setSourceDrmSession(formatHolder.drmSession);
     Format oldFormat = inputFormat;
     inputFormat = newFormat;
@@ -911,6 +930,7 @@ public abstract class DecoderAudioRenderer<
 
     @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
+      hasReportedAudioPositionAdvancing = true;
       eventDispatcher.positionAdvancing(playoutStartSystemTimeMs);
     }
 
@@ -948,17 +968,6 @@ public abstract class DecoderAudioRenderer<
     @Override
     public void onAudioCapabilitiesChanged() {
       DecoderAudioRenderer.this.onRendererCapabilitiesChanged();
-    }
-  }
-
-  @RequiresApi(23)
-  private static final class Api23 {
-    private Api23() {}
-
-    public static void setAudioSinkPreferredDevice(
-        AudioSink audioSink, @Nullable Object messagePayload) {
-      @Nullable AudioDeviceInfo audioDeviceInfo = (AudioDeviceInfo) messagePayload;
-      audioSink.setPreferredDevice(audioDeviceInfo);
     }
   }
 }

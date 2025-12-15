@@ -15,6 +15,10 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
     namespace 'androidx.media3.decoder.ffmpeg'
+
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+    }
 }
 
 // Configure the native build only if ffmpeg is present to avoid gradle sync
@@ -36,4 +40,7 @@ dependencies {
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
+    androidTestImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion
+    androidTestImplementation 'com.google.truth:truth:' + truthVersion
 }

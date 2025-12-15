@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -23,13 +23,13 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
@@ -38,10 +38,8 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
-import org.robolectric.annotation.GraphicsMode;
 
 /** End-to-end tests using MP4 samples. */
-@GraphicsMode(NATIVE)
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class Mp4PlaybackTest {
 
@@ -71,6 +69,7 @@ public class Mp4PlaybackTest {
         Sample.forFile("sample_with_numeric_genre.mp4"),
         Sample.forFile("sample_opus_fragmented.mp4"),
         Sample.forFile("sample_opus.mp4"),
+        Sample.forFile("sample_alac.mp4"),
         Sample.forFile("sample_partially_fragmented.mp4"),
         Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
         Sample.forFile("testvid_1022ms.mp4"),
@@ -87,11 +86,11 @@ public class Mp4PlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(applicationContext);
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+        new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
     if (sample.subtitleLanguageToSelect != null) {
       player.setTrackSelectionParameters(
           player
@@ -107,8 +106,9 @@ public class Mp4PlaybackTest {
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/" + sample.filename));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -130,7 +130,7 @@ public class Mp4PlaybackTest {
     }
 
     public static Sample withSubtitles(String filename, String subtitleLanguageToSelect) {
-      return new Sample(filename, /* enableSubtitles= */ subtitleLanguageToSelect);
+      return new Sample(filename, /* subtitleLanguageToSelect= */ subtitleLanguageToSelect);
     }
 
     @Override

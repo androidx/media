@@ -15,8 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -28,7 +27,6 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
@@ -394,11 +392,11 @@ import java.util.List;
    */
   public MediaPeriodHolder advanceReadingPeriod() {
     if (prewarming == reading) {
-      prewarming = checkStateNotNull(reading).getNext();
+      prewarming = checkNotNull(reading).getNext();
     }
-    reading = checkStateNotNull(reading).getNext();
+    reading = checkNotNull(reading).getNext();
     notifyQueueUpdate();
-    return checkStateNotNull(reading);
+    return checkNotNull(reading);
   }
 
   /**
@@ -407,9 +405,9 @@ import java.util.List;
    * @return The updated pre-warming period holder.
    */
   public MediaPeriodHolder advancePrewarmingPeriod() {
-    prewarming = checkStateNotNull(prewarming).getNext();
+    prewarming = checkNotNull(prewarming).getNext();
     notifyQueueUpdate();
-    return checkStateNotNull(prewarming);
+    return checkNotNull(prewarming);
   }
 
   /**
@@ -459,7 +457,7 @@ import java.util.List;
    *     periods were removed.
    */
   public int removeAfter(MediaPeriodHolder mediaPeriodHolder) {
-    checkStateNotNull(mediaPeriodHolder);
+    checkNotNull(mediaPeriodHolder);
     if (mediaPeriodHolder.equals(loading)) {
       return 0;
     }
@@ -519,7 +517,7 @@ import java.util.List;
     if (length == 0) {
       return;
     }
-    MediaPeriodHolder front = Assertions.checkStateNotNull(playing);
+    MediaPeriodHolder front = checkNotNull(playing);
     oldFrontPeriodUid = front.uid;
     oldFrontPeriodWindowSequenceNumber = front.info.id.windowSequenceNumber;
     while (front != null) {

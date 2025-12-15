@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.annotation.Nullable
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
 import androidx.media3.common.C
+import androidx.media3.common.MediaLibraryInfo
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
@@ -51,6 +51,7 @@ fun rememberPresentationState(
 ): PresentationState {
   val presentationState = remember { PresentationState(keepContentOnReset) }
   LaunchedEffect(player) { presentationState.observe(player) }
+  LaunchedEffect(keepContentOnReset) { presentationState.keepContentOnReset = keepContentOnReset }
   return presentationState
 }
 
@@ -123,7 +124,6 @@ class PresentationState(keepContentOnReset: Boolean = false) {
     }
   }
 
-  @Nullable
   private fun getVideoSizeDp(player: Player?): Size? {
     player ?: return null
     var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
@@ -189,4 +189,10 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   private fun hasSelectedVideoTrack(player: Player): Boolean =
     player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
       player.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
+
+  companion object {
+    init {
+      MediaLibraryInfo.registerModule("media3.ui.compose")
+    }
+  }
 }

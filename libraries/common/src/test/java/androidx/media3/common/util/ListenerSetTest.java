@@ -228,6 +228,37 @@ public class ListenerSetTest {
   }
 
   @Test
+  public void flushEvents_onNonLooperThread_sendsPreviouslyQueuedEventsToAllListeners()
+      throws Exception {
+    TestListener listener1 = mock(TestListener.class);
+    TestListener listener2 = mock(TestListener.class);
+
+    Thread thread =
+        new Thread(
+            () -> {
+              ListenerSet<TestListener> listenerSet = new ListenerSet<>(Thread.currentThread());
+              listenerSet.add(listener1);
+              listenerSet.add(listener2);
+
+              listenerSet.queueEvent(TestListener::callback1);
+              listenerSet.queueEvent(TestListener::callback2);
+              listenerSet.queueEvent(TestListener::callback1);
+              listenerSet.flushEvents();
+            });
+    thread.start();
+    thread.join();
+
+    InOrder inOrder = Mockito.inOrder(listener1, listener2);
+    inOrder.verify(listener1).callback1();
+    inOrder.verify(listener2).callback1();
+    inOrder.verify(listener1).callback2();
+    inOrder.verify(listener2).callback2();
+    inOrder.verify(listener1).callback1();
+    inOrder.verify(listener2).callback1();
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
   public void add_withRecursion_onlyReceivesUpdatesForFutureEvents() {
     ListenerSet<TestListener> listenerSet =
         new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, TestListener::iterationFinished);

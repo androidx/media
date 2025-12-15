@@ -74,7 +74,7 @@ public interface DashChunkSource extends ChunkSource {
 
     /**
      * Sets the set of video codecs for which within GOP sample dependency information should be
-     * parsed as part of extraction. Defaults to {@code 0} - empty set of codecs.
+     * parsed as part of extraction. Defaults to H.264 and H.265.
      *
      * <p>Having access to additional sample dependency information can speed up seeking. See {@link
      * Mp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.

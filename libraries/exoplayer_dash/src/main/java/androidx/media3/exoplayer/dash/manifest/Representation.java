@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;

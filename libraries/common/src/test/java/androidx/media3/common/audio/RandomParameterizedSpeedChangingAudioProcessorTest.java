@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.test.utils.TestSpeedProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
@@ -123,7 +124,7 @@ public class RandomParameterizedSpeedChangingAudioProcessorTest {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
         new SpeedChangingAudioProcessor(speedProvider);
     speedChangingAudioProcessor.configure(AUDIO_FORMAT);
-    speedChangingAudioProcessor.flush();
+    speedChangingAudioProcessor.flush(StreamMetadata.DEFAULT);
 
     while (totalInputFrameCount > 0) {
       // To input exact number of bytes, set limit to input buffer.

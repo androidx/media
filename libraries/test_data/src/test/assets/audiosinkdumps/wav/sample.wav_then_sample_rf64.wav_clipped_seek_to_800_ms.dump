@@ -1,10 +1,7 @@
 AudioSink:
-  buffer count = 1
   config:
     pcmEncoding = 2
     channelCount = 2
     sampleRate = 48000
-  buffer #0:
-    time = 800000
-    channel[0] = -629060931
-    channel[1] = -1194598665
+  SampleBlock:
+    buffers = length 19200, hash 37920F33

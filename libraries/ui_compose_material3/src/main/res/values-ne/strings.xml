@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">प्ले गर्नुहोस्</string>
+  <string name="playpause_button_pause">पज गर्नुहोस्</string>
+  <string name="next_button">अर्को</string>
+  <string name="previous_button">अघिल्लो</string>
+  <string name="seek_back_button">रिवाइन्ड गर्नुहोस्</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">स्किप गरी %d सेकेन्ड पछाडि जानुहोस्</item>
+    <item quantity="other">स्किप गरी %d सेकेन्ड पछाडि जानुहोस्</item>
+  </plurals>
+  <string name="seek_forward_button">स्किप गरी अगाडि जानुहोस्</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">स्किप गरी %d सेकेन्ड अगाडि जानुहोस्</item>
+    <item quantity="other">स्किप गरी %d सेकेन्ड अगाडि जानुहोस्</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">हालको मोड: नदोहोरिने। दोहोरिने मोड टगल गर्नुहोस्।</string>
+  <string name="repeat_button_repeat_one">हालको मोड: एक पटक दोहोरिने। दोहोरिने मोड टगल गर्नुहोस्।</string>
+  <string name="repeat_button_repeat_all">हालको मोड: सबै दोहोरिने। दोहोरिने मोड टगल गर्नुहोस्।</string>
+  <string name="shuffle_button_shuffle_on">सफल मोड अन गरिएको छ।</string>
+  <string name="shuffle_button_shuffle_off">सफल मोड अफ गरिएको छ।</string>
+  <string name="mute_button_shown_unmuted">म्युट गर्नुहोस्</string>
+  <string name="mute_button_shown_muted">अनम्युट गर्नुहोस्</string>
+</resources>

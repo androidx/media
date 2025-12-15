@@ -17,6 +17,7 @@ package androidx.media3.test.utils.robolectric;
 
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 
+import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
@@ -140,6 +141,8 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       new CodecInfo(/* codecName= */ "media3.audio.eac3", MimeTypes.AUDIO_E_AC3);
   public static final CodecInfo CODEC_INFO_E_AC3_JOC =
       new CodecInfo(/* codecName= */ "media3.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
+  public static final CodecInfo CODEC_INFO_ALAC =
+      new CodecInfo(/* codecName= */ "media3.audio.alac", MimeTypes.AUDIO_ALAC);
   public static final CodecInfo CODEC_INFO_FLAC =
       new CodecInfo(/* codecName= */ "media3.audio.flac", MimeTypes.AUDIO_FLAC);
   public static final CodecInfo CODEC_INFO_MPEG =
@@ -167,20 +170,13 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
           CODEC_INFO_AC4,
           CODEC_INFO_E_AC3,
           CODEC_INFO_E_AC3_JOC,
+          CODEC_INFO_ALAC,
           CODEC_INFO_FLAC,
           CODEC_INFO_MPEG,
           CODEC_INFO_MPEG_L2,
           CODEC_INFO_OPUS,
           CODEC_INFO_VORBIS,
           CODEC_INFO_RAW);
-
-  /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withAllDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig forAllSupportedMimeTypes() {
-    return withAllDefaultSupportedCodecs();
-  }
 
   /**
    * Returns a {@link ShadowMediaCodecConfig} instance populated with a default list of supported
@@ -192,14 +188,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   public static ShadowMediaCodecConfig withAllDefaultSupportedCodecs() {
     return new ShadowMediaCodecConfig(
         createDecoders(ALL_SUPPORTED_CODECS.asList(), /* forcePassthrough= */ false));
-  }
-
-  /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withNoDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig withNoDefaultSupportedMimeTypes() {
-    return withNoDefaultSupportedCodecs();
   }
 
   /** Returns a {@link ShadowMediaCodecConfig} instance populated with no shadow codecs. */
@@ -238,6 +226,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
    * @param codecConfig The {@link ShadowMediaCodec.CodecConfig} for the codec, specifying its
    *     behavior.
    */
+  // TODO(b/452541218): Remove this suppression once Robolectric is updated to a version that
+  //  includes the @RequiresApi(Q) annotation from ShadowMediaCodecList.addCodec().
+  @SuppressLint("NewApi") // The upstream annotation causing this warning was removed.
   public static void configureShadowMediaCodec(
       String codecName,
       String mimeType,
@@ -392,7 +383,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     public void configure() {
       // TODO: Update ShadowMediaCodec to consider the MediaFormat.KEY_MAX_INPUT_SIZE value passed
       // to configure() so we don't have to specify large buffers here.
-      int bufferSize = codecInfo.mimeType.equals(MimeTypes.VIDEO_H265) ? 250_000 : 150_000;
+      int bufferSize = MimeTypes.isVideo(codecInfo.mimeType) ? 250_000 : 20_000;
       configureShadowMediaCodec(
           codecInfo.codecName,
           codecInfo.mimeType,

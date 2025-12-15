@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import android.annotation.SuppressLint;
@@ -23,7 +25,6 @@ import android.os.Handler;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.NetworkTypeObserver;
@@ -359,8 +360,8 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
 
   @Override
   public void addEventListener(Handler eventHandler, EventListener eventListener) {
-    Assertions.checkNotNull(eventHandler);
-    Assertions.checkNotNull(eventListener);
+    checkNotNull(eventHandler);
+    checkNotNull(eventListener);
     eventDispatcher.addListener(eventHandler, eventListener);
   }
 
@@ -400,7 +401,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     if (!isTransferAtFullNetworkSpeed(dataSpec, isNetwork)) {
       return;
     }
-    Assertions.checkState(streamCount > 0);
+    checkState(streamCount > 0);
     long nowMs = clock.elapsedRealtime();
     int sampleElapsedTimeMs = (int) (nowMs - sampleStartTimeMs);
     totalElapsedTimeMs += sampleElapsedTimeMs;

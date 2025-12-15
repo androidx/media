@@ -20,24 +20,36 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,6 +67,18 @@ public class CompositionPlaybackTest {
   private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
   private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
+  private static final SpeedProvider SPEED_PROVIDER_2X =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
 
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -73,61 +97,223 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_sequenceOfThreeVideosRemovingMiddleVideo_noFrameIsRendered()
+  public void playback_withEncodedAudioStream_signalsPositionOffsetRelativeToFile()
       throws Exception {
-    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram();
-
-    EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
-            .setDurationUs(VIDEO_DURATION_US)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    /* videoEffects= */ ImmutableList.of(
-                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
-    EditedMediaItem videoEditedMediaItemRemoveVideo =
-        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
     Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        videoEditedMediaItem, videoEditedMediaItemRemoveVideo, videoEditedMediaItem)
-                    .build())
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
     runCompositionPlayer(composition);
 
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs()).isEmpty();
+    // First audio packet in file lives at 0.044s.
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 44000L, 44000L).inOrder();
   }
 
   @Test
-  public void playback_compositionWithSecondSequenceRemoveVideo_rendersVideoFromFirstSequence()
+  public void playback_withClippedEncodedAudioStream_signalsNextFrameAfterClipStartPosition()
       throws Exception {
-    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram();
-
-    EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
-            .setDurationUs(VIDEO_DURATION_US)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    /* videoEffects= */ ImmutableList.of(
-                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(500).build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
-    EditedMediaItem videoEditedMediaItemRemoveVideo =
-        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
     Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(videoEditedMediaItem).build(),
-                new EditedMediaItemSequence.Builder(videoEditedMediaItemRemoveVideo).build())
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
             .build();
 
     runCompositionPlayer(composition);
 
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(VIDEO_TIMESTAMPS_US);
+    // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 8399L, 8399L).inOrder();
+  }
+
+  @Test
+  public void playback_withSpeedAdjustedEncodedAudioStream_signalsPositionOffsetRelativeToFile()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .setSpeed(SPEED_PROVIDER_2X)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // First audio frame in file lives at 0.044s.
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 22000L, 22000L).inOrder();
+  }
+
+  @Test
+  public void
+      playback_withSpeedAdjustedAndClippedEncodedAudioStream_signalsPositionOffsetRelativeToFile()
+          throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(500).build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .setSpeed(SPEED_PROVIDER_2X)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 4199L, 4199L).inOrder();
+  }
+
+  @Test
+  public void seek_withEncodedAudioStream_signalsNextFrameAfterSeekPosition() throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.seekTo(250);
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    // Next audio frame after seek of 250ms is 252.979ms (b/458654879).
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 252_979L, 44000L).inOrder();
+  }
+
+  @Test
+  public void seek_withClippedEncodedAudioStream_signalsNextFrameAfterSeekPosition()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(500).build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.seekTo(250);
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    // Next audio frame after seek of 250ms and clip start of 500ms is 763.818ms.
+    // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 263_818L, 8399L).inOrder();
+  }
+
+  @Test
+  public void seek_withSpeedAdjustedEncodedAudioStream_signalsNextFrameAfterSeekPosition()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .setSpeed(SPEED_PROVIDER_2X)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.seekTo(250);
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    // Seek at 250ms resolves to 500ms, and next audio frame is 508.399ms (b/458654879).
+    // 250ms + (8.399ms / 2) gives us position offset.
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 254199L, 22000L).inOrder();
+  }
+
+  @Test
+  public void seek_withSpeedAdjustedAndClippedEncodedAudioStream_signalsNextFrameAfterSeekPosition()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(500).build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .setSpeed(SPEED_PROVIDER_2X)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item, item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.seekTo(100);
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    // Seek at 100ms with clip start of 500ms resolves to 700ms (500ms + 100ms * 2x). Next audio
+    // frame is 717.378ms. 100ms + ((717.378ms - 700ms) / 2) gives us position offset.
+    // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 108689L, 4199L).inOrder();
   }
 
   @Test
@@ -135,7 +321,8 @@ public class CompositionPlaybackTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
             .build();
     CountDownLatch repetitionEndedLatch = new CountDownLatch(2);
     AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
@@ -194,9 +381,8 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        editedMediaItem, editedMediaItem, editedMediaItem)
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(editedMediaItem, editedMediaItem, editedMediaItem)))
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -216,6 +402,51 @@ public class CompositionPlaybackTest {
   }
 
   @Test
+  public void audioOnlySingleAsset_inAudioVideoSequence_doesNotOutputSilence()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem audioClip =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET.uri))
+            .setDurationUs(250L)
+            .build();
+    EditedMediaItemSequence sequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(audioClip));
+    AtomicInteger samplesProcessedCount = new AtomicInteger();
+    TeeAudioProcessor teeAudioProcessor =
+        new TeeAudioProcessor(
+            new TeeAudioProcessor.AudioBufferSink() {
+              @Override
+              public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+              @Override
+              public void handleBuffer(ByteBuffer buffer) {
+                ShortBuffer samplesBuffer = buffer.asShortBuffer();
+                while (samplesBuffer.hasRemaining()) {
+                  // The input asset is made of 20 samples of value 1.
+                  assertThat(samplesBuffer.get()).isEqualTo(1);
+                  samplesProcessedCount.getAndIncrement();
+                }
+              }
+            });
+    Composition composition =
+        new Composition.Builder(sequence)
+            .setEffects(new Effects(ImmutableList.of(teeAudioProcessor), ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(samplesProcessedCount.get()).isEqualTo(20);
+  }
+
+  @Test
   public void playback_singleAssetAudioSequence_doesNotUnderrun()
       throws PlaybackException, TimeoutException {
     EditedMediaItem clip =
@@ -223,7 +454,8 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(clip).build()).build();
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(clip)))
+            .build();
     AtomicInteger underrunCount = new AtomicInteger();
     AudioSink.Listener sinkListener =
         new AudioSink.Listener() {
@@ -262,7 +494,11 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(clip).addGap(500_000).addItem(clip).build();
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+            .addItem(clip)
+            .addGap(500_000)
+            .addItem(clip)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     runCompositionPlayer(composition);
@@ -276,10 +512,10 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder()
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
             .addGap(500_000)
             .addItem(clip)
-            .experimentalSetForceAudioTrack(true)
+            .addItem(clip)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -294,17 +530,46 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence.Builder()
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
             .addGap(500_000)
             .addItem(audioClip)
-            .experimentalSetForceAudioTrack(true)
             .build();
     EditedMediaItem videoClip =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
-    EditedMediaItemSequence videoSequence = new EditedMediaItemSequence.Builder(videoClip).build();
+    EditedMediaItemSequence videoSequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(videoClip));
     Composition composition = new Composition.Builder(videoSequence, audioSequence).build();
 
     runCompositionPlayer(composition);
+  }
+
+  @Test
+  public void playback_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setFrameRate(30)
+            .setDurationUs(5_019_000L)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // Input: 5 sec video at 60 fps; Output: 5 sec video at 30 fps = ~150 frames
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
+        .isWithin(2)
+        .of(150);
   }
 
   private void runCompositionPlayer(Composition composition)
@@ -320,6 +585,7 @@ public class CompositionPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               player.addListener(playerTestListener);
               player.setComposition(composition);
@@ -327,5 +593,14 @@ public class CompositionPlaybackTest {
               player.play();
             });
     playerTestListener.waitUntilPlayerEnded();
+  }
+
+  private static class PositionOffsetRecorder extends PassthroughAudioProcessor {
+    private final List<Long> positionOffsetsUs = new CopyOnWriteArrayList<>();
+
+    @Override
+    protected void onFlush(StreamMetadata streamMetadata) {
+      positionOffsetsUs.add(streamMetadata.positionOffsetUs);
+    }
   }
 }

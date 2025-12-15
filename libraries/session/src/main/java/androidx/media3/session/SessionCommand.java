@@ -15,8 +15,8 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
@@ -122,10 +122,6 @@ public final class SessionCommand {
 
   /**
    * The extra bundle of a custom command. It will be {@link Bundle#EMPTY} for a predefined command.
-   *
-   * <p>Interoperability: This value is not used when the command is sent to a legacy {@code
-   * android.support.v4.media.session.MediaSessionCompat} or {@code
-   * android.support.v4.media.session.MediaControllerCompat}.
    */
   public final Bundle customExtras;
 

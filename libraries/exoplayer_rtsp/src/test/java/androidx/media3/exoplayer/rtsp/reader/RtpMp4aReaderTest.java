@@ -155,6 +155,6 @@ public final class RtpMp4aReaderTest {
         packetData,
         rtpPacket.timestamp,
         rtpPacket.sequenceNumber,
-        /* isFrameBoundary= */ rtpPacket.marker);
+        /* rtpMarker= */ rtpPacket.marker);
   }
 }

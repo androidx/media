@@ -25,6 +25,7 @@ import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_B
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_PLAYABLE;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
 import static androidx.media3.session.legacy.MediaMetadataCompat.METADATA_KEY_DURATION;
+import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
@@ -37,7 +38,6 @@ import android.os.Bundle;
 import android.service.media.MediaBrowserService;
 import android.text.SpannedString;
 import androidx.annotation.Nullable;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.MediaItem;
@@ -49,9 +49,7 @@ import androidx.media3.common.StarRating;
 import androidx.media3.common.ThumbRating;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
-import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
-import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
@@ -80,7 +78,7 @@ public final class LegacyConversionsTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
-    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
   }
 
   @Test
@@ -1212,30 +1210,6 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToAudioAttributes() {
-    assertThat(LegacyConversions.convertToAudioAttributes((AudioAttributesCompat) null))
-        .isSameInstanceAs(AudioAttributes.DEFAULT);
-    assertThat(
-            LegacyConversions.convertToAudioAttributes((MediaControllerCompat.PlaybackInfo) null))
-        .isSameInstanceAs(AudioAttributes.DEFAULT);
-
-    AudioAttributesCompat aaCompat =
-        new AudioAttributesCompat.Builder()
-            .setContentType(AudioAttributesCompat.CONTENT_TYPE_MUSIC)
-            .setFlags(AudioAttributesCompat.FLAG_AUDIBILITY_ENFORCED)
-            .setUsage(AudioAttributesCompat.USAGE_MEDIA)
-            .build();
-    AudioAttributes aa =
-        new AudioAttributes.Builder()
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
-            .setUsage(C.USAGE_MEDIA)
-            .build();
-    assertThat(LegacyConversions.convertToAudioAttributes(aaCompat)).isEqualTo(aa);
-    assertThat(LegacyConversions.convertToAudioAttributesCompat(aa)).isEqualTo(aaCompat);
-  }
-
-  @Test
   public void convertToCurrentPosition_byDefault_returnsZero() {
     long currentPositionMs =
         LegacyConversions.convertToCurrentPositionMs(
@@ -1509,16 +1483,6 @@ public final class LegacyConversionsTest {
         .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1.0f)
         .setErrorMessage(errorCode, /* errorMessage= */ null)
         .build();
-  }
-
-  // TODO(b/254265256): Move this method to a central place.
-  private static ImmutableList<@Player.Command Integer> getCommandsAsList(
-      Player.Commands commands) {
-    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
-    for (int i = 0; i < commands.size(); i++) {
-      list.add(commands.get(i));
-    }
-    return list.build();
   }
 
   private static MediaItem createMediaItemWithArtworkData(String mediaId, long durationMs) {

@@ -15,14 +15,6 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
     namespace 'androidx.media3.transformer'
 
-    defaultConfig {
-        minSdkVersion project.ext.minSdkVersion
-        // The following argument makes the Android Test Orchestrator run its
-        // "pm clear" command after each test invocation. This command ensures
-        // that the app's state is completely cleared between tests.
-        testInstrumentationRunnerArguments clearPackageData: 'true'
-    }
-
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -48,9 +40,10 @@ android {
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.concurrent:concurrent-futures:1.2.0'
+    implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     implementation project(modulePrefix + 'lib-datasource')
     implementation project(modulePrefix + 'lib-container')
+    implementation project(modulePrefix + 'lib-inspector')
     api project(modulePrefix + 'lib-exoplayer')
     api project(modulePrefix + 'lib-effect')
     api project(modulePrefix + 'lib-muxer')
@@ -62,12 +55,14 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'androidx.test.uiautomator:uiautomator:' + androidxTestUiAutomatorVersion
     androidTestImplementation 'androidx.window:window:' + androidxWindowVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
+    androidTestImplementation 'com.google.testparameterinjector:test-parameter-injector:1.18'
     androidTestImplementation project(modulePrefix + 'test-utils')
 }
 

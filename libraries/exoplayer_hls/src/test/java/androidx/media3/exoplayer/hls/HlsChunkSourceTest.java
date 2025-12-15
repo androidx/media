@@ -78,6 +78,10 @@ public class HlsChunkSourceTest {
       "media/m3u8/live_low_latency_segments_and_parts";
   private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_SINGLE_PRELOAD_PART =
       "media/m3u8/live_low_latency_segments_and_single_preload_part";
+  private static final String PLAYLIST_VOD_EMPTY = "media/m3u8/media_playlist_vod_empty";
+  private static final String PLAYLIST_LIVE_EMPTY = "media/m3u8/media_playlist_live_empty";
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_PARTS_ONLY =
+      "media/m3u8/live_low_latency_parts_only";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
   private static final Uri PLAYLIST_URI_2 = Uri.parse("http://example2.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
@@ -335,6 +339,94 @@ public class HlsChunkSourceTest {
         output);
 
     assertThat(output.chunk.dataSpec.httpRequestHeaders).doesNotContainKey("CMCD-Status");
+  }
+
+  @Test
+  public void getNextChunk_forEmptyVodPlaylist_getsNullChunkAndInferEndOfStream()
+      throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_VOD_EMPTY);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(9_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 9_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk).isNull();
+    assertThat(output.endOfStream).isTrue();
+  }
+
+  @Test
+  public void getNextChunk_forEmptyLivePlaylist_getsNullChunkAndInferReloadingPlaylist()
+      throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_LIVE_EMPTY);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(9_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 9_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(output.chunk).isNull();
+    assertThat(output.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(output.endOfStream).isFalse();
+  }
+
+  @Test
+  public void getNextChunk_forLivePlaylistWithSegmentsAndParts_getsCorrectChunk()
+      throws IOException {
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(28_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 28_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // Gets a chunk from an independent segment part.
+    Uri expectedDataSpecUri = Uri.parse("http://example.com/fileSequence15.0.ts");
+    assertThat(output.chunk.dataSpec.uri).isEqualTo(expectedDataSpecUri);
+
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 32_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    // Gets a chunk from an independent trailing part.
+    expectedDataSpecUri = Uri.parse("http://example.com/fileSequence16.0.ts");
+    assertThat(output.chunk.dataSpec.uri).isEqualTo(expectedDataSpecUri);
+  }
+
+  @Test
+  public void getNextChunk_forLivePlaylistWithPartsOnly_getsCorrectChunkFromParts()
+      throws IOException {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_PARTS_ONLY);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // A request to fetch the chunk at 8 seconds should retrieve the first part.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 8_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    Uri expectedDataSpecUri = Uri.parse("http://example.com/fileSequence16.0.ts");
+    assertThat(output.chunk.dataSpec.uri).isEqualTo(expectedDataSpecUri);
   }
 
   @Test
@@ -949,6 +1041,7 @@ public class HlsChunkSourceTest {
       when(mockPlaylistTracker.getPlaylistSnapshot(eq(playlistUri), anyBoolean()))
           .thenReturn(playlist);
       when(mockPlaylistTracker.isSnapshotValid(eq(playlistUri))).thenReturn(true);
+      when(mockPlaylistTracker.isLive()).thenAnswer(invocation -> !playlist.hasEndTag);
       if (playlistLoadException != null) {
         doThrow(playlistLoadException)
             .when(mockPlaylistTracker)
@@ -1043,7 +1136,8 @@ public class HlsChunkSourceTest {
             mock(DrmSessionEventListener.EventDispatcher.class),
             mock(LoadErrorHandlingPolicy.class),
             mock(MediaSourceEventListener.EventDispatcher.class),
-            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3);
+            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
+            /* downloadExecutor= */ null);
     mediaChunk.init(sampleStreamWrapper, ImmutableList.of());
     mediaChunk.load();
   }

@@ -42,7 +42,7 @@
   if (!(x)) ALOGE("Check failed: %s ", #x)
 
 const int endian = 1;
-#define isBigEndian() (*(reinterpret_cast<const char *>(&endian)) == 0)
+#define isBigEndian() (*(reinterpret_cast<const char*>(&endian)) == 0)
 
 // The FLAC parser calls our C++ static callbacks using C calling conventions,
 // inside FLAC__stream_decoder_process_until_end_of_metadata
@@ -51,61 +51,61 @@ const int endian = 1;
 // with the same parameter list, but discard redundant information.
 
 FLAC__StreamDecoderReadStatus FLACParser::read_callback(
-    const FLAC__StreamDecoder * /* decoder */, FLAC__byte buffer[],
-    size_t *bytes, void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)
+    const FLAC__StreamDecoder* /* decoder */, FLAC__byte buffer[],
+    size_t* bytes, void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)
       ->readCallback(buffer, bytes);
 }
 
 FLAC__StreamDecoderSeekStatus FLACParser::seek_callback(
-    const FLAC__StreamDecoder * /* decoder */,
-    FLAC__uint64 absolute_byte_offset, void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)
+    const FLAC__StreamDecoder* /* decoder */, FLAC__uint64 absolute_byte_offset,
+    void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)
       ->seekCallback(absolute_byte_offset);
 }
 
 FLAC__StreamDecoderTellStatus FLACParser::tell_callback(
-    const FLAC__StreamDecoder * /* decoder */,
-    FLAC__uint64 *absolute_byte_offset, void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)
+    const FLAC__StreamDecoder* /* decoder */,
+    FLAC__uint64* absolute_byte_offset, void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)
       ->tellCallback(absolute_byte_offset);
 }
 
 FLAC__StreamDecoderLengthStatus FLACParser::length_callback(
-    const FLAC__StreamDecoder * /* decoder */, FLAC__uint64 *stream_length,
-    void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)
+    const FLAC__StreamDecoder* /* decoder */, FLAC__uint64* stream_length,
+    void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)
       ->lengthCallback(stream_length);
 }
 
-FLAC__bool FLACParser::eof_callback(const FLAC__StreamDecoder * /* decoder */,
-                                    void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)->eofCallback();
+FLAC__bool FLACParser::eof_callback(const FLAC__StreamDecoder* /* decoder */,
+                                    void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)->eofCallback();
 }
 
 FLAC__StreamDecoderWriteStatus FLACParser::write_callback(
-    const FLAC__StreamDecoder * /* decoder */, const FLAC__Frame *frame,
-    const FLAC__int32 *const buffer[], void *client_data) {
-  return reinterpret_cast<FLACParser *>(client_data)
+    const FLAC__StreamDecoder* /* decoder */, const FLAC__Frame* frame,
+    const FLAC__int32* const buffer[], void* client_data) {
+  return reinterpret_cast<FLACParser*>(client_data)
       ->writeCallback(frame, buffer);
 }
 
-void FLACParser::metadata_callback(const FLAC__StreamDecoder * /* decoder */,
-                                   const FLAC__StreamMetadata *metadata,
-                                   void *client_data) {
-  reinterpret_cast<FLACParser *>(client_data)->metadataCallback(metadata);
+void FLACParser::metadata_callback(const FLAC__StreamDecoder* /* decoder */,
+                                   const FLAC__StreamMetadata* metadata,
+                                   void* client_data) {
+  reinterpret_cast<FLACParser*>(client_data)->metadataCallback(metadata);
 }
 
-void FLACParser::error_callback(const FLAC__StreamDecoder * /* decoder */,
+void FLACParser::error_callback(const FLAC__StreamDecoder* /* decoder */,
                                 FLAC__StreamDecoderErrorStatus status,
-                                void *client_data) {
-  reinterpret_cast<FLACParser *>(client_data)->errorCallback(status);
+                                void* client_data) {
+  reinterpret_cast<FLACParser*>(client_data)->errorCallback(status);
 }
 
 // These are the corresponding callbacks with C++ calling conventions
 
 FLAC__StreamDecoderReadStatus FLACParser::readCallback(FLAC__byte buffer[],
-                                                       size_t *bytes) {
+                                                       size_t* bytes) {
   size_t requested = *bytes;
   ssize_t actual = mDataSource->readAt(mCurrentPos, buffer, requested);
   if (0 > actual) {
@@ -131,20 +131,20 @@ FLAC__StreamDecoderSeekStatus FLACParser::seekCallback(
 }
 
 FLAC__StreamDecoderTellStatus FLACParser::tellCallback(
-    FLAC__uint64 *absolute_byte_offset) {
+    FLAC__uint64* absolute_byte_offset) {
   *absolute_byte_offset = mCurrentPos;
   return FLAC__STREAM_DECODER_TELL_STATUS_OK;
 }
 
 FLAC__StreamDecoderLengthStatus FLACParser::lengthCallback(
-    FLAC__uint64 *stream_length) {
+    FLAC__uint64* stream_length) {
   return FLAC__STREAM_DECODER_LENGTH_STATUS_UNSUPPORTED;
 }
 
 FLAC__bool FLACParser::eofCallback() { return mEOF; }
 
 FLAC__StreamDecoderWriteStatus FLACParser::writeCallback(
-    const FLAC__Frame *frame, const FLAC__int32 *const buffer[]) {
+    const FLAC__Frame* frame, const FLAC__int32* const buffer[]) {
   if (mWriteRequested) {
     mWriteRequested = false;
     // FLAC parser doesn't free or realloc buffer until next frame or finish
@@ -158,7 +158,7 @@ FLAC__StreamDecoderWriteStatus FLACParser::writeCallback(
   }
 }
 
-void FLACParser::metadataCallback(const FLAC__StreamMetadata *metadata) {
+void FLACParser::metadataCallback(const FLAC__StreamMetadata* metadata) {
   switch (metadata->type) {
     case FLAC__METADATA_TYPE_STREAMINFO:
       if (!mStreamInfoValid) {
@@ -180,7 +180,7 @@ void FLACParser::metadataCallback(const FLAC__StreamMetadata *metadata) {
               vorbisComment.comments[i];
           if (vorbisCommentEntry.entry != NULL) {
             std::string comment(
-                reinterpret_cast<char *>(vorbisCommentEntry.entry),
+                reinterpret_cast<char*>(vorbisCommentEntry.entry),
                 vorbisCommentEntry.length);
             mVorbisComments.push_back(comment);
           }
@@ -191,12 +191,12 @@ void FLACParser::metadataCallback(const FLAC__StreamMetadata *metadata) {
       }
       break;
     case FLAC__METADATA_TYPE_PICTURE: {
-      const FLAC__StreamMetadata_Picture *parsedPicture =
+      const FLAC__StreamMetadata_Picture* parsedPicture =
           &metadata->data.picture;
       FlacPicture picture;
       picture.mimeType.assign(std::string(parsedPicture->mime_type));
       picture.description.assign(
-          std::string((char *)parsedPicture->description));
+          std::string((char*)parsedPicture->description));
       picture.data.assign(parsedPicture->data,
                           parsedPicture->data + parsedPicture->data_length);
       picture.width = parsedPicture->width;
@@ -222,7 +222,7 @@ void FLACParser::errorCallback(FLAC__StreamDecoderErrorStatus status) {
 // Copy samples from FLAC native 32-bit non-interleaved to
 // correct bit-depth (non-zero padded), interleaved.
 // These are candidates for optimization if needed.
-static void copyToByteArrayBigEndian(int8_t *dst, const int *const *src,
+static void copyToByteArrayBigEndian(int8_t* dst, const int* const* src,
                                      unsigned bytesPerSample, unsigned nSamples,
                                      unsigned nChannels) {
   for (unsigned i = 0; i < nSamples; ++i) {
@@ -230,15 +230,15 @@ static void copyToByteArrayBigEndian(int8_t *dst, const int *const *src,
       // point to the first byte of the source address
       // and then skip the first few bytes (most significant bytes)
       // depending on the bit depth
-      const int8_t *byteSrc =
-          reinterpret_cast<const int8_t *>(&src[c][i]) + 4 - bytesPerSample;
+      const int8_t* byteSrc =
+          reinterpret_cast<const int8_t*>(&src[c][i]) + 4 - bytesPerSample;
       memcpy(dst, byteSrc, bytesPerSample);
       dst = dst + bytesPerSample;
     }
   }
 }
 
-static void copyToByteArrayLittleEndian(int8_t *dst, const int *const *src,
+static void copyToByteArrayLittleEndian(int8_t* dst, const int* const* src,
                                         unsigned bytesPerSample,
                                         unsigned nSamples, unsigned nChannels) {
   for (unsigned i = 0; i < nSamples; ++i) {
@@ -252,7 +252,7 @@ static void copyToByteArrayLittleEndian(int8_t *dst, const int *const *src,
   }
 }
 
-static void copyTrespass(int8_t * /* dst */, const int *const * /* src */,
+static void copyTrespass(int8_t* /* dst */, const int* const* /* src */,
                          unsigned /* bytesPerSample */, unsigned /* nSamples */,
                          unsigned /* nChannels */) {
   TRESPASS();
@@ -260,7 +260,7 @@ static void copyTrespass(int8_t * /* dst */, const int *const * /* src */,
 
 // FLACParser
 
-FLACParser::FLACParser(DataSource *source)
+FLACParser::FLACParser(DataSource* source)
     : mDataSource(source),
       mCopy(copyTrespass),
       mDecoder(NULL),
@@ -312,7 +312,7 @@ bool FLACParser::init() {
   initStatus = FLAC__stream_decoder_init_stream(
       mDecoder, read_callback, seek_callback, tell_callback, length_callback,
       eof_callback, write_callback, metadata_callback, error_callback,
-      reinterpret_cast<void *>(this));
+      reinterpret_cast<void*>(this));
   if (initStatus != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
     // A failure here probably indicates a programming error and so is
     // unlikely to happen. But we check and log here similarly to above.
@@ -361,7 +361,7 @@ bool FLACParser::decodeMetadata() {
   return true;
 }
 
-size_t FLACParser::readBuffer(void *output, size_t output_size) {
+size_t FLACParser::readBuffer(void* output, size_t output_size) {
   mWriteRequested = true;
   mWriteCompleted = false;
 
@@ -408,7 +408,7 @@ size_t FLACParser::readBuffer(void *output, size_t output_size) {
   }
 
   // copy PCM from FLAC write buffer to our media buffer, with interleaving.
-  (*mCopy)(reinterpret_cast<int8_t *>(output), mWriteBuffer, bytesPerSample,
+  (*mCopy)(reinterpret_cast<int8_t*>(output), mWriteBuffer, bytesPerSample,
            blocksize, getChannels());
 
   // fill in buffer metadata
@@ -418,7 +418,7 @@ size_t FLACParser::readBuffer(void *output, size_t output_size) {
 }
 
 bool FLACParser::getSeekPositions(int64_t timeUs,
-                                  std::array<int64_t, 4> &result) {
+                                  std::array<int64_t, 4>& result) {
   if (!mSeekTable) {
     return false;
   }
@@ -430,7 +430,7 @@ bool FLACParser::getSeekPositions(int64_t timeUs,
     targetSampleNumber = totalSamples - 1;
   }
 
-  FLAC__StreamMetadata_SeekPoint *points = mSeekTable->points;
+  FLAC__StreamMetadata_SeekPoint* points = mSeekTable->points;
   unsigned length = mSeekTable->num_points;
 
   for (unsigned i = length; i != 0; i--) {

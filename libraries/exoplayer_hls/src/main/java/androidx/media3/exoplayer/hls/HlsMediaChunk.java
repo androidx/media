@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.datasource.DataSpec.FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -23,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UriUtil;
@@ -122,7 +123,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @Nullable
     byte[] mediaSegmentIv =
         mediaSegmentEncrypted
-            ? getEncryptionIvArray(Assertions.checkNotNull(mediaSegment.encryptionIV))
+            ? getEncryptionIvArray(checkNotNull(mediaSegment.encryptionIV))
             : null;
     DataSource mediaDataSource = buildDataSource(dataSource, mediaSegmentKey, mediaSegmentIv);
 
@@ -136,7 +137,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable
       byte[] initSegmentIv =
           initSegmentEncrypted
-              ? getEncryptionIvArray(Assertions.checkNotNull(initSegment.encryptionIV))
+              ? getEncryptionIvArray(checkNotNull(initSegment.encryptionIV))
               : null;
       Uri initSegmentUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, initSegment.url);
       initDataSpec =
@@ -390,7 +391,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @return The first sample index of this chunk in the specified sample queue.
    */
   public int getFirstSampleIndex(int sampleQueueIndex) {
-    Assertions.checkState(!shouldSpliceIn);
+    checkState(!shouldSpliceIn);
     if (sampleQueueIndex >= sampleQueueFirstSampleIndices.size()) {
       // The sample queue was created by this chunk or a later chunk.
       return 0;
@@ -432,7 +433,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @Override
   public void load() throws IOException {
     // output == null means init() hasn't been called.
-    Assertions.checkNotNull(output);
+    checkNotNull(output);
     if (extractor == null && previousExtractor != null && previousExtractor.isReusable()) {
       extractor = previousExtractor;
       initDataLoadRequired = false;
@@ -483,8 +484,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
     // initDataLoadRequired =>  initDataSource != null && initDataSpec != null
-    Assertions.checkNotNull(initDataSource);
-    Assertions.checkNotNull(initDataSpec);
+    checkNotNull(initDataSource);
+    checkNotNull(initDataSpec);
     feedDataToExtractor(
         initDataSource,
         initDataSpec,
@@ -635,23 +636,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return C.TIME_UNSET;
     }
-    int metadataLength = metadata.length();
-    for (int i = 0; i < metadataLength; i++) {
-      Metadata.Entry frame = metadata.get(i);
-      if (frame instanceof PrivFrame) {
-        PrivFrame privFrame = (PrivFrame) frame;
-        if (PRIV_TIMESTAMP_FRAME_OWNER.equals(privFrame.owner)) {
-          System.arraycopy(
-              privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
-          scratchId3Data.setPosition(0);
-          scratchId3Data.setLimit(8);
-          // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
-          // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
-          return scratchId3Data.readLong() & 0x1FFFFFFFFL;
-        }
-      }
+    @Nullable
+    PrivFrame privFrame =
+        metadata.getFirstMatchingEntry(
+            PrivFrame.class, frame -> frame.owner.equals(HlsMediaChunk.PRIV_TIMESTAMP_FRAME_OWNER));
+    if (privFrame == null) {
+      return C.TIME_UNSET;
     }
-    return C.TIME_UNSET;
+    System.arraycopy(privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
+    scratchId3Data.setPosition(0);
+    scratchId3Data.setLimit(8);
+    // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
+    // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
+    return scratchId3Data.readLong() & 0x1FFFFFFFFL;
   }
 
   // Internal methods.
@@ -687,7 +684,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable byte[] fullSegmentEncryptionKey,
       @Nullable byte[] encryptionIv) {
     if (fullSegmentEncryptionKey != null) {
-      Assertions.checkNotNull(encryptionIv);
+      checkNotNull(encryptionIv);
       return new Aes128DataSource(dataSource, fullSegmentEncryptionKey, encryptionIv);
     }
     return dataSource;

@@ -15,12 +15,13 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -96,7 +97,7 @@ public abstract class Chunk implements Loadable {
       long startTimeUs,
       long endTimeUs) {
     this.dataSource = new StatsDataSource(dataSource);
-    this.dataSpec = Assertions.checkNotNull(dataSpec);
+    this.dataSpec = checkNotNull(dataSpec);
     this.type = type;
     this.trackFormat = trackFormat;
     this.trackSelectionReason = trackSelectionReason;

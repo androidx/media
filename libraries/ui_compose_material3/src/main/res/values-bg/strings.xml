@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Пускане</string>
+  <string name="playpause_button_pause">Пауза</string>
+  <string name="next_button">Напред</string>
+  <string name="previous_button">Назад</string>
+  <string name="seek_back_button">Превъртане назад</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Пропускане назад с(ъс) %d секунда</item>
+    <item quantity="other">Пропускане назад с(ъс) %d секунди</item>
+  </plurals>
+  <string name="seek_forward_button">Пропускане напред</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Пропускане напред с(ъс) %d секунда</item>
+    <item quantity="other">Пропускане напред с(ъс) %d секунди</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Текущ режим: Без повтаряне. Превключете режима за повтаряне.</string>
+  <string name="repeat_button_repeat_one">Текущ режим: Повтаряне на 1 елемент. Превключете режима за повтаряне.</string>
+  <string name="repeat_button_repeat_all">Текущ режим: Повтаряне на всички. Превключете режима за повтаряне.</string>
+  <string name="shuffle_button_shuffle_on">Режимът за разбъркване е активиран.</string>
+  <string name="shuffle_button_shuffle_off">Режимът за разбъркване е деактивиран.</string>
+  <string name="mute_button_shown_unmuted">Спиране на звука</string>
+  <string name="mute_button_shown_muted">Включване на звука</string>
+</resources>

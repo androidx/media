@@ -15,18 +15,16 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -36,8 +34,10 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
+import androidx.media3.test.utils.TestSummaryLogger;
+import androidx.media3.transformer.Transformer.Listener;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -183,10 +183,10 @@ public class TransformerAndroidTestRunner {
   }
 
   /** Exports the {@link EditedMediaItem} asynchronously. */
-  public ListenableFuture<ExportResult> runAsync(String testId, EditedMediaItem editedMediaItem)
+  public ListenableFuture<ExportTestResult> runAsync(String testId, EditedMediaItem editedMediaItem)
       throws IOException {
-    SettableFuture<ExportResult> completionFuture = SettableFuture.create();
-    File outputVideoFile = createOutputFile(testId);
+    SettableFuture<ExportTestResult> completionFuture = SettableFuture.create();
+    String outputFilePath = createOutputFile(testId).getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -194,7 +194,10 @@ public class TransformerAndroidTestRunner {
                   new Transformer.Listener() {
                     @Override
                     public void onCompleted(Composition composition, ExportResult exportResult) {
-                      completionFuture.set(exportResult);
+                      completionFuture.set(
+                          new ExportTestResult.Builder(exportResult)
+                              .setFilePath(outputFilePath)
+                              .build());
                     }
 
                     @Override
@@ -205,7 +208,7 @@ public class TransformerAndroidTestRunner {
                       completionFuture.setException(exportException);
                     }
                   });
-              transformer.start(editedMediaItem, outputVideoFile.getAbsolutePath());
+              transformer.start(editedMediaItem, outputFilePath);
             });
 
     return completionFuture;
@@ -220,7 +223,7 @@ public class TransformerAndroidTestRunner {
    * @throws Exception The cause of the export not completing.
    */
   public ExportTestResult run(String testId, Composition composition) throws Exception {
-    return run(testId, composition, /* oldFilePath= */ null);
+    return runAndLog(testId, composition, /* oldFilePath= */ null);
   }
 
   /**
@@ -236,13 +239,57 @@ public class TransformerAndroidTestRunner {
    */
   public ExportTestResult run(String testId, Composition composition, @Nullable String oldFilePath)
       throws Exception {
+    return runAndLog(testId, composition, oldFilePath);
+  }
+
+  /**
+   * Exports the {@link EditedMediaItem}, saving a summary of the export to the application cache.
+   *
+   * @param testId A unique identifier for the transformer test run.
+   * @param editedMediaItem The {@link EditedMediaItem} to export.
+   * @return The {@link ExportTestResult}.
+   * @throws Exception The cause of the export not completing.
+   */
+  public ExportTestResult run(String testId, EditedMediaItem editedMediaItem) throws Exception {
+    return runAndLog(testId, editedMediaItem, /* oldFilePath= */ null);
+  }
+
+  /**
+   * Exports the {@link MediaItem}, saving a summary of the export to the application cache.
+   *
+   * @param testId A unique identifier for the transformer test run.
+   * @param mediaItem The {@link MediaItem} to export.
+   * @return The {@link ExportTestResult}.
+   * @throws Exception The cause of the export not completing.
+   */
+  public ExportTestResult run(String testId, MediaItem mediaItem) throws Exception {
+    return runAndLog(testId, mediaItem, /* oldFilePath= */ null);
+  }
+
+  /**
+   * Runs the export, captures the result, and logs a summary to a JSON file.
+   *
+   * @param testId An identifier for the test.
+   * @param mediaInput The {@link MediaItem}, {@link EditedMediaItem}, or {@link Composition} to
+   *     export.
+   * @param oldFilePath The old output file path to resume the export from. Passing {@code null}
+   *     will restart the export from the beginning.
+   * @return The {@link ExportTestResult}.
+   * @throws Exception The cause of the export not completing, or an analysis exception if {@code
+   *     suppressAnalysisExceptions} is {@code false}.
+   */
+  private ExportTestResult runAndLog(String testId, Object mediaInput, @Nullable String oldFilePath)
+      throws Exception {
     JSONObject resultJson = new JSONObject();
     if (inputValues != null) {
       resultJson.put("inputValues", JSONObject.wrap(inputValues));
     }
     try {
-      ExportTestResult exportTestResult = runInternal(testId, composition, oldFilePath);
+      ExportTestResult exportTestResult = runInternal(testId, mediaInput, oldFilePath);
       resultJson.put("exportResult", exportTestResult.asJsonObject());
+      if (DebugTraceUtil.enableTracing) {
+        resultJson.put("debugTrace", DebugTraceUtil.generateTraceSummary());
+      }
       if (exportTestResult.exportResult.exportException != null) {
         throw exportTestResult.exportResult.exportException;
       }
@@ -260,43 +307,16 @@ public class TransformerAndroidTestRunner {
           "exportResult", new JSONObject().put("testException", JsonUtil.exceptionAsJsonObject(e)));
       throw e;
     } finally {
-      AndroidTestUtil.writeTestSummaryToFile(context, testId, resultJson);
+      TestSummaryLogger.writeTestSummaryToFile(context, testId, resultJson);
     }
-  }
-
-  /**
-   * Exports the {@link EditedMediaItem}, saving a summary of the export to the application cache.
-   *
-   * @param testId A unique identifier for the transformer test run.
-   * @param editedMediaItem The {@link EditedMediaItem} to export.
-   * @return The {@link ExportTestResult}.
-   * @throws Exception The cause of the export not completing.
-   */
-  public ExportTestResult run(String testId, EditedMediaItem editedMediaItem) throws Exception {
-    Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .build();
-    return run(testId, composition);
-  }
-
-  /**
-   * Exports the {@link MediaItem}, saving a summary of the export to the application cache.
-   *
-   * @param testId A unique identifier for the transformer test run.
-   * @param mediaItem The {@link MediaItem} to export.
-   * @return The {@link ExportTestResult}.
-   * @throws Exception The cause of the export not completing.
-   */
-  public ExportTestResult run(String testId, MediaItem mediaItem) throws Exception {
-    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
-    return run(testId, editedMediaItem);
   }
 
   /**
    * Exports the {@link Composition}.
    *
    * @param testId An identifier for the test.
-   * @param composition The {@link Composition} to export.
+   * @param mediaInput The {@link MediaItem}, {@link EditedMediaItem} or {@link Composition} to
+   *     export.
    * @param oldFilePath The old output file path to resume the export from. Passing {@code null}
    *     will restart the export from the beginning.
    * @return The {@link ExportTestResult}.
@@ -308,9 +328,232 @@ public class TransformerAndroidTestRunner {
    *     Builder#setTimeoutSeconds(int) the given timeout}.
    */
   private ExportTestResult runInternal(
-      String testId, Composition composition, @Nullable String oldFilePath)
+      String testId, Object mediaInput, @Nullable String oldFilePath)
       throws InterruptedException, IOException, TimeoutException {
+
+    if (oldFilePath != null && !(mediaInput instanceof Composition)) {
+      throw new IllegalArgumentException("Resuming is only supported for Composition inputs.");
+    }
     if (requestCalculateSsim) {
+      checkSsimCalculationSupported(mediaInput);
+    }
+    checkNetworkAccessForMediaInput(context, mediaInput);
+
+    AtomicReference<@NullableType FallbackDetails> fallbackDetailsReference =
+        new AtomicReference<>();
+    AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
+    AtomicReference<@NullableType ExportResult> exportResultReference = new AtomicReference<>();
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    long startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
+
+    DebugTraceUtil.enableTracing = true;
+
+    Transformer.Listener listener =
+        createTransformerListener(exportResultReference, fallbackDetailsReference, countDownLatch);
+    Transformer testTransformer = transformer.buildUpon().addListener(listener).build();
+
+    File outputVideoFile = createOutputFile(testId);
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              try {
+                String outputFilePath = outputVideoFile.getAbsolutePath();
+                if (oldFilePath != null) {
+                  testTransformer.resume((Composition) mediaInput, outputFilePath, oldFilePath);
+                } else if (mediaInput instanceof Composition) {
+                  testTransformer.start((Composition) mediaInput, outputFilePath);
+                } else if (mediaInput instanceof EditedMediaItem) {
+                  testTransformer.start((EditedMediaItem) mediaInput, outputFilePath);
+                } else if (mediaInput instanceof MediaItem) {
+                  testTransformer.start((MediaItem) mediaInput, outputFilePath);
+                } else {
+                  throw new IllegalArgumentException(
+                      "Unsupported mediaInput type: " + mediaInput.getClass().getName());
+                }
+                // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
+                // propagate.
+              } catch (Exception e) {
+                unexpectedExceptionReference.set(e);
+                countDownLatch.countDown();
+              }
+            });
+
+    awaitTransformerCompletion(countDownLatch, unexpectedExceptionReference);
+
+    long elapsedTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
+    @Nullable FallbackDetails fallbackDetails = fallbackDetailsReference.get();
+    ExportResult exportResult = checkNotNull(exportResultReference.get());
+
+    return buildExportTestResult(
+        testId, mediaInput, exportResult, elapsedTimeMs, fallbackDetails, outputVideoFile);
+  }
+
+  /**
+   * Blocks the current thread until the latch counts down or a timeout occurs, and checks for
+   * unexpected exceptions.
+   */
+  private void awaitTransformerCompletion(
+      CountDownLatch countDownLatch,
+      AtomicReference<@NullableType Exception> unexpectedExceptionReference)
+      throws InterruptedException, TimeoutException {
+
+    // Block here until timeout reached or latch is counted down.
+    if (!countDownLatch.await(timeoutSeconds, SECONDS)) {
+      logTimeoutDiagnostics();
+      throw new TimeoutException("Transformer timed out after " + timeoutSeconds + " seconds.");
+    }
+    @Nullable Exception unexpectedException = unexpectedExceptionReference.get();
+    if (unexpectedException != null) {
+      throw new IllegalStateException(
+          "Unexpected exception starting the transformer.", unexpectedException);
+    }
+  }
+
+  /**
+   * Builds the initial {@link ExportTestResult} handling success/failure and optionally calculating
+   * SSIM.
+   */
+  private ExportTestResult buildExportTestResult(
+      String testId,
+      Object mediaInput,
+      ExportResult exportResult,
+      long elapsedTimeMs,
+      @Nullable FallbackDetails fallbackDetails,
+      File outputVideoFile)
+      throws InterruptedException {
+    if (exportResult.exportException != null) {
+      return new ExportTestResult.Builder(exportResult)
+          .setElapsedTimeMs(elapsedTimeMs)
+          .setFallbackDetails(fallbackDetails)
+          .build();
+    }
+
+    // No exceptions raised, export has succeeded.
+    ExportTestResult.Builder testResultBuilder =
+        new ExportTestResult.Builder(checkNotNull(exportResult))
+            .setElapsedTimeMs(elapsedTimeMs)
+            .setFallbackDetails(fallbackDetails)
+            .setFilePath(outputVideoFile.getPath());
+
+    if (requestCalculateSsim) {
+      calculateSsimAndAddToResult(
+          testResultBuilder, testId, mediaInput, fallbackDetails, outputVideoFile);
+    }
+
+    return testResultBuilder.build();
+  }
+
+  /**
+   * Calculates SSIM (if applicable) and updates the {@link ExportTestResult.Builder} with the value
+   * or any analysis exception.
+   */
+  private void calculateSsimAndAddToResult(
+      ExportTestResult.Builder testResultBuilder,
+      String testId,
+      Object mediaInput,
+      @Nullable FallbackDetails fallbackDetails,
+      File outputVideoFile)
+      throws InterruptedException {
+    if (fallbackDetails != null && fallbackDetails.fallbackOutputHeight != C.LENGTH_UNSET) {
+      Log.i(
+          TAG,
+          testId
+              + ": Skipping SSIM calculation because an encoder resolution fallback was applied.");
+      return;
+    }
+    try {
+      MediaItem mediaItem = extractMediaItem(mediaInput);
+      double ssim =
+          SsimHelper.calculate(
+              context,
+              /* referenceVideoPath= */ checkNotNull(mediaItem.localConfiguration).uri.toString(),
+              /* distortedVideoPath= */ outputVideoFile.getPath());
+      testResultBuilder.setSsim(ssim);
+    } catch (InterruptedException interruptedException) {
+      // InterruptedException is a special unexpected case because it is not related to Ssim
+      // calculation, so it should be thrown, rather than processed as part of the
+      // ExportTestResult.
+      throw interruptedException;
+    } catch (Throwable analysisFailure) {
+      // Catch all (checked and unchecked) failures thrown by the SsimHelper and process them as
+      // part of the ExportTestResult.
+      Exception analysisException =
+          analysisFailure instanceof Exception
+              ? (Exception) analysisFailure
+              : new IllegalStateException(analysisFailure);
+
+      testResultBuilder.setAnalysisException(analysisException);
+      Log.e(TAG, testId + ": SSIM calculation failed.", analysisException);
+    }
+  }
+
+  private File createOutputFile(String testId) throws IOException {
+    return createExternalCacheFile(
+        context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
+  }
+
+  /**
+   * Creates a {@link Transformer.Listener} to capture the export result, fallback details, and
+   * signal the latch upon completion or error.
+   */
+  private static Listener createTransformerListener(
+      AtomicReference<@NullableType ExportResult> exportResultReference,
+      AtomicReference<@NullableType FallbackDetails> fallbackDetailsReference,
+      CountDownLatch countDownLatch) {
+    return new Listener() {
+      @Override
+      public void onCompleted(Composition composition, ExportResult exportResult) {
+        exportResultReference.set(exportResult);
+        countDownLatch.countDown();
+      }
+
+      @Override
+      public void onError(
+          Composition composition, ExportResult exportResult, ExportException exportException) {
+        exportResultReference.set(exportResult);
+        countDownLatch.countDown();
+      }
+
+      @Override
+      public void onFallbackApplied(
+          Composition composition,
+          TransformationRequest originalTransformationRequest,
+          TransformationRequest fallbackTransformationRequest) {
+        // Note: As TransformationRequest only reports the output height but not the
+        // output width, it's not possible to check whether the encoder has changed
+        // the output aspect ratio.
+        fallbackDetailsReference.set(
+            new FallbackDetails(
+                originalTransformationRequest.outputHeight,
+                fallbackTransformationRequest.outputHeight,
+                originalTransformationRequest.audioMimeType,
+                fallbackTransformationRequest.audioMimeType,
+                originalTransformationRequest.videoMimeType,
+                fallbackTransformationRequest.videoMimeType,
+                originalTransformationRequest.hdrMode,
+                fallbackTransformationRequest.hdrMode));
+      }
+    };
+  }
+
+  /**
+   * Extracts the primary {@link MediaItem} from the input object for SSIM calculation reference.
+   */
+  private static MediaItem extractMediaItem(Object mediaInput) {
+    if (mediaInput instanceof Composition) {
+      return ((Composition) mediaInput).sequences.get(0).editedMediaItems.get(0).mediaItem;
+    } else if (mediaInput instanceof EditedMediaItem) {
+      return ((EditedMediaItem) mediaInput).mediaItem;
+    } else if (mediaInput instanceof MediaItem) {
+      return (MediaItem) mediaInput;
+    }
+    throw new IllegalArgumentException(
+        "Unsupported mediaInput type for SSIM: " + mediaInput.getClass().getName());
+  }
+
+  private static void checkSsimCalculationSupported(Object mediaInput) {
+    if (mediaInput instanceof Composition) {
+      Composition composition = (Composition) mediaInput;
       checkArgument(
           composition.sequences.size() == 1
               && composition.sequences.get(0).editedMediaItems.size() == 1,
@@ -325,168 +568,57 @@ public class TransformerAndroidTestRunner {
               .clippingConfiguration
               .equals(MediaItem.ClippingConfiguration.UNSET),
           "SSIM calculation is not supported for clipped inputs.");
+    } else if (mediaInput instanceof EditedMediaItem) {
+      EditedMediaItem editedMediaItem = (EditedMediaItem) mediaInput;
+      checkArgument(
+          editedMediaItem.mediaItem.clippingConfiguration.equals(
+              MediaItem.ClippingConfiguration.UNSET),
+          "SSIM calculation is not supported for clipped inputs.");
+    } else if (mediaInput instanceof MediaItem) {
+      MediaItem mediaItem = (MediaItem) mediaInput;
+      checkArgument(
+          mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET),
+          "SSIM calculation is not supported for clipped inputs.");
+    } else {
+      throw new IllegalArgumentException(
+          "Unsupported mediaInput type: " + mediaInput.getClass().getName());
     }
-    for (EditedMediaItemSequence sequence : composition.sequences) {
-      for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
-        if (editedMediaItem.isGap()) {
-          continue;
-        }
-        Uri mediaItemUri = checkNotNull(editedMediaItem.mediaItem.localConfiguration).uri;
-        String scheme = mediaItemUri.getScheme();
-        if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
-          assumeTrue(
-              "Input network file requested on device with no network connection. Input file"
-                  + " name: "
-                  + mediaItemUri,
-              hasNetworkConnection(context));
-        }
-      }
-    }
-
-    AtomicReference<@NullableType FallbackDetails> fallbackDetailsReference =
-        new AtomicReference<>();
-    AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
-    AtomicReference<@NullableType ExportResult> exportResultReference = new AtomicReference<>();
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    long startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
-
-    DebugTraceUtil.enableTracing = true;
-
-    Transformer testTransformer =
-        transformer
-            .buildUpon()
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onCompleted(Composition composition, ExportResult exportResult) {
-                    exportResultReference.set(exportResult);
-                    countDownLatch.countDown();
-                  }
-
-                  @Override
-                  public void onError(
-                      Composition composition,
-                      ExportResult exportResult,
-                      ExportException exportException) {
-                    exportResultReference.set(exportResult);
-                    countDownLatch.countDown();
-                  }
-
-                  @Override
-                  public void onFallbackApplied(
-                      Composition composition,
-                      TransformationRequest originalTransformationRequest,
-                      TransformationRequest fallbackTransformationRequest) {
-                    // Note: As TransformationRequest only reports the output height but not the
-                    // output width, it's not possible to check whether the encoder has changed
-                    // the output aspect ratio.
-                    fallbackDetailsReference.set(
-                        new FallbackDetails(
-                            originalTransformationRequest.outputHeight,
-                            fallbackTransformationRequest.outputHeight,
-                            originalTransformationRequest.audioMimeType,
-                            fallbackTransformationRequest.audioMimeType,
-                            originalTransformationRequest.videoMimeType,
-                            fallbackTransformationRequest.videoMimeType,
-                            originalTransformationRequest.hdrMode,
-                            fallbackTransformationRequest.hdrMode));
-                  }
-                })
-            .build();
-
-    File outputVideoFile = createOutputFile(testId);
-    InstrumentationRegistry.getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                if (oldFilePath == null) {
-                  testTransformer.start(composition, outputVideoFile.getAbsolutePath());
-                } else {
-                  testTransformer.resume(
-                      composition, outputVideoFile.getAbsolutePath(), oldFilePath);
-                }
-                // Catch all exceptions to report. Exceptions thrown here and not caught will NOT
-                // propagate.
-              } catch (Exception e) {
-                unexpectedExceptionReference.set(e);
-                countDownLatch.countDown();
-              }
-            });
-
-    // Block here until timeout reached or latch is counted down.
-    if (!countDownLatch.await(timeoutSeconds, SECONDS)) {
-      logTimeoutDiagnostics();
-      throw new TimeoutException("Transformer timed out after " + timeoutSeconds + " seconds.");
-    }
-    @Nullable Exception unexpectedException = unexpectedExceptionReference.get();
-    if (unexpectedException != null) {
-      throw new IllegalStateException(
-          "Unexpected exception starting the transformer.", unexpectedException);
-    }
-
-    long elapsedTimeMs = SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
-    @Nullable FallbackDetails fallbackDetails = fallbackDetailsReference.get();
-    ExportResult exportResult = checkNotNull(exportResultReference.get());
-
-    if (exportResult.exportException != null) {
-      return new ExportTestResult.Builder(exportResult)
-          .setElapsedTimeMs(elapsedTimeMs)
-          .setFallbackDetails(fallbackDetails)
-          .build();
-    }
-
-    // No exceptions raised, export has succeeded.
-    ExportTestResult.Builder testResultBuilder =
-        new ExportTestResult.Builder(checkNotNull(exportResultReference.get()))
-            .setElapsedTimeMs(elapsedTimeMs)
-            .setFallbackDetails(fallbackDetails)
-            .setFilePath(outputVideoFile.getPath());
-
-    if (!requestCalculateSsim) {
-      return testResultBuilder.build();
-    }
-    if (fallbackDetails != null && fallbackDetails.fallbackOutputHeight != C.LENGTH_UNSET) {
-      Log.i(
-          TAG,
-          testId
-              + ": Skipping SSIM calculation because an encoder resolution fallback was applied.");
-      return testResultBuilder.build();
-    }
-    try {
-      MediaItem mediaItem = composition.sequences.get(0).editedMediaItems.get(0).mediaItem;
-      double ssim =
-          SsimHelper.calculate(
-              context,
-              /* referenceVideoPath= */ checkNotNull(mediaItem.localConfiguration).uri.toString(),
-              /* distortedVideoPath= */ outputVideoFile.getPath());
-      testResultBuilder.setSsim(ssim);
-    } catch (InterruptedException interruptedException) {
-      // InterruptedException is a special unexpected case because it is not related to Ssim
-      // calculation, so it should be thrown, rather than processed as part of the
-      // ExportTestResult.
-      throw interruptedException;
-    } catch (Throwable analysisFailure) {
-      if (SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus")) {
-        // b/233584640, b/230093713
-        Log.i(TAG, testId + ": Skipping SSIM calculation due to known device-specific issue");
-      } else {
-        // Catch all (checked and unchecked) failures thrown by the SsimHelper and process them as
-        // part of the ExportTestResult.
-        Exception analysisException =
-            analysisFailure instanceof Exception
-                ? (Exception) analysisFailure
-                : new IllegalStateException(analysisFailure);
-
-        testResultBuilder.setAnalysisException(analysisException);
-        Log.e(TAG, testId + ": SSIM calculation failed.", analysisException);
-      }
-    }
-    return testResultBuilder.build();
   }
 
-  private File createOutputFile(String testId) throws IOException {
-    return AndroidTestUtil.createExternalCacheFile(
-        context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
+  private static void checkNetworkAccessForMediaInput(Context context, Object mediaInput) {
+    ImmutableList.Builder<MediaItem> mediaItemsBuilder = new ImmutableList.Builder<>();
+    if (mediaInput instanceof Composition) {
+      Composition composition = (Composition) mediaInput;
+      for (EditedMediaItemSequence sequence : composition.sequences) {
+        for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
+          if (!editedMediaItem.isGap()) {
+            mediaItemsBuilder.add(editedMediaItem.mediaItem);
+          }
+        }
+      }
+    } else if (mediaInput instanceof EditedMediaItem) {
+      EditedMediaItem editedMediaItem = (EditedMediaItem) mediaInput;
+      if (!editedMediaItem.isGap()) {
+        mediaItemsBuilder.add(editedMediaItem.mediaItem);
+      }
+    } else if (mediaInput instanceof MediaItem) {
+      mediaItemsBuilder.add((MediaItem) mediaInput);
+    } else {
+      throw new IllegalArgumentException(
+          "Unsupported mediaInput type: " + mediaInput.getClass().getName());
+    }
+
+    for (MediaItem mediaItem : mediaItemsBuilder.build()) {
+      Uri mediaItemUri = checkNotNull(mediaItem.localConfiguration).uri;
+      String scheme = mediaItemUri.getScheme();
+      if (scheme != null && (scheme.equals("http") || scheme.equals("https"))) {
+        assumeTrue(
+            "Input network file requested on device with no network connection. Input file"
+                + " name: "
+                + mediaItemUri,
+            hasNetworkConnection(context));
+      }
+    }
   }
 
   /** Returns whether the context is connected to the network. */
@@ -496,23 +628,12 @@ public class TransformerAndroidTestRunner {
     if (connectivityManager == null) {
       return false;
     }
-    if (SDK_INT >= 23) {
-      // getActiveNetwork is available from API 23.
-      NetworkCapabilities activeNetworkCapabilities =
-          connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
-      if (activeNetworkCapabilities != null
-          && (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-              || activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))) {
-        return true;
-      }
-    } else {
-      // getActiveNetworkInfo is deprecated from API 29.
-      NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-      if (activeNetworkInfo != null
-          && (activeNetworkInfo.getType() == ConnectivityManager.TYPE_WIFI
-              || activeNetworkInfo.getType() == ConnectivityManager.TYPE_MOBILE)) {
-        return true;
-      }
+    NetworkCapabilities activeNetworkCapabilities =
+        connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+    if (activeNetworkCapabilities != null
+        && (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            || activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))) {
+      return true;
     }
     return false;
   }

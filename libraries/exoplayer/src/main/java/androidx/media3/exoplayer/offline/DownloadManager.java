@@ -25,6 +25,9 @@ import static androidx.media3.exoplayer.offline.Download.STATE_REMOVING;
 import static androidx.media3.exoplayer.offline.Download.STATE_RESTARTING;
 import static androidx.media3.exoplayer.offline.Download.STATE_STOPPED;
 import static androidx.media3.exoplayer.offline.Download.STOP_REASON_NONE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -36,7 +39,6 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -313,7 +315,7 @@ public final class DownloadManager {
    * @param listener The listener to be added.
    */
   public void addListener(Listener listener) {
-    Assertions.checkNotNull(listener);
+    checkNotNull(listener);
     listeners.add(listener);
   }
 
@@ -366,7 +368,7 @@ public final class DownloadManager {
    * @param maxParallelDownloads The maximum number of parallel downloads. Must be greater than 0.
    */
   public void setMaxParallelDownloads(@IntRange(from = 1) int maxParallelDownloads) {
-    Assertions.checkArgument(maxParallelDownloads > 0);
+    checkArgument(maxParallelDownloads > 0);
     if (this.maxParallelDownloads == maxParallelDownloads) {
       return;
     }
@@ -392,7 +394,7 @@ public final class DownloadManager {
    * @param minRetryCount The minimum number of times that a download will be retried.
    */
   public void setMinRetryCount(int minRetryCount) {
-    Assertions.checkArgument(minRetryCount >= 0);
+    checkArgument(minRetryCount >= 0);
     if (this.minRetryCount == minRetryCount) {
       return;
     }
@@ -967,7 +969,7 @@ public final class DownloadManager {
             activeTask = syncQueuedDownload(activeTask, download);
             break;
           case STATE_DOWNLOADING:
-            Assertions.checkNotNull(activeTask);
+            checkNotNull(activeTask);
             syncDownloadingDownload(activeTask, download, accumulatingDownloadTaskCount);
             break;
           case STATE_REMOVING:
@@ -988,7 +990,7 @@ public final class DownloadManager {
     private void syncStoppedDownload(@Nullable Task activeTask) {
       if (activeTask != null) {
         // We have a task, which must be a download task. Cancel it.
-        Assertions.checkState(!activeTask.isRemove);
+        checkState(!activeTask.isRemove);
         activeTask.cancel(/* released= */ false);
       }
     }
@@ -999,7 +1001,7 @@ public final class DownloadManager {
       if (activeTask != null) {
         // We have a task, which must be a download task. If the download state is queued we need to
         // cancel it and start a new one, since a new request has been merged into the download.
-        Assertions.checkState(!activeTask.isRemove);
+        checkState(!activeTask.isRemove);
         activeTask.cancel(/* released= */ false);
         return activeTask;
       }
@@ -1029,7 +1031,7 @@ public final class DownloadManager {
 
     private void syncDownloadingDownload(
         Task activeTask, Download download, int accumulatingDownloadTaskCount) {
-      Assertions.checkState(!activeTask.isRemove);
+      checkState(!activeTask.isRemove);
       if (!canDownloadsRun() || accumulatingDownloadTaskCount >= maxParallelDownloads) {
         putDownloadWithState(download, STATE_QUEUED, STOP_REASON_NONE);
         activeTask.cancel(/* released= */ false);
@@ -1070,8 +1072,7 @@ public final class DownloadManager {
 
     private void onContentLengthChanged(Task task, long contentLength) {
       String downloadId = task.request.id;
-      Download download =
-          Assertions.checkNotNull(getDownload(downloadId, /* loadFromIndex= */ false));
+      Download download = checkNotNull(getDownload(downloadId, /* loadFromIndex= */ false));
       if (contentLength == download.contentLength || contentLength == C.LENGTH_UNSET) {
         return;
       }
@@ -1108,16 +1109,15 @@ public final class DownloadManager {
         Log.e(TAG, "Task failed: " + task.request + ", " + isRemove, finalException);
       }
 
-      Download download =
-          Assertions.checkNotNull(getDownload(downloadId, /* loadFromIndex= */ false));
+      Download download = checkNotNull(getDownload(downloadId, /* loadFromIndex= */ false));
       switch (download.state) {
         case STATE_DOWNLOADING:
-          Assertions.checkState(!isRemove);
+          checkState(!isRemove);
           onDownloadTaskStopped(download, finalException);
           break;
         case STATE_REMOVING:
         case STATE_RESTARTING:
-          Assertions.checkState(isRemove);
+          checkState(isRemove);
           onRemoveTaskStopped(download);
           break;
         case STATE_QUEUED:
@@ -1205,13 +1205,13 @@ public final class DownloadManager {
     private Download putDownloadWithState(
         Download download, @Download.State int state, int stopReason) {
       // Downloads in terminal states shouldn't be in the downloads list.
-      Assertions.checkState(state != STATE_COMPLETED && state != STATE_FAILED);
+      checkState(state != STATE_COMPLETED && state != STATE_FAILED);
       return putDownload(copyDownloadWithState(download, state, stopReason));
     }
 
     private Download putDownload(Download download) {
       // Downloads in terminal states shouldn't be in the downloads list.
-      Assertions.checkState(download.state != STATE_COMPLETED && download.state != STATE_FAILED);
+      checkState(download.state != STATE_COMPLETED && download.state != STATE_FAILED);
       int changedIndex = getDownloadIndex(download.request.id);
       if (changedIndex == C.INDEX_UNSET) {
         downloads.add(download);

@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.GlUtil.destroyEglContext;
+import static androidx.media3.common.util.GlUtil.terminate;
 
 import android.opengl.EGL14;
 import android.opengl.EGLContext;
@@ -96,5 +97,6 @@ public final class DefaultGlObjectsProvider implements GlObjectsProvider {
     for (int i = 0; i < createdEglContexts.size(); i++) {
       destroyEglContext(eglDisplay, createdEglContexts.get(i));
     }
+    terminate(eglDisplay);
   }
 }

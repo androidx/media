@@ -15,8 +15,9 @@
  */
 package androidx.media3.datasource;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.io.InputStream;
@@ -77,7 +78,7 @@ public final class DataSourceInputStream extends InputStream {
 
   @Override
   public int read(byte[] buffer, int offset, int length) throws IOException {
-    Assertions.checkState(!closed);
+    checkState(!closed);
     checkOpened();
     int bytesRead = dataSource.read(buffer, offset, length);
     if (bytesRead == C.RESULT_END_OF_INPUT) {

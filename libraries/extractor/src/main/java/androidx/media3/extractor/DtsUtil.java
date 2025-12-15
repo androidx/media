@@ -27,8 +27,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import java.io.IOException;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -679,6 +681,33 @@ public final class DtsUtil {
     return parseUnsignedVarInt(
             headerPrefixBits, UHD_HEADER_SIZE_LENGTH_TABLE, /* extractAndAddFlag= */ true)
         + 1;
+  }
+
+  /** Returns whether the sample data at the current {@link ExtractorInput} is a DTS-HD sample. */
+  public static boolean isSampleDtsHd(ExtractorInput input, int sampleSize) throws IOException {
+    ParsableByteArray sampleData = new ParsableByteArray(sampleSize);
+    if (!input.peekFully(
+        sampleData.getData(), /* offset= */ 0, sampleSize, /* allowEndOfInput= */ true)) {
+      return false;
+    }
+    input.resetPeekPosition();
+    int word = sampleData.peekInt();
+    if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_CORE) {
+      if (sampleData.bytesLeft() < 10) {
+        return false;
+      }
+      byte[] header = new byte[10];
+      sampleData.readBytes(header, /* offset= */ 0, /* length= */ 10);
+      sampleData.setPosition(0);
+      int frameSize = DtsUtil.getDtsFrameSize(header);
+      if (frameSize <= 0 || sampleData.bytesLeft() < frameSize + 4) {
+        return false;
+      }
+      sampleData.skipBytes(frameSize);
+      word = sampleData.readInt();
+      return DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM;
+    }
+    return false;
   }
 
   /**

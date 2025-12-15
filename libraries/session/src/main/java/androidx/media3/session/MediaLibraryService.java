@@ -15,13 +15,12 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.LibraryResult.ofVoid;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -34,6 +33,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -459,7 +459,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       @UnstableApi
       public Builder(Context context, Player player, Callback callback) {
         super(context, player, callback);
-        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_FATAL;
+        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
       }
 
       /**
@@ -643,7 +643,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * android.support.v4.media.MediaBrowserCompat} and {@link android.media.browse.MediaBrowser})
        * to which no error codes can be transmitted as a result of the service call.
        *
-       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_FATAL}.
+       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL}.
        *
        * <p>{@link MediaLibrarySession.Callback#onGetLibraryRoot} is exempted from replication,
        * because this method is part of the connection process of a legacy browser.
@@ -688,9 +688,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       @Override
       public MediaLibrarySession build() {
-        if (bitmapLoader == null) {
-          bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
-        }
+        ensureBitmapLoaderIsSizeLimited();
         return new MediaLibrarySession(
             context,
             id,
@@ -702,7 +700,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
             callback,
             tokenExtras,
             sessionExtras,
-            checkNotNull(bitmapLoader),
+            bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
             libraryErrorReplicationMode);
@@ -738,7 +736,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          libraryErrorReplicationMode);
+          libraryErrorReplicationMode,
+          /* useLegacySurfaceHandling= */ false);
     }
 
     @Override
@@ -756,7 +755,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
-        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode,
+        boolean useLegacySurfaceHandling) {
       return new MediaLibrarySessionImpl(
           this,
           context,
@@ -814,8 +814,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         @IntRange(from = 0) int itemCount,
         @Nullable LibraryParams params) {
       checkArgument(itemCount >= 0);
-      getImpl()
-          .notifyChildrenChanged(checkNotNull(browser), checkNotEmpty(parentId), itemCount, params);
+      checkArgument(!TextUtils.isEmpty(parentId));
+      getImpl().notifyChildrenChanged(checkNotNull(browser), parentId, itemCount, params);
     }
 
     /**
@@ -830,8 +830,9 @@ public abstract class MediaLibraryService extends MediaSessionService {
     // This is for the backward compatibility.
     public void notifyChildrenChanged(
         String parentId, @IntRange(from = 0) int itemCount, @Nullable LibraryParams params) {
+      checkArgument(!TextUtils.isEmpty(parentId));
       checkArgument(itemCount >= 0);
-      getImpl().notifyChildrenChanged(checkNotEmpty(parentId), itemCount, params);
+      getImpl().notifyChildrenChanged(parentId, itemCount, params);
     }
 
     /**
@@ -847,10 +848,9 @@ public abstract class MediaLibraryService extends MediaSessionService {
         String query,
         @IntRange(from = 0) int itemCount,
         @Nullable LibraryParams params) {
+      checkArgument(!TextUtils.isEmpty(query));
       checkArgument(itemCount >= 0);
-      getImpl()
-          .notifySearchResultChanged(
-              checkNotNull(browser), checkNotEmpty(query), itemCount, params);
+      getImpl().notifySearchResultChanged(checkNotNull(browser), query, itemCount, params);
     }
 
     /**

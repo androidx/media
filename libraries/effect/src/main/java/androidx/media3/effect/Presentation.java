@@ -15,10 +15,12 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.common.C.LENGTH_UNSET;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -110,7 +112,8 @@ public final class Presentation implements MatrixTransformation {
         layout == LAYOUT_SCALE_TO_FIT
             || layout == LAYOUT_SCALE_TO_FIT_WITH_CROP
             || layout == LAYOUT_STRETCH_TO_FIT,
-        "invalid layout " + layout);
+        "invalid layout %s",
+        layout);
   }
 
   /**
@@ -124,7 +127,7 @@ public final class Presentation implements MatrixTransformation {
    */
   public static Presentation createForAspectRatio(
       @FloatRange(from = 0, fromInclusive = false) float aspectRatio, @Layout int layout) {
-    checkArgument(aspectRatio > 0, "aspect ratio " + aspectRatio + " must be positive");
+    checkArgument(aspectRatio > 0, "aspect ratio %s must be positive", aspectRatio);
     checkLayout(layout);
     return new Presentation(
         /* width= */ C.LENGTH_UNSET,
@@ -132,7 +135,8 @@ public final class Presentation implements MatrixTransformation {
         aspectRatio,
         layout,
         TEXTURE_MIN_FILTER_LINEAR,
-        /* preservePortraitWhenApplicable= */ false);
+        /* preservePortraitWhenApplicable= */ false,
+        /* divisor= */ 1);
   }
 
   /**
@@ -150,7 +154,8 @@ public final class Presentation implements MatrixTransformation {
         ASPECT_RATIO_UNSET,
         LAYOUT_SCALE_TO_FIT,
         TEXTURE_MIN_FILTER_LINEAR,
-        /* preservePortraitWhenApplicable= */ false);
+        /* preservePortraitWhenApplicable= */ false,
+        /* divisor= */ 1);
   }
 
   /**
@@ -165,8 +170,8 @@ public final class Presentation implements MatrixTransformation {
    * @param layout The layout of the output frame.
    */
   public static Presentation createForWidthAndHeight(int width, int height, @Layout int layout) {
-    checkArgument(width > 0, "width " + width + " must be positive");
-    checkArgument(height > 0, "height " + height + " must be positive");
+    checkArgument(width > 0, "width %s must be positive", width);
+    checkArgument(height > 0, "height %s must be positive", height);
     checkLayout(layout);
     return new Presentation(
         width,
@@ -174,7 +179,8 @@ public final class Presentation implements MatrixTransformation {
         ASPECT_RATIO_UNSET,
         layout,
         TEXTURE_MIN_FILTER_LINEAR,
-        /* preservePortraitWhenApplicable= */ false);
+        /* preservePortraitWhenApplicable= */ false,
+        /* divisor= */ 1);
   }
 
   /**
@@ -187,14 +193,15 @@ public final class Presentation implements MatrixTransformation {
    * @param shortSide The length of the short side of the output frame, in pixels.
    */
   public static Presentation createForShortSide(int shortSide) {
-    checkArgument(shortSide > 0, "shortSide " + shortSide + " must be positive");
+    checkArgument(shortSide > 0, "shortSide %s must be positive", shortSide);
     return new Presentation(
         /* width= */ C.LENGTH_UNSET,
         /* height= */ shortSide,
         ASPECT_RATIO_UNSET,
         LAYOUT_SCALE_TO_FIT,
         TEXTURE_MIN_FILTER_LINEAR,
-        /* preservePortraitWhenApplicable= */ true);
+        /* preservePortraitWhenApplicable= */ true,
+        /* divisor= */ 1);
   }
 
   private final int requestedWidthPixels;
@@ -203,6 +210,7 @@ public final class Presentation implements MatrixTransformation {
   private final @Layout int layout;
   private final @C.TextureMinFilter int textureMinFilter;
   private final boolean preservePortraitWhenApplicable;
+  private final int divisor;
 
   private float outputWidth;
   private float outputHeight;
@@ -214,7 +222,8 @@ public final class Presentation implements MatrixTransformation {
       float aspectRatio,
       @Layout int layout,
       @C.TextureMinFilter int textureMinFilter,
-      boolean preservePortraitWhenApplicable) {
+      boolean preservePortraitWhenApplicable,
+      int divisor) {
     checkArgument(
         (aspectRatio == ASPECT_RATIO_UNSET) || (width == C.LENGTH_UNSET),
         "width and aspect ratio should not both be set");
@@ -225,6 +234,7 @@ public final class Presentation implements MatrixTransformation {
     this.layout = layout;
     this.textureMinFilter = textureMinFilter;
     this.preservePortraitWhenApplicable = preservePortraitWhenApplicable;
+    this.divisor = divisor;
 
     outputWidth = C.LENGTH_UNSET;
     outputHeight = C.LENGTH_UNSET;
@@ -246,7 +256,30 @@ public final class Presentation implements MatrixTransformation {
         requestedAspectRatio,
         layout,
         textureMinFilter,
-        preservePortraitWhenApplicable);
+        preservePortraitWhenApplicable,
+        divisor);
+  }
+
+  /**
+   * Returns a copy that will round the unset side length to the given {@code divisor}.
+   *
+   * @param divisor The value to round the unset side length to.
+   * @throws IllegalStateException When the copied {@link Presentation} has {@linkplain
+   *     #createForWidthAndHeight both side lengths set}, or {@linkplain #createForAspectRatio
+   *     neither side length set}.
+   * @throws IllegalArgumentException When the divisor is less than 1.
+   */
+  public Presentation copyWithUnsetSideRoundedTo(int divisor) {
+    checkArgument(divisor > 0);
+    checkState(requestedWidthPixels == LENGTH_UNSET && requestedHeightPixels != LENGTH_UNSET);
+    return new Presentation(
+        requestedWidthPixels,
+        requestedHeightPixels,
+        requestedAspectRatio,
+        layout,
+        textureMinFilter,
+        preservePortraitWhenApplicable,
+        divisor);
   }
 
   @Override
@@ -279,9 +312,11 @@ public final class Presentation implements MatrixTransformation {
       } else if (preservePortraitWhenApplicable && inputHeight > inputWidth) {
         // Swap width and height if the input orientation should be respected.
         outputHeight = requestedHeightPixels * outputHeight / outputWidth;
+        outputHeight = Math.round((double) outputHeight / divisor) * divisor;
         outputWidth = requestedHeightPixels;
       } else {
         outputWidth = requestedHeightPixels * outputWidth / outputHeight;
+        outputWidth = Math.round((double) outputWidth / divisor) * divisor;
         outputHeight = requestedHeightPixels;
       }
     }
@@ -290,13 +325,13 @@ public final class Presentation implements MatrixTransformation {
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(transformationMatrix, "configure must be called first");
+    return checkNotNull(transformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     configure(inputWidth, inputHeight);
-    return checkStateNotNull(transformationMatrix).isIdentity()
+    return checkNotNull(transformationMatrix).isIdentity()
         && inputWidth == Math.round(outputWidth)
         && inputHeight == Math.round(outputHeight);
   }

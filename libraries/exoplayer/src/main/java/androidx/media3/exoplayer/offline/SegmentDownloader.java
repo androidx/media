@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.percentFloat;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -25,7 +25,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,6 +37,7 @@ import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.datasource.cache.ContentMetadata;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
+import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -202,7 +202,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     this.executor = executor;
     this.startPositionUs = startPositionUs;
     this.durationUs = durationUs;
-    cache = Assertions.checkNotNull(cacheDataSourceFactory.getCache());
+    cache = checkNotNull(cacheDataSourceFactory.getCache());
     cacheKeyFactory = cacheDataSourceFactory.getCacheKeyFactory();
     priorityTaskManager = cacheDataSourceFactory.getUpstreamPriorityTaskManager();
     activeRunnables = new ArrayList<>();
@@ -312,7 +312,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
               removeActiveRunnable(j);
               recycledRunnables.addLast(activeRunnable);
             } catch (ExecutionException e) {
-              Throwable cause = Assertions.checkNotNull(e.getCause());
+              Throwable cause = checkNotNull(e.getCause());
               if (cause instanceof PriorityTooLowException) {
                 // We need to schedule this segment again in a future loop iteration.
                 pendingSegments.addFirst(activeRunnable.segment);
@@ -395,32 +395,35 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
   protected final M getManifest(DataSource dataSource, DataSpec dataSpec, boolean removing)
       throws InterruptedException, IOException {
     return execute(
-        new RunnableFutureTask<M, IOException>() {
-          @Override
-          protected M doWork() throws IOException {
-            return ParsingLoadable.load(dataSource, manifestParser, dataSpec, C.DATA_TYPE_MANIFEST);
-          }
-        },
+        () ->
+            new RunnableFutureTask<M, IOException>() {
+              @Override
+              protected M doWork() throws IOException {
+                return ParsingLoadable.load(
+                    dataSource, manifestParser, dataSpec, C.DATA_TYPE_MANIFEST);
+              }
+            },
         removing);
   }
 
   /**
    * Executes the provided {@link RunnableFutureTask}.
    *
-   * @param runnable The {@link RunnableFutureTask} to execute.
+   * @param runnable A supplier for the {@link RunnableFutureTask} to execute.
    * @param removing Whether the execution is part of the download being removed.
    * @return The result.
    * @throws InterruptedException If the thread on which the method is called is interrupted.
    * @throws IOException If an error occurs during execution.
    */
-  protected final <T> T execute(RunnableFutureTask<T, ?> runnable, boolean removing)
+  protected final <T> T execute(Supplier<RunnableFutureTask<T, ?>> runnable, boolean removing)
       throws InterruptedException, IOException {
     if (removing) {
-      runnable.run();
+      RunnableFutureTask<T, ?> task = runnable.get();
+      task.run();
       try {
-        return runnable.get();
+        return task.get();
       } catch (ExecutionException e) {
-        Throwable cause = Assertions.checkNotNull(e.getCause());
+        Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof IOException) {
           throw (IOException) cause;
         } else {
@@ -437,12 +440,13 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       if (priorityTaskManager != null) {
         priorityTaskManager.proceed(C.PRIORITY_DOWNLOAD);
       }
-      addActiveRunnable(runnable);
-      executor.execute(runnable);
+      RunnableFutureTask<T, ?> task = runnable.get();
+      addActiveRunnable(task);
+      executor.execute(task);
       try {
-        return runnable.get();
+        return task.get();
       } catch (ExecutionException e) {
-        Throwable cause = Assertions.checkNotNull(e.getCause());
+        Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof PriorityTooLowException) {
           // The next loop iteration will block until the task is able to proceed.
         } else if (cause instanceof IOException) {
@@ -453,8 +457,8 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
         }
       } finally {
         // We don't want to return for as long as the runnable might still be doing work.
-        runnable.blockUntilFinished();
-        removeActiveRunnable(runnable);
+        task.blockUntilFinished();
+        removeActiveRunnable(task);
       }
     }
   }
@@ -524,9 +528,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
                 ? C.LENGTH_UNSET
                 : lastSegment.dataSpec.length + segment.dataSpec.length;
         DataSpec mergedDataSpec = lastSegment.dataSpec.subrange(/* offset= */ 0, mergedLength);
-        segments.set(
-            Assertions.checkNotNull(lastIndex),
-            new Segment(lastSegment.startTimeUs, mergedDataSpec));
+        segments.set(checkNotNull(lastIndex), new Segment(lastSegment.startTimeUs, mergedDataSpec));
       }
     }
     Util.removeRange(segments, /* fromIndex= */ nextOutIndex, /* toIndex= */ segments.size());

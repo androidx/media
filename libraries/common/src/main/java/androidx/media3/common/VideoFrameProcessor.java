@@ -207,7 +207,7 @@ public interface VideoFrameProcessor {
   @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // This is a named constant, not a time unit.
   long RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME = -3;
 
-  /** A maker for passing to {@link #registerInputStream} to signal a redraw. */
+  /** A marker for passing to {@link #registerInputStream} to signal a redraw. */
   ImmutableList<Effect> REDRAW = ImmutableList.of(new Effect() {});
 
   /**

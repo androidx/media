@@ -819,7 +819,10 @@ public class MediaItemTest {
     MediaItem.LocalConfiguration localConfigurationFromBundle =
         MediaItem.LocalConfiguration.fromBundle(localConfiguration.toBundle());
     MediaItem.LocalConfiguration localConfigurationFromMediaItemBundle =
-        MediaItem.fromBundle(mediaItem.toBundleIncludeLocalConfiguration()).localConfiguration;
+        MediaItem.fromBundle(
+                mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION)
+            .localConfiguration;
 
     assertThat(localConfigurationFromBundle).isEqualTo(localConfiguration);
     assertThat(localConfigurationFromMediaItemBundle).isEqualTo(localConfiguration);
@@ -1048,7 +1051,11 @@ public class MediaItemTest {
             .build();
 
     assertThat(mediaItem.localConfiguration).isNull();
-    assertThat(MediaItem.fromBundle(mediaItem.toBundle())).isEqualTo(mediaItem);
+    assertThat(
+            MediaItem.fromBundle(
+                mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                MediaLibraryInfo.INTERFACE_VERSION))
+        .isEqualTo(mediaItem);
   }
 
   @Test
@@ -1057,7 +1064,12 @@ public class MediaItemTest {
     MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
 
     assertThat(mediaItem.localConfiguration).isNotNull();
-    assertThat(MediaItem.fromBundle(mediaItem.toBundle()).localConfiguration).isNull();
+    assertThat(
+            MediaItem.fromBundle(
+                    mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+                    MediaLibraryInfo.INTERFACE_VERSION)
+                .localConfiguration)
+        .isNull();
   }
 
   @Test
@@ -1065,7 +1077,9 @@ public class MediaItemTest {
       roundTripViaBundleIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_restoresLocalConfiguration() {
     MediaItem mediaItem = new MediaItem.Builder().setUri(URI_STRING).build();
     MediaItem restoredMediaItem =
-        MediaItem.fromBundle(mediaItem.toBundleIncludeLocalConfiguration());
+        MediaItem.fromBundle(
+            mediaItem.toBundleIncludeLocalConfiguration(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaItem.localConfiguration).isNotNull();
     assertThat(restoredMediaItem.localConfiguration).isEqualTo(mediaItem.localConfiguration);
@@ -1082,7 +1096,10 @@ public class MediaItemTest {
             .setRequestMetadata(new RequestMetadata.Builder().setExtras(extras).build())
             .build();
 
-    MediaItem restoredItem = MediaItem.fromBundle(mediaItem.toBundle());
+    MediaItem restoredItem =
+        MediaItem.fromBundle(
+            mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(restoredItem).isEqualTo(mediaItem);
     assertThat(restoredItem.requestMetadata.extras).isNotNull();
@@ -1107,12 +1124,15 @@ public class MediaItemTest {
   public void createDefaultMediaItemInstance_toBundleSkipsDefaultValues_fromBundleRestoresThem() {
     MediaItem mediaItem = new MediaItem.Builder().build();
 
-    Bundle mediaItemBundle = mediaItem.toBundle();
+    Bundle mediaItemBundle = mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
 
     // Check that default values are skipped when bundling.
     assertThat(mediaItemBundle.keySet()).isEmpty();
 
-    MediaItem mediaItemFromBundle = MediaItem.fromBundle(mediaItem.toBundle());
+    MediaItem mediaItemFromBundle =
+        MediaItem.fromBundle(
+            mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaItemFromBundle).isEqualTo(mediaItem);
   }
@@ -1140,7 +1160,10 @@ public class MediaItemTest {
                     .build())
             .build();
 
-    MediaItem mediaItemFromBundle = MediaItem.fromBundle(mediaItem.toBundle());
+    MediaItem mediaItemFromBundle =
+        MediaItem.fromBundle(
+            mediaItem.toBundle(MediaLibraryInfo.INTERFACE_VERSION),
+            MediaLibraryInfo.INTERFACE_VERSION);
 
     assertThat(mediaItemFromBundle).isEqualTo(mediaItem);
     assertThat(mediaItemFromBundle.requestMetadata.extras)

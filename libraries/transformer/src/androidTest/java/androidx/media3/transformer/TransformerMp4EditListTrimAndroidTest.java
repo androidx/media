@@ -16,8 +16,8 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_VISUAL_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.AssetInfo.MP4_VISUAL_TIMESTAMPS;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -144,8 +144,9 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build()
             .run(testId, editedMediaItem);
 
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The final PTS is at 10.007 sec.
-    assertThat(result.exportResult.durationMs).isWithin(100).of(10_007);
+    assertThat(result.exportResult.approximateDurationMs).isWithin(100).of(10_007);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertThat(result.exportResult.videoEncoderName).isNotNull();
     assertThat(result.exportResult.audioEncoderName).isNull();
@@ -175,10 +176,10 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
                         new EditedMediaItem.Builder(mediaItem).build(),
-                        new EditedMediaItem.Builder(mediaItem).build())
-                    .build())
+                        new EditedMediaItem.Builder(mediaItem).build())))
             .build();
 
     ExportTestResult result =
@@ -186,7 +187,8 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.durationMs).isWithin(100).of(3_970);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.exportResult.approximateDurationMs).isWithin(100).of(3_970);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertThat(result.exportResult.videoEncoderName).isNotNull();
     assertThat(result.exportResult.audioEncoderName).isNotNull();
@@ -216,10 +218,10 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(new EditedMediaItem.Builder(mediaItem).build())
-                    .build(),
-                new EditedMediaItemSequence.Builder(new EditedMediaItem.Builder(mediaItem).build())
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
             .build();
 
     ExportTestResult result =
@@ -227,7 +229,8 @@ public class TransformerMp4EditListTrimAndroidTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.durationMs).isWithin(100).of(1_973);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.exportResult.approximateDurationMs).isWithin(100).of(1_973);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
     assertThat(result.exportResult.videoEncoderName).isNotNull();
     assertThat(result.exportResult.audioEncoderName).isNotNull();

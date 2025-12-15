@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Predvajaj</string>
+  <string name="playpause_button_pause">Začasno zaustavi</string>
+  <string name="next_button">Naprej</string>
+  <string name="previous_button">Nazaj</string>
+  <string name="seek_back_button">Previj nazaj</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Preskoči nazaj za %d sekundo</item>
+    <item quantity="two">Preskoči nazaj za %d sekundi</item>
+    <item quantity="few">Preskoči nazaj za %d sekunde</item>
+    <item quantity="other">Preskoči nazaj za %d sekund</item>
+  </plurals>
+  <string name="seek_forward_button">Preskoči naprej</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Preskoči naprej za %d sekundo</item>
+    <item quantity="two">Preskoči naprej za %d sekundi</item>
+    <item quantity="few">Preskoči naprej za %d sekunde</item>
+    <item quantity="other">Preskoči naprej za %d sekund</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Trenutni način: Brez ponavljanja. Preklopite način ponavljanja.</string>
+  <string name="repeat_button_repeat_one">Trenutni način: Ponovi eno. Preklopite način ponavljanja.</string>
+  <string name="repeat_button_repeat_all">Trenutni način: Ponovi vse. Preklopite način ponavljanja.</string>
+  <string name="shuffle_button_shuffle_on">Način naključnega predvajanja je omogočen.</string>
+  <string name="shuffle_button_shuffle_off">Način naključnega predvajanja je onemogočen.</string>
+  <string name="mute_button_shown_unmuted">Izklopi zvok</string>
+  <string name="mute_button_shown_muted">Vklopi zvok</string>
+</resources>

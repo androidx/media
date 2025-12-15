@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
@@ -29,6 +28,8 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.media3.transformer.TransformerUtil.isImage;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -203,7 +204,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       TrackSelector.Factory trackSelectorFactory = this.trackSelectorFactory;
       if (trackSelectorFactory == null) {
         DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
-            new DefaultTrackSelector.Parameters.Builder(context)
+            new DefaultTrackSelector.Parameters.Builder()
                 .setForceHighestSupportedBitrate(true)
                 .setConstrainAudioChannelCountToDeviceCapabilities(false)
                 .build();
@@ -225,6 +226,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                     DEFAULT_MAX_BUFFER_MS,
                     DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
                     DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
+                .setPrioritizeTimeOverSizeThresholds(false)
                 .build();
       }
       return new ExoPlayerAssetLoader(
@@ -250,6 +252,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   private final ExoPlayer player;
 
   private @Transformer.ProgressState int progressState;
+  private long durationUs;
 
   private ExoPlayerAssetLoader(
       Context context,
@@ -272,17 +275,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         new ExoPlayer.Builder(
                 context,
                 new RenderersFactoryImpl(
-                    editedMediaItem.removeAudio,
-                    editedMediaItem.removeVideo,
-                    editedMediaItem.flattenForSlowMotion,
-                    this.decoderFactory,
-                    hdrMode,
-                    listener,
-                    logSessionId))
+                    editedMediaItem, this.decoderFactory, hdrMode, listener, logSessionId))
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setLooper(looper)
+            .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .setUsePlatformDiagnostics(false);
     if (decoderFactory instanceof DefaultDecoderFactory) {
       playerBuilder.experimentalSetDynamicSchedulingEnabled(
@@ -298,6 +298,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     player.addListener(new PlayerListener(listener));
 
     progressState = PROGRESS_STATE_NOT_STARTED;
+    durationUs = C.TIME_UNSET;
   }
 
   @Override
@@ -310,7 +311,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   @Override
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
-      long durationMs = player.getDuration();
+      long durationMs = durationUs / 1_000;
       // The player position can become greater than the duration. This happens if the player is
       // using a StandaloneMediaClock because the renderers have ended.
       long positionMs = min(player.getCurrentPosition(), durationMs);
@@ -342,25 +343,19 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   private static final class RenderersFactoryImpl implements RenderersFactory {
 
     private final TransformerMediaClock mediaClock;
-    private final boolean removeAudio;
-    private final boolean removeVideo;
-    private final boolean flattenForSlowMotion;
+    private final EditedMediaItem editedMediaItem;
     private final Codec.DecoderFactory decoderFactory;
     private final @Composition.HdrMode int hdrMode;
     private final Listener assetLoaderListener;
     @Nullable private final LogSessionId logSessionId;
 
     public RenderersFactoryImpl(
-        boolean removeAudio,
-        boolean removeVideo,
-        boolean flattenForSlowMotion,
+        EditedMediaItem editedMediaItem,
         Codec.DecoderFactory decoderFactory,
         @Composition.HdrMode int hdrMode,
         Listener assetLoaderListener,
         @Nullable LogSessionId logSessionId) {
-      this.removeAudio = removeAudio;
-      this.removeVideo = removeVideo;
-      this.flattenForSlowMotion = flattenForSlowMotion;
+      this.editedMediaItem = editedMediaItem;
       this.decoderFactory = decoderFactory;
       this.hdrMode = hdrMode;
       this.assetLoaderListener = assetLoaderListener;
@@ -376,20 +371,21 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         TextOutput textRendererOutput,
         MetadataOutput metadataRendererOutput) {
       ArrayList<Renderer> renderers = new ArrayList<>();
-      if (!removeAudio) {
+      if (!editedMediaItem.removeAudio) {
         renderers.add(
             new ExoAssetLoaderAudioRenderer(
                 decoderFactory, mediaClock, assetLoaderListener, logSessionId));
       }
-      if (!removeVideo) {
+      if (!editedMediaItem.removeVideo) {
         renderers.add(
             new ExoAssetLoaderVideoRenderer(
-                flattenForSlowMotion,
+                editedMediaItem.flattenForSlowMotion,
                 decoderFactory,
                 hdrMode,
                 mediaClock,
                 assetLoaderListener,
-                logSessionId));
+                logSessionId,
+                editedMediaItem.frameRate));
       }
       return renderers.toArray(new Renderer[0]);
     }
@@ -406,21 +402,23 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     @Override
     public void onTimelineChanged(Timeline timeline, int reason) {
       try {
-        if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-          return;
-        }
         Timeline.Window window = new Timeline.Window();
         timeline.getWindow(/* windowIndex= */ 0, window);
         if (!window.isPlaceholder) {
-          long durationUs = window.durationUs;
-          // Make progress permanently unavailable if the duration is unknown, so that it doesn't
-          // jump to a high value at the end of the export if the duration is set once the media is
-          // entirely loaded.
-          progressState =
-              durationUs <= 0 || durationUs == C.TIME_UNSET
-                  ? PROGRESS_STATE_UNAVAILABLE
-                  : PROGRESS_STATE_AVAILABLE;
-          assetLoaderListener.onDurationUs(window.durationUs);
+          if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
+            durationUs = window.durationUs;
+            // Make progress permanently unavailable if the duration is unknown, so that it doesn't
+            // jump to a high value at the end of the export if the duration is set once the media
+            // is entirely loaded.
+            progressState =
+                durationUs <= 0 || durationUs == C.TIME_UNSET
+                    ? PROGRESS_STATE_UNAVAILABLE
+                    : PROGRESS_STATE_AVAILABLE;
+            assetLoaderListener.onDurationUs(window.durationUs);
+          } else if (durationUs != C.TIME_UNSET) {
+            // Duration once known can not change.
+            checkState(durationUs == window.durationUs);
+          }
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(

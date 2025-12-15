@@ -70,6 +70,7 @@ public class ExoPlayerAssetLoaderTest {
         Looper.myLooper(),
         () -> {
           ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+          sleep(exception);
           return (isAudioOutputFormatSet.get() && isVideoOutputFormatSet.get())
               || exception.get() != null;
         });
@@ -90,7 +91,7 @@ public class ExoPlayerAssetLoaderTest {
             isVideoOutputFormatSet,
             expectedOutputResolutionHeight);
     DefaultTrackSelector.Parameters trackSelectorParameters =
-        new DefaultTrackSelector.Parameters.Builder(ApplicationProvider.getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setMaxVideoSize(
                 /* maxVideoWidth= */ Integer.MAX_VALUE,
                 /* maxVideoHeight= */ expectedOutputResolutionHeight)
@@ -114,6 +115,7 @@ public class ExoPlayerAssetLoaderTest {
         Looper.myLooper(),
         () -> {
           ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+          sleep(exception);
           return isVideoOutputFormatSet.get() || exception.get() != null;
         });
 
@@ -135,7 +137,7 @@ public class ExoPlayerAssetLoaderTest {
             isVideoOutputFormatSet,
             expectedOutputResolutionHeight);
     DefaultTrackSelector.Parameters trackSelectorParameters =
-        new DefaultTrackSelector.Parameters.Builder(ApplicationProvider.getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setForceHighestSupportedBitrate(true)
             .setConstrainAudioChannelCountToDeviceCapabilities(false)
             .build();
@@ -156,6 +158,7 @@ public class ExoPlayerAssetLoaderTest {
         Looper.myLooper(),
         () -> {
           ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+          sleep(exception);
           return isVideoOutputFormatSet.get() || exception.get() != null;
         });
 
@@ -188,6 +191,15 @@ public class ExoPlayerAssetLoaderTest {
                 Composition.HDR_MODE_KEEP_HDR, /* retainHdrFromUltraHdrImage= */ false));
   }
 
+  private static void sleep(AtomicReference<Exception> exceptionRef) {
+    try {
+      Thread.sleep(10);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      exceptionRef.set(e);
+    }
+  }
+
   private static AssetLoader.Listener getAssetLoaderListener(
       AtomicReference<Exception> exceptionRef,
       AtomicBoolean isAudioOutputFormatSet,
@@ -203,14 +215,14 @@ public class ExoPlayerAssetLoaderTest {
       @Override
       public void onDurationUs(long durationUs) {
         // Sleep to increase the chances of the test failing.
-        sleep();
+        sleep(exceptionRef);
         isDurationSet = true;
       }
 
       @Override
       public void onTrackCount(int trackCount) {
         // Sleep to increase the chances of the test failing.
-        sleep();
+        sleep(exceptionRef);
         isTrackCountSet = true;
       }
 
@@ -224,7 +236,7 @@ public class ExoPlayerAssetLoaderTest {
           exceptionRef.set(
               new IllegalStateException("onTrackAdded() called before onTrackCount()"));
         }
-        sleep();
+        sleep(exceptionRef);
         @C.TrackType int trackType = getProcessedTrackType(inputFormat.sampleMimeType);
         if (trackType == C.TRACK_TYPE_AUDIO) {
           isAudioTrackAdded = true;
@@ -264,15 +276,6 @@ public class ExoPlayerAssetLoaderTest {
       @Override
       public void onError(ExportException e) {
         exceptionRef.set(e);
-      }
-
-      private void sleep() {
-        try {
-          Thread.sleep(10);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          exceptionRef.set(e);
-        }
       }
     };
   }

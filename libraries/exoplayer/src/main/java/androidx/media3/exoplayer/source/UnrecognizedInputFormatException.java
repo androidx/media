@@ -65,4 +65,12 @@ public class UnrecognizedInputFormatException extends ParserException {
     this.uri = uri;
     this.sniffFailures = ImmutableList.copyOf(sniffFailures);
   }
+
+  @Override
+  public String getMessage() {
+    String superMessage = super.getMessage();
+    return sniffFailures.isEmpty()
+        ? superMessage
+        : superMessage + "\nsniff failures: " + sniffFailures;
+  }
 }

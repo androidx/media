@@ -16,13 +16,6 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 android {
     namespace 'androidx.media3.muxer'
 
-    defaultConfig {
-        // The following argument makes the Android Test Orchestrator run its
-        // "pm clear" command after each test invocation. This command ensures
-        // that the app's state is completely cleared between tests.
-        testInstrumentationRunnerArguments clearPackageData: 'true'
-    }
-
     buildTypes {
         debug {
             testCoverageEnabled = true
@@ -48,6 +41,7 @@ dependencies {
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     testImplementation project(modulePrefix + 'lib-extractor')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
@@ -55,8 +49,8 @@ dependencies {
     testImplementation 'com.google.truth:truth:' + truthVersion
     testImplementation project(modulePrefix + 'lib-exoplayer')
 
-    // These deps are used by internal-only instrumentation tests.
     androidTestImplementation 'junit:junit:' + junitVersion
+    androidTestImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')

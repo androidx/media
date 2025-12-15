@@ -27,20 +27,20 @@ VP9_MODULE_PATH="$(pwd)/libraries/decoder_vp9/src/main"
 ```
 
 * Download the [Android NDK][] and set its location in an environment variable.
-  This build configuration has been tested on NDK r21.
+  This build configuration has been tested on NDK r27.
 
 ```
 NDK_PATH="<path to Android NDK>"
 ```
 
 * Fetch an appropriate branch of libvpx. We cannot guarantee compatibility
-  with all versions of libvpx. We currently recommend version 1.8.0:
+  with all versions of libvpx. We currently recommend version 1.15.2:
 
 ```
 cd "<preferred location for libvpx>" && \
 git clone https://chromium.googlesource.com/webm/libvpx && \
 cd libvpx && \
-git checkout tags/v1.8.0 -b v1.8.0 && \
+git checkout tags/v1.15.2 -b v1.15.2 && \
 LIBVPX_PATH="$(pwd)"
 ```
 
@@ -57,7 +57,7 @@ ln -s "$LIBVPX_PATH" libvpx && \
 
 ```
 cd "${VP9_MODULE_PATH}"/jni && \
-${NDK_PATH}/ndk-build APP_ABI=all -j4
+${NDK_PATH}/ndk-build -j4
 ```
 
 [top level README]: ../../README.md

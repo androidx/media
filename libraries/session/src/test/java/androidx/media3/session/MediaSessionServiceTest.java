@@ -28,6 +28,7 @@ import android.os.HandlerThread;
 import android.service.notification.StatusBarNotification;
 import android.view.KeyEvent;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
@@ -35,24 +36,26 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.shadows.ShadowLooper;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class MediaSessionServiceTest {
 
   private static final int TIMEOUT_MS = 500;
@@ -746,11 +749,12 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void onStartCommand_playbackResumption_calledByMediaNotificationController()
+  public void onStartCommand_playbackResumption_calledByMediaNotificationController(
+      @TestParameter PlayPauseEvent playPauseEvent)
       throws InterruptedException, ExecutionException, TimeoutException {
     Intent playIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     playIntent.putExtra(
-        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY));
+        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, playPauseEvent.keyCode));
     ServiceController<TestServiceWithPlaybackResumption> serviceController =
         Robolectric.buildService(TestServiceWithPlaybackResumption.class, playIntent);
     TestServiceWithPlaybackResumption service = serviceController.create().get();
@@ -857,6 +861,66 @@ public class MediaSessionServiceTest {
     serviceController.destroy();
   }
 
+  @Test
+  public void triggerNotificationUpdate_callsNotificationProvider() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    DefaultMediaNotificationProvider defaultProvider =
+        new DefaultMediaNotificationProvider(
+            service,
+            /* notificationIdProvider= */ unused -> 2000,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID);
+    AtomicInteger counter = new AtomicInteger();
+    service.setMediaNotificationProvider(
+        new MediaNotification.Provider() {
+          @Override
+          public MediaNotification createNotification(
+              MediaSession mediaSession,
+              ImmutableList<CommandButton> mediaButtonPreferences,
+              MediaNotification.ActionFactory actionFactory,
+              Callback onNotificationChangedCallback) {
+            MediaNotification notification =
+                defaultProvider.createNotification(
+                    mediaSession,
+                    mediaButtonPreferences,
+                    actionFactory,
+                    onNotificationChangedCallback);
+            return new MediaNotification(
+                notification.notificationId,
+                new NotificationCompat.Builder(service, notification.notification)
+                    .setTicker(Integer.toString(counter.incrementAndGet()))
+                    .build());
+          }
+
+          @Override
+          public boolean handleCustomCommand(MediaSession session, String action, Bundle extras) {
+            return defaultProvider.handleCustomCommand(session, action, extras);
+          }
+        });
+    service.addSession(session);
+    // Add media and give the service a chance to create an initial notification.
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    ShadowLooper.idleMainLooper();
+
+    String tickerBeforeTriggerNotificationUpdate =
+        getStatusBarNotification(2000).getNotification().tickerText.toString();
+    service.triggerNotificationUpdate();
+    ShadowLooper.idleMainLooper();
+    String tickerAfterTriggerNotificationUpdate =
+        getStatusBarNotification(2000).getNotification().tickerText.toString();
+
+    assertThat(tickerAfterTriggerNotificationUpdate)
+        .isNotEqualTo(tickerBeforeTriggerNotificationUpdate);
+
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
   @Nullable
   private StatusBarNotification getStatusBarNotification(int notificationId) {
     for (StatusBarNotification notification : notificationManager.getActiveNotifications()) {
@@ -911,7 +975,9 @@ public class MediaSessionServiceTest {
                     @Override
                     public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                         onPlaybackResumption(
-                            MediaSession mediaSession, MediaSession.ControllerInfo controller) {
+                            MediaSession mediaSession,
+                            MediaSession.ControllerInfo controller,
+                            boolean isForPlayback) {
                       // Automatic playback resumption is expected to be called only from the media
                       // notification controller. So we call it here only if the callback is
                       // actually called from the media notification controller (or a fake of it).
@@ -945,6 +1011,18 @@ public class MediaSessionServiceTest {
         session = null;
       }
       super.onDestroy();
+    }
+  }
+
+  private enum PlayPauseEvent {
+    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    MEDIA_PLAY(KeyEvent.KEYCODE_MEDIA_PLAY),
+    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
+
+    final int keyCode;
+
+    PlayPauseEvent(int keyCode) {
+      this.keyCode = keyCode;
     }
   }
 }

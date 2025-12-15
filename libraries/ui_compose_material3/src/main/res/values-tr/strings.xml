@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Oynat</string>
+  <string name="playpause_button_pause">Duraklat</string>
+  <string name="next_button">Sonraki</string>
+  <string name="previous_button">Önceki</string>
+  <string name="seek_back_button">Geri sar</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d saniye geri atla</item>
+    <item quantity="other">%d saniye geri atla</item>
+  </plurals>
+  <string name="seek_forward_button">İleri git</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d saniye ileri atla</item>
+    <item quantity="other">%d saniye ileri git</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Geçerli mod: Tekrarlama. Tekrarlamayı aç/kapat.</string>
+  <string name="repeat_button_repeat_one">Geçerli mod: Birini tekrarla. Tekrarlamayı aç/kapat.</string>
+  <string name="repeat_button_repeat_all">Geçerli mod: Tümünü tekrarla. Tekrarlamayı aç/kapat.</string>
+  <string name="shuffle_button_shuffle_on">Karıştırma modu etkinleştirildi.</string>
+  <string name="shuffle_button_shuffle_off">Karıştırma modu devre dışı bırakıldı.</string>
+  <string name="mute_button_shown_unmuted">Sesi kapat</string>
+  <string name="mute_button_shown_muted">Sesi aç</string>
+</resources>

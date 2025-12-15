@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.image;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.content.Context;
@@ -27,7 +27,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -54,31 +53,12 @@ public final class BitmapFactoryImageDecoder
     extends SimpleDecoder<DecoderInputBuffer, ImageOutputBuffer, ImageDecoderException>
     implements ImageDecoder {
 
-  /**
-   * @deprecated Use {@link ExternallyLoadedImageDecoder} to control how images are decoded.
-   */
-  @Deprecated
-  @VisibleForTesting
-  public interface BitmapDecoder {
-
-    /**
-     * Decodes data into a {@link Bitmap}.
-     *
-     * @param data An array holding the data to be decoded, starting at position 0.
-     * @param length The length of the input to be decoded.
-     * @return The decoded {@link Bitmap}.
-     * @throws ImageDecoderException If a decoding error occurs.
-     */
-    Bitmap decode(byte[] data, int length) throws ImageDecoderException;
-  }
-
   /** A factory for {@link BitmapFactoryImageDecoder} instances. */
   public static final class Factory implements ImageDecoder.Factory {
 
     // TODO: Remove @Nullable from this field (and all related null checks) when the deprecated
     // zero-args constructor is removed.
     @Nullable private final Context context;
-    @Nullable private final BitmapDecoder bitmapDecoder;
     private int maxOutputSize;
 
     /**
@@ -86,25 +66,13 @@ public final class BitmapFactoryImageDecoder
      */
     @Deprecated
     public Factory() {
-      this(/* context= */ null, /* bitmapDecoder= */ null);
+      this.context = null;
+      this.maxOutputSize = C.LENGTH_UNSET;
     }
 
     /** Creates an instance. */
     public Factory(Context context) {
-      this(context, /* bitmapDecoder= */ null);
-    }
-
-    /**
-     * @deprecated Use {@link ExternallyLoadedImageDecoder} to control how images are decoded.
-     */
-    @Deprecated
-    public Factory(BitmapDecoder bitmapDecoder) {
-      this(/* context= */ null, bitmapDecoder);
-    }
-
-    private Factory(@Nullable Context context, @Nullable BitmapDecoder bitmapDecoder) {
-      this.context = context;
-      this.bitmapDecoder = bitmapDecoder;
+      this.context = checkNotNull(context);
       this.maxOutputSize = C.LENGTH_UNSET;
     }
 
@@ -136,19 +104,16 @@ public final class BitmapFactoryImageDecoder
 
     @Override
     public BitmapFactoryImageDecoder createImageDecoder() {
-      return new BitmapFactoryImageDecoder(context, bitmapDecoder, maxOutputSize);
+      return new BitmapFactoryImageDecoder(context, maxOutputSize);
     }
   }
 
   @Nullable private final Context context;
-  @Nullable private final BitmapDecoder bitmapDecoder;
   private final int maxOutputSize;
 
-  private BitmapFactoryImageDecoder(
-      @Nullable Context context, @Nullable BitmapDecoder bitmapDecoder, int maxOutputSize) {
+  private BitmapFactoryImageDecoder(@Nullable Context context, int maxOutputSize) {
     super(new DecoderInputBuffer[1], new ImageOutputBuffer[1]);
     this.context = context;
-    this.bitmapDecoder = bitmapDecoder;
     this.maxOutputSize = maxOutputSize;
   }
 
@@ -184,48 +149,40 @@ public final class BitmapFactoryImageDecoder
     ByteBuffer inputData = checkNotNull(inputBuffer.data);
     checkState(inputData.hasArray());
     checkArgument(inputData.arrayOffset() == 0);
-    if (bitmapDecoder != null) {
-      try {
-        outputBuffer.bitmap = bitmapDecoder.decode(inputData.array(), inputData.remaining());
-      } catch (ImageDecoderException e) {
-        return e;
-      }
-    } else {
-      try {
-        int maxSize;
-        if (this.maxOutputSize != C.LENGTH_UNSET) {
-          maxSize = maxOutputSize;
-        } else if (context != null) {
-          Point currentDisplayModeSize = Util.getCurrentDisplayModeSize(context);
-          int maxWidth = currentDisplayModeSize.x;
-          int maxHeight = currentDisplayModeSize.y;
-          if (inputBuffer.format != null) {
-            if (inputBuffer.format.tileCountHorizontal != Format.NO_VALUE) {
-              maxWidth *= inputBuffer.format.tileCountHorizontal;
-            }
-            if (inputBuffer.format.tileCountVertical != Format.NO_VALUE) {
-              maxHeight *= inputBuffer.format.tileCountVertical;
-            }
+    try {
+      int maxSize;
+      if (this.maxOutputSize != C.LENGTH_UNSET) {
+        maxSize = maxOutputSize;
+      } else if (context != null) {
+        Point currentDisplayModeSize = Util.getCurrentDisplayModeSize(context);
+        int maxWidth = currentDisplayModeSize.x;
+        int maxHeight = currentDisplayModeSize.y;
+        if (inputBuffer.format != null) {
+          if (inputBuffer.format.tileCountHorizontal != Format.NO_VALUE) {
+            maxWidth *= inputBuffer.format.tileCountHorizontal;
           }
-          // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the max size
-          // ensures that an image is never downscaled to be smaller than the max size.
-          maxSize = max(maxWidth, maxHeight) * 2 - 1;
-        } else {
-          // If we can't get the display size, fallback to a sensible default.
-          maxSize = GlUtil.MAX_BITMAP_DECODING_SIZE;
+          if (inputBuffer.format.tileCountVertical != Format.NO_VALUE) {
+            maxHeight *= inputBuffer.format.tileCountVertical;
+          }
         }
-
-        outputBuffer.bitmap =
-            BitmapUtil.decode(
-                inputData.array(),
-                inputData.remaining(),
-                /* options= */ null,
-                /* maximumOutputDimension= */ maxSize);
-      } catch (ParserException e) {
-        return new ImageDecoderException("Could not decode image data with BitmapFactory.", e);
-      } catch (IOException e) {
-        return new ImageDecoderException(e);
+        // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the max size
+        // ensures that an image is never downscaled to be smaller than the max size.
+        maxSize = max(maxWidth, maxHeight) * 2 - 1;
+      } else {
+        // If we can't get the display size, fallback to a sensible default.
+        maxSize = GlUtil.MAX_BITMAP_DECODING_SIZE;
       }
+
+      outputBuffer.bitmap =
+          BitmapUtil.decode(
+              inputData.array(),
+              inputData.remaining(),
+              /* options= */ null,
+              /* maximumOutputDimension= */ maxSize);
+    } catch (ParserException e) {
+      return new ImageDecoderException("Could not decode image data with BitmapFactory.", e);
+    } catch (IOException e) {
+      return new ImageDecoderException(e);
     }
     outputBuffer.timeUs = inputBuffer.timeUs;
     return null;

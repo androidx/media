@@ -15,7 +15,8 @@
  */
 package androidx.media3.datasource.cache;
 
-import androidx.media3.common.util.Assertions;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.util.Util;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -67,7 +68,7 @@ import java.io.OutputStream;
    * @throws IllegalStateException If the stream isn't closed.
    */
   public void reset(OutputStream out) {
-    Assertions.checkState(closed);
+    checkState(closed);
     this.out = out;
     count = 0;
     closed = false;

@@ -19,8 +19,9 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -32,6 +33,7 @@ import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.view.SurfaceView;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -46,15 +48,18 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -94,6 +99,7 @@ public class CompositionPlayerSeekTest {
 
   private final Context applicationContext =
       getInstrumentation().getContext().getApplicationContext();
+  private final AtomicReference<CompositionPlayer> player = new AtomicReference<>();
 
   private PlayerTestListener playerTestListener;
   private SurfaceView surfaceView;
@@ -106,6 +112,11 @@ public class CompositionPlayerSeekTest {
 
   @After
   public void tearDown() {
+    CompositionPlayer p = player.getAndSet(null);
+    if (p != null) {
+      getInstrumentation().runOnMainSync(() -> p.release());
+    }
+
     rule.getScenario().close();
   }
 
@@ -818,6 +829,95 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void randomSeeks_playingSequenceOfVideoAndImage_playbackCompletes() throws Exception {
+    assumeFalse(
+        "Skipped due to failing audio decoder on API 31 emulator",
+        isRunningOnEmulator() && SDK_INT == 31);
+    ImmutableList<EditedMediaItem> mediaItems =
+        ImmutableList.of(VIDEO_MEDIA_ITEM.editedMediaItem(), IMAGE_MEDIA_ITEM.editedMediaItem());
+
+    CountDownLatch videoGraphEnded = new CountDownLatch(1);
+    AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.set(
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                      .build());
+              // Set a surface on the player even though there is no UI on this test. We need a
+              // surface otherwise the player will skip/drop video frames.
+              compositionPlayer.get().setVideoSurfaceView(surfaceView);
+              compositionPlayer.get().addListener(playerTestListener);
+              compositionPlayer
+                  .get()
+                  .addListener(
+                      new Player.Listener() {
+                        @Override
+                        public void onPlayerError(PlaybackException error) {
+                          playbackException.set(error);
+                        }
+                      });
+              compositionPlayer
+                  .get()
+                  .setComposition(
+                      new Composition.Builder(
+                              new EditedMediaItemSequence.Builder(
+                                      ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+                                  .addItems(mediaItems)
+                                  .build())
+                          .build());
+              compositionPlayer.get().prepare();
+              compositionPlayer.get().play();
+            });
+
+    if (playbackException.get() != null) {
+      throw playbackException.get();
+    }
+
+    // Video is 1000ms long, image is 200ms
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().seekTo(1020);
+              compositionPlayer.get().seekTo(150);
+            });
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().seekTo(150);
+              compositionPlayer.get().seekTo(1020);
+            });
+    Thread.sleep(/* millis= */ 50);
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(500));
+    Thread.sleep(/* millis= */ 50);
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(1100));
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(500));
+    Thread.sleep(/* millis= */ 50);
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().seekTo(1100);
+              compositionPlayer.get().seekTo(1199);
+              compositionPlayer.get().seekTo(500);
+              compositionPlayer.get().seekTo(499);
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
+      throw playbackException.get();
+    }
+  }
+
+  @Test
   public void
       seekToSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideosWithPrewarmingDisabled()
           throws Exception {
@@ -847,6 +947,183 @@ public class CompositionPlayerSeekTest {
             /* videoPrewarmingEnabled= */ false);
 
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void seekToMidClip_withSingleAudioClipSequence_reportsCorrectAudioProcessorPositionOffset()
+      throws PlaybackException, TimeoutException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+    final Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 500));
+    playerTestListener.waitUntilPlayerReady();
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 500_000);
+  }
+
+  @Test
+  public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset()
+      throws PlaybackException, TimeoutException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    final Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 300));
+    playerTestListener.waitUntilPlayerReady();
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 300_000);
+  }
+
+  @Test
+  public void
+      seekToSecondClip_withMultipleAudioClipSequence_reportsMediaItemRelativePositionOffset()
+          throws PlaybackException, TimeoutException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+    final Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 1200));
+    playerTestListener.waitUntilPlayerReady();
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 200_000);
+  }
+
+  @Test
+  public void seek_withMultipleAudioSequences_reportsExpectedPositionToEachSequence()
+      throws PlaybackException, TimeoutException {
+    AtomicLong lastPositionOffsetUsFirstSequence = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor firstSequenceProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUsFirstSequence.set(streamMetadata.positionOffsetUs);
+          }
+        };
+
+    AtomicLong lastPositionOffsetUsSecondSequence = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor secondSequenceProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUsSecondSequence.set(streamMetadata.positionOffsetUs);
+          }
+        };
+
+    EditedMediaItem firstSequenceItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setEffects(new Effects(ImmutableList.of(firstSequenceProcessor), ImmutableList.of()))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem secondSequenceItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(new Effects(ImmutableList.of(secondSequenceProcessor), ImmutableList.of()))
+            .build();
+
+    final Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstSequenceItem)),
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+                    .addGap(/* durationUs= */ 300_000)
+                    .addItem(secondSequenceItem)
+                    .build())
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 400));
+    playerTestListener.waitUntilPlayerReady();
+
+    assertThat(lastPositionOffsetUsFirstSequence.get()).isEqualTo(/* positionOffsetUs */ 400_000);
+    assertThat(lastPositionOffsetUsSecondSequence.get()).isEqualTo(/* positionOffsetUs */ 100_000);
   }
 
   /**
@@ -884,6 +1161,7 @@ public class CompositionPlayerSeekTest {
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -903,7 +1181,7 @@ public class CompositionPlayerSeekTest {
                   .get()
                   .setComposition(
                       new Composition.Builder(
-                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                           .build());
               compositionPlayer.get().prepare();
               compositionPlayer.get().play();
@@ -922,7 +1200,8 @@ public class CompositionPlayerSeekTest {
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
@@ -970,6 +1249,7 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.set(
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -988,7 +1268,7 @@ public class CompositionPlayerSeekTest {
                   .get()
                   .setComposition(
                       new Composition.Builder(
-                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                           .build());
               compositionPlayer.get().prepare();
               compositionPlayer.get().play();
@@ -997,9 +1277,9 @@ public class CompositionPlayerSeekTest {
     playerTestListener.resetStatus();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
-
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
@@ -1143,6 +1423,10 @@ public class CompositionPlayerSeekTest {
     public MediaItemConfig(MediaItem mediaItem, long durationUs) {
       this.mediaItem = mediaItem;
       this.durationUs = durationUs;
+    }
+
+    EditedMediaItem editedMediaItem() {
+      return new EditedMediaItem.Builder(mediaItem).setDurationUs(durationUs).build();
     }
   }
 }

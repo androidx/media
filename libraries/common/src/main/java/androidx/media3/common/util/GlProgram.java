@@ -15,8 +15,9 @@
  */
 package androidx.media3.common.util;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.opengl.GLES11Ext;
@@ -49,6 +50,21 @@ public final class GlProgram {
   private final Map<String, Uniform> uniformByName;
 
   private boolean externalTexturesRequireNearestSampling;
+
+  /**
+   * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
+   *
+   * @param context The {@link Context}.
+   * @param vertexShaderResId The resource ID of a vertex shader program.
+   * @param fragmentShaderResId The resource ID of a fragment shader program.
+   * @throws IOException When failing to read shader files.
+   */
+  public GlProgram(Context context, int vertexShaderResId, int fragmentShaderResId)
+      throws IOException, GlUtil.GlException {
+    this(
+        Util.loadRawResource(context, vertexShaderResId),
+        Util.loadRawResource(context, fragmentShaderResId));
+  }
 
   /**
    * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
@@ -156,6 +172,17 @@ public final class GlProgram {
 
   /** Deletes the program. Deleted programs cannot be used again. */
   public void delete() throws GlUtil.GlException {
+    if (SDK_INT == 28) {
+      // Some MediaTek devices running API 28 crash with Fatal signal 6 (SIGABRT), code -6
+      // (SI_TKILL) during glDeleteProgram. Leak the GL program instead of crashing.
+      // Any leaked GL program memory will be cleaned up when the GL context is deleted.
+      // Devices with the chipset Unisoc SC9863A are also affected. Unfortunately, these devices
+      // return an extremely wide range of Build.HARDWARE values, and we cannot allow-list them
+      // all. delete() calls are frequently followed by GL context deletion, so the program memory
+      // won't leak for long.
+      // See b/446675921.
+      return;
+    }
     GLES20.glDeleteProgram(programId);
     GlUtil.checkGlError();
   }

@@ -52,7 +52,10 @@ public final class DashDownloadTest {
 
   private static final Uri MANIFEST_URI = Uri.parse(DashTestData.H264_MANIFEST);
 
-  @Rule public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
+  // TODO: b/464266190 - Migrate to ActivityScenarioRule
+  @SuppressWarnings("deprecation")
+  @Rule
+  public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
 
   private DashTestRunner testRunner;
   private File tempFolder;

@@ -25,4 +25,9 @@ public final class NoDeclaredBrandSniffFailure implements SniffFailure {
   public static final NoDeclaredBrandSniffFailure INSTANCE = new NoDeclaredBrandSniffFailure();
 
   private NoDeclaredBrandSniffFailure() {}
+
+  @Override
+  public String toString() {
+    return "NoDeclaredBrand";
+  }
 }

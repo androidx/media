@@ -15,6 +15,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/apv
+    codecs = apv1.apvf33.apvl60.apvb0
     maxInputSize = 70974
     width = 640
     height = 480
@@ -22,7 +23,7 @@ track 0:
     colorInfo:
       lumaBitdepth = 10
       chromaBitdepth = 10
-    metadata = entries=[mdta: key=com.android.version, value=16, xyz: latitude=0.0, longitude=-180.0, Mp4Timestamp: creation time=3825838182, modification time=3825838182, timescale=10000]
+    metadata = entries=[mdta: key=com.android.version, value=16, xyz: latitude=0.0, longitude=-180.0, Mp4Timestamp: creation time=3825838182, modification time=3825838182, timescale=10000, ThumbnailMetadata: presentationTimeUs=599988]
     initializationData:
       data = length 18, hash 77EBC81
   sample 0:

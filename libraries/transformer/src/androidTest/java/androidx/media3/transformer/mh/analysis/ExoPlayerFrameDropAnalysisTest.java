@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import android.content.Context;
@@ -30,7 +30,7 @@ import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.media3.transformer.PlayerTestListener;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
@@ -179,7 +179,7 @@ public class ExoPlayerFrameDropAnalysisTest {
     resultJson.put(
         "maxConsecutiveDroppedBufferCount", decoderCounters.get().maxConsecutiveDroppedBufferCount);
     resultJson.put("droppedToKeyframeCount", decoderCounters.get().droppedToKeyframeCount);
-    AndroidTestUtil.writeTestSummaryToFile(
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ testName.getMethodName(),
         resultJson);

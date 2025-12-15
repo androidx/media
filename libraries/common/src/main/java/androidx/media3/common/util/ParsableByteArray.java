@@ -15,10 +15,12 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
 import com.google.common.primitives.Ints;
@@ -30,6 +32,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Wraps a byte array, providing a set of methods for parsing data from it. Numerical values are
@@ -51,6 +54,9 @@ public final class ParsableByteArray {
           StandardCharsets.UTF_16,
           StandardCharsets.UTF_16BE,
           StandardCharsets.UTF_16LE);
+
+  // TODO: b/147657250 - Flip this to true
+  private static final AtomicBoolean shouldEnforceLimitOnLegacyMethods = new AtomicBoolean();
 
   private byte[] data;
   private int position;
@@ -156,7 +162,7 @@ public final class ParsableByteArray {
    * @param limit The limit to set.
    */
   public void setLimit(int limit) {
-    Assertions.checkArgument(limit >= 0 && limit <= data.length);
+    checkArgument(limit >= 0 && limit <= data.length);
     this.limit = limit;
   }
 
@@ -174,7 +180,7 @@ public final class ParsableByteArray {
    */
   public void setPosition(int position) {
     // It is fine for position to be at the end of the array.
-    Assertions.checkArgument(position >= 0 && position <= limit);
+    checkArgument(position >= 0 && position <= limit);
     this.position = position;
   }
 
@@ -227,6 +233,7 @@ public final class ParsableByteArray {
    * @param length The number of bytes to read.
    */
   public void readBytes(byte[] buffer, int offset, int length) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
     System.arraycopy(data, position, buffer, offset, length);
     position += length;
   }
@@ -239,12 +246,14 @@ public final class ParsableByteArray {
    * @param length The number of bytes to read.
    */
   public void readBytes(ByteBuffer buffer, int length) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
     buffer.put(data, position, length);
     position += length;
   }
 
   /** Peeks at the next byte as an unsigned value. */
   public int peekUnsignedByte() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(1);
     return (data[position] & 0xFF);
   }
 
@@ -259,8 +268,8 @@ public final class ParsableByteArray {
    */
   @Deprecated
   public char peekChar(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return 0;
     }
@@ -280,6 +289,7 @@ public final class ParsableByteArray {
 
   /** Peek the UTF-16 char at {@link #position}{@code + offset}. */
   private char peekChar(ByteOrder byteOrder, int offset) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(2);
     return byteOrder == BIG_ENDIAN
         ? Chars.fromBytes(data[position + offset], data[position + offset + 1])
         : Chars.fromBytes(data[position + offset + 1], data[position + offset]);
@@ -318,33 +328,59 @@ public final class ParsableByteArray {
     return codePointAndSize != 0 ? Ints.checkedCast(codePointAndSize >>> 8) : INVALID_CODE_POINT;
   }
 
+  /** Peeks the next three bytes as an unsigned value. */
+  public int peekUnsignedInt24() {
+    if (bytesLeft() < 3) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readUnsignedInt24();
+    position -= 3;
+    return result;
+  }
+
+  /** Peeks the next four bytes as a signed value. */
+  public int peekInt() {
+    if (bytesLeft() < 4) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readInt();
+    position -= 4;
+    return result;
+  }
+
   /** Reads the next byte as an unsigned value. */
   public int readUnsignedByte() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(1);
     return (data[position++] & 0xFF);
   }
 
   /** Reads the next two bytes as an unsigned value. */
   public int readUnsignedShort() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(2);
     return (data[position++] & 0xFF) << 8 | (data[position++] & 0xFF);
   }
 
   /** Reads the next two bytes as an unsigned value. */
   public int readLittleEndianUnsignedShort() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(2);
     return (data[position++] & 0xFF) | (data[position++] & 0xFF) << 8;
   }
 
   /** Reads the next two bytes as a signed value. */
   public short readShort() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(2);
     return (short) ((data[position++] & 0xFF) << 8 | (data[position++] & 0xFF));
   }
 
   /** Reads the next two bytes as a signed value. */
   public short readLittleEndianShort() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(2);
     return (short) ((data[position++] & 0xFF) | (data[position++] & 0xFF) << 8);
   }
 
   /** Reads the next three bytes as an unsigned value. */
   public int readUnsignedInt24() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(3);
     return (data[position++] & 0xFF) << 16
         | (data[position++] & 0xFF) << 8
         | (data[position++] & 0xFF);
@@ -352,6 +388,7 @@ public final class ParsableByteArray {
 
   /** Reads the next three bytes as a signed value. */
   public int readInt24() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(3);
     return ((data[position++] & 0xFF) << 24) >> 8
         | (data[position++] & 0xFF) << 8
         | (data[position++] & 0xFF);
@@ -359,6 +396,7 @@ public final class ParsableByteArray {
 
   /** Reads the next three bytes as a signed value in little endian order. */
   public int readLittleEndianInt24() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(3);
     return (data[position++] & 0xFF)
         | (data[position++] & 0xFF) << 8
         | (data[position++] & 0xFF) << 16;
@@ -366,6 +404,7 @@ public final class ParsableByteArray {
 
   /** Reads the next three bytes as an unsigned value in little endian order. */
   public int readLittleEndianUnsignedInt24() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(3);
     return (data[position++] & 0xFF)
         | (data[position++] & 0xFF) << 8
         | (data[position++] & 0xFF) << 16;
@@ -373,6 +412,7 @@ public final class ParsableByteArray {
 
   /** Reads the next four bytes as an unsigned value. */
   public long readUnsignedInt() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(4);
     return (data[position++] & 0xFFL) << 24
         | (data[position++] & 0xFFL) << 16
         | (data[position++] & 0xFFL) << 8
@@ -381,6 +421,7 @@ public final class ParsableByteArray {
 
   /** Reads the next four bytes as an unsigned value in little endian order. */
   public long readLittleEndianUnsignedInt() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(4);
     return (data[position++] & 0xFFL)
         | (data[position++] & 0xFFL) << 8
         | (data[position++] & 0xFFL) << 16
@@ -389,6 +430,7 @@ public final class ParsableByteArray {
 
   /** Reads the next four bytes as a signed value */
   public int readInt() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(4);
     return (data[position++] & 0xFF) << 24
         | (data[position++] & 0xFF) << 16
         | (data[position++] & 0xFF) << 8
@@ -397,6 +439,7 @@ public final class ParsableByteArray {
 
   /** Reads the next four bytes as a signed value in little endian order. */
   public int readLittleEndianInt() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(4);
     return (data[position++] & 0xFF)
         | (data[position++] & 0xFF) << 8
         | (data[position++] & 0xFF) << 16
@@ -405,6 +448,7 @@ public final class ParsableByteArray {
 
   /** Reads the next eight bytes as a signed value. */
   public long readLong() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(8);
     return (data[position++] & 0xFFL) << 56
         | (data[position++] & 0xFFL) << 48
         | (data[position++] & 0xFFL) << 40
@@ -417,6 +461,7 @@ public final class ParsableByteArray {
 
   /** Reads the next eight bytes as a signed value in little endian order. */
   public long readLittleEndianLong() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(8);
     return (data[position++] & 0xFFL)
         | (data[position++] & 0xFFL) << 8
         | (data[position++] & 0xFFL) << 16
@@ -429,6 +474,7 @@ public final class ParsableByteArray {
 
   /** Reads the next four bytes, returning the integer portion of the fixed point 16.16 integer. */
   public int readUnsignedFixedPoint1616() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(4);
     int result = (data[position++] & 0xFF) << 8 | (data[position++] & 0xFF);
     position += 2; // Skip the non-integer portion.
     return result;
@@ -518,6 +564,7 @@ public final class ParsableByteArray {
    * @return The string encoded by the bytes in the specified character set.
    */
   public String readString(int length, Charset charset) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
     String result = new String(data, position, length, charset);
     position += length;
     return result;
@@ -531,6 +578,7 @@ public final class ParsableByteArray {
    * @return The string, not including any terminating NUL byte.
    */
   public String readNullTerminatedString(int length) {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
     if (length == 0) {
       return "";
     }
@@ -606,8 +654,8 @@ public final class ParsableByteArray {
    */
   @Nullable
   public String readLine(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return null;
     }
@@ -630,6 +678,7 @@ public final class ParsableByteArray {
    * @return Decoded long value
    */
   public long readUtf8EncodedLong() {
+    maybeAssertAtLeastBytesLeftForLegacyMethod(1);
     int length = 0;
     long value = data[position];
     // find the high most 0 bit
@@ -647,6 +696,7 @@ public final class ParsableByteArray {
     if (length == 0) {
       throw new NumberFormatException("Invalid UTF-8 sequence first byte: " + value);
     }
+    maybeAssertAtLeastBytesLeftForLegacyMethod(length);
     for (int i = 1; i < length; i++) {
       int x = data[position + i];
       if ((x & 0xC0) != 0x80) { // if the high most 0 bit not 7th
@@ -722,6 +772,23 @@ public final class ParsableByteArray {
       }
     }
     return null;
+  }
+
+  /**
+   * Sets whether all read/peek methods should enforce that {@link #getPosition()} never exceeds
+   * {@link #limit()}.
+   *
+   * <p>Setting this to {@code true} in tests can help catch cases of accidentally reading beyond
+   * {@link #limit()} but still within the bounds of the underlying {@link #getData()}.
+   *
+   * <p>Some (newer) methods will always enforce the invariant, even when this is set to {@code
+   * false}.
+   *
+   * <p>Defaults to false (this may change in a later release).
+   */
+  @VisibleForTesting
+  public static void setShouldEnforceLimitOnLegacyMethods(boolean enforceLimit) {
+    ParsableByteArray.shouldEnforceLimitOnLegacyMethods.set(enforceLimit);
   }
 
   /**
@@ -807,8 +874,8 @@ public final class ParsableByteArray {
    *     UTF-16BE, and UTF-16LE are supported.
    */
   private int peekCodePointAndSize(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() < getSmallestCodeUnitSize(charset)) {
       throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
     }
@@ -863,8 +930,8 @@ public final class ParsableByteArray {
   }
 
   private static int getSmallestCodeUnitSize(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     return charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)
         ? 1
         : 2;
@@ -895,6 +962,22 @@ public final class ParsableByteArray {
     } else {
       // We found a pattern that doesn't seem to be valid UTF-8.
       return 0;
+    }
+  }
+
+  /**
+   * Enforces that {@link #bytesLeft()} is at least {@code bytesNeeded} if {@link
+   * #shouldEnforceLimitOnLegacyMethods} is set to {@code true}.
+   *
+   * <p>This should only be called from methods that previously didn't enforce the limit. All new
+   * methods added to this class should unconditionally enforce the limit.
+   */
+  private void maybeAssertAtLeastBytesLeftForLegacyMethod(int bytesNeeded) {
+    if (shouldEnforceLimitOnLegacyMethods.get()) {
+      if (bytesLeft() < bytesNeeded) {
+        throw new IndexOutOfBoundsException(
+            "bytesNeeded= " + bytesNeeded + ", bytesLeft=" + bytesLeft());
+      }
     }
   }
 

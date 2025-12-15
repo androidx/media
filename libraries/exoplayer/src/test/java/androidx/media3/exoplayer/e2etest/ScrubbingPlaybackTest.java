@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -33,9 +34,9 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -52,22 +53,31 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ScrubbingPlaybackTest {
   private static final String TEST_BEAR_URI = "asset:///media/vp9/bear-vp9.webm";
+  private static final String TEST_MP4_URI = "asset:///media/mp4/sample_edit_list.mp4";
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
-  public void scrubbingPlayback_withFlushingDisabled_dumpsCorrectOutput() throws Exception {
+  public void scrubbingPlayback_withSkipMediaCodecFlushingEnabled_dumpsCorrectOutput()
+      throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -78,6 +88,12 @@ public class ScrubbingPlaybackTest {
     // Play until renderer has reached the specified blocked presentation time.
     play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
     player.setScrubbingModeEnabled(true);
+    player.setScrubbingModeParameters(
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setAllowSkippingKeyFrameReset(false)
+            .build());
     player.seekTo(500);
     // End blocking in renderer.
     blockingPresentationTimeUs.set(Long.MAX_VALUE);
@@ -87,7 +103,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -95,17 +111,24 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
-  public void scrubbingPlayback_withSeekBackwardsAndFlushingDisabled_dumpsCorrectOutput()
-      throws Exception {
+  public void
+      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndSeekBackwards_dumpsCorrectOutput()
+          throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(500_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -125,7 +148,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -133,17 +156,24 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
-  public void scrubbingPlayback_withSeekToBufferInCodecAndFlushingDisabled_dumpsCorrectOutput()
-      throws Exception {
+  public void
+      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndSeekToBufferInCodec_dumpsCorrectOutput()
+          throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(230_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -153,6 +183,12 @@ public class ScrubbingPlaybackTest {
 
     // Play until renderer has reached the specified blocked presentation time.
     play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
+    player.setScrubbingModeParameters(
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setAllowSkippingKeyFrameReset(false)
+            .build());
     player.setScrubbingModeEnabled(true);
     player.seekTo(234);
     // End blocking in renderer.
@@ -163,7 +199,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -171,18 +207,23 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
-  public void
-      scrubbingPlayback_withFlushingEnabledThroughSetScrubbingModeParameters_dumpsCorrectOutput()
-          throws Exception {
+  public void scrubbingPlayback_withSkipMediaCodecFlushingDisabled_dumpsCorrectOutput()
+      throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -192,9 +233,14 @@ public class ScrubbingPlaybackTest {
 
     // Play until renderer has reached the specified blocked presentation time.
     play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
-    player.setScrubbingModeEnabled(true);
     player.setScrubbingModeParameters(
-        player.getScrubbingModeParameters().buildUpon().setIsMediaCodecFlushEnabled(true).build());
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setAllowSkippingMediaCodecFlush(false)
+            .setAllowSkippingKeyFrameReset(false)
+            .build());
+    player.setScrubbingModeEnabled(true);
     player.seekTo(500);
 
     // End blocking in renderer.
@@ -205,11 +251,157 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isTrue();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingKeyFrameReset).isFalse();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
         /* dumpFile= */ "playbackdumps/scrubbing/scrubbing-flushingEnabled.dump");
+  }
+
+  @Test
+  public void scrubbingPlayback_withSkipKeyFrameResetEnabled_dumpsCorrectOutput() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
+    AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
+        new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItem(new MediaItem.Builder().setUri(TEST_BEAR_URI).build());
+    player.prepare();
+    // Play until renderer has reached the specified blocked presentation time.
+    play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+
+    player.seekTo(500);
+    // End blocking in renderer.
+    blockingPresentationTimeUs.set(Long.MAX_VALUE);
+    player.setScrubbingModeEnabled(false);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    assertThat(player.getScrubbingModeParameters().allowSkippingKeyFrameReset).isTrue();
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/scrubbing/scrubbing-skipKeyFrameReset.dump");
+  }
+
+  @Test
+  public void
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndNonSequentialFrames_dumpsCorrectOutput()
+          throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicLong blockingPresentationTimeUs = new AtomicLong(711_666L);
+    AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
+        new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItem(new MediaItem.Builder().setUri(TEST_MP4_URI).build());
+    player.prepare();
+    // Play until renderer has reached the specified blocked presentation time and playback position
+    // has advanced beyond the keyframe at 600 ms.
+    play(player)
+        .untilBackgroundThreadCondition(
+            () -> hasReceivedOutputBufferPastBlockTime.get() && player.getCurrentPosition() > 610);
+
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+
+    player.seekTo(878);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    // End blocking in renderer.
+    blockingPresentationTimeUs.set(Long.MAX_VALUE);
+    player.setScrubbingModeEnabled(false);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    assertThat(player.getScrubbingModeParameters().allowSkippingKeyFrameReset).isTrue();
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/scrubbing/scrubbing-skipKeyFrameReset-nonSequentialFrames.dump");
+  }
+
+  @Test
+  public void
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndDifferentSyncPoint_dumpsCorrectOutput()
+          throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicLong blockingPresentationTimeUs = new AtomicLong(1411665L);
+    AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
+        new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItem(new MediaItem.Builder().setUri(TEST_MP4_URI).build());
+    player.prepare();
+    // Play until renderer has reached the specified blocked presentation time.
+    play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+
+    player.seekTo(1746);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    // End blocking in renderer.
+    blockingPresentationTimeUs.set(Long.MAX_VALUE);
+    player.setScrubbingModeEnabled(false);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    assertThat(player.getScrubbingModeParameters().allowSkippingKeyFrameReset).isTrue();
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/scrubbing/scrubbing-skipKeyFrameReset-seekToNextGoP.dump");
   }
 
   /**
@@ -224,9 +416,10 @@ public class ScrubbingPlaybackTest {
 
     public CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
         Context context,
+        Clock clock,
         AtomicLong blockingPresentationTimeUs,
         AtomicBoolean hasReceivedOutputBufferPastBlockTime) {
-      super(context);
+      super(context, clock);
       this.blockingPresentationTimeUs = blockingPresentationTimeUs;
       this.hasReceivedOutputBufferPastBlockTime = hasReceivedOutputBufferPastBlockTime;
     }

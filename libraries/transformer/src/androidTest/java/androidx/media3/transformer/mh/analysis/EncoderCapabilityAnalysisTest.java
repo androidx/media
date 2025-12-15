@@ -30,7 +30,7 @@ import android.util.Size;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.media3.transformer.EncoderUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -151,8 +151,7 @@ public class EncoderCapabilityAnalysisTest {
             EncoderUtil.getSupportedColorFormats(encoderInfo, mimeType));
 
         capabilities.put(
-            "max_supported_instances",
-            SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
+            "max_supported_instances", EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType));
 
         capabilities.put(
             "supports_qp_bounds",
@@ -182,7 +181,7 @@ public class EncoderCapabilityAnalysisTest {
     JSONObject resultJson = new JSONObject();
     resultJson.put("encoder_capabilities", JSONObject.wrap(mimeTypeToEncoderInfo));
     resultJson.put("camcorder_profiles_supported", getSupportedCamcorderProfileConfigurations());
-    AndroidTestUtil.writeTestSummaryToFile(
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ "encoderCapabilityAnalysisTest",
         resultJson);

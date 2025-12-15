@@ -15,10 +15,10 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_CONTROLLER;
 import static androidx.media3.test.session.common.CommonConstants.KEY_COMMAND_BUTTON_LIST;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.PendingIntent;
@@ -31,6 +31,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Rating;
@@ -317,7 +318,8 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(MediaItem.fromBundle(mediaItemBundle));
+            controller.setMediaItem(
+                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
           });
     }
 
@@ -327,7 +329,9 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(MediaItem.fromBundle(mediaItemBundle), startPositionMs);
+            controller.setMediaItem(
+                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
+                startPositionMs);
           });
     }
 
@@ -337,7 +341,9 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setMediaItem(MediaItem.fromBundle(mediaItemBundle), resetPosition);
+            controller.setMediaItem(
+                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION),
+                resetPosition);
           });
     }
 
@@ -348,7 +354,9 @@ public class MediaControllerProviderService extends Service {
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItemBundles));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItemBundles));
           });
     }
 
@@ -360,7 +368,9 @@ public class MediaControllerProviderService extends Service {
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItemBundles),
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItemBundles),
                 resetPosition);
           });
     }
@@ -373,7 +383,9 @@ public class MediaControllerProviderService extends Service {
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItemBundles),
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItemBundles),
                 startIndex,
                 startPositionMs);
           });
@@ -388,7 +400,7 @@ public class MediaControllerProviderService extends Service {
             for (int i = 0; i < size; i++) {
               // Make media ID of each item same with its index.
               String mediaId = TestUtils.getMediaIdInFakeTimeline(i);
-              itemList.add(MediaTestUtils.createMediaItem(mediaId));
+              itemList.add(MediaTestUtils.createMediaItem(mediaId, /* buildWithUri= */ true));
             }
             controller.setMediaItems(itemList);
           });
@@ -400,7 +412,9 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.setPlaylistMetadata(MediaMetadata.fromBundle(playlistMetadataBundle));
+            controller.setPlaylistMetadata(
+                MediaMetadata.fromBundle(
+                    playlistMetadataBundle, MediaLibraryInfo.INTERFACE_VERSION));
           });
     }
 
@@ -409,7 +423,8 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItem(MediaItem.fromBundle(mediaItemBundle));
+            controller.addMediaItem(
+                MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
           });
     }
 
@@ -419,7 +434,8 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.addMediaItem(index, MediaItem.fromBundle(mediaItemBundle));
+            controller.addMediaItem(
+                index, MediaItem.fromBundle(mediaItemBundle, MediaLibraryInfo.INTERFACE_VERSION));
           });
     }
 
@@ -430,7 +446,9 @@ public class MediaControllerProviderService extends Service {
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.addMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItemBundles));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItemBundles));
           });
     }
 
@@ -442,7 +460,9 @@ public class MediaControllerProviderService extends Service {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.addMediaItems(
                 index,
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItemBundles));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItemBundles));
           });
     }
 
@@ -500,7 +520,8 @@ public class MediaControllerProviderService extends Service {
       runOnHandler(
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
-            controller.replaceMediaItem(index, MediaItem.fromBundle(mediaItem));
+            controller.replaceMediaItem(
+                index, MediaItem.fromBundle(mediaItem, MediaLibraryInfo.INTERFACE_VERSION));
           });
     }
 
@@ -514,7 +535,9 @@ public class MediaControllerProviderService extends Service {
             controller.replaceMediaItems(
                 fromIndex,
                 toIndex,
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, mediaItems));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    mediaItems));
           });
     }
 
@@ -783,12 +806,39 @@ public class MediaControllerProviderService extends Service {
           () -> {
             MediaController controller = mediaControllerMap.get(controllerId);
             controller.setMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, initialMediaItems));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    initialMediaItems));
             controller.prepare();
             controller.play();
             controller.addMediaItems(
-                BundleCollectionUtil.fromBundleList(MediaItem::fromBundle, addedMediaItems));
+                BundleCollectionUtil.fromBundleList(
+                    bundle -> MediaItem.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION),
+                    addedMediaItems));
             controller.seekTo(seekIndex, /* positionMs= */ 0);
+          });
+    }
+
+    @Override
+    public void executeCommandButtonAction(String controllerId, int buttonIndex)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            CommandButton button = controller.getMediaButtonPreferences().get(buttonIndex);
+            button.executeAction(controller);
+          });
+    }
+
+    @Override
+    public void executeCustomLayoutAction(String controllerId, int buttonIndex)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            CommandButton button = controller.getCustomLayout().get(buttonIndex);
+            ListenableFuture<SessionResult> unused =
+                controller.sendCustomCommand(button.sessionCommand, button.extras);
           });
     }
 
@@ -807,7 +857,7 @@ public class MediaControllerProviderService extends Service {
                           ? null
                           : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<MediaItem> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -823,7 +873,7 @@ public class MediaControllerProviderService extends Service {
                           ? null
                           : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<Void> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -831,7 +881,7 @@ public class MediaControllerProviderService extends Service {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<Void>> future = runOnHandler(() -> browser.unsubscribe(parentId));
       LibraryResult<Void> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -850,7 +900,7 @@ public class MediaControllerProviderService extends Service {
                           ? null
                           : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<ImmutableList<MediaItem>> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -859,7 +909,7 @@ public class MediaControllerProviderService extends Service {
       ArrayList<Bundle> customLayout = new ArrayList<>();
       ImmutableList<CommandButton> commandButtons = runOnHandler(controller::getCustomLayout);
       for (CommandButton button : commandButtons) {
-        customLayout.add(button.toBundle());
+        customLayout.add(button.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       }
       Bundle bundle = new Bundle();
       bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, customLayout);
@@ -873,7 +923,7 @@ public class MediaControllerProviderService extends Service {
       ImmutableList<CommandButton> commandButtons =
           runOnHandler(controller::getMediaButtonPreferences);
       for (CommandButton button : commandButtons) {
-        mediaButtonPreferences.add(button.toBundle());
+        mediaButtonPreferences.add(button.toBundle(MediaLibraryInfo.INTERFACE_VERSION));
       }
       Bundle bundle = new Bundle();
       bundle.putParcelableArrayList(KEY_COMMAND_BUTTON_LIST, mediaButtonPreferences);
@@ -897,7 +947,7 @@ public class MediaControllerProviderService extends Service {
       MediaBrowser browser = (MediaBrowser) mediaControllerMap.get(controllerId);
       Future<LibraryResult<MediaItem>> future = runOnHandler(() -> browser.getItem(mediaId));
       LibraryResult<MediaItem> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -913,7 +963,7 @@ public class MediaControllerProviderService extends Service {
                           ? null
                           : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<Void> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
 
     @Override
@@ -932,7 +982,7 @@ public class MediaControllerProviderService extends Service {
                           ? null
                           : MediaLibraryService.LibraryParams.fromBundle(libraryParams)));
       LibraryResult<ImmutableList<MediaItem>> result = getFutureResult(future);
-      return result.toBundle();
+      return result.toBundle(MediaLibraryInfo.INTERFACE_VERSION);
     }
   }
 

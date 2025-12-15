@@ -11,11 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins {
-    id "com.google.protobuf" version "0.9.5"
-}
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 apply plugin: 'kotlin-android'
+apply plugin: 'com.google.protobuf'
 
 android {
     namespace 'androidx.media3.demo.session.service'
@@ -71,6 +69,7 @@ dependencies {
     implementation 'androidx.datastore:datastore:1.1.5'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0'
     implementation 'com.google.protobuf:protobuf-java:4.31.1'
+    implementation project(modulePrefix + 'lib-cast')
     implementation project(modulePrefix + 'lib-common-ktx')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')

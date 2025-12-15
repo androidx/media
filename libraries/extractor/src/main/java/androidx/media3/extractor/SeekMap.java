@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -88,8 +89,8 @@ public interface SeekMap {
      * @param second The second seek point.
      */
     public SeekPoints(SeekPoint first, SeekPoint second) {
-      this.first = Assertions.checkNotNull(first);
-      this.second = Assertions.checkNotNull(second);
+      this.first = checkNotNull(first);
+      this.second = checkNotNull(second);
     }
 
     @Override

@@ -114,15 +114,6 @@
           android:layout_gravity="end" />
       </TableRow>
       <TableRow
-        android:layout_weight="1">
-        <TextView
-          android:layout_gravity="center_vertical"
-          android:text="@string/force_audio_track" />
-        <CheckBox
-          android:id="@+id/force_audio_track_checkbox"
-          android:layout_gravity="end" />
-      </TableRow>
-      <TableRow
         android:layout_weight="1"
         android:gravity="center_vertical" >
         <TextView
@@ -240,18 +231,9 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_mp4_muxer" />
+          android:text="@string/produce_fragmented_mp4" />
         <CheckBox
-          android:id="@+id/use_media3_mp4_muxer_checkbox"
-          android:layout_gravity="end"/>
-      </TableRow>
-      <TableRow
-        android:layout_weight="1">
-        <TextView
-          android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_fragmented_mp4_muxer" />
-        <CheckBox
-          android:id="@+id/use_media3_fragmented_mp4_muxer_checkbox"
+          android:id="@+id/produce_fragmented_mp4_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow
@@ -272,6 +254,15 @@
             android:text="@string/enable_trim_optimization" />
         <CheckBox
             android:id="@+id/enable_trim_optimization"
+            android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_packet_processor" />
+        <CheckBox
+            android:id="@+id/enable_packet_processor"
             android:layout_gravity="end"/>
       </TableRow>
       <TableRow

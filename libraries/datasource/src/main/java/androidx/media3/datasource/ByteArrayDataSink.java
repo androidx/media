@@ -16,10 +16,10 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,7 +36,7 @@ public final class ByteArrayDataSink implements DataSink {
     if (dataSpec.length == C.LENGTH_UNSET) {
       stream = new ByteArrayOutputStream();
     } else {
-      Assertions.checkArgument(dataSpec.length <= Integer.MAX_VALUE);
+      checkArgument(dataSpec.length <= Integer.MAX_VALUE);
       stream = new ByteArrayOutputStream((int) dataSpec.length);
     }
   }

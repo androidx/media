@@ -15,9 +15,11 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -28,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.ShuffleOrder;
@@ -207,7 +208,7 @@ public final class FakeTimeline extends Timeline {
           }
           adPlaybackStates = builder.build();
         } else {
-          Assertions.checkState(adPlaybackStates.size() == periodCount);
+          checkState(adPlaybackStates.size() == periodCount);
         }
         return new TimelineWindowDefinition(
             periodCount,
@@ -578,18 +579,11 @@ public final class FakeTimeline extends Timeline {
       adPlaybackStates.add(periodAdPlaybackState);
     }
     return new FakeTimeline(
-        new FakeTimeline.TimelineWindowDefinition(
-            isAdPeriodFlags.length,
-            windowId,
-            /* isSeekable= */ true,
-            /* isDynamic= */ false,
-            /* isLive= */ false,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-            /* defaultPositionUs= */ 0,
-            /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-            /* adPlaybackStates= */ adPlaybackStates,
-            MediaItem.EMPTY));
+        new FakeTimeline.TimelineWindowDefinition.Builder()
+            .setPeriodCount(isAdPeriodFlags.length)
+            .setUid(windowId)
+            .setAdPlaybackStates(adPlaybackStates)
+            .build());
   }
 
   /**
@@ -788,7 +782,7 @@ public final class FakeTimeline extends Timeline {
 
   @Override
   public Object getUidOfPeriod(int periodIndex) {
-    Assertions.checkIndex(periodIndex, 0, getPeriodCount());
+    checkElementIndex(periodIndex, getPeriodCount());
     int windowIndex =
         Util.binarySearchFloor(
             periodOffsets, periodIndex, /* inclusive= */ true, /* stayInBounds= */ false);

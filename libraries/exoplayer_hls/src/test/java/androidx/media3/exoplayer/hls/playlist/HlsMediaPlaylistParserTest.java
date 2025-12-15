@@ -51,7 +51,7 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Test for {@link HlsMediaPlaylistParserTest}. */
+/** Test for {@link HlsPlaylistParser} to parse {@link HlsMediaPlaylist}. */
 @RunWith(AndroidJUnit4.class)
 public class HlsMediaPlaylistParserTest {
 
@@ -476,6 +476,111 @@ public class HlsMediaPlaylistParserTest {
     assertThat(playlist.segments.get(1).parts.get(1).relativeDiscontinuitySequence).isEqualTo(1);
     assertThat(playlist.trailingParts.get(0).relativeStartTimeUs).isEqualTo(8000160);
     assertThat(playlist.trailingParts.get(0).relativeDiscontinuitySequence).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withSkippedSegments_startTimeUsPreservedWhenProgramStartTimeRemoved()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:264\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence264.mp4\n"
+            + "#EXT-X-DISCONTINUITY\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence265.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence266.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:265\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    InputStream previousInputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString));
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, previousInputStream);
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, inputStream);
+
+    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
+    assertThat(previousPlaylist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
+    assertThat(playlist.segments).hasSize(2);
+  }
+
+  @Test
+  public void
+      parseMediaPlaylist_withSkippedSegmentsWithoutProgramStartDateTime_startTimeUsNotPreserved()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:264\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence264.mp4\n"
+            + "#EXT-X-DISCONTINUITY\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence265.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence266.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:265\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    InputStream previousInputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString));
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, previousInputStream);
+    previousPlaylist =
+        previousPlaylist.copyWith(/* startTimeUs= */ 1_000_000L, /* discontinuitySequence= */ 0);
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, inputStream);
+
+    assertThat(previousPlaylist.startTimeUs).isEqualTo(1_000_000L);
+    assertThat(playlist.startTimeUs).isEqualTo(0L);
+    assertThat(playlist.segments).hasSize(2);
   }
 
   @Test
@@ -1186,7 +1291,10 @@ public class HlsMediaPlaylistParserTest {
                     HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT)),
             /* contentMayVary= */ false,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_RANGE,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_PRIMARY);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_PRIMARY,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial2 =
         new Interstitial(
             /* id= */ "ad2",
@@ -1214,7 +1322,10 @@ public class HlsMediaPlaylistParserTest {
                     HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT)),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
 
     HlsMediaPlaylist playlist =
@@ -1249,7 +1360,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial2 =
         new Interstitial(
             "midroll-1",
@@ -1268,7 +1382,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial3 =
         new Interstitial(
             "postroll",
@@ -1288,7 +1405,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
 
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
@@ -1329,6 +1449,56 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
+  public void parseMediaPlaylist_withInvalidDuration_durationUnset() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=-2.222," // negative value
+            + "PLANNED-DURATION=- 2.222," // negative value
+            + "X-PLAYOUT-LIMIT=-2.222," // negative value
+            + "X-RESUME-OFFSET=24.953741497,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=\"2.222\"," // string value
+            + "PLANNED-DURATION=\"2.222\"," // string value
+            + "X-PLAYOUT-LIMIT=\"2.222\"," // string value
+            + "X-RESUME-OFFSET=-24.953741497,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).id).isEqualTo("ad0-0");
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).plannedDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).playoutLimitUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).resumeOffsetUs).isEqualTo(24953741L);
+    assertThat(mediaPlaylist.interstitials.get(1).id).isEqualTo("ad0-1");
+    assertThat(mediaPlaylist.interstitials.get(1).durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).plannedDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).playoutLimitUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).resumeOffsetUs).isEqualTo(-24953741L);
+  }
+
+  @Test
   public void parseMediaPlaylist_withDurationAfterPlannedDuration_durationSetCorrectly()
       throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
@@ -1356,6 +1526,125 @@ public class HlsMediaPlaylistParserTest {
                 playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
 
     assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithSkipControlAttributes_correctlyParsed()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad1\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=10.0,"
+            + "X-SKIP-CONTROL-LABEL-ID=\"skip-label\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad2\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=15.5,"
+            + "X-SKIP-CONTROL-DURATION=110.0,"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad3\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials).hasSize(3);
+    Interstitial interstitial = playlist.interstitials.get(0);
+    assertThat(interstitial.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial.skipControlDurationUs).isEqualTo(10_000_000L);
+    assertThat(interstitial.skipControlLabelId).isEqualTo("skip-label");
+    Interstitial interstitial2 = playlist.interstitials.get(1);
+    assertThat(interstitial2.skipControlOffsetUs).isEqualTo(15_500_000L);
+    assertThat(interstitial2.skipControlDurationUs).isEqualTo(110_000_000L);
+    assertThat(interstitial2.skipControlLabelId).isNull();
+    Interstitial interstitial3 = playlist.interstitials.get(2);
+    assertThat(interstitial3.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlLabelId).isNull();
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithInvalidSkipControlAttributes_isRobust()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad1\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=invalid," // NaN
+            + "X-SKIP-CONTROL-DURATION=10.0"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad2\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=invalid" // NaN
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad3\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=-5.5," // negative value
+            + "X-SKIP-CONTROL-DURATION=10.0"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad4\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=-10.0" // negative value
+            + "\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials).hasSize(4);
+    Interstitial interstitial1 = playlist.interstitials.get(0);
+    assertThat(interstitial1.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial1.skipControlDurationUs).isEqualTo(10_000_000L);
+    Interstitial interstitial2 = playlist.interstitials.get(1);
+    assertThat(interstitial2.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial2.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
+    Interstitial interstitial3 = playlist.interstitials.get(2);
+    assertThat(interstitial3.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlDurationUs).isEqualTo(10_000_000L);
+    Interstitial interstitial4 = playlist.interstitials.get(3);
+    assertThat(interstitial4.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial4.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
   }
 
   @Test
@@ -2255,5 +2544,174 @@ public class HlsMediaPlaylistParserTest {
     for (int i = 1; i <= 4; i++) {
       assertThat(playlist.segments.get(i - 1).url).isEqualTo("long_path" + i + ".ts");
     }
+  }
+
+  @Test
+  public void queryParamSubstitution() throws IOException {
+    Uri playlistUri =
+        Uri.parse(
+            "https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts&param-2=22");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    Segment segment = playlist.segments.get(1);
+    assertThat(segment.initializationSegment.url).isEqualTo("replaced_value.ts");
+    assertThat(segment.url).isEqualTo("segment22$name_1}");
+  }
+
+  @Test
+  public void queryParamSubstitution_queryParam_isCaseSensitiveOrThrows() {
+    Uri playlistUri =
+        Uri.parse("https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"Queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment2.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"Queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_missingQueryParam_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{name_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"name_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndQueryParamName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"queryparam_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("duplicate variable name \"queryparam_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"import_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateQueryParamAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?import_1=value_1");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
   }
 }

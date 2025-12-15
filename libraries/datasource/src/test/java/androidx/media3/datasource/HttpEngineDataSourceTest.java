@@ -65,12 +65,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -92,6 +94,8 @@ public final class HttpEngineDataSourceTest {
   private static final byte[] TEST_POST_BODY = Util.getUtf8Bytes("test post body");
   private static final long TEST_CONTENT_LENGTH = 16000L;
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
   private DataSpec testDataSpec;
   private DataSpec testPostDataSpec;
   private DataSpec testHeadDataSpec;
@@ -109,7 +113,6 @@ public final class HttpEngineDataSourceTest {
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
 
     Map<String, String> defaultRequestProperties = new HashMap<>();
     defaultRequestProperties.put("defaultHeader1", "defaultValue1");

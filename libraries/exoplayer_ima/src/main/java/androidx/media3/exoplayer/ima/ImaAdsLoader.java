@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.ima;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.ima.ImaUtil.BITRATE_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.TIMEOUT_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.getImaLooper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.os.Looper;
@@ -280,6 +280,9 @@ public final class ImaAdsLoader implements AdsLoader {
      * <p>The purpose of this timeout is to avoid playback getting stuck in the unexpected case that
      * the IMA SDK does not load an ad break based on the player's reported content position.
      *
+     * <p>The value will be adjusted to be greater or equal to the one in {@link
+     * #setVastLoadTimeoutMs(int)} if provided.
+     *
      * @param adPreloadTimeoutMs The timeout buffering duration in milliseconds, or {@link
      *     C#TIME_UNSET} for no timeout.
      * @return This builder, for convenience.
@@ -396,6 +399,9 @@ public final class ImaAdsLoader implements AdsLoader {
 
     /** Returns a new {@link ImaAdsLoader}. */
     public ImaAdsLoader build() {
+      if (vastLoadTimeoutMs != TIMEOUT_UNSET && adPreloadTimeoutMs < vastLoadTimeoutMs) {
+        adPreloadTimeoutMs = vastLoadTimeoutMs;
+      }
       return new ImaAdsLoader(
           context,
           new ImaUtil.Configuration(

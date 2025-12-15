@@ -30,8 +30,8 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
 import android.app.Service;
@@ -111,7 +111,7 @@ import androidx.media3.common.Player;
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   @Override
   public PendingIntent createMediaActionPendingIntent(
-      MediaSession mediaSession, @Player.Command long command) {
+      MediaSession mediaSession, @Player.Command int command) {
     int keyCode = toKeyCode(command);
     Intent intent = getMediaButtonIntent(mediaSession, keyCode);
     if (SDK_INT >= 26
@@ -120,10 +120,7 @@ import androidx.media3.common.Player;
       return Api26.createForegroundServicePendingIntent(service, keyCode, intent);
     } else {
       return PendingIntent.getService(
-          service,
-          /* requestCode= */ keyCode,
-          intent,
-          SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+          service, /* requestCode= */ keyCode, intent, PendingIntent.FLAG_IMMUTABLE);
     }
   }
 
@@ -133,10 +130,7 @@ import androidx.media3.common.Player;
         getMediaButtonIntent(mediaSession, KEYCODE_MEDIA_STOP)
             .putExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, true);
     return PendingIntent.getService(
-        service,
-        /* requestCode= */ KEYCODE_MEDIA_STOP,
-        intent,
-        SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+        service, /* requestCode= */ KEYCODE_MEDIA_STOP, intent, PendingIntent.FLAG_IMMUTABLE);
   }
 
   private Intent getMediaButtonIntent(MediaSession mediaSession, int mediaKeyCode) {
@@ -147,7 +141,7 @@ import androidx.media3.common.Player;
     return intent;
   }
 
-  private int toKeyCode(@Player.Command long action) {
+  private int toKeyCode(@Player.Command int action) {
     if (action == COMMAND_SEEK_TO_NEXT_MEDIA_ITEM || action == COMMAND_SEEK_TO_NEXT) {
       return KEYCODE_MEDIA_NEXT;
     } else if (action == COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
@@ -178,7 +172,7 @@ import androidx.media3.common.Player;
         service,
         /* requestCode= */ ++customActionPendingIntentRequestCode,
         intent,
-        PendingIntent.FLAG_UPDATE_CURRENT | (SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 
   /** Returns whether {@code intent} was part of a {@link #createMediaAction media action}. */

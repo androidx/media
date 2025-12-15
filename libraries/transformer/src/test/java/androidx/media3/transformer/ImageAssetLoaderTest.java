@@ -172,7 +172,8 @@ public class ImageAssetLoaderTest {
             .setFrameRate(30)
             .build();
     return new ImageAssetLoader.Factory(
-            context, new DataSourceBitmapLoader(ApplicationProvider.getApplicationContext()))
+            context,
+            new DataSourceBitmapLoader.Builder(ApplicationProvider.getApplicationContext()).build())
         .createAssetLoader(
             editedMediaItem,
             Looper.myLooper(),

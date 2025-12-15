@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.hls;
 import android.net.Uri;
 import android.util.JsonReader;
 import android.util.JsonToken;
+import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState.SkipInfo;
 import androidx.media3.common.C;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
@@ -40,6 +42,15 @@ import java.io.InputStreamReader;
   /** The asset duration name in a X-ASSET-LIST JSON object. */
   private static final String ASSET_LIST_JSON_NAME_DURATION = "DURATION";
 
+  /** The skip control field name in a X-ASSET-LIST JSON object. */
+  private static final String ASSET_LIST_JSON_NAME_SKIP_CONTROL = "SKIP-CONTROL";
+
+  /** The offset field name in a SKIP-CONTROL JSON object. */
+  private static final String ASSET_LIST_JSON_NAME_OFFSET = "OFFSET";
+
+  /** The label ID field name in a SKIP-CONTROL JSON object. */
+  private static final String ASSET_LIST_JSON_NAME_LABEL_ID = "LABEL-ID";
+
   @Override
   public AssetList parse(Uri uri, InputStream inputStream) throws IOException {
     try (JsonReader reader = new JsonReader(new InputStreamReader(inputStream))) {
@@ -48,6 +59,7 @@ import java.io.InputStreamReader;
       }
       ImmutableList.Builder<Asset> assets = new ImmutableList.Builder<>();
       ImmutableList.Builder<StringAttribute> stringAttributes = new ImmutableList.Builder<>();
+      @Nullable SkipInfo skipInfo = null;
       reader.beginObject();
       while (reader.hasNext()) {
         JsonToken token = reader.peek();
@@ -56,6 +68,9 @@ import java.io.InputStreamReader;
           if (name.equals(ASSET_LIST_JSON_NAME_ASSET_ARRAY)
               && reader.peek() == JsonToken.BEGIN_ARRAY) {
             parseAssetArray(reader, assets);
+          } else if (name.equals(ASSET_LIST_JSON_NAME_SKIP_CONTROL)
+              && reader.peek() == JsonToken.BEGIN_OBJECT) {
+            skipInfo = parseSkipInfo(reader);
           } else if (reader.peek() == JsonToken.STRING) {
             stringAttributes.add(new StringAttribute(name, reader.nextString()));
           } else {
@@ -63,8 +78,33 @@ import java.io.InputStreamReader;
           }
         }
       }
-      return new AssetList(assets.build(), stringAttributes.build());
+      reader.endObject();
+      return new AssetList(assets.build(), stringAttributes.build(), skipInfo);
     }
+  }
+
+  @Nullable
+  private static SkipInfo parseSkipInfo(JsonReader reader) throws IOException {
+    reader.beginObject();
+    long offsetUs = C.TIME_UNSET;
+    long durationUs = C.TIME_UNSET;
+    @Nullable String labelId = null;
+    while (reader.hasNext()) {
+      String name = reader.nextName();
+      if (name.equals(ASSET_LIST_JSON_NAME_OFFSET) && reader.peek() == JsonToken.NUMBER) {
+        offsetUs = (long) (reader.nextDouble() * C.MICROS_PER_SECOND);
+      } else if (name.equals(ASSET_LIST_JSON_NAME_DURATION) && reader.peek() == JsonToken.NUMBER) {
+        durationUs = (long) (reader.nextDouble() * C.MICROS_PER_SECOND);
+      } else if (name.equals(ASSET_LIST_JSON_NAME_LABEL_ID) && reader.peek() == JsonToken.STRING) {
+        labelId = reader.nextString();
+      } else {
+        reader.skipValue();
+      }
+    }
+    reader.endObject();
+    return offsetUs == C.TIME_UNSET && durationUs == C.TIME_UNSET && labelId == null
+        ? null
+        : new SkipInfo(offsetUs, durationUs, labelId);
   }
 
   private static void parseAssetArray(JsonReader reader, ImmutableList.Builder<Asset> assets)

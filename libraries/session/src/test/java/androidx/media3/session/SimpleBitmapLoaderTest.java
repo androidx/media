@@ -17,7 +17,6 @@ package androidx.media3.session;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -42,12 +41,10 @@ import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.GraphicsMode;
 
 /** Tests for {@link SimpleBitmapLoader}. */
 @SuppressWarnings("deprecation") // Testing deprecated class
 @RunWith(AndroidJUnit4.class)
-@GraphicsMode(value = NATIVE)
 public class SimpleBitmapLoaderTest {
 
   private static final String TEST_IMAGE_PATH = "media/jpeg/non-motion-photo-shortened.jpg";

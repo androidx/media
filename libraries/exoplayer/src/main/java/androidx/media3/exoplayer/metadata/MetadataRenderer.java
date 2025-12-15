@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.metadata;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Handler;
 import android.os.Handler.Callback;
@@ -26,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.BaseRenderer;
@@ -116,10 +116,10 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
       MetadataDecoderFactory decoderFactory,
       boolean outputMetadataEarly) {
     super(C.TRACK_TYPE_METADATA);
-    this.output = Assertions.checkNotNull(output);
+    this.output = checkNotNull(output);
     this.outputHandler =
         outputLooper == null ? null : Util.createHandler(outputLooper, /* callback= */ this);
-    this.decoderFactory = Assertions.checkNotNull(decoderFactory);
+    this.decoderFactory = checkNotNull(decoderFactory);
     this.outputMetadataEarly = outputMetadataEarly;
     buffer = new MetadataInputBuffer();
     outputStreamOffsetUs = C.TIME_UNSET;
@@ -156,7 +156,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame) {
     pendingMetadata = null;
     inputStreamEnded = false;
     outputStreamEnded = false;
@@ -183,8 +184,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
         MetadataDecoder wrappedMetadataDecoder =
             decoderFactory.createDecoder(wrappedMetadataFormat);
         // wrappedMetadataFormat != null so wrappedMetadataBytes must be non-null too.
-        byte[] wrappedMetadataBytes =
-            Assertions.checkNotNull(metadata.get(i).getWrappedMetadataBytes());
+        byte[] wrappedMetadataBytes = checkNotNull(metadata.get(i).getWrappedMetadataBytes());
         buffer.clear();
         buffer.ensureSpaceForWrite(wrappedMetadataBytes.length);
         castNonNull(buffer.data).put(wrappedMetadataBytes);
@@ -254,7 +254,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
           }
         }
       } else if (result == C.RESULT_FORMAT_READ) {
-        subsampleOffsetUs = Assertions.checkNotNull(formatHolder.format).subsampleOffsetUs;
+        subsampleOffsetUs = checkNotNull(formatHolder.format).subsampleOffsetUs;
       }
     }
   }

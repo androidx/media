@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.drm;
 
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,12 +41,20 @@ public interface DrmSessionEventListener {
       int windowIndex, @Nullable MediaPeriodId mediaPeriodId, @DrmSession.State int state) {}
 
   /**
+   * @deprecated Implement {@link #onDrmKeysLoaded(int, MediaPeriodId, KeyRequestInfo)} instead
+   */
+  @Deprecated
+  default void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {}
+
+  /**
    * Called each time keys are loaded.
    *
    * @param windowIndex The window index in the timeline this media period belongs to.
    * @param mediaPeriodId The {@link MediaPeriodId} associated with the drm session.
+   * @param keyRequestInfo The {@link KeyRequestInfo} with load info for the drm server requests
    */
-  default void onDrmKeysLoaded(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {}
+  default void onDrmKeysLoaded(
+      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, KeyRequestInfo keyRequestInfo) {}
 
   /**
    * Called when a drm error occurs.
@@ -136,8 +144,8 @@ public interface DrmSessionEventListener {
      * @param eventListener The listener to be added.
      */
     public void addEventListener(Handler handler, DrmSessionEventListener eventListener) {
-      Assertions.checkNotNull(handler);
-      Assertions.checkNotNull(eventListener);
+      checkNotNull(handler);
+      checkNotNull(eventListener);
       listenerAndHandlers.add(new ListenerAndHandler(handler, eventListener));
     }
 
@@ -166,12 +174,20 @@ public interface DrmSessionEventListener {
       }
     }
 
-    /** Dispatches {@link #onDrmKeysLoaded(int, MediaPeriodId)}. */
-    public void drmKeysLoaded() {
+    /**
+     * Dispatches {@link #onDrmKeysLoaded(int, MediaPeriodId)}. and {@link #onDrmKeysLoaded(int,
+     * MediaPeriodId, KeyRequestInfo)}
+     */
+    @SuppressWarnings("deprecation") // Calling deprecated listener callback.
+    public void drmKeysLoaded(KeyRequestInfo keyRequestInfo) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         DrmSessionEventListener listener = listenerAndHandler.listener;
         postOrRun(
-            listenerAndHandler.handler, () -> listener.onDrmKeysLoaded(windowIndex, mediaPeriodId));
+            listenerAndHandler.handler,
+            () -> {
+              listener.onDrmKeysLoaded(windowIndex, mediaPeriodId);
+              listener.onDrmKeysLoaded(windowIndex, mediaPeriodId, keyRequestInfo);
+            });
       }
     }
 

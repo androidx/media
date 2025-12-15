@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.annotation.CallSuper;
@@ -252,6 +252,6 @@ public abstract class TrackSelector {
    * initialized}.
    */
   protected final BandwidthMeter getBandwidthMeter() {
-    return checkStateNotNull(bandwidthMeter);
+    return checkNotNull(bandwidthMeter);
   }
 }

@@ -23,8 +23,8 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -39,6 +39,7 @@ import androidx.annotation.StringRes;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
@@ -46,7 +47,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaStyleNotificationHelper.MediaStyle;
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -281,8 +281,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     this.channelId = channelId;
     this.channelNameResourceId = channelNameResourceId;
     notificationManager =
-        checkStateNotNull(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+        checkNotNull((NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
     smallIconResourceId = R.drawable.media3_notification_small_icon;
   }
 
@@ -304,16 +303,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       Callback onNotificationChangedCallback) {
     ensureNotificationChannel();
 
-    ImmutableList.Builder<CommandButton> mediaButtonPreferencesWithEnabledCommandButtonsOnly =
-        new ImmutableList.Builder<>();
-    for (int i = 0; i < mediaButtonPreferences.size(); i++) {
-      CommandButton button = mediaButtonPreferences.get(i);
-      if (button.sessionCommand != null
-          && button.sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
-          && button.isEnabled) {
-        mediaButtonPreferencesWithEnabledCommandButtonsOnly.add(mediaButtonPreferences.get(i));
-      }
-    }
     Player player = mediaSession.getPlayer();
     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId);
     int notificationId = notificationIdProvider.getNotificationId(mediaSession);
@@ -325,7 +314,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             getMediaButtons(
                 mediaSession,
                 player.getAvailableCommands(),
-                mediaButtonPreferencesWithEnabledCommandButtonsOnly.build(),
+                mediaButtonPreferences,
                 !Util.shouldShowPlayButton(
                     player, mediaSession.getShowPlayButtonIfPlaybackIsSuppressed())),
             builder,
@@ -446,7 +435,10 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       boolean showPauseButton) {
     ImmutableList<CommandButton> customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
-            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+            mediaButtonPreferences,
+            /* backSlotAllowed= */ true,
+            /* forwardSlotAllowed= */ true,
+            MediaLibraryInfo.INTERFACE_VERSION);
     boolean hasCustomBackButton =
         CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
     boolean hasCustomForwardButton =
@@ -455,10 +447,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
     ImmutableList.Builder<CommandButton> commandButtons = new ImmutableList.Builder<>();
     if (hasCustomBackButton) {
-      commandButtons.add(
-          customLayout
-              .get(nextCustomLayoutIndex++)
-              .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_BACK)));
+      commandButtons.add(customLayout.get(nextCustomLayoutIndex++));
     } else if (playerCommands.containsAny(
         COMMAND_SEEK_TO_PREVIOUS, COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)) {
       commandButtons.add(
@@ -484,10 +473,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       }
     }
     if (hasCustomForwardButton) {
-      commandButtons.add(
-          customLayout
-              .get(nextCustomLayoutIndex++)
-              .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_FORWARD)));
+      commandButtons.add(customLayout.get(nextCustomLayoutIndex++));
     } else if (playerCommands.containsAny(COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)) {
       commandButtons.add(
           new CommandButton.Builder(CommandButton.ICON_NEXT)
@@ -496,8 +482,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
               .build());
     }
     for (int i = nextCustomLayoutIndex; i < customLayout.size(); i++) {
-      commandButtons.add(
-          customLayout.get(i).copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)));
+      commandButtons.add(customLayout.get(i));
     }
     return commandButtons.build();
   }

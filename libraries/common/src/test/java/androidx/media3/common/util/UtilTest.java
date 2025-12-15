@@ -51,12 +51,12 @@ import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -72,11 +72,12 @@ import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link Util}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class UtilTest {
 
   private static final int TIMEOUT_MS = 10000;
@@ -159,6 +160,8 @@ public class UtilTest {
   @Test
   public void percentInt_smallNegativeValues() {
     assertThat(Util.percentInt(-3, -9)).isEqualTo(33);
+    assertThat(Util.percentInt(-3, 9)).isEqualTo(-33);
+    assertThat(Util.percentInt(3, -9)).isEqualTo(-33);
     assertThat(Util.percentInt(-3, -3)).isEqualTo(100);
   }
 
@@ -170,6 +173,16 @@ public class UtilTest {
   @Test
   public void percentInt_largeNegativeValuesDontOverflow() {
     assertThat(Util.percentInt(Long.MIN_VALUE / 4, Long.MIN_VALUE / 2)).isEqualTo(50);
+  }
+
+  @Test
+  public void percentInt_resultLargerThan100() {
+    assertThat(Util.percentInt(20, 5)).isEqualTo(400);
+  }
+
+  @Test
+  public void percentInt_resultOverflowsInt_saturatedCast() {
+    assertThat(Util.percentInt(Integer.MAX_VALUE * 3L, 2)).isEqualTo(Integer.MAX_VALUE);
   }
 
   @Test
@@ -963,14 +976,25 @@ public class UtilTest {
   }
 
   @Test
-  public void parseXsDateTime_returnsParsedDateTimeInMillis() throws Exception {
-    assertThat(parseXsDateTime("2014-06-19T23:07:42")).isEqualTo(1403219262000L);
-    assertThat(parseXsDateTime("2014-08-06T11:00:00Z")).isEqualTo(1407322800000L);
-    assertThat(parseXsDateTime("2014-08-06T11:00:00,000Z")).isEqualTo(1407322800000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55-08:00")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55-0800")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55.000-0800")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55.000-800")).isEqualTo(1411161535000L);
+  public void parseXsDateTime_returnsParsedDateTimeInMillis(
+      @TestParameter({"T", "t", " "}) String separator) throws Exception {
+    assertThat(parseXsDateTime("2014-06-19" + separator + "23:07:42")).isEqualTo(1403219262000L);
+    assertThat(parseXsDateTime("2014-08-06" + separator + "11:00:00Z")).isEqualTo(1407322800000L);
+    assertThat(parseXsDateTime("2014-08-06" + separator + "11:00:00,000Z"))
+        .isEqualTo(1407322800000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-08:00"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+0100"))
+        .isEqualTo(1411129135000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-0800"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-800"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-08")).isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-8"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+01")).isEqualTo(1411129135000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55+1")).isEqualTo(1411129135000L);
   }
 
   @Test
@@ -1014,6 +1038,21 @@ public class UtilTest {
   @Test
   public void toLong_withBigNegativeValue_returnsValue() {
     assertThat(Util.toLong(0xFEDCBA, 0x87654321)).isEqualTo(0xFEDCBA_87654321L);
+  }
+
+  @Test
+  public void getBytesFromHexString_caseInsensitive() {
+    assertThat(Util.getBytesFromHexString("12fC06")).isEqualTo(createByteArray(0x12, 0xFC, 0x06));
+  }
+
+  @Test
+  public void getBytesFromHexString_invalidCharacters_throws() {
+    assertThrows(IllegalArgumentException.class, () -> Util.getBytesFromHexString("FOOBAR"));
+  }
+
+  @Test
+  public void getBytesFromHexString_oddLength_throws() {
+    assertThrows(IllegalArgumentException.class, () -> Util.getBytesFromHexString("12F"));
   }
 
   @Test

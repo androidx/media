@@ -107,7 +107,7 @@ class MediaAppControllerActivity : AppCompatActivity() {
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
     toolbar.setNavigationOnClickListener { finish() }
 
-    bitmapLoader = CacheBitmapLoader(DataSourceBitmapLoader(this))
+    bitmapLoader = CacheBitmapLoader(DataSourceBitmapLoader.Builder(this).build())
     viewPager = findViewById(R.id.view_pager)
     ratingViewGroup = findViewById(R.id.rating)
     mediaInfoText = findViewById(R.id.media_info)

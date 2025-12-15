@@ -17,16 +17,15 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -176,7 +175,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public Surface getInputSurface() {
-    return checkStateNotNull(inputSurface);
+    return checkNotNull(inputSurface);
   }
 
   @Override
@@ -313,7 +312,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public void releaseOutputBuffer(boolean render) throws ExportException {
-    releaseOutputBuffer(render, checkStateNotNull(outputBufferInfo).presentationTimeUs);
+    releaseOutputBuffer(render, checkNotNull(outputBufferInfo).presentationTimeUs);
   }
 
   @Override
@@ -403,17 +402,28 @@ public final class DefaultCodec implements Codec {
       if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
         outputFormat =
             convertToFormat(mediaCodec.getOutputFormat(), isDecoder, configurationFormat.metadata);
-        // The raw audio decoder incorrectly sets the channel count for output format to stereo.
-        if (isDecoder && Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
-          outputFormat =
-              outputFormat
-                  .buildUpon()
-                  .setChannelCount(configurationFormat.channelCount)
-                  .setPcmEncoding(configurationFormat.pcmEncoding)
-                  .build();
-        }
-        if (!isDecoder && isVideo) {
-          videoOutputStarted.set(true);
+        if (isDecoder) {
+          // The raw audio decoder incorrectly sets the channel count for output format to stereo.
+          if (Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+            outputFormat =
+                outputFormat
+                    .buildUpon()
+                    .setChannelCount(configurationFormat.channelCount)
+                    .setPcmEncoding(configurationFormat.pcmEncoding)
+                    .build();
+          }
+        } else {
+          // Its encoder.
+          if (isVideo) {
+            videoOutputStarted.set(true);
+          } else {
+            if (Objects.equals(getName(), "c2.android.aac.encoder")) {
+              // Encoder delay value is take from the encoder's code.
+              // See:
+              // https://android.googlesource.com/platform/external/aac/+/master/libAACenc/src/aacenc_lib.cpp
+              outputFormat = outputFormat.buildUpon().setEncoderDelay(1600).build();
+            }
+          }
         }
         debugTraceLogEvent(
             EVENT_OUTPUT_FORMAT, outputBufferInfo.presentationTimeUs, "%s", outputFormat);

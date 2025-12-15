@@ -15,11 +15,12 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -70,7 +71,7 @@ public final class ParsingLoadable<T> implements Loadable {
       throws IOException {
     ParsingLoadable<T> loadable = new ParsingLoadable<>(dataSource, uri, type, parser);
     loadable.load();
-    return Assertions.checkNotNull(loadable.getResult());
+    return checkNotNull(loadable.getResult());
   }
 
   /**
@@ -88,7 +89,7 @@ public final class ParsingLoadable<T> implements Loadable {
       throws IOException {
     ParsingLoadable<T> loadable = new ParsingLoadable<>(dataSource, dataSpec, type, parser);
     loadable.load();
-    return Assertions.checkNotNull(loadable.getResult());
+    return checkNotNull(loadable.getResult());
   }
 
   /** Identifies the load task for this loadable. */
@@ -180,7 +181,7 @@ public final class ParsingLoadable<T> implements Loadable {
     DataSourceInputStream inputStream = new DataSourceInputStream(dataSource, dataSpec);
     try {
       inputStream.open();
-      Uri dataSourceUri = Assertions.checkNotNull(dataSource.getUri());
+      Uri dataSourceUri = checkNotNull(dataSource.getUri());
       result = parser.parse(dataSourceUri, inputStream);
     } finally {
       Util.closeQuietly(inputStream);

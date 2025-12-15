@@ -72,7 +72,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Deprecated
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = false;
+    asyncCryptoFlagEnabled = true;
     context = null;
     callbackThreadSupplier = null;
     queueingThreadSupplier = null;
@@ -101,7 +101,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
       @Nullable Supplier<HandlerThread> queueingThreadSupplier) {
     this.context = context;
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = false;
+    asyncCryptoFlagEnabled = true;
     this.callbackThreadSupplier = callbackThreadSupplier;
     this.queueingThreadSupplier = queueingThreadSupplier;
   }
@@ -147,9 +147,8 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
-    if (SDK_INT >= 23
-        && (asynchronousMode == MODE_ENABLED
-            || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode()))) {
+    if (asynchronousMode == MODE_ENABLED
+        || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode())) {
       int trackType = MimeTypes.getTrackType(configuration.format.sampleMimeType);
       Log.i(
           TAG,

@@ -1325,13 +1325,10 @@ public final class MediaPeriodQueueTest {
     Object windowUid = new Object();
     FakeTimeline timeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ windowUid,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US,
-                adPlaybackState));
+            new TimelineWindowDefinition.Builder()
+                .setUid(windowUid)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
@@ -1352,13 +1349,10 @@ public final class MediaPeriodQueueTest {
     Object windowUid = new Object();
     FakeTimeline timeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ windowUid,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US,
-                adPlaybackState));
+            new TimelineWindowDefinition.Builder()
+                .setUid(windowUid)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
@@ -1379,13 +1373,10 @@ public final class MediaPeriodQueueTest {
     Object windowUid = new Object();
     FakeTimeline timeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ windowUid,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US,
-                adPlaybackState));
+            new TimelineWindowDefinition.Builder()
+                .setUid(windowUid)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(

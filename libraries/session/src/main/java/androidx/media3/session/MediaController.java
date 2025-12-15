@@ -16,13 +16,12 @@
 package androidx.media3.session;
 
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -30,6 +29,7 @@ import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -375,7 +375,7 @@ public class MediaController implements Player {
       MediaControllerHolder<MediaController> holder =
           new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
       }
       MediaController controller =
           new MediaController(
@@ -391,6 +391,29 @@ public class MediaController implements Player {
       postOrRun(new Handler(applicationLooper), () -> holder.setController(controller));
       return holder;
     }
+  }
+
+  /**
+   * A listener to receive progress updates of a custom command when a custom command is sent and a
+   * non-null {@link ProgressListener} is passed into {@link #sendCustomCommand(SessionCommand,
+   * Bundle, ProgressListener)}.
+   */
+  @UnstableApi
+  public interface ProgressListener {
+
+    /**
+     * Called when the session reports progress of a custom command.
+     *
+     * @param mediaController The controller.
+     * @param sessionCommand The session command sent to the session.
+     * @param args The argument {@link Bundle} sent to the session.
+     * @param progressData The progress data.
+     */
+    public void onProgress(
+        MediaController mediaController,
+        SessionCommand sessionCommand,
+        Bundle args,
+        Bundle progressData);
   }
 
   /**
@@ -1051,6 +1074,16 @@ public class MediaController implements Player {
     return impl.getAudioAttributes();
   }
 
+  @UnstableApi
+  @Override
+  public final int getAudioSessionId() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      return C.AUDIO_SESSION_ID_UNSET;
+    }
+    return impl.getAudioSessionId();
+  }
+
   /**
    * Requests that the connected {@link MediaSession} rates the media. This will cause the rating to
    * be set for the current user. The rating style must follow the user rating style from the
@@ -1067,7 +1100,7 @@ public class MediaController implements Player {
   public final ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     verifyApplicationThread();
     checkNotNull(mediaId, "mediaId must not be null");
-    checkNotEmpty(mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(mediaId), "mediaId must not be empty");
     checkNotNull(rating, "rating must not be null");
     if (isConnected()) {
       return impl.setRating(mediaId, rating);
@@ -1126,6 +1159,38 @@ public class MediaController implements Player {
   }
 
   /**
+   * Sends a custom command to the session.
+   *
+   * <p>A controller can request progress updates by passing in a non-null {@link ProgressListener}.
+   * Whether or not the session sends progress updates depends on the implementation of the session
+   * callback that responds to the given {@link SessionCommand}.
+   *
+   * <p>Interoperability: When connected to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
+   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
+   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   *
+   * @param command The custom command.
+   * @param args The additional arguments. May be empty.
+   * @param progressListener A {@link ProgressListener} to receive progress updates. May be null.
+   * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
+   *     completion.
+   */
+  @UnstableApi
+  public final ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command, Bundle args, @Nullable ProgressListener progressListener) {
+    verifyApplicationThread();
+    checkNotNull(command, "command must not be null");
+    checkArgument(
+        command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM,
+        "command must be a custom command");
+    if (isConnected()) {
+      return impl.sendCustomCommand(command, args, progressListener);
+    }
+    return createDisconnectedFuture();
+  }
+
+  /**
    * Sends a custom command to the session for the given {@linkplain MediaItem media item}.
    *
    * <p>Calling this method is equivalent to calling {@link #sendCustomCommand(SessionCommand,
@@ -1135,10 +1200,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1149,9 +1215,45 @@ public class MediaController implements Player {
   @UnstableApi
   public final ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command, MediaItem mediaItem, Bundle args) {
-    Bundle augnentedBundle = new Bundle(args);
-    augnentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
-    return sendCustomCommand(command, augnentedBundle);
+    return sendCustomCommand(command, mediaItem, args, /* progressListener= */ null);
+  }
+
+  /**
+   * Sends a custom command to the session for the given {@linkplain MediaItem media item}.
+   *
+   * <p>A controller can request progress updates by passing in a non-null {@link ProgressListener}.
+   * Whether or not the session sends progress updates depends on the implementation of the session
+   * callback that responds to the given {@link SessionCommand}.
+   *
+   * <p>Calling this method is equivalent to calling {@link #sendCustomCommand(SessionCommand,
+   * Bundle)} and including the {@linkplain MediaItem#mediaId media ID} in the argument bundle with
+   * key {@link MediaConstants#EXTRA_KEY_MEDIA_ID}.
+   *
+   * <p>A command is not accepted if it is not a custom command or the command is not in the list of
+   * {@linkplain #getAvailableSessionCommands() available session commands}.
+   *
+   * <p>Interoperability: When sending a custom command to {@code
+   * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
+   *
+   * @param command The custom command.
+   * @param mediaItem The media item for which the command is sent.
+   * @param args The additional arguments. May be empty.
+   * @param progressListener A {@link ProgressListener} to receive progress updates. May be null.
+   * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
+   *     completion.
+   */
+  @UnstableApi
+  public final ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command,
+      MediaItem mediaItem,
+      Bundle args,
+      @Nullable ProgressListener progressListener) {
+    Bundle augmentedBundle = new Bundle(args);
+    augmentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
+    return sendCustomCommand(command, augmentedBundle, progressListener);
   }
 
   /**
@@ -1265,7 +1367,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1279,7 +1381,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1294,7 +1396,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1827,6 +1929,28 @@ public class MediaController implements Player {
     impl.setVolume(volume);
   }
 
+  @UnstableApi
+  @Override
+  public final void mute() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring mute().");
+      return;
+    }
+    impl.mute();
+  }
+
+  @UnstableApi
+  @Override
+  public final void unmute() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring unmute().");
+      return;
+    }
+    impl.unmute();
+  }
+
   @Override
   public final DeviceInfo getDeviceInfo() {
     verifyApplicationThread();
@@ -2194,11 +2318,16 @@ public class MediaController implements Player {
 
     AudioAttributes getAudioAttributes();
 
+    int getAudioSessionId();
+
     ListenableFuture<SessionResult> setRating(String mediaId, Rating rating);
 
     ListenableFuture<SessionResult> setRating(Rating rating);
 
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
+
+    ListenableFuture<SessionResult> sendCustomCommand(
+        SessionCommand command, Bundle args, @Nullable ProgressListener progressListener);
 
     ImmutableList<CommandButton> getMediaButtonPreferences();
 
@@ -2306,6 +2435,10 @@ public class MediaController implements Player {
     float getVolume();
 
     void setVolume(float volume);
+
+    void mute();
+
+    void unmute();
 
     DeviceInfo getDeviceInfo();
 

@@ -16,15 +16,12 @@
 
 package androidx.media3.common.text;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
 import android.text.Spannable;
 import android.text.Spanned;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.StrikethroughSpan;
-import android.text.style.UnderlineSpan;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;

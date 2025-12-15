@@ -8,7 +8,7 @@ for widgets, buttons, and other interactive components.
 
 The easiest way to use the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-ui-compose:1.X.X'
 ```
 
@@ -22,6 +22,6 @@ locally. Instructions for doing this can be found in the [top level README][].
 
 ## Links
 
-*   [Javadoc][]
+*   [Kotlin documentation][]
 
-[Javadoc]: https://developer.android.com/reference/androidx/media3/ui/compose/package-summary
+[Kotlin documentation]: https://developer.android.com/reference/kotlin/androidx/media3/ui/compose/package-summary

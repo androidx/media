@@ -15,25 +15,27 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import android.os.Looper;
+import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
+import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
-import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.List;
 
 /**
  * A base implementation of a preload manager, which maintains the lifecycle of {@linkplain
@@ -46,13 +48,12 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
 
   /** A base class of the builder of the concrete extension of {@link BasePreloadManager}. */
   protected abstract static class BuilderBase<T, PreloadStatusT> {
-
-    protected final Comparator<T> rankingDataComparator;
     protected final TargetPreloadStatusControl<T, PreloadStatusT> targetPreloadStatusControl;
+    protected RankingDataComparator<T> rankingDataComparator;
     protected Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
 
     public BuilderBase(
-        Comparator<T> rankingDataComparator,
+        RankingDataComparator<T> rankingDataComparator,
         TargetPreloadStatusControl<T, PreloadStatusT> targetPreloadStatusControl,
         Supplier<MediaSource.Factory> mediaSourceFactorySupplier) {
       this.rankingDataComparator = rankingDataComparator;
@@ -64,22 +65,31 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   private final Object lock;
-  protected final Comparator<T> rankingDataComparator;
+  protected final RankingDataComparator<T> rankingDataComparator;
   private final TargetPreloadStatusControl<T, PreloadStatusT> targetPreloadStatusControl;
   private final MediaSource.Factory mediaSourceFactory;
   private final ListenerSet<PreloadManagerListener> listeners;
-  private final Map<MediaItem, MediaSourceHolder> mediaItemMediaSourceHolderMap;
+  private final MediaSourceHolderMap mediaSourceHolderMap;
   private final Handler applicationHandler;
 
   @GuardedBy("lock")
-  private final PriorityQueue<MediaSourceHolder> sourceHolderPriorityQueue;
+  private final List<MediaSourceHolder> sourceHolderPriorityList;
+
+  @GuardedBy("lock")
+  private int indexForSourceHolderToPreload;
+
+  @GuardedBy("lock")
+  private int indexForSourceHolderToClear;
 
   @GuardedBy("lock")
   @Nullable
   private PreloadStatusT targetPreloadStatusOfCurrentPreloadingSource;
 
+  // It's safe to use "this" because the invalidationListener of rankingDataComparator shouldn't be
+  // triggered before exiting this (or subclass's) constructor.
+  @SuppressWarnings("nullness:methodref.receiver.bound")
   protected BasePreloadManager(
-      Comparator<T> rankingDataComparator,
+      RankingDataComparator<T> rankingDataComparator,
       TargetPreloadStatusControl<T, PreloadStatusT> targetPreloadStatusControl,
       MediaSource.Factory mediaSourceFactory) {
     lock = new Object();
@@ -87,10 +97,10 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     this.rankingDataComparator = rankingDataComparator;
     this.targetPreloadStatusControl = targetPreloadStatusControl;
     this.mediaSourceFactory = mediaSourceFactory;
-    listeners =
-        new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT, (listener, flags) -> {});
-    mediaItemMediaSourceHolderMap = new HashMap<>();
-    sourceHolderPriorityQueue = new PriorityQueue<>();
+    listeners = new ListenerSet<>(applicationHandler.getLooper());
+    mediaSourceHolderMap = new MediaSourceHolderMap();
+    this.rankingDataComparator.setInvalidationListener(this::invalidate);
+    sourceHolderPriorityList = new ArrayList<>();
   }
 
   /**
@@ -129,7 +139,24 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    * @return The count of the {@linkplain MediaSource media sources}.
    */
   public final int getSourceCount() {
-    return mediaItemMediaSourceHolderMap.size();
+    return mediaSourceHolderMap.size();
+  }
+
+  /**
+   * Adds a list of {@linkplain MediaItem media items} with their {@code rankingData} to the preload
+   * manager.
+   *
+   * @param mediaItems The {@linkplain MediaItem media items} to add.
+   * @param rankingDataList The ranking data that are associated with each media item.
+   * @throws IllegalArgumentException If the passed {@code mediaSources} and {@code rankingDataList}
+   *     are different in sizes.
+   */
+  public final void addMediaItems(List<MediaItem> mediaItems, List<T> rankingDataList) {
+    checkArgument(mediaItems.size() == rankingDataList.size());
+    for (int i = 0; i < mediaItems.size(); i++) {
+      add(mediaItems.get(i), rankingDataList.get(i));
+    }
+    invalidate();
   }
 
   /**
@@ -143,16 +170,32 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   /**
+   * Adds a list of {@linkplain MediaSource media sources} with their {@code rankingData} to the
+   * preload manager.
+   *
+   * @param mediaSources The {@linkplain MediaSource media sources} to add.
+   * @param rankingDataList The ranking data that are associated with each media source.
+   * @throws IllegalArgumentException If the passed {@code mediaSources} and {@code rankingDataList}
+   *     are different in sizes.
+   */
+  public final void addMediaSources(List<MediaSource> mediaSources, List<T> rankingDataList) {
+    checkArgument(mediaSources.size() == rankingDataList.size());
+    for (int i = 0; i < mediaSources.size(); i++) {
+      add(mediaSources.get(i), rankingDataList.get(i));
+    }
+    invalidate();
+  }
+
+  /**
    * Adds a {@link MediaSource} with its {@code rankingData} to the preload manager.
    *
    * @param mediaSource The {@link MediaSource} to add.
    * @param rankingData The ranking data that is associated with the {@code mediaSource}.
    */
   public final void add(MediaSource mediaSource, T rankingData) {
-    MediaSource mediaSourceForPreloading = createMediaSourceForPreloading(mediaSource);
-    MediaSourceHolder mediaSourceHolder =
-        new MediaSourceHolder(mediaSourceForPreloading, rankingData);
-    mediaItemMediaSourceHolderMap.put(mediaSourceForPreloading.getMediaItem(), mediaSourceHolder);
+    MediaSourceHolder mediaHolder =
+        createMediaSourceHolder(mediaSource.getMediaItem(), mediaSource, rankingData);
+    mediaSourceHolderMap.put(mediaHolder.mediaItem, mediaHolder.getMediaSource(), mediaHolder);
   }
 
   /**
@@ -161,12 +204,21 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    */
   public final void invalidate() {
     synchronized (lock) {
-      sourceHolderPriorityQueue.clear();
-      sourceHolderPriorityQueue.addAll(mediaItemMediaSourceHolderMap.values());
-      while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource()) {
-        sourceHolderPriorityQueue.poll();
+      resetSourceHolderPriorityList();
+      while (indexForSourceHolderToPreload < sourceHolderPriorityList.size()
+          && !maybeStartPreloadingNextSourceHolder()) {
+        indexForSourceHolderToPreload++;
       }
     }
+  }
+
+  @GuardedBy("lock")
+  private void resetSourceHolderPriorityList() {
+    sourceHolderPriorityList.clear();
+    sourceHolderPriorityList.addAll(mediaSourceHolderMap.values());
+    Collections.sort(sourceHolderPriorityList);
+    indexForSourceHolderToPreload = 0;
+    indexForSourceHolderToClear = sourceHolderPriorityList.size() - 1;
   }
 
   /**
@@ -178,10 +230,10 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    */
   @Nullable
   public final MediaSource getMediaSource(MediaItem mediaItem) {
-    if (!mediaItemMediaSourceHolderMap.containsKey(mediaItem)) {
+    if (!mediaSourceHolderMap.containsKey(mediaItem)) {
       return null;
     }
-    return mediaItemMediaSourceHolderMap.get(mediaItem).mediaSource;
+    return checkNotNull(mediaSourceHolderMap.get(mediaItem)).getMediaSource();
   }
 
   /**
@@ -192,13 +244,38 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    *     {@link MediaItem} and it has been removed, otherwise {@code false}.
    */
   public final boolean remove(MediaItem mediaItem) {
-    if (mediaItemMediaSourceHolderMap.containsKey(mediaItem)) {
-      MediaSource mediaSource = mediaItemMediaSourceHolderMap.get(mediaItem).mediaSource;
-      mediaItemMediaSourceHolderMap.remove(mediaItem);
-      releaseSourceInternal(mediaSource);
+    @Nullable MediaSourceHolder mediaSourceHolder = mediaSourceHolderMap.get(mediaItem);
+    if (mediaSourceHolder != null) {
+      releaseMediaSourceHolderInternal(mediaSourceHolder);
+      mediaSourceHolderMap.remove(mediaItem);
+      if (isCurrentlyPreloading(mediaSourceHolder)) {
+        maybeAdvanceToNextMediaSourceHolder();
+      }
       return true;
     }
     return false;
+  }
+
+  /**
+   * Removes a list of {@linkplain MediaItem media items} from the preload manager.
+   *
+   * @param mediaItems The {@linkplain MediaItem media items} to remove.
+   */
+  public final void removeMediaItems(List<MediaItem> mediaItems) {
+    for (MediaItem mediaItem : mediaItems) {
+      @Nullable MediaSourceHolder mediaSourceHolder = mediaSourceHolderMap.get(mediaItem);
+      if (mediaSourceHolder != null) {
+        releaseMediaSourceHolderInternal(mediaSourceHolder);
+        mediaSourceHolderMap.remove(mediaItem);
+      }
+    }
+    @Nullable MediaSourceHolder currentMediaSourceHolder;
+    synchronized (lock) {
+      currentMediaSourceHolder = getCurrentlyPreloadingMediaSourceHolder();
+    }
+    if (currentMediaSourceHolder != null && currentMediaSourceHolder.isReleased()) {
+      maybeAdvanceToNextMediaSourceHolder();
+    }
   }
 
   /**
@@ -209,28 +286,50 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
    *     and it has been removed, otherwise {@code false}.
    */
   public final boolean remove(MediaSource mediaSource) {
-    MediaItem mediaItem = mediaSource.getMediaItem();
-    if (mediaItemMediaSourceHolderMap.containsKey(mediaItem)) {
-      MediaSource heldMediaSource = mediaItemMediaSourceHolderMap.get(mediaItem).mediaSource;
-      if (mediaSource == heldMediaSource) {
-        mediaItemMediaSourceHolderMap.remove(mediaItem);
-        releaseSourceInternal(mediaSource);
-        return true;
+    @Nullable MediaSourceHolder mediaSourceHolder = mediaSourceHolderMap.get(mediaSource);
+    if (mediaSourceHolder != null) {
+      releaseMediaSourceHolderInternal(mediaSourceHolder);
+      mediaSourceHolderMap.remove(mediaSource);
+      if (isCurrentlyPreloading(mediaSourceHolder)) {
+        maybeAdvanceToNextMediaSourceHolder();
       }
+      return true;
     }
     return false;
+  }
+
+  /**
+   * Removes a list of {@linkplain MediaSource media sources} from the preload manager.
+   *
+   * @param mediaSources The {@linkplain MediaSource media sources} to remove.
+   */
+  public final void removeMediaSources(List<MediaSource> mediaSources) {
+    for (MediaSource mediaSource : mediaSources) {
+      @Nullable MediaSourceHolder mediaSourceHolder = mediaSourceHolderMap.get(mediaSource);
+      if (mediaSourceHolder != null) {
+        releaseMediaSourceHolderInternal(mediaSourceHolder);
+        mediaSourceHolderMap.remove(mediaSource);
+      }
+    }
+    @Nullable MediaSourceHolder currentMediaSourceHolder;
+    synchronized (lock) {
+      currentMediaSourceHolder = getCurrentlyPreloadingMediaSourceHolder();
+    }
+    if (currentMediaSourceHolder != null && currentMediaSourceHolder.isReleased()) {
+      maybeAdvanceToNextMediaSourceHolder();
+    }
   }
 
   /**
    * Resets the preload manager. All sources that the preload manager is holding will be released.
    */
   public final void reset() {
-    for (MediaSourceHolder sourceHolder : mediaItemMediaSourceHolderMap.values()) {
-      releaseSourceInternal(sourceHolder.mediaSource);
+    for (MediaSourceHolder mediaHolder : mediaSourceHolderMap.values()) {
+      releaseMediaSourceHolderInternal(mediaHolder);
     }
-    mediaItemMediaSourceHolderMap.clear();
+    mediaSourceHolderMap.clear();
     synchronized (lock) {
-      sourceHolderPriorityQueue.clear();
+      resetSourceHolderPriorityList();
       targetPreloadStatusOfCurrentPreloadingSource = null;
     }
   }
@@ -247,83 +346,185 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   /** Called when the given {@link MediaSource} completes preloading. */
-  protected final void onPreloadCompleted(MediaSource source) {
-    synchronized (lock) {
-      if (!isPreloading(source)) {
-        return;
-      }
-    }
+  protected final void onCompleted(
+      MediaSource mediaSource, Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
     applicationHandler.post(
         () -> {
-          listeners.sendEvent(
-              /* eventFlag= */ C.INDEX_UNSET,
-              listener -> listener.onCompleted(source.getMediaItem()));
-          maybeAdvanceToNextSource(source);
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+
+          MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaSource));
+          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+            maybeAdvanceToNextMediaSourceHolder();
+          }
+        });
+  }
+
+  /** Called when the given {@link MediaItem} completes preloading. */
+  protected final void onCompleted(
+      MediaItem mediaItem, Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
+    applicationHandler.post(
+        () -> {
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+
+          MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
+          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+            maybeAdvanceToNextMediaSourceHolder();
+          }
         });
   }
 
   /** Called when an error occurs. */
-  protected final void onPreloadError(PreloadException error, MediaSource source) {
-    synchronized (lock) {
-      if (!isPreloading(source)) {
-        return;
-      }
-    }
+  protected final void onError(
+      PreloadException error,
+      MediaSource mediaSource,
+      Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
     applicationHandler.post(
         () -> {
-          listeners.sendEvent(/* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
-          maybeAdvanceToNextSource(source);
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+
+          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+            listeners.sendEvent(listener -> listener.onError(error));
+            maybeAdvanceToNextMediaSourceHolder();
+          }
+        });
+  }
+
+  /** Called when an error occurs. */
+  protected final void onError(
+      PreloadException error,
+      MediaItem mediaItem,
+      Predicate<PreloadStatusT> shouldNotifyListenerAndAdvancePredicate) {
+    applicationHandler.post(
+        () -> {
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+
+          if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
+            listeners.sendEvent(listener -> listener.onError(error));
+            maybeAdvanceToNextMediaSourceHolder();
+          }
         });
   }
 
   /** Called when the given {@link MediaSource} has been skipped before completing preloading. */
-  protected final void onPreloadSkipped(MediaSource source) {
-    synchronized (lock) {
-      if (!isPreloading(source)) {
-        return;
-      }
-    }
-    postOrRun(applicationHandler, () -> maybeAdvanceToNextSource(source));
+  protected final void onSkipped(
+      MediaSource mediaSource, Predicate<PreloadStatusT> shouldAdvancePredicate) {
+    postOrRun(
+        applicationHandler,
+        () -> {
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaSource);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+
+          if (shouldAdvancePredicate.apply(targetPreloadStatus)) {
+            maybeAdvanceToNextMediaSourceHolder();
+          }
+        });
   }
 
-  private void maybeAdvanceToNextSource(MediaSource currentSource) {
+  /** Called when there is a {@link MediaSource} has been cleared. */
+  protected final void onSourceCleared() {
     synchronized (lock) {
-      if (!isPreloading(currentSource)) {
-        return;
-      }
+      indexForSourceHolderToClear--;
+    }
+  }
+
+  /**
+   * Called when the given {@link MediaItem} has its corresponding {@link MediaSource} updated.
+   *
+   * @param mediaItem The {@link MediaItem} that apps have added with.
+   * @param updatedMediaSource The updated {@link MediaSource}.
+   */
+  protected final void onMediaSourceUpdated(MediaItem mediaItem, MediaSource updatedMediaSource) {
+    postOrRun(
+        applicationHandler,
+        () -> {
+          PreloadStatusT targetPreloadStatus =
+              getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+          if (targetPreloadStatus == null) {
+            return;
+          }
+          MediaSourceHolder sourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
+          mediaSourceHolderMap.remove(mediaItem);
+          sourceHolder.setMediaSource(updatedMediaSource);
+          mediaSourceHolderMap.put(mediaItem, updatedMediaSource, sourceHolder);
+        });
+  }
+
+  private void maybeAdvanceToNextMediaSourceHolder() {
+    synchronized (lock) {
       do {
-        sourceHolderPriorityQueue.poll();
-      } while (!sourceHolderPriorityQueue.isEmpty() && !maybeStartPreloadNextSource());
+        indexForSourceHolderToPreload++;
+      } while (indexForSourceHolderToPreload < sourceHolderPriorityList.size()
+          && !maybeStartPreloadingNextSourceHolder());
     }
   }
 
-  /** Returns whether the {@link MediaSource} is currently preloading. */
   @GuardedBy("lock")
-  private boolean isPreloading(MediaSource mediaSource) {
-    return !sourceHolderPriorityQueue.isEmpty()
-        && checkNotNull(sourceHolderPriorityQueue.peek()).mediaSource == mediaSource;
+  @Nullable
+  private MediaSourceHolder getCurrentlyPreloadingMediaSourceHolder() {
+    if (indexForSourceHolderToPreload >= sourceHolderPriorityList.size()) {
+      return null;
+    }
+    return sourceHolderPriorityList.get(indexForSourceHolderToPreload);
   }
 
-  /** Returns the target preload status of the given {@link MediaSource}. */
   @Nullable
-  protected final PreloadStatusT getTargetPreloadStatus(MediaSource source) {
+  protected MediaSourceHolder getMediaSourceHolderToClear() {
     synchronized (lock) {
-      if (!isPreloading(source)) {
+      if (indexForSourceHolderToPreload >= indexForSourceHolderToClear) {
+        return null;
+      }
+      return sourceHolderPriorityList.get(indexForSourceHolderToClear);
+    }
+  }
+
+  @Nullable
+  protected final PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(
+      MediaSource mediaSource) {
+    synchronized (lock) {
+      MediaSourceHolder currentMediaHolder = getCurrentlyPreloadingMediaSourceHolder();
+      if (currentMediaHolder == null || mediaSource != currentMediaHolder.getMediaSource()) {
         return null;
       }
       return targetPreloadStatusOfCurrentPreloadingSource;
     }
   }
 
-  /**
-   * Returns the {@link MediaSource} that the preload manager creates for preloading based on the
-   * given {@link MediaSource source}. The default implementation returns the same source.
-   *
-   * @param mediaSource The source based on which the preload manager creates for preloading.
-   * @return The source the preload manager creates for preloading.
-   */
-  protected MediaSource createMediaSourceForPreloading(MediaSource mediaSource) {
-    return mediaSource;
+  @Nullable
+  protected final PreloadStatusT getTargetPreloadStatusIfCurrentlyPreloading(MediaItem mediaItem) {
+    synchronized (lock) {
+      MediaSourceHolder currentMediaHolder = getCurrentlyPreloadingMediaSourceHolder();
+      if (currentMediaHolder == null || !mediaItem.equals(currentMediaHolder.mediaItem)) {
+        return null;
+      }
+      return targetPreloadStatusOfCurrentPreloadingSource;
+    }
+  }
+
+  private boolean isCurrentlyPreloading(MediaSourceHolder mediaSourceHolder) {
+    synchronized (lock) {
+      return mediaSourceHolder == getCurrentlyPreloadingMediaSourceHolder();
+    }
   }
 
   /** Returns whether the next {@link MediaSource} should start preloading. */
@@ -332,48 +533,58 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   /**
-   * Preloads the given {@link MediaSource}.
+   * Returns the {@link MediaSourceHolder} that the preload manager creates for preloading based on
+   * the given {@link MediaItem} and {@link MediaSource}.
    *
-   * @param mediaSource The media source to preload.
-   * @param targetPreloadStatus The target preload status, may be null if a {@link MediaSource}
-   *     should not be preloaded.
+   * @param mediaItem The {@link MediaItem}.
+   * @param mediaSource The {@link MediaSource} based on which the preload manager creates for
+   *     preloading.
+   * @param rankingData The ranking data that is associated with the {@code mediaItem}.
+   * @return The {@link MediaSourceHolder} the preload manager creates for preloading.
    */
-  protected abstract void preloadSourceInternal(
-      MediaSource mediaSource, @Nullable PreloadStatusT targetPreloadStatus);
+  protected abstract MediaSourceHolder createMediaSourceHolder(
+      MediaItem mediaItem, MediaSource mediaSource, T rankingData);
 
   /**
-   * Clears the preloaded data of the given {@link MediaSource}, while not releasing the instance of
-   * it.
+   * Preloads the given {@link MediaSourceHolder}.
    *
-   * @param mediaSource The media source to clear.
+   * @param mediaSourceHolder The {@link MediaSourceHolder} to preload.
+   * @param targetPreloadStatus The target preload status.
    */
-  protected abstract void clearSourceInternal(MediaSource mediaSource);
+  protected abstract void preloadMediaSourceHolderInternal(
+      MediaSourceHolder mediaSourceHolder, PreloadStatusT targetPreloadStatus);
 
   /**
-   * Releases the given {@link MediaSource}.
+   * Releases the given {@link MediaSourceHolder}.
    *
-   * @param mediaSource The media source to release.
+   * @param mediaSourceHolder The {@link MediaSourceHolder} to remove.
    */
-  protected abstract void releaseSourceInternal(MediaSource mediaSource);
+  @CallSuper
+  protected void releaseMediaSourceHolderInternal(MediaSourceHolder mediaSourceHolder) {
+    mediaSourceHolder.release();
+  }
 
   /** Releases the preload manager, see {@link #release()}. */
   protected void releaseInternal() {}
 
   /**
-   * Starts to preload the {@link MediaSource} at the head of the priority queue.
+   * Starts to preload the {@link MediaSource} at the head of the priority list.
    *
-   * @return {@code true} if the {@link MediaSource} at the head of the priority queue starts to
+   * @return {@code true} if the {@link MediaSource} at the head of the priority list starts to
    *     preload, otherwise {@code false}.
-   * @throws NullPointerException if the priority queue is empty.
    */
   @GuardedBy("lock")
-  private boolean maybeStartPreloadNextSource() {
+  private boolean maybeStartPreloadingNextSourceHolder() {
     if (shouldStartPreloadingNextSource()) {
-      MediaSourceHolder preloadingHolder = checkNotNull(sourceHolderPriorityQueue.peek());
+      MediaSourceHolder preloadingHolder =
+          sourceHolderPriorityList.get(indexForSourceHolderToPreload);
+      if (preloadingHolder.isReleased()) {
+        return false;
+      }
       this.targetPreloadStatusOfCurrentPreloadingSource =
           targetPreloadStatusControl.getTargetPreloadStatus(preloadingHolder.rankingData);
-      preloadSourceInternal(
-          preloadingHolder.mediaSource, targetPreloadStatusOfCurrentPreloadingSource);
+      preloadMediaSourceHolderInternal(
+          preloadingHolder, targetPreloadStatusOfCurrentPreloadingSource);
       return true;
     }
     return false;
@@ -386,19 +597,111 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
   }
 
   /** A holder for information for preloading a single media source. */
-  private final class MediaSourceHolder implements Comparable<MediaSourceHolder> {
+  protected class MediaSourceHolder implements Comparable<MediaSourceHolder> {
 
-    public final MediaSource mediaSource;
+    public final MediaItem mediaItem;
     public final T rankingData;
+    private MediaSource mediaSource;
+    private boolean released;
 
-    public MediaSourceHolder(MediaSource mediaSource, T rankingData) {
-      this.mediaSource = mediaSource;
+    public MediaSourceHolder(MediaItem mediaItem, T rankingData, MediaSource mediaSource) {
+      this.mediaItem = mediaItem;
       this.rankingData = rankingData;
+      this.mediaSource = mediaSource;
+    }
+
+    public final void release() {
+      released = true;
+    }
+
+    public final boolean isReleased() {
+      return released;
+    }
+
+    public synchronized MediaSource getMediaSource() {
+      return mediaSource;
+    }
+
+    public synchronized void setMediaSource(MediaSource mediaSource) {
+      this.mediaSource = mediaSource;
     }
 
     @Override
     public int compareTo(MediaSourceHolder o) {
       return rankingDataComparator.compare(this.rankingData, o.rankingData);
+    }
+  }
+
+  /**
+   * An internal util class that can fetch a {@link MediaSourceHolder} via a {@link MediaItem} or a
+   * {@link MediaSource}.
+   */
+  private final class MediaSourceHolderMap {
+
+    @GuardedBy("this")
+    private final HashMap<MediaItem, MediaSourceHolder> mediaItemToMediaSourceHolder;
+
+    @GuardedBy("this")
+    private final HashMap<MediaSource, MediaItem> mediaSourceToMediaItem;
+
+    public MediaSourceHolderMap() {
+      mediaItemToMediaSourceHolder = new HashMap<>();
+      mediaSourceToMediaItem = new HashMap<>();
+    }
+
+    public synchronized void put(
+        MediaItem mediaItem, MediaSource mediaSource, MediaSourceHolder mediaSourceHolder) {
+      mediaItemToMediaSourceHolder.put(mediaItem, mediaSourceHolder);
+      mediaSourceToMediaItem.put(mediaSource, mediaItem);
+    }
+
+    public synchronized Collection<MediaSourceHolder> values() {
+      return mediaItemToMediaSourceHolder.values();
+    }
+
+    public synchronized int size() {
+      return mediaItemToMediaSourceHolder.size();
+    }
+
+    public synchronized boolean containsKey(MediaItem mediaItem) {
+      return mediaItemToMediaSourceHolder.containsKey(mediaItem);
+    }
+
+    @Nullable
+    public synchronized MediaSourceHolder get(MediaItem mediaItem) {
+      return mediaItemToMediaSourceHolder.get(mediaItem);
+    }
+
+    @Nullable
+    public synchronized MediaSourceHolder get(MediaSource mediaSource) {
+      MediaItem mediaItem = mediaSourceToMediaItem.get(mediaSource);
+      if (mediaItem != null) {
+        return checkNotNull(mediaItemToMediaSourceHolder.get(mediaItem));
+      }
+      return null;
+    }
+
+    public synchronized boolean remove(MediaItem mediaItem) {
+      MediaSourceHolder mediaSourceHolder = mediaItemToMediaSourceHolder.remove(mediaItem);
+      if (mediaSourceHolder == null) {
+        return false;
+      }
+      checkNotNull(mediaSourceToMediaItem.remove(mediaSourceHolder.getMediaSource()));
+      return true;
+    }
+
+    public synchronized boolean remove(MediaSource mediaSource) {
+      MediaItem mediaItem = mediaSourceToMediaItem.remove(mediaSource);
+      if (mediaItem == null) {
+        return false;
+      }
+      checkNotNull(mediaItemToMediaSourceHolder.remove(mediaItem));
+      return true;
+    }
+
+    public synchronized void clear() {
+      mediaItemToMediaSourceHolder.clear();
+      mediaSourceToMediaItem.clear();
     }
   }
 }

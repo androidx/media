@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -23,7 +24,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -240,12 +240,12 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     if (clippingError != null) {
       return;
     }
-    Assertions.checkNotNull(callback).onPrepared(this);
+    checkNotNull(callback).onPrepared(this);
   }
 
   @Override
   public void onContinueLoadingRequested(MediaPeriod source) {
-    Assertions.checkNotNull(callback).onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   /* package */ boolean isPendingInitialDiscontinuity() {
@@ -347,7 +347,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       long bufferedPositionUs = getBufferedPositionUs();
       @ReadDataResult int result = childStream.readData(formatHolder, buffer, readFlags);
       if (result == C.RESULT_FORMAT_READ) {
-        Format format = Assertions.checkNotNull(formatHolder.format);
+        Format format = checkNotNull(formatHolder.format);
         if (format.encoderDelay != 0 || format.encoderPadding != 0) {
           // Clear gapless playback metadata if the start/end points don't match the media.
           int encoderDelay = startUs != 0 ? 0 : format.encoderDelay;

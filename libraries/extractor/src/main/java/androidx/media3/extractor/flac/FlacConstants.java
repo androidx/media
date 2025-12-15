@@ -30,10 +30,33 @@ public final class FlacConstants {
   /** Size of the FLAC stream info block (header included) in bytes. */
   public static final int STREAM_INFO_BLOCK_SIZE = 38;
 
-  /** Minimum size of a FLAC frame header in bytes. */
+  /**
+   * Minimum size of a FLAC frame header in bytes.
+   *
+   * <p>This is a header with:
+   *
+   * <ol>
+   *   <li>The standard mandatory first 4 bytes
+   *   <li>A single byte coded number
+   *   <li>No uncommon block size or uncommon sample rate
+   *   <li>A CRC-8 byte
+   * </ol>
+   */
   public static final int MIN_FRAME_HEADER_SIZE = 6;
 
-  /** Maximum size of a FLAC frame header in bytes. */
+  /**
+   * Maximum size of a FLAC frame header in bytes.
+   *
+   * <p>This is a header with:
+   *
+   * <ol>
+   *   <li>The standard mandatory first 4 bytes
+   *   <li>A 7 byte coded number
+   *   <li>A 2 byte uncommon block size
+   *   <li>A 2 byte uncommon sample rate
+   *   <li>A CRC-8 byte
+   * </ol>
+   */
   public static final int MAX_FRAME_HEADER_SIZE = 16;
 
   /** Stream info metadata block type. */

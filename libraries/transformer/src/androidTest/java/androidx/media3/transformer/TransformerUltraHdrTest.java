@@ -18,10 +18,11 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
+import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
@@ -37,6 +38,8 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.ExecutionException;
@@ -84,7 +87,7 @@ public final class TransformerUltraHdrTest {
         /* inputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT,
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
-        createUltraHdrComposition(
+        createUltraHdrVideoOnlyComposition(
             /* tonemap= */ false, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
@@ -104,7 +107,7 @@ public final class TransformerUltraHdrTest {
         /* inputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT,
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
-        createUltraHdrComposition(
+        createUltraHdrVideoOnlyComposition(
             /* tonemap= */ true, oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
@@ -125,9 +128,8 @@ public final class TransformerUltraHdrTest {
         /* outputFormat= */ DOWNSCALED_ULTRA_HDR_FORMAT);
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT))
-                    .build())
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT))))
             .build();
 
     // Downscale source bitmap to avoid "video encoding format not supported" errors on emulators.
@@ -142,7 +144,7 @@ public final class TransformerUltraHdrTest {
   @Test
   public void exportNonUltraHdrImage_withUltraHdrEnabled_exportsSdr() throws Exception {
     Composition composition =
-        createUltraHdrComposition(
+        createUltraHdrVideoOnlyComposition(
             /* tonemap= */ false, oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT));
 
     ExportTestResult result =
@@ -156,7 +158,7 @@ public final class TransformerUltraHdrTest {
   @Test
   public void exportSdrImageThenUltraHdrImage_exportsSdr() throws Exception {
     Composition composition =
-        createUltraHdrComposition(
+        createUltraHdrVideoOnlyComposition(
             /* tonemap= */ false,
             oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT),
             oneFrameFromImage(JPG_ULTRA_HDR_ASSET.uri, NO_EFFECT));
@@ -169,11 +171,12 @@ public final class TransformerUltraHdrTest {
     assertSdrColors(context, result.filePath);
   }
 
-  private static Composition createUltraHdrComposition(
+  private static Composition createUltraHdrVideoOnlyComposition(
       boolean tonemap, EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
     Composition.Builder builder =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem)
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(TRACK_TYPE_VIDEO))
+                    .addItem(editedMediaItem)
                     .addItems(editedMediaItems)
                     .build())
             .experimentalSetRetainHdrFromUltraHdrImage(true);
@@ -190,7 +193,7 @@ public final class TransformerUltraHdrTest {
           final BitmapLoader bitmapLoader;
 
           {
-            bitmapLoader = new DataSourceBitmapLoader(context);
+            bitmapLoader = new DataSourceBitmapLoader.Builder(context).build();
           }
 
           @Override

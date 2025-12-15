@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import android.annotation.SuppressLint;
 import android.os.Looper;
 import android.widget.TextView;
@@ -23,7 +25,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -50,7 +51,7 @@ public class DebugTextViewHelper {
    * @param textView The {@link TextView} that should be updated to display the information.
    */
   public DebugTextViewHelper(ExoPlayer player, TextView textView) {
-    Assertions.checkArgument(player.getApplicationLooper() == Looper.getMainLooper());
+    checkArgument(player.getApplicationLooper() == Looper.getMainLooper());
     this.player = player;
     this.textView = textView;
     this.updater = new Updater();

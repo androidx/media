@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor.ts;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
@@ -88,7 +89,7 @@ public final class PassthroughSectionPayloadReader implements SectionPayloadRead
 
   @EnsuresNonNull({"timestampAdjuster", "output"})
   private void assertInitialized() {
-    Assertions.checkStateNotNull(timestampAdjuster);
+    checkNotNull(timestampAdjuster);
     Util.castNonNull(output);
   }
 }

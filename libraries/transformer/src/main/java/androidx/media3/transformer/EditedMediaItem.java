@@ -15,21 +15,33 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
+import static androidx.media3.transformer.TransformerUtil.validateSpeedChangingEffects;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.IntRange;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
@@ -46,6 +58,9 @@ public final class EditedMediaItem {
     private long durationUs;
     private int frameRate;
     private Effects effects;
+    private SpeedProvider speedProvider;
+    private ImmutableList<AudioProcessor> preProcessingAudioProcessors;
+    private boolean allowMatchingSpeedChangingEffectForSpeedProvider;
 
     /**
      * Creates an instance.
@@ -71,6 +86,8 @@ public final class EditedMediaItem {
               : Util.msToUs(mediaItem.localConfiguration.imageDurationMs);
       frameRate = C.RATE_UNSET_INT;
       effects = Effects.EMPTY;
+      speedProvider = SpeedProvider.DEFAULT;
+      preProcessingAudioProcessors = ImmutableList.of();
     }
 
     private Builder(EditedMediaItem editedMediaItem) {
@@ -81,6 +98,10 @@ public final class EditedMediaItem {
       this.durationUs = editedMediaItem.durationUs;
       this.frameRate = editedMediaItem.frameRate;
       this.effects = editedMediaItem.effects;
+      this.speedProvider = editedMediaItem.speedProvider;
+      this.preProcessingAudioProcessors = editedMediaItem.preProcessingAudioProcessors;
+      this.allowMatchingSpeedChangingEffectForSpeedProvider =
+          editedMediaItem.allowMatchingSpeedChangingEffectForSpeedProvider;
     }
 
     /**
@@ -150,20 +171,20 @@ public final class EditedMediaItem {
     }
 
     /**
-     * Sets the {@link MediaItem} duration in the output, in microseconds.
+     * Sets the duration in microseconds of the source media represented by the {@link MediaItem}.
      *
-     * <p>For {@linkplain Transformer export}, this should be set for non-image inputs that don't
-     * have an intrinsic duration (e.g. raw video data). It will be ignored for inputs that do have
-     * an intrinsic duration (e.g. encoded video data from input file).
+     * <p>The provided duration should match the duration of the source media before applying any
+     * {@linkplain MediaItem.ClippingConfiguration clipping} or {@linkplain #setSpeed speed-changing
+     * effects}.
      *
-     * <p>For {@linkplain CompositionPlayer preview}, this should be set for all non-image inputs
-     * (i.e. audio and video input).
+     * <p>Setting the duration is optional in the following cases:
      *
-     * <p>This duration doesn't need to be set for images, because the default value is the {@link
-     * MediaItem}'s {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration}.
-     *
-     * <p>If {@linkplain MediaItem#clippingConfiguration clipping} is applied, this should be the
-     * duration before clipping.
+     * <ul>
+     *   <li>The {@link MediaItem} represents an image. The default image duration set via {@link
+     *       MediaItem.Builder#setImageDurationMs}.
+     *   <li>On {@link Transformer}, when the {@link MediaItem} has an intrinsic duration (e.g.
+     *       encoded video/audio data from an input file).
+     * </ul>
      *
      * @param durationUs The duration, in microseconds.
      * @return This builder.
@@ -215,16 +236,26 @@ public final class EditedMediaItem {
       return this;
     }
 
+    /**
+     * Sets a {@link SpeedProvider} to control the presentation speed of the {@link
+     * EditedMediaItem}.
+     *
+     * <p>If a {@link SpeedProvider} is set, speed changing {@linkplain #setEffects effects} are not
+     * allowed.
+     *
+     * <p>The default value is {@link SpeedProvider#DEFAULT}, which represents an unmodified speed.
+     *
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSpeed(SpeedProvider provider) {
+      this.speedProvider = provider;
+      return this;
+    }
+
     /** Builds an {@link EditedMediaItem} instance. */
     public EditedMediaItem build() {
-      return new EditedMediaItem(
-          mediaItem,
-          removeAudio,
-          removeVideo,
-          flattenForSlowMotion,
-          durationUs,
-          frameRate,
-          effects);
+      return new EditedMediaItem(this);
     }
 
     /**
@@ -236,6 +267,53 @@ public final class EditedMediaItem {
     @CanIgnoreReturnValue
     /* package */ Builder setMediaItem(MediaItem mediaItem) {
       this.mediaItem = mediaItem;
+      return this;
+    }
+
+    /**
+     * Sets the provided {@link SpeedChangingAudioProcessor} and {@link TimestampAdjustment} as the
+     * first elements of their respective pipelines.
+     *
+     * <p>The effects' {@link SpeedProvider} must match the one set by {@link
+     * #setSpeed(SpeedProvider)}.
+     *
+     * @return This builder.
+     */
+    // TODO: b/456485329 - Move SpeedChangingAudioProcessor to the pre-processing pipeline.
+    @CanIgnoreReturnValue
+    /* package */ Builder setSpeedChangingEffects(
+        SpeedChangingAudioProcessor processor, @Nullable TimestampAdjustment effect) {
+      checkArgument(effect == null || processor.getSpeedProvider() == effect.speedProvider);
+      this.allowMatchingSpeedChangingEffectForSpeedProvider = true;
+      ImmutableList<AudioProcessor> audioProcessors =
+          new ImmutableList.Builder<AudioProcessor>()
+              .add(processor)
+              .addAll(effects.audioProcessors)
+              .build();
+      ImmutableList<Effect> videoEffects =
+          effect == null
+              ? effects.videoEffects
+              : new ImmutableList.Builder<Effect>()
+                  .add(effect)
+                  .addAll(effects.videoEffects)
+                  .build();
+      this.effects = new Effects(audioProcessors, videoEffects);
+      return this;
+    }
+
+    /**
+     * Sets a list of {@link AudioProcessor} instances as the pre-processing pipeline for the item's
+     * {@link AudioGraphInput}.
+     *
+     * <p>The pre-processing pipeline holds processors that should be applied to an audio stream
+     * prior to feeding said stream to {@linkplain #setEffects(Effects) user-set processors}.
+     *
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    /* package */ Builder setPreProcessingAudioProcessors(
+        ImmutableList<AudioProcessor> preProcessingAudioProcessors) {
+      this.preProcessingAudioProcessors = preProcessingAudioProcessors;
       return this;
     }
   }
@@ -282,30 +360,52 @@ public final class EditedMediaItem {
   /** The {@link Effects} to apply to the {@link #mediaItem}. */
   public final Effects effects;
 
+  public final SpeedProvider speedProvider;
+
+  /* package */ final ImmutableList<AudioProcessor> preProcessingAudioProcessors;
+
+  private final boolean allowMatchingSpeedChangingEffectForSpeedProvider;
+
   /** The duration for which this {@code EditedMediaItem} should be presented, in microseconds. */
   private long presentationDurationUs;
 
-  private EditedMediaItem(
-      MediaItem mediaItem,
-      boolean removeAudio,
-      boolean removeVideo,
-      boolean flattenForSlowMotion,
-      long durationUs,
-      int frameRate,
-      Effects effects) {
-    checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
-    if (isGap(mediaItem)) {
-      checkArgument(durationUs != C.TIME_UNSET);
-      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+  private EditedMediaItem(Builder builder) {
+    checkState(
+        !builder.removeAudio || !builder.removeVideo, "Audio and video cannot both be removed");
+    if (isGap(builder.mediaItem)) {
+      checkArgument(builder.durationUs != C.TIME_UNSET);
+      checkArgument(!builder.removeAudio);
+      checkArgument(!builder.flattenForSlowMotion);
+      checkArgument(builder.effects.audioProcessors.isEmpty());
+      checkArgument(builder.speedProvider == SpeedProvider.DEFAULT);
     }
-    this.mediaItem = mediaItem;
-    this.removeAudio = removeAudio;
-    this.removeVideo = removeVideo;
-    this.flattenForSlowMotion = flattenForSlowMotion;
-    this.durationUs = durationUs;
-    this.frameRate = frameRate;
-    this.effects = effects;
+
+    if (builder.speedProvider != SpeedProvider.DEFAULT) {
+      if (builder.allowMatchingSpeedChangingEffectForSpeedProvider) {
+        checkState(validateSpeedChangingEffects(builder.effects, builder.speedProvider));
+        checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ true));
+      } else {
+        checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ false));
+      }
+    }
+
+    this.mediaItem = builder.mediaItem;
+    this.removeAudio = builder.removeAudio;
+    this.removeVideo = builder.removeVideo;
+    this.flattenForSlowMotion = builder.flattenForSlowMotion;
+    this.durationUs = builder.durationUs;
+    this.frameRate = builder.frameRate;
+    this.effects = builder.effects;
+    this.speedProvider = builder.speedProvider;
+    this.preProcessingAudioProcessors = builder.preProcessingAudioProcessors;
+    this.allowMatchingSpeedChangingEffectForSpeedProvider =
+        builder.allowMatchingSpeedChangingEffectForSpeedProvider;
     presentationDurationUs = C.TIME_UNSET;
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -335,7 +435,36 @@ public final class EditedMediaItem {
     return presentationDurationUs;
   }
 
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItem}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      jsonObject.put("mediaItem", jsonObjectFrom(mediaItem));
+      jsonObject.put("effects", effects.toJsonObject());
+      jsonObject.put("removeAudio", removeAudio);
+      jsonObject.put("removeVideo", removeVideo);
+      jsonObject.put("durationUs", durationUs);
+      jsonObject.put("presentationDuration", getPresentationDurationUs());
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
+  }
+
+  /**
+   * Returns the adjusted duration in microseconds after processing {@code durationUs} input with
+   * the {@link EditedMediaItem}'s {@link Effects}.
+   *
+   * <p>If the audio and video durations do not match, the method returns the maximum duration.
+   *
+   * @param durationUs The input duration in microseconds.
+   */
   /* package */ long getDurationAfterEffectsApplied(long durationUs) {
+    if (speedProvider != SpeedProvider.DEFAULT) {
+      return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    }
+
     long audioDurationUs = durationUs;
     long videoDurationUs = durationUs;
     if (removeAudio) {
@@ -365,5 +494,34 @@ public final class EditedMediaItem {
 
   private static boolean isGap(MediaItem mediaItem) {
     return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
+  }
+
+  private static JSONObject jsonObjectFrom(MediaItem mediaItem) throws JSONException {
+    JSONObject jsonObject = new JSONObject();
+    String extension = "UNSET";
+    if (mediaItem.localConfiguration != null) {
+      String uri = checkNotNull(mediaItem.localConfiguration).uri.toString();
+      int dotIndex = uri.lastIndexOf('.');
+      if (dotIndex > 0 && dotIndex < uri.length() - 1) {
+        extension = uri.substring(dotIndex + 1);
+      }
+    }
+    jsonObject.put("extension", extension);
+
+    if (mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      jsonObject.put("clipping", "UNSET");
+      return jsonObject;
+    }
+
+    MediaItem.ClippingConfiguration clippingConfiguration = mediaItem.clippingConfiguration;
+    String endPositionValue;
+    if (clippingConfiguration.endPositionMs == C.TIME_END_OF_SOURCE) {
+      endPositionValue = "END_OF_SOURCE";
+    } else {
+      endPositionValue = String.valueOf(clippingConfiguration.endPositionMs);
+    }
+    jsonObject.put("clippingStartMs", clippingConfiguration.startPositionMs);
+    jsonObject.put("clippingEndMs", endPositionValue);
+    return jsonObject;
   }
 }

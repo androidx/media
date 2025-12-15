@@ -15,12 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
@@ -233,7 +234,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onLoadCompleted(
       SourceLoadable loadable, long elapsedRealtimeMs, long loadDurationMs) {
     sampleSize = (int) loadable.dataSource.getBytesRead();
-    sampleData = Assertions.checkNotNull(loadable.sampleData);
+    sampleData = checkNotNull(loadable.sampleData);
     loadingFinished = true;
     StatsDataSource dataSource = loadable.dataSource;
     LoadEventInfo loadEventInfo =
@@ -394,7 +395,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!loadingFinished) {
         return C.RESULT_NOTHING_READ;
       }
-      Assertions.checkNotNull(sampleData);
+      checkNotNull(sampleData);
 
       buffer.addFlag(C.BUFFER_FLAG_KEY_FRAME);
       buffer.timeUs = 0;

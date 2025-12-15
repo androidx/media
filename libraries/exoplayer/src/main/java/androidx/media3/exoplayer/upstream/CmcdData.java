@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer.upstream;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -249,7 +248,7 @@ public final class CmcdData {
     public CmcdData createCmcdData() {
       boolean isManifestObjectType = isManifestObjectType(objectType);
       if (!isManifestObjectType) {
-        checkStateNotNull(trackSelection, "Track selection must be set");
+        checkNotNull(trackSelection, "Track selection must be set");
       }
 
       if (objectType == null) {
@@ -537,8 +536,9 @@ public final class CmcdData {
    */
   @CheckResult
   public static DataSpec removeFromDataSpec(DataSpec dataSpec) {
-    if (dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY) != null) {
-      dataSpec = dataSpec.withUri(removeFromUri(dataSpec.uri));
+    Uri updatedUri = removeFromUri(dataSpec.uri);
+    if (!Objects.equals(updatedUri, dataSpec.uri)) {
+      dataSpec = dataSpec.withUri(updatedUri);
     }
     if (dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_OBJECT)
         || dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_REQUEST)
@@ -561,7 +561,8 @@ public final class CmcdData {
   /** Removes Common Media Client Data (CMCD) related information from the provided {@link Uri}. */
   @CheckResult
   public static Uri removeFromUri(Uri uri) {
-    return uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY) != null
+    return uri.isHierarchical()
+            && uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY) != null
         ? UriUtil.removeQueryParameter(uri, CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)
         : uri;
   }

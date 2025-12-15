@@ -16,7 +16,9 @@
 package androidx.media3.common.text;
 
 import static androidx.media3.common.text.CustomSpanBundler.bundleCustomSpans;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -37,7 +39,6 @@ import android.text.TextUtils;
 import androidx.annotation.ColorInt;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -333,9 +334,9 @@ public final class Cue {
       int zIndex) {
     // Exactly one of text or bitmap should be set.
     if (text == null) {
-      Assertions.checkNotNull(bitmap);
+      checkNotNull(bitmap);
     } else {
-      Assertions.checkArgument(bitmap == null);
+      checkArgument(bitmap == null);
     }
     if (text instanceof Spanned) {
       this.text = SpannedString.valueOf(text);

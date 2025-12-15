@@ -16,7 +16,7 @@
 
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.content.Context;
 import android.opengl.GLES20;
@@ -28,8 +28,6 @@ import java.io.IOException;
 
 /** Applies the {@link HslAdjustment} to each frame in the fragment shader. */
 /* package */ final class HslShaderProgram extends BaseGlShaderProgram {
-  private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_PATH = "shaders/fragment_shader_hsl_es2.glsl";
 
   private final GlProgram glProgram;
 
@@ -49,7 +47,11 @@ import java.io.IOException;
     checkArgument(!useHdr, "HDR is not yet supported.");
 
     try {
-      glProgram = new GlProgram(context, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+      glProgram =
+          new GlProgram(
+              context,
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_hsl_es2);
     } catch (IOException | GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
     }

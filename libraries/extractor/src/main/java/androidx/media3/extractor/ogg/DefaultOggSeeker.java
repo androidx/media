@@ -16,12 +16,12 @@
 package androidx.media3.extractor.ogg;
 
 import static androidx.media3.extractor.ExtractorUtil.skipFullyQuietly;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.SeekMap;
@@ -75,8 +75,7 @@ import java.math.BigInteger;
       long firstPayloadPageSize,
       long firstPayloadPageGranulePosition,
       boolean firstPayloadPageIsLastPage) {
-    Assertions.checkArgument(
-        payloadStartPosition >= 0 && payloadEndPosition > payloadStartPosition);
+    checkArgument(payloadStartPosition >= 0 && payloadEndPosition > payloadStartPosition);
     this.streamReader = streamReader;
     this.payloadStartPosition = payloadStartPosition;
     this.payloadEndPosition = payloadEndPosition;

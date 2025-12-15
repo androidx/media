@@ -15,9 +15,9 @@
  */
 package androidx.media3.demo.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -206,7 +206,7 @@ import java.util.concurrent.Future;
       AppTextureFrame appTextureFrame, GlTextureInfo inputTexture) {
     removeFinishedFutures();
     futures.add(
-        checkStateNotNull(singleThreadExecutorService)
+        checkNotNull(singleThreadExecutorService)
             .submit(
                 () -> {
                   while (!maybeQueueInputFrameSynchronous(appTextureFrame, inputTexture)) {
@@ -226,7 +226,7 @@ import java.util.concurrent.Future;
 
   @Override
   public void releaseOutputFrame(GlTextureInfo outputTexture) {
-    checkStateNotNull(outputFrames.get(outputTexture)).release();
+    checkNotNull(outputFrames.get(outputTexture)).release();
     if (isSingleFrameGraph) {
       inputListener.onReadyToAcceptInputFrame();
     }
@@ -245,12 +245,11 @@ import java.util.concurrent.Future;
       return;
     }
 
-    Queue<Future<?>> futures = checkStateNotNull(this.futures);
+    Queue<Future<?>> futures = checkNotNull(this.futures);
     while (!futures.isEmpty()) {
       futures.remove().cancel(/* mayInterruptIfRunning= */ false);
     }
-    ExecutorService singleThreadExecutorService =
-        checkStateNotNull(this.singleThreadExecutorService);
+    ExecutorService singleThreadExecutorService = checkNotNull(this.singleThreadExecutorService);
     singleThreadExecutorService.shutdown();
     try {
       if (!singleThreadExecutorService.awaitTermination(RELEASE_WAIT_TIME_MS, MILLISECONDS)) {
@@ -276,7 +275,7 @@ import java.util.concurrent.Future;
 
     removeFinishedFutures();
     futures.add(
-        checkStateNotNull(singleThreadExecutorService)
+        checkNotNull(singleThreadExecutorService)
             .submit(
                 () -> {
                   frameProcessor.waitUntilIdle();

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.AudioTrack;
 import android.media.MediaCodec;
@@ -26,9 +27,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.Renderer;
@@ -167,6 +168,13 @@ public interface AudioRendererEventListener {
    */
   default void onAudioSessionIdChanged(int audioSessionId) {}
 
+  /**
+   * Called when the audio codec parameters change.
+   *
+   * @param codecParameters The new codec parameters.
+   */
+  default void onAudioCodecParametersChanged(CodecParameters codecParameters) {}
+
   /** Dispatches events to an {@link AudioRendererEventListener}. */
   final class EventDispatcher {
 
@@ -180,7 +188,7 @@ public interface AudioRendererEventListener {
      */
     public EventDispatcher(
         @Nullable Handler handler, @Nullable AudioRendererEventListener listener) {
-      this.handler = listener != null ? Assertions.checkNotNull(handler) : null;
+      this.handler = listener != null ? checkNotNull(handler) : null;
       this.listener = listener;
     }
 
@@ -291,6 +299,15 @@ public interface AudioRendererEventListener {
     public void audioSessionIdChanged(int audioSessionId) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onAudioSessionIdChanged(audioSessionId));
+      }
+    }
+
+    /**
+     * Invokes {@link AudioRendererEventListener#onAudioCodecParametersChanged(CodecParameters)}.
+     */
+    public void audioCodecParametersChanged(CodecParameters codecParameters) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onAudioCodecParametersChanged(codecParameters));
       }
     }
   }

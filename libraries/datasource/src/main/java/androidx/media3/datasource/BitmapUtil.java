@@ -15,6 +15,7 @@
  */
 package androidx.media3.datasource;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
@@ -97,5 +98,18 @@ public final class BitmapUtil {
               /* filter= */ false);
     }
     return bitmap;
+  }
+
+  /**
+   * Returns a immutable, sharable version of {@link Bitmap}. If the same instance of a shared
+   * bitmap is send over binder calls, no additional copy is needed.
+   *
+   * <p>This method is a no-op if for API levels below 31 or if the Bitmap is already shared.
+   *
+   * @param bitmap A {@link Bitmap}.
+   * @return A shared version of the {@link Bitmap}.
+   */
+  public static Bitmap makeShared(Bitmap bitmap) {
+    return SDK_INT >= 31 ? bitmap.asShared() : bitmap;
   }
 }

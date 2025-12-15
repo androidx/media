@@ -17,7 +17,7 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -34,6 +34,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in synchronous mode.
@@ -179,7 +180,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
     codec.setOnFrameRenderedListener(
         (codec, presentationTimeUs, nanoTime) ->
@@ -189,7 +189,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
   }
@@ -214,5 +213,17 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     return codec.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    codec.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    codec.unsubscribeFromVendorParameters(names);
   }
 }

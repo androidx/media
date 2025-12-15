@@ -15,8 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
@@ -28,7 +27,6 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioManagerCompat;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
@@ -98,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     stateHandler.runInBackground(
         () -> {
           audioManager =
-              Assertions.checkStateNotNull(
+              checkNotNull(
                   (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
           VolumeChangeReceiver receiver = new VolumeChangeReceiver();
           IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);
@@ -247,14 +245,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             return state;
           }
           checkNotNull(audioManager);
-          if (SDK_INT >= 23) {
-            audioManager.adjustStreamVolume(
-                state.streamType,
-                muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,
-                flags);
-          } else {
-            audioManager.setStreamMute(state.streamType, muted);
-          }
+          audioManager.adjustStreamVolume(
+              state.streamType,
+              muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,
+              flags);
           return generateState(state.streamType);
         });
   }

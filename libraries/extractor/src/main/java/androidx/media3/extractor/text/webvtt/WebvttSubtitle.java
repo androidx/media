@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor.text.webvtt;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.Subtitle;
 import java.util.ArrayList;
@@ -59,8 +60,8 @@ import java.util.List;
 
   @Override
   public long getEventTime(int index) {
-    Assertions.checkArgument(index >= 0);
-    Assertions.checkArgument(index < sortedCueTimesUs.length);
+    checkArgument(index >= 0);
+    checkArgument(index < sortedCueTimesUs.length);
     return sortedCueTimesUs[index];
   }
 

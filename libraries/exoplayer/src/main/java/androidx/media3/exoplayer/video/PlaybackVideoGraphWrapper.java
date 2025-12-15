@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -35,7 +35,6 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -49,12 +48,12 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -74,8 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Processes input from {@link VideoSink} instances, plumbing the data through a {@link VideoGraph}
  * and rendering the output.
  */
-@UnstableApi
-@RestrictTo({Scope.LIBRARY_GROUP})
+@RestrictTo(LIBRARY_GROUP)
 public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */
@@ -104,6 +102,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
      * @param videoFrameProcessingException The error.
      */
     default void onError(VideoFrameProcessingException videoFrameProcessingException) {}
+
+    /** Called when an input sequence ends. */
+    default void onEnded(long finalFramePresentationTimeUs) {}
   }
 
   /** A builder for {@link PlaybackVideoGraphWrapper} instances. */
@@ -115,11 +116,16 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     private Clock clock;
     private boolean built;
     private boolean enableReplayableCache;
+    private long lateThresholdToDropInputUs;
+    private VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
     /** Creates a builder. */
     public Builder(Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
       this.context = context.getApplicationContext();
       this.videoFrameReleaseControl = videoFrameReleaseControl;
+      this.lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
+      videoFrameReleaseEarlyTimeForecaster =
+          new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
       clock = Clock.DEFAULT;
     }
 
@@ -198,6 +204,25 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     }
 
     /**
+     * Sets the late threshold for input frames, in microseconds, after which frames may be dropped
+     * before applying effects.
+     *
+     * <p>The default value is {@link #LATE_US_TO_DROP_INPUT_FRAME}.
+     *
+     * <p>Set this threshold to {@link C#TIME_UNSET} to disable frame dropping before effects are
+     * applied.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param lateThresholdToDropInputUs The threshold.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetLateThresholdToDropInputUs(long lateThresholdToDropInputUs) {
+      this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+      return this;
+    }
+
+    /**
      * Builds the {@link PlaybackVideoGraphWrapper}.
      *
      * <p>This method must be called at most once and will throw an {@link IllegalStateException} if
@@ -213,6 +238,26 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       built = true;
       return playbackVideoGraphWrapper;
     }
+
+    /**
+     * Sets the {@link VideoFrameReleaseEarlyTimeForecaster} that will be used.
+     *
+     * <p>By default, a new instance is created by the playback video graph wrapper.
+     *
+     * <p>This setter is package-private as the VideoFrameReleaseEarlyTimeForecaster is intended for
+     * use inside exoplayer's video components only.
+     *
+     * @param videoFrameReleaseEarlyTimeForecaster The {@link VideoFrameReleaseEarlyTimeForecaster}.
+     * @return This builder, for convenience.
+     */
+    // TODO: b/433591731 - use the same videoFrameReleaseEarlyTimeForecaster instance as
+    // MediaCodecVideoRenderer.shouldDiscardDecoderInputBuffer().
+    @CanIgnoreReturnValue
+    /* package */ Builder setVideoFrameReleaseEarlyTimeForecaster(
+        VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster) {
+      this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
+      return this;
+    }
   }
 
   @Documented
@@ -220,6 +265,17 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   @Target(TYPE_USE)
   @IntDef({STATE_CREATED, STATE_INITIALIZED, STATE_RELEASED})
   private @interface State {}
+
+  /**
+   * The late time threshold, in microseconds, for dropping input frames before applying effects.
+   *
+   * <p>If a new video frame is expected to be later than this value, the video frame will be
+   * dropped before applying effects.
+   *
+   * <p>The value was experimentally derived via b/398783183 which did not involve effects
+   * processing. There may exist a more appropriate default value
+   */
+  public static final long LATE_US_TO_DROP_INPUT_FRAME = 15_000;
 
   private static final String TAG = "PlaybackVidGraphWrapper";
   private static final int STATE_CREATED = 0;
@@ -239,6 +295,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private final VideoSink.VideoFrameHandler videoFrameHandler;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
+  private final long earlyThresholdToDropInputUs;
+  private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
   /**
    * A queue of unprocessed stream changes. Each stream change is associated with the timestamp from
@@ -277,23 +335,30 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
     pendingStreamChanges = new TimedValueQueue<>();
-    videoGraphFactory = checkStateNotNull(builder.videoGraphFactory);
+    videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     inputVideoSinks = new SparseArray<>();
     compositionEffects = ImmutableList.of();
     compositorSettings = VideoCompositorSettings.DEFAULT;
     enablePlaylistMode = builder.enablePlaylistMode;
     clock = builder.clock;
-    defaultVideoSink = new DefaultVideoSink(builder.videoFrameReleaseControl, clock);
+    earlyThresholdToDropInputUs =
+        builder.lateThresholdToDropInputUs != C.TIME_UNSET
+            ? -builder.lateThresholdToDropInputUs
+            : C.TIME_UNSET;
+    videoFrameReleaseEarlyTimeForecaster = builder.videoFrameReleaseEarlyTimeForecaster;
+    defaultVideoSink =
+        new DefaultVideoSink(
+            builder.videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster, clock);
     videoFrameHandler =
         new VideoSink.VideoFrameHandler() {
           @Override
           public void render(long renderTimestampNs) {
-            checkStateNotNull(videoGraph).renderOutputFrame(renderTimestampNs);
+            checkNotNull(videoGraph).renderOutputFrame(renderTimestampNs);
           }
 
           @Override
           public void skip() {
-            checkStateNotNull(videoGraph).renderOutputFrame(DROP_OUTPUT_FRAME);
+            checkNotNull(videoGraph).renderOutputFrame(DROP_OUTPUT_FRAME);
           }
         };
     listeners = new CopyOnWriteArraySet<>();
@@ -324,6 +389,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   }
 
   public void setTotalVideoInputCount(int totalVideoInputCount) {
+    if (totalVideoInputCount < this.totalVideoInputCount) {
+      // Currently we don't allow removing video from a sequence.
+      // TODO: b/430250222 - Track types should be fixed after this, and this method could be
+      //  removed.
+      return;
+    }
     this.totalVideoInputCount = totalVideoInputCount;
   }
 
@@ -476,7 +547,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   @Override
   public void onEnded(long finalFramePresentationTimeUs) {
-    // Ignored.
+    for (PlaybackVideoGraphWrapper.Listener listener : listeners) {
+      listener.onEnded(finalFramePresentationTimeUs);
+    }
   }
 
   @Override
@@ -494,29 +567,37 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       checkState(state == STATE_CREATED);
       ColorInfo inputColorInfo = getAdjustedInputColorInfo(sourceFormat.colorInfo);
       ColorInfo outputColorInfo;
-      if (requestOpenGlToneMapping) {
-        outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
-      } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
-          && SDK_INT < 34
-          && GlUtil.isBt2020PqExtensionSupported()) {
-        // PQ SurfaceView output is supported from API 33, but HLG output is supported from API
-        // 34. Therefore, convert HLG to PQ if PQ is supported, so that HLG input can be displayed
-        // properly on API 33.
-        outputColorInfo =
-            inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
-        // Force OpenGL tone mapping if the GL extension required to output HDR colors is not
-        // available. OpenGL tone mapping is only supported on API 29+.
-      } else if (!GlUtil.isColorTransferSupported(inputColorInfo.colorTransfer) && SDK_INT >= 29) {
-        Log.w(
-            TAG,
-            Util.formatInvariant(
-                "Color transfer %d is not supported. Falling back to OpenGl tone mapping.",
-                inputColorInfo.colorTransfer));
-        outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
-      } else {
-        outputColorInfo = inputColorInfo;
+      try {
+        if (requestOpenGlToneMapping) {
+          outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+        } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_HLG
+            && SDK_INT < 34
+            && GlUtil.isBt2020PqExtensionSupported()) {
+          // PQ SurfaceView output is supported from API 33, but HLG output is supported from API
+          // 34. Therefore, convert HLG to PQ if PQ is supported, so that HLG input can be displayed
+          // properly on API 33.
+          outputColorInfo =
+              inputColorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+          // Force OpenGL tone mapping if the GL extension required to output HDR colors is not
+          // available. OpenGL tone mapping is only supported on API 29+.
+        } else if (!GlUtil.isColorTransferSupported(inputColorInfo.colorTransfer)
+            && SDK_INT >= 29) {
+          Log.w(
+              TAG,
+              Util.formatInvariant(
+                  "Color transfer %d is not supported. Falling back to OpenGl tone mapping.",
+                  inputColorInfo.colorTransfer));
+          outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+        } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB
+            || inputColorInfo.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
+          outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+        } else {
+          outputColorInfo = inputColorInfo;
+        }
+      } catch (GlException e) {
+        throw new VideoSink.VideoSinkException(e, sourceFormat);
       }
-      handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
+      handler = clock.createHandler(checkNotNull(Looper.myLooper()), /* callback= */ null);
       try {
         // TODO: b/412585856 - Allow setting CompositorSetting and CompositionEffects dynamically.
         videoGraph =
@@ -620,11 +701,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       onOutputStreamChanged();
     }
     lastOutputFramePresentationTimeUs = C.TIME_UNSET;
-    finalFramePresentationTimeUs = C.TIME_UNSET;
-    hasSignaledEndOfVideoGraphOutputStream = false;
+    if (resetPosition) {
+      // If not resetting position, preserve the EOS state, this is necessary in operations like
+      // redraw which relies on flushing, but does not reset position.
+      finalFramePresentationTimeUs = C.TIME_UNSET;
+      hasSignaledEndOfVideoGraphOutputStream = false;
+    }
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
-    checkStateNotNull(handler).post(() -> pendingFlushCount--);
+    checkNotNull(handler).post(() -> pendingFlushCount--);
   }
 
   private void joinPlayback(boolean renderNextFrameImmediately) {
@@ -642,6 +727,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   }
 
   private void setPlaybackSpeed(float speed) {
+    videoFrameReleaseEarlyTimeForecaster.setPlaybackSpeed(speed);
     defaultVideoSink.setPlaybackSpeed(speed);
   }
 
@@ -674,6 +760,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   /** Receives input from an ExoPlayer renderer and forwards it to the video graph. */
   private final class InputVideoSink implements VideoSink, PlaybackVideoGraphWrapper.Listener {
+    /**
+     * The maximum number of consecutive dropped input frames.
+     *
+     * <p>Dropping too many consecutive input buffers can harm user experience.
+     */
+    private static final int MAX_CONSECUTIVE_FRAMES_TO_DROP = 2;
 
     private final int videoFrameProcessorMaxPendingFrameCount;
     private final int inputIndex;
@@ -685,6 +777,9 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
     /** The frame presentation timestamp, in microseconds, of the most recently registered frame. */
     private long lastFramePresentationTimeUs;
+
+    /** The number of consecutive dropped input frames. */
+    private int consecutiveDroppedFrames;
 
     private VideoSink.Listener listener;
     private Executor listenerExecutor;
@@ -933,6 +1028,17 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         long bufferPresentationTimeUs, VideoFrameHandler videoFrameHandler) {
       checkState(isInitialized());
 
+      long framePresentationTimeUs = bufferPresentationTimeUs + inputBufferTimestampAdjustmentUs;
+      long predictedEarlyUs =
+          videoFrameReleaseEarlyTimeForecaster.predictEarlyUs(framePresentationTimeUs);
+      if (predictedEarlyUs != C.TIME_UNSET
+          && earlyThresholdToDropInputUs != C.TIME_UNSET
+          && predictedEarlyUs < earlyThresholdToDropInputUs
+          && consecutiveDroppedFrames < MAX_CONSECUTIVE_FRAMES_TO_DROP) {
+        consecutiveDroppedFrames += 1;
+        videoFrameHandler.skip();
+        return true;
+      }
       if (!shouldRenderToInputVideoSink()) {
         return false;
       }
@@ -954,12 +1060,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       // inputBufferTimestampAdjustmentUs adjusts the buffer timestamp (that corresponds to the
       // player position) to the frame presentation time (which is relative to the start of a
       // composition).
-      long framePresentationTimeUs = bufferPresentationTimeUs + inputBufferTimestampAdjustmentUs;
       lastFramePresentationTimeUs = framePresentationTimeUs;
       // Use the frame presentation time as render time so that the SurfaceTexture is accompanied
       // by this timestamp. Setting a realtime based release time is only relevant when rendering to
       // a SurfaceView, but we render to a surface in this case.
       videoFrameHandler.render(/* renderTimestampNs= */ framePresentationTimeUs * 1000);
+      consecutiveDroppedFrames = 0;
       return true;
     }
 
@@ -1034,7 +1140,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
           () ->
               currentListener.onError(
                   new VideoSinkException(
-                      videoFrameProcessingException, checkStateNotNull(this.inputFormat))));
+                      videoFrameProcessingException, checkNotNull(this.inputFormat))));
     }
 
     // Private methods
@@ -1162,8 +1268,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       VideoGraph.Factory factory;
       try {
         // LINT.IfChange
-        Class<?> singleInputVideoGraphFactoryClass =
-            Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory");
+        // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+        @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+        String className =
+            new StringBuilder()
+                .append("androidx.media3.effect.")
+                .append("SingleInputVideoGraph")
+                .append("$Factory")
+                .toString();
+        Class<?> singleInputVideoGraphFactoryClass = Class.forName(className);
         factory =
             (VideoGraph.Factory)
                 singleInputVideoGraphFactoryClass
@@ -1203,8 +1316,15 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
             () -> {
               try {
                 // LINT.IfChange
-                return Class.forName(
-                    "androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder");
+                // b/463697143: Obfuscate class name to bypass R8/AppReduce static analysis.
+                @SuppressWarnings({"UnnecessaryStringBuilder", "RedundantStringBuilderAppend"})
+                String className =
+                    new StringBuilder()
+                        .append("androidx.media3.effect.")
+                        .append("DefaultVideoFrameProcessor")
+                        .append("$Factory$Builder")
+                        .toString();
+                return Class.forName(className);
                 // LINT.ThenChange(../../../../../../../proguard-rules.txt)
               } catch (Exception e) {
                 throw new IllegalStateException(e);
@@ -1227,6 +1347,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         VideoFrameProcessor.Listener listener)
         throws VideoFrameProcessingException {
       try {
+        // LINT.IfChange
         Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
             DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS.get();
         Object builder =
@@ -1241,6 +1362,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                     defaultVideoFrameProcessorFactoryBuilderClass
                         .getMethod("build")
                         .invoke(builder));
+        // LINT.ThenChange(../../../../../../../../effect/src/main/java/androidx/media3/effect/DefaultVideoFrameProcessor.java)
         return factory.create(
             context,
             debugViewProvider,

@@ -27,12 +27,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcelable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaBrowserCompat.ConnectionCallback;
 import java.util.ArrayList;
 
 /** Media constants for sharing constants between media provider and consumer apps */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaConstants {
 

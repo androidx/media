@@ -18,11 +18,11 @@ package androidx.media3.demo.transformer;
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.READ_MEDIA_VIDEO;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.Activity;
 import android.content.DialogInterface;
@@ -64,7 +64,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String SHOULD_REMOVE_AUDIO = "should_remove_audio";
   public static final String SHOULD_REMOVE_VIDEO = "should_remove_video";
   public static final String SHOULD_FLATTEN_FOR_SLOW_MOTION = "should_flatten_for_slow_motion";
-  public static final String FORCE_AUDIO_TRACK = "force_audio_track";
   public static final String AUDIO_MIME_TYPE = "audio_mime_type";
   public static final String VIDEO_MIME_TYPE = "video_mime_type";
   public static final String RESOLUTION_HEIGHT = "resolution_height";
@@ -77,8 +76,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
-  public static final String USE_MEDIA3_MP4_MUXER = "use_media3_mp4_muxer";
-  public static final String USE_MEDIA3_FRAGMENTED_MP4_MUXER = "use_media3_fragmented_mp4_muxer";
+  public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
   public static final String ENABLE_TRIM_OPTIMIZATION = "enable_trim_optimization";
   public static final String ENABLE_MP4_EDIT_LIST_TRIMMING = "enable_mp4_edit_list_trimming";
   public static final String ENABLE_CODECDB_LITE = "enable_codecdb_lite";
@@ -102,6 +100,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String TEXT_OVERLAY_TEXT = "text_overlay_text";
   public static final String TEXT_OVERLAY_TEXT_COLOR = "text_overlay_text_color";
   public static final String TEXT_OVERLAY_ALPHA = "text_overlay_alpha";
+  public static final String ENABLE_PACKET_PROCESSOR = "enable_packet_processor";
 
   // Video effect selections.
   public static final int DIZZY_CROP_INDEX = 0;
@@ -168,7 +167,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox removeAudioCheckbox;
   private CheckBox removeVideoCheckbox;
   private CheckBox flattenForSlowMotionCheckbox;
-  private CheckBox forceAudioTrackCheckbox;
   private Spinner audioMimeSpinner;
   private Spinner videoMimeSpinner;
   private Spinner resolutionHeightSpinner;
@@ -180,10 +178,10 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox enableDebugPreviewCheckBox;
   private CheckBox enableDebugTracingCheckBox;
   private CheckBox abortSlowExportCheckBox;
-  private CheckBox useMedia3Mp4Muxer;
-  private CheckBox useMedia3FragmentedMp4Muxer;
+  private CheckBox produceFragmentedMp4;
   private Spinner hdrModeSpinner;
   private CheckBox enableTrimOptimization;
+  private CheckBox enablePacketProcessorCheckBox;
   private CheckBox enableMp4EditListTrimming;
   private CheckBox enableCodecDbLite;
   private Button selectAudioEffectsButton;
@@ -251,8 +249,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
     flattenForSlowMotionCheckbox = findViewById(R.id.flatten_for_slow_motion_checkbox);
 
-    forceAudioTrackCheckbox = findViewById(R.id.force_audio_track_checkbox);
-
     ArrayAdapter<String> audioMimeAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
     audioMimeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -310,20 +306,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
-    useMedia3Mp4Muxer = findViewById(R.id.use_media3_mp4_muxer_checkbox);
-    useMedia3FragmentedMp4Muxer = findViewById(R.id.use_media3_fragmented_mp4_muxer_checkbox);
-    useMedia3Mp4Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            useMedia3FragmentedMp4Muxer.setChecked(false);
-          }
-        });
-    useMedia3FragmentedMp4Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            useMedia3Mp4Muxer.setChecked(false);
-          }
-        });
+    produceFragmentedMp4 = findViewById(R.id.produce_fragmented_mp4_checkbox);
     enableTrimOptimization = findViewById(R.id.enable_trim_optimization);
     enableMp4EditListTrimming = findViewById(R.id.enable_mp4_edit_list_trimming);
     enableCodecDbLite = findViewById(R.id.enable_codecdb_lite);
@@ -333,13 +316,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
             enableMp4EditListTrimming.setChecked(false);
           }
         });
+    enablePacketProcessorCheckBox = findViewById(R.id.enable_packet_processor);
     enableMp4EditListTrimming.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
           if (isChecked) {
             enableTrimOptimization.setChecked(false);
-            // The experimentalSetMp4EditListTrimEnabled flag is required to be used together with
-            // Media3Mp4Muxer
-            useMedia3Mp4Muxer.setChecked(true);
           }
         });
 
@@ -400,7 +381,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(SHOULD_REMOVE_AUDIO, removeAudioCheckbox.isChecked());
     bundle.putBoolean(SHOULD_REMOVE_VIDEO, removeVideoCheckbox.isChecked());
     bundle.putBoolean(SHOULD_FLATTEN_FOR_SLOW_MOTION, flattenForSlowMotionCheckbox.isChecked());
-    bundle.putBoolean(FORCE_AUDIO_TRACK, forceAudioTrackCheckbox.isChecked());
     String selectedAudioMimeType = String.valueOf(audioMimeSpinner.getSelectedItem());
     if (!SAME_AS_INPUT_OPTION.equals(selectedAudioMimeType)) {
       bundle.putString(AUDIO_MIME_TYPE, selectedAudioMimeType);
@@ -432,9 +412,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
-    bundle.putBoolean(USE_MEDIA3_MP4_MUXER, useMedia3Mp4Muxer.isChecked());
-    bundle.putBoolean(USE_MEDIA3_FRAGMENTED_MP4_MUXER, useMedia3FragmentedMp4Muxer.isChecked());
+    bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4.isChecked());
     bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
+    bundle.putBoolean(ENABLE_PACKET_PROCESSOR, enablePacketProcessorCheckBox.isChecked());
     bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
     bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
@@ -771,7 +751,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
   }
 
   private void enableTrackSpecificOptions(boolean isAudioEnabled, boolean isVideoEnabled) {
-    forceAudioTrackCheckbox.setEnabled(isVideoEnabled);
     audioMimeSpinner.setEnabled(isAudioEnabled);
     videoMimeSpinner.setEnabled(isVideoEnabled);
     resolutionHeightSpinner.setEnabled(isVideoEnabled);

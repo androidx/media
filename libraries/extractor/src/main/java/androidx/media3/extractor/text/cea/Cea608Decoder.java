@@ -15,7 +15,8 @@
  */
 package androidx.media3.extractor.text.cea;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.graphics.Color;
@@ -32,7 +33,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
@@ -457,13 +457,13 @@ public final class Cea608Decoder extends CeaDecoder {
   @Override
   protected Subtitle createSubtitle() {
     lastCues = cues;
-    return new CeaSubtitle(Assertions.checkNotNull(cues));
+    return new CeaSubtitle(checkNotNull(cues));
   }
 
   @SuppressWarnings("ByteBufferBackingArray")
   @Override
   protected void decode(SubtitleInputBuffer inputBuffer) {
-    ByteBuffer subtitleData = Assertions.checkNotNull(inputBuffer.data);
+    ByteBuffer subtitleData = checkNotNull(inputBuffer.data);
     ccData.reset(subtitleData.array(), subtitleData.limit());
     boolean captionDataProcessed = false;
     while (ccData.bytesLeft() >= packetLength) {
@@ -726,7 +726,7 @@ public final class Cea608Decoder extends CeaDecoder {
       if (cue != null) {
         if (cue.positionAnchor != positionAnchor) {
           // The last time we built this cue it was non-null, it will be non-null this time too.
-          cue = Assertions.checkNotNull(cueBuilders.get(i).build(positionAnchor));
+          cue = checkNotNull(cueBuilders.get(i).build(positionAnchor));
         }
         displayCues.add(cue);
       }

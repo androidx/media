@@ -16,7 +16,7 @@ and is our recommended network stack for most use cases.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-datasource-cronet:1.X.X'
 ```
 

@@ -18,6 +18,7 @@ package androidx.media3.extractor.ts;
 import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGTH;
 import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_TAG;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -26,7 +27,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -215,7 +215,8 @@ public final class AdtsExtractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    Assertions.checkStateNotNull(extractorOutput); // Asserts that init has been called.
+    // Asserts that init has been called.
+    checkNotNull(extractorOutput);
 
     long inputLength = input.getLength();
     boolean canUseConstantBitrateSeeking =

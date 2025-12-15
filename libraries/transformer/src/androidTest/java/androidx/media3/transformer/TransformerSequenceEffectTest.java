@@ -17,20 +17,19 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
+import static androidx.media3.test.utils.AssetInfo.BT601_MOV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_CHECKERBOARD_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET_LINES_1080P;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_LINES_1080P;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
@@ -39,10 +38,11 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_V
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertFramesMatchExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
-import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createVideoOnlyComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -112,7 +112,7 @@ public final class TransformerSequenceEffectTest {
         /* outputFormat= */ MP4_ASSET.videoFormat);
     OverlayEffect overlayEffect = createOverlayEffect();
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_ASSET.uri,
@@ -158,7 +158,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(MP4_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
 
@@ -195,7 +195,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_PORTRAIT_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -233,7 +233,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 BT601_MOV_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -272,7 +272,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_ASSET_AV1_VIDEO.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -310,7 +310,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForWidthAndHeight(
                 /* width= */ 320, /* height= */ 240, Presentation.LAYOUT_SCALE_TO_FIT),
             clippedVideo(
@@ -350,7 +350,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             new EditedMediaItem.Builder(
                     new MediaItem.Builder()
@@ -364,10 +364,13 @@ public final class TransformerSequenceEffectTest {
     if (Ascii.equalsIgnoreCase(Build.MODEL, "mi a2 lite")
         || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f711u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")) {
+        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto g04")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")) {
       // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
       // bitrate output, or FrameworkMuxer fails to mux.
       bitrate = 10_000_000;
@@ -418,7 +421,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         outputFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             new EditedMediaItem.Builder(
                     new MediaItem.Builder()
@@ -469,7 +472,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForWidthAndHeight(
                 /* width= */ SQUARE_SIZE,
                 /* height= */ SQUARE_SIZE,
@@ -511,7 +514,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT),
             clippedVideo(MP4_PORTRAIT_ASSET.uri, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
@@ -537,7 +540,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(MP4_ASSET.uri, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
@@ -565,7 +568,7 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ BT601_MOV_ASSET.videoFormat, /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 BT601_MOV_ASSET.uri,
@@ -593,7 +596,7 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ BT601_MOV_ASSET.videoFormat, /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 BT601_MOV_ASSET.uri,

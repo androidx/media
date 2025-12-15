@@ -19,13 +19,13 @@ import static androidx.media3.common.util.Util.getByteDepth;
 import static androidx.media3.common.util.Util.getInt24;
 import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static androidx.media3.common.util.Util.putInt24;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -85,7 +85,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
 
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
-    int[] outputChannels = Assertions.checkNotNull(this.outputChannels);
+    int[] outputChannels = checkNotNull(this.outputChannels);
     int position = inputBuffer.position();
     int limit = inputBuffer.limit();
     int frameCount = (limit - position) / inputAudioFormat.bytesPerFrame;
@@ -124,7 +124,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  protected void onFlush() {
+  protected void onFlush(StreamMetadata streamMetadata) {
     outputChannels = pendingOutputChannels;
   }
 

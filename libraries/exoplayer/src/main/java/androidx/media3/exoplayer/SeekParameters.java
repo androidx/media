@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -73,8 +74,8 @@ public final class SeekParameters {
    *     requested seek position, in microseconds. Must be non-negative.
    */
   public SeekParameters(long toleranceBeforeUs, long toleranceAfterUs) {
-    Assertions.checkArgument(toleranceBeforeUs >= 0);
-    Assertions.checkArgument(toleranceAfterUs >= 0);
+    checkArgument(toleranceBeforeUs >= 0);
+    checkArgument(toleranceAfterUs >= 0);
     this.toleranceBeforeUs = toleranceBeforeUs;
     this.toleranceAfterUs = toleranceAfterUs;
   }

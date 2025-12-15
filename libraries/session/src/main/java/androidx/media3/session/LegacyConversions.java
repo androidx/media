@@ -39,13 +39,13 @@ import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SPEED_AND_PITCH;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
 import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.session.legacy.MediaMetadataCompat.PREFERRED_DESCRIPTION_ORDER;
 import static androidx.media3.session.legacy.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -53,7 +53,6 @@ import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -61,7 +60,6 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.HeartRating;
@@ -79,7 +77,6 @@ import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
-import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.session.legacy.MediaControllerCompat;
@@ -92,8 +89,6 @@ import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -512,14 +507,8 @@ import java.util.concurrent.TimeoutException;
         .setArtworkUri(descriptionCompat.getIconUri())
         .setUserRating(convertToRating(RatingCompat.newUnratedRating(ratingType)));
 
-    @Nullable Bitmap iconBitmap = descriptionCompat.getIconBitmap();
-    if (iconBitmap != null) {
-      @Nullable byte[] artworkData = null;
-      try {
-        artworkData = convertToByteArray(iconBitmap);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert iconBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = descriptionCompat.getIconBitmapData();
+    if (artworkData != null) {
       builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
@@ -636,31 +625,14 @@ import java.util.concurrent.TimeoutException;
       builder.setRecordingYear((int) year);
     }
 
-    @Nullable
-    String artworkUriString =
-        getFirstString(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI,
-            MediaMetadataCompat.METADATA_KEY_ART_URI);
-    if (artworkUriString != null) {
-      builder.setArtworkUri(Uri.parse(artworkUriString));
+    @Nullable Uri artworkUri = metadataCompat.getMostRelevantArtworkUri();
+    if (artworkUri != null) {
+      builder.setArtworkUri(artworkUri);
     }
 
-    @Nullable
-    Bitmap artworkBitmap =
-        getFirstBitmap(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
-            MediaMetadataCompat.METADATA_KEY_ART);
-    if (artworkBitmap != null) {
-      try {
-        byte[] artworkData = convertToByteArray(artworkBitmap);
-        builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert artworkBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
+    if (artworkData != null) {
+      builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
     boolean isBrowsable =
@@ -688,26 +660,6 @@ import java.util.concurrent.TimeoutException;
     }
 
     return builder.build();
-  }
-
-  @Nullable
-  private static Bitmap getFirstBitmap(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getBitmap(key);
-      }
-    }
-    return null;
-  }
-
-  @Nullable
-  private static String getFirstString(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getString(key);
-      }
-    }
-    return null;
   }
 
   /**
@@ -1545,6 +1497,9 @@ import java.util.concurrent.TimeoutException;
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
               .setEnabled(true);
+      if (extras != null) {
+        button.setExtras(extras);
+      }
       @Nullable
       String iconUriString =
           extras != null
@@ -1562,61 +1517,6 @@ import java.util.concurrent.TimeoutException;
     }
     return CommandButton.getMediaButtonPreferencesFromCustomLayout(
         customLayout.build(), availablePlayerCommands, sessionExtras);
-  }
-
-  /** Converts {@link AudioAttributesCompat} into {@link AudioAttributes}. */
-  /*
-   * @AudioAttributesCompat.AttributeUsage and @C.AudioUsage both use the same constant values,
-   * defined by AudioAttributes in the platform.
-   */
-  @SuppressLint("WrongConstant")
-  public static AudioAttributes convertToAudioAttributes(
-      @Nullable AudioAttributesCompat audioAttributesCompat) {
-    if (audioAttributesCompat == null) {
-      return AudioAttributes.DEFAULT;
-    }
-    return new AudioAttributes.Builder()
-        .setContentType(audioAttributesCompat.getContentType())
-        .setFlags(audioAttributesCompat.getFlags())
-        .setUsage(audioAttributesCompat.getUsage())
-        .build();
-  }
-
-  /** Converts {@link MediaControllerCompat.PlaybackInfo} to {@link AudioAttributes}. */
-  public static AudioAttributes convertToAudioAttributes(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
-    if (playbackInfoCompat == null) {
-      return AudioAttributes.DEFAULT;
-    }
-    return convertToAudioAttributes(playbackInfoCompat.getAudioAttributes());
-  }
-
-  /** Converts {@link AudioAttributes} into {@link AudioAttributesCompat}. */
-  public static AudioAttributesCompat convertToAudioAttributesCompat(
-      AudioAttributes audioAttributes) {
-    return new AudioAttributesCompat.Builder()
-        .setContentType(audioAttributes.contentType)
-        .setFlags(audioAttributes.flags)
-        .setUsage(audioAttributes.usage)
-        .build();
-  }
-
-  /**
-   * Gets the legacy stream type from {@link AudioAttributes}.
-   *
-   * @param audioAttributes audio attributes
-   * @return int legacy stream type from {@link AudioManager}
-   */
-  public static int getLegacyStreamType(AudioAttributes audioAttributes) {
-    int legacyStreamType = convertToAudioAttributesCompat(audioAttributes).getLegacyStreamType();
-    if (legacyStreamType == AudioManager.USE_DEFAULT_STREAM_TYPE) {
-      // Usually, AudioAttributesCompat#getLegacyStreamType() does not return
-      // USE_DEFAULT_STREAM_TYPE unless the developer sets it with
-      // AudioAttributesCompat.Builder#setLegacyStreamType().
-      // But for safety, let's convert USE_DEFAULT_STREAM_TYPE to STREAM_MUSIC here.
-      return AudioManager.STREAM_MUSIC;
-    }
-    return legacyStreamType;
   }
 
   public static <T> T getFutureResult(Future<T> future, long timeoutMs)
@@ -1646,8 +1546,7 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link MediaControllerCompat.PlaybackInfo} to {@link DeviceInfo}. */
   public static DeviceInfo convertToDeviceInfo(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat,
-      @Nullable String routingControllerId) {
+      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
     if (playbackInfoCompat == null) {
       return DeviceInfo.UNKNOWN;
     }
@@ -1657,7 +1556,7 @@ import java.util.concurrent.TimeoutException;
                 ? DeviceInfo.PLAYBACK_TYPE_REMOTE
                 : DeviceInfo.PLAYBACK_TYPE_LOCAL)
         .setMaxVolume(playbackInfoCompat.getMaxVolume())
-        .setRoutingControllerId(routingControllerId)
+        .setRoutingControllerId(playbackInfoCompat.getVolumeControlId())
         .build();
   }
 
@@ -1788,13 +1687,6 @@ import java.util.concurrent.TimeoutException;
     long currentPositionMs =
         convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
     return currentPositionMs >= durationMs;
-  }
-
-  private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {
-    try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-      bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
-      return stream.toByteArray();
-    }
   }
 
   private LegacyConversions() {}

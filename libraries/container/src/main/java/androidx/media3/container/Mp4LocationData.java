@@ -15,7 +15,7 @@
  */
 package androidx.media3.container;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;

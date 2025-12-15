@@ -15,12 +15,13 @@
  */
 package androidx.media3.exoplayer.smoothstreaming.manifest;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
@@ -214,9 +215,9 @@ public class SsManifest implements FilterableManifest<SsManifest> {
      * @return The request uri.
      */
     public Uri buildRequestUri(int track, int chunkIndex) {
-      Assertions.checkState(formats != null);
-      Assertions.checkState(chunkStartTimes != null);
-      Assertions.checkState(chunkIndex < chunkStartTimes.size());
+      checkState(formats != null);
+      checkState(chunkStartTimes != null);
+      checkState(chunkIndex < chunkStartTimes.size());
       String bitrateString = Integer.toString(formats[track].bitrate);
       String startTimeString = chunkStartTimes.get(chunkIndex).toString();
       String chunkUrl =

@@ -1054,7 +1054,7 @@ public class HlsMediaSourceTest {
   private static HlsMediaSource.Factory createHlsMediaSourceFactory(
       String playlistUri, String playlist) {
     return createHlsMediaSourceFactory(
-        playlistUri, playlist, /* playlistUrl2= */ null, /* playlist2= */ null);
+        playlistUri, playlist, /* playlistUri2= */ null, /* playlist2= */ null);
   }
 
   private static HlsMediaSource.Factory createHlsMediaSourceFactory(

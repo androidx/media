@@ -15,9 +15,10 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -37,6 +38,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -116,8 +118,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     Mp4LocationData actualLocationData =
-        (Mp4LocationData)
-            retrieveMetadata(context, outputPath, entry -> entry instanceof Mp4LocationData);
+        retrieveMetadata(context, outputPath, Mp4LocationData.class);
     assertThat(actualLocationData).isEqualTo(expectedLocationData);
   }
 
@@ -156,13 +157,11 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     MdtaMetadataEntry actualCaptureFps =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedCaptureFps.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedCaptureFps.key));
     assertThat(actualCaptureFps).isEqualTo(expectedCaptureFps);
   }
 
@@ -183,8 +182,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     Mp4TimestampData actualTimestampData =
-        (Mp4TimestampData)
-            retrieveMetadata(context, outputPath, entry -> entry instanceof Mp4TimestampData);
+        retrieveMetadata(context, outputPath, Mp4TimestampData.class);
     assertThat(actualTimestampData.creationTimestampSeconds)
         .isEqualTo(expectedTimestampData.creationTimestampSeconds);
     assertThat(actualTimestampData.modificationTimestampSeconds)
@@ -215,22 +213,18 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     TransformerTestRunner.runLooper(transformer);
 
     MdtaMetadataEntry actualStringMetadata =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedStringMetadata.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedStringMetadata.key));
     assertThat(actualStringMetadata).isEqualTo(expectedStringMetadata);
     MdtaMetadataEntry actualFloatMetadata =
-        (MdtaMetadataEntry)
-            retrieveMetadata(
-                context,
-                outputPath,
-                entry ->
-                    entry instanceof MdtaMetadataEntry
-                        && ((MdtaMetadataEntry) entry).key.equals(expectedFloatMetadata.key));
+        retrieveMetadata(
+            context,
+            outputPath,
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(expectedFloatMetadata.key));
     assertThat(actualFloatMetadata).isEqualTo(expectedFloatMetadata);
   }
 
@@ -252,25 +246,71 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
   }
 
+  @Test
+  public void transmux_audioWithEditList_preservesDuration() throws Exception {
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset:///media/mp4/long_edit_list_audioonly.mp4"));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath(mp4Extractor, outputPath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_562_100);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
+    int expectedSampleCount = 68;
+    audioTrack.assertSampleCount(expectedSampleCount);
+    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(742);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
+        .isEqualTo(1_555_736);
+  }
+
   /**
    * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
    *
    * @param context The application context.
    * @param filePath The path of the media file.
-   * @param predicate The {@link Predicate} to be used to retrieve the {@linkplain Metadata.Entry
-   *     metadata}.
-   * @return The {@linkplain Metadata.Entry metadata}.
+   * @param clazz The type of {@linkplain Metadata.Entry metadata} to look for.
+   * @return The first matching {@linkplain Metadata.Entry metadata}.
    */
   @Nullable
-  private static Metadata.Entry retrieveMetadata(
-      Context context, @Nullable String filePath, Predicate<Metadata.Entry> predicate)
+  private static <T extends Metadata.Entry> T retrieveMetadata(
+      Context context, @Nullable String filePath, Class<T> clazz)
+      throws ExecutionException, InterruptedException {
+    return retrieveMetadata(context, filePath, clazz, alwaysTrue());
+  }
+
+  /**
+   * Returns specific {@linkplain Metadata.Entry metadata} from the media file.
+   *
+   * @param context The application context.
+   * @param filePath The path of the media file.
+   * @param clazz The type of {@linkplain Metadata.Entry metadata} to look for.
+   * @param predicate The {@link Predicate} to be used to retrieve the {@linkplain Metadata.Entry
+   *     metadata}.
+   * @return The first matching {@linkplain Metadata.Entry metadata}.
+   */
+  @Nullable
+  private static <T extends Metadata.Entry> T retrieveMetadata(
+      Context context, @Nullable String filePath, Class<T> clazz, Predicate<T> predicate)
       throws ExecutionException, InterruptedException {
     Format videoTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_VIDEO);
     @Nullable
-    Metadata.Entry metadataEntryFromVideoTrack = findMetadataEntry(videoTrackFormat, predicate);
+    T metadataEntryFromVideoTrack =
+        videoTrackFormat.metadata != null
+            ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
+            : null;
     Format audioTrackFormat = retrieveTrackFormat(context, filePath, C.TRACK_TYPE_AUDIO);
     @Nullable
-    Metadata.Entry metadataEntryFromAudioTrack = findMetadataEntry(audioTrackFormat, predicate);
+    T metadataEntryFromAudioTrack =
+        audioTrackFormat.metadata != null
+            ? videoTrackFormat.metadata.getFirstMatchingEntry(clazz, predicate)
+            : null;
 
     ensureSameMetadataAcrossTracks(metadataEntryFromVideoTrack, metadataEntryFromAudioTrack);
 
@@ -285,21 +325,5 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     if (firstTrackMetadata != null && secondTrackMetadata != null) {
       checkState(firstTrackMetadata.equals(secondTrackMetadata));
     }
-  }
-
-  @Nullable
-  private static Metadata.Entry findMetadataEntry(
-      Format format, Predicate<Metadata.Entry> predicate) {
-    if (format.metadata == null) {
-      return null;
-    }
-
-    for (int i = 0; i < format.metadata.length(); i++) {
-      Metadata.Entry metadataEntry = format.metadata.get(i);
-      if (predicate.apply(metadataEntry)) {
-        return metadataEntry;
-      }
-    }
-    return null;
   }
 }

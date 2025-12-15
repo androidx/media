@@ -40,9 +40,14 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SpeedChangeEffect;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
@@ -125,15 +130,7 @@ public final class TransformerUtil {
    */
   private static boolean containsSlowMotionData(Format format) {
     @Nullable Metadata metadata = format.metadata;
-    if (metadata == null) {
-      return false;
-    }
-    for (int i = 0; i < metadata.length(); i++) {
-      if (metadata.get(i) instanceof SlowMotionData) {
-        return true;
-      }
-    }
-    return false;
+    return metadata != null && metadata.getFirstEntryOfType(SlowMotionData.class) != null;
   }
 
   /** Returns whether the video track should be transcoded. */
@@ -331,6 +328,73 @@ public final class TransformerUtil {
       }
     }
     return mimeType;
+  }
+
+  /**
+   * Checks whether any speed changing effects at the first position of each pipeline match {@code
+   * speedProvider}.
+   *
+   * <p>The method verifies that any {@link TimestampAdjustment} or {@link
+   * SpeedChangingAudioProcessor} instance set as the first effect of its pipeline has a {@link
+   * SpeedProvider} equal to {@code speedProvider}.
+   *
+   * <p>If no speed changing effects are present, this method returns {@code true}.
+   */
+  public static boolean validateSpeedChangingEffects(Effects effects, SpeedProvider speedProvider) {
+    if (!effects.audioProcessors.isEmpty()) {
+      AudioProcessor firstProcessor = effects.audioProcessors.get(0);
+      if (firstProcessor instanceof SpeedChangingAudioProcessor) {
+        SpeedChangingAudioProcessor speedChangingAudioProcessor =
+            (SpeedChangingAudioProcessor) firstProcessor;
+        if (!speedChangingAudioProcessor.getSpeedProvider().equals(speedProvider)) {
+          return false;
+        }
+      }
+    }
+
+    if (!effects.videoEffects.isEmpty()) {
+      Effect firstEffect = effects.videoEffects.get(0);
+      if (firstEffect instanceof TimestampAdjustment) {
+        TimestampAdjustment timestampAdjustmentEffect = (TimestampAdjustment) firstEffect;
+        return timestampAdjustmentEffect.speedProvider.equals(speedProvider);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns whether {@link Effects} contains speed changing effects.
+   *
+   * <p>{@code ignoreFirstEffect} controls whether {@link TimestampAdjustment} and {@link
+   * SpeedChangingAudioProcessor} are ignored as first elements of the video and audio pipelines,
+   * respectively.
+   */
+  public static boolean containsSpeedChangingEffects(Effects effects, boolean ignoreFirstEffect) {
+    for (int i = ignoreFirstEffect ? 1 : 0; i < effects.audioProcessors.size(); i++) {
+      if (effects.audioProcessors.get(i) instanceof SpeedChangingAudioProcessor) {
+        return true;
+      }
+
+      // Use an arbitrarily large number as a best effort check.
+      if (effects.audioProcessors.get(i).getDurationAfterProcessorApplied(1_000_000_000L)
+          != 1_000_000_000L) {
+        return true;
+      }
+    }
+
+    for (int i = 0; i < effects.videoEffects.size(); i++) {
+      Effect effect = effects.videoEffects.get(i);
+      if (effect instanceof SpeedChangeEffect) {
+        return true;
+      }
+
+      if (effect instanceof TimestampAdjustment && (!ignoreFirstEffect || i > 0)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   @Nullable

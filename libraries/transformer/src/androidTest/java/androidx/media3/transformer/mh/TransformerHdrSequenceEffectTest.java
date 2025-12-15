@@ -17,12 +17,14 @@
 
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_2_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD_HD;
@@ -30,11 +32,9 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_V
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertFramesMatchExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
-import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createVideoOnlyComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -88,7 +88,7 @@ public final class TransformerHdrSequenceEffectTest {
     assumeDeviceSupportsOpenGlToneMapping(
         testId, /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_PORTRAIT_ASSET.uri,
@@ -126,7 +126,7 @@ public final class TransformerHdrSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_ASSET_720P_4_SECOND_HDR10.uri,
@@ -167,7 +167,7 @@ public final class TransformerHdrSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_ASSET_720P_4_SECOND_HDR10.uri,
@@ -202,7 +202,7 @@ public final class TransformerHdrSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_ASSET_720P_4_SECOND_HDR10.uri,
@@ -242,7 +242,7 @@ public final class TransformerHdrSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_720P_4_SECOND_HDR10.videoFormat,
         /* outputFormat= */ MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 MP4_ASSET_1080P_5_SECOND_HLG10.uri,
@@ -282,7 +282,7 @@ public final class TransformerHdrSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_ASSET_1080P_5_SECOND_HLG10.uri,
@@ -321,7 +321,7 @@ public final class TransformerHdrSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(MP4_ASSET_AV1_2_SECOND_HDR10.uri, NO_EFFECT, C.MILLIS_PER_SECOND / 4));
 

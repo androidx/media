@@ -45,7 +45,3 @@ target_link_libraries(opusV2JNI
                       PRIVATE opus
                       PRIVATE ${android_log_lib})
 
-# Enable 16 KB ELF alignment.
-target_link_options(opusV2JNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")
-

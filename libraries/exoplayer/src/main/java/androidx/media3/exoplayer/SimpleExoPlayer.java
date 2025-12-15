@@ -24,7 +24,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -68,13 +67,13 @@ import java.util.List;
  */
 @UnstableApi
 @Deprecated
+@SuppressWarnings("deprecation") // The whole class is deprecated so using deprecated things is OK.
 public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
 
   /**
    * @deprecated Use {@link ExoPlayer.Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public static final class Builder {
 
     private final ExoPlayer.Builder wrappedBuilder;
@@ -423,7 +422,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   /**
    * @param builder The {@link Builder} to obtain all construction parameters.
    */
-  @SuppressWarnings("deprecation") // Supporting deprecated builder.
   protected SimpleExoPlayer(Builder builder) {
     this(builder.wrappedBuilder);
   }
@@ -585,11 +583,16 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
     player.clearAuxEffectInfo();
   }
 
-  @RequiresApi(23)
   @Override
   public void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     blockUntilConstructorFinished();
     player.setPreferredAudioDevice(audioDeviceInfo);
+  }
+
+  @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    blockUntilConstructorFinished();
+    player.setVirtualDeviceId(virtualDeviceId);
   }
 
   @Override
@@ -602,6 +605,18 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public float getVolume() {
     blockUntilConstructorFinished();
     return player.getVolume();
+  }
+
+  @Override
+  public void mute() {
+    blockUntilConstructorFinished();
+    player.mute();
+  }
+
+  @Override
+  public void unmute() {
+    blockUntilConstructorFinished();
+    player.unmute();
   }
 
   @Override
@@ -808,7 +823,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void prepare(MediaSource mediaSource) {
     blockUntilConstructorFinished();
     player.prepare(mediaSource);
@@ -820,7 +834,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void prepare(MediaSource mediaSource, boolean resetPosition, boolean resetState) {
     blockUntilConstructorFinished();
     player.prepare(mediaSource, resetPosition, resetState);
@@ -927,6 +940,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public void setShuffleOrder(ShuffleOrder shuffleOrder) {
     blockUntilConstructorFinished();
     player.setShuffleOrder(shuffleOrder);
+  }
+
+  @Override
+  public ShuffleOrder getShuffleOrder() {
+    blockUntilConstructorFinished();
+    return player.getShuffleOrder();
   }
 
   @Override
@@ -1049,6 +1068,24 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    blockUntilConstructorFinished();
+    player.setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs);
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekBackIncrementMs(seekBackIncrementMs);
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekForwardIncrementMs(seekForwardIncrementMs);
+  }
+
+  @Override
   public void setForegroundMode(boolean foregroundMode) {
     blockUntilConstructorFinished();
     player.setForegroundMode(foregroundMode);
@@ -1088,6 +1125,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public Renderer getRenderer(int index) {
     blockUntilConstructorFinished();
     return player.getRenderer(index);
+  }
+
+  @Override
+  public Renderer getSecondaryRenderer(int index) {
+    blockUntilConstructorFinished();
+    return player.getSecondaryRenderer(index);
   }
 
   @Override
@@ -1253,7 +1296,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceVolume(int volume) {
     blockUntilConstructorFinished();
     player.setDeviceVolume(volume);
@@ -1270,7 +1312,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void increaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.increaseDeviceVolume();
@@ -1287,7 +1328,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void decreaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.decreaseDeviceVolume();
@@ -1304,7 +1344,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceMuted(boolean muted) {
     blockUntilConstructorFinished();
     player.setDeviceMuted(muted);
@@ -1331,6 +1370,44 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public void setImageOutput(@Nullable ImageOutput imageOutput) {
     blockUntilConstructorFinished();
     player.setImageOutput(imageOutput);
+  }
+
+  @Override
+  public void setAudioCodecParameters(CodecParameters codecParameters) {
+    blockUntilConstructorFinished();
+    player.setAudioCodecParameters(codecParameters);
+  }
+
+  @Override
+  public void addAudioCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    blockUntilConstructorFinished();
+    player.addAudioCodecParametersChangeListener(listener, keys);
+  }
+
+  @Override
+  public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    blockUntilConstructorFinished();
+    player.removeAudioCodecParametersChangeListener(listener);
+  }
+
+  @Override
+  public void setVideoCodecParameters(CodecParameters codecParameters) {
+    blockUntilConstructorFinished();
+    player.setVideoCodecParameters(codecParameters);
+  }
+
+  @Override
+  public void addVideoCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    blockUntilConstructorFinished();
+    player.addVideoCodecParametersChangeListener(listener, keys);
+  }
+
+  @Override
+  public void removeVideoCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    blockUntilConstructorFinished();
+    player.removeVideoCodecParametersChangeListener(listener);
   }
 
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {

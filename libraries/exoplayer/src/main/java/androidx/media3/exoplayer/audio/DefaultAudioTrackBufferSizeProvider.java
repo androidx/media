@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_OFFLOAD;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_PASSTHROUGH;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_PCM;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.IntMath.divide;
 import static com.google.common.primitives.Ints.checkedCast;
 import static java.lang.Math.max;

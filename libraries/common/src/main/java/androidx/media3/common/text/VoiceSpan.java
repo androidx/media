@@ -16,7 +16,7 @@
  */
 package androidx.media3.common.text;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
 import androidx.media3.common.util.UnstableApi;

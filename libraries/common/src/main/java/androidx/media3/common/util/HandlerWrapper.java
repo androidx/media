@@ -69,6 +69,9 @@ public interface HandlerWrapper {
   /** See {@link Handler#removeMessages(int)}. */
   void removeMessages(int what);
 
+  /** See {@link Handler#removeCallbacks(Runnable)}. */
+  void removeCallbacks(Runnable runnable);
+
   /** See {@link Handler#removeCallbacksAndMessages(Object)}. */
   void removeCallbacksAndMessages(@Nullable Object token);
 

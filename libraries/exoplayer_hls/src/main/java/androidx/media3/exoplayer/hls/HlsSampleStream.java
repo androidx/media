@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.source.SampleStream;
@@ -36,7 +37,7 @@ import java.io.IOException;
   }
 
   public void bindSampleQueue() {
-    Assertions.checkArgument(sampleQueueIndex == HlsSampleStreamWrapper.SAMPLE_QUEUE_INDEX_PENDING);
+    checkArgument(sampleQueueIndex == HlsSampleStreamWrapper.SAMPLE_QUEUE_INDEX_PENDING);
     sampleQueueIndex = sampleStreamWrapper.bindSampleQueueToSampleStream(trackGroupIndex);
   }
 

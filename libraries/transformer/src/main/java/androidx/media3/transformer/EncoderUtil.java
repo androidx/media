@@ -17,7 +17,7 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
@@ -227,6 +227,7 @@ public final class EncoderUtil {
    * @throws IllegalArgumentException When the width is not in the range of {@linkplain
    *     #getSupportedResolutionRanges supported widths}.
    */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static Range<Integer> getSupportedHeights(
       MediaCodecInfo encoderInfo, String mimeType, int width) {
     MediaCodecInfo.VideoCapabilities videoCapabilities =
@@ -238,6 +239,7 @@ public final class EncoderUtil {
    * Returns a {@link Pair} of supported width and height {@link Range ranges} for the given {@link
    * MediaCodecInfo encoder} and {@linkplain MimeTypes video MIME type}.
    */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static Pair<Range<Integer>, Range<Integer>> getSupportedResolutionRanges(
       MediaCodecInfo encoderInfo, String mimeType) {
     MediaCodecInfo.VideoCapabilities videoCapabilities =
@@ -327,9 +329,9 @@ public final class EncoderUtil {
    * @return The highest supported encoding level, as documented in {@link
    *     MediaCodecInfo.CodecProfileLevel}, or {@link #LEVEL_UNSET} if the profile is not supported.
    */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static int findHighestSupportedEncodingLevel(
       MediaCodecInfo encoderInfo, String mimeType, int profile) {
-    // TODO: b/214964116 - Merge into MediaCodecUtil.
     MediaCodecInfo.CodecProfileLevel[] profileLevels =
         encoderInfo.getCapabilitiesForType(mimeType).profileLevels;
 
@@ -365,6 +367,7 @@ public final class EncoderUtil {
    * MediaCodecInfo.CodecCapabilities#colorFormats color formats} for the given {@linkplain
    * MediaCodecInfo encoder} and {@linkplain MimeTypes MIME type}.
    */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static ImmutableList<Integer> getSupportedColorFormats(
       MediaCodecInfo encoderInfo, String mimeType) {
     return ImmutableList.copyOf(
@@ -375,6 +378,7 @@ public final class EncoderUtil {
    * Returns the sample rate supported by the provided {@linkplain MediaCodecInfo encoder} that is
    * closest to the provided sample rate for a given {@linkplain MimeTypes audio MIME type}.
    */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static int getClosestSupportedSampleRate(
       MediaCodecInfo encoderInfo, String mimeType, int requestedSampleRate) {
     MediaCodecInfo.AudioCapabilities audioCapabilities =
@@ -404,8 +408,8 @@ public final class EncoderUtil {
   }
 
   /** Checks if a {@linkplain MediaCodecInfo codec} is hardware-accelerated. */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static boolean isHardwareAccelerated(MediaCodecInfo encoderInfo, String mimeType) {
-    // TODO: b/214964116 - Merge into MediaCodecUtil.
     if (SDK_INT >= 29) {
       return Api29.isHardwareAccelerated(encoderInfo);
     }
@@ -415,17 +419,19 @@ public final class EncoderUtil {
   }
 
   /** Returns whether a given feature is supported. */
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static boolean isFeatureSupported(
       MediaCodecInfo encoderInfo, String mimeType, String featureName) {
     return encoderInfo.getCapabilitiesForType(mimeType).isFeatureSupported(featureName);
   }
 
   /** Returns the number of max number of the supported concurrent codec instances. */
-  @RequiresApi(23)
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   public static int getMaxSupportedInstances(MediaCodecInfo encoderInfo, String mimeType) {
     return encoderInfo.getCapabilitiesForType(mimeType).getMaxSupportedInstances();
   }
 
+  // TODO: b/257464457 - Merge into MediaCodecUtil.
   private static boolean isSoftwareOnly(MediaCodecInfo encoderInfo, String mimeType) {
     if (SDK_INT >= 29) {
       return Api29.isSoftwareOnly(encoderInfo);

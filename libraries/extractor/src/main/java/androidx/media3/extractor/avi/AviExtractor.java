@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.avi;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -24,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -275,7 +275,7 @@ public final class AviExtractor implements Extractor {
         // Size includes the list type, but not the LIST or size fields, so we add 8.
         moviEnd = moviStart + chunkHeaderHolder.size + 8;
         if (!seekMapHasBeenOutput) {
-          if (Assertions.checkNotNull(aviHeader).hasIndex()) {
+          if (checkNotNull(aviHeader).hasIndex()) {
             state = STATE_FINDING_IDX1_HEADER;
             pendingReposition = moviEnd;
             return RESULT_CONTINUE;

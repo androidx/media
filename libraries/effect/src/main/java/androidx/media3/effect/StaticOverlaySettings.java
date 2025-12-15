@@ -15,7 +15,7 @@ package androidx.media3.effect;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.util.Pair;
 import androidx.annotation.FloatRange;

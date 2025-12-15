@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -47,14 +48,14 @@ import org.robolectric.shadows.MediaCodecInfoBuilder;
 import org.robolectric.shadows.ShadowMediaCodec;
 import org.robolectric.shadows.ShadowMediaCodecList;
 
-/** Unit tests for {@link VideoSampleExporter.EncoderWrapper}. */
+/** Unit tests for {@link VideoEncoderWrapper}. */
 @RunWith(AndroidJUnit4.class)
 public final class VideoEncoderWrapperTest {
   private static final Composition FAKE_COMPOSITION =
       new Composition.Builder(
-              new EditedMediaItemSequence.Builder(
-                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())
-                  .build())
+              withAudioFrom(
+                  ImmutableList.of(
+                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())))
           .build();
 
   private final TransformationRequest emptyTransformationRequest =
@@ -63,11 +64,11 @@ public final class VideoEncoderWrapperTest {
   private final FallbackListener fallbackListener =
       new FallbackListener(
           FAKE_COMPOSITION,
-          new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT, (listener, flags) -> {}),
+          new ListenerSet<>(Looper.myLooper()),
           Clock.DEFAULT.createHandler(Looper.myLooper(), /* callback= */ null),
           emptyTransformationRequest);
-  private final VideoSampleExporter.EncoderWrapper encoderWrapper =
-      new VideoSampleExporter.EncoderWrapper(
+  private final VideoEncoderWrapper encoderWrapper =
+      new VideoEncoderWrapper(
           fakeEncoderFactory,
           /* inputFormat= */ new Format.Builder()
               .setSampleMimeType(MimeTypes.VIDEO_H264)

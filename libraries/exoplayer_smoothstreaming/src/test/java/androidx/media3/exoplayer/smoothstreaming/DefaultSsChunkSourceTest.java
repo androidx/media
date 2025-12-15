@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
@@ -23,7 +24,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifestParser;
@@ -292,7 +292,7 @@ public class DefaultSsChunkSourceTest {
 
   private SsChunkSource createSsChunkSource(
       int numberOfTracks, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
-    Assertions.checkArgument(numberOfTracks < 6);
+    checkArgument(numberOfTracks < 6);
     SsManifestParser parser = new SsManifestParser();
     SsManifest manifest =
         parser.parse(
