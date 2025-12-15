@@ -27,7 +27,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
-import androidx.media3.exoplayer.MediaExtractorCompat;
+import androidx.media3.inspector.MediaExtractorCompat;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -142,7 +142,7 @@ import java.util.Objects;
       BufferInfo bufferInfo = new BufferInfo(extractor.getSampleTime(), sampleSize, sampleFlags);
 
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
-      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+      int unused = extractor.readSampleData(sampleBuffer, /* offset= */ 0);
       sampleBuffer.rewind();
       Format format =
           MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(sampleTrackIndex));

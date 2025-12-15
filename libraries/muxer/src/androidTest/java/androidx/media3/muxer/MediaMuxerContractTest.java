@@ -47,9 +47,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4LocationData;
-import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
@@ -597,7 +597,7 @@ public final class MediaMuxerContractTest {
     do {
       int sampleSize = (int) extractor.getSampleSize();
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
-      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+      int unused = extractor.readSampleData(sampleBuffer, /* offset= */ 0);
       sampleBuffer.rewind();
       int sampleTrackIndex = extractor.getSampleTrackIndex();
       MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
