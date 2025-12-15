@@ -229,7 +229,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   // TODO(b/452541218): Remove this suppression once Robolectric is updated to a version that
   //  includes the @RequiresApi(Q) annotation from ShadowMediaCodecList.addCodec().
   @SuppressLint("NewApi") // The upstream annotation causing this warning was removed.
-  public static void configureShadowMediaCodec(
+  private static void configureShadowMediaCodec(
       String codecName,
       String mimeType,
       boolean isEncoder,
