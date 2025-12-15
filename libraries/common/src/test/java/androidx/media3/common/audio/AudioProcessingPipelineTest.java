@@ -22,6 +22,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
+import androidx.media3.exoplayer.audio.ToFloatPcmAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -340,6 +341,20 @@ public final class AudioProcessingPipelineTest {
     assertThat(bytesOutput.get(10)).isEqualTo((byte) 6);
     assertThat(bytesOutput.get(11)).isEqualTo((byte) 6);
     assertThat(bytesOutput.get(12)).isEqualTo((byte) 0);
+  }
+
+  @Test
+  public void reset_withActiveProcessors_makesPipelineNotOperational() throws Exception {
+    AudioProcessingPipeline pipeline =
+        new AudioProcessingPipeline(ImmutableList.of(new ToFloatPcmAudioProcessor()));
+    pipeline.configure(AUDIO_FORMAT);
+    pipeline.flush(StreamMetadata.DEFAULT);
+
+    assertThat(pipeline.isOperational()).isTrue();
+    pipeline.reset();
+
+    assertThat(pipeline.isOperational()).isFalse();
+    assertThat(pipeline.getOutput().hasRemaining()).isFalse();
   }
 
   private static class FakeAudioProcessor extends BaseAudioProcessor {

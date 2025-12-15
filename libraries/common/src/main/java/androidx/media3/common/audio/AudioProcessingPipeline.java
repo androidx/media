@@ -298,6 +298,7 @@ public final class AudioProcessingPipeline {
       audioProcessor.flush(StreamMetadata.DEFAULT);
       audioProcessor.reset();
     }
+    activeAudioProcessors.clear();
     outputBuffers = new ByteBuffer[0];
     outputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
