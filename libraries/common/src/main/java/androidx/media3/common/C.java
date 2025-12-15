@@ -991,6 +991,9 @@ public final class C {
    */
   @UnstableApi public static final int DATA_TYPE_MEDIA_PROGRESSIVE_LIVE = 7;
 
+  /** A data type constant for a steering manifest file. */
+  @UnstableApi public static final int DATA_TYPE_STEERING_MANIFEST = 8;
+
   /**
    * Applications or extensions may define custom {@code DATA_TYPE_*} constants greater than or
    * equal to this value.

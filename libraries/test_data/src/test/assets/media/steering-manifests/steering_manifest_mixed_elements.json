@@ -1,0 +1,86 @@
+{
+  "bar": [
+    {},
+    {
+      "foo": [
+        {
+          "URI": "http://1",
+          "DURATION": 12.123
+        },
+        {
+          "URI": "http://2",
+          "DURATION": 22.123
+        },
+        {
+          "URI": "http://3",
+          "DURATION": 32.123
+        }
+      ]
+    }
+  ],
+  "foo": "foo",
+  "fooObject": {
+    "attr1": "",
+    "attr2": 2.0
+  },
+  "VERSION": 1,
+  "TTL": 300,
+  "RELOAD-URI": "http://reload",
+  "PATHWAY-PRIORITY": [
+    "CDN-A-CLONE",
+    "CDN-B-CLONE",
+    "CDN-A",
+    "CDN-B",
+    123,
+    [],
+    {
+      "foo": "bar"
+    }
+  ],
+  "fooBar": "fooBar",
+  "barFoo": 12.00,
+  "nullFoo": null,
+  "PATHWAY-CLONES": [
+    {
+      "BASE-ID": "CDN-A",
+      "ID": "CDN-A-CLONE",
+      "URI-REPLACEMENT":
+      {
+        "HOST": "backup2.example.com",
+        "PARAMS":
+        {
+          "token": "dkfs1239414"
+        },
+        "PER-VARIANT-URIS": {
+          "Video-128": "https://q.example.com/video12/low/video.m3u8",
+          "Video-768": "https://q.example.com/video12/hi/video.m3u8"
+        },
+        "PER-RENDITION-URIS": {
+          "Audio-37262": "https://q.example.com/video12/eng.m3u8"
+        }
+      }
+    },
+    123,
+    "FooBar",
+    {
+      "BASE-ID": "CDN-B",
+      "ID": "CDN-B-CLONE",
+      "URI-REPLACEMENT":
+      {
+        "HOST": "backup3.example.com",
+        "PARAMS":
+        {
+          "token": "dkfs1239415"
+        }
+      }
+    },
+    true,
+    [],
+    {
+      "BASE-ID": "CDN-A",
+      "ID": "CDN-A-CLONE-3",
+      "URI-REPLACEMENT": {}
+    }
+  ],
+  "booleanFoo": true
+}
