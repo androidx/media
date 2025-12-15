@@ -33,9 +33,9 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
-import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -119,7 +119,7 @@ public final class MediaMuxerCompatTest {
     do {
       int sampleSize = (int) extractor.getSampleSize();
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
-      extractor.readSampleData(sampleBuffer, /* offset= */ 0);
+      int unused = extractor.readSampleData(sampleBuffer, /* offset= */ 0);
       sampleBuffer.rewind();
       int sampleTrackIndex = extractor.getSampleTrackIndex();
       MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
