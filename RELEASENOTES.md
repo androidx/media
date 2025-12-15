@@ -39,6 +39,8 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Deprecate `TimestampAdjustment` and `TimestampAdjustmentShaderProgram`
+        in favour of `EditedMediaItem.Builder#setSpeed(SpeedProvider)`.
 *   Muxers:
 *   IMA extension:
     *   Bug fix: Corrected an issue where the ad MIME type did not match the

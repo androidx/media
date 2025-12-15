@@ -25,8 +25,11 @@ import androidx.media3.common.util.UnstableApi;
  * Changes the frame timestamps using the {@link TimestampMap}.
  *
  * <p>This effect doesn't drop any frames.
+ *
+ * @deprecated Use {@code EditedMediaItem.Builder#setSpeed(SpeedProvider)} instead.
  */
 @UnstableApi
+@Deprecated
 public final class TimestampAdjustment implements GlEffect {
 
   /**

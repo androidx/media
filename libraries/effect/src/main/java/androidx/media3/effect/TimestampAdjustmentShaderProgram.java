@@ -28,8 +28,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Changes the frame timestamps using the {@link TimestampMap}. */
+/**
+ * Changes the frame timestamps using the {@link TimestampMap}.
+ *
+ * @deprecated Use {@code EditedMediaItem.Builder#setSpeed(SpeedProvider)} instead.
+ */
 @UnstableApi
+@Deprecated
 public class TimestampAdjustmentShaderProgram implements GlShaderProgram {
 
   private final TimestampMap timestampMap;

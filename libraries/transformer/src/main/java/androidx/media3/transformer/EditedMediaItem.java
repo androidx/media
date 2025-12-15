@@ -16,25 +16,20 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
-import static androidx.media3.transformer.TransformerUtil.validateSpeedChangingEffects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.IntRange;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.collect.ImmutableList;
@@ -60,7 +55,6 @@ public final class EditedMediaItem {
     private Effects effects;
     private SpeedProvider speedProvider;
     private ImmutableList<AudioProcessor> preProcessingAudioProcessors;
-    private boolean allowMatchingSpeedChangingEffectForSpeedProvider;
 
     /**
      * Creates an instance.
@@ -100,8 +94,6 @@ public final class EditedMediaItem {
       this.effects = editedMediaItem.effects;
       this.speedProvider = editedMediaItem.speedProvider;
       this.preProcessingAudioProcessors = editedMediaItem.preProcessingAudioProcessors;
-      this.allowMatchingSpeedChangingEffectForSpeedProvider =
-          editedMediaItem.allowMatchingSpeedChangingEffectForSpeedProvider;
     }
 
     /**
@@ -271,37 +263,6 @@ public final class EditedMediaItem {
     }
 
     /**
-     * Sets the provided {@link SpeedChangingAudioProcessor} and {@link TimestampAdjustment} as the
-     * first elements of their respective pipelines.
-     *
-     * <p>The effects' {@link SpeedProvider} must match the one set by {@link
-     * #setSpeed(SpeedProvider)}.
-     *
-     * @return This builder.
-     */
-    // TODO: b/456485329 - Move SpeedChangingAudioProcessor to the pre-processing pipeline.
-    @CanIgnoreReturnValue
-    /* package */ Builder setSpeedChangingEffects(
-        SpeedChangingAudioProcessor processor, @Nullable TimestampAdjustment effect) {
-      checkArgument(effect == null || processor.getSpeedProvider() == effect.speedProvider);
-      this.allowMatchingSpeedChangingEffectForSpeedProvider = true;
-      ImmutableList<AudioProcessor> audioProcessors =
-          new ImmutableList.Builder<AudioProcessor>()
-              .add(processor)
-              .addAll(effects.audioProcessors)
-              .build();
-      ImmutableList<Effect> videoEffects =
-          effect == null
-              ? effects.videoEffects
-              : new ImmutableList.Builder<Effect>()
-                  .add(effect)
-                  .addAll(effects.videoEffects)
-                  .build();
-      this.effects = new Effects(audioProcessors, videoEffects);
-      return this;
-    }
-
-    /**
      * Sets a list of {@link AudioProcessor} instances as the pre-processing pipeline for the item's
      * {@link AudioGraphInput}.
      *
@@ -364,8 +325,6 @@ public final class EditedMediaItem {
 
   /* package */ final ImmutableList<AudioProcessor> preProcessingAudioProcessors;
 
-  private final boolean allowMatchingSpeedChangingEffectForSpeedProvider;
-
   /** The duration for which this {@code EditedMediaItem} should be presented, in microseconds. */
   private long presentationDurationUs;
 
@@ -381,12 +340,7 @@ public final class EditedMediaItem {
     }
 
     if (builder.speedProvider != SpeedProvider.DEFAULT) {
-      if (builder.allowMatchingSpeedChangingEffectForSpeedProvider) {
-        checkState(validateSpeedChangingEffects(builder.effects, builder.speedProvider));
-        checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ true));
-      } else {
-        checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ false));
-      }
+      checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ false));
     }
 
     this.mediaItem = builder.mediaItem;
@@ -398,8 +352,6 @@ public final class EditedMediaItem {
     this.effects = builder.effects;
     this.speedProvider = builder.speedProvider;
     this.preProcessingAudioProcessors = builder.preProcessingAudioProcessors;
-    this.allowMatchingSpeedChangingEffectForSpeedProvider =
-        builder.allowMatchingSpeedChangingEffectForSpeedProvider;
     presentationDurationUs = C.TIME_UNSET;
   }
 
@@ -461,10 +413,6 @@ public final class EditedMediaItem {
    * @param durationUs The input duration in microseconds.
    */
   /* package */ long getDurationAfterEffectsApplied(long durationUs) {
-    if (speedProvider != SpeedProvider.DEFAULT) {
-      return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
-    }
-
     long audioDurationUs = durationUs;
     long videoDurationUs = durationUs;
     if (removeAudio) {

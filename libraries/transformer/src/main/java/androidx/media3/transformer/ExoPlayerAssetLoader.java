@@ -42,6 +42,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -250,6 +251,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
   private final ExoPlayer player;
+  private final MediaSource.Factory mediaSourceFactory;
 
   private @Transformer.ProgressState int progressState;
   private long durationUs;
@@ -269,6 +271,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
+    this.mediaSourceFactory = mediaSourceFactory;
 
     TrackSelector trackSelector = trackSelectorFactory.createTrackSelector(context);
     ExoPlayer.Builder playerBuilder =
@@ -303,7 +306,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
   @Override
   public void start() {
-    player.setMediaItem(editedMediaItem.mediaItem);
+    player.setMediaSource(createMediaSourceForEditedMediaItem(mediaSourceFactory, editedMediaItem));
     player.prepare();
     progressState = PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
   }
@@ -338,6 +341,25 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   public void release() {
     player.release();
     progressState = PROGRESS_STATE_NOT_STARTED;
+  }
+
+  /**
+   * Returns a {@link MediaSource} representing the provided {@link EditedMediaItem}.
+   *
+   * <p>This method creates the {@link MediaSource} using {@code factory} and optionally wraps the
+   * new source in a {@link SpeedChangingMediaSource}.
+   */
+  private static MediaSource createMediaSourceForEditedMediaItem(
+      MediaSource.Factory factory, EditedMediaItem editedMediaItem) {
+    MediaSource mediaSource = factory.createMediaSource(editedMediaItem.mediaItem);
+    if (editedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+      mediaSource =
+          new SpeedChangingMediaSource(
+              mediaSource,
+              editedMediaItem.speedProvider,
+              editedMediaItem.mediaItem.clippingConfiguration);
+    }
+    return mediaSource;
   }
 
   private static final class RenderersFactoryImpl implements RenderersFactory {

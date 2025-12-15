@@ -66,7 +66,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.PacketProcessor;
-import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -1397,10 +1396,9 @@ public final class Transformer {
   }
 
   private static EditedMediaItem addSpeedChangingEffects(EditedMediaItem item) {
-    SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(item.speedProvider);
-    TimestampAdjustment effect =
-        new TimestampAdjustment(processor::getSpeedAdjustedTimeAsync, item.speedProvider);
-    return item.buildUpon().setSpeedChangingEffects(processor, effect).build();
+    SpeedChangingAudioProcessor processor =
+        new SpeedChangingAudioProcessor(item.speedProvider, /* shouldAdjustTimestamps= */ false);
+    return item.buildUpon().setPreProcessingAudioProcessors(ImmutableList.of(processor)).build();
   }
 
   private void maybeInitializeExportWatchdogTimer() {
