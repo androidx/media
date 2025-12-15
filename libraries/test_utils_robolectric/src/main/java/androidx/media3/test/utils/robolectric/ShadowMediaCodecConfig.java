@@ -255,8 +255,10 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
             .setCapabilities(capabilities.build())
             .build());
     if (isEncoder) {
+      EncoderUtil.clearCachedEncoders();
       ShadowMediaCodec.addEncoder(codecName, codecConfig);
     } else {
+      MediaCodecUtil.clearDecoderInfoCache();
       ShadowMediaCodec.addDecoder(codecName, codecConfig);
     }
   }
