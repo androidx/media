@@ -327,6 +327,7 @@ public final class FrameExtractorInternal {
           ExoPlayer player = checkNotNull(this.player);
           if (needsPrepare) {
             lastSeekDedupeFrame = null;
+            extractedFrameNeedsRendering.set(true);
             thumbnailPresentationTimeMs = C.TIME_UNSET;
             player.setVideoEffects(videoEffects);
             player.setMediaItem(request.mediaItem);
