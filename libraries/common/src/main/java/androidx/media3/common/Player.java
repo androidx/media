@@ -62,7 +62,17 @@ import java.util.Objects;
  *       same thread.
  *   <li>The available functionality can be limited. Player instances provide a set of {@link
  *       #getAvailableCommands() available commands} to signal feature support and users of the
- *       interface must only call methods if the corresponding {@link Command} is available.
+ *       interface must only call methods if the corresponding {@link Command} is available. An
+ *       implementation has some flexibility in how to handle a call to a method when the
+ *       corresponding command is not available. Options include (non-exhaustive):
+ *       <ul>
+ *         <li>Do nothing (for a void method), or return an 'unset' or 'default' value.
+ *         <li>Throw an exception.
+ *         <li>Perform the requested operation anyway.
+ *         <li>Perform some 'default' version of the requested operation (e.g. {@link #seekTo(long)}
+ *             may trigger {@link #seekToDefaultPosition()} if called when {@link
+ *             #COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM} is not available).
+ *       </ul>
  *   <li>Users can register {@link Player.Listener} callbacks that get informed about state changes.
  *   <li>Player instances need to update the visible state immediately after each method call, even
  *       if the actual changes are handled on background threads or even other devices. This
