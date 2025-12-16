@@ -135,7 +135,7 @@ public final class VideoDecodingWrapper implements AutoCloseable {
               sampleMimeType, /* secure= */ false, /* tunneling= */ false);
       Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
       for (MediaCodecInfo codecInfo : codecInfos) {
-        if (!codecInfo.hardwareAccelerated && codecInfo.isFormatSupported(format)) {
+        if (!codecInfo.hardwareAccelerated && codecInfo.isFormatSupported(context, format)) {
           softwareMediaCodec = MediaCodec.createByCodecName(codecInfo.name);
           break;
         }

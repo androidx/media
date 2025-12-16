@@ -32,6 +32,9 @@
         'libiamf' to 'iamf_tools'.
     *   `IamfDecoder` now supports changing output mix (layout or ID) during
         playback.
+    *   Correctly remove support for `AC4Profile22` and other legacy profiles
+        when assessing AC-4 decoder support in Automotive scenarios
+        ([#2609](https://github.com/androidx/media/pull/2609)).
 *   Video:
 *   Text:
 *   Metadata:
@@ -39,8 +42,6 @@
 *   DataSource:
 *   DRM:
 *   Effect:
-    *   Deprecate `TimestampAdjustment` and `TimestampAdjustmentShaderProgram`
-        in favour of `EditedMediaItem.Builder#setSpeed(SpeedProvider)`.
 *   Muxers:
 *   IMA extension:
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
