@@ -358,7 +358,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
-    private long nextSampleExpectedTimestampUs;
+    private long nextDecoderOutputExpectedTimestampUs;
     private long expectedTimestampDeltaUs;
 
     public SequenceVideoRenderer(
@@ -379,7 +379,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setVideoSink(bufferingVideoSink));
       this.bufferingVideoSink = bufferingVideoSink;
       this.pendingEffects = ImmutableList.of();
-      nextSampleExpectedTimestampUs = C.TIME_UNSET;
+      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
       expectedTimestampDeltaUs = C.TIME_UNSET;
     }
 
@@ -434,7 +434,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
         throws ExoPlaybackException {
       super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
-      nextSampleExpectedTimestampUs = C.TIME_UNSET;
+      nextDecoderOutputExpectedTimestampUs = C.TIME_UNSET;
     }
 
     @Override
@@ -476,16 +476,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       long outputStreamOffsetUs = getOutputStreamOffsetUs();
       long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
-      // This algorithm will always pick the first sample that is after desired timestamp and then
-      // it will start looking for the next desired timestamp.
-      // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
-      // When seeking is performed, the desired timestamps are shifted accordingly.
-      // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
-      // 1_066_666....
-      // This algorithm has no impact if the target frame rate is greater that input frame rate.
-      if (shouldMaintainTargetFrameRate()
-          && nextSampleExpectedTimestampUs != C.TIME_UNSET
-          && presentationTimeUs < nextSampleExpectedTimestampUs
+      if (shouldDropFrameToMaintainTargetFrameRate(
+              presentationTimeUs, nextDecoderOutputExpectedTimestampUs)
           && !isLastBuffer) {
         skipOutputBuffer(checkNotNull(codec), bufferIndex, presentationTimeUs);
         return true;
@@ -503,10 +495,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           isLastBuffer,
           format)) {
         if (shouldMaintainTargetFrameRate()) {
-          nextSampleExpectedTimestampUs =
-              (nextSampleExpectedTimestampUs == C.TIME_UNSET)
+          nextDecoderOutputExpectedTimestampUs =
+              (nextDecoderOutputExpectedTimestampUs == C.TIME_UNSET)
                   ? (presentationTimeUs + expectedTimestampDeltaUs)
-                  : (nextSampleExpectedTimestampUs + expectedTimestampDeltaUs);
+                  : (nextDecoderOutputExpectedTimestampUs + expectedTimestampDeltaUs);
         }
         return true;
       }
@@ -602,6 +594,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private boolean shouldMaintainTargetFrameRate() {
       return expectedTimestampDeltaUs != C.TIME_UNSET;
+    }
+
+    private boolean shouldDropFrameToMaintainTargetFrameRate(
+        long presentationTimeUs, long nextExpectedPresentationTimeUs) {
+      // This algorithm will always pick the first sample that is after desired timestamp and then
+      // it will start looking for the next desired timestamp.
+      // For example, for a 30 fps, the desired timestamps are 0, 33_333, 66_666....
+      // When seeking is performed, the desired timestamps are shifted accordingly.
+      // For example, when seeking to 1 sec, the desired timestamps are 1_000_000, 1_033_333,
+      // 1_066_666....
+      // This algorithm has no impact if the target frame rate is greater that input frame rate.
+      return shouldMaintainTargetFrameRate()
+          && nextExpectedPresentationTimeUs != C.TIME_UNSET
+          && presentationTimeUs < nextExpectedPresentationTimeUs;
     }
 
     private void activateBufferingVideoSink() {
