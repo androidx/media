@@ -325,6 +325,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     try {
       decoderInfos =
           MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
+              context,
               MediaCodecUtil.getDecoderInfosSoftMatch(
                   mediaCodecSelector,
                   format,

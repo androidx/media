@@ -1013,6 +1013,7 @@ public class MediaCodecRendererTest {
 
     public TestRenderer(MediaCodecAdapter.Factory mediaCodecAdapterFactory) {
       super(
+          ApplicationProvider.getApplicationContext(),
           C.TRACK_TYPE_AUDIO,
           mediaCodecAdapterFactory,
           /* mediaCodecSelector= */ (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->

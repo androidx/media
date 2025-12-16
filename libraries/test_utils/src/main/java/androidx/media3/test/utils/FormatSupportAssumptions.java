@@ -82,7 +82,7 @@ public class FormatSupportAssumptions {
       @Nullable Format outputFormat,
       boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    boolean canDecode = inputFormat == null || canDecode(inputFormat);
+    boolean canDecode = inputFormat == null || canDecode(context, inputFormat);
 
     boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
     boolean canMux = outputFormat == null || canMux(outputFormat);
@@ -105,21 +105,23 @@ public class FormatSupportAssumptions {
     throw new AssumptionViolatedException(skipReason);
   }
 
-  private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {
+  private static boolean canDecode(Context context, Format format)
+      throws MediaCodecUtil.DecoderQueryException {
     if (MimeTypes.isImage(format.sampleMimeType)) {
       return Util.isBitmapFactorySupportedMimeType(checkNotNull(format.sampleMimeType));
     }
 
     // Check decoding capability in the same way as the default decoder factory.
-    return findDecoderForFormat(format) != null && !deviceNeedsDisable8kWorkaround(format);
+    return findDecoderForFormat(context, format) != null && !deviceNeedsDisable8kWorkaround(format);
   }
 
   @Nullable
-  private static String findDecoderForFormat(Format format)
+  private static String findDecoderForFormat(Context context, Format format)
       throws MediaCodecUtil.DecoderQueryException {
     checkNotNull(format.sampleMimeType);
     List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =
         MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
+            context,
             MediaCodecUtil.getDecoderInfosSoftMatch(
                 MediaCodecSelector.DEFAULT,
                 format,
@@ -133,7 +135,7 @@ public class FormatSupportAssumptions {
       // example, Pixel 6a can decode an 8K video but this method returns false. The
       // DefaultDecoderFactory does not rely on this method rather it directly initialize the
       // decoder. See b/222095724#comment9.
-      if (decoderInfo.isFormatSupported(format)) {
+      if (decoderInfo.isFormatSupported(context, format)) {
         return decoderInfo.name;
       }
     }

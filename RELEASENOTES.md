@@ -15,6 +15,10 @@
         `doSomeWork` was mistakenly reduced by the elapsed time of the current
         iteration of `doSomeWork`. Addressing this hopefully extends CPU idle
         time and saves power.
+*   Audio:
+    *   Correctly remove support for `AC4Profile22` and other legacy profiles
+        when assessing AC-4 decoder support in Automotive scenarios
+        ([#2609](https://github.com/androidx/media/pull/2609)).
 *   IMA extension:
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.CodecSpecificDataUtil.getHevcProfileAn
 import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
@@ -256,10 +257,11 @@ public final class MediaCodecUtil {
    */
   @CheckResult
   public static List<MediaCodecInfo> getDecoderInfosSortedByFormatSupport(
-      List<MediaCodecInfo> decoderInfos, Format format) {
+      Context context, List<MediaCodecInfo> decoderInfos, Format format) {
     decoderInfos = new ArrayList<>(decoderInfos);
     sortByScore(
-        decoderInfos, decoderInfo -> decoderInfo.isFormatFunctionallySupported(format) ? 1 : 0);
+        decoderInfos,
+        decoderInfo -> decoderInfo.isFormatFunctionallySupported(context, format) ? 1 : 0);
     return decoderInfos;
   }
 
@@ -269,16 +271,12 @@ public final class MediaCodecUtil {
    */
   @CheckResult
   public static List<MediaCodecInfo> getDecoderInfosSortedByFullFormatSupport(
-      List<MediaCodecInfo> decoderInfos, Format format) {
+      Context context, List<MediaCodecInfo> decoderInfos, Format format) {
     decoderInfos = new ArrayList<>(decoderInfos);
     sortByScore(
         decoderInfos,
         decoderInfo -> {
-          try {
-            return decoderInfo.isFormatSupported(format) ? 1 : 0;
-          } catch (DecoderQueryException e) {
-            return -1;
-          }
+          return decoderInfo.isFormatSupported(context, format) ? 1 : 0;
         });
     return decoderInfos;
   }
