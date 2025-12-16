@@ -139,7 +139,6 @@ public class RemoteCastPlayerTest {
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
 
-  @SuppressWarnings("deprecation")
   @Before
   public void setUp() {
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
