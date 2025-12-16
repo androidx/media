@@ -25,7 +25,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.collection.CircularIntArray;
+import androidx.media3.common.util.CircularIntArray;
 import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;

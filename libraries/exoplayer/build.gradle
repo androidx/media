@@ -53,8 +53,6 @@ dependencies {
     api project(modulePrefix + 'lib-extractor')
     api project(modulePrefix + 'lib-database')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.collection:collection:' + androidxCollectionVersion
-    implementation 'androidx.core:core:' + androidxCoreVersion
     implementation 'androidx.exifinterface:exifinterface:' + androidxExifInterfaceVersion
     compileOnly 'com.google.code.findbugs:jsr305:' + jsr305Version
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
