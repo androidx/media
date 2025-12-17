@@ -103,7 +103,7 @@ import java.lang.reflect.Method;
    *
    * <p>This is a fail safe that should not be required on correctly functioning devices.
    */
-  private static final long MAX_LATENCY_US = 5 * C.MICROS_PER_SECOND;
+  private static final long MAX_LATENCY_US = 10 * C.MICROS_PER_SECOND;
 
   /**
    * The maximum offset between the expected position and the reported position to attempt
@@ -387,13 +387,17 @@ import java.lang.reflect.Method;
       }
     }
 
-    maybeUpdateLatency(systemTimeUs);
+    boolean latencyUpdated = maybeUpdateLatency(systemTimeUs);
 
     audioTimestampPoller.maybePollTimestamp(
-        systemTimeUs, audioTrackPlaybackSpeed, getPlaybackHeadPositionEstimateUs(systemTimeUs));
+        systemTimeUs,
+        audioTrackPlaybackSpeed,
+        getPlaybackHeadPositionEstimateUs(systemTimeUs),
+        /* forceUpdate= */ latencyUpdated);
   }
 
-  private void maybeUpdateLatency(long systemTimeUs) {
+  private boolean maybeUpdateLatency(long systemTimeUs) {
+    long previousLatencyUs = latencyUs;
     if (isOutputPcm
         && getLatencyMethod != null
         && systemTimeUs - lastLatencySampleTimeUs >= MIN_LATENCY_SAMPLE_INTERVAL_US) {
@@ -416,6 +420,7 @@ import java.lang.reflect.Method;
       }
       lastLatencySampleTimeUs = systemTimeUs;
     }
+    return previousLatencyUs != latencyUs;
   }
 
   private long getPlaybackHeadPositionEstimateUs(long systemTimeUs) {
