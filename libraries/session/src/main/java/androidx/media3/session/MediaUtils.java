@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.core.util.Preconditions.checkState;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.min;
@@ -130,6 +131,9 @@ import java.util.List;
    * @param newPlayerInfo The new {@link PlayerInfo}.
    * @param newBundlingExclusions The bundling exclusions in the new {@link PlayerInfo}.
    * @param availablePlayerCommands The available commands to take into account when merging.
+   * @param keepOldUnmuteVolumeForMutedSessions Whether the old unmute volume should be kept for
+   *     muted sessions.
+   * @param connectedToken The {@link SessionToken} of the connected session.
    * @return The resulting merged {@link PlayerInfo}.
    */
   public static PlayerInfo mergePlayerInfo(
@@ -137,10 +141,26 @@ import java.util.List;
       PlayerInfo newPlayerInfo,
       BundlingExclusions newBundlingExclusions,
       Commands availablePlayerCommands,
-      boolean keepOldUnmuteVolumeForMutedSessions) {
+      boolean keepOldUnmuteVolumeForMutedSessions,
+      SessionToken connectedToken) {
     PlayerInfo mergedPlayerInfo = newPlayerInfo;
     if (newBundlingExclusions.isTimelineExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)) {
+      // Detect inconsistent/invalid update with detailed logging (see b/464438593).
+      checkState(
+          oldPlayerInfo.timeline.isEmpty()
+              || mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                  < oldPlayerInfo.timeline.getWindowCount(),
+          "Invalid PlayerInfo update, old index: "
+              + oldPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+              + " (count="
+              + oldPlayerInfo.timeline.getWindowCount()
+              + "), new index = "
+              + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+              + ", sent from "
+              + connectedToken.getPackageName()
+              + ", interface version="
+              + connectedToken.getInterfaceVersion());
       // Use the previous timeline if it is excluded in the most recent update.
       mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
     }
