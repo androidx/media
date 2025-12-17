@@ -2936,7 +2936,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               newPlayerInfo,
               bundlingExclusions,
               intersectedPlayerCommands,
-              keepOldUnmuteVolumeForMutedSessions);
+              keepOldUnmuteVolumeForMutedSessions,
+              checkNotNull(connectedToken));
       if (pendingMaskingSequencedFutureNumbers.isEmpty()) {
         // Finish masking.
         newPlayerInfo = pendingPlayerInfo;
@@ -2956,7 +2957,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             newPlayerInfo,
             /* newBundlingExclusions= */ bundlingExclusions,
             intersectedPlayerCommands,
-            keepOldUnmuteVolumeForMutedSessions);
+            keepOldUnmuteVolumeForMutedSessions,
+            checkNotNull(connectedToken));
     PlayerInfo finalPlayerInfo = playerInfo;
 
     @Nullable
