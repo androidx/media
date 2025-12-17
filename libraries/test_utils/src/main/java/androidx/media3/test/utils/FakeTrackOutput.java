@@ -27,13 +27,12 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.test.utils.Dumper.Dumpable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 /** A fake {@link TrackOutput}. */
@@ -191,12 +190,12 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     return sampleInfos.size();
   }
 
-  public List<Long> getSampleTimesUs() {
-    List<Long> sampleTimesUs = new ArrayList<>();
+  public ImmutableList<Long> getSampleTimesUs() {
+    ImmutableList.Builder<Long> sampleTimesUs = new ImmutableList.Builder<>();
     for (DumpableSampleInfo sampleInfo : sampleInfos) {
       sampleTimesUs.add(sampleInfo.timeUs);
     }
-    return Collections.unmodifiableList(sampleTimesUs);
+    return sampleTimesUs.build();
   }
 
   @Override

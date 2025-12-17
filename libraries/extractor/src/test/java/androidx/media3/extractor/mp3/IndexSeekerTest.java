@@ -29,8 +29,8 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -190,7 +190,7 @@ public class IndexSeekerTest {
   }
 
   private static int getFrameIndex(FakeTrackOutput trackOutput, long targetSeekTimeUs) {
-    List<Long> frameTimes = trackOutput.getSampleTimesUs();
+    ImmutableList<Long> frameTimes = trackOutput.getSampleTimesUs();
     return Util.binarySearchFloor(
         frameTimes, targetSeekTimeUs, /* inclusive= */ true, /* stayInBounds= */ false);
   }

@@ -164,7 +164,7 @@ public final class TestUtil {
    * @param filePath The {@link String filepath} to get video timestamps for.
    * @return The {@link List} of video timestamps.
    */
-  public static List<Long> getVideoSampleTimesUs(String filePath) throws IOException {
+  public static ImmutableList<Long> getVideoSampleTimesUs(String filePath) throws IOException {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
@@ -178,7 +178,7 @@ public final class TestUtil {
    * @param filePath The {@link String filepath} to get audio timestamps for.
    * @return The {@link List} of audio timestamps.
    */
-  public static List<Long> getAudioSampleTimesUs(String filePath) throws IOException {
+  public static ImmutableList<Long> getAudioSampleTimesUs(String filePath) throws IOException {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));

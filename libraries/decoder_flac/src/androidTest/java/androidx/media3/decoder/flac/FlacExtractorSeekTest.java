@@ -27,8 +27,8 @@ import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -278,7 +278,7 @@ public final class FlacExtractorSeekTest {
   }
 
   private static int getFrameIndex(FakeTrackOutput expectedTrackOutput, long targetSeekTimeUs) {
-    List<Long> frameTimes = expectedTrackOutput.getSampleTimesUs();
+    ImmutableList<Long> frameTimes = expectedTrackOutput.getSampleTimesUs();
     return Util.binarySearchFloor(
         frameTimes, targetSeekTimeUs, /* inclusive= */ true, /* stayInBounds= */ false);
   }

@@ -127,7 +127,6 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -1095,7 +1094,7 @@ public class TransformerEndToEndTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
-    List<Long> videoTimestampsUs =
+    ImmutableList<Long> videoTimestampsUs =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
             .getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
@@ -1125,7 +1124,7 @@ public class TransformerEndToEndTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
-    List<Long> videoTimestampsUs =
+    ImmutableList<Long> videoTimestampsUs =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
             .getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
