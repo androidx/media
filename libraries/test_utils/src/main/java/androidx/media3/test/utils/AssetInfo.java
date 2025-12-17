@@ -685,7 +685,7 @@ public final class AssetInfo {
                   .setWidth(1280)
                   .setHeight(720)
                   .setFrameRate(30.00f)
-                  .setCodecs("hev1.08.02")
+                  .setCodecs("dvhe.08.02")
                   .setColorInfo(
                       new ColorInfo.Builder()
                           .setColorTransfer(C.COLOR_TRANSFER_HLG)
