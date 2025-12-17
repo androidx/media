@@ -726,7 +726,11 @@ public class MediaControllerStateMaskingTest {
     int testDeviceVolume = 2;
     int volumeFlags = 0;
     Bundle playerConfig =
-        new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceVolume(0).build();
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setDeviceVolume(0)
+            .setDeviceInfo(
+                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(5).build())
+            .build();
     remoteSession.setPlayer(playerConfig);
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -777,7 +781,7 @@ public class MediaControllerStateMaskingTest {
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setDeviceVolume(1)
             .setDeviceInfo(
-                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(2).build())
+                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(2).build())
             .build();
     remoteSession.setPlayer(playerConfig);
 
@@ -825,7 +829,11 @@ public class MediaControllerStateMaskingTest {
   public void decreaseDeviceVolume() throws Exception {
     int testDeviceVolume = 2;
     Bundle playerConfig =
-        new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceVolume(3).build();
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setDeviceVolume(3)
+            .setDeviceInfo(
+                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(5).build())
+            .build();
     remoteSession.setPlayer(playerConfig);
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -874,7 +882,11 @@ public class MediaControllerStateMaskingTest {
     boolean testDeviceMuted = true;
     int volumeFlags = C.VOLUME_FLAG_VIBRATE;
     Bundle playerConfig =
-        new RemoteMediaSession.MockPlayerConfigBuilder().setDeviceMuted(false).build();
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setDeviceMuted(false)
+            .setDeviceInfo(
+                new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(5).build())
+            .build();
     remoteSession.setPlayer(playerConfig);
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());

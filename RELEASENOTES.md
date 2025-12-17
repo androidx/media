@@ -56,6 +56,10 @@
         `LifecycleService`, more easily allowing to attach lifecycle-aware
         operations to the service's lifecycle
         ([#187](https://github.com/androidx/media/issues/187)).
+    *   Stop supporting device volume change commands from `MediaController` and
+        `MediaBrowser` for local playbacks. Apps should not change the local
+        device volume, and if required, can use `AudioManager` APIs for this
+        purpose.
 *   UI:
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and

@@ -94,6 +94,9 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .setChangePlayerStateWithTransportControl(true)
             .build();
+    // Set player remote to allow tests with device volume changes.
+    player.deviceInfo =
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
     asyncHandlerThread = new HandlerThread("AsyncHandlerThread");
     asyncHandlerThread.start();
     Handler asyncHandler = new Handler(asyncHandlerThread.getLooper());
@@ -844,7 +847,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
     int testVolume = 12;
 
     controller.setDeviceVolume(testVolume);
@@ -855,8 +857,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void increaseDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
-
     controller.increaseDeviceVolume();
 
     player.awaitMethodCalled(MockPlayer.METHOD_INCREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -864,8 +864,6 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void decreaseDeviceVolume() throws Exception {
-    changePlaybackTypeToRemote();
-
     controller.decreaseDeviceVolume();
 
     player.awaitMethodCalled(MockPlayer.METHOD_DECREASE_DEVICE_VOLUME, TIMEOUT_MS);
@@ -2129,16 +2127,5 @@ public class MediaSessionPlayerTest {
     session.release();
 
     assertThat(controllerInfoFromPlayerMethod.get().getInterfaceVersion()).isEqualTo(0);
-  }
-
-  private void changePlaybackTypeToRemote() throws Exception {
-    threadTestRule
-        .getHandler()
-        .postAndSync(
-            () -> {
-              player.deviceInfo =
-                  new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(100).build();
-              player.notifyDeviceInfoChanged();
-            });
   }
 }

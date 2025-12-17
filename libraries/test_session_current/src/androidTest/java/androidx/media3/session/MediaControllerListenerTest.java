@@ -16,8 +16,12 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
+import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
+import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_DEVICE_VOLUME;
+import static androidx.media3.common.Player.COMMAND_GET_METADATA;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
+import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_RELEASE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
@@ -863,7 +867,15 @@ public class MediaControllerListenerTest {
     int testCurrentAdGroupIndex = 33;
     int testCurrentAdIndexInAdGroup = 11;
     Commands testCommands =
-        new Commands.Builder().addAllCommands().remove(Player.COMMAND_STOP).build();
+        new Commands.Builder()
+            .addAll(
+                COMMAND_GET_TIMELINE,
+                COMMAND_GET_TRACKS,
+                COMMAND_GET_CURRENT_MEDIA_ITEM,
+                COMMAND_GET_AUDIO_ATTRIBUTES,
+                COMMAND_GET_METADATA,
+                COMMAND_RELEASE)
+            .build();
     AtomicInteger stateRef = new AtomicInteger();
     AtomicReference<Timeline> timelineRef = new AtomicReference<>();
     AtomicReference<MediaMetadata> playlistMetadataRef = new AtomicReference<>();
@@ -1739,7 +1751,7 @@ public class MediaControllerListenerTest {
             });
 
     player.notifyAvailableCommandsChanged(
-        availableCommands.get().buildUpon().remove(Player.COMMAND_GET_TRACKS).build());
+        availableCommands.get().buildUpon().remove(COMMAND_GET_TRACKS).build());
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(capturedCurrentTracks).hasSize(2);

@@ -122,6 +122,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private final ArraySet<Integer> pendingMaskingSequencedFutureNumbers;
   private final SparseArray<ProgressListener> pendingCustomActionProgressListeners;
   private final Handler fallbackPlaybackInfoUpdateHandler;
+  private final boolean allowDeviceVolumeCommandsForLocalPlayback;
 
   @Nullable private SessionToken connectedToken;
   @Nullable private SessionServiceConnection serviceConnection;
@@ -153,7 +154,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       @UnderInitialization MediaController instance,
       SessionToken token,
       Bundle connectionHints,
-      Looper applicationLooper) {
+      Looper applicationLooper,
+      boolean allowDeviceVolumeCommandsForLocalPlayback) {
+    this.allowDeviceVolumeCommandsForLocalPlayback = allowDeviceVolumeCommandsForLocalPlayback;
     // Initialize default values.
     playerInfo = PlayerInfo.DEFAULT;
     surfaceSize = Size.UNKNOWN;
@@ -166,7 +169,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     playerCommandsFromSession = Commands.EMPTY;
     playerCommandsFromPlayer = Commands.EMPTY;
     intersectedPlayerCommands =
-        createIntersectedCommandsEnsuringCommandReleaseAvailable(
+        createIntersectedCommandsWithControllerOverrides(
             playerCommandsFromSession, playerCommandsFromPlayer);
     listeners =
         new ListenerSet<>(
@@ -2804,12 +2807,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     iSession = result.sessionBinder;
+    playerInfo = result.playerInfo;
     sessionActivity = result.sessionActivity;
     sessionCommands = result.sessionCommands;
     playerCommandsFromSession = result.playerCommandsFromSession;
     playerCommandsFromPlayer = result.playerCommandsFromPlayer;
     intersectedPlayerCommands =
-        createIntersectedCommandsEnsuringCommandReleaseAvailable(
+        createIntersectedCommandsWithControllerOverrides(
             playerCommandsFromSession, playerCommandsFromPlayer);
     customLayoutOriginal = result.customLayout;
     mediaButtonPreferencesOriginal = result.mediaButtonPreferences;
@@ -2838,7 +2842,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       }
     }
     commandButtonsForMediaItemsMap = commandButtonsForMediaItems.buildOrThrow();
-    playerInfo = result.playerInfo;
     MediaSession.Token platformToken =
         result.platformToken == null ? token.getPlatformToken() : result.platformToken;
     if (platformToken != null) {
@@ -3016,7 +3019,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       playerCommandsFromSession = playerCommands;
       Commands prevIntersectedPlayerCommands = intersectedPlayerCommands;
       intersectedPlayerCommands =
-          createIntersectedCommandsEnsuringCommandReleaseAvailable(
+          createIntersectedCommandsWithControllerOverrides(
               playerCommandsFromSession, playerCommandsFromPlayer);
       intersectedPlayerCommandsChanged =
           !Objects.equals(intersectedPlayerCommands, prevIntersectedPlayerCommands);
@@ -3079,7 +3082,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     playerCommandsFromPlayer = commandsFromPlayer;
     Commands prevIntersectedPlayerCommands = intersectedPlayerCommands;
     intersectedPlayerCommands =
-        createIntersectedCommandsEnsuringCommandReleaseAvailable(
+        createIntersectedCommandsWithControllerOverrides(
             playerCommandsFromSession, playerCommandsFromPlayer);
     boolean intersectedPlayerCommandsChanged =
         !Objects.equals(intersectedPlayerCommands, prevIntersectedPlayerCommands);
@@ -3658,13 +3661,32 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         mediaButtonPreferences, backSlotAllowed, forwardSlotAllowed, interfaceVersion);
   }
 
-  private static Commands createIntersectedCommandsEnsuringCommandReleaseAvailable(
+  @SuppressWarnings("deprecation") // Removing deprecated volume commands
+  private Commands createIntersectedCommandsWithControllerOverrides(
       Commands commandFromSession, Commands commandsFromPlayer) {
     Commands intersectedCommands = MediaUtils.intersect(commandFromSession, commandsFromPlayer);
     // Release is always available as it just releases the connection, not the underlying player.
-    return intersectedCommands.contains(Player.COMMAND_RELEASE)
-        ? intersectedCommands
-        : intersectedCommands.buildUpon().add(Player.COMMAND_RELEASE).build();
+    // Device volume setting is not available for local playback.
+    boolean removeDeviceVolumeCommands =
+        playerInfo.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL
+            && !allowDeviceVolumeCommandsForLocalPlayback;
+    if (intersectedCommands.contains(Player.COMMAND_RELEASE)
+        && (!removeDeviceVolumeCommands
+            || !intersectedCommands.containsAny(
+                Player.COMMAND_SET_DEVICE_VOLUME,
+                Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS,
+                Player.COMMAND_ADJUST_DEVICE_VOLUME,
+                Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS))) {
+      return intersectedCommands;
+    }
+    return intersectedCommands
+        .buildUpon()
+        .add(Player.COMMAND_RELEASE)
+        .removeIf(Player.COMMAND_SET_DEVICE_VOLUME, removeDeviceVolumeCommands)
+        .removeIf(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS, removeDeviceVolumeCommands)
+        .removeIf(Player.COMMAND_ADJUST_DEVICE_VOLUME, removeDeviceVolumeCommands)
+        .removeIf(Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS, removeDeviceVolumeCommands)
+        .build();
   }
 
   // This will be called on the main thread.

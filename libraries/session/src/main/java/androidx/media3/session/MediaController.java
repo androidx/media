@@ -55,6 +55,7 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
@@ -216,6 +217,7 @@ public class MediaController implements Player {
     private @MonotonicNonNull BitmapLoader bitmapLoader;
     private int maxCommandsForMediaItems;
     private long platformSessionCallbackAggregationTimeoutMs;
+    private boolean allowDeviceVolumeCommandsForLocalPlayback;
 
     /**
      * Creates a builder for {@link MediaController}.
@@ -334,7 +336,7 @@ public class MediaController implements Player {
      * <p>The default is 100ms.
      *
      * @param platformSessionCallbackAggregationTimeoutMs The timeout, in milliseconds.
-     * @return tThe builder to allow chaining.
+     * @return The builder to allow chaining.
      */
     @UnstableApi
     @CanIgnoreReturnValue
@@ -342,6 +344,26 @@ public class MediaController implements Player {
         long platformSessionCallbackAggregationTimeoutMs) {
       this.platformSessionCallbackAggregationTimeoutMs =
           platformSessionCallbackAggregationTimeoutMs;
+      return this;
+    }
+
+    /**
+     * Sets whether {@link Player#COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS} and {@link
+     * Player#COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS} are allowed to be available for {@linkplain
+     * DeviceInfo#PLAYBACK_TYPE_LOCAL local} playbacks (assuming the media session supports it).
+     *
+     * <p>The default is {@code false}. Local device volume changes should not generally be done by
+     * apps and can be triggered via {@link android.media.AudioManager} without using a media
+     * controller or media session.
+     *
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    @ExperimentalApi
+    public Builder setAllowDeviceVolumeCommandsForLocalPlayback(
+        boolean allowDeviceVolumeCommandsForLocalPlayback) {
+      this.allowDeviceVolumeCommandsForLocalPlayback = allowDeviceVolumeCommandsForLocalPlayback;
       return this;
     }
 
@@ -387,7 +409,8 @@ public class MediaController implements Player {
               holder,
               bitmapLoader,
               maxCommandsForMediaItems,
-              platformSessionCallbackAggregationTimeoutMs);
+              platformSessionCallbackAggregationTimeoutMs,
+              allowDeviceVolumeCommandsForLocalPlayback);
       postOrRun(new Handler(applicationLooper), () -> holder.setController(controller));
       return holder;
     }
@@ -603,7 +626,8 @@ public class MediaController implements Player {
       ConnectionCallback connectionCallback,
       @Nullable BitmapLoader bitmapLoader,
       int maxCommandsForMediaItems,
-      long platformSessionCallbackAggregationTimeoutMs) {
+      long platformSessionCallbackAggregationTimeoutMs,
+      boolean allowDeviceVolumeCommandsForLocalPlayback) {
     checkNotNull(context, "context must not be null");
     checkNotNull(token, "token must not be null");
     Log.i(
@@ -633,7 +657,8 @@ public class MediaController implements Player {
             connectionHints,
             applicationLooper,
             bitmapLoader,
-            platformSessionCallbackAggregationTimeoutMs);
+            platformSessionCallbackAggregationTimeoutMs,
+            allowDeviceVolumeCommandsForLocalPlayback);
     impl.connect();
   }
 
@@ -645,7 +670,8 @@ public class MediaController implements Player {
       Bundle connectionHints,
       Looper applicationLooper,
       @Nullable BitmapLoader bitmapLoader,
-      long platformSessionCallbackAggregationTimeoutMs) {
+      long platformSessionCallbackAggregationTimeoutMs,
+      boolean allowDeviceVolumeCommandsForLocalPlayback) {
     if (token.isLegacySession()) {
       return new MediaControllerImplLegacy(
           context,
@@ -656,7 +682,13 @@ public class MediaController implements Player {
           checkNotNull(bitmapLoader),
           platformSessionCallbackAggregationTimeoutMs);
     } else {
-      return new MediaControllerImplBase(context, this, token, connectionHints, applicationLooper);
+      return new MediaControllerImplBase(
+          context,
+          this,
+          token,
+          connectionHints,
+          applicationLooper,
+          allowDeviceVolumeCommandsForLocalPlayback);
     }
   }
 

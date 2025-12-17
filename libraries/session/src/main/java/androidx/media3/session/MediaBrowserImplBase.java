@@ -51,8 +51,15 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       @UnderInitialization MediaBrowser instance,
       SessionToken token,
       Bundle connectionHints,
-      Looper applicationLooper) {
-    super(context, instance, token, connectionHints, applicationLooper);
+      Looper applicationLooper,
+      boolean allowDeviceVolumeCommandsForLocalPlayback) {
+    super(
+        context,
+        instance,
+        token,
+        connectionHints,
+        applicationLooper,
+        allowDeviceVolumeCommandsForLocalPlayback);
     this.instance = instance;
   }
 

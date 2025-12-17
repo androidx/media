@@ -445,6 +445,38 @@ public class MediaSessionPermissionTest {
             });
   }
 
+  @Test
+  public void release_isAlwaysAvailableToDisconnectController() throws Exception {
+    createSession(SessionCommands.EMPTY, Player.Commands.EMPTY);
+
+    controllerTestRule.createRemoteController(session.getToken()).release();
+
+    assertThat(callback.countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(callback.onDisconnectedCalled).isTrue();
+  }
+
+  @Test
+  public void setAndAdjustDeviceVolume_notAvailableForLocalSessions() throws Exception {
+    createSession(
+        SessionCommands.EMPTY,
+        new Player.Commands.Builder().addAllCommands().build(),
+        /* isRemote= */ false);
+    RemoteMediaController controller =
+        controllerTestRule.createRemoteController(session.getToken());
+
+    controller.setDeviceVolume(/* volume= */ 1, /* flags= */ 0);
+    controller.setDeviceVolume(/* volume= */ 1);
+    controller.increaseDeviceVolume();
+    controller.increaseDeviceVolume(/* flags= */ 0);
+    controller.decreaseDeviceVolume();
+    controller.decreaseDeviceVolume(/* flags= */ 0);
+    controller.setDeviceMuted(true);
+    controller.setDeviceMuted(true, /* flags= */ 0);
+
+    assertThat(callback.countDownLatch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+    assertThat(callback.onCommandRequestCalled).isFalse();
+  }
+
   private ControllerInfo getTestControllerInfo() {
     List<ControllerInfo> controllers = session.getConnectedControllers();
     assertThat(controllers).isNotNull();
@@ -471,6 +503,7 @@ public class MediaSessionPermissionTest {
 
     public boolean onCommandRequestCalled;
     public boolean onSetRatingCalled;
+    public boolean onDisconnectedCalled;
 
     public MySessionCallback() {
       countDownLatch = new CountDownLatch(1);
@@ -478,9 +511,7 @@ public class MediaSessionPermissionTest {
 
     public void reset() {
       countDownLatch = new CountDownLatch(1);
-
       mediaId = null;
-
       onCommandRequestCalled = false;
       onSetRatingCalled = false;
     }
@@ -505,6 +536,12 @@ public class MediaSessionPermissionTest {
       countDownLatch.countDown();
       return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
     }
+
+    @Override
+    public void onDisconnected(MediaSession session, ControllerInfo controller) {
+      onDisconnectedCalled = true;
+      countDownLatch.countDown();
+    }
   }
 
   private void createSession(SessionCommands sessionCommands, Player.Commands playerCommands) {
@@ -513,9 +550,29 @@ public class MediaSessionPermissionTest {
 
   private void createSession(
       SessionCommands sessionCommands, Player.Commands playerCommands, List<MediaItem> mediaItems) {
+    // Configure session as remote by default to test device volume control commands.
+    createSession(sessionCommands, playerCommands, mediaItems, /* isRemote= */ true);
+  }
+
+  private void createSession(
+      SessionCommands sessionCommands, Player.Commands playerCommands, boolean isRemote) {
+    // Configure session as remote by default to test device volume control commands.
+    createSession(sessionCommands, playerCommands, /* mediaItems= */ ImmutableList.of(), isRemote);
+  }
+
+  private void createSession(
+      SessionCommands sessionCommands,
+      Player.Commands playerCommands,
+      List<MediaItem> mediaItems,
+      boolean isRemote) {
     player =
         new MockPlayer.Builder()
             .setApplicationLooper(threadTestRule.getHandler().getLooper())
+            .build();
+    player.deviceInfo =
+        new DeviceInfo.Builder(
+                isRemote ? DeviceInfo.PLAYBACK_TYPE_REMOTE : DeviceInfo.PLAYBACK_TYPE_LOCAL)
+            .setMaxVolume(5)
             .build();
     // Add media items directly on the mock player's list so that the player's interaction state
     // does not change.
