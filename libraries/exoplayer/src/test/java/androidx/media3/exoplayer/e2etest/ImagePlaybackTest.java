@@ -40,6 +40,7 @@ public class ImagePlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     MediaItem mediaItem1 =
