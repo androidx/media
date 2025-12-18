@@ -125,6 +125,19 @@ public final class SpeedProviderMediaPeriodTest {
   }
 
   @Test
+  public void getBufferedPositionUs_atEndOfStream_returnsEndOfStream() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod = createFakeMediaPeriod(ImmutableList.of(END_OF_STREAM_ITEM));
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER, clipStartUs));
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
+    selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
+
+    assertThat(speedProviderMediaPeriod.getBufferedPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
+  }
+
+  @Test
   public void getNextLoadPositionUs_returnsAdjustedPosition() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
@@ -138,6 +151,19 @@ public final class SpeedProviderMediaPeriodTest {
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
     assertThat(speedProviderMediaPeriod.getNextLoadPositionUs()).isEqualTo(3_250_000 + clipStartUs);
+  }
+
+  @Test
+  public void getNextLoadPositionUs_atEndOfStream_returnsEndOfStream() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod = createFakeMediaPeriod(ImmutableList.of(END_OF_STREAM_ITEM));
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            fakeMediaPeriod, new SpeedProviderMapper(SPEED_PROVIDER, clipStartUs));
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ clipStartUs);
+    selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
+
+    assertThat(speedProviderMediaPeriod.getNextLoadPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
   }
 
   @Test
@@ -215,6 +241,24 @@ public final class SpeedProviderMediaPeriodTest {
   }
 
   @Test
+  public void readDiscontinuity_withNoDiscontinuity_returnsTimeUnset() throws Exception {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER, clipStartUs));
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000 + clipStartUs);
+
+    assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+    verify(spyPeriod).readDiscontinuity();
+  }
+
+  @Test
   public void seekTo_isForwardedWithAdjustedTime() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
@@ -278,6 +322,26 @@ public final class SpeedProviderMediaPeriodTest {
     verify(spyPeriod)
         .continueLoading(
             new LoadingInfo.Builder().setPlaybackPositionUs(2_500_000 + clipStartUs).build());
+  }
+
+  @Test
+  public void continueLoading_withUnsetPlaybackPosition_forwardsTimeUnset() {
+    assume().that(clipStartUs).isEqualTo(0);
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000 + clipStartUs, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER, clipStartUs));
+
+    speedProviderMediaPeriod.continueLoading(
+        new LoadingInfo.Builder().setPlaybackPositionUs(C.TIME_UNSET).build());
+
+    verify(spyPeriod)
+        .continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(C.TIME_UNSET).build());
   }
 
   @Test

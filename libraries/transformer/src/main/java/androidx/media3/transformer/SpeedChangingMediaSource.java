@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -203,11 +204,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public long readDiscontinuity() {
-      long discontinuityPositionUs = mediaPeriod.readDiscontinuity();
-      if (discontinuityPositionUs == C.TIME_UNSET) {
-        return C.TIME_UNSET;
-      }
-      return speedProviderMapper.getAdjustedPeriodTimeUs(discontinuityPositionUs);
+      return speedProviderMapper.getAdjustedPeriodTimeUs(mediaPeriod.readDiscontinuity());
     }
 
     @Override
@@ -226,18 +223,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public long getBufferedPositionUs() {
-      long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
-      return bufferedPositionUs == C.TIME_END_OF_SOURCE
-          ? C.TIME_END_OF_SOURCE
-          : speedProviderMapper.getAdjustedPeriodTimeUs(bufferedPositionUs);
+      return speedProviderMapper.getAdjustedPeriodTimeUs(mediaPeriod.getBufferedPositionUs());
     }
 
     @Override
     public long getNextLoadPositionUs() {
-      long nextLoadPositionUs = mediaPeriod.getNextLoadPositionUs();
-      return nextLoadPositionUs == C.TIME_END_OF_SOURCE
-          ? C.TIME_END_OF_SOURCE
-          : speedProviderMapper.getAdjustedPeriodTimeUs(nextLoadPositionUs);
+      return speedProviderMapper.getAdjustedPeriodTimeUs(mediaPeriod.getNextLoadPositionUs());
     }
 
     @Override
@@ -299,7 +290,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       public int readData(
           FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
         int readResult = sampleStream.readData(formatHolder, buffer, readFlags);
-        if (readResult == C.RESULT_BUFFER_READ) {
+        if (readResult == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
           buffer.timeUs = speedProviderMapper.getAdjustedPeriodTimeUs(buffer.timeUs);
         }
         return readResult;
@@ -359,6 +350,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @param originalPeriodPositionUs The original period position in microseconds.
      */
     public long getAdjustedPeriodTimeUs(long originalPeriodPositionUs) {
+      if (originalPeriodPositionUs == C.TIME_UNSET
+          || originalPeriodPositionUs == C.TIME_END_OF_SOURCE) {
+        return originalPeriodPositionUs;
+      }
       return getAdjustedTimeUs(originalPeriodPositionUs - clipStartUs) + clipStartUs;
     }
 
@@ -370,10 +365,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @param adjustedPeriodPositionUs The speed-adjusted period position in microseconds.
      */
     private long getOriginalPeriodTimeUs(long adjustedPeriodPositionUs) {
+      if (adjustedPeriodPositionUs == C.TIME_UNSET
+          || adjustedPeriodPositionUs == C.TIME_END_OF_SOURCE) {
+        return adjustedPeriodPositionUs;
+      }
       return getOriginalTimeUs(adjustedPeriodPositionUs - clipStartUs) + clipStartUs;
     }
 
     public long getAdjustedTimeUs(long originalTimeUs) {
+      checkArgument(originalTimeUs != C.TIME_UNSET && originalTimeUs != C.TIME_END_OF_SOURCE);
       int index =
           Util.binarySearchFloor(
               inputSegmentStartTimesUs,
@@ -386,6 +386,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     public long getOriginalTimeUs(long adjustedTimeUs) {
+      checkArgument(adjustedTimeUs != C.TIME_UNSET && adjustedTimeUs != C.TIME_END_OF_SOURCE);
       int index =
           Util.binarySearchFloor(
               outputSegmentStartTimesUs,
