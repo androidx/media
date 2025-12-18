@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
@@ -70,15 +69,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
   private static final String TAG = "MLSLegacyStub";
 
-  private final ControllerCb browserLegacyCbForBroadcast;
-
   private final MediaLibrarySessionImpl librarySessionImpl;
 
   /** Creates a new instance. Caller must call {@link #initialize} to the instance. */
   public MediaLibraryServiceLegacyStub(MediaLibrarySessionImpl session) {
     super(session);
     librarySessionImpl = session;
-    browserLegacyCbForBroadcast = new BrowserLegacyCbForBroadcast();
   }
 
   @Override
@@ -375,10 +371,6 @@ import java.util.concurrent.atomic.AtomicReference;
         /* connectionHints= */ rootHints,
         extractMaxCommandsForMediaItemFromRootHints(rootHints),
         /* isPackageNameVerified= */ true);
-  }
-
-  public ControllerCb getBrowserLegacyCbForBroadcast() {
-    return browserLegacyCbForBroadcast;
   }
 
   @Nullable
@@ -696,32 +688,6 @@ import java.util.concurrent.atomic.AtomicReference;
       }
       BrowserLegacyCb other = (BrowserLegacyCb) obj;
       return Objects.equals(remoteUserInfo, other.remoteUserInfo);
-    }
-  }
-
-  private final class BrowserLegacyCbForBroadcast implements ControllerCb {
-
-    @Override
-    public void onChildrenChanged(
-        int seq, String parentId, int itemCount, @Nullable LibraryParams libraryParams)
-        throws RemoteException {
-      // This will trigger {@link MediaLibraryServiceLegacyStub#onLoadChildren}.
-      if (libraryParams == null || libraryParams.extras == null) {
-        notifyChildrenChanged(parentId);
-      } else {
-        notifyChildrenChanged(parentId, castNonNull(libraryParams.extras));
-      }
-    }
-
-    @Override
-    public void onSearchResultChanged(
-        int seq, String query, int itemCount, @Nullable LibraryParams params)
-        throws RemoteException {
-      // Shouldn't be called. If it's called, it's bug.
-      // This method in the base class is introduced to internally send return of
-      // {@link MediaLibrarySessionCallback#onSearchResultChanged}. However, for
-      // BrowserCompat, it should be done by {@link Result#sendResult} from
-      // {@link MediaLibraryServiceLegacyStub#onSearch} instead.
     }
   }
 

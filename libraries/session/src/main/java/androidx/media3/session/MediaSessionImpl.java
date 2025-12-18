@@ -1269,7 +1269,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  protected void dispatchRemoteControllerTaskWithoutReturn(RemoteControllerTask task) {
+  private void dispatchRemoteControllerTaskWithoutReturn(RemoteControllerTask task) {
     List<ControllerInfo> controllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < controllers.size(); i++) {
@@ -1283,7 +1283,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  protected void dispatchRemoteControllerTaskWithoutReturn(
+  protected final void dispatchRemoteControllerTaskWithoutReturn(
       ControllerInfo controller, RemoteControllerTask task) {
     try {
       int seq;
