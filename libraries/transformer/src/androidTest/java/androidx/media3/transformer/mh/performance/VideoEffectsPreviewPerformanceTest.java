@@ -102,7 +102,7 @@ public class VideoEffectsPreviewPerformanceTest {
 
     assertThat(playbackDurationMs)
         .isIn(Range.closed(expectedPlaybackDurationMs, expectedPlaybackDurationMs + 60));
-    DecoderCounters decoderCounters = checkNotNull(listener.getDecoderCounters());
+    DecoderCounters decoderCounters = checkNotNull(listener.getVideoDecoderCounters());
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
     assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(0);
     assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(0);

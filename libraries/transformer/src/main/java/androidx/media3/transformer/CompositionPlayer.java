@@ -80,6 +80,7 @@ import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
@@ -2083,6 +2084,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {
       // TODO: b/451741691 - Signal to the application which input sequence drops frames.
       analyticsCollector.onDroppedFrames(droppedFrames, elapsedMs);
+    }
+
+    @Override
+    public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
+      // TODO: b/470006904 - Signal to the application for which input sequence video is enabled.
+      analyticsCollector.onVideoEnabled(decoderCounters);
     }
   }
 

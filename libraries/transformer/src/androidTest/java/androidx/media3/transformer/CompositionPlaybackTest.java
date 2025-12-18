@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
@@ -38,6 +39,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
@@ -544,8 +546,7 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect()
-      throws Exception {
+  public void playback_withEditedMediaItemFrameRateSet_correctlyDropFrames() throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
@@ -553,7 +554,7 @@ public class CompositionPlaybackTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
             .setFrameRate(30)
-            .setDurationUs(5_019_000L)
+            .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -570,6 +571,45 @@ public class CompositionPlaybackTest {
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
         .isWithin(2)
         .of(150);
+    DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
+    if (SDK_INT >= 34) {
+      // Frames are dropped by MediaCodec internally.
+      assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(0);
+    } else {
+      // Frames are dropped after MediaCodec output.
+      assertThat(videoDecoderCounters.skippedOutputBufferCount).isWithin(2).of(150);
+    }
+  }
+
+  @Test
+  public void playback_withBFramesInputAndEditedMediaItemFrameRateSet_correctlyDropFrames()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setFrameRate(15)
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // Input: 1 sec video containing B-frames at 30 fps; Output: 1 sec video at 15 fps = ~15 frames
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
+        .isWithin(2)
+        .of(15);
+    DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
+    // For input containing B-frames, frames are always dropped after MediaCodec output.
+    assertThat(videoDecoderCounters.skippedOutputBufferCount).isWithin(2).of(15);
   }
 
   private void runCompositionPlayer(Composition composition)
@@ -588,6 +628,7 @@ public class CompositionPlaybackTest {
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               player.addListener(playerTestListener);
+              player.addAnalyticsListener(playerTestListener);
               player.setComposition(composition);
               player.prepare();
               player.play();

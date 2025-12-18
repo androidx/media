@@ -35,7 +35,7 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   private final ConditionVariable firstFrameRendered;
   private final AtomicReference<@NullableType PlaybackException> playbackException;
   private final long testTimeoutMs;
-  private @MonotonicNonNull DecoderCounters decoderCounters;
+  private @MonotonicNonNull DecoderCounters videoDecoderCounters;
 
   /**
    * Creates a new instance.
@@ -80,8 +80,8 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
    * DecoderCounters)}, {@code null} if not available.
    */
   @Nullable
-  public DecoderCounters getDecoderCounters() {
-    return decoderCounters;
+  public DecoderCounters getVideoDecoderCounters() {
+    return videoDecoderCounters;
   }
 
   // Player.Listener methods
@@ -115,7 +115,7 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
 
   @Override
   public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
-    this.decoderCounters = decoderCounters;
+    this.videoDecoderCounters = decoderCounters;
   }
 
   @Nullable
