@@ -822,8 +822,8 @@ import java.util.concurrent.TimeoutException;
     CharSequence title;
     CharSequence subtitle;
     CharSequence description;
-    if (metadata.displayTitle != null) {
-      title = metadata.displayTitle;
+    if (metadata.title != null) {
+      title = metadata.title;
       subtitle = metadata.subtitle;
       description = metadata.description;
       if (extras == null) {
