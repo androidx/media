@@ -29,7 +29,6 @@ track 0:
     initializationData:
       data = length 41, hash CD082D34
       data = length 8, hash 9481C0CD
-      data = length 24, hash 20B6EE9B
   sample 0:
     time = 0
     flags = 1

@@ -15,6 +15,8 @@
         `doSomeWork` was mistakenly reduced by the elapsed time of the current
         iteration of `doSomeWork`. Addressing this hopefully extends CPU idle
         time and saves power.
+    *   Fix issue where some playbacks of Dolby Vision files fail when
+        attempting to use a fallback AVC or HEVC codec.
 *   Audio:
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios

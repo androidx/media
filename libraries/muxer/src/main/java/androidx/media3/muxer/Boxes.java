@@ -36,7 +36,6 @@ import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
-import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
@@ -1564,28 +1563,24 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
   private static ByteBuffer doviBox(int profile, byte[] csd) {
     checkArgument(csd.length > 0, "csd is empty for dovi box.");
-    if (profile <= 7) {
+    if (profile == 5) {
       return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
-    } else if (profile <= 10) {
+    } else if (profile == 8 || profile == 9) {
       return BoxUtils.wrapIntoBox("dvvC", ByteBuffer.wrap(csd));
-    } else if (profile <= 19) {
-      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
-    } else if (profile == 20) {
-      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
     } else {
-      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+      throw new IllegalArgumentException("Unsupported Dolby Vision profile " + profile);
     }
   }
 
   /** Returns a dolby vision box as per Dolby Vision ISO media format. */
   private static ByteBuffer doviSpecificBox(Format format) {
-    checkArgument(
-        !format.initializationData.isEmpty(), "csd is not found in the format for dolby vision");
-    byte[] dolbyVisionCsd = Iterables.getLast(format.initializationData);
-    DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
-    checkNotNull(dolbyVisionConfig, "Dolby vision codec is not supported.");
-    ByteBuffer avcHevcBox = dolbyVisionConfig.profile <= 8 ? hvcCBox(format) : avcCBox(format);
-    ByteBuffer dolbyBox = doviBox(dolbyVisionConfig.profile, dolbyVisionCsd);
+    @Nullable Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    checkNotNull(profileAndLevel, "Can't identify Dolby vision profile");
+    ByteBuffer avcHevcBox = profileAndLevel.first <= 8 ? hvcCBox(format) : avcCBox(format);
+    byte[] dolbyVisionCsd =
+        CodecSpecificDataUtil.buildDolbyVisionInitializationData(
+            profileAndLevel.first, profileAndLevel.second);
+    ByteBuffer dolbyBox = doviBox(profileAndLevel.first, dolbyVisionCsd);
     return BoxUtils.concatenateBuffers(avcHevcBox, dolbyBox);
   }
 
@@ -1732,31 +1727,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("colr", contents);
   }
 
-  @Nullable
-  private static DolbyVisionConfig getDolbyVisionConfig(Format format) {
-    @Nullable
-    DolbyVisionConfig dolbyVisionConfig =
-        DolbyVisionConfig.parse(
-            new ParsableByteArray(Iterables.getLast(format.initializationData)));
-    if (dolbyVisionConfig == null && format.codecs != null) {
-      Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
-      checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
-      byte[] dolbyVisionCsd =
-          CodecSpecificDataUtil.buildDolbyVisionInitializationData(
-              /* profile= */ profileAndLevel.first, /* level= */ profileAndLevel.second);
-      dolbyVisionConfig = DolbyVisionConfig.parse(new ParsableByteArray(dolbyVisionCsd));
-    }
-    return dolbyVisionConfig;
-  }
-
   /** Returns codec specific fourcc for Dolby vision. */
   private static String getDoviFourcc(Format format) {
-    @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
-    checkNotNull(
-        dolbyVisionConfig,
-        "Dolby Vision Initialization data is not found for format: %s",
-        format.sampleMimeType);
-    switch (dolbyVisionConfig.profile) {
+    Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+    checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
+    switch (profileAndLevel.first) {
       case 5:
         return "dvh1";
       case 8:
@@ -1766,7 +1741,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       default:
         throw new IllegalArgumentException(
             "Unsupported profile "
-                + dolbyVisionConfig.profile
+                + profileAndLevel.first
                 + " for format: "
                 + format.sampleMimeType);
     }

@@ -1593,21 +1593,6 @@ public final class BoxParser {
       } else if (childAtomType == Mp4Box.TYPE_dvcC
           || childAtomType == Mp4Box.TYPE_dvvC
           || childAtomType == Mp4Box.TYPE_dvwC) {
-        int childAtomBodySize = childAtomSize - Mp4Box.HEADER_SIZE;
-        byte[] initializationDataChunk = new byte[childAtomBodySize];
-        parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
-        // Add the initialization data of Dolby Vision to the existing list of initialization data.
-        if (initializationData != null) {
-          initializationData =
-              ImmutableList.<byte[]>builder()
-                  .addAll(initializationData)
-                  .add(initializationDataChunk)
-                  .build();
-        } else {
-          ExtractorUtil.checkContainerInput(
-              false, "initializationData must already be set from hvcC or avcC atom");
-        }
-        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
         dolbyVisionConfig = DolbyVisionConfig.parse(parent);
       } else if (childAtomType == Mp4Box.TYPE_vpcC) {
         ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
