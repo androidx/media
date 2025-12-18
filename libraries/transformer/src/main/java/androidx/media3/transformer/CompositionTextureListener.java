@@ -26,6 +26,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureProducer;
+import androidx.media3.effect.HardwareBufferFrame;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -96,7 +97,15 @@ import java.util.concurrent.LinkedBlockingQueue;
             .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))
             .setFenceSync(syncObject)
             .build();
-    frameAggregator.queueFrame(textureFrame, sequenceIndex);
+    // TODO: b/449956936 - Deprecate CompositionTextureListener, and this non-functional wrapping
+    // of GlTextureFrame.
+    HardwareBufferFrame temporaryAdaptorFrame =
+        new HardwareBufferFrame.Builder(/* hardwareBuffer= */ null, directExecutor(), () -> {})
+            .setInternalFrame(textureFrame)
+            .setPresentationTimeUs(textureFrame.presentationTimeUs)
+            .setMetadata(textureFrame.getMetadata())
+            .build();
+    frameAggregator.queueFrame(temporaryAdaptorFrame, sequenceIndex);
   }
 
   /**

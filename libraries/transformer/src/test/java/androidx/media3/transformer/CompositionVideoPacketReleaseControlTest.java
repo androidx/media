@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -24,6 +25,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import android.content.Context;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl.FrameTimingEvaluator;
@@ -49,15 +51,15 @@ public class CompositionVideoPacketReleaseControlTest {
   private FakeFrameTimingEvaluator fakeFrameTimingEvaluator;
   private FakeClock fakeClock;
   private RecordingPacketConsumer outputConsumer;
-  private Set<GlTextureInfo> releasedTextures;
+  private Set<Long> releasedFrameTimestamps;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
-  private ImmutableList<GlTextureFrame> firstPacket;
+  private ImmutableList<HardwareBufferFrame> firstPacket;
 
   @Before
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
-    releasedTextures = new HashSet<>();
+    releasedFrameTimestamps = new HashSet<>();
     firstPacket = createPacket(/* presentationTimeUs= */ 0);
     fakeFrameTimingEvaluator = new FakeFrameTimingEvaluator();
     fakeClock = new FakeClock(/* initialTimeMs= */ 0);
@@ -85,7 +87,7 @@ public class CompositionVideoPacketReleaseControlTest {
 
   @Test
   public void onRender_releaseActionDrop_releasesFrame() throws ExoPlaybackException {
-    ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 50_000);
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 50_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -102,12 +104,12 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-    assertThat(releasedTextures).containsExactly(packet.get(0).glTextureInfo);
+    assertThat(releasedFrameTimestamps).containsExactly(packet.get(0).presentationTimeUs);
   }
 
   @Test
   public void onRender_releaseActionTryAgainLater_keepsFrame() throws ExoPlaybackException {
-    ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 200_000);
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 200_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -123,13 +125,13 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-    assertThat(releasedTextures).isEmpty();
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
   public void onRender_releaseActionImmediate_forwardsFrameDownstream()
       throws ExoPlaybackException {
-    ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -145,14 +147,14 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
-    assertThat(releasedTextures).isEmpty();
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
   public void onRender_releaseActionSchedule_forwardsFrameDownstreamWithReleaseTime()
       throws ExoPlaybackException {
-    ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 120_000);
-    ImmutableList<GlTextureFrame> expectedPacket =
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 120_000);
+    ImmutableList<HardwareBufferFrame> expectedPacket =
         updatePacketWithReleaseTime(packet, /* releaseTimeNs= */ 120_000_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
@@ -170,28 +172,28 @@ public class CompositionVideoPacketReleaseControlTest {
 
     // Update the release time of the first packet to match, to verify that scheduled release time
     // is correct.
-    ImmutableList<GlTextureFrame> expectedFirstFrame =
+    ImmutableList<HardwareBufferFrame> expectedFirstFrame =
         updatePacketWithReleaseTime(
             firstPacket, outputConsumer.getQueuedPackets().get(0).get(0).releaseTimeNs);
     assertOutputPackets(/* ignoreReleaseTime= */ false, expectedFirstFrame, expectedPacket);
-    assertThat(releasedTextures).isEmpty();
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
   public void queue_backwardSeek_flushesAndReleasesHeldFrames() {
-    ImmutableList<GlTextureFrame> packet1 = createPacket(/* presentationTimeUs= */ 200);
-    ImmutableList<GlTextureFrame> packet2 = createPacket(/* presentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 200);
+    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 100);
 
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
 
-    assertThat(releasedTextures).containsExactly(packet1.get(0).glTextureInfo);
+    assertThat(releasedFrameTimestamps).containsExactly(packet1.get(0).presentationTimeUs);
   }
 
   @Test
   public void reset_releasesHeldFramesAndResetsReleaseControl() throws ExoPlaybackException {
-    ImmutableList<GlTextureFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
-    ImmutableList<GlTextureFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
+    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -205,32 +207,42 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.reset();
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
-    assertThat(releasedTextures)
-        .containsExactly(packet1.get(0).glTextureInfo, packet2.get(0).glTextureInfo);
+    assertThat(releasedFrameTimestamps)
+        .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs);
   }
 
-  private ImmutableList<GlTextureFrame> createPacket(
-      /* presentationTimeUs= */ long presentationTimeUs) {
+  private GlTextureFrame createGlTextureFrame(long presentationTimeUs) {
     GlTextureInfo glTextureInfo = new GlTextureInfo((int) presentationTimeUs, 1, 1, 100, 100);
-    GlTextureFrame glFrame =
-        new GlTextureFrame.Builder(glTextureInfo, directExecutor(), releasedTextures::add)
+    return new GlTextureFrame.Builder(glTextureInfo, directExecutor(), (ignored) -> {})
+        .setPresentationTimeUs(presentationTimeUs)
+        .build();
+  }
+
+  private ImmutableList<HardwareBufferFrame> createPacket(long presentationTimeUs) {
+    HardwareBufferFrame hardwareBufferFrame =
+        new HardwareBufferFrame.Builder(
+                /* hardwareBuffer= */ null,
+                directExecutor(),
+                () -> releasedFrameTimestamps.add(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
+            .setInternalFrame(createGlTextureFrame(presentationTimeUs))
             .build();
-    return ImmutableList.of(glFrame);
+    return ImmutableList.of(hardwareBufferFrame);
   }
 
   @SafeVarargs
   private final void assertOutputPackets(
-      boolean ignoreReleaseTime, List<GlTextureFrame>... expectedPackets) {
+      boolean ignoreReleaseTime, List<HardwareBufferFrame>... expectedPackets) {
     List<List<GlTextureFrame>> outputPackets = outputConsumer.getQueuedPackets();
     assertThat(outputPackets).hasSize(expectedPackets.length);
     for (int i = 0; i < expectedPackets.length; i++) {
       List<GlTextureFrame> receivedFrames = outputPackets.get(i);
-      List<GlTextureFrame> expectedFrames = expectedPackets[i];
+      List<HardwareBufferFrame> expectedFrames = expectedPackets[i];
       assertThat(receivedFrames).hasSize(expectedFrames.size());
       for (int j = 0; j < receivedFrames.size(); j++) {
         GlTextureFrame receivedFrame = receivedFrames.get(j);
-        GlTextureFrame expectedFrame = expectedFrames.get(j);
+        GlTextureFrame expectedFrame =
+            checkNotNull((GlTextureFrame) expectedFrames.get(j).internalFrame);
         assertThat(receivedFrame.presentationTimeUs).isEqualTo(expectedFrame.presentationTimeUs);
         if (!ignoreReleaseTime) {
           assertThat(receivedFrame.releaseTimeNs).isEqualTo(expectedFrame.releaseTimeNs);
@@ -241,16 +253,19 @@ public class CompositionVideoPacketReleaseControlTest {
     }
   }
 
-  private static ImmutableList<GlTextureFrame> updatePacketWithReleaseTime(
-      ImmutableList<GlTextureFrame> packet, long releaseTimeNs) {
-    ImmutableList.Builder<GlTextureFrame> updatedPacketBuilder = new ImmutableList.Builder<>();
-    for (GlTextureFrame frame : packet) {
+  private static ImmutableList<HardwareBufferFrame> updatePacketWithReleaseTime(
+      ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
+    ImmutableList.Builder<HardwareBufferFrame> updatedPacketBuilder = new ImmutableList.Builder<>();
+    for (HardwareBufferFrame frame : packet) {
       updatedPacketBuilder.add(
-          new GlTextureFrame.Builder(
-                  frame.glTextureInfo, frame.releaseTextureExecutor, frame.releaseTextureCallback)
-              .setPresentationTimeUs(frame.presentationTimeUs)
+          frame
+              .buildUpon()
               .setReleaseTimeNs(releaseTimeNs)
-              .setMetadata(frame.getMetadata())
+              .setInternalFrame(
+                  checkNotNull((GlTextureFrame) frame.internalFrame)
+                      .buildUpon()
+                      .setReleaseTimeNs(releaseTimeNs)
+                      .build())
               .build());
     }
     return updatedPacketBuilder.build();

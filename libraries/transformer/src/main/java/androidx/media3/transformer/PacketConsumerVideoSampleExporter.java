@@ -20,7 +20,7 @@ import static androidx.media3.common.C.COLOR_SPACE_BT2020;
 import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.effect.GlTextureFrame.END_OF_STREAM_FRAME;
+import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -49,6 +49,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.GlTextureFrameRenderer.Listener;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumer.Packet.EndOfStream;
 import androidx.media3.effect.PacketConsumerCaller;
@@ -209,7 +210,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @SuppressWarnings("unchecked")
-  private void queueAggregatedFrames(List<GlTextureFrame> frames) {
+  private void queueAggregatedFrames(List<HardwareBufferFrame> frames) {
     // We don't need to apply backpressure here - it's applied implicitly via the texture listener
     // capacity.
     ListenableFuture<Void> queuePacketFuture;
@@ -219,10 +220,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     } else {
       ImmutableList.Builder<GlTextureFrame> framesWithReleaseTime = new ImmutableList.Builder<>();
       for (int i = 0; i < frames.size(); i++) {
-        GlTextureFrame glTextureFrame = frames.get(i);
+        // TODO: b/449956936 - Use HardwareBufferFrame instead of this non-functional wrapping
+        // of GlTextureFrame.
+        GlTextureFrame glTextureFrame = (GlTextureFrame) frames.get(i).internalFrame;
         // The encoder will use the releaseTimeNs as the frame's presentation time.
         framesWithReleaseTime.add(
-            glTextureFrame
+            checkNotNull(glTextureFrame)
                 .buildUpon()
                 .setReleaseTimeNs(glTextureFrame.presentationTimeUs * 1000)
                 .build());
