@@ -23,6 +23,9 @@
         the `DefaultRenderersFactory`.
     *   Fix issue where some playbacks of Dolby Vision files fail when
         attempting to use a fallback AVC or HEVC codec.
+    *   Fix bug where loading continues after playback ended when removing the
+        currently playing item from a playlist
+        ([#2873](https://github.com/androidx/media/issues/2873)).
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
