@@ -16656,6 +16656,49 @@ public final class ExoPlayerTest {
         .onPositionDiscontinuity(any(), any(), eq(DISCONTINUITY_REASON_SEEK_ADJUSTMENT));
   }
 
+  @Test
+  public void removeMediaItem_withRepeatModeOne_endsPlaybackAndStopsLoading() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSources(ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
+    player.setRepeatMode(Player.REPEAT_MODE_ONE);
+    player.prepare();
+
+    player.removeMediaItem(0);
+    boolean isLoadingAfterRemoval = player.isLoading();
+    @Player.State int stateAfterRemoval = player.getPlaybackState();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    boolean isLoadingAfterFullyHandled = player.isLoading();
+    @Player.State int stateAfterFullyHandled = player.getPlaybackState();
+    player.release();
+
+    assertThat(isLoadingAfterRemoval).isFalse();
+    assertThat(isLoadingAfterFullyHandled).isFalse();
+    assertThat(stateAfterRemoval).isEqualTo(Player.STATE_ENDED);
+    assertThat(stateAfterFullyHandled).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void
+      removeMediaItem_withShuffleModeEnabledAndAvailableItemsWhenShuffling_continuesPlayback()
+          throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSources(ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
+    player.setShuffleOrder(new FakeShuffleOrder(/* length= */ 2));
+    player.setShuffleModeEnabled(true);
+    player.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.removeMediaItem(1);
+    @Player.State int stateAfterRemoval = player.getPlaybackState();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    @Player.State int stateAfterFullyHandled = player.getPlaybackState();
+    player.release();
+
+    assertThat(stateAfterRemoval).isEqualTo(Player.STATE_READY);
+    assertThat(stateAfterFullyHandled).isEqualTo(Player.STATE_READY);
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

@@ -48,6 +48,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.StuckPlayerException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -272,6 +273,7 @@ public interface ExoPlayer extends Player {
     /* package */ String playerName;
     /* package */ boolean dynamicSchedulingEnabled;
     /* package */ SuitableOutputChecker suitableOutputChecker;
+    /* package */ boolean avoidLoadingWhileEnded;
 
     /**
      * Creates a builder.
@@ -502,6 +504,7 @@ public interface ExoPlayer extends Player {
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
       suitableOutputChecker = new DefaultSuitableOutputChecker();
+      avoidLoadingWhileEnded = true;
     }
 
     /**
@@ -539,6 +542,16 @@ public interface ExoPlayer extends Player {
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       checkState(!buildCalled);
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
+      return this;
+    }
+
+    /** Enables a bug fix to avoid loading while ended. */
+    @CanIgnoreReturnValue
+    @ExperimentalApi
+    public Builder experimentalAvoidLoadingWhileEnded(boolean avoidLoadingWhileEnded) {
+      // TODO: b/469982169 - Remove this method after 1.10 release
+      checkState(!buildCalled);
+      this.avoidLoadingWhileEnded = avoidLoadingWhileEnded;
       return this;
     }
 
