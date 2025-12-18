@@ -316,8 +316,10 @@ public final class CodecSpecificDataUtil {
    * href="https://dolby.my.salesforce.com/sfc/p/#700000009YuG/a/4u000000l6FB/076wHYEmyEfz09m0V1bo85_25hlUJjaiWTbzorNmYY4">Dolby
    * Vision ISO MediaFormat (section 2.2) specification</a>.
    *
-   * @param profile The Dolby Vision codec profile.
-   * @param level The Dolby Vision codec level.
+   * @param profile The Dolby Vision codec profile. This is the integer profile, not the {@link
+   *     MediaCodecInfo.CodecProfileLevel} constant.
+   * @param level The Dolby Vision codec level. This is the integer level, not the {@link
+   *     MediaCodecInfo.CodecProfileLevel} constant.
    */
   public static byte[] buildDolbyVisionInitializationData(int profile, int level) {
     byte[] dolbyVisionCsd = new byte[24];

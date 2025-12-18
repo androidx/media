@@ -35,7 +35,6 @@ track 0:
     metadata = entries=[Mp4Timestamp: creation time=3788952614, modification time=3788952614, timescale=600, ThumbnailMetadata: presentationTimeUs=611666]
     initializationData:
       data = length 97, hash 32FB3D18
-      data = length 24, hash A31E9935
   sample 0:
     time = 611666
     flags = 1

@@ -21,6 +21,8 @@
         can be processed. You can enable this using
         `experimentalSetEnableMediaCodecVideoRendererDurationToProgressUs()` via
         the `DefaultRenderersFactory`.
+    *   Fix issue where some playbacks of Dolby Vision files fail when
+        attempting to use a fallback AVC or HEVC codec.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

@@ -35,7 +35,6 @@ track 0:
     metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=35.000000, mdta: key=com.apple.quicktime.location.ISO6709, value=+51.5334-000.1255+026.756/, mdta: key=com.apple.quicktime.software, value=16.4.1, mdta: key=com.apple.quicktime.creationdate, value=2023-05-09T12:41:46+0100, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 14 Pro, Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 97, hash 71D67547
-      data = length 24, hash D98F4125
   sample 0:
     time = 0
     flags = 1
