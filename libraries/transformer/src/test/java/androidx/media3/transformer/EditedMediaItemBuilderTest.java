@@ -51,6 +51,25 @@ public final class EditedMediaItemBuilderTest {
         }
       };
 
+  private static final SpeedProvider SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          if (timeUs >= 5_000_000) {
+            return 2f;
+          }
+          return 0.25f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          if (timeUs >= 5_000_000) {
+            return C.TIME_UNSET;
+          }
+          return 5_000_000;
+        }
+      };
+
   @Test
   public void build_removeAudioAndVideo_throws() {
     MediaItem mediaItem = MediaItem.fromUri("uri");
@@ -205,6 +224,40 @@ public final class EditedMediaItemBuilderTest {
   }
 
   @Test
+  public void getPresentationDurationUs_withSetSpeed_returnsSpeedAdjustedDuration() {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setDurationUs(10_000_000)
+            .setSpeed(SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN)
+            .build();
+
+    assertThat(item.getPresentationDurationUs()).isEqualTo(22_500_000);
+  }
+
+  @Test
+  public void getPresentationDurationUs_withSetSpeedAndClipping_returnsSpeedAdjustedDuration() {
+    MediaItem.ClippingConfiguration clippingConfiguration =
+        new MediaItem.ClippingConfiguration.Builder()
+            .setStartPositionUs(1_000_000)
+            .setEndPositionUs(8_000_000)
+            .build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.EMPTY.buildUpon().setClippingConfiguration(clippingConfiguration).build())
+            .setDurationUs(10_000_000)
+            .setSpeed(SPEED_PROVIDER_WITH_SPEED_UP_AND_SLOW_DOWN)
+            .build();
+
+    assertThat(item.getPresentationDurationUs()).isEqualTo(21_000_000);
+  }
+
+  @Test
+  public void getPresentationDurationUs_withDurationUnset_throws() {
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.EMPTY).build();
+    assertThrows(IllegalStateException.class, item::getPresentationDurationUs);
+  }
+
+  @Test
   public void setSpeed_withSpeedChangingAudioProcessor_throws() {
     SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(SpeedProvider.DEFAULT);
     Effects effects = new Effects(ImmutableList.of(processor), ImmutableList.of());
@@ -270,6 +323,13 @@ public final class EditedMediaItemBuilderTest {
         new EditedMediaItem.Builder(MediaItem.EMPTY)
             .setEffects(new Effects(ImmutableList.of(), ImmutableList.of(effects.second)))
             .build();
+    assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(1_000_000);
+  }
+
+  @Test
+  public void getDurationAfterEffectsApplied_withSetSpeed_returnsInputDuration() {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(SPEED_PROVIDER_2X).build();
     assertThat(editedMediaItem.getDurationAfterEffectsApplied(1_000_000)).isEqualTo(1_000_000);
   }
 }

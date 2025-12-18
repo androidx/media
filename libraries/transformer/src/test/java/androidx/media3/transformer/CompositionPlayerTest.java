@@ -134,6 +134,36 @@ public class CompositionPlayerTest {
           CompositionPlayerTest::buildComposition,
           /* expectedDurationMs= */ 1_348,
           "TWO_AUDIO_ITEMS");
+  private static final Input TWO_AUDIO_ITEMS_WITH_SET_SPEED =
+      new Input(
+          () -> {
+            EditedMediaItem item1 =
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(HALF_SPEED_PROVIDER)
+                    .build();
+            EditedMediaItem item2 =
+                new EditedMediaItem.Builder(
+                        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW_STEREO_48000KHZ))
+                    .setDurationUs(348_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(item1, item2))).build();
+          },
+          /* expectedDurationMs= */ 2_174,
+          "TWO_AUDIO_ITEMS_WITH_SET_SPEED");
+  private static final Input AUDIO_ITEM_WITH_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            EditedMediaItem item =
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+          },
+          /* expectedDurationMs= */ 500,
+          "AUDIO_ITEM_WITH_SET_DOUBLE_SPEED");
   private static final Input AUDIO_ITEM_WITH_CLIPPED_START =
       new Input(
           () -> {
@@ -152,7 +182,6 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 800,
           "AUDIO_ITEM_WITH_CLIPPED_START");
-
   private static final Input AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION =
       new Input(
           () -> {
@@ -175,7 +204,6 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 400,
           "AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION");
-
   private static final Input AUDIO_ITEM_WITH_CLIPPED_END =
       new Input(
           () -> {
@@ -194,7 +222,6 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 600,
           "AUDIO_ITEM_WITH_CLIPPED_END");
-
   private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END =
       new Input(
           () -> {
@@ -214,7 +241,6 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 450,
           "AUDIO_ITEM_WITH_CLIPPED_START_AND_END");
-
   private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT =
       new Input(
           () -> {
@@ -241,7 +267,27 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 400,
           "AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT");
-
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 400,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED");
   private static final Input AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT =
       new Input(
           () -> {
@@ -268,7 +314,27 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 300,
           "AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT");
-
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(600_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(DOUBLE_SPEED_PROVIDER)
+                    .build();
+            return new Composition.Builder(withAudioFrom(ImmutableList.of(editedMediaItem)))
+                .build();
+          },
+          /* expectedDurationMs= */ 300,
+          "AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED");
   private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT =
       new Input(
           () -> {
@@ -291,6 +357,28 @@ public class CompositionPlayerTest {
           },
           /* expectedDurationMs= */ 900,
           "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT");
+  private static final Input AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED =
+      new Input(
+          () -> {
+            MediaItem mediaItem =
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(100_000)
+                            .setEndPositionUs(550_000)
+                            .build())
+                    .build();
+            EditedMediaItem editedMediaItem =
+                new EditedMediaItem.Builder(mediaItem)
+                    .setDurationUs(1_000_000L)
+                    .setSpeed(HALF_SPEED_PROVIDER)
+                    .build();
+            EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
+            return new Composition.Builder(sequence).build();
+          },
+          /* expectedDurationMs= */ 900,
+          "AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED");
 
   @Test
   public void builder_buildCalledTwice_throws() {
@@ -1161,13 +1249,18 @@ public class CompositionPlayerTest {
     protected List<Input> provideValues(TestParameterValuesProvider.Context context) {
       return ImmutableList.of(
           TWO_AUDIO_ITEMS,
+          TWO_AUDIO_ITEMS_WITH_SET_SPEED,
+          AUDIO_ITEM_WITH_SET_DOUBLE_SPEED,
           AUDIO_ITEM_WITH_CLIPPED_START,
           AUDIO_ITEM_WITH_CLIPPED_START_GREATER_THAN_HALF_DURATION,
           AUDIO_ITEM_WITH_CLIPPED_END,
           AUDIO_ITEM_WITH_CLIPPED_START_AND_END,
           AUDIO_ITEM_WITH_CLIPPED_START_AND_DOUBLE_SPEED_EFFECT,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_SET_DOUBLE_SPEED,
           AUDIO_ITEM_WITH_CLIPPED_END_AND_DOUBLE_SPEED_EFFECT,
-          AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT);
+          AUDIO_ITEM_WITH_CLIPPED_END_AND_SET_DOUBLE_SPEED,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_HALF_SPEED_EFFECT,
+          AUDIO_ITEM_WITH_CLIPPED_START_AND_END_WITH_SET_HALF_SPEED);
     }
   }
 

@@ -25,9 +25,11 @@ import androidx.annotation.IntRange;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -308,8 +310,8 @@ public final class EditedMediaItem {
   public final boolean flattenForSlowMotion;
 
   /**
-   * The duration of the image in the output video for image {@link MediaItem}, or the media
-   * duration for other types of {@link MediaItem}, in microseconds.
+   * The duration of the image in the output video for image {@link MediaItem}, or the original
+   * media duration for other types of {@link MediaItem}, in microseconds.
    */
   // TODO: b/309767764 - Consider merging with presentationDurationUs.
   public final long durationUs;
@@ -365,24 +367,28 @@ public final class EditedMediaItem {
     return new Builder(this);
   }
 
+  /**
+   * Returns the presentation duration in microseconds based on the {@linkplain #durationUs original
+   * media duration}, clipping configuration, and effects applied.
+   *
+   * <p>This method is only meant to be used with {@link CompositionPlayer}, because it relies on
+   * getting the original media duration {@linkplain Builder#setDurationUs upfront}, and not from a
+   * {@link MediaSource}.
+   */
   /* package */ long getPresentationDurationUs() {
+    checkState(durationUs != C.TIME_UNSET);
     if (presentationDurationUs == C.TIME_UNSET) {
-      if (mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)
-          || durationUs == C.TIME_UNSET) {
-        // TODO: b/290734981 - Use presentationDurationUs for image presentation
-        presentationDurationUs = durationUs;
+      presentationDurationUs = getClippedDuration(mediaItem.clippingConfiguration, durationUs);
+
+      if (speedProvider != SpeedProvider.DEFAULT) {
+        presentationDurationUs =
+            SpeedProviderUtil.getDurationAfterSpeedProviderApplied(
+                speedProvider, presentationDurationUs);
       } else {
-        MediaItem.ClippingConfiguration clippingConfiguration = mediaItem.clippingConfiguration;
-        checkArgument(!clippingConfiguration.relativeToDefaultPosition);
-        if (clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE) {
-          presentationDurationUs = durationUs - clippingConfiguration.startPositionUs;
-        } else {
-          checkArgument(clippingConfiguration.endPositionUs <= durationUs);
-          presentationDurationUs =
-              clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs;
-        }
+        // Only use when a SpeedProvider has not been set. User-provided speed-changing effects are
+        // not allowed when a SpeedProvider is set.
+        presentationDurationUs = getDurationAfterEffectsApplied(presentationDurationUs);
       }
-      presentationDurationUs = getDurationAfterEffectsApplied(presentationDurationUs);
     }
     return presentationDurationUs;
   }
@@ -396,7 +402,9 @@ public final class EditedMediaItem {
       jsonObject.put("removeAudio", removeAudio);
       jsonObject.put("removeVideo", removeVideo);
       jsonObject.put("durationUs", durationUs);
-      jsonObject.put("presentationDuration", getPresentationDurationUs());
+      // Calling getPresentationDurationUs() without a set duration will crash.
+      jsonObject.put(
+          "presentationDuration", durationUs != C.TIME_UNSET ? getPresentationDurationUs() : "N/A");
     } catch (JSONException e) {
       Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
       return new JSONObject();
@@ -405,16 +413,20 @@ public final class EditedMediaItem {
   }
 
   /**
-   * Returns the adjusted duration in microseconds after processing {@code durationUs} input with
-   * the {@link EditedMediaItem}'s {@link Effects}.
+   * Returns the adjusted duration in microseconds after processing {@code renderedDurationUs} input
+   * with the {@link EditedMediaItem}'s {@link Effects}.
    *
    * <p>If the audio and video durations do not match, the method returns the maximum duration.
    *
-   * @param durationUs The input duration in microseconds.
+   * <p>{@code renderedDurationUs} represents the duration of the input that will be fed into the
+   * processing pipeline, <b>not</b> the duration of the original media. The {@code
+   * rendererDurationUs} incorporates modifications like clipping or {@linkplain Builder#setSpeed
+   * speed changing} that occur before samples reach {@linkplain Builder#setEffects(Effects)
+   * user-provided effects}.
    */
-  /* package */ long getDurationAfterEffectsApplied(long durationUs) {
-    long audioDurationUs = durationUs;
-    long videoDurationUs = durationUs;
+  /* package */ long getDurationAfterEffectsApplied(long renderedDurationUs) {
+    long audioDurationUs = renderedDurationUs;
+    long videoDurationUs = renderedDurationUs;
     if (removeAudio) {
       audioDurationUs = C.TIME_UNSET;
     } else {
@@ -442,6 +454,22 @@ public final class EditedMediaItem {
 
   private static boolean isGap(MediaItem mediaItem) {
     return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
+  }
+
+  private static long getClippedDuration(
+      ClippingConfiguration clippingConfiguration, long durationUs) {
+    if (clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      // TODO: b/290734981 - Use presentationDurationUs for image presentation
+      return durationUs;
+    }
+
+    checkArgument(!clippingConfiguration.relativeToDefaultPosition);
+    if (clippingConfiguration.endPositionUs == C.TIME_END_OF_SOURCE) {
+      return durationUs - clippingConfiguration.startPositionUs;
+    } else {
+      checkArgument(clippingConfiguration.endPositionUs <= durationUs);
+      return clippingConfiguration.endPositionUs - clippingConfiguration.startPositionUs;
+    }
   }
 
   private static JSONObject jsonObjectFrom(MediaItem mediaItem) throws JSONException {
