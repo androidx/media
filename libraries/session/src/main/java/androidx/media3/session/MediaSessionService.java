@@ -208,6 +208,27 @@ public abstract class MediaSessionService extends LifecycleService {
    */
   @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
 
+  /**
+   * The action of an {@link Intent} sent to this service by itself when it is already running, but
+   * wishes to move into the foreground state.
+   *
+   * <p>To start the service, an app must build a {@link MediaController} or a {@link MediaBrowser}
+   * that binds to the service instead. Starting the service with {@link
+   * Context#startForegroundService(Intent)} is highly discouraged.
+   */
+  @UnstableApi
+  protected static final String ACTION_START_SELF =
+      "androidx.media3.session.MediaSessionService.ACTION_START_SELF";
+
+  /**
+   * The action of an {@link Intent} sent to this service by the system from the media controls
+   * notification in case the {@link android.app.PendingIntent} was build by {@link
+   * DefaultMediaNotificationProvider} that uses {@link DefaultActionFactory}.
+   */
+  @UnstableApi
+  protected static final String ACTION_CUSTOM_NOTIFICATION_ACTION =
+      "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
+
   private static final String TAG = "MSessionService";
 
   private final Object lock;
@@ -444,9 +465,8 @@ public abstract class MediaSessionService extends LifecycleService {
   /**
    * Called when a component calls {@link android.content.Context#startService(Intent)}.
    *
-   * <p>The default implementation handles the incoming media button events. In this case, the
-   * intent will have the action {@link Intent#ACTION_MEDIA_BUTTON}. Override this method if this
-   * service also needs to handle actions other than {@link Intent#ACTION_MEDIA_BUTTON}.
+   * <p>Apps normally don't need to override this method. If you think you need to override this
+   * method, <a href="https://github.com/androidx/media/issues">file a bug on GitHub</a>.
    *
    * <p>This method will be called on the main thread.
    */

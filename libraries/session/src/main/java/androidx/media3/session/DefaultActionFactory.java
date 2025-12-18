@@ -48,7 +48,6 @@ import androidx.media3.common.Player;
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
 
-  private static final String ACTION_CUSTOM = "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
   private static final String EXTRAS_KEY_ACTION_CUSTOM =
       "androidx.media3.session.EXTRAS_KEY_CUSTOM_NOTIFICATION_ACTION";
   public static final String EXTRAS_KEY_ACTION_CUSTOM_EXTRAS =
@@ -162,7 +161,7 @@ import androidx.media3.common.Player;
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   private PendingIntent createCustomActionPendingIntent(
       MediaSession mediaSession, String action, Bundle extras) {
-    Intent intent = new Intent(ACTION_CUSTOM);
+    Intent intent = new Intent(MediaSessionService.ACTION_CUSTOM_NOTIFICATION_ACTION);
     intent.setData(mediaSession.getImpl().getUri());
     intent.setComponent(new ComponentName(service, service.getClass()));
     intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM, action);
@@ -182,7 +181,7 @@ import androidx.media3.common.Player;
 
   /** Returns whether {@code intent} was part of a {@link #createCustomAction custom action }. */
   public boolean isCustomAction(Intent intent) {
-    return ACTION_CUSTOM.equals(intent.getAction());
+    return MediaSessionService.ACTION_CUSTOM_NOTIFICATION_ACTION.equals(intent.getAction());
   }
 
   /**
