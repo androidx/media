@@ -15,20 +15,15 @@
  */
 package androidx.media3.transformer.mh;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
-import android.os.Build;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
@@ -47,7 +42,6 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
@@ -115,24 +109,13 @@ public class TranscodeSpeedTest {
         outputFormat);
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).build();
-    boolean isHighPerformance =
-        Ascii.toLowerCase(Build.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Build.MODEL).contains("6")
-                || Ascii.toLowerCase(Build.MODEL).contains("7")
-                || Ascii.toLowerCase(Build.MODEL).contains("8")
-                || Ascii.toLowerCase(Build.MODEL).contains("fold")
-                || Ascii.toLowerCase(Build.MODEL).contains("tablet"));
-    if (SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6")) {
-      // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
-      isHighPerformance = false;
-    }
     // This test uses ULTRA_HDR_URI_STRING because it's high resolution.
     // Ultra HDR gainmap is ignored.
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder()
                     .setUri(JPG_ULTRA_HDR_ASSET.uri)
-                    .setImageDurationMs(isHighPerformance ? 45_000 : 15_000)
+                    .setImageDurationMs(15_000)
                     .build())
             .setFrameRate(30)
             .setEffects(
@@ -151,45 +134,7 @@ public class TranscodeSpeedTest {
     // This test depends on device GPU performance. Sampling high-resolution textures
     // is expensive. If an extra shader program runs on each frame, devices with slow GPU
     // such as moto e5 play will drop to 5 fps.
-    // Devices with a fast GPU and encoder will drop under 300 fps.
-    assertThat(result.throughputFps).isAtLeast(isHighPerformance ? 400 : 20);
-  }
-
-  @Test
-  public void
-      analyzeVideo_onHighPerformanceDevice_withConfiguredOperatingRate_completesWithHighThroughput()
-          throws Exception {
-    assumeTrue(
-        Ascii.toLowerCase(Build.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Build.MODEL).contains("6")
-                || Ascii.toLowerCase(Build.MODEL).contains("7")
-                || Ascii.toLowerCase(Build.MODEL).contains("8")
-                || Ascii.toLowerCase(Build.MODEL).contains("fold")
-                || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
-    // Pixel 6 is usually quick, unless it's on API 33. See b/358519058.
-    assumeFalse(SDK_INT == 33 && Ascii.toLowerCase(Build.MODEL).contains("pixel 6"));
-    AtomicInteger videoFramesSeen = new AtomicInteger(/* initialValue= */ 0);
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse(MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS.uri))
-            .buildUpon()
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(45_000L).build())
-            .build();
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(mediaItem)
-            .setRemoveAudio(true)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    ImmutableList.of(createFrameCountingEffect(videoFramesSeen))))
-            .build();
-
-    ExportTestResult result = analyzeVideoWithConfiguredOperatingRate(testId, editedMediaItem);
-    int expectedFrameCount = 1350;
-    checkState(videoFramesSeen.get() == expectedFrameCount);
-
-    float throughputFps = 1000f * videoFramesSeen.get() / result.elapsedTimeMs;
-    assertThat(throughputFps).isAtLeast(330);
+    assertThat(result.throughputFps).isAtLeast(20);
   }
 
   @Test

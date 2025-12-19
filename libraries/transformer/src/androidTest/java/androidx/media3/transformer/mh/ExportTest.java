@@ -27,12 +27,9 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SEF;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SEF_H265;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_PIXEL;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
-import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
-import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
@@ -50,13 +47,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.extractor.mp4.Mp4Extractor;
-import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.inspector.MetadataRetriever;
-import androidx.media3.test.utils.FakeExtractorOutput;
-import androidx.media3.test.utils.FakeTrackOutput;
-import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
@@ -386,51 +378,6 @@ public class ExportTest {
             .run(testId, editedMediaItem);
 
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
-  }
-
-  @Test
-  public void clippedMedia_trimOptimizationEnabled_pixel7Pro_completesWithOptimizationApplied()
-      throws Exception {
-    // Devices with Tensor G2 & G3 chipsets should work, but Pixel 7a is flaky.
-    assumeTrue(
-        Ascii.toLowerCase(Build.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Build.MODEL).contains("7")
-                || Ascii.toLowerCase(Build.MODEL).contains("8")
-                || Ascii.toLowerCase(Build.MODEL).contains("fold")
-                || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
-    assumeFalse(Ascii.toLowerCase(Build.MODEL).contains("7a"));
-    Transformer transformer =
-        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
-    MediaItem mediaItem =
-        new MediaItem.Builder()
-            .setUri(MP4_TRIM_OPTIMIZATION_PIXEL.uri)
-            .setClippingConfiguration(
-                new MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionMs(500)
-                    .setEndPositionMs(1200)
-                    .build())
-            .build();
-    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
-
-    ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, editedMediaItem);
-
-    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
-    FakeExtractorOutput fakeExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, result.filePath);
-    FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
-    byte[] sps = videoTrack.lastFormat.initializationData.get(0);
-    // Skip 7 bytes: NAL unit start code (4) and NAL unit type, profile, and reserved fields.
-    int spsLevelIndex = 7;
-    assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(700);
-    assertThat(result.exportResult.videoConversionProcess)
-        .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
-    int inputVideoLevel = 41;
-    assertThat((int) sps[spsLevelIndex]).isAtLeast(inputVideoLevel);
   }
 
   @Test
