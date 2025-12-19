@@ -878,7 +878,7 @@ public final class Util {
    */
   @UnstableApi
   public static <T> ListenableFuture<T> postOrRunWithCompletion(
-      Handler handler, Runnable runnable, T successValue) {
+      Handler handler, Runnable runnable, @Nullable T successValue) {
     SettableFuture<T> outputFuture = SettableFuture.create();
     postOrRun(
         handler,
