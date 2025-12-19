@@ -70,6 +70,8 @@
         being thrown by the system. This is a breaking change on an unstable API
         for apps implementing a custom `MediaNotification.Provider` as there is
         a new required method.
+    *   Add builders for `PendingIntent` instances to be used with home screen
+        widgets ([#2933](https://github.com/androidx/media/issues/2933)).
 *   UI:
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and

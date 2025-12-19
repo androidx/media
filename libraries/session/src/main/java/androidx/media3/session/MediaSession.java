@@ -240,6 +240,9 @@ public class MediaSession {
   @GuardedBy("STATIC_LOCK")
   private static final HashMap<String, MediaSession> SESSION_ID_TO_SESSION_MAP = new HashMap<>();
 
+  /** The default session ID. */
+  /* package */ static final String DEFAULT_SESSION_ID = "";
+
   /**
    * A builder for {@link MediaSession}.
    *
@@ -2493,7 +2496,7 @@ public class MediaSession {
       this.context = checkNotNull(context);
       this.player = checkNotNull(player);
       checkArgument(player.canAdvertiseSession());
-      id = "";
+      id = DEFAULT_SESSION_ID;
       this.callback = callback;
       tokenExtras = new Bundle();
       sessionExtras = new Bundle();

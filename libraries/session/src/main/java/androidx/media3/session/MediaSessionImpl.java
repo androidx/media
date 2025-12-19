@@ -117,6 +117,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public static final String TAG = "MediaSessionImpl";
 
   private static final SessionResult RESULT_WHEN_CLOSED = new SessionResult(INFO_CANCELLED);
+  private static final String SESSION_URI_SCHEME = "androidx";
+  private static final String SESSION_URI_AUTHORITY = "media3.session";
 
   private final Object lock = new Object();
 
@@ -1089,6 +1091,37 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     synchronized (lock) {
       return browserServiceLegacyStub;
     }
+  }
+
+  /**
+   * Creates a session URI for the given session ID.
+   *
+   * @param sessionId The session ID, or {@code null} if not set with {@link
+   *     MediaSession.Builder#setId(String)}.
+   * @return The session URI to identify the session.
+   */
+  /* package */ static Uri createSessionUri(@Nullable String sessionId) {
+    return new Uri.Builder()
+        .scheme(SESSION_URI_SCHEME)
+        .authority(SESSION_URI_AUTHORITY)
+        .appendPath(sessionId == null ? MediaSession.DEFAULT_SESSION_ID : sessionId)
+        .build();
+  }
+
+  /**
+   * Returns the session ID encoded in the session URI or {@link MediaSession#DEFAULT_SESSION_ID} if
+   * the URI passed in is not a valid session URI.
+   *
+   * @param sessionUri The session URI from which to extract the session ID.
+   * @return The session ID.
+   */
+  /* package */ static String getSessionId(Uri sessionUri) {
+    List<String> pathSegments = sessionUri.getPathSegments();
+    return !Objects.equals(sessionUri.getScheme(), SESSION_URI_SCHEME)
+            || !Objects.equals(sessionUri.getAuthority(), SESSION_URI_AUTHORITY)
+            || pathSegments.isEmpty()
+        ? MediaSession.DEFAULT_SESSION_ID
+        : pathSegments.get(0);
   }
 
   /* package */ boolean canResumePlaybackOnStart() {
