@@ -15,7 +15,9 @@
  */
 package androidx.media3.cast;
 
+import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.core.util.Preconditions;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Format;
@@ -28,6 +30,15 @@ import com.google.android.gms.cast.MediaTrack;
 
 /** Utility methods for Cast integration. */
 /* package */ final class CastUtils {
+
+  /**
+   * Verifies that the current thread is the main thread.
+   *
+   * @throws IllegalStateException if the current thread is not the main thread.
+   */
+  public static void verifyMainThread() {
+    Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper());
+  }
 
   /**
    * Returns the duration in microseconds advertised by a media info, or {@link C#TIME_UNSET} if

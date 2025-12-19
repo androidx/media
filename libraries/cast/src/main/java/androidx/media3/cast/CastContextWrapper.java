@@ -15,16 +15,18 @@
  */
 package androidx.media3.cast;
 
+import static androidx.media3.cast.CastUtils.verifyMainThread;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Looper;
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.core.util.Preconditions;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import androidx.mediarouter.media.MediaRouteSelector;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
@@ -32,7 +34,9 @@ import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.tasks.Task;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -54,14 +58,17 @@ public class CastContextWrapper {
   @Nullable
   private static CastContextWrapper singletonInstance;
 
-  @Nullable private CastContext castContext;
   private final List<SessionManagerListener<CastSession>> pendingListeners;
+
+  private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
+
+  @Nullable private CastContext castContext;
   private @MonotonicNonNull Throwable castContextLoadFailure;
   private boolean isInitOngoing;
 
   /** Returns a singleton instance of {@link CastContextWrapper}. */
   public static CastContextWrapper getSingletonInstance() {
-    checkRunningOnMainThread();
+    verifyMainThread();
     if (singletonInstance == null) {
       singletonInstance = new CastContextWrapper();
     }
@@ -76,8 +83,8 @@ public class CastContextWrapper {
    */
   @CanIgnoreReturnValue
   public CastContextWrapper initWithContext(CastContext castContext) {
-    checkRunningOnMainThread();
-    Preconditions.checkNotNull(castContext);
+    verifyMainThread();
+    checkNotNull(castContext);
     if (needsInitialization()) {
       setCastContext(castContext);
     }
@@ -99,7 +106,7 @@ public class CastContextWrapper {
 
   @VisibleForTesting
   /* package */ void asyncInit(CastContextInitializer castContextInitializer) {
-    checkRunningOnMainThread();
+    verifyMainThread();
     if (!needsInitialization()) {
       Log.w(TAG, "Tried to initialize an already initialized CastContextWrapper.");
       return;
@@ -147,7 +154,7 @@ public class CastContextWrapper {
    * @param listener The listener to register.
    */
   public void addSessionManagerListener(SessionManagerListener<CastSession> listener) {
-    checkRunningOnMainThread();
+    verifyMainThread();
     if (castContext != null) {
       castContext.getSessionManager().addSessionManagerListener(listener, CastSession.class);
     } else {
@@ -157,12 +164,31 @@ public class CastContextWrapper {
 
   /** Unregisters the given session manager listener. */
   public void removeSessionManagerListener(SessionManagerListener<CastSession> listener) {
-    checkRunningOnMainThread();
+    verifyMainThread();
     if (castContext != null) {
       castContext.getSessionManager().removeSessionManagerListener(listener, CastSession.class);
     } else {
       pendingListeners.remove(listener);
     }
+  }
+
+  @Nullable
+  /* package */ MediaRouteSelector registerListenerAndGetCurrentSelector(
+      MediaRouteSelectorListener listener) {
+    checkNotNull(listener);
+    if (castContext != null) {
+      MediaRouteSelector selector = castContext.getMergedSelector();
+      return (selector == null) ? MediaRouteSelector.EMPTY : selector;
+    }
+    if (castContextLoadFailure != null) {
+      return MediaRouteSelector.EMPTY;
+    }
+    pendingMediaRouteSelectorListeners.add(listener);
+    return null;
+  }
+
+  /* package */ void unregisterListener(MediaRouteSelectorListener listener) {
+    pendingMediaRouteSelectorListeners.remove(listener);
   }
 
   /**
@@ -171,7 +197,7 @@ public class CastContextWrapper {
    */
   @Nullable
   public CastSession getCurrentCastSession() {
-    checkRunningOnMainThread();
+    verifyMainThread();
     return castContext != null ? castContext.getSessionManager().getCurrentCastSession() : null;
   }
 
@@ -181,14 +207,14 @@ public class CastContextWrapper {
    * @param stopCasting Whether to stop the receiver application.
    */
   public void endCurrentSession(boolean stopCasting) {
-    checkRunningOnMainThread();
+    verifyMainThread();
     if (castContext != null) {
       castContext.getSessionManager().endCurrentSession(stopCasting);
     }
   }
 
   private void setCastContext(CastContext castContext) {
-    checkRunningOnMainThread();
+    verifyMainThread();
     isInitOngoing = false;
     this.castContext = castContext;
     SessionManager sessionManager = castContext.getSessionManager();
@@ -205,6 +231,9 @@ public class CastContextWrapper {
       }
     }
     pendingListeners.clear();
+    MediaRouteSelector selector = castContext.getMergedSelector();
+    selector = (selector == null) ? MediaRouteSelector.EMPTY : selector;
+    notifyPendingMediaRouteSelectorListeners(selector);
   }
 
   private void onCastContextLoadFailure(@Nullable Exception exception) {
@@ -214,25 +243,36 @@ public class CastContextWrapper {
             ? exception
             : new UnknownError("Cast context load failed with a null exception.");
     Log.e(TAG, "Failed to load CastContext", castContextLoadFailure);
+    // Cast context load has failed, the selector won't become non-empty. Notifying listeners with
+    // an empty selector ensures that listeners are not left pending forever.
+    notifyPendingMediaRouteSelectorListeners(MediaRouteSelector.EMPTY);
+  }
+
+  private void notifyPendingMediaRouteSelectorListeners(MediaRouteSelector selector) {
+    for (MediaRouteSelectorListener listener : pendingMediaRouteSelectorListeners) {
+      listener.onMediaRouteSelectorChanged(selector);
+    }
+    pendingMediaRouteSelectorListeners.clear();
   }
 
   private CastContextWrapper() {
     pendingListeners = new ArrayList<>();
+    pendingMediaRouteSelectorListeners = new HashSet<>();
   }
 
   @VisibleForTesting
   /* package */ static void reset() {
-    checkRunningOnMainThread();
+    verifyMainThread();
     singletonInstance = null;
-  }
-
-  private static void checkRunningOnMainThread() {
-    Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper());
   }
 
   @VisibleForTesting
   /* package */ interface CastContextInitializer {
 
     Task<CastContext> init();
+  }
+
+  /* package */ abstract static class MediaRouteSelectorListener {
+    void onMediaRouteSelectorChanged(MediaRouteSelector selector) {}
   }
 }
