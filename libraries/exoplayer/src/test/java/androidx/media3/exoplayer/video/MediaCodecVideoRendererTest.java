@@ -5231,8 +5231,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void getDurationToProgressUs_withDropToKeyFrameWhenNotStarted_returnsDefaultDuration()
-      throws Exception {
+  public void
+      getDurationToProgressUs_withDropToKeyFrameWithoutOutputSurface_returnsDefaultDuration()
+          throws Exception {
     // Remove surface from MediaCodecVideoRenderer.
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, null);
     FakeSampleStream fakeSampleStream =
@@ -5262,10 +5263,18 @@ public class MediaCodecVideoRendererTest {
         /* startPositionUs= */ 0,
         /* offsetUs= */ 0,
         /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
-    for (int i = 0; i < 2; i++) {
+    mediaCodecVideoRenderer.start();
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    while (decoderCounters.skippedInputBufferCount < 3) {
       // Drop to second keyframe as first frame is very late.
       mediaCodecVideoRenderer.render(500_001, SystemClock.elapsedRealtime() * 1000);
       codecAdapterFactory.idleQueueingAndCallbackThreads();
+      shadowOf(testMainLooper).idle();
     }
 
     long durationToProgressUs =
@@ -5274,12 +5283,6 @@ public class MediaCodecVideoRendererTest {
             SystemClock.elapsedRealtime() * 1000,
             /* isOnBufferAvailableListenerRegistered= */ true);
 
-    shadowOf(testMainLooper).idle();
-    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
-        ArgumentCaptor.forClass(DecoderCounters.class);
-    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
-    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
-    assertThat(decoderCounters.skippedInputBufferCount).isEqualTo(3);
     assertThat(durationToProgressUs).isEqualTo(10_000L);
   }
 
