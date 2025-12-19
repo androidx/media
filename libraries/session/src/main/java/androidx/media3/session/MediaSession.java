@@ -734,6 +734,7 @@ public class MediaSession {
     }
 
     /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
+    @UnstableApi
     @VisibleForTesting(otherwise = PRIVATE)
     public static ControllerInfo createTestOnlyControllerInfo(
         String packageName,

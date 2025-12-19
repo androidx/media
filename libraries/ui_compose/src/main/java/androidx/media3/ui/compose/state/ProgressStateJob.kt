@@ -139,5 +139,6 @@ internal fun isReadyOrBuffering(player: Player): Boolean =
 
 // Taking highest frame rate as 120fps, interval is 1000/120
 @UnstableApi const val MIN_UPDATE_INTERVAL_MS = 8L
+@UnstableApi
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
 const val FALLBACK_UPDATE_INTERVAL_MS = 1000L
