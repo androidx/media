@@ -56,8 +56,9 @@ class ComposeSnippets {
       Icon(
         imageVector = if (state.showPlay) Icons.Default.PlayArrow else Icons.Default.Pause,
         contentDescription =
-          if (state.showPlay) stringResource(R.string.playpause_button_play)
-          else stringResource(R.string.playpause_button_pause),
+          if (state.showPlay)
+            stringResource(androidx.media3.ui.compose.material3.R.string.playpause_button_play)
+          else stringResource(androidx.media3.ui.compose.material3.R.string.playpause_button_pause),
       )
     }
     // [END android_compose_custom_play_pause_button]

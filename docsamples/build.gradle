@@ -33,4 +33,6 @@ dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.activity:activity-compose:1.9.0'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation project(modulePrefix + 'lib-ui-compose-material3')
 }
