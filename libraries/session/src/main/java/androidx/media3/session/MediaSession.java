@@ -1551,6 +1551,9 @@ public class MediaSession {
      * MediaSession#getMediaButtonPreferences() media button preferences of the session} are
      * included.
      *
+     * <p>You can use {@link ControllerInfo#isTrusted()} to filter by system apps, apps with media
+     * control permissions, and your own app.
+     *
      * <p>Note that the player commands in {@link ConnectionResult#availablePlayerCommands} will be
      * intersected with the {@link Player#getAvailableCommands() available commands} of the
      * underlying {@link Player} and the controller will only be able to call the commonly available
