@@ -175,8 +175,10 @@ public final class TransformerUtil {
             .addAll(firstEditedMediaItem.effects.videoEffects)
             .addAll(composition.effects.videoEffects)
             .build();
-    return !combinedEffects.isEmpty()
-        && maybeCalculateTotalRotationDegreesAppliedInEffects(combinedEffects, inputFormat) == -1;
+    return firstEditedMediaItem.frameRate != C.RATE_UNSET_INT
+        || (!combinedEffects.isEmpty()
+            && maybeCalculateTotalRotationDegreesAppliedInEffects(combinedEffects, inputFormat)
+                == -1);
   }
 
   /**

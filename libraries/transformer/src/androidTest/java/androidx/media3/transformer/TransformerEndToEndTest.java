@@ -3021,10 +3021,7 @@ public class TransformerEndToEndTest {
                             .setFrameRate(30)
                             .build())))
             .build();
-    Transformer transformer =
-        new Transformer.Builder(context)
-            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
-            .build();
+    Transformer transformer = new Transformer.Builder(context).build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
