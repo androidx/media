@@ -377,8 +377,8 @@ public class MediaSessionCompat {
     Util.postOrRun(internalHandler, r);
   }
 
-  private ListenableFuture<Object> postOrRunOnPlatformSessionThreadWithCompletion(Runnable r) {
-    return Util.postOrRunWithCompletion(internalHandler, r, new Object());
+  private ListenableFuture<Void> postOrRunOnPlatformSessionThreadWithCompletion(Runnable r) {
+    return Util.postOrRunWithCompletion(internalHandler, r, null);
   }
 
   /**
@@ -438,7 +438,7 @@ public class MediaSessionCompat {
    *
    * @param audioAttributes The {@link AudioAttributes} this session is using.
    */
-  public ListenableFuture<Object> setPlaybackToLocal(AudioAttributes audioAttributes) {
+  public ListenableFuture<Void> setPlaybackToLocal(AudioAttributes audioAttributes) {
     return postOrRunOnPlatformSessionThreadWithCompletion(() -> impl.setPlaybackToLocal(audioAttributes));
   }
 
@@ -454,7 +454,7 @@ public class MediaSessionCompat {
    *
    * @param volumeProvider The provider that will handle volume changes. May not be null.
    */
-  public ListenableFuture<Object> setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
+  public ListenableFuture<Void> setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
     return postOrRunOnPlatformSessionThreadWithCompletion(
         () -> impl.setPlaybackToRemote(volumeProvider));
   }
@@ -535,7 +535,7 @@ public class MediaSessionCompat {
    *
    * @param state The current state of playback
    */
-  public ListenableFuture<Object> setPlaybackState(PlaybackStateCompat state) {
+  public ListenableFuture<Void> setPlaybackState(PlaybackStateCompat state) {
     return postOrRunOnPlatformSessionThreadWithCompletion(() -> impl.setPlaybackState(state));
   }
 
@@ -547,7 +547,7 @@ public class MediaSessionCompat {
    * @param metadata The new metadata
    * @see androidx.media3.session.legacy.MediaMetadataCompat.Builder#putBitmap
    */
-  public ListenableFuture<Object> setMetadata(@Nullable MediaMetadataCompat metadata) {
+  public ListenableFuture<Void> setMetadata(@Nullable MediaMetadataCompat metadata) {
     return postOrRunOnPlatformSessionThreadWithCompletion(() -> impl.setMetadata(metadata));
   }
 
@@ -562,7 +562,7 @@ public class MediaSessionCompat {
    * @param queueSupplier A supplier of a list of items in the play queue, which will be executed on
    *     a background thread.
    */
-  public ListenableFuture<Object> computeAndSetQueue(
+  public ListenableFuture<Void> computeAndSetQueue(
       @Nullable Supplier<List<QueueItem>> queueSupplier) {
     return postOrRunOnPlatformSessionThreadWithCompletion(
         () -> {
