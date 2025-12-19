@@ -25,6 +25,7 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.TestServiceRegistry.OnDestroyListener;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -103,6 +104,10 @@ public class MockMediaSessionService extends MediaSessionService {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    OnDestroyListener listener = TestServiceRegistry.getInstance().getOnDestroyListener();
+    if (listener != null) {
+      listener.onDestroyCalled();
+    }
     if (cleanupServiceRegistryOnDestroy) {
       TestServiceRegistry.getInstance().cleanUp();
     }

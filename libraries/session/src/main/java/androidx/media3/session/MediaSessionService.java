@@ -18,23 +18,27 @@ package androidx.media3.session;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.MediaNotificationManager.SELF_INTENT_UID_KEY;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.app.Activity;
+import android.annotation.SuppressLint;
 import android.app.ForegroundServiceStartNotAllowedException;
+import android.app.Notification;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -60,6 +64,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -224,6 +229,7 @@ public abstract class MediaSessionService extends LifecycleService {
   private Listener listener;
 
   private boolean defaultMethodCalled;
+  private boolean initialStartIntentProcessed;
 
   /** Creates a service. */
   public MediaSessionService() {
@@ -450,6 +456,7 @@ public abstract class MediaSessionService extends LifecycleService {
    *
    * <p>This method will be called on the main thread.
    */
+  @SuppressLint("InlinedApi")
   @CallSuper
   @Override
   public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
@@ -490,6 +497,29 @@ public abstract class MediaSessionService extends LifecycleService {
       }
       Bundle customExtras = actionFactory.getCustomActionExtras(intent);
       getMediaNotificationManager().onCustomAction(session, customAction, customExtras);
+    }
+
+    if (!initialStartIntentProcessed && intent.hasExtra(SELF_INTENT_UID_KEY)) {
+      String selfIntentUid = intent.getStringExtra(SELF_INTENT_UID_KEY);
+      initialStartIntentProcessed =
+          Objects.equals(getMediaNotificationManager().getStartSelfIntentUid(), selfIntentUid);
+      if (!initialStartIntentProcessed) {
+        // A UID different to the uid of this instance indicates that this is a stale Intent from
+        // a previous service instance that got destroyed before the intent arrived. As this is
+        // the first start Intent, we immediately stop the service instance that was only created
+        // due to a race condition.
+        Log.w(TAG, "Terminating service that was started by a stale start intent");
+        Pair<Integer, Notification> shutdownNotification =
+            getMediaNotificationManager().createShutdownNotification(/* context= */ this);
+        Util.setForegroundServiceNotification(
+            /* service= */ this,
+            /* notificationId= */ shutdownNotification.first,
+            /* notification= */ shutdownNotification.second,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+            /* foregroundServiceManifestType= */ "mediaPlayback");
+        Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
+        stopSelf();
+      }
     }
     return START_STICKY;
   }
@@ -614,7 +644,7 @@ public abstract class MediaSessionService extends LifecycleService {
    * href="https://developer.android.com/develop/background-work/services/bound-services#Lifecycle">can't
    * be stopped</a> until all media controllers have been unbound. Hence, an app needs to release
    * all internal controllers that have connected to the service (for instance from an activity in
-   * {@link Activity#onStop()}). If an app allows external apps to connect a {@link MediaController}
+   * {@code Activity.onStop()}). If an app allows external apps to connect a {@link MediaController}
    * to the service, these controllers also need to be disconnected. In such a scenario of external
    * bound clients, an app needs to override this method to release the session before calling
    * {@link #stopSelf()}.

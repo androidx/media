@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static android.app.Service.STOP_FOREGROUND_DETACH;
+import static android.app.Service.STOP_FOREGROUND_REMOVE;
 import static android.content.Context.UI_MODE_SERVICE;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
@@ -46,6 +48,8 @@ import android.Manifest.permission;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.app.UiModeManager;
 import android.content.BroadcastReceiver;
@@ -321,6 +325,40 @@ public final class Util {
     } else {
       service.startForeground(notificationId, notification);
     }
+  }
+
+  /**
+   * Takes the service off the foreground by safely calling the correct variant of {@code
+   * Service.stopForeground} on the given API level of the device.
+   *
+   * @param service The service to be taken off the foreground.
+   * @param removeNotification Whether to remove the notification that was attached to the service.
+   */
+  @UnstableApi
+  public static void stopForeground(Service service, boolean removeNotification) {
+    if (Build.VERSION.SDK_INT >= 24) {
+      Api24.stopForeground(service, removeNotification);
+    } else {
+      service.stopForeground(removeNotification);
+    }
+  }
+
+  /**
+   * Ensure that the {@link NotificationChannel} with the given channel ID exists. If not existing,
+   * the channel is created.
+   *
+   * @param notificationManager The {@link NotificationManager} to create the channel with.
+   * @param channelId The channel ID.
+   * @param channelName The channel name.
+   */
+  @UnstableApi
+  public static void ensureNotificationChannel(
+      NotificationManager notificationManager, String channelId, String channelName) {
+    if (Build.VERSION.SDK_INT < 26
+        || notificationManager.getNotificationChannel(channelId) != null) {
+      return;
+    }
+    Api26.createNotificationChannel(notificationManager, channelId, channelName);
   }
 
   /**
@@ -4205,6 +4243,32 @@ public final class Util {
     0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4,
     0xF3
   };
+
+  @RequiresApi(24)
+  private static class Api24 {
+
+    private static void stopForeground(Service service, boolean removeNotification) {
+      service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
+    }
+
+    private Api24() {}
+  }
+
+  @RequiresApi(26)
+  private static class Api26 {
+    private static void createNotificationChannel(
+        NotificationManager notificationManager, String channelId, String channelName) {
+      NotificationChannel channel =
+          new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
+      if (Build.VERSION.SDK_INT <= 27) {
+        // API 28+ will automatically hide the app icon 'badge' for notifications using
+        // Notification.MediaStyle, but we have to manually hide it for APIs 26 (when badges were
+        // added) and 27.
+        channel.setShowBadge(false);
+      }
+      notificationManager.createNotificationChannel(channel);
+    }
+  }
 
   @RequiresApi(29)
   private static class Api29 {

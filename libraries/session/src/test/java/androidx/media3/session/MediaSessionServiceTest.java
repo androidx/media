@@ -899,6 +899,14 @@ public class MediaSessionServiceTest {
           public boolean handleCustomCommand(MediaSession session, String action, Bundle extras) {
             return defaultProvider.handleCustomCommand(session, action, extras);
           }
+
+          @Override
+          public NotificationChannelInfo getNotificationChannelInfo() {
+            return new NotificationChannelInfo(
+                DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+                context.getString(
+                    DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID));
+          }
         });
     service.addSession(session);
     // Add media and give the service a chance to create an initial notification.

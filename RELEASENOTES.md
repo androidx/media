@@ -65,6 +65,11 @@
         `MediaBrowser` for local playbacks. Apps should not change the local
         device volume, and if required, can use `AudioManager` APIs for this
         purpose.
+    *   Detect stale `Intent` instances that started the service as a foreground
+        service. This prevents a `ForegroundServiceDidNotStartInTimeException`
+        being thrown by the system. This is a breaking change on an unstable API
+        for apps implementing a custom `MediaNotification.Provider` as there is
+        a new required method.
 *   UI:
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and

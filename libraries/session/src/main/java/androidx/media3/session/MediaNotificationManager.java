@@ -15,14 +15,15 @@
  */
 package androidx.media3.session;
 
-import static android.app.Service.STOP_FOREGROUND_DETACH;
-import static android.app.Service.STOP_FOREGROUND_REMOVE;
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.session.MediaSession.Token;
@@ -30,13 +31,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Pair;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.MediaNotification.Provider.NotificationChannelInfo;
 import androidx.media3.session.MediaSessionService.ShowNotificationForIdlePlayerMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -46,6 +48,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -61,14 +64,17 @@ import java.util.concurrent.TimeoutException;
 
   private static final String TAG = "MediaNtfMng";
   private static final int MSG_USER_ENGAGED_TIMEOUT = 1;
+  private static final int SHUTDOWN_NOTIFICATION_ID = 20938;
+  /* package */ static final String SELF_INTENT_UID_KEY = "androidx.media3.session.intent.uid";
 
   private final MediaSessionService mediaSessionService;
 
   private final MediaNotification.ActionFactory actionFactory;
-  private final NotificationManagerCompat notificationManagerCompat;
+  private final NotificationManager notificationManager;
   private final Handler mainHandler;
   private final Executor mainExecutor;
   private final Intent startSelfIntent;
+  private final String startSelfIntentUid;
   private final Map<MediaSession, ControllerInfo> controllerMap;
 
   private MediaNotification.Provider mediaNotificationProvider;
@@ -87,16 +93,29 @@ import java.util.concurrent.TimeoutException;
     this.mediaSessionService = mediaSessionService;
     this.mediaNotificationProvider = mediaNotificationProvider;
     this.actionFactory = actionFactory;
-    notificationManagerCompat = NotificationManagerCompat.from(mediaSessionService);
+    notificationManager =
+        checkNotNull(
+            (NotificationManager)
+                mediaSessionService.getSystemService(Context.NOTIFICATION_SERVICE));
     mainHandler = Util.createHandler(Looper.getMainLooper(), /* callback= */ this);
     mainExecutor = (runnable) -> Util.postOrRun(mainHandler, runnable);
     startSelfIntent = new Intent(mediaSessionService, mediaSessionService.getClass());
+    startSelfIntentUid = UUID.randomUUID().toString();
+    startSelfIntent.putExtra(SELF_INTENT_UID_KEY, startSelfIntentUid);
     controllerMap = new HashMap<>();
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
     userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
     showNotificationForIdlePlayerMode =
         MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR;
+  }
+
+  /**
+   * Returns the UID that is set on the start self {@link Intent} as a string extra with key {@link
+   * #SELF_INTENT_UID_KEY}.
+   */
+  /* package */ String getStartSelfIntentUid() {
+    return startSelfIntentUid;
   }
 
   public void addSession(MediaSession session) {
@@ -187,6 +206,11 @@ import java.util.concurrent.TimeoutException;
           MediaNotification mediaNotification =
               this.mediaNotificationProvider.createNotification(
                   session, mediaButtonPreferences, actionFactory, callback);
+          checkState(
+              /* expression= */ mediaNotification.notificationId != SHUTDOWN_NOTIFICATION_ID,
+              /* errorMessage= */ "notification ID "
+                  + SHUTDOWN_NOTIFICATION_ID
+                  + " is already used internally.");
           mainExecutor.execute(
               () ->
                   updateNotificationInternal(
@@ -300,9 +324,8 @@ import java.util.concurrent.TimeoutException;
     } else {
       // Notification manager has to be updated first to avoid missing updates
       // (https://github.com/androidx/media/issues/192).
-      notificationManagerCompat.notify(
-          mediaNotification.notificationId, mediaNotification.notification);
-      stopForeground(/* removeNotifications= */ false);
+      notificationManager.notify(mediaNotification.notificationId, mediaNotification.notification);
+      Util.stopForeground(mediaSessionService, /* removeNotification= */ false);
     }
   }
 
@@ -310,9 +333,9 @@ import java.util.concurrent.TimeoutException;
   private void removeNotification() {
     // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
     // and notificationManagerCompat.cancel(notificationId).
-    stopForeground(/* removeNotifications= */ true);
+    Util.stopForeground(mediaSessionService, /* removeNotification= */ true);
     if (mediaNotification != null) {
-      notificationManagerCompat.cancel(mediaNotification.notificationId);
+      notificationManager.cancel(mediaNotification.notificationId);
       // Update the notification count so that if a pending notification callback arrives (e.g., a
       // bitmap is loaded), we don't show the notification.
       totalNotificationCount++;
@@ -387,6 +410,27 @@ import java.util.concurrent.TimeoutException;
           },
           MoreExecutors.directExecutor());
     }
+  }
+
+  /* package */ Pair<Integer, Notification> createShutdownNotification(Context context) {
+    NotificationChannelInfo notificationChannelInfo =
+        mediaNotificationProvider.getNotificationChannelInfo();
+    // Ensure notification channel exists
+    Util.ensureNotificationChannel(
+        notificationManager, notificationChannelInfo.getId(), notificationChannelInfo.getName());
+    NotificationCompat.Builder builder =
+        new NotificationCompat.Builder(context, notificationChannelInfo.getId());
+    if (SDK_INT >= 31) {
+      builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED);
+    }
+    Notification notification =
+        builder
+            .setOnlyAlertOnce(true)
+            .setSmallIcon(R.drawable.media3_notification_small_icon)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setOngoing(false)
+            .build();
+    return new Pair<>(/* notificationId */ SHUTDOWN_NOTIFICATION_ID, notification);
   }
 
   private final class MediaControllerListener implements MediaController.Listener, Player.Listener {
@@ -467,15 +511,6 @@ import java.util.concurrent.TimeoutException;
     startedInForeground = true;
   }
 
-  private void stopForeground(boolean removeNotifications) {
-    if (SDK_INT >= 24) {
-      Api24.stopForeground(mediaSessionService, removeNotifications);
-    } else {
-      mediaSessionService.stopForeground(removeNotifications);
-    }
-    startedInForeground = false;
-  }
-
   private static final class ControllerInfo {
 
     public final ListenableFuture<MediaController> controllerFuture;
@@ -489,15 +524,5 @@ import java.util.concurrent.TimeoutException;
     public ControllerInfo(ListenableFuture<MediaController> controllerFuture) {
       this.controllerFuture = controllerFuture;
     }
-  }
-
-  @RequiresApi(24)
-  private static class Api24 {
-
-    public static void stopForeground(MediaSessionService service, boolean removeNotification) {
-      service.stopForeground(removeNotification ? STOP_FOREGROUND_REMOVE : STOP_FOREGROUND_DETACH);
-    }
-
-    private Api24() {}
   }
 }

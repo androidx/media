@@ -301,8 +301,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       ImmutableList<CommandButton> mediaButtonPreferences,
       MediaNotification.ActionFactory actionFactory,
       Callback onNotificationChangedCallback) {
-    ensureNotificationChannel();
-
+    Util.ensureNotificationChannel(
+        notificationManager, channelId, context.getString(channelNameResourceId));
     Player player = mediaSession.getPlayer();
     NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId);
     int notificationId = notificationIdProvider.getNotificationId(mediaSession);
@@ -383,6 +383,11 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   public final boolean handleCustomCommand(MediaSession session, String action, Bundle extras) {
     // Make the custom action being delegated to the session as a custom session command.
     return false;
+  }
+
+  @Override
+  public NotificationChannelInfo getNotificationChannelInfo() {
+    return new NotificationChannelInfo(channelId, context.getString(channelNameResourceId));
   }
 
   // Other methods
@@ -606,14 +611,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     return metadata.artist;
   }
 
-  private void ensureNotificationChannel() {
-    if (SDK_INT < 26 || notificationManager.getNotificationChannel(channelId) != null) {
-      return;
-    }
-    Api26.createNotificationChannel(
-        notificationManager, channelId, context.getString(channelNameResourceId));
-  }
-
   private static long getPlaybackStartTimeEpochMs(Player player) {
     if (player.isPlaying()
         && !player.isPlayingAd()
@@ -659,22 +656,6 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       if (!discarded) {
         Log.w(TAG, getBitmapLoadErrorMessage(t));
       }
-    }
-  }
-
-  @RequiresApi(26)
-  private static class Api26 {
-    public static void createNotificationChannel(
-        NotificationManager notificationManager, String channelId, String channelName) {
-      NotificationChannel channel =
-          new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
-      if (SDK_INT <= 27) {
-        // API 28+ will automatically hide the app icon 'badge' for notifications using
-        // Notification.MediaStyle, but we have to manually hide it for APIs 26 (when badges were
-        // added) and 27.
-        channel.setShowBadge(false);
-      }
-      notificationManager.createNotificationChannel(channel);
     }
   }
 

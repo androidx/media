@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.session.MediaNotificationManager.SELF_INTENT_UID_KEY;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
@@ -26,6 +27,7 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -38,6 +40,7 @@ import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
@@ -507,6 +510,19 @@ public class MediaSessionServiceTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(TestUtils.equals(controllerInfoList.get(0).getConnectionHints(), testHints))
         .isTrue();
+  }
+
+  @Test
+  public void staleStartSelfIntent_terminatesServiceImmediately() throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    TestServiceRegistry.getInstance().setOnDestroyListener(latch::countDown);
+    Intent staleStartSelfIntent =
+        new Intent(ApplicationProvider.getApplicationContext(), LocalMockMediaSessionService.class);
+    staleStartSelfIntent.putExtra(SELF_INTENT_UID_KEY, "not matching current UID");
+
+    Util.startForegroundService(ApplicationProvider.getApplicationContext(), staleStartSelfIntent);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   /**

@@ -160,6 +160,28 @@ public final class MediaNotification {
       void onNotificationChanged(MediaNotification notification);
     }
 
+    /** Properties of the notification channel used for the notification. */
+    class NotificationChannelInfo {
+      private final String id;
+      private final String name;
+
+      /** Creates an instance. */
+      public NotificationChannelInfo(String id, String name) {
+        this.id = id;
+        this.name = name;
+      }
+
+      /** Returns the channel ID. */
+      public String getId() {
+        return id;
+      }
+
+      /** Returns the channel name. */
+      public String getName() {
+        return name;
+      }
+    }
+
     /**
      * Creates a new {@link MediaNotification}.
      *
@@ -190,6 +212,13 @@ public final class MediaNotification {
      * @see ActionFactory#createCustomAction
      */
     boolean handleCustomCommand(MediaSession session, String action, Bundle extras);
+
+    /**
+     * Returns the info of the notification channel used when creating a notification.
+     *
+     * @return The {@linkplain NotificationChannelInfo notification channel info}.
+     */
+    NotificationChannelInfo getNotificationChannelInfo();
   }
 
   /** The notification id. */

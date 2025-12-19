@@ -83,6 +83,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.TestServiceRegistry.OnDestroyListener;
 import androidx.media3.test.session.common.CommonConstants;
 import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestHandler;
@@ -199,6 +200,10 @@ public class MockMediaLibraryService extends MediaLibraryService {
     synchronized (MockMediaLibraryService.class) {
       assertLibraryParams = false;
       expectedParams = null;
+    }
+    OnDestroyListener listener = TestServiceRegistry.getInstance().getOnDestroyListener();
+    if (listener != null) {
+      listener.onDestroyCalled();
     }
     TestServiceRegistry.getInstance().cleanUp();
     handlerThread.quitSafely();

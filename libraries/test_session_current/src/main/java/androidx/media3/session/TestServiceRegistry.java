@@ -46,6 +46,9 @@ public class TestServiceRegistry {
   @GuardedBy("TestServiceRegistry.class")
   private OnGetSessionHandler onGetSessionHandler;
 
+  @GuardedBy("TestServiceRegistry.class")
+  private OnDestroyListener onDestroyListener;
+
   /** Callback for session service's lifecyle (onCreate() / onDestroy()) */
   public interface SessionServiceCallback {
     void onCreated();
@@ -71,6 +74,18 @@ public class TestServiceRegistry {
   public OnGetSessionHandler getOnGetSessionHandler() {
     synchronized (TestServiceRegistry.class) {
       return onGetSessionHandler;
+    }
+  }
+
+  public void setOnDestroyListener(OnDestroyListener onDestroyListener) {
+    synchronized (TestServiceRegistry.class) {
+      this.onDestroyListener = onDestroyListener;
+    }
+  }
+
+  public OnDestroyListener getOnDestroyListener() {
+    synchronized (TestServiceRegistry.class) {
+      return onDestroyListener;
     }
   }
 
@@ -133,6 +148,7 @@ public class TestServiceRegistry {
         sessionServiceCallback = null;
       }
       onGetSessionHandler = null;
+      onDestroyListener = null;
     }
   }
 
@@ -141,5 +157,11 @@ public class TestServiceRegistry {
 
     @Nullable
     MediaSession onGetSession(ControllerInfo controllerInfo);
+  }
+
+  /** Called when onDestroy was called. */
+  public interface OnDestroyListener {
+
+    void onDestroyCalled();
   }
 }
