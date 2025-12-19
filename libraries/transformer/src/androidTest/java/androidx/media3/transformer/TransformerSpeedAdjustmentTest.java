@@ -16,6 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.media3.transformer.AndroidTestUtil.getVideoSampleTimesUs;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -294,6 +296,281 @@ public class TransformerSpeedAdjustmentTest {
             1431466, 1448150, 1464833, 1481516, 1498200, 1514883, 1531566, 1549000, 1615732,
             1682466, 1749200, 1815932, 1882666, 1949400, 2016132, 2082866, 2149600, 2216332,
             2283066, 2349800, 2416532, 2483266)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_withTargetFrameRate_outputFrameCountIsCorrect() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(SPEED_PROVIDER_2X)
+            .setFrameRate(30)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    ImmutableList<Long> videoSampleTimesUs = getVideoSampleTimesUs(result.filePath);
+    // Input: 5 sec video at 60fps with 2X speed; Output: 2.5 sec at 30fps = ~75 frames
+    assertThat(videoSampleTimesUs)
+        .containsExactly(
+            0L,
+            33_333L,
+            66_666L,
+            100_000L,
+            133_333L,
+            166_666L,
+            200_000L,
+            233_333L,
+            266_666L,
+            300_000L,
+            333_333L,
+            366_666L,
+            400_000L,
+            433_333L,
+            466_666L,
+            500_000L,
+            533_333L,
+            566_666L,
+            600_000L,
+            633_333L,
+            666_666L,
+            700_000L,
+            733_333L,
+            766_666L,
+            800_000L,
+            833_333L,
+            866_666L,
+            900_000L,
+            933_333L,
+            966_666L,
+            1_000_000L,
+            1_033_333L,
+            1_066_666L,
+            1_100_000L,
+            1_133_333L,
+            1_166_666L,
+            1_200_000L,
+            1_233_333L,
+            1_266_666L,
+            1_300_000L,
+            1_333_333L,
+            1_366_666L,
+            1_400_000L,
+            1_433_333L,
+            1_466_666L,
+            1_500_000L,
+            1_533_333L,
+            1_566_666L,
+            1_600_000L,
+            1_633_333L,
+            1_666_666L,
+            1_700_000L,
+            1_733_333L,
+            1_766_666L,
+            1_800_000L,
+            1_833_333L,
+            1_866_666L,
+            1_900_000L,
+            1_933_333L,
+            1_966_666L,
+            2_000_000L,
+            2_033_333L,
+            2_066_666L,
+            2_100_000L,
+            2_133_333L,
+            2_166_666L,
+            2_200_000L,
+            2_233_333L,
+            2_266_666L,
+            2_300_000L,
+            2_333_333L,
+            2_366_666L,
+            2_400_000L,
+            2_433_333L,
+            2_466_666L)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_withHighSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(
+                new SpeedProvider() {
+                  @Override
+                  public float getSpeed(long timeUs) {
+                    return 20;
+                  }
+
+                  @Override
+                  public long getNextSpeedChangeTimeUs(long timeUs) {
+                    return C.TIME_UNSET;
+                  }
+                })
+            .setFrameRate(30)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    ImmutableList<Long> videoSampleTimesUs = getVideoSampleTimesUs(result.filePath);
+    // Input: 5 sec video at 60fps with 20X speed; Output: 0.25 sec at 30fps = ~8 frames
+    assertThat(videoSampleTimesUs)
+        .containsExactly(0L, 33_333L, 66_666L, 100_000L, 133_333L, 166_666L, 200_000L, 233_333L)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_withVariableSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+            .setSpeed(
+                new SpeedProvider() {
+                  @Override
+                  public float getSpeed(long timeUs) {
+                    if (timeUs >= 4_500_000L) {
+                      return 0.5f;
+                    } else if (timeUs >= 2_500_000L) {
+                      return 1f;
+                    }
+                    return 5f;
+                  }
+
+                  @Override
+                  public long getNextSpeedChangeTimeUs(long timeUs) {
+                    if (timeUs >= 4_500_000L) {
+                      return C.TIME_UNSET;
+                    } else if (timeUs >= 2_500_000L) {
+                      return 4_500_000L;
+                    }
+                    return 2_500_000L;
+                  }
+                })
+            .setFrameRate(30)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    ImmutableList<Long> videoSampleTimesUs = getVideoSampleTimesUs(result.filePath);
+    // (2.5 sec at 5X = 0.5 sec) + (2 sec at 1X = 2 sec) + (0.5 sec at 0.5X = 1 sec) = 3.5 sec =
+    // ~105 frames
+    assertThat(videoSampleTimesUs)
+        .containsExactly(
+            0L,
+            33_333L,
+            66_666L,
+            100_000L,
+            133_333L,
+            166_666L,
+            200_000L,
+            233_333L,
+            266_666L,
+            300_000L,
+            333_333L,
+            366_666L,
+            400_000L,
+            433_333L,
+            466_666L,
+            500_000L,
+            533_333L,
+            566_666L,
+            600_000L,
+            633_333L,
+            666_666L,
+            700_000L,
+            733_333L,
+            766_666L,
+            800_000L,
+            833_333L,
+            866_666L,
+            900_000L,
+            933_333L,
+            966_666L,
+            1_000_000L,
+            1_033_333L,
+            1_066_666L,
+            1_100_000L,
+            1_133_333L,
+            1_166_666L,
+            1_200_000L,
+            1_233_333L,
+            1_266_666L,
+            1_300_000L,
+            1_333_333L,
+            1_366_666L,
+            1_400_000L,
+            1_433_333L,
+            1_466_666L,
+            1_500_000L,
+            1_533_333L,
+            1_566_666L,
+            1_600_000L,
+            1_633_333L,
+            1_666_666L,
+            1_700_000L,
+            1_733_333L,
+            1_766_666L,
+            1_800_000L,
+            1_833_333L,
+            1_866_666L,
+            1_900_000L,
+            1_933_333L,
+            1_966_666L,
+            2_000_000L,
+            2_033_333L,
+            2_066_666L,
+            2_100_000L,
+            2_133_333L,
+            2_166_666L,
+            2_200_000L,
+            2_233_333L,
+            2_266_666L,
+            2_300_000L,
+            2_333_333L,
+            2_366_666L,
+            2_400_000L,
+            2_433_333L,
+            2_466_666L,
+            2_500_000L,
+            2_533_333L,
+            2_566_666L,
+            2_600_000L,
+            2_633_333L,
+            2_666_666L,
+            2_700_000L,
+            2_733_333L,
+            2_766_666L,
+            2_800_000L,
+            2_833_333L,
+            2_866_666L,
+            2_900_000L,
+            2_933_333L,
+            2_966_666L,
+            3_000_000L,
+            3_033_333L,
+            3_066_666L,
+            3_100_000L,
+            3_133_333L,
+            3_166_666L,
+            3_200_000L,
+            3_233_333L,
+            3_266_666L,
+            3_300_000L,
+            3_333_333L,
+            3_366_666L,
+            3_400_000L,
+            3_433_333L,
+            3_466_666L)
         .inOrder();
   }
 

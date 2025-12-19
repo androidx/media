@@ -3006,8 +3006,6 @@ public class TransformerEndToEndTest {
     assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
   }
 
-  // TODO: b/449957963 - Add test for setSpeed() + setFrameRate() once Transformer starts using
-  // SpeedChangingMediaSource.
   @Test
   public void export_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect() throws Exception {
     Composition composition =
