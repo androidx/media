@@ -373,6 +373,18 @@ public abstract class MediaSessionService extends LifecycleService {
     }
   }
 
+  @Nullable
+  /* package */ MediaSession getSessionByUri(Uri sessionUri) {
+    synchronized (lock) {
+      for (MediaSession session : sessions.values()) {
+        if (Objects.equals(session.getImpl().getUri(), sessionUri)) {
+          return session;
+        }
+      }
+    }
+    return null;
+  }
+
   /**
    * Sets the {@linkplain Listener listener}.
    *
@@ -467,7 +479,7 @@ public abstract class MediaSessionService extends LifecycleService {
 
     DefaultActionFactory actionFactory = getActionFactory();
     @Nullable Uri uri = intent.getData();
-    @Nullable MediaSession session = uri != null ? MediaSession.getSession(uri) : null;
+    @Nullable MediaSession session = uri != null ? getSessionByUri(uri) : null;
     if (actionFactory.isMediaAction(intent)) {
       if (session == null) {
         ControllerInfo controllerInfo = ControllerInfo.createLegacyControllerInfo();
