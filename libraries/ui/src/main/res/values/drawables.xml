@@ -61,5 +61,6 @@
   <drawable name="exo_styled_controls_settings">@drawable/exo_ic_settings</drawable>
   <drawable name="exo_styled_controls_check">@drawable/exo_ic_check</drawable>
   <drawable name="exo_styled_controls_audiotrack">@drawable/exo_ic_audiotrack</drawable>
+  <drawable name="exo_styled_controls_videotrack">@drawable/exo_ic_videotrack</drawable>
   <drawable name="exo_styled_controls_speed">@drawable/exo_ic_speed</drawable>
 </resources>
