@@ -1512,6 +1512,10 @@ public class MediaSession {
     return impl.getUri();
   }
 
+  /* package */ final Looper getBackgroundLooper() {
+    return impl.getBackgroundLooper();
+  }
+
   /**
    * A progress reporter to report progress for a custom command sent by a controller.
    *
@@ -2449,7 +2453,7 @@ public class MediaSession {
   /**
    * Listener for media session events.
    *
-   * <p>All methods must be called on the main thread.
+   * <p>All methods can be called on any thread.
    */
   /* package */ interface Listener {
 
@@ -2467,7 +2471,7 @@ public class MediaSession {
      * @param session The media session which requests if the media can be played.
      * @return True if the media can be played, false otherwise.
      */
-    boolean onPlayRequested(MediaSession session);
+    ListenableFuture<Boolean> onPlayRequested(MediaSession session);
   }
 
   /**

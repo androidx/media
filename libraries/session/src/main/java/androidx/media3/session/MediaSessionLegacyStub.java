@@ -141,8 +141,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
   @Nullable private final ComponentName broadcastReceiverComponentName;
   private final boolean playIfSuppressed;
-  private final Runnable callOnNotificationRefreshRequiredRunnable =
-      this::callOnNotificationRefreshRequiredIfNeeded;
 
   private volatile long connectionTimeoutMs;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
@@ -150,7 +148,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private int sessionFlags;
   @Nullable private LegacyError legacyError;
   private Bundle legacyExtras;
-  private boolean notificationRefreshRequiredPending;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
@@ -295,11 +292,26 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged();
     }
 
-    if (commandGetTimelineChanged) {
-      updateLegacySessionPlaybackStateAndQueue(sessionImpl.getPlayerWrapper(), true);
-    } else {
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), true);
-    }
+    PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+    postOrRun(
+        sessionImpl.getApplicationHandler(),
+        () -> {
+          // Because setAvailableCommands can be called from any thread and processing the updated
+          // state requires going through both player and background thread, we must manually
+          // trigger a refresh of the notification and cannot rely on MediaNotificationManager.
+          ListenableFuture<Void> completion =
+              sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
+          if (commandGetTimelineChanged) {
+            // will refresh notification once all bitmaps are loaded
+            controllerLegacyCbForBroadcast.updateQueue(
+                playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
+                    ? playerWrapper.getCurrentTimeline()
+                    : Timeline.EMPTY);
+          } else {
+            completion.addListener(
+                sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
+          }
+        });
   }
 
   /**
@@ -357,7 +369,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.playerCommandsForErrorState = playerCommandsForErrorState;
     if (playbackException != null) {
       maybeUpdateFlags(sessionImpl.getPlayerWrapper());
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
   }
 
@@ -398,7 +410,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       bundle = result.sessionError.extras;
     }
     legacyError = new LegacyError(isFatal, legacyErrorCode, errorMessage, bundle);
-    updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+    updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
   }
 
   /**
@@ -408,7 +420,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public void clearLegacyErrorStatus() {
     if (legacyError != null) {
       legacyError = null;
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
   }
 
@@ -1070,27 +1082,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     connectionTimeoutMs = timeoutMs;
   }
 
-  public void updateLegacySessionPlaybackState(PlayerWrapper playerWrapper, boolean notify) {
+  public void updateLegacySessionPlaybackState(PlayerWrapper playerWrapper) {
     postOrRun(
         sessionImpl.getApplicationHandler(),
-        () -> {
-          requestNotificationRefreshWhenDone(
-              sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper)), notify);
-        });
-  }
-
-  public void updateLegacySessionPlaybackStateAndQueue(
-      PlayerWrapper playerWrapper, boolean notify) {
-    postOrRun(
-        sessionImpl.getApplicationHandler(),
-        () -> {
-          sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
-          controllerLegacyCbForBroadcast.updateQueue(
-              playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
-                  ? playerWrapper.getCurrentTimeline()
-                  : Timeline.EMPTY,
-              notify);
-        });
+        () -> sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper)));
   }
 
   private void handleMediaRequest(MediaItem mediaItem, boolean play) {
@@ -1216,33 +1211,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         MoreExecutors.directExecutor());
   }
 
-  private void callOnNotificationRefreshRequiredIfNeeded() {
-    if (notificationRefreshRequiredPending) {
-      sessionImpl.onNotificationRefreshRequired();
-      notificationRefreshRequiredPending = false;
-    }
-  }
-
-  private void requestNotificationRefresh(boolean postRunnable) {
-    notificationRefreshRequiredPending = true;
-    if (postRunnable) {
-      postOnNotificationRefreshRequiredRunnable();
-    }
-  }
-
-  private void postOnNotificationRefreshRequiredRunnable() {
-    sessionImpl.getApplicationHandler().removeCallbacks(callOnNotificationRefreshRequiredRunnable);
-    sessionImpl.getApplicationHandler().post(callOnNotificationRefreshRequiredRunnable);
-  }
-
   private static <T> void ignoreFuture(Future<T> unused) {
     // no-op
-  }
-
-  private <T> void requestNotificationRefreshWhenDone(
-      ListenableFuture<T> future, boolean postRunnable) {
-    future.addListener(
-        () -> requestNotificationRefresh(postRunnable), sessionImpl.getApplicationHandler()::post);
   }
 
   private boolean isQueueEnabled() {
@@ -1394,7 +1364,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       }
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       maybeUpdateFlags(playerWrapper);
-      updateLegacySessionPlaybackState(playerWrapper, false);
+      updateLegacySessionPlaybackState(playerWrapper);
     }
 
     @Override
@@ -1450,7 +1420,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         // If PlaybackStateCompat isn't updated by above if-statement, forcefully update
         // PlaybackStateCompat to tell the latest position and its event
         // time. This would also update playback speed, buffering state, player state, and error.
-        updateLegacySessionPlaybackState(newPlayerWrapper, true);
+        updateLegacySessionPlaybackState(newPlayerWrapper);
       }
     }
 
@@ -1459,17 +1429,17 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (skipLegacySessionPlaybackStateUpdates()) {
         return;
       }
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void setCustomLayout(int seq, List<CommandButton> layout) {
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), true);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void setMediaButtonPreferences(int seq, List<CommandButton> mediaButtonPreferences) {
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), true);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1482,7 +1452,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
       }
       sessionCompat.setExtras(legacyExtras);
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1503,7 +1473,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         PlaybackStateCompat playbackStateCompat = createPlaybackStateCompat(playerWrapper);
         sessionCompat.setPlaybackState(playbackStateCompat);
         legacyError = null;
-        updateLegacySessionPlaybackState(playerWrapper, false);
+        updateLegacySessionPlaybackState(playerWrapper);
       }
     }
 
@@ -1528,7 +1498,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       // Note: This method does not use any of the given arguments.
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), true);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1537,7 +1507,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (skipLegacySessionPlaybackStateUpdates()) {
         return;
       }
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1547,7 +1517,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       // Note: This method does not use any of the given arguments.
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), true);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1555,7 +1525,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (skipLegacySessionPlaybackStateUpdates()) {
         return;
       }
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1568,7 +1538,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       // Note: This method does not use any of the given arguments.
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1577,7 +1547,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       // Note: This method does not use any of the given arguments.
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1587,16 +1557,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       // MediaMetadataCompat needs to be updated when the media ID or URI of the media item changes.
-      updateMetadataIfChanged(false);
+      updateMetadataIfChanged();
       if (mediaItem == null) {
         sessionCompat.setRatingType(RatingCompat.RATING_NONE);
       } else {
         sessionCompat.setRatingType(
             LegacyConversions.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
       }
-      requestNotificationRefreshWhenDone(
-          sessionCompat.setPlaybackState(createPlaybackStateCompat(sessionImpl.getPlayerWrapper())),
-          true);
+      sessionCompat.setPlaybackState(createPlaybackStateCompat(sessionImpl.getPlayerWrapper()));
     }
 
     @Override
@@ -1604,7 +1572,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (skipLegacySessionPlaybackStateUpdates()) {
         return;
       }
-      updateMetadataIfChanged(true);
+      updateMetadataIfChanged();
     }
 
     @Override
@@ -1613,14 +1581,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (skipLegacySessionPlaybackStateUpdates()) {
         return;
       }
-      updateQueue(timeline, false);
+      updateQueue(timeline);
       // Duration might be unknown at onMediaItemTransition and become available afterward.
-      updateMetadataIfChanged(true);
+      updateMetadataIfChanged();
     }
 
-    private void updateQueue(Timeline timeline, boolean notify) {
+    private void updateQueue(Timeline timeline) {
       if (!isQueueEnabled() || timeline.isEmpty()) {
-        requestNotificationRefreshWhenDone(sessionCompat.computeAndSetQueue(null), notify);
+        ListenableFuture<Void> completion = sessionCompat.computeAndSetQueue(null);
+        completion.addListener(
+            sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
         return;
       }
       List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
@@ -1630,7 +1600,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           () -> {
             int completedBitmapFutureCount = resultCount.incrementAndGet();
             if (completedBitmapFutureCount == mediaItemList.size()) {
-              handleBitmapFuturesAllCompletedAndSetQueue(bitmapFutures, mediaItemList, notify);
+              handleBitmapFuturesAllCompletedAndSetQueue(bitmapFutures, mediaItemList);
             }
           };
 
@@ -1651,12 +1621,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     private void handleBitmapFuturesAllCompletedAndSetQueue(
-        List<@NullableType ListenableFuture<Bitmap>> bitmapFutures,
-        List<MediaItem> mediaItems,
-        boolean notify) {
+        List<@NullableType ListenableFuture<Bitmap>> bitmapFutures, List<MediaItem> mediaItems) {
       // Framework MediaSession#setQueue() uses ParceledListSlice,
       // which means we can safely send long lists.
-      requestNotificationRefreshWhenDone(
+      // Do conversions on a background thread instead of the session thread, as we may
+      // have a lot
+      // of media items to convert.
+      ListenableFuture<Void> completion =
           sessionCompat.computeAndSetQueue(
               () -> {
                 // Do conversions on a background thread instead of the session thread, as we may
@@ -1677,8 +1648,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                       LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
                 }
                 return queueItemList;
-              }),
-          notify);
+              });
+      // Because we had to wait for futures to complete before we can switch to the background
+      // thread, we have to manually notify SystemUI that the notification should be updated,
+      // MediaNotificationManager cannot do it for us.
+      completion.addListener(
+          sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
     }
 
     @Override
@@ -1712,8 +1687,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @DeviceInfo.PlaybackType
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
-        requestNotificationRefreshWhenDone(
-            sessionCompat.setPlaybackToLocal(audioAttributes), true);
+        sessionCompat.setPlaybackToLocal(audioAttributes);
       }
     }
 
@@ -1723,10 +1697,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       volumeProviderCompat = createVolumeProviderCompat(player);
       if (volumeProviderCompat == null) {
         AudioAttributes audioAttributes = player.getAudioAttributesWithCommandCheck();
-        requestNotificationRefreshWhenDone(sessionCompat.setPlaybackToLocal(audioAttributes), true);
+        sessionCompat.setPlaybackToLocal(audioAttributes);
       } else {
-        requestNotificationRefreshWhenDone(
-            sessionCompat.setPlaybackToRemote(volumeProviderCompat), true);
+        sessionCompat.setPlaybackToRemote(volumeProviderCompat);
       }
     }
 
@@ -1745,11 +1718,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         boolean unusedCanAccessTimeline,
         int controllerInterfaceVersion) {
       if (!skipLegacySessionPlaybackStateUpdates()) {
-        updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper(), false);
+        updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
       }
     }
 
-    private void updateMetadataIfChanged(boolean notify) {
+    private void updateMetadataIfChanged() {
       PlayerWrapper player = sessionImpl.getPlayerWrapper();
       @Nullable MediaItem currentMediaItem = player.getCurrentMediaItemWithCommandCheck();
       MediaMetadata newMediaMetadata = player.getMediaMetadataWithCommandCheck();
@@ -1769,9 +1742,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           && Objects.equals(lastMediaId, newMediaId)
           && Objects.equals(lastMediaUri, newMediaUri)
           && lastDurationMs == newDurationMs) {
-        if (notify) {
-          postOnNotificationRefreshRequiredRunnable();
-        }
         return;
       }
 
@@ -1799,15 +1769,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   if (this != pendingBitmapLoadCallback) {
                     return;
                   }
-                  requestNotificationRefreshWhenDone(
+                  ListenableFuture<Void> completion =
                       sessionCompat.setMetadata(
                           LegacyConversions.convertToMediaMetadataCompat(
                               newMediaMetadata,
                               newMediaId,
                               newMediaUri,
                               newDurationMs,
-                              /* artworkBitmap= */ result)),
-                      true);
+                              /* artworkBitmap= */ result));
+                  completion.addListener(
+                      sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
                 }
 
                 @Override
@@ -1824,11 +1795,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               /* executor= */ sessionImpl.getApplicationHandler()::post);
         }
       }
-      requestNotificationRefreshWhenDone(
-          sessionCompat.setMetadata(
-              LegacyConversions.convertToMediaMetadataCompat(
-                  newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap)),
-          notify);
+      sessionCompat.setMetadata(
+          LegacyConversions.convertToMediaMetadataCompat(
+              newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmap));
     }
   }
 
