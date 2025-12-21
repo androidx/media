@@ -1522,7 +1522,7 @@ public class MediaSession {
     return impl.getUri();
   }
 
-  /* package */ final Looper getBackgroundLooper() {
+  /* package */ @Nullable final Looper getBackgroundLooper() {
     return impl.getBackgroundLooper();
   }
 
