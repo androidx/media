@@ -402,6 +402,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return sessionToken;
   }
 
+  public Looper getBackgroundLooper() {
+    return backgroundThread.getLooper();
+  }
+
   public List<ControllerInfo> getConnectedControllers() {
     verifyApplicationThread();
     ImmutableList<ControllerInfo> media3Controllers =
@@ -555,7 +559,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       postOrRunOnApplicationHandler(
           () -> {
             sessionLegacyStub.setPlatformCustomLayout(customLayout);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
           });
     }
     return dispatchRemoteControllerTask(
@@ -586,7 +590,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       postOrRunOnApplicationHandler(
           () -> {
             sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
           });
     }
     return dispatchRemoteControllerTask(
@@ -1272,13 +1276,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   /* package */ void onNotificationRefreshRequired() {
-    postOrRun(
-        mainHandler,
-        () -> {
-          if (this.mediaSessionListener != null) {
-            this.mediaSessionListener.onNotificationRefreshRequired(instance);
-          }
-        });
+    if (this.mediaSessionListener != null) {
+      this.mediaSessionListener.onNotificationRefreshRequired(instance);
+    }
   }
 
   /* package */ ListenableFuture<Boolean> onPlayRequested() {
