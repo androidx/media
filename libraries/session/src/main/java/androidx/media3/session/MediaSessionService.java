@@ -51,6 +51,7 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleService;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -60,6 +61,8 @@ import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -73,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -125,17 +129,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * controller. If it's accepted, the controller will be available and keep the binding. If it's
  * rejected, the controller will unbind.
  *
- * <p>{@link #onUpdateNotification(MediaSession, boolean)} will be called whenever a notification
- * needs to be shown, updated or cancelled. The default implementation will display notifications
- * using a default UI or using a {@link MediaNotification.Provider} that's set with {@link
- * #setMediaNotificationProvider}. In addition, when playback starts, the service will become a <a
- * href="https://developer.android.com/guide/components/foreground-services">foreground service</a>.
- * It's required to keep the playback after the controller is destroyed. The service will become a
- * background service when all playbacks are stopped. Apps targeting {@code SDK_INT >= 28} must
- * request the permission, {@link android.Manifest.permission#FOREGROUND_SERVICE}, in order to make
- * the service foreground. You can control when to show or hide notifications by overriding {@link
- * #onUpdateNotification(MediaSession, boolean)}. In this case, you must also start or stop the
- * service from the foreground, when playback starts or stops respectively.
+ * <p>{@link #onUpdateNotificationAsync(MediaSession, boolean)} will be called whenever a
+ * notification needs to be shown, updated or cancelled. The default implementation will display
+ * notifications using a default UI or using a {@link MediaNotification.Provider} that's set with
+ * {@link #setMediaNotificationProvider}. In addition, when playback starts, the service will become
+ * a <a href="https://developer.android.com/guide/components/foreground-services">foreground
+ * service</a>. It's required to keep the playback after the controller is destroyed. The service
+ * will become a background service when all playbacks are stopped. Apps targeting {@code SDK_INT >=
+ * 28} must request the permission, {@link android.Manifest.permission#FOREGROUND_SERVICE}, in order
+ * to make the service foreground. You can control when to show or hide notifications by overriding
+ * {@link #onUpdateNotificationAsync(MediaSession, boolean)}. In this case, you must also start or
+ * stop the service from the foreground, when playback starts or stops respectively.
  *
  * <p>The service will be destroyed when all sessions are {@linkplain MediaController#release()
  * released}, or no controller is binding to the service while the service is in the background.
@@ -704,10 +708,12 @@ public abstract class MediaSessionService extends LifecycleService {
    */
   @UnstableApi
   public final void pauseAllPlayersAndStopSelf() {
-    getMediaNotificationManager().disableUserEngagedTimeout();
     List<MediaSession> sessionList = getSessions();
+    getMediaNotificationManager().stopForegroundServiceAndDisableNotifications();
     for (int i = 0; i < sessionList.size(); i++) {
-      sessionList.get(i).getPlayer().setPlayWhenReady(false);
+      Player player = sessionList.get(i).getPlayer();
+      Util.postOrRun(
+          new Handler(player.getApplicationLooper()), () -> player.setPlayWhenReady(false));
     }
     stopSelf();
   }
@@ -770,7 +776,7 @@ public abstract class MediaSessionService extends LifecycleService {
   }
 
   /**
-   * @deprecated Use {@link #onUpdateNotification(MediaSession, boolean)} instead.
+   * @deprecated Use {@link #onUpdateNotificationAsync(MediaSession, boolean)} instead.
    */
   @Deprecated
   public void onUpdateNotification(MediaSession session) {
@@ -778,40 +784,10 @@ public abstract class MediaSessionService extends LifecycleService {
   }
 
   /**
-   * Called when a notification needs to be updated. Override this method to show or cancel your own
-   * notifications.
-   *
-   * <p>This method is replaced by {@link #onUpdateNotificationAsync(MediaSession, boolean)} to
-   * enable the default implementation of the library to provide multi thread scenarios. An app must
-   * not override both methods. While this method is still supported, we recommend migrating to the
-   * newer version and return an {@linkplain Futures#immediateFuture(Object) immediate future} if no
-   * real async execution is required for your app.
-   *
-   * <p>Note: This method must not be called directly by app code.
-   *
-   * <p>This method is called whenever the service has detected a change that requires to show,
-   * update or cancel a notification with a flag {@code startInForegroundRequired} suggested by the
-   * service whether starting in the foreground is required. The method will be called on the
-   * application thread of the app that the service belongs to.
-   *
-   * <p>Override this method to create your own notification and customize the foreground handling
-   * of your service.
-   *
-   * <p>The default implementation will present a default notification or the notification provided
-   * by the {@link MediaNotification.Provider} that is {@link
-   * #setMediaNotificationProvider(MediaNotification.Provider) set} by the app. Further, the service
-   * is started in the <a
-   * href="https://developer.android.com/guide/components/foreground-services">foreground</a> when
-   * playback is ongoing and put back into background otherwise.
-   *
-   * <p>Apps targeting {@code SDK_INT >= 28} must request the permission, {@link
-   * android.Manifest.permission#FOREGROUND_SERVICE}.
-   *
-   * <p>This method will be called on the main thread.
-   *
-   * @param session A session that needs notification update.
-   * @param startInForegroundRequired Whether the service is required to start in the foreground.
+   * @deprecated Use {@link #onUpdateNotificationAsync(MediaSession, boolean)} instead.
    */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Calling deprecated method.
   public void onUpdateNotification(MediaSession session, boolean startInForegroundRequired) {
     onUpdateNotification(session);
   }
@@ -840,7 +816,7 @@ public abstract class MediaSessionService extends LifecycleService {
    * <p>Apps targeting {@code SDK_INT >= 28} must request the permission, {@link
    * android.Manifest.permission#FOREGROUND_SERVICE}.
    *
-   * <p>This method will be called on the main thread.
+   * <p>This method can be called on any thread.
    *
    * <p>This method is replacing {@link #onUpdateNotification(MediaSession, boolean)} to enable the
    * default implementation of the library to provide multi thread setup scenarios. An app must not
@@ -853,10 +829,32 @@ public abstract class MediaSessionService extends LifecycleService {
   @UnstableApi
   public ListenableFuture<@NullableType Void> onUpdateNotificationAsync(
       MediaSession session, boolean startInForegroundRequired) {
-    onUpdateNotification(session, startInForegroundRequired);
-    return defaultMethodCalled
-        ? getMediaNotificationManager().updateNotification(session, startInForegroundRequired)
-        : immediateVoidFuture();
+    SettableFuture<Boolean> resultFuture = SettableFuture.create();
+    Util.postOrRun(
+        mainHandler,
+        () -> {
+          onUpdateNotification(session, startInForegroundRequired);
+          resultFuture.set(defaultMethodCalled);
+        });
+    SettableFuture<Void> completion = SettableFuture.create();
+    resultFuture.addListener(
+        () -> {
+          boolean result;
+          try {
+            result = resultFuture.get();
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+          if (result) { // Super was called, so use new implementation.
+            ListenableFuture<Void> completionInner =
+                getMediaNotificationManager().updateNotification(session, startInForegroundRequired);
+            completion.setFuture(completionInner);
+          } else { // Method was overridden without super call.
+            completion.set(null);
+          }
+        },
+        BackgroundExecutor.get());
+    return completion;
   }
 
   /**
@@ -895,28 +893,30 @@ public abstract class MediaSessionService extends LifecycleService {
   }
 
   /**
-   * Triggers notification update and handles {@code ForegroundServiceStartNotAllowedException}.
+   * Triggers notification update.
    *
-   * <p>This method will be called on the main thread.
+   * <p>This method can be called on any thread.
    */
   @CanIgnoreReturnValue
   /* package */ ListenableFuture<Boolean> onUpdateNotificationInternal(
       MediaSession session, boolean startInForegroundWhenPaused) {
-    boolean startInForegroundRequired =
+    ListenableFuture<Boolean> startInForegroundRequiredFuture =
         getMediaNotificationManager().shouldRunInForeground(startInForegroundWhenPaused);
-    return Futures.catching(
-        Futures.transform(
-            onUpdateNotificationAsync(session, startInForegroundRequired),
-            aVoid -> true,
-            ContextCompat.getMainExecutor(/* context= */ this)),
-        Throwable.class,
-        t -> {
-          if (SDK_INT >= 31 && t instanceof ForegroundServiceStartNotAllowedException) {
-            onForegroundServiceStartNotAllowedException();
-          }
-          return false;
-        },
-        ContextCompat.getMainExecutor(/* context= */ this));
+    return Futures.transformAsync(startInForegroundRequiredFuture,
+        startInForegroundRequired -> Futures.catching(
+            Futures.transform(
+                onUpdateNotificationAsync(session, startInForegroundRequired),
+                aVoid -> true,
+                MoreExecutors.directExecutor()),
+            Throwable.class,
+            t -> {
+              if (SDK_INT >= 31 && t instanceof ForegroundServiceStartNotAllowedException) {
+                onForegroundServiceStartNotAllowedException();
+              }
+              return false;
+            },
+            MoreExecutors.directExecutor()),
+        MoreExecutors.directExecutor());
   }
 
   private MediaNotificationManager getMediaNotificationManager() {
@@ -987,9 +987,6 @@ public abstract class MediaSessionService extends LifecycleService {
     public ListenableFuture<Boolean> onPlayRequested(MediaSession session) {
       if (SDK_INT < 31 || SDK_INT >= 33) {
         return immediateFuture(true);
-      }
-      if (Looper.myLooper() != Looper.getMainLooper()) {
-        return Futures.submitAsync(() -> onPlayRequested(session), mainHandler::post);
       }
       // Check if service can start foreground successfully on Android 12 and 12L.
       if (!getMediaNotificationManager().isStartedInForeground()) {
