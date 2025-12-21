@@ -1573,7 +1573,7 @@ public class MediaSession {
     return deprecatedDefaultConnectionResult;
   }
 
-  /* package */ final Looper getBackgroundLooper() {
+  /* package */ @Nullable final Looper getBackgroundLooper() {
     return impl.getBackgroundLooper();
   }
 
