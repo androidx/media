@@ -1470,8 +1470,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               sessionError.message,
               sessionError.extras);
       if (!skipLegacySessionPlaybackStateUpdates()) {
-        PlaybackStateCompat playbackStateCompat = createPlaybackStateCompat(playerWrapper);
-        sessionCompat.setPlaybackState(playbackStateCompat);
+        sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
         legacyError = null;
         updateLegacySessionPlaybackState(playerWrapper);
       }
@@ -1625,14 +1624,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Framework MediaSession#setQueue() uses ParceledListSlice,
       // which means we can safely send long lists.
       // Do conversions on a background thread instead of the session thread, as we may
-      // have a lot
-      // of media items to convert.
+      // have a lot of media items to convert.
       ListenableFuture<Void> completion =
           sessionCompat.computeAndSetQueue(
               () -> {
                 // Do conversions on a background thread instead of the session thread, as we may
-                // have a lot
-                // of media items to convert.
+                // have a lot of media items to convert.
                 List<QueueItem> queueItemList = new ArrayList<>(bitmapFutures.size());
                 for (int i = 0; i < bitmapFutures.size(); i++) {
                   @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
