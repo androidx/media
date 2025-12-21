@@ -739,6 +739,7 @@ import java.util.concurrent.atomic.AtomicInteger;
         Log.e(TAG, "Failed to start foreground", e);
         return false;
       }
+      throw e;
     }
     if (hasOtherForegroundSession) {
       // startForeground() normally does this, but as we passed another notification to it, we have
