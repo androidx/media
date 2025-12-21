@@ -557,9 +557,9 @@ public class MediaSessionCompat {
    * @param queueSupplier A supplier of a list of items in the play queue, which will be executed on
    *     a background thread.
    */
-  public ListenableFuture<Void> computeAndSetQueue(
+  public void computeAndSetQueue(
       @Nullable Supplier<List<QueueItem>> queueSupplier) {
-    return Util.postOrRunWithCompletion(
+    Util.postOrRun(
         internalHandler,
         () -> {
           @Nullable List<QueueItem> queue = queueSupplier != null ? queueSupplier.get() : null;
@@ -576,8 +576,7 @@ public class MediaSessionCompat {
             }
           }
           impl.setQueue(queue);
-        },
-        null);
+        });
   }
 
   /**

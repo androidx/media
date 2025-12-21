@@ -296,20 +296,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     postOrRun(
         sessionImpl.getApplicationHandler(),
         () -> {
-          // Because setAvailableCommands can be called from any thread and processing the updated
-          // state requires going through both player and background thread, we must manually
-          // trigger a refresh of the notification and cannot rely on MediaNotificationManager.
           ListenableFuture<Void> completion =
               sessionCompat.setPlaybackState(createPlaybackStateCompat(playerWrapper));
+          completion.addListener(
+              sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
           if (commandGetTimelineChanged) {
-            // will refresh notification once all bitmaps are loaded
             controllerLegacyCbForBroadcast.updateQueue(
                 playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE)
                     ? playerWrapper.getCurrentTimeline()
                     : Timeline.EMPTY);
-          } else {
-            completion.addListener(
-                sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
           }
         });
   }
@@ -1587,9 +1582,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     private void updateQueue(Timeline timeline) {
       if (!isQueueEnabled() || timeline.isEmpty()) {
-        ListenableFuture<Void> completion = sessionCompat.computeAndSetQueue(null);
-        completion.addListener(
-            sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
+        sessionCompat.computeAndSetQueue(null);
         return;
       }
       List<MediaItem> mediaItemList = LegacyConversions.convertToMediaItemList(timeline);
@@ -1625,32 +1618,26 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // which means we can safely send long lists.
       // Do conversions on a background thread instead of the session thread, as we may
       // have a lot of media items to convert.
-      ListenableFuture<Void> completion =
-          sessionCompat.computeAndSetQueue(
-              () -> {
-                // Do conversions on a background thread instead of the session thread, as we may
-                // have a lot of media items to convert.
-                List<QueueItem> queueItemList = new ArrayList<>(bitmapFutures.size());
-                for (int i = 0; i < bitmapFutures.size(); i++) {
-                  @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
-                  @Nullable Bitmap bitmap = null;
-                  if (future != null) {
-                    try {
-                      bitmap = Futures.getDone(future);
-                    } catch (CancellationException | ExecutionException e) {
-                      Log.d(TAG, "Failed to get bitmap", e);
-                    }
-                  }
-                  queueItemList.add(
-                      LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
+      sessionCompat.computeAndSetQueue(
+          () -> {
+            // Do conversions on a background thread instead of the session thread, as we may
+            // have a lot of media items to convert.
+            List<QueueItem> queueItemList = new ArrayList<>(bitmapFutures.size());
+            for (int i = 0; i < bitmapFutures.size(); i++) {
+              @Nullable ListenableFuture<Bitmap> future = bitmapFutures.get(i);
+              @Nullable Bitmap bitmap = null;
+              if (future != null) {
+                try {
+                  bitmap = Futures.getDone(future);
+                } catch (CancellationException | ExecutionException e) {
+                  Log.d(TAG, "Failed to get bitmap", e);
                 }
-                return queueItemList;
-              });
-      // Because we had to wait for futures to complete before we can switch to the background
-      // thread, we have to manually notify SystemUI that the notification should be updated,
-      // MediaNotificationManager cannot do it for us.
-      completion.addListener(
-          sessionImpl::onNotificationRefreshRequired, MoreExecutors.directExecutor());
+              }
+              queueItemList.add(
+                  LegacyConversions.convertToQueueItem(mediaItems.get(i), i, bitmap));
+            }
+            return queueItemList;
+          });
     }
 
     @Override

@@ -675,6 +675,11 @@ import java.util.concurrent.atomic.AtomicInteger;
           session, /* startInForegroundWhenPaused= */ false);
     }
 
+    // Note: Because setAvailableCommands can be called from any thread and processing the updated
+    // state requires executing code on both player and background thread, MediaSessionLegacyStub is
+    // responsible for manually triggering a refresh of the notification instead of this being
+    // handled here.
+
     @Override
     public ListenableFuture<SessionResult> onCustomCommand(
         MediaController controller, SessionCommand command, Bundle args) {
@@ -699,11 +704,12 @@ import java.util.concurrent.atomic.AtomicInteger;
     @Override
     public void onEvents(Player player, Player.Events events) {
       // We must limit the frequency of notification updates, otherwise the system may suppress
-      // them. (Note: EVENT_TIMELINE_CHANGED is handled in MediaSessionLegacyStub)
+      // them.
       if (events.containsAny(
           Player.EVENT_PLAYBACK_STATE_CHANGED,
           Player.EVENT_PLAY_WHEN_READY_CHANGED,
           Player.EVENT_MEDIA_METADATA_CHANGED,
+          Player.EVENT_TIMELINE_CHANGED,
           Player.EVENT_DEVICE_INFO_CHANGED)) {
         mediaSessionService.onUpdateNotificationInternal(
             session, /* startInForegroundWhenPaused= */ false);
