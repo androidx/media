@@ -26,6 +26,8 @@
     *   Fix bug where loading continues after playback ended when removing the
         currently playing item from a playlist
         ([#2873](https://github.com/androidx/media/issues/2873)).
+    *   Allow setting a custom `DataSource.Factory` in
+        `DefaultPreloadManager.Builder`.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

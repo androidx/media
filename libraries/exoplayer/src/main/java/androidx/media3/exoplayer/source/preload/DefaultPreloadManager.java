@@ -34,6 +34,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
@@ -75,6 +76,7 @@ public final class DefaultPreloadManager
   public static final class Builder extends BuilderBase<Integer, PreloadStatus> {
 
     private final Context context;
+    @Nullable private DataSource.Factory dataSourceFactory;
     private PlaybackLooperProvider preloadLooperProvider;
     private TrackSelector.Factory trackSelectorFactory;
     private Supplier<BandwidthMeter> bandwidthMeterSupplier;
@@ -98,7 +100,7 @@ public final class DefaultPreloadManager
       super(
           new SimpleRankingDataComparator(),
           targetPreloadStatusControl,
-          new MediaSourceFactorySupplier(context));
+          new DefaultMediaSourceFactorySupplier(context));
       this.context = context;
       this.preloadLooperProvider = new PlaybackLooperProvider();
       this.trackSelectorFactory = DefaultTrackSelector::new;
@@ -110,21 +112,82 @@ public final class DefaultPreloadManager
     }
 
     /**
-     * Sets the {@link MediaSource.Factory} that will be used by the built {@link
-     * DefaultPreloadManager} and {@link ExoPlayer}.
+     * @deprecated Use {@link #setMediaSourceFactorySupplier(MediaSourceFactorySupplier)} instead.
+     *     If an app still uses this method, it should be aware that the set {@link
+     *     MediaSource.Factory} may not have the {@link #setCache(Cache) set Cache} and {@link
+     *     #setDataSourceFactory(DataSource.Factory) set DataSource.Factory} injected.
+     */
+    @Deprecated
+    @CanIgnoreReturnValue
+    public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
+      checkState(!buildCalled && !buildExoPlayerCalled);
+      this.mediaSourceFactorySupplier =
+          new MediaSourceFactorySupplier() {
+            @Override
+            @CanIgnoreReturnValue
+            public MediaSourceFactorySupplier setCache(@Nullable Cache cache) {
+              return this;
+            }
+
+            @Override
+            @CanIgnoreReturnValue
+            public MediaSourceFactorySupplier setDataSourceFactory(
+                @Nullable DataSource.Factory dataSourceFactory) {
+              return this;
+            }
+
+            @Override
+            public MediaSource.Factory get() {
+              return mediaSourceFactory;
+            }
+          };
+      return this;
+    }
+
+    /**
+     * Sets the {@link MediaSourceFactorySupplier} which supplies the {@link MediaSource.Factory}
+     * that will be used by the built {@link DefaultPreloadManager} and {@link ExoPlayer}.
      *
-     * <p>The default is a {@link DefaultMediaSourceFactory}.
+     * <p>The default is a {@link MediaSourceFactorySupplier} that creates a {@link
+     * DefaultMediaSourceFactory} with the {@linkplain #setCache(Cache) set cache} and the
+     * {@linkplain #setDataSourceFactory(DataSource.Factory) set DataSource.Factory}.
      *
-     * @param mediaSourceFactory A {@link MediaSource.Factory}
+     * @param mediaSourceFactorySupplier A {@link MediaSourceFactorySupplier}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
      *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
      */
     @CanIgnoreReturnValue
-    public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
+    public Builder setMediaSourceFactorySupplier(
+        MediaSourceFactorySupplier mediaSourceFactorySupplier) {
       checkState(!buildCalled && !buildExoPlayerCalled);
-      ((MediaSourceFactorySupplier) this.mediaSourceFactorySupplier)
-          .setCustomMediaSourceFactory(mediaSourceFactory);
+      this.mediaSourceFactorySupplier =
+          mediaSourceFactorySupplier.setCache(cache).setDataSourceFactory(dataSourceFactory);
+      return this;
+    }
+
+    /**
+     * Sets the {@link DataSource.Factory} that will be used by the built {@link
+     * DefaultPreloadManager} and {@link ExoPlayer}.
+     *
+     * <p>The {@link DataSource.Factory} will be used as the upstream {@link DataSource.Factory} for
+     * caching the media items, and propagated to the {@link MediaSource.Factory} used by {@link
+     * DefaultPreloadManager} and {@link ExoPlayer} for media source creation. Once set, the {@link
+     * DataSource.Factory} will be passed into the existing {@linkplain
+     * MediaSourceFactorySupplier#setDataSourceFactory(DataSource.Factory)
+     * MediaSourceFactorySupplier} on this builder, and the {@link MediaSourceFactorySupplier} later
+     * set to this builder.
+     *
+     * @param dataSourceFactory A {@link DataSource.Factory}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
+     *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDataSourceFactory(DataSource.Factory dataSourceFactory) {
+      checkState(!buildCalled && !buildExoPlayerCalled);
+      this.dataSourceFactory = dataSourceFactory;
+      this.mediaSourceFactorySupplier.setDataSourceFactory(dataSourceFactory);
       return this;
     }
 
@@ -223,7 +286,14 @@ public final class DefaultPreloadManager
     }
 
     /**
-     * Sets the {@link Cache} that will be used for caching the media items.
+     * Sets the {@link Cache} that will be used by the built {@link DefaultPreloadManager} and
+     * {@link ExoPlayer}.
+     *
+     * <p>The {@link Cache} will be used for caching the media items, and propagated to the {@link
+     * MediaSource.Factory} used by {@link DefaultPreloadManager} and {@link ExoPlayer} for media
+     * source creation. Once set, the {@link Cache} will be passed into the existing {@linkplain
+     * MediaSourceFactorySupplier#setCache(Cache) MediaSourceFactorySupplier} on this builder, and
+     * the {@link MediaSourceFactorySupplier} later set to this builder.
      *
      * <p>The default is {@code null}. If an app will return {@link
      * PreloadStatus#specifiedRangeCached(long, long)} or {@link
@@ -239,7 +309,7 @@ public final class DefaultPreloadManager
     public Builder setCache(@Nullable Cache cache) {
       checkState(!buildCalled && !buildExoPlayerCalled);
       this.cache = cache;
-      ((MediaSourceFactorySupplier) this.mediaSourceFactorySupplier).setCache(cache);
+      this.mediaSourceFactorySupplier.setCache(cache);
       return this;
     }
 
@@ -297,7 +367,7 @@ public final class DefaultPreloadManager
      * builder:
      *
      * <ul>
-     *   <li>{@link #setMediaSourceFactory(MediaSource.Factory) MediaSource.Factory}
+     *   <li>{@link #setMediaSourceFactorySupplier(MediaSourceFactorySupplier)} MediaSource.Factory}
      *   <li>{@link #setRenderersFactory(RenderersFactory) RenderersFactory}
      *   <li>{@link #setTrackSelectorFactory(TrackSelector.Factory) TrackSelector.Factory}
      *   <li>{@link #setLoadControl(LoadControl) LoadControl}
@@ -522,8 +592,13 @@ public final class DefaultPreloadManager
     if (cache != null) {
       preCacheThread = new HandlerThread("DefaultPreloadManager:PreCacheHelper");
       preCacheThread.start();
+      DataSource.Factory upstreamDataSourceFactory =
+          builder.dataSourceFactory != null
+              ? builder.dataSourceFactory
+              : new DefaultDataSource.Factory(builder.context);
       preCacheHelperFactory =
-          new PreCacheHelper.Factory(builder.context, cache, preCacheThread.getLooper())
+          new PreCacheHelper.Factory(
+                  builder.context, cache, upstreamDataSourceFactory, preCacheThread.getLooper())
               .setDownloadExecutor(builder.cachingExecutor)
               .setListener(new PreCacheHelperListener());
     } else {
@@ -818,42 +893,51 @@ public final class DefaultPreloadManager
     }
   }
 
-  private static class MediaSourceFactorySupplier implements Supplier<MediaSource.Factory> {
+  private static class DefaultMediaSourceFactorySupplier implements MediaSourceFactorySupplier {
 
     private final Context context;
     private final Supplier<DefaultMediaSourceFactory> defaultMediaSourceFactorySupplier;
-
-    @Nullable private MediaSource.Factory customMediaSourceFactory;
     @Nullable private Cache cache;
+    @Nullable private DataSource.Factory dataSourceFactory;
 
-    public MediaSourceFactorySupplier(Context context) {
+    private DefaultMediaSourceFactorySupplier(Context context) {
       this.context = context;
       defaultMediaSourceFactorySupplier =
           Suppliers.memoize(() -> new DefaultMediaSourceFactory(context));
     }
 
-    public void setCache(@Nullable Cache cache) {
+    @Override
+    @CanIgnoreReturnValue
+    public DefaultMediaSourceFactorySupplier setCache(@Nullable Cache cache) {
       this.cache = cache;
+      return this;
     }
 
-    public void setCustomMediaSourceFactory(@Nullable MediaSource.Factory mediaSourceFactory) {
-      this.customMediaSourceFactory = mediaSourceFactory;
+    @Override
+    @CanIgnoreReturnValue
+    public DefaultMediaSourceFactorySupplier setDataSourceFactory(
+        @Nullable DataSource.Factory dataSourceFactory) {
+      this.dataSourceFactory = dataSourceFactory;
+      return this;
     }
 
     @Override
     public MediaSource.Factory get() {
-      if (customMediaSourceFactory != null) {
-        return customMediaSourceFactory;
-      }
       DefaultMediaSourceFactory defaultMediaSourceFactory = defaultMediaSourceFactorySupplier.get();
+      DataSource.Factory dataSourceFactory =
+          this.dataSourceFactory != null
+              ? this.dataSourceFactory
+              : new DefaultDataSource.Factory(context);
       @Nullable Cache cache = this.cache;
       if (cache != null) {
         CacheDataSource.Factory cacheDataSourceFactory =
             new CacheDataSource.Factory()
-                .setUpstreamDataSourceFactory(new DefaultDataSource.Factory(context))
+                .setUpstreamDataSourceFactory(dataSourceFactory)
                 .setCache(cache)
                 .setCacheWriteDataSinkFactory(null);
         defaultMediaSourceFactory.setDataSourceFactory(cacheDataSourceFactory);
+      } else {
+        defaultMediaSourceFactory.setDataSourceFactory(dataSourceFactory);
       }
       return defaultMediaSourceFactory;
     }
