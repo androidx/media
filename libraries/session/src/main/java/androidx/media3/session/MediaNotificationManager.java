@@ -155,9 +155,9 @@ import java.util.concurrent.atomic.AtomicInteger;
         new MediaController.Builder(mediaSessionService, session.getToken())
             .setConnectionHints(connectionHints)
             .setListener(listener)
-            .setApplicationLooper(session.getBackgroundLooper())
+            .setApplicationLooper(checkNotNull(session.getBackgroundLooper()))
             .buildAsync();
-    Handler backgroundHandler = new Handler(session.getBackgroundLooper());
+    Handler backgroundHandler = new Handler(checkNotNull(session.getBackgroundLooper()));
     controllerMap.put(
         session, new ControllerInfo(controllerFuture, backgroundHandler));
     controllerFuture.addListener(
@@ -307,9 +307,12 @@ import java.util.concurrent.atomic.AtomicInteger;
       @Nullable ControllerInfo controllerInfo, MediaSession session, Runnable r) {
     @Nullable Handler bgHandler = controllerInfo != null ? controllerInfo.backgroundHandler : null;
     if (bgHandler == null) {
-      bgHandler = new Handler(session.getBackgroundLooper());
+      @Nullable Looper bgLooper = session.getBackgroundLooper();
+      if (bgLooper != null) {
+        bgHandler = new Handler(bgLooper);
+      }
     }
-    if (!bgHandler.post(r)) {
+    if (bgHandler == null || !bgHandler.post(r)) {
       // If we end up here, the thread already quit. We should use another thread as stand-in.
       BackgroundExecutor.get().execute(r);
     }
