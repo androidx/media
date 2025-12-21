@@ -362,7 +362,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return sessionToken;
   }
 
-  public Looper getBackgroundLooper() {
+  public @Nullable Looper getBackgroundLooper() {
     return backgroundThread.getLooper();
   }
 
