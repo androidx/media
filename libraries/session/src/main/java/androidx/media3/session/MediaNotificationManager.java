@@ -831,7 +831,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   }
 
   @RequiresApi(31)
-  /* package */ static final class Api31 {
+  private static final class Api31 {
     public static boolean instanceOfForegroundServiceStartNotAllowedException(
         IllegalStateException e) {
       return e instanceof ForegroundServiceStartNotAllowedException;
