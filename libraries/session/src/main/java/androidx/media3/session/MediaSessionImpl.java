@@ -362,6 +362,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return sessionToken;
   }
 
+  public Looper getBackgroundLooper() {
+    return backgroundThread.getLooper();
+  }
+
   public List<ControllerInfo> getConnectedControllers() {
     ImmutableList<ControllerInfo> media3Controllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
@@ -505,7 +509,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformCustomLayout(customLayout);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
     return dispatchRemoteControllerTask(
         controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
@@ -530,7 +534,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
     return dispatchRemoteControllerTask(
         controller,
@@ -1126,32 +1130,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   /* package */ void onNotificationRefreshRequired() {
-    postOrRun(
-        mainHandler,
-        () -> {
-          if (this.mediaSessionListener != null) {
-            this.mediaSessionListener.onNotificationRefreshRequired(instance);
-          }
-        });
+    if (this.mediaSessionListener != null) {
+      this.mediaSessionListener.onNotificationRefreshRequired(instance);
+    }
   }
 
   /* package */ ListenableFuture<Boolean> onPlayRequested() {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      return CallbackToFutureAdapter.<Boolean>getFuture(
-              completer -> {
-                mainHandler.post(
-                    () -> {
-                      try {
-                        completer.set(onPlayRequested().get());
-                      } catch (ExecutionException | InterruptedException e) {
-                        completer.setException(new IllegalStateException(e));
-                      }
-                    });
-                return "onPlayRequested";
-              });
-    }
     if (this.mediaSessionListener != null) {
-      return Futures.immediateFuture(this.mediaSessionListener.onPlayRequested(instance));
+      return this.mediaSessionListener.onPlayRequested(instance);
     }
     return Futures.immediateFuture(true);
   }

@@ -377,10 +377,6 @@ public class MediaSessionCompat {
     Util.postOrRun(internalHandler, r);
   }
 
-  private ListenableFuture<Void> postOrRunOnPlatformSessionThreadWithCompletion(Runnable r) {
-    return Util.postOrRunWithCompletion(internalHandler, r, null);
-  }
-
   /**
    * Sets the callback to receive updates for the MediaSession. This includes media button and
    * volume events. Set the callback to null to stop receiving events.
@@ -535,7 +531,7 @@ public class MediaSessionCompat {
    * @param state The current state of playback
    */
   public ListenableFuture<Void> setPlaybackState(PlaybackStateCompat state) {
-    return postOrRunOnPlatformSessionThreadWithCompletion(() -> impl.setPlaybackState(state));
+    return Util.postOrRunWithCompletion(internalHandler, () -> impl.setPlaybackState(state), null);
   }
 
   /**
@@ -547,7 +543,7 @@ public class MediaSessionCompat {
    * @see androidx.media3.session.legacy.MediaMetadataCompat.Builder#putBitmap
    */
   public ListenableFuture<Void> setMetadata(@Nullable MediaMetadataCompat metadata) {
-    return postOrRunOnPlatformSessionThreadWithCompletion(() -> impl.setMetadata(metadata));
+    return Util.postOrRunWithCompletion(internalHandler, () -> impl.setMetadata(metadata), null);
   }
 
   /**
@@ -563,7 +559,8 @@ public class MediaSessionCompat {
    */
   public ListenableFuture<Void> computeAndSetQueue(
       @Nullable Supplier<List<QueueItem>> queueSupplier) {
-    return postOrRunOnPlatformSessionThreadWithCompletion(
+    return Util.postOrRunWithCompletion(
+        internalHandler,
         () -> {
           @Nullable List<QueueItem> queue = queueSupplier != null ? queueSupplier.get() : null;
           if (queue != null) {
@@ -579,7 +576,8 @@ public class MediaSessionCompat {
             }
           }
           impl.setQueue(queue);
-        });
+        },
+        null);
   }
 
   /**
