@@ -76,11 +76,17 @@ import java.util.concurrent.TimeoutException;
   private final Intent startSelfIntent;
   private final String startSelfIntentUid;
   private final Map<MediaSession, ControllerInfo> controllerMap;
+  private final Map<MediaSession, MediaNotification> mediaNotifications;
 
   private MediaNotification.Provider mediaNotificationProvider;
-  private int totalNotificationCount;
-  @Nullable private MediaNotification mediaNotification;
-  private boolean startedInForeground;
+
+  /**
+   * The session that provides the notification the foreground service is started with, or null if
+   * the service is not in foreground at the moment. Each service can only have one foreground
+   * notification, so we have to switch this around as needed if we have multiple sessions.
+   */
+  private @Nullable MediaSession foregroundSession;
+
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
   private long userEngagedTimeoutMs;
@@ -103,7 +109,7 @@ import java.util.concurrent.TimeoutException;
     startSelfIntentUid = UUID.randomUUID().toString();
     startSelfIntent.putExtra(SELF_INTENT_UID_KEY, startSelfIntentUid);
     controllerMap = new HashMap<>();
-    startedInForeground = false;
+    mediaNotifications = new HashMap<>();
     isUserEngagedTimeoutEnabled = true;
     userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
     showNotificationForIdlePlayerMode =
@@ -152,6 +158,9 @@ import java.util.concurrent.TimeoutException;
   public void removeSession(MediaSession session) {
     @Nullable ControllerInfo controllerInfo = controllerMap.remove(session);
     if (controllerInfo != null) {
+      // Update the notification count so that if a pending notification callback arrives (e.g., a
+      // bitmap is loaded), we don't show a stale notification.
+      controllerInfo.notificationSequence++;
       MediaController.releaseFuture(controllerInfo.controllerFuture);
     }
   }
@@ -189,17 +198,20 @@ import java.util.concurrent.TimeoutException;
    */
   public void updateNotification(MediaSession session, boolean startInForegroundRequired) {
     if (!mediaSessionService.isSessionAdded(session) || !shouldShowNotification(session)) {
-      removeNotification();
+      removeNotification(session);
       return;
     }
 
-    int notificationSequence = ++totalNotificationCount;
+    ControllerInfo controllerInfo = checkNotNull(controllerMap.get(session));
+    int notificationSequence = ++controllerInfo.notificationSequence;
     ImmutableList<CommandButton> mediaButtonPreferences =
         checkNotNull(getConnectedControllerForSession(session)).getMediaButtonPreferences();
     MediaNotification.Provider.Callback callback =
         notification ->
             mainExecutor.execute(
-                () -> onNotificationUpdated(notificationSequence, session, notification));
+                () ->
+                    onNotificationUpdated(
+                        controllerInfo, notificationSequence, session, notification));
     Util.postOrRun(
         new Handler(session.getPlayer().getApplicationLooper()),
         () -> {
@@ -219,7 +231,7 @@ import java.util.concurrent.TimeoutException;
   }
 
   public boolean isStartedInForeground() {
-    return startedInForeground;
+    return foregroundSession != null;
   }
 
   public void setUserEngagedTimeoutMs(long userEngagedTimeoutMs) {
@@ -293,8 +305,11 @@ import java.util.concurrent.TimeoutException;
   }
 
   private void onNotificationUpdated(
-      int notificationSequence, MediaSession session, MediaNotification mediaNotification) {
-    if (notificationSequence == totalNotificationCount) {
+      ControllerInfo controllerInfo,
+      int notificationSequence,
+      MediaSession session,
+      MediaNotification mediaNotification) {
+    if (controllerInfo.notificationSequence == notificationSequence) {
       boolean startInForegroundRequired =
           shouldRunInForeground(/* startInForegroundWhenPaused= */ false);
       updateNotificationInternal(session, mediaNotification, startInForegroundRequired);
@@ -308,9 +323,6 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
-  // POST_NOTIFICATIONS permission is not required for media session related notifications.
-  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
-  @SuppressLint("MissingPermission")
   private void updateNotificationInternal(
       MediaSession session,
       MediaNotification mediaNotification,
@@ -318,28 +330,33 @@ import java.util.concurrent.TimeoutException;
     // Call Notification.MediaStyle#setMediaSession() indirectly.
     Token fwkToken = session.getPlatformToken();
     mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
-    this.mediaNotification = mediaNotification;
+    this.mediaNotifications.put(session, mediaNotification);
     if (startInForegroundRequired) {
-      startForeground(mediaNotification);
+      startForeground(session, mediaNotification);
     } else {
       // Notification manager has to be updated first to avoid missing updates
       // (https://github.com/androidx/media/issues/192).
-      notificationManager.notify(mediaNotification.notificationId, mediaNotification.notification);
-      Util.stopForeground(mediaSessionService, /* removeNotification= */ false);
+      notify(mediaNotification);
+      stopForeground(session, /* removeNotifications= */ false);
     }
   }
 
   /** Removes the notification and stops the foreground service if running. */
-  private void removeNotification() {
+  private void removeNotification(MediaSession session) {
     // To hide the notification on all API levels, we need to call both Service.stopForeground(true)
     // and notificationManagerCompat.cancel(notificationId).
-    Util.stopForeground(mediaSessionService, /* removeNotification= */ true);
+    stopForeground(session, /* removeNotifications= */ true);
+    @Nullable MediaNotification mediaNotification = mediaNotifications.remove(session);
     if (mediaNotification != null) {
       notificationManager.cancel(mediaNotification.notificationId);
       // Update the notification count so that if a pending notification callback arrives (e.g., a
       // bitmap is loaded), we don't show the notification.
-      totalNotificationCount++;
-      mediaNotification = null;
+      @Nullable ControllerInfo controllerInfo = controllerMap.get(session);
+      // If the controllerInfo is already removed from the map, removeSession() has increased the
+      // sequence, so it's fine.
+      if (controllerInfo != null) {
+        controllerInfo.notificationSequence++;
+      }
     }
   }
 
@@ -471,7 +488,23 @@ import java.util.concurrent.TimeoutException;
   }
 
   @SuppressLint("InlinedApi") // Using compile time constant FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-  private void startForeground(MediaNotification mediaNotification) {
+  private void startForeground(MediaSession session, MediaNotification newMediaNotification) {
+    MediaNotification mediaNotification;
+    boolean hasOtherForegroundSession;
+    if (foregroundSession != null && foregroundSession != session) {
+      // If we would use the newly updated notification, the old foreground session's notification
+      // would be canceled by the system because the service switched to another foreground service
+      // notification. However, we don't want to cancel it, so we just keep using the old session's
+      // notification as long as we can, and post our new notification as normal notification.
+      // We still need to call startForeground() in any case to avoid
+      // ForegroundServiceDidNotStartInTimeException.
+      mediaNotification = checkNotNull(mediaNotifications.get(foregroundSession));
+      hasOtherForegroundSession = true;
+    } else {
+      mediaNotification = newMediaNotification;
+      foregroundSession = session;
+      hasOtherForegroundSession = false;
+    }
     ContextCompat.startForegroundService(mediaSessionService, startSelfIntent);
     Util.setForegroundServiceNotification(
         mediaSessionService,
@@ -479,7 +512,52 @@ import java.util.concurrent.TimeoutException;
         mediaNotification.notification,
         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
         "mediaPlayback");
-    startedInForeground = true;
+    if (hasOtherForegroundSession) {
+      // startForeground() normally does this, but as we passed another notification to it, we have
+      // to do it manually here.
+      notify(newMediaNotification);
+    }
+  }
+
+  private void stopForeground(MediaSession session, boolean removeNotifications) {
+    if (foregroundSession != session) {
+      // This happens if there is another session in foreground since before this session wanted to
+      // go in the foreground. As this other session still wants to be in the foreground, we don't
+      // need to stop the foreground service. cancel() will be called by the caller if
+      // removeNotifications is true, so we don't need to do anything here.
+      return;
+    }
+    foregroundSession = null;
+    if (shouldRunInForeground(false)) {
+      // If we shouldn't show a notification for this session anymore, but there's another session
+      // and it wants to stay in foreground, we have to change the foreground service notification
+      // to the other session.
+      List<MediaSession> sessions = mediaSessionService.getSessions();
+      for (MediaSession candidateSession : sessions) {
+        // Just take the first one willing to show a notification, it doesn't matter which one.
+        if (shouldShowNotification(candidateSession)) {
+          startForeground(candidateSession, checkNotNull(mediaNotifications.get(candidateSession)));
+          // When calling startForeground() with a different notification ID, the old notification
+          // will be canceled by the system. It's an unfortunate limitation of the API we can't do
+          // anything about. Hence, if removeNotifications is false, we have to send the
+          // notification out again using notify() as we didn't want it to be canceled.
+          if (!removeNotifications) {
+            notify(checkNotNull(mediaNotifications.get(session)));
+          }
+          return;
+        }
+      }
+    }
+    // Either we don't have any notification left, or we don't want to stay in foreground. It's
+    // time to stop the foreground service.
+    Util.stopForeground(mediaSessionService, removeNotifications);
+  }
+
+  // POST_NOTIFICATIONS permission is not required for media session related notifications.
+  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions-media-sessions
+  @SuppressLint("MissingPermission")
+  private void notify(MediaNotification notification) {
+    notificationManager.notify(notification.notificationId, notification.notification);
   }
 
   private static final class ControllerInfo {
@@ -491,6 +569,9 @@ import java.util.concurrent.TimeoutException;
 
     /** Indicated whether the player has ever been prepared. */
     public boolean hasBeenPrepared;
+
+    /** The notification sequence number. */
+    public int notificationSequence;
 
     public ControllerInfo(ListenableFuture<MediaController> controllerFuture) {
       this.controllerFuture = controllerFuture;
