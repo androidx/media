@@ -722,7 +722,7 @@ public class MediaSession {
     /* package */ static ControllerInfo createLegacyControllerInfo() {
       RemoteUserInfo legacyRemoteUserInfo =
           new RemoteUserInfo(
-              RemoteUserInfo.LEGACY_CONTROLLER,
+              /* packageName= */ RemoteUserInfo.LEGACY_CONTROLLER,
               /* pid= */ RemoteUserInfo.UNKNOWN_PID,
               /* uid= */ RemoteUserInfo.UNKNOWN_UID);
       return new ControllerInfo(

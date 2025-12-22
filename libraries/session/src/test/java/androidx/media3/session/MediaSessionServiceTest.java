@@ -832,7 +832,8 @@ public class MediaSessionServiceTest {
                             .customExtras
                             .getString("expectedKey", /* defaultValue= */ "")
                             .equals("expectedValue")
-                        && args.isEmpty()) {
+                        && args.getString("expectedKey", /* defaultValue= */ "")
+                            .equals("expectedValue")) {
                       latch.countDown();
                     }
                     return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));

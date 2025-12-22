@@ -393,8 +393,7 @@ import java.util.concurrent.TimeoutException;
     }
     if (customCommand != null || CommandButton.isPredefinedCustomCommandButtonCode(action)) {
       ListenableFuture<SessionResult> future =
-          mediaController.sendCustomCommand(
-              new SessionCommand(action, extras), /* args= */ Bundle.EMPTY);
+          mediaController.sendCustomCommand(new SessionCommand(action, extras), /* args= */ extras);
       Futures.addCallback(
           future,
           new FutureCallback<SessionResult>() {

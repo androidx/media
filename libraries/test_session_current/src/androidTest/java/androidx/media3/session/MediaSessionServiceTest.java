@@ -15,11 +15,14 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.session.MediaNotificationManager.SELF_INTENT_UID_KEY;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -39,10 +42,16 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.Player.Listener;
+import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.MediaSession.ConnectionResult;
+import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestHandler;
@@ -523,6 +532,239 @@ public class MediaSessionServiceTest {
     Util.startForegroundService(ApplicationProvider.getApplicationContext(), staleStartSelfIntent);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void onStartCommand_pendingIntentPlaybackResumption_startsPlayback() throws Exception {
+    CountDownLatch playbackStartedLatch = new CountDownLatch(/* count= */ 2);
+    CountDownLatch seekLatch = new CountDownLatch(/* count= */ 1);
+    Context context = ApplicationProvider.getApplicationContext();
+    List<MediaItem> mediaItems = new ArrayList<>();
+    MediaItem playbackResumptionMediaItem =
+        MediaItem.fromUri("asset://android_asset/media/mp4/sample.mp4");
+    AtomicReference<ExoPlayer> exoPlayerRef = new AtomicReference<>();
+    List<ControllerInfo> requestingControllerInfos = new ArrayList<>();
+    TestServiceRegistry.getInstance()
+        .setOnGetSessionHandler(
+            controllerInfo -> {
+              requestingControllerInfos.add(controllerInfo);
+              ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+              exoPlayerRef.set(exoPlayer);
+              MediaLibrarySession session =
+                  new MediaLibrarySession.Builder(
+                          context,
+                          exoPlayer,
+                          new MediaLibrarySession.Callback() {
+                            @Override
+                            public ListenableFuture<MediaItemsWithStartPosition>
+                                onPlaybackResumption(
+                                    MediaSession mediaSession,
+                                    ControllerInfo controller,
+                                    boolean isForPlayback) {
+                              return immediateFuture(
+                                  new MediaItemsWithStartPosition(
+                                      ImmutableList.of(
+                                          MediaItem.fromUri(
+                                              "asset://android_asset/media/mp4/preroll-5s.mp4"),
+                                          playbackResumptionMediaItem),
+                                      /* startIndex= */ 1,
+                                      /* startPositionMs= */ 0));
+                            }
+                          })
+                      .setId("session-id")
+                      .build();
+              exoPlayer.addListener(
+                  new Listener() {
+                    @Override
+                    public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+                      if (mediaItem != null) {
+                        mediaItems.add(mediaItem);
+                        playbackStartedLatch.countDown();
+                      }
+                    }
+
+                    @Override
+                    public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                      if (playWhenReady) {
+                        playbackStartedLatch.countDown();
+                      }
+                    }
+
+                    @Override
+                    public void onPositionDiscontinuity(
+                        PositionInfo oldPosition, PositionInfo newPosition, int reason) {
+                      if (oldPosition.mediaItemIndex == 1
+                          && newPosition.mediaItemIndex == 0
+                          && reason == DISCONTINUITY_REASON_SEEK) {
+                        seekLatch.countDown();
+                      }
+                    }
+                  });
+              return session;
+            });
+
+    Bundle playbackIntentBundle = new Bundle();
+    playbackIntentBundle.putString("intentBundleKey", "intentBundleValue");
+    new PlaybackPendingIntentBuilder(
+            context, COMMAND_PLAY_PAUSE, LocalMockMediaSessionService.class)
+        .setStartAsForegroundService(true)
+        .setSessionId("session-id")
+        .setExtras(playbackIntentBundle)
+        .build()
+        .send();
+
+    assertThat(playbackStartedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(mediaItems).containsExactly(playbackResumptionMediaItem);
+
+    new PlaybackPendingIntentBuilder(
+            context, Player.COMMAND_SEEK_TO_PREVIOUS, LocalMockMediaSessionService.class)
+        .setSessionId("session-id")
+        .build()
+        .send();
+
+    assertThat(seekLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(requestingControllerInfos).hasSize(1);
+    assertThat(requestingControllerInfos.get(0).getPackageName())
+        .isEqualTo("androidx.media3.test.session");
+    assertThat(
+            requestingControllerInfos
+                .get(0)
+                .getConnectionHints()
+                .getString(MediaSessionService.CONNECTION_HINT_KEY_SESSION_ID))
+        .isEqualTo("session-id");
+    assertThat(
+            requestingControllerInfos
+                .get(0)
+                .getConnectionHints()
+                .getString(MediaSessionService.CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE))
+        .isEqualTo(Intent.ACTION_MEDIA_BUTTON);
+    assertThat(
+            requestingControllerInfos
+                .get(0)
+                .getConnectionHints()
+                .getBundle(MediaSessionService.CONNECTION_HINT_KEY_INTENT_EXTRAS)
+                .getString("intentBundleKey"))
+        .isEqualTo("intentBundleValue");
+
+    new TestHandler(Looper.getMainLooper()).postAndSync(() -> exoPlayerRef.get().release());
+  }
+
+  @Test
+  public void onStartCommand_onGetSessionReturnsNull_terminatesServiceImmediately()
+      throws Exception {
+    CountDownLatch onDestroyLatch = new CountDownLatch(/* count= */ 1);
+    Context context = ApplicationProvider.getApplicationContext();
+
+    TestServiceRegistry.getInstance().setOnDestroyListener(onDestroyLatch::countDown);
+    TestServiceRegistry.getInstance().setOnGetSessionHandler((controllerInfo) -> null);
+
+    new PlaybackPendingIntentBuilder(
+            context, COMMAND_PLAY_PAUSE, LocalMockMediaSessionService.class)
+        .setSessionId(MockMediaSessionService.ID)
+        .setStartAsForegroundService(true)
+        .build()
+        .send();
+
+    assertThat(onDestroyLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void onStartCommand_pendingIntentCustomCommand_dispatchedToSessionCallback()
+      throws Exception {
+    CountDownLatch playbackStartedLatch = new CountDownLatch(/* count= */ 1);
+    CountDownLatch customCommandsLatch = new CountDownLatch(/* count= */ 1);
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaItem playbackResumptionMediaItem =
+        MediaItem.fromUri("asset://android_asset/media/mp4/sample.mp4");
+    AtomicReference<ExoPlayer> exoPlayerRef = new AtomicReference<>();
+    SessionCommand expectedCustomCommand = new SessionCommand("action0", Bundle.EMPTY);
+    List<SessionCommand> receivedCustomCommands = new ArrayList<>();
+    List<Bundle> receivedArgs = new ArrayList<>();
+    TestServiceRegistry.getInstance()
+        .setOnGetSessionHandler(
+            controllerInfo -> {
+              ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+              exoPlayerRef.set(exoPlayer);
+              MediaLibrarySession session =
+                  new MediaLibrarySession.Builder(
+                          context,
+                          exoPlayer,
+                          new MediaLibrarySession.Callback() {
+                            @Override
+                            public ConnectionResult onConnect(
+                                MediaSession session, ControllerInfo controller) {
+                              return new AcceptedResultBuilder(session)
+                                  .setAvailableSessionCommands(
+                                      new SessionCommands.Builder()
+                                          .addAllPredefinedCommands()
+                                          .addSessionCommands(
+                                              ImmutableList.of(expectedCustomCommand))
+                                          .build())
+                                  .build();
+                            }
+
+                            @Override
+                            public ListenableFuture<SessionResult> onCustomCommand(
+                                MediaSession session,
+                                ControllerInfo controller,
+                                SessionCommand customCommand,
+                                Bundle args) {
+                              if (customCommand.customAction.equals(
+                                  expectedCustomCommand.customAction)) {
+                                receivedCustomCommands.add(customCommand);
+                                receivedArgs.add(args);
+                                customCommandsLatch.countDown();
+                              }
+                              return immediateFuture(
+                                  new SessionResult(SessionResult.RESULT_SUCCESS));
+                            }
+
+                            @Override
+                            public ListenableFuture<MediaItemsWithStartPosition>
+                                onPlaybackResumption(
+                                    MediaSession mediaSession,
+                                    ControllerInfo controller,
+                                    boolean isForPlayback) {
+                              return immediateFuture(
+                                  new MediaItemsWithStartPosition(
+                                      ImmutableList.of(playbackResumptionMediaItem),
+                                      /* startIndex= */ 0,
+                                      /* startPositionMs= */ 0));
+                            }
+                          })
+                      .build();
+              exoPlayer.addListener(
+                  new Listener() {
+                    @Override
+                    public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+                      if (mediaItem != null) {
+                        playbackStartedLatch.countDown();
+                      }
+                    }
+                  });
+              return session;
+            });
+    // We need to start the service into the foreground first by starting playback.
+    new PlaybackPendingIntentBuilder(
+            context, COMMAND_PLAY_PAUSE, LocalMockMediaSessionService.class)
+        .setStartAsForegroundService(true)
+        .build()
+        .send();
+    assertThat(playbackStartedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    Bundle args = new Bundle();
+    args.putString("key0", "value0");
+
+    new CustomCommandPendingIntentBuilder(
+            context, LocalMockMediaSessionService.class, new SessionCommand("action0", args))
+        .build()
+        .send();
+
+    assertThat(customCommandsLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(receivedCustomCommands).containsExactly(expectedCustomCommand);
+    assertThat(receivedCustomCommands.get(0).customExtras.getString("key0")).isEqualTo("value0");
+    assertThat(receivedArgs.get(0).getString("key0")).isEqualTo("value0");
+
+    new TestHandler(Looper.getMainLooper()).postAndSync(() -> exoPlayerRef.get().release());
   }
 
   /**

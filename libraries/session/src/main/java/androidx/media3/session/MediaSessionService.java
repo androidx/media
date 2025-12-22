@@ -213,6 +213,39 @@ public abstract class MediaSessionService extends LifecycleService {
    */
   @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
 
+  /**
+   * Key for {@link ControllerInfo#getConnectionHints()} to hint the type of a fallback controller.
+   *
+   * <p>A fallback controller is created when a media button event starts the service and a session
+   * is requested through {@link #onGetSession(ControllerInfo)}.
+   */
+  @UnstableApi
+  public static final String CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE =
+      "androidx.media3.session.hint.controller_info_type";
+
+  /**
+   * Key for {@link ControllerInfo#getConnectionHints()} to hint the extras of the {@link Intent} of
+   * the event that created a fallback controller.
+   *
+   * <p>A fallback controller is created when a media button event starts the service and a session
+   * is requested through {@link #onGetSession(ControllerInfo)}.
+   */
+  @UnstableApi
+  public static final String CONNECTION_HINT_KEY_INTENT_EXTRAS =
+      "androidx.media3.session.hint.intent_extras";
+
+  /**
+   * Key for {@link ControllerInfo#getConnectionHints()} to hint the session URI for which a session
+   * is requested. The session URI hint may be unset if no session URI was provided by the media
+   * button event.
+   *
+   * <p>A fallback controller is created when a media button event starts the service and a session
+   * is requested through {@link #onGetSession(ControllerInfo)}.
+   */
+  @UnstableApi
+  public static final String CONNECTION_HINT_KEY_SESSION_ID =
+      "androidx.media3.session.hint.session_id";
+
   private static final String TAG = "MSessionService";
 
   private final Object lock;
@@ -262,16 +295,22 @@ public abstract class MediaSessionService extends LifecycleService {
    *
    * <p>The service automatically maintains the returned sessions. In other words, a session
    * returned by this method will be added to the service, and removed from the service when the
-   * session is closed. You don't need to manually call {@link #addSession(MediaSession)} nor {@link
-   * #removeSession(MediaSession)}.
+   * session is {@linkplain MediaSession#release() released}. You don't need to manually call {@link
+   * #addSession(MediaSession)} nor {@link #removeSession(MediaSession)}.
    *
    * <p>There are two special cases where the {@link ControllerInfo#getPackageName()} returns a
    * non-existent package name:
    *
    * <ul>
-   *   <li>When the service is started by a media button event, the package name will be {@link
-   *       Intent#ACTION_MEDIA_BUTTON}. If you want to allow the service to be started by media
-   *       button events, do not return {@code null}.
+   *   <li>When the service is started by a media button event. In such a case the {@linkplain
+   *       ControllerInfo#getConnectionHints() connection hints} are marked with an string bundle
+   *       entry with key {@link #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} with value {@link
+   *       Intent#ACTION_MEDIA_BUTTON}. If the media button intent requests a specific session to be
+   *       started the requested session ID can be looked up as a string entry with key {@link
+   *       #CONNECTION_HINT_KEY_SESSION_ID} (optional). If you want to allow the service to be
+   *       started by media button events, do not return {@code null}. Note that in such a case the
+   *       {@link ControllerInfo} is a placeholder only and does not represent an actual controller
+   *       that is connected to the service.
    *   <li>When a legacy {@link android.media.browse.MediaBrowser} or a {@code
    *       android.support.v4.media.MediaBrowserCompat} tries to connect, the package name will be
    *       {@link android.service.media.MediaBrowserService#SERVICE_INTERFACE}. If you want to allow
@@ -479,36 +518,48 @@ public abstract class MediaSessionService extends LifecycleService {
 
     DefaultActionFactory actionFactory = getActionFactory();
     @Nullable Uri uri = intent.getData();
-    @Nullable MediaSession session = uri != null ? getSessionByUri(uri) : null;
-    if (actionFactory.isMediaAction(intent)) {
+    if (actionFactory.isMediaAction(intent) || actionFactory.isCustomAction(intent)) {
+      @Nullable MediaSession session = uri != null ? getSessionByUri(uri) : null;
       if (session == null) {
-        ControllerInfo controllerInfo = ControllerInfo.createLegacyControllerInfo();
-        session = onGetSession(controllerInfo);
+        session = onGetSession(createFallbackMediaButtonCaller(intent));
         if (session == null) {
+          if (!initialStartIntentProcessed) {
+            // The app rejected to provide a session and the service was never started yet. We need
+            // to prevent the system from tearing down the service with an exception.
+            stopSelfSafely();
+          }
           return START_STICKY;
         }
         addSession(session);
       }
-      MediaSessionImpl sessionImpl = session.getImpl();
-      sessionImpl
-          .getApplicationHandler()
-          .post(
-              () -> {
-                ControllerInfo callerInfo = sessionImpl.getMediaNotificationControllerInfo();
-                if (callerInfo == null) {
-                  callerInfo = createFallbackMediaButtonCaller(intent);
-                }
-                if (!sessionImpl.onMediaButtonEvent(callerInfo, intent)) {
-                  Log.d(TAG, "Ignored unrecognized media button intent.");
-                }
-              });
-    } else if (session != null && actionFactory.isCustomAction(intent)) {
-      @Nullable String customAction = actionFactory.getCustomAction(intent);
-      if (customAction == null) {
-        return START_STICKY;
+      if (actionFactory.isMediaAction(intent)) {
+        MediaSessionImpl sessionImpl = session.getImpl();
+        sessionImpl
+            .getApplicationHandler()
+            .post(
+                () -> {
+                  ControllerInfo callerInfo = sessionImpl.getMediaNotificationControllerInfo();
+                  if (callerInfo == null) {
+                    callerInfo = createFallbackMediaButtonCaller(intent);
+                  }
+                  if (!sessionImpl.onMediaButtonEvent(callerInfo, intent)) {
+                    Log.d(TAG, "Ignored unrecognized media button intent.");
+                  }
+                });
+      } else {
+        @Nullable String customAction = actionFactory.getCustomAction(intent);
+        if (customAction == null) {
+          if (!initialStartIntentProcessed) {
+            // We can't resolve an action that potentially can start the service into the
+            // foreground, we need to stop the service to prevent the system from tearing down the
+            // service with an exception.
+            stopSelfSafely();
+          }
+          return START_STICKY;
+        }
+        Bundle customExtras = actionFactory.getCustomActionExtras(intent);
+        getMediaNotificationManager().onCustomAction(session, customAction, customExtras);
       }
-      Bundle customExtras = actionFactory.getCustomActionExtras(intent);
-      getMediaNotificationManager().onCustomAction(session, customAction, customExtras);
     }
 
     if (!initialStartIntentProcessed && intent.hasExtra(SELF_INTENT_UID_KEY)) {
@@ -521,19 +572,25 @@ public abstract class MediaSessionService extends LifecycleService {
         // the first start Intent, we immediately stop the service instance that was only created
         // due to a race condition.
         Log.w(TAG, "Terminating service that was started by a stale start intent");
-        Pair<Integer, Notification> shutdownNotification =
-            getMediaNotificationManager().createShutdownNotification(/* context= */ this);
-        Util.setForegroundServiceNotification(
-            /* service= */ this,
-            /* notificationId= */ shutdownNotification.first,
-            /* notification= */ shutdownNotification.second,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
-            /* foregroundServiceManifestType= */ "mediaPlayback");
-        Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
-        stopSelf();
+        stopSelfSafely();
       }
     }
     return START_STICKY;
+  }
+
+  @SuppressLint("InlinedApi") // Using compile time constant FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+  private void stopSelfSafely() {
+    Pair<Integer, Notification> shutdownNotification =
+        getMediaNotificationManager().createShutdownNotification(/* context= */ this);
+    Util.setForegroundServiceNotification(
+        /* service= */ this,
+        /* notificationId= */ shutdownNotification.first,
+        /* notification= */ shutdownNotification.second,
+        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+        /* foregroundServiceManifestType= */ "mediaPlayback");
+    getMediaNotificationManager().disableUserEngagedTimeout();
+    Util.stopForeground(/* service= */ this, /* removeNotification= */ true);
+    stopSelf();
   }
 
   private static ControllerInfo createFallbackMediaButtonCaller(Intent mediaButtonIntent) {
@@ -542,6 +599,17 @@ public abstract class MediaSessionService extends LifecycleService {
         componentName != null
             ? componentName.getPackageName()
             : "androidx.media3.session.MediaSessionService";
+    Bundle connectionHints = new Bundle();
+    connectionHints.putString(CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE, Intent.ACTION_MEDIA_BUTTON);
+    Bundle extras = mediaButtonIntent.getExtras();
+    if (extras != null) {
+      connectionHints.putBundle(CONNECTION_HINT_KEY_INTENT_EXTRAS, extras);
+    }
+    Uri dataUri = mediaButtonIntent.getData();
+    if (dataUri != null) {
+      connectionHints.putString(
+          CONNECTION_HINT_KEY_SESSION_ID, MediaSessionImpl.getSessionId(dataUri));
+    }
     return new ControllerInfo(
         new MediaSessionManager.RemoteUserInfo(
             packageName,
@@ -551,7 +619,7 @@ public abstract class MediaSessionService extends LifecycleService {
         MediaLibraryInfo.INTERFACE_VERSION,
         /* trusted= */ false,
         /* cb= */ null,
-        /* connectionHints= */ Bundle.EMPTY,
+        connectionHints,
         /* maxCommandsForMediaItems= */ 0,
         /* isPackageNameVerified= */ false);
   }
