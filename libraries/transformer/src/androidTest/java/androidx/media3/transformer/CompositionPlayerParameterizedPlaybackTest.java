@@ -50,6 +50,7 @@ import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
@@ -575,12 +576,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .that(isRunningOnEmulator())
         .isFalse();
     assume()
-        .withMessage("Image input with PacketConsumer is not yet supported")
-        .that(testConfig.contains(IMAGE_INPUT))
-        .isFalse();
-    assume()
-        .withMessage("Video gaps are not yet implemented with PacketConsumer")
-        .that(testConfig.contains(VIDEO_INPUT_WITH_REMOVE_VIDEO))
+        .withMessage("Image input or gaps with PacketConsumer are not yet supported")
+        .that(
+            testConfig.containsAny(
+                IMAGE_INPUT, VIDEO_INPUT_WITH_REMOVE_VIDEO, AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS))
         .isFalse();
     RecordingPacketConsumer packetConsumer =
         new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
@@ -590,6 +589,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
     runCompositionPlayer(composition, /* packetConsumerFactory= */ () -> packetConsumer);
 
     List<List<HardwareBufferFrame>> queuedPackets = packetConsumer.getQueuedPackets();
+    // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
+    assertThat(queuedPackets.size()).isAtLeast(expectedVideoTimestampsUs.size() - 2);
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
       long presentationTimeUs = queuedPackets.get(packetIndex).get(0).presentationTimeUs;
       assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
@@ -709,9 +710,11 @@ public class CompositionPlayerParameterizedPlaybackTest {
       return stringBuilder.toString();
     }
 
-    boolean contains(Input input) {
+    boolean containsAny(Input... inputs) {
       return inputSequences.stream()
-          .anyMatch(inputSequence -> inputSequence.inputs.contains(input));
+          .anyMatch(
+              inputSequence ->
+                  !Collections.disjoint(inputSequence.inputs, ImmutableList.copyOf(inputs)));
     }
   }
 

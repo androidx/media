@@ -1407,7 +1407,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* frameConsumer= */ hardwareBufferFrame ->
                   checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex),
               checkNotNull(playbackThread).getLooper(),
-              /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE);
+              /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+              e ->
+                  maybeUpdatePlaybackError(
+                      "HardwareBufferFrameReader error",
+                      e,
+                      PlaybackException.ERROR_CODE_UNSPECIFIED),
+              compositionInternalListenerHandler);
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,

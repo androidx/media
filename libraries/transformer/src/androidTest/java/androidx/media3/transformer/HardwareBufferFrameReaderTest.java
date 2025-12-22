@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static android.graphics.PixelFormat.RGBA_8888;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
@@ -24,16 +23,19 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeTrue;
 
-import android.graphics.Canvas;
-import android.graphics.Rect;
+import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
+import android.media.Image;
+import android.media.ImageWriter;
 import android.os.HandlerThread;
-import android.view.Surface;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.SystemClock;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,6 +55,7 @@ public class HardwareBufferFrameReaderTest {
   private HardwareBufferFrameReader hardwareBufferFrameReader;
   private ConditionVariable frameReceivedSignal;
   private HandlerThread handlerThread;
+  private AtomicReference<Exception> hardwareBufferFrameReaderException;
 
   @Before
   public void setUp() {
@@ -63,6 +66,7 @@ public class HardwareBufferFrameReaderTest {
     handlerThread = new HandlerThread("HardwareBufferFrameReaderTest");
     handlerThread.start();
     frameReceivedSignal = new ConditionVariable();
+    hardwareBufferFrameReaderException = new AtomicReference<>();
 
     hardwareBufferFrameReader =
         new HardwareBufferFrameReader(
@@ -73,7 +77,9 @@ public class HardwareBufferFrameReaderTest {
               frameReceivedSignal.open();
             },
             handlerThread.getLooper(),
-            /* defaultSurfacePixelFormat= */ RGBA_8888);
+            /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
+            e -> hardwareBufferFrameReaderException.set(e),
+            SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), null));
   }
 
   @After
@@ -85,11 +91,12 @@ public class HardwareBufferFrameReaderTest {
   @Test
   public void frameReader_willOutputFrameViaSurface_receivesFrame() throws Exception {
     hardwareBufferFrameReader.willOutputFrameViaSurface(
-        /* presentationTimeUs= */ 1234, /* indexOfItem= */ 0);
-    produceFrameToFrameReaderSurface();
+        /* presentationTimeUs= */ 0, /* indexOfItem= */ 0);
+    produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 0);
     frameReceivedSignal.block();
 
-    assertThat(receivedFrame.presentationTimeUs).isEqualTo(1234);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrame.presentationTimeUs).isEqualTo(0);
     assertThat(receivedFrame.internalFrame).isNotNull();
     assertThat(receivedFrame.getMetadata()).isInstanceOf(CompositionFrameMetadata.class);
     CompositionFrameMetadata compositionFrameMetadata =
@@ -104,7 +111,7 @@ public class HardwareBufferFrameReaderTest {
     assumeTrue(SDK_INT >= 28);
     hardwareBufferFrameReader.willOutputFrameViaSurface(
         /* presentationTimeUs= */ 1234, /* indexOfItem= */ 0);
-    produceFrameToFrameReaderSurface();
+    produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
     frameReceivedSignal.block();
     HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
 
@@ -112,22 +119,22 @@ public class HardwareBufferFrameReaderTest {
     handlerThread.join(TEST_TIMEOUT_MS);
 
     assertThat(hardwareBuffer.isClosed()).isTrue();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
   @Test
   public void frameReader_releaseOutputFrame_freesUpCapacity() throws Exception {
     hardwareBufferFrameReader.willOutputFrameViaSurface(
         /* presentationTimeUs= */ 1234, /* indexOfItem= */ 0);
-    hardwareBufferFrameReader.willOutputFrameViaSurface(
-        /* presentationTimeUs= */ 0, /* indexOfItem= */ 0);
     checkState(!hardwareBufferFrameReader.canAcceptFrame());
-    produceFrameToFrameReaderSurface();
+    produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
     frameReceivedSignal.block();
 
     receivedFrame.release();
     handlerThread.join(TEST_TIMEOUT_MS);
 
     assertThat(hardwareBufferFrameReader.canAcceptFrame()).isTrue();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
   @Test
@@ -136,26 +143,20 @@ public class HardwareBufferFrameReaderTest {
   }
 
   @Test
-  public void canAcceptFrame_afterOneFrame_returnsTrue() {
+  public void canAcceptFrame_afterOneFrame_returnsFalse() {
     hardwareBufferFrameReader.willOutputFrameViaSurface(
         /* presentationTimeUs= */ 0, /* indexOfItem= */ 0);
-
-    assertThat(hardwareBufferFrameReader.canAcceptFrame()).isTrue();
-  }
-
-  @Test
-  public void canAcceptFrame_afterTwoFrames_returnsFalse() {
-    hardwareBufferFrameReader.willOutputFrameViaSurface(
-        /* presentationTimeUs= */ 0, /* indexOfItem= */ 0);
-    hardwareBufferFrameReader.willOutputFrameViaSurface(
-        /* presentationTimeUs= */ 1, /* indexOfItem= */ 0);
 
     assertThat(hardwareBufferFrameReader.canAcceptFrame()).isFalse();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
-  private void produceFrameToFrameReaderSurface() {
-    Surface surface = hardwareBufferFrameReader.getSurface();
-    Canvas unused = surface.lockCanvas(new Rect());
-    surface.unlockCanvasAndPost(unused);
+  private void produceFrameToFrameReaderSurface(long presentationTimeUs) {
+    try (ImageWriter imageWriter =
+        ImageWriter.newInstance(hardwareBufferFrameReader.getSurface(), /* maxImages= */ 1)) {
+      Image image = imageWriter.dequeueInputImage();
+      image.setTimestamp(presentationTimeUs * 1000);
+      imageWriter.queueInputImage(image);
+    }
   }
 }

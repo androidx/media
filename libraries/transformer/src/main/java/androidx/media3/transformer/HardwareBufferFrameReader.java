@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -25,17 +26,24 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.effect.HardwareBufferFrame;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * An adaptor between a sequence player and a {@link Consumer} of {@link HardwareBufferFrame}
  * instances.
  */
-/* package */ final class HardwareBufferFrameReader
-    implements ImageReader.OnImageAvailableListener {
+/* package */ final class HardwareBufferFrameReader {
+
+  /** A listener for events. */
+  public interface Listener {
+    /** Reports an error. */
+    void onError(Exception cause);
+  }
 
   /**
    * The maximum number of frames that can be in use by the downstream components.
@@ -55,7 +63,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final int sequenceIndex;
   private final Consumer<HardwareBufferFrame> frameConsumer;
   private final ImageReader imageReader;
-  private final Handler playbackHandler;
+  private final Listener listener;
+  private final HandlerWrapper listenerHandler;
+  private final PlaybackExecutor playbackExecutor;
   private final Queue<FrameInfo> pendingFrameInfo;
 
   private @MonotonicNonNull Surface imageReaderSurface;
@@ -71,23 +81,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param playbackLooper The looper associated with the playback thread.
    * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain #getSurface()
    *     surface}. Some producers override this format, but the behavior is device-specific.
+   * @param listener The listener.
+   * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
    */
-  // Suppressing nullness for UnderInitialization.
-  @SuppressWarnings("nullness")
   HardwareBufferFrameReader(
       Composition composition,
       int sequenceIndex,
       Consumer<HardwareBufferFrame> frameConsumer,
       Looper playbackLooper,
-      int defaultSurfacePixelFormat) {
+      int defaultSurfacePixelFormat,
+      Listener listener,
+      HandlerWrapper listenerHandler) {
     this.composition = composition;
     this.sequenceIndex = sequenceIndex;
     this.frameConsumer = frameConsumer;
-    this.playbackHandler = new Handler(playbackLooper);
+    this.listener = listener;
+    this.listenerHandler = listenerHandler;
+    Handler playbackHandler = new Handler(playbackLooper);
+    playbackExecutor = new PlaybackExecutor(playbackHandler);
+    // The default width and height are ignored when writing from MediaCodec.
+    // Sensible values greater than 1 allow HardwareBufferFrameReaderTest to pass.
     imageReader =
         ImageReader.newInstance(
-            /* width= */ 1, /* height= */ 1, defaultSurfacePixelFormat, /* maxImages= */ CAPACITY);
-    imageReader.setOnImageAvailableListener(this, playbackHandler);
+            /* width= */ 640,
+            /* height= */ 360,
+            defaultSurfacePixelFormat,
+            /* maxImages= */ CAPACITY);
+    imageReader.setOnImageAvailableListener(playbackExecutor, playbackHandler);
     pendingFrameInfo = new ArrayDeque<>();
   }
 
@@ -101,6 +121,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Returns whether the frame reader can accept another frame from the sequence player. */
   boolean canAcceptFrame() {
+    // Prior to API 29 MediaCodec drops frames when outputting to a Surface. Do not allow multiple
+    // frames to be pending over the ImageReader Surface simultaneously. See
+    // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
+    // Even after API 29, some devices still drop frames on the Surface. See
+    // https://github.com/androidx/media/blob/7cc1056f840ce226598d3b990d4a6f7cd17e2831/libraries/common/src/main/java/androidx/media3/common/util/Util.java#L3651
+    if (!pendingFrameInfo.isEmpty()) {
+      return false;
+    }
     return framesInUse < CAPACITY;
   }
 
@@ -124,12 +152,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     imageReader.close();
   }
 
-  @Override
-  public void onImageAvailable(ImageReader reader) {
+  private void onImageAvailable() {
     FrameInfo frameInfo = checkNotNull(pendingFrameInfo.poll());
     long presentationTimeUs = frameInfo.presentationTimeUs;
     int indexOfItem = frameInfo.itemIndex;
     Image image = imageReader.acquireNextImage();
+    checkState(
+        image.getTimestamp() == presentationTimeUs * 1000,
+        "%s != %s",
+        image.getTimestamp(),
+        presentationTimeUs * 1000);
 
     HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
@@ -139,7 +171,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       frameBuilder =
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
-              playbackHandler::post,
+              playbackExecutor,
               () -> {
                 // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
                 // is freed up, and run another render loop.
@@ -152,7 +184,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       frameBuilder =
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
-              playbackHandler::post,
+              playbackExecutor,
               () -> {
                 image.close();
                 framesInUse -= 1;
@@ -166,6 +198,40 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, indexOfItem))
             .build();
     frameConsumer.accept(hardwareBufferFrame);
+  }
+
+  /**
+   * A {@link Executor} which executes commands on a {@link Handler} and propagates {@linkplain
+   * RuntimeException errors} to the {@link Listener}.
+   */
+  private class PlaybackExecutor implements ImageReader.OnImageAvailableListener, Executor {
+
+    final Handler playbackHandler;
+
+    PlaybackExecutor(Handler playbackHandler) {
+      this.playbackHandler = playbackHandler;
+    }
+
+    @Override
+    public void execute(Runnable command) {
+      playbackHandler.post(
+          () -> {
+            try {
+              command.run();
+            } catch (RuntimeException e) {
+              listenerHandler.post(() -> listener.onError(e));
+            }
+          });
+    }
+
+    @Override
+    public void onImageAvailable(ImageReader reader) {
+      try {
+        HardwareBufferFrameReader.this.onImageAvailable();
+      } catch (RuntimeException e) {
+        listenerHandler.post(() -> listener.onError(e));
+      }
+    }
   }
 
   private static final class FrameInfo {

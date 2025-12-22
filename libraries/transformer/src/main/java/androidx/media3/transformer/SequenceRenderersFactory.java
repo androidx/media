@@ -997,15 +997,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void renderOutputBufferV21(
         MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-      long bufferPresentationTimeUs = presentationTimeUs + getOutputStreamOffsetUs();
+      long compositionPresentationTimeUs =
+          presentationTimeUs + getOutputStreamOffsetUs() + offsetToCompositionTimeUs;
       // TODO: b/449956936 - This can probably be replaced by VideoFrameMetadataListener, but the
       // backpressure in processOutputBuffer can't. See what parts of this logic can be moved to
       // vanilla ExoPlayer.
       hardwareBufferFrameReader.willOutputFrameViaSurface(
-          /* presentationTimeUs= */ bufferPresentationTimeUs + offsetToCompositionTimeUs,
-          indexOfCurrentItem());
+          /* presentationTimeUs= */ compositionPresentationTimeUs, indexOfCurrentItem());
       super.renderOutputBufferV21(
-          codec, index, presentationTimeUs, /* releaseTimeNs= */ presentationTimeUs * 1000);
+          codec,
+          index,
+          compositionPresentationTimeUs,
+          /* releaseTimeNs= */ compositionPresentationTimeUs * 1000);
     }
 
     @Override
