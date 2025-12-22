@@ -15,44 +15,24 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
-import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
-import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
-import static android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS;
-import static android.view.KeyEvent.KEYCODE_MEDIA_REWIND;
-import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
-import static android.view.KeyEvent.KEYCODE_UNKNOWN;
-import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
-import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
-import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+import static androidx.media3.common.Player.COMMAND_STOP;
+import static androidx.media3.session.CustomCommandPendingIntentBuilder.ACTION_CUSTOM;
+import static androidx.media3.session.CustomCommandPendingIntentBuilder.EXTRAS_KEY_ACTION_CUSTOM;
+import static androidx.media3.session.CustomCommandPendingIntentBuilder.EXTRAS_KEY_ACTION_CUSTOM_EXTRAS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
-import android.app.Service;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
 
 /** The default {@link MediaNotification.ActionFactory}. */
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
-
-  private static final String ACTION_CUSTOM = "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
-  private static final String EXTRAS_KEY_ACTION_CUSTOM =
-      "androidx.media3.session.EXTRAS_KEY_CUSTOM_NOTIFICATION_ACTION";
-  public static final String EXTRAS_KEY_ACTION_CUSTOM_EXTRAS =
-      "androidx.media3.session.EXTRAS_KEY_CUSTOM_NOTIFICATION_ACTION_EXTRAS";
 
   /**
    * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
@@ -67,11 +47,9 @@ import androidx.media3.common.Player;
     return null;
   }
 
-  private final Service service;
+  private final MediaSessionService service;
 
-  private int customActionPendingIntentRequestCode = 0;
-
-  public DefaultActionFactory(Service service) {
+  public DefaultActionFactory(MediaSessionService service) {
     this.service = service;
   }
 
@@ -90,7 +68,12 @@ import androidx.media3.common.Player;
       String customAction,
       Bundle extras) {
     return new NotificationCompat.Action(
-        icon, title, createCustomActionPendingIntent(mediaSession, customAction, extras));
+        icon,
+        title,
+        new CustomCommandPendingIntentBuilder(
+                service, service.getClass(), new SessionCommand(customAction, extras))
+            .setSessionId(mediaSession.getId())
+            .build());
   }
 
   @Override
@@ -104,75 +87,30 @@ import androidx.media3.common.Player;
     return new NotificationCompat.Action(
         IconCompat.createWithResource(service, customCommandButton.iconResId),
         customCommandButton.displayName,
-        createCustomActionPendingIntent(
-            mediaSession, customCommand.customAction, customCommand.customExtras));
+        new CustomCommandPendingIntentBuilder(service, service.getClass(), customCommand)
+            .setSessionId(mediaSession.getId())
+            .build());
   }
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   @Override
   public PendingIntent createMediaActionPendingIntent(
       MediaSession mediaSession, @Player.Command int command) {
-    int keyCode = toKeyCode(command);
-    Intent intent = getMediaButtonIntent(mediaSession, keyCode);
-    if (SDK_INT >= 26
-        && command == COMMAND_PLAY_PAUSE
-        && !mediaSession.getPlayer().getPlayWhenReady()) {
-      return Api26.createForegroundServicePendingIntent(service, keyCode, intent);
-    } else {
-      return PendingIntent.getService(
-          service, /* requestCode= */ keyCode, intent, PendingIntent.FLAG_IMMUTABLE);
-    }
+    return new PlaybackPendingIntentBuilder(/* context= */ service, command, service.getClass())
+        .setStartAsForegroundService(!mediaSession.getPlayer().getPlayWhenReady())
+        .setSessionId(mediaSession.getId())
+        .build();
   }
 
   @Override
   public PendingIntent createNotificationDismissalIntent(MediaSession mediaSession) {
-    Intent intent =
-        getMediaButtonIntent(mediaSession, KEYCODE_MEDIA_STOP)
-            .putExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, true);
-    return PendingIntent.getService(
-        service, /* requestCode= */ KEYCODE_MEDIA_STOP, intent, PendingIntent.FLAG_IMMUTABLE);
-  }
-
-  private Intent getMediaButtonIntent(MediaSession mediaSession, int mediaKeyCode) {
-    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    intent.setData(mediaSession.getImpl().getUri());
-    intent.setComponent(new ComponentName(service, service.getClass()));
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, mediaKeyCode));
-    return intent;
-  }
-
-  private int toKeyCode(@Player.Command int action) {
-    if (action == COMMAND_SEEK_TO_NEXT_MEDIA_ITEM || action == COMMAND_SEEK_TO_NEXT) {
-      return KEYCODE_MEDIA_NEXT;
-    } else if (action == COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
-        || action == COMMAND_SEEK_TO_PREVIOUS) {
-      return KEYCODE_MEDIA_PREVIOUS;
-    } else if (action == Player.COMMAND_STOP) {
-      return KEYCODE_MEDIA_STOP;
-    } else if (action == COMMAND_SEEK_FORWARD) {
-      return KEYCODE_MEDIA_FAST_FORWARD;
-    } else if (action == COMMAND_SEEK_BACK) {
-      return KEYCODE_MEDIA_REWIND;
-    } else if (action == COMMAND_PLAY_PAUSE) {
-      return KEYCODE_MEDIA_PLAY_PAUSE;
-    }
-    return KEYCODE_UNKNOWN;
-  }
-
-  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-  private PendingIntent createCustomActionPendingIntent(
-      MediaSession mediaSession, String action, Bundle extras) {
-    Intent intent = new Intent(ACTION_CUSTOM);
-    intent.setData(mediaSession.getImpl().getUri());
-    intent.setComponent(new ComponentName(service, service.getClass()));
-    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM, action);
-    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS, extras);
-    // Custom actions always start the service in the background.
-    return PendingIntent.getService(
-        service,
-        /* requestCode= */ ++customActionPendingIntentRequestCode,
-        intent,
-        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    Bundle extras = new Bundle();
+    extras.putBoolean(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, true);
+    return new PlaybackPendingIntentBuilder(
+            /* context= */ service, COMMAND_STOP, service.getClass())
+        .setSessionId(mediaSession.getId())
+        .setExtras(extras)
+        .build();
   }
 
   /** Returns whether {@code intent} was part of a {@link #createMediaAction media action}. */
@@ -205,17 +143,5 @@ import androidx.media3.common.Player;
     @Nullable
     Object customExtras = extras != null ? extras.get(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS) : null;
     return customExtras instanceof Bundle ? (Bundle) customExtras : Bundle.EMPTY;
-  }
-
-  @RequiresApi(26)
-  private static final class Api26 {
-    private Api26() {}
-
-    @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-    public static PendingIntent createForegroundServicePendingIntent(
-        Service service, int keyCode, Intent intent) {
-      return PendingIntent.getForegroundService(
-          service, /* requestCode= */ keyCode, intent, PendingIntent.FLAG_IMMUTABLE);
-    }
   }
 }

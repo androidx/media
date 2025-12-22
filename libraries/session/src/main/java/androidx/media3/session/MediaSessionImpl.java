@@ -53,7 +53,6 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
-import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
@@ -217,21 +216,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     onPlayerInfoChangedHandler = new PlayerInfoChangedHandler(applicationLooper);
     mediaPlayPauseKeyHandler = new MediaPlayPauseKeyHandler(applicationLooper);
 
-    // Build Uri that differentiate sessions across the creation/destruction in PendingIntent.
-    // Here's the reason why Session ID / SessionToken aren't suitable here.
-    //   - Session ID
-    //     PendingIntent from the previously closed session with the same ID can be sent to the
-    //     newly created session.
-    //   - SessionToken
-    //     SessionToken is a Parcelable so we can only put it into the intent extra.
-    //     However, creating two different PendingIntent that only differs extras isn't allowed.
-    //     See {@link PendingIntent} and {@link Intent#filterEquals} for details.
-    sessionUri =
-        new Uri.Builder()
-            .scheme(MediaSessionImpl.class.getName())
-            .appendPath(id)
-            .appendPath(String.valueOf(SystemClock.elapsedRealtime()))
-            .build();
+    sessionUri = createSessionUri(id);
 
     // For MediaSessionLegacyStub, use the same default commands as the proxy controller gets when
     // the app doesn't overrides the default commands in `onConnect`. When the default is overridden
