@@ -50,7 +50,6 @@ import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
@@ -102,6 +101,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
                       .setImageDurationMs(usToMs(/* timeUs= */ 500_000))
                       .build())
               .setDurationUs(500_000)
+              .setFrameRate(30)
               .build(),
           ImmutableList.of(
               0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
@@ -575,12 +575,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    assume()
-        .withMessage("Image input or gaps with PacketConsumer are not yet supported")
-        .that(
-            testConfig.containsAny(
-                IMAGE_INPUT, VIDEO_INPUT_WITH_REMOVE_VIDEO, AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS))
-        .isFalse();
     RecordingPacketConsumer packetConsumer =
         new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
     ImmutableList<Long> expectedVideoTimestampsUs = testConfig.getExpectedVideoTimestampsUs();
@@ -708,13 +702,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
         stringBuilder.append(")");
       }
       return stringBuilder.toString();
-    }
-
-    boolean containsAny(Input... inputs) {
-      return inputSequences.stream()
-          .anyMatch(
-              inputSequence ->
-                  !Collections.disjoint(inputSequence.inputs, ImmutableList.copyOf(inputs)));
     }
   }
 

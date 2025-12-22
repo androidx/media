@@ -19,14 +19,18 @@ import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -66,10 +70,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
   private final PlaybackExecutor playbackExecutor;
+
+  /**
+   * Information about frames that are waiting to be output.
+   *
+   * <p>At most one frame from {@link #queueFrameViaSurface} can be pending at a time.
+   *
+   * <p>Multiple frames from {@link #outputBitmap} can be pending.
+   */
   private final Queue<FrameInfo> pendingFrameInfo;
 
   private @MonotonicNonNull Surface imageReaderSurface;
 
+  /** The number of frames that are currently in use by the downstream consumer. */
   private int framesInUse;
 
   /**
@@ -119,8 +132,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return imageReaderSurface;
   }
 
-  /** Returns whether the frame reader can accept another frame from the sequence player. */
-  boolean canAcceptFrame() {
+  /**
+   * Returns whether the frame reader can accept another frame from the sequence player via the
+   * {@linkplain #getSurface() input surface}.
+   */
+  boolean canAcceptFrameViaSurface() {
     // Prior to API 29 MediaCodec drops frames when outputting to a Surface. Do not allow multiple
     // frames to be pending over the ImageReader Surface simultaneously. See
     // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
@@ -133,15 +149,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
-   * Reads the next frame from the {@linkplain #getSurface() input surface} and forwards it to the
-   * {@link Consumer}.
+   * Signals that a frame will be sent via the {@linkplain #getSurface() input surface}.
+   *
+   * <p>This method must be called prior to {@linkplain android.media.MediaCodec#releaseOutputBuffer
+   * releasing} the frame to the {@linkplain #getSurface() input surface}.
    *
    * @param presentationTimeUs The presentation time of the frame, in microseconds.
    * @param indexOfItem The position of the edited media item in the sequence.
    */
-  void willOutputFrameViaSurface(long presentationTimeUs, int indexOfItem) {
-    framesInUse += 1;
-    pendingFrameInfo.add(new FrameInfo(presentationTimeUs, indexOfItem));
+  void queueFrameViaSurface(long presentationTimeUs, int indexOfItem) {
+    pendingFrameInfo.add(FrameInfo.createForSurface(presentationTimeUs, indexOfItem));
+  }
+
+  /**
+   * Repeats a {@link Bitmap} to the downstream consumer, using timestamps from the {@code
+   * timestampIterator}.
+   *
+   * @param bitmap The {@link Bitmap} to be repeated.
+   * @param timestampIterator The {@link TimestampIterator} that provides the presentation
+   *     timestamps of the frames to output.
+   * @param indexOfItem The position of the edited media item in the sequence.
+   */
+  // TODO: b/319484746 - Move Bitmap repeating into the Renderer when ImageRenderer takes positionUs
+  // into account.
+  void outputBitmap(Bitmap bitmap, TimestampIterator timestampIterator, int indexOfItem) {
+    pendingFrameInfo.add(FrameInfo.createForBitmap(bitmap, timestampIterator, indexOfItem));
+    maybeOutputPendingBitmaps();
   }
 
   /** Releases any resources. */
@@ -163,6 +196,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         image.getTimestamp(),
         presentationTimeUs * 1000);
 
+    sendFrameDownstream(createHardwareBufferFrameFromImage(image, presentationTimeUs, indexOfItem));
+    maybeOutputPendingBitmaps();
+  }
+
+  private void maybeOutputPendingBitmaps() {
+    @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
+    while (framesInUse < CAPACITY && frameInfo != null && frameInfo.timestampIterator != null) {
+      if (!frameInfo.timestampIterator.hasNext()) {
+        pendingFrameInfo.remove();
+        frameInfo = pendingFrameInfo.peek();
+        continue;
+      }
+
+      long presentationTimeUs = frameInfo.timestampIterator.next();
+      HardwareBufferFrame hardwareBufferFrame =
+          createHardwareBufferFrameFromBitmap(
+              checkNotNull(frameInfo.bitmap), presentationTimeUs, frameInfo.itemIndex);
+      sendFrameDownstream(hardwareBufferFrame);
+    }
+  }
+
+  private HardwareBufferFrame createHardwareBufferFrameFromImage(
+      Image image, long presentationTimeUs, int indexOfItem) {
     HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
@@ -172,12 +228,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
               playbackExecutor,
-              () -> {
+              /* releaseCallback= */ () -> {
                 // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
                 // is freed up, and run another render loop.
                 hardwareBuffer.close();
                 image.close();
-                framesInUse -= 1;
+                releaseFrame();
               });
     } else {
       // TODO: b/449956936 - Support earlier API levels via HardwareBufferFrame.internalFrame.
@@ -185,19 +241,57 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
               playbackExecutor,
-              () -> {
+              /* releaseCallback= */ () -> {
                 image.close();
-                framesInUse -= 1;
+                releaseFrame();
               });
     }
     // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
-    HardwareBufferFrame hardwareBufferFrame =
-        frameBuilder
-            .setInternalFrame(image)
-            .setPresentationTimeUs(presentationTimeUs)
-            .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, indexOfItem))
-            .build();
+    frameBuilder.setInternalFrame(image);
+    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, indexOfItem);
+  }
+
+  private HardwareBufferFrame createHardwareBufferFrameFromBitmap(
+      Bitmap bitmap, long presentationTimeUs, int itemIndex) {
+    HardwareBufferFrame.Builder frameBuilder;
+    // TODO: b/449956936 - Copy the Bitmap into a HardwareBuffer using NDK on earlier API levels.
+    if (SDK_INT >= 31 && checkNotNull(bitmap).getConfig() == Bitmap.Config.HARDWARE) {
+      HardwareBuffer hardwareBuffer = checkNotNull(bitmap).getHardwareBuffer();
+      frameBuilder =
+          new HardwareBufferFrame.Builder(
+              hardwareBuffer,
+              playbackExecutor,
+              /* releaseCallback= */ () -> {
+                hardwareBuffer.close();
+                releaseFrame();
+              });
+    } else {
+      frameBuilder =
+          new HardwareBufferFrame.Builder(
+              /* hardwareBuffer= */ null,
+              playbackExecutor,
+              /* releaseCallback= */ this::releaseFrame);
+    }
+    frameBuilder.setInternalFrame(bitmap);
+    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, itemIndex);
+  }
+
+  private HardwareBufferFrame createHardwareBufferFrame(
+      HardwareBufferFrame.Builder frameBuilder, long presentationTimeUs, int itemIndex) {
+    return frameBuilder
+        .setPresentationTimeUs(presentationTimeUs)
+        .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))
+        .build();
+  }
+
+  private void sendFrameDownstream(HardwareBufferFrame hardwareBufferFrame) {
+    framesInUse += 1;
     frameConsumer.accept(hardwareBufferFrame);
+  }
+
+  private void releaseFrame() {
+    framesInUse -= 1;
+    maybeOutputPendingBitmaps();
   }
 
   /**
@@ -235,10 +329,39 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class FrameInfo {
+    /**
+     * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
+     * #getSurface()}.
+     */
+    @Nullable final Bitmap bitmap;
+
+    /**
+     * The pending frame timestamps, or {@code null} if the frame will be output via {@link
+     * #getSurface()}.
+     */
+    @Nullable final TimestampIterator timestampIterator;
+
     final long presentationTimeUs;
     final int itemIndex;
 
-    FrameInfo(long presentationTimeUs, int itemIndex) {
+    static FrameInfo createForBitmap(
+        Bitmap bitmap, TimestampIterator timestampIterator, int itemIndex) {
+      return new FrameInfo(
+          bitmap, timestampIterator, /* presentationTimeUs= */ C.TIME_UNSET, itemIndex);
+    }
+
+    static FrameInfo createForSurface(long presentationTimeUs, int itemIndex) {
+      return new FrameInfo(
+          /* bitmap= */ null, /* timestampIterator= */ null, presentationTimeUs, itemIndex);
+    }
+
+    private FrameInfo(
+        @Nullable Bitmap bitmap,
+        @Nullable TimestampIterator timestampIterator,
+        long presentationTimeUs,
+        int itemIndex) {
+      this.bitmap = bitmap;
+      this.timestampIterator = timestampIterator;
       this.presentationTimeUs = presentationTimeUs;
       this.itemIndex = itemIndex;
     }

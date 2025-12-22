@@ -229,8 +229,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               checkNotNull(compositionRendererListener),
               checkNotNull(hardwareBufferFrameReader),
               lateThresholdToDropInputUs));
-      // TODO: b/449956936 - support image output and replace this placeholder image renderer.
-      renderers.add(new ImageRenderer(checkNotNull(imageDecoderFactory), ImageOutput.NO_OP));
+      renderers.add(
+          new HardwareBufferImageRenderer(
+              checkNotNull(imageDecoderFactory),
+              checkNotNull(compositionRendererListener),
+              checkNotNull(hardwareBufferFrameReader)));
     }
     return renderers.toArray(new Renderer[0]);
   }
@@ -305,7 +308,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
     private final AudioGraphInputAudioSink audioSink;
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
-
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
     private long streamStartPositionUs;
     private long pendingOffsetToCompositionTimeUs;
@@ -977,7 +979,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         boolean isLastBuffer,
         Format format)
         throws ExoPlaybackException {
-      if (!hardwareBufferFrameReader.canAcceptFrame()) {
+      if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
         return false;
       }
       return super.processOutputBuffer(
@@ -1002,7 +1004,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // TODO: b/449956936 - This can probably be replaced by VideoFrameMetadataListener, but the
       // backpressure in processOutputBuffer can't. See what parts of this logic can be moved to
       // vanilla ExoPlayer.
-      hardwareBufferFrameReader.willOutputFrameViaSurface(
+      hardwareBufferFrameReader.queueFrameViaSurface(
           /* presentationTimeUs= */ compositionPresentationTimeUs, indexOfCurrentItem());
       super.renderOutputBufferV21(
           codec,
@@ -1039,6 +1041,96 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private int indexOfCurrentItem() {
       return getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+    }
+  }
+
+  /**
+   * An {@link ImageRenderer} that outputs decoded images to a {@link HardwareBufferFrameReader}.
+   */
+  private static final class HardwareBufferImageRenderer extends ImageRenderer {
+
+    private final CompositionRendererListener compositionRendererListener;
+    private final HardwareBufferFrameReader hardwareBufferFrameReader;
+    private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
+    private long streamStartPositionUs;
+    private long offsetToCompositionTimeUs;
+
+    HardwareBufferImageRenderer(
+        ImageDecoder.Factory imageDecoderFactory,
+        CompositionRendererListener compositionRendererListener,
+        HardwareBufferFrameReader hardwareBufferFrameReader) {
+      super(imageDecoderFactory, ImageOutput.NO_OP);
+      this.compositionRendererListener = compositionRendererListener;
+      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+      streamStartPositionUs = C.TIME_UNSET;
+    }
+
+    // ImageRenderer methods
+
+    @Override
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
+      if (!joining) {
+        timestampIterator = createTimestampIterator(positionUs);
+      }
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
+    }
+
+    @Override
+    protected void onStreamChanged(
+        Format[] formats,
+        long startPositionUs,
+        long offsetUs,
+        MediaSource.MediaPeriodId mediaPeriodId)
+        throws ExoPlaybackException {
+      // CompositionPlayer doesn't support timelines with multiple playlist items (aka windows).
+      // While this is not a strict requirement, multiple playlist items are not tested or
+      // deliberately supported by this renderer.
+      checkState(getTimeline().getWindowCount() == 1);
+      streamStartPositionUs = startPositionUs;
+      // The media item might have been repeated in the sequence.
+      offsetToCompositionTimeUs =
+          getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
+      timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
+      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    }
+
+    @Override
+    public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+      super.render(positionUs, elapsedRealtimeUs);
+      compositionRendererListener.onRender(
+          /* compositionTimePositionUs= */ positionUs + offsetToCompositionTimeUs,
+          elapsedRealtimeUs,
+          /* compositionTimeOutputStreamStartPositionUs= */ streamStartPositionUs
+              + offsetToCompositionTimeUs);
+    }
+
+    @Override
+    protected boolean processOutputBuffer(
+        long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
+      checkNotNull(timestampIterator);
+      int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+      if (SDK_INT >= 26) {
+        Bitmap hardwareOutputImage =
+            outputImage.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+        hardwareBufferFrameReader.outputBitmap(hardwareOutputImage, timestampIterator, indexOfItem);
+      } else {
+        hardwareBufferFrameReader.outputBitmap(outputImage, timestampIterator, indexOfItem);
+      }
+      return true;
+    }
+
+    private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
+      EditedMediaItem editedMediaItem =
+          getEditedMediaItem(getTimeline(), checkNotNull(getMediaPeriodId()));
+      long lastBitmapTimeUs = getStreamOffsetUs() + editedMediaItem.getPresentationDurationUs();
+      return new ConstantRateTimestampIterator(
+          /* startPositionUs= */ positionUs + offsetToCompositionTimeUs,
+          /* endPositionUs= */ lastBitmapTimeUs + offsetToCompositionTimeUs,
+          editedMediaItem.frameRate == C.RATE_UNSET_INT
+              ? DEFAULT_FRAME_RATE
+              : editedMediaItem.frameRate);
     }
   }
 }
