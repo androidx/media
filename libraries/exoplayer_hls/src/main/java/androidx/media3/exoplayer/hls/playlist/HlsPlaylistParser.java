@@ -294,6 +294,26 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
       Pattern.compile("\\b(X-[A-Z0-9-]+)=");
 
+  private static final int MATCHER_CACHE_MAX_SIZE = 32;
+  private static final int MATCHER_CACHE_INITIAL_CAPACITY = 16;
+  private static final float MATCHER_CACHE_LOAD_FACTOR = 0.75f;
+
+  private static final class MatcherCacheState {
+    final Map<Pattern, Matcher> cache =
+        new LinkedHashMap<Pattern, Matcher>(
+            MATCHER_CACHE_INITIAL_CAPACITY,
+            MATCHER_CACHE_LOAD_FACTOR,
+            /* accessOrder= */ true) {
+          @Override
+          protected boolean removeEldestEntry(Map.Entry<Pattern, Matcher> eldest) {
+            return size() > MATCHER_CACHE_MAX_SIZE;
+          }
+        };
+  }
+
+  private static final ThreadLocal<MatcherCacheState> matcherCache =
+      ThreadLocal.withInitial(MatcherCacheState::new);
+
   private static final String DATERANGE_CLASS_INTERSTITIALS = "com.apple.hls.interstitial";
 
   private final HlsMultivariantPlaylist multivariantPlaylist;
@@ -1521,8 +1541,30 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return Integer.parseInt(parseStringAttr(line, pattern, Collections.emptyMap()));
   }
 
+  /**
+   * Retrieves a cached {@link Matcher} for the given pattern, or creates a new one if not cached.
+   *
+   * <p>This method uses a per-thread LRU cache to reuse Matcher instances, significantly reducing
+   * allocation overhead during playlist parsing.
+   *
+   * @param pattern The regex pattern.
+   * @param input The input to match against.
+   * @return A Matcher for the pattern, reset to match the input.
+   */
+  private static Matcher obtainMatcher(Pattern pattern, CharSequence input) {
+    MatcherCacheState state = matcherCache.get();
+    Matcher matcher = state.cache.get(pattern);
+    if (matcher == null) {
+      matcher = pattern.matcher(input);
+      state.cache.put(pattern, matcher);
+    } else {
+      matcher.reset(input);
+    }
+    return matcher;
+  }
+
   private static int parseOptionalIntAttr(String line, Pattern pattern, int defaultValue) {
-    Matcher matcher = pattern.matcher(line);
+    Matcher matcher = obtainMatcher(pattern, line);
     if (matcher.find()) {
       return Integer.parseInt(checkNotNull(matcher.group(1)));
     }
@@ -1534,7 +1576,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   }
 
   private static long parseOptionalLongAttr(String line, Pattern pattern, long defaultValue) {
-    Matcher matcher = pattern.matcher(line);
+    Matcher matcher = obtainMatcher(pattern, line);
     if (matcher.find()) {
       return Long.parseLong(checkNotNull(matcher.group(1)));
     }
@@ -1574,7 +1616,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern pattern,
       @PolyNull String defaultValue,
       Map<String, String> variableDefinitions) {
-    Matcher matcher = pattern.matcher(line);
+    Matcher matcher = obtainMatcher(pattern, line);
     @PolyNull String value = matcher.find() ? checkNotNull(matcher.group(1)) : defaultValue;
     return variableDefinitions.isEmpty() || value == null
         ? value
@@ -1582,7 +1624,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   }
 
   private static double parseOptionalDoubleAttr(String line, Pattern pattern, double defaultValue) {
-    Matcher matcher = pattern.matcher(line);
+    Matcher matcher = obtainMatcher(pattern, line);
     if (matcher.find()) {
       return Double.parseDouble(checkNotNull(matcher.group(1)));
     }
@@ -1620,7 +1662,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
   private static String replaceVariableReferences(
       String string, Map<String, String> variableDefinitions) {
-    Matcher matcher = REGEX_VARIABLE_REFERENCE.matcher(string);
+    Matcher matcher = obtainMatcher(REGEX_VARIABLE_REFERENCE, string);
     // TODO: Replace StringBuffer with StringBuilder once Java 9 is available.
     StringBuffer stringWithReplacements = new StringBuffer();
     while (matcher.find()) {
@@ -1638,7 +1680,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
   private static boolean parseOptionalBooleanAttribute(
       String line, Pattern pattern, boolean defaultValue) {
-    Matcher matcher = pattern.matcher(line);
+    Matcher matcher = obtainMatcher(pattern, line);
     if (matcher.find()) {
       return BOOLEAN_TRUE.equals(matcher.group(1));
     }
