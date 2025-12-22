@@ -354,6 +354,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           || originalPeriodPositionUs == C.TIME_END_OF_SOURCE) {
         return originalPeriodPositionUs;
       }
+
+      // Do not speed-adjust negative timestamps.
+      if (originalPeriodPositionUs - clipStartUs < 0) {
+        return originalPeriodPositionUs;
+      }
+
       return getAdjustedTimeUs(originalPeriodPositionUs - clipStartUs) + clipStartUs;
     }
 
@@ -369,11 +375,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           || adjustedPeriodPositionUs == C.TIME_END_OF_SOURCE) {
         return adjustedPeriodPositionUs;
       }
+
+      // Do not speed-adjust negative timestamps.
+      if (adjustedPeriodPositionUs - clipStartUs < 0) {
+        return adjustedPeriodPositionUs;
+      }
+
       return getOriginalTimeUs(adjustedPeriodPositionUs - clipStartUs) + clipStartUs;
     }
 
     public long getAdjustedTimeUs(long originalTimeUs) {
       checkArgument(originalTimeUs != C.TIME_UNSET && originalTimeUs != C.TIME_END_OF_SOURCE);
+      checkArgument(originalTimeUs >= 0);
       int index =
           Util.binarySearchFloor(
               inputSegmentStartTimesUs,
@@ -387,6 +400,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     public long getOriginalTimeUs(long adjustedTimeUs) {
       checkArgument(adjustedTimeUs != C.TIME_UNSET && adjustedTimeUs != C.TIME_END_OF_SOURCE);
+      checkArgument(adjustedTimeUs >= 0);
       int index =
           Util.binarySearchFloor(
               outputSegmentStartTimesUs,

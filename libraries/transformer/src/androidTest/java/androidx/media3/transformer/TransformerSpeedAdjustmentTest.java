@@ -86,6 +86,25 @@ public class TransformerSpeedAdjustmentTest {
           return 500_000;
         }
       };
+
+  private static final SpeedProvider SPEED_PROVIDER_MULTIPLE_SPEEDS_WITH_SHORT_REGION =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          if (timeUs >= 100_000) {
+            return 0.5f;
+          }
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          if (timeUs >= 100_000) {
+            return C.TIME_UNSET;
+          }
+          return 100_000;
+        }
+      };
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
   private String testId;
@@ -164,10 +183,6 @@ public class TransformerSpeedAdjustmentTest {
             1924900L, 1958266L, 1991633L)
         .inOrder();
   }
-
-  // TODO: Add tests for clipping.
-  // TODO: Add tests for audio position offsets.
-  // TODO: Video only.
 
   @Test
   public void setSpeed_twoItemsWith2xSpeed_halvesTimestamps() throws Exception {
@@ -296,6 +311,39 @@ public class TransformerSpeedAdjustmentTest {
             1431466, 1448150, 1464833, 1481516, 1498200, 1514883, 1531566, 1549000, 1615732,
             1682466, 1749200, 1815932, 1882666, 1949400, 2016132, 2082866, 2149600, 2216332,
             2283066, 2349800, 2416532, 2483266)
+        .inOrder();
+  }
+
+  @Test
+  public void setSpeed_twoItemsWithVariableSpeedAndClipping_modifiesTimestampsAsExpected()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(750).build())
+                    .build())
+            .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS_WITH_SHORT_REGION)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(item, item)))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    ImmutableList<Long> timestamps = getTimestampsFromFile(result.filePath, context, testId);
+    // Allow a tolerance of half a tick: 90000 (tbn) / 1000000 = ~11.1us.
+    assertThat(timestamps)
+        .comparingElementsUsing(Correspondence.tolerance(6))
+        .containsExactly(
+            0L, 25_400L, 42_083L, 85_066L, 151_800L, 218_532L, 285_266L, 406_716L, 423_400L,
+            440_083L, 483_066L, 549_800L, 616_532L, 683_266L)
         .inOrder();
   }
 
