@@ -38,10 +38,9 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.Frame;
 import androidx.media3.effect.GlEffect;
-import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.PacketConsumer;
-import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -575,6 +574,14 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
+    assume()
+        .withMessage("Image input with PacketConsumer is not yet supported")
+        .that(testConfig.contains(IMAGE_INPUT))
+        .isFalse();
+    assume()
+        .withMessage("Video gaps are not yet implemented with PacketConsumer")
+        .that(testConfig.contains(VIDEO_INPUT_WITH_REMOVE_VIDEO))
+        .isFalse();
     RecordingPacketConsumer packetConsumer =
         new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
     ImmutableList<Long> expectedVideoTimestampsUs = testConfig.getExpectedVideoTimestampsUs();
@@ -582,7 +589,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     Composition composition = testConfig.getComposition();
     runCompositionPlayer(composition, /* packetConsumerFactory= */ () -> packetConsumer);
 
-    List<List<GlTextureFrame>> queuedPackets = packetConsumer.getQueuedPackets();
+    List<List<HardwareBufferFrame>> queuedPackets = packetConsumer.getQueuedPackets();
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
       long presentationTimeUs = queuedPackets.get(packetIndex).get(0).presentationTimeUs;
       assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
@@ -626,7 +633,8 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   private void runCompositionPlayer(
-      Composition composition, PacketConsumer.Factory<List<GlTextureFrame>> packetConsumerFactory)
+      Composition composition,
+      PacketConsumer.Factory<List<HardwareBufferFrame>> packetConsumerFactory)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
@@ -634,7 +642,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setPacketConsumerFactory(packetConsumerFactory)
-                      .setGlObjectsProvider(new SingleContextGlObjectsProvider())
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
@@ -700,6 +707,11 @@ public class CompositionPlayerParameterizedPlaybackTest {
         stringBuilder.append(")");
       }
       return stringBuilder.toString();
+    }
+
+    boolean contains(Input input) {
+      return inputSequences.stream()
+          .anyMatch(inputSequence -> inputSequence.inputs.contains(input));
     }
   }
 

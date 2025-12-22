@@ -17,14 +17,11 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import android.content.Context;
-import androidx.media3.common.GlTextureInfo;
-import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
@@ -211,13 +208,6 @@ public class CompositionVideoPacketReleaseControlTest {
         .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs);
   }
 
-  private GlTextureFrame createGlTextureFrame(long presentationTimeUs) {
-    GlTextureInfo glTextureInfo = new GlTextureInfo((int) presentationTimeUs, 1, 1, 100, 100);
-    return new GlTextureFrame.Builder(glTextureInfo, directExecutor(), (ignored) -> {})
-        .setPresentationTimeUs(presentationTimeUs)
-        .build();
-  }
-
   private ImmutableList<HardwareBufferFrame> createPacket(long presentationTimeUs) {
     HardwareBufferFrame hardwareBufferFrame =
         new HardwareBufferFrame.Builder(
@@ -225,7 +215,7 @@ public class CompositionVideoPacketReleaseControlTest {
                 directExecutor(),
                 () -> releasedFrameTimestamps.add(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
-            .setInternalFrame(createGlTextureFrame(presentationTimeUs))
+            .setInternalFrame(presentationTimeUs)
             .build();
     return ImmutableList.of(hardwareBufferFrame);
   }
@@ -233,22 +223,20 @@ public class CompositionVideoPacketReleaseControlTest {
   @SafeVarargs
   private final void assertOutputPackets(
       boolean ignoreReleaseTime, List<HardwareBufferFrame>... expectedPackets) {
-    List<List<GlTextureFrame>> outputPackets = outputConsumer.getQueuedPackets();
+    List<List<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPackets();
     assertThat(outputPackets).hasSize(expectedPackets.length);
     for (int i = 0; i < expectedPackets.length; i++) {
-      List<GlTextureFrame> receivedFrames = outputPackets.get(i);
+      List<HardwareBufferFrame> receivedFrames = outputPackets.get(i);
       List<HardwareBufferFrame> expectedFrames = expectedPackets[i];
       assertThat(receivedFrames).hasSize(expectedFrames.size());
       for (int j = 0; j < receivedFrames.size(); j++) {
-        GlTextureFrame receivedFrame = receivedFrames.get(j);
-        GlTextureFrame expectedFrame =
-            checkNotNull((GlTextureFrame) expectedFrames.get(j).internalFrame);
+        HardwareBufferFrame receivedFrame = receivedFrames.get(j);
+        HardwareBufferFrame expectedFrame = expectedFrames.get(j);
         assertThat(receivedFrame.presentationTimeUs).isEqualTo(expectedFrame.presentationTimeUs);
         if (!ignoreReleaseTime) {
           assertThat(receivedFrame.releaseTimeNs).isEqualTo(expectedFrame.releaseTimeNs);
         }
-        assertThat(receivedFrame.glTextureInfo).isEqualTo(expectedFrame.glTextureInfo);
-        assertThat(receivedFrame.fenceSync).isEqualTo(expectedFrame.fenceSync);
+        assertThat(receivedFrame.internalFrame).isEqualTo(expectedFrame.internalFrame);
       }
     }
   }
@@ -257,16 +245,7 @@ public class CompositionVideoPacketReleaseControlTest {
       ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
     ImmutableList.Builder<HardwareBufferFrame> updatedPacketBuilder = new ImmutableList.Builder<>();
     for (HardwareBufferFrame frame : packet) {
-      updatedPacketBuilder.add(
-          frame
-              .buildUpon()
-              .setReleaseTimeNs(releaseTimeNs)
-              .setInternalFrame(
-                  checkNotNull((GlTextureFrame) frame.internalFrame)
-                      .buildUpon()
-                      .setReleaseTimeNs(releaseTimeNs)
-                      .build())
-              .build());
+      updatedPacketBuilder.add(frame.buildUpon().setReleaseTimeNs(releaseTimeNs).build());
     }
     return updatedPacketBuilder.build();
   }

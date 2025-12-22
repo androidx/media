@@ -245,6 +245,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           // Video seeking is currently handled by the video renderers, specifically in
           // onPositionReset.
           playbackAudioGraphWrapper.startSeek(/* positionUs= */ Util.msToUs((long) message.obj));
+          // TODO: b/449956936 - Flush the HardwareBufferFrameReader used with the packet consumer.
           break;
         case MSG_END_SEEK:
           playbackAudioGraphWrapper.endSeek();

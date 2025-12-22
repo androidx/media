@@ -46,7 +46,7 @@ import java.util.concurrent.ExecutorService;
 /* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final PacketConsumerCaller<List<GlTextureFrame>> downstreamConsumer;
+  private final PacketConsumerCaller<List<HardwareBufferFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final PlaceholderSurface placeholderSurface;
@@ -61,7 +61,7 @@ import java.util.concurrent.ExecutorService;
   public CompositionVideoPacketReleaseControl(
       Context context,
       VideoFrameReleaseControl videoFrameReleaseControl,
-      PacketConsumer<List<GlTextureFrame>> downstreamConsumer,
+      PacketConsumer<List<HardwareBufferFrame>> downstreamConsumer,
       ExecutorService glExecutorService,
       Consumer<Exception> exceptionConsumer) {
     placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
@@ -224,19 +224,16 @@ import java.util.concurrent.ExecutorService;
    */
   private boolean setReleaseTimeAndQueueDownstream(
       ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
-    ImmutableList.Builder<GlTextureFrame> framesWithReleaseTimeBuilder = ImmutableList.builder();
+    ImmutableList.Builder<HardwareBufferFrame> framesWithReleaseTimeBuilder =
+        ImmutableList.builder();
     for (int i = 0; i < packet.size(); i++) {
       framesWithReleaseTimeBuilder.add(updateReleaseTime(packet.get(i), releaseTimeNs));
     }
     return downstreamConsumer.tryQueuePacket(Packet.of(framesWithReleaseTimeBuilder.build()));
   }
 
-  private static GlTextureFrame updateReleaseTime(HardwareBufferFrame frame, long releaseTimeNs) {
-    // TODO: b/449956936 - Use HardwareBufferFrame instead of this non-functional wrapping
-    // of GlTextureFrame.
-    return checkNotNull((GlTextureFrame) frame.internalFrame)
-        .buildUpon()
-        .setReleaseTimeNs(releaseTimeNs)
-        .build();
+  private static HardwareBufferFrame updateReleaseTime(
+      HardwareBufferFrame frame, long releaseTimeNs) {
+    return frame.buildUpon().setReleaseTimeNs(releaseTimeNs).build();
   }
 }

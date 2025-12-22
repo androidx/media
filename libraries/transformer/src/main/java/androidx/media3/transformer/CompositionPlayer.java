@@ -35,6 +35,7 @@ import static java.lang.Math.min;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.ImageFormat;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
@@ -75,7 +76,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.SingleInputVideoGraph;
@@ -160,7 +161,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-    private PacketConsumer.@MonotonicNonNull Factory<List<GlTextureFrame>> packetConsumerFactory;
+    private PacketConsumer.@MonotonicNonNull Factory<List<HardwareBufferFrame>>
+        packetConsumerFactory;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -449,7 +451,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @ExperimentalApi
     @CanIgnoreReturnValue
     public Builder setPacketConsumerFactory(
-        PacketConsumer.Factory<List<GlTextureFrame>> packetConsumerFactory) {
+        PacketConsumer.Factory<List<HardwareBufferFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
       this.packetConsumerFactory = packetConsumerFactory;
       return this;
@@ -530,10 +532,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
   private final boolean shouldShutdownExecutorService;
-  private final GlObjectsProvider glObjectsProvider;
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
-  @Nullable private final PacketConsumer<List<GlTextureFrame>> packetConsumer;
+  @Nullable private final PacketConsumer<List<HardwareBufferFrame>> packetConsumer;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -608,7 +609,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new AudioFocusManager(
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
-    glObjectsProvider = builder.glObjectsProviderSupplier.get();
     if (builder.packetConsumerFactory != null) {
       executorService =
           builder.glExecutorService != null
@@ -903,7 +903,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     checkState(checkNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.
     for (int i = 0; i < playerHolders.size(); i++) {
-      playerHolders.get(i).player.release();
+      playerHolders.get(i).release();
     }
     playerHolders.clear();
     boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
@@ -1310,7 +1310,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private void setCompositionInternal(Composition composition, long startPositionMs) {
     for (int i = 0; i < playerHolders.size(); i++) {
       // TODO: b/412585856 - Optimize for the case where we can keep some resources.
-      playerHolders.get(i).player.release();
+      playerHolders.get(i).release();
     }
     playerHolders.clear();
 
@@ -1394,39 +1394,42 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     boolean requestMediaCodecToneMapping =
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
     SequenceRenderersFactory renderersFactory;
+    HardwareBufferFrameReader hardwareBufferFrameReader = null;
     if (packetConsumer != null) {
+      // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
+      checkState(!requestMediaCodecToneMapping);
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
-      // CompositionTextureListener.
-      CompositionTextureListener textureListener =
-          new CompositionTextureListener(
+      // HardwareBufferFrameReader.
+      hardwareBufferFrameReader =
+          new HardwareBufferFrameReader(
               composition,
               sequenceIndex,
-              checkNotNull(frameAggregator),
-              checkNotNull(executorService));
-      VideoSink inputSink = getFrameConsumerInputSink(textureListener);
+              /* frameConsumer= */ hardwareBufferFrame ->
+                  checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex),
+              checkNotNull(playbackThread).getLooper(),
+              /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE);
       renderersFactory =
-          new SequenceRenderersFactory(
+          SequenceRenderersFactory.createForHardwareBuffer(
               context,
               checkNotNull(playbackAudioGraphWrapper),
-              inputSink,
               imageDecoderFactory,
               /* inputIndex= */ sequenceIndex,
               videoPrewarmingEnabled,
-              videoPacketReleaseControl,
-              textureListener);
+              checkNotNull(videoPacketReleaseControl),
+              hardwareBufferFrameReader,
+              lateThresholdToDropInputUs);
 
     } else {
       VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
       renderersFactory =
-          new SequenceRenderersFactory(
+          SequenceRenderersFactory.createForVideoSink(
               context,
               checkNotNull(playbackAudioGraphWrapper),
               inputSink,
               imageDecoderFactory,
               /* inputIndex= */ sequenceIndex,
               videoPrewarmingEnabled,
-              /* compositionRendererListener= */ null,
-              /* compositionTextureListener= */ null);
+              lateThresholdToDropInputUs);
     }
     SequencePlayerHolder playerHolder =
         new SequencePlayerHolder(
@@ -1435,7 +1438,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             checkNotNull(playbackThread).getLooper(),
             clock,
             renderersFactory,
-            /* inputIndex= */ sequenceIndex);
+            /* inputIndex= */ sequenceIndex,
+            hardwareBufferFrameReader);
     playerHolder.player.addListener(new PlayerListener(sequenceIndex));
     playerHolder.player.addAnalyticsListener(new PlayerAnalyticsListener());
     playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
@@ -1443,6 +1447,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
+    if (packetConsumer != null) {
+      playerHolder.player.setVideoSurface(checkNotNull(hardwareBufferFrameReader).getSurface());
+    }
     return playerHolder;
   }
 
@@ -1869,73 +1876,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     return false;
   }
 
-  private VideoSink getFrameConsumerInputSink(CompositionTextureListener textureListener) {
-    checkState(packetConsumer != null);
-    PlaybackVideoGraphWrapper singleInputVideoGraphWrapper =
-        buildSingleInputPlaybackVideoGraphWrapper(textureListener);
-    // This PlaybackVideoGraphWrapper can be started immediately and does not need to be stopped, as
-    // frames are held by the CompositionVideoPacketReleaseControl which is started and stopped when
-    // rendering is started and stopped.
-    singleInputVideoGraphWrapper.startRendering();
-    VideoSink videoGraphWrapperSink = singleInputVideoGraphWrapper.getSink(/* inputIndex= */ 0);
-    return new ForwardingVideoSink(videoGraphWrapperSink) {
-
-      @Override
-      public boolean isReady(boolean otherwiseReady) {
-        // TODO: b/449957627- Do not use PlaybackVideoGraphWrapper or VideoSink. Instead, rely on
-        // each MediaCodecVideoRenderer's release control to determine whether the renderer is
-        // ready.
-
-        // The renderer state should not depend on effects processing. As a temporary workaround,
-        // allow playback to start as soon as the renderer has input data (otherwiseReady).
-        return otherwiseReady && isInitialized();
-      }
-
-      @Override
-      public void flush(boolean resetPosition) {
-        if (super.isInitialized()) {
-          textureListener.willFlush();
-        }
-        super.flush(resetPosition);
-      }
-    };
-  }
-
-  private PlaybackVideoGraphWrapper buildSingleInputPlaybackVideoGraphWrapper(
-      CompositionTextureListener textureListener) {
-    DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
-        new DefaultVideoFrameProcessor.Factory.Builder()
-            .setTextureOutput(textureListener, /* textureOutputCapacity= */ 2)
-            .setExecutorService(executorService)
-            .setGlObjectsProvider(glObjectsProvider);
-    SingleInputVideoGraph.Factory singleInputVideoGraphFactory =
-        new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
-
-    VideoFrameReleaseControl videoFrameReleaseControl =
-        new VideoFrameReleaseControl(
-            context,
-            new CompositionFrameTimingEvaluator(
-                CompositionFrameTimingEvaluator.DEFAULT_FRAME_LATE_THRESHOLD_US),
-            /* allowedJoiningTimeMs= */ 0);
-    PlaybackVideoGraphWrapper singleInputVideoGraphWrapper =
-        new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
-            .setVideoGraphFactory(singleInputVideoGraphFactory)
-            .setClock(clock)
-            .setEnableReplayableCache(enableReplayableCache)
-            .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
-            .build();
-    singleInputVideoGraphWrapper.setTotalVideoInputCount(1);
-    singleInputVideoGraphWrapper.addListener(internalListener);
-    singleInputVideoGraphWrapper.addListener(
-        new PlaybackVideoGraphWrapper.Listener() {
-          @Override
-          public void onEnded(long finalFramePresentationTimeUs) {
-            textureListener.onEnded();
-          }
-        });
-    return singleInputVideoGraphWrapper;
-  }
-
   /**
    * A {@link VideoFrameReleaseControl.FrameTimingEvaluator} for composition frames.
    *
@@ -2061,6 +2001,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public void onPlaybackStateChanged(int playbackState) {
+      if (playbackState == STATE_ENDED) {
+        if (packetConsumer != null) {
+          checkNotNull(frameAggregator).queueEndOfStream(playerIndex);
+        }
+      }
       updatePlaybackState();
     }
 
@@ -2112,6 +2057,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public final ExoPlayer player;
     public final SequenceRenderersFactory renderersFactory;
     public final CompositionTrackSelector trackSelector;
+    @Nullable final HardwareBufferFrameReader hardwareBufferFrameReader;
 
     private SequencePlayerHolder(
         Context context,
@@ -2119,7 +2065,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Looper playbackLooper,
         Clock clock,
         SequenceRenderersFactory renderersFactory,
-        int inputIndex) {
+        int inputIndex,
+        @Nullable HardwareBufferFrameReader hardwareBufferFrameReader) {
       trackSelector =
           new CompositionTrackSelector(
               context,
@@ -2141,6 +2088,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       playerBuilder.setTrackSelector(trackSelector);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
+      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+    }
+
+    private void release() {
+      player.release();
+      if (hardwareBufferFrameReader != null) {
+        hardwareBufferFrameReader.release();
+      }
     }
   }
 

@@ -779,7 +779,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       packetConsumerFactory.setOutput(holder)
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
-      playerBuilder.setGlObjectsProvider(glObjectsProvider)
     } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }

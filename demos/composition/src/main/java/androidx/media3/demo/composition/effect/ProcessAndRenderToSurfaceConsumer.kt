@@ -16,43 +16,30 @@
 package androidx.media3.demo.composition.effect
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.Rect
+import android.os.Build.VERSION.SDK_INT
 import android.view.SurfaceHolder
 import androidx.media3.common.GlObjectsProvider
-import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.GlTextureFrame
-import androidx.media3.effect.GlTextureFrameCompositor
-import androidx.media3.effect.GlTextureFrameRenderer
+import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
-import androidx.media3.transformer.CompositionFrameMetadata
-import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.util.concurrent.ExecutorService
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancelAndJoin
 
 // TODO: b/449957627 - Remove once pipeline has been migrated to PacketConsumer interface.
 /**
- * A [PacketConsumer] that:
- * 1. Composites multiple [GlTextureFrame]s into a single output [GlTextureFrame] using
- *    [GlTextureFrameCompositor].
- * 2. Renders the [GlTextureFrame] into [SurfaceHolder] using [GlTextureFrameRenderer].
- * 3. Uses [SurfaceHolder.Callback] callbacks to update the [GlTextureFrameRenderer].
+ * A [PacketConsumer] that renders a [Packet] of [HardwareBufferFrame]s to a [SurfaceHolder] by
+ * tiling them horizontally on the [output canvas][SurfaceHolder.lockHardwareCanvas].
  */
 @ExperimentalApi
 @UnstableApi
 internal class ProcessAndRenderToSurfaceConsumer
-private constructor(
-  context: Context,
-  glExecutorService: ExecutorService,
-  glObjectsProvider: GlObjectsProvider,
-  private val errorListener: Consumer<Exception>,
-  output: SurfaceHolder?,
-) : PacketConsumer<List<GlTextureFrame>>, SurfaceHolder.Callback {
+private constructor(private val output: SurfaceHolder?) :
+  PacketConsumer<List<HardwareBufferFrame>> {
 
   /** [PacketConsumer.Factory] for creating [ProcessAndRenderToSurfaceConsumer] instances. */
   class Factory(
@@ -60,17 +47,11 @@ private constructor(
     private val glExecutorService: ExecutorService,
     private val glObjectsProvider: GlObjectsProvider,
     private val errorListener: Consumer<Exception>,
-  ) : PacketConsumer.Factory<List<GlTextureFrame>> {
+  ) : PacketConsumer.Factory<List<HardwareBufferFrame>> {
     private var output: SurfaceHolder? = null
 
-    override fun create(): PacketConsumer<List<GlTextureFrame>> {
-      return ProcessAndRenderToSurfaceConsumer(
-        context,
-        glExecutorService,
-        glObjectsProvider,
-        errorListener,
-        output,
-      )
+    override fun create(): PacketConsumer<List<HardwareBufferFrame>> {
+      return ProcessAndRenderToSurfaceConsumer(output)
     }
 
     fun setOutput(output: SurfaceHolder?) {
@@ -78,66 +59,32 @@ private constructor(
     }
   }
 
-  /**
-   * A [PacketConsumer] which renders [GlTextureFrame] packets to an output [android.view.Surface].
-   */
-  private val surfaceViewRenderer =
-    GlTextureFrameRenderer.create(
-      context,
-      listeningDecorator(glExecutorService),
-      glObjectsProvider,
-      errorHandler = { t -> errorListener.accept(t) },
-      GlTextureFrameRenderer.Listener.NO_OP,
-    )
+  var last: List<HardwareBufferFrame>? = null
 
-  /**
-   * A packet processor which inputs a list of [GlTextureFrame]s and outputs a single
-   * [GlTextureFrame]. Video contents are composited as instructed by
-   * [GlTextureFrameCompositor.videoCompositorSettings].
-   */
-  private val compositor =
-    GlTextureFrameCompositor(context, glExecutorService.asCoroutineDispatcher(), glObjectsProvider)
+  // PacketConsumer implementation.
 
-  /** A [CoroutineScope] which launches coroutines that run on the GL thread. */
-  private val scope = CoroutineScope(glExecutorService.asCoroutineDispatcher())
-
-  init {
-    // Listen to SurfaceHolder callbacks.
-    // TODO: b/292111083 - Consider moving the SurfaceHolder callback listener to the
-    // GlTextureFrameRenderer.
-    output?.addCallback(this)
-
-    // Forward the compositor output to the renderer.
-    compositor.setOutput(surfaceViewRenderer)
-  }
-
-  // PacketConsumer implementation which forwards frames to compositor.
-
-  override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
-    // TODO: b/463336410 - Make a Composition-aware GlTextureFrameCompositor which updates
-    // videoCompositorSettings from CompositionFrameMetadata.
-    if (packet is Packet.Payload) {
-      compositor.videoCompositorSettings =
-        (packet.payload[0].metadata as CompositionFrameMetadata).composition.videoCompositorSettings
+  override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
+    if ((SDK_INT >= 29) && (packet is Packet.Payload)) {
+      output?.lockHardwareCanvas()?.let { canvas ->
+        packet.payload.forEachIndexed { index, frame ->
+          Bitmap.wrapHardwareBuffer(frame.hardwareBuffer!!, null)?.let { bitmap ->
+            val width = canvas.clipBounds.width() / packet.payload.size
+            val left = index * width
+            val right = (index + 1) * width
+            val dst = Rect(left, canvas.clipBounds.top, right, canvas.clipBounds.bottom)
+            canvas.drawBitmap(bitmap, null, dst, Paint())
+          }
+        }
+        output.unlockCanvasAndPost(canvas)
+      }
     }
-    compositor.queuePacket(packet)
+    // Release the previous packet to double buffer and prevent the decoder from overriding the
+    // screen contents.
+    last?.forEach { it.release() }
+    last = (packet as? Packet.Payload)?.payload
   }
 
   override suspend fun release() {
-    surfaceViewRenderer.release()
-    compositor.release()
-    scope.coroutineContext[Job]?.cancelAndJoin()
-  }
-
-  // SurfaceHolder.Callback implementation
-
-  override fun surfaceCreated(holder: SurfaceHolder) {}
-
-  override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-    surfaceViewRenderer.setOutputSurfaceInfo(SurfaceInfo(holder.surface, width, height))
-  }
-
-  override fun surfaceDestroyed(holder: SurfaceHolder) {
-    surfaceViewRenderer.setOutputSurfaceInfo(null)
+    last?.forEach { it.release() }
   }
 }

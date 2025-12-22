@@ -16,7 +16,7 @@
 package androidx.media3.test.utils
 
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.effect.GlTextureFrame
+import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 
@@ -26,15 +26,15 @@ import androidx.media3.effect.PacketConsumer.Packet
  */
 @ExperimentalApi
 class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
-  PacketConsumer<MutableList<GlTextureFrame>> {
-  val queuedPackets: List<MutableList<GlTextureFrame>>
+  PacketConsumer<MutableList<HardwareBufferFrame>> {
+  val queuedPackets: List<MutableList<HardwareBufferFrame>>
     get() {
       return _queuedPackets.toList()
     }
 
-  private val _queuedPackets: MutableList<MutableList<GlTextureFrame>> = ArrayList()
+  private val _queuedPackets: MutableList<MutableList<HardwareBufferFrame>> = ArrayList()
 
-  override suspend fun queuePacket(packet: Packet<MutableList<GlTextureFrame>>) {
+  override suspend fun queuePacket(packet: Packet<MutableList<HardwareBufferFrame>>) {
     if (packet is Packet.Payload) {
       queue(packet.payload)
     }
@@ -42,7 +42,7 @@ class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
 
   override suspend fun release() {}
 
-  private fun queue(frames: MutableList<GlTextureFrame>) {
+  private fun queue(frames: MutableList<HardwareBufferFrame>) {
     if (releaseIncomingFrames) {
       for (frame in frames) {
         frame.release()
