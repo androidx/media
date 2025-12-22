@@ -263,7 +263,7 @@ public final class CastContextWrapperTest {
       @Nullable MediaRouteSelector selector) {
     when(mockCastContext.getMergedSelector()).thenReturn(selector);
     CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    var unused =
+    MediaRouteSelector unused =
         castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
     verify(mockMediaRouteSelectorListener, never()).onMediaRouteSelectorChanged(any());
     castContextWrapper.asyncInit(mockCastContextInitializer);
@@ -278,7 +278,7 @@ public final class CastContextWrapperTest {
   @Test
   public void registerListenerAndGetCurrentSelector_beforeInit_notifiesListenerAfterFailedInit() {
     CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    var unused =
+    MediaRouteSelector unused =
         castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
     verify(mockMediaRouteSelectorListener, never()).onMediaRouteSelectorChanged(any());
     castContextWrapper.asyncInit(mockCastContextInitializer);
@@ -333,7 +333,7 @@ public final class CastContextWrapperTest {
   @Test
   public void registerListenerAndGetCurrentSelector_unregisteredListener_doesNotNotifyListener() {
     CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    var unused =
+    MediaRouteSelector unused =
         castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
     castContextWrapper.unregisterListener(mockMediaRouteSelectorListener);
     castContextWrapper.asyncInit(mockCastContextInitializer);

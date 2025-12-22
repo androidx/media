@@ -26,6 +26,7 @@ import android.content.Context;
 import android.view.Menu;
 import android.view.MenuItem;
 import androidx.appcompat.view.ContextThemeWrapper;
+import androidx.media3.cast.test.R;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.mediarouter.app.MediaRouteActionProvider;
 import androidx.mediarouter.app.MediaRouteButton;
@@ -107,7 +108,7 @@ public final class MediaRouteButtonFactoryTest {
   public void setUpMediaRouteButton_withoutActionProvider_throwsExceptionWithListenableFuture() {
     castContextWrapper.initWithContext(mockCastContext);
     RoboMenu menu = new RoboMenu(context);
-    var unused =
+    MenuItem unused =
         menu.add(Menu.NONE, MENU_ITEM_ID, Menu.NONE, R.string.media_route_button_menu_title);
 
     IllegalArgumentException thrown =
@@ -152,7 +153,7 @@ public final class MediaRouteButtonFactoryTest {
         .execute(
             () -> {
               try {
-                var unused =
+                ListenableFuture<MenuItem> unused =
                     MediaRouteButtonFactory.setUpMediaRouteButton(
                         context, menuItem, mediaRouteActionProvider, MENU_ITEM_ID);
               } catch (Throwable t) {
@@ -227,7 +228,7 @@ public final class MediaRouteButtonFactoryTest {
         .execute(
             () -> {
               try {
-                var unused =
+                ListenableFuture<Void> unused =
                     MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
               } catch (Throwable t) {
                 exceptionRef.set(t);
