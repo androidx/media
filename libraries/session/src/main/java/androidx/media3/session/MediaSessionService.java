@@ -690,6 +690,10 @@ public abstract class MediaSessionService extends LifecycleService {
    * override to release the sessions and other resources.
    *
    * <p>This method must be called on the main thread.
+   *
+   * @throws IllegalStateException if the {@linkplain Player#getApplicationLooper() application
+   *     looper of the player} is not the looper of the main thread. In such a case, the service
+   *     needs to be stopped manually.
    */
   @UnstableApi
   public final void pauseAllPlayersAndStopSelf() {
