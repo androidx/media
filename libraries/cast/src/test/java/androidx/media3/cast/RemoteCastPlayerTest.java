@@ -76,6 +76,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
@@ -154,14 +155,11 @@ public class RemoteCastPlayerTest {
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
     mediaItemConverter = new DefaultMediaItemConverter();
+    CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext);
     remoteCastPlayer =
-        new RemoteCastPlayer(
-            /* context= */ null,
-            CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
-            mediaItemConverter,
-            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
-            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
-            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+        new RemoteCastPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setMediaItemConverter(mediaItemConverter)
+            .build();
     remoteCastPlayer.addListener(mockListener);
     verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
     castListener = castListenerArgumentCaptor.getValue();
