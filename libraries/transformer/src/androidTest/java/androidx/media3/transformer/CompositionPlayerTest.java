@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -278,7 +279,7 @@ public class CompositionPlayerTest {
                                 } catch (InterruptedException e) {
                                   Thread.currentThread().interrupt();
                                 }
-                                assertThat(allowSurfaceClearToCompleteOpened).isTrue();
+                                checkState(allowSurfaceClearToCompleteOpened);
                               }
                               super.setOutputSurfaceInfo(outputSurfaceInfo);
                             }
