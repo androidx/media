@@ -26,7 +26,6 @@ import static java.lang.Math.min;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
-import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -355,14 +354,38 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     // If the input is PCM then it will be passed directly to the sink. Hence the sink must support
     // the input format directly.
-    if (MimeTypes.AUDIO_RAW.equals(format.sampleMimeType) && !audioSink.supportsFormat(format)) {
-      return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
+    if (MimeTypes.AUDIO_RAW.equals(format.sampleMimeType)) {
+      if (!audioSink.supportsFormat(format)) {
+        return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
+      }
+    } else {
+      // For all other input formats, MediaCodec can do some conversions for us. Check if the sink
+      // supports any of the formats we can get out of MediaCodec.
+      boolean pcmEncodingSupported = false;
+      // On API levels before 24, any non-PCM input format is decoded to 16-bit PCM.
+      if (SDK_INT >= 24) {
+        int[] platformEncodings = Util.getClosestPlatformPcmEncodings(format.pcmEncoding);
+        for (int platformEncoding : platformEncodings) {
+          if (audioSink.getFormatSupport(
+                  Util.getPcmFormat(platformEncoding, format.channelCount, format.sampleRate))
+              == AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY) {
+            pcmEncodingSupported = true;
+            break;
+          }
+        }
+      }
+      // If none of the suggested encodings are supported, fall back to MediaCodec's default value
+      // of 16-bit PCM.
+      if (!pcmEncodingSupported
+          && audioSink.supportsFormat(
+              Util.getPcmFormat(C.ENCODING_PCM_16BIT, format.channelCount, format.sampleRate))) {
+        pcmEncodingSupported = true;
+      }
+      if (!pcmEncodingSupported) {
+        return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
+      }
     }
-    // For all other input formats, we expect the decoder to output 16-bit PCM.
-    if (!audioSink.supportsFormat(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, format.channelCount, format.sampleRate))) {
-      return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
-    }
+
     List<MediaCodecInfo> decoderInfos =
         getDecoderInfos(mediaCodecSelector, format, /* requiresSecureDecoder= */ false, audioSink);
     if (decoderInfos.isEmpty()) {
@@ -1078,11 +1101,18 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         mediaFormat.setInteger("ac4-is-sync", 1);
       }
     }
-    if (SDK_INT >= 24
-        && audioSink.getFormatSupport(
-                Util.getPcmFormat(C.ENCODING_PCM_FLOAT, format.channelCount, format.sampleRate))
+    if (SDK_INT >= 24) {
+      int[] platformEncodings = Util.getClosestPlatformPcmEncodings(format.pcmEncoding);
+      for (int platformEncoding : platformEncodings) {
+        if (audioSink.getFormatSupport(
+                Util.getPcmFormat(platformEncoding, format.channelCount, format.sampleRate))
             == AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY) {
-      mediaFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT);
+          mediaFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, platformEncoding);
+          break;
+        }
+      }
+      // If none of the suggested encodings are supported, fall back to MediaCodec's default value
+      // of 16-bit PCM.
     }
     if (SDK_INT >= 32) {
       mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 99);
