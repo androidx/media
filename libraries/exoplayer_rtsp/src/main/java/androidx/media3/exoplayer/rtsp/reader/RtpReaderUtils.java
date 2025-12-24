@@ -35,9 +35,12 @@ import androidx.media3.common.util.Util;
       long rtpTimestamp,
       long firstReceivedRtpTimestamp,
       int mediaFrequency) {
+    // Calculate the difference in RTP time, accounting for 32-bit unsigned wraparound.
+    // RTP timestamps are unsigned 32-bit integers.
+    long rtpTimestampDelta = (rtpTimestamp - firstReceivedRtpTimestamp) & 0xFFFFFFFFL;
     return startTimeOffsetUs
         + Util.scaleLargeTimestamp(
-            rtpTimestamp - firstReceivedRtpTimestamp,
+            rtpTimestampDelta,
             /* multiplier= */ C.MICROS_PER_SECOND,
             /* divisor= */ mediaFrequency);
   }

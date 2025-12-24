@@ -34,6 +34,9 @@
         overrides of `SegmentDownloader` using the protected `execute` method
         need to provide their task wrapped in a `Supplier` so it can be
         recreated ([#2931](https://github.com/androidx/media/issues/2931)).
+*   RTSP extension:
+    *   Correctly handle RTP Packets with timestamps that wrap around
+        ([#2930](https://github.com/androidx/media/issues/2930)).
 
 ## 1.9
 
