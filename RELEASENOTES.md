@@ -95,6 +95,8 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Correctly handle RTP Packets with timestamps that wrap around
+        ([#2930](https://github.com/androidx/media/issues/2930)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
