@@ -199,8 +199,8 @@ public abstract class MediaSessionService extends LifecycleService {
   public @interface ShowNotificationForIdlePlayerMode {}
 
   /**
-   * Always show a notification when the {@link Player} is in {@link Player#STATE_IDLE}, has media,
-   * and the notification wasn't explicitly dismissed.
+   * Always show a notification when the {@link Player} is in {@link Player#STATE_IDLE} and the
+   * notification wasn't explicitly dismissed.
    */
   @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS = 1;
 
@@ -209,9 +209,44 @@ public abstract class MediaSessionService extends LifecycleService {
 
   /**
    * Shows a notification when the {@link Player} is in {@link Player#STATE_IDLE} due to {@link
-   * Player#stop} or an error, has media, and the notification wasn't explicitly dismissed.
+   * Player#stop} or an error, and the notification wasn't explicitly dismissed.
    */
   @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
+
+  /**
+   * The behavior for showing notifications when the {@link Player} has no media.
+   *
+   * <p>One of {@link #SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_ALWAYS}, {@link
+   * #SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER}, {@link
+   * #SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_AFTER_STOP_OR_ERROR}.
+   *
+   * <p>The default value is {@link #SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_ALWAYS,
+    SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER,
+    SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_AFTER_STOP_OR_ERROR
+  })
+  public @interface ShowNotificationForEmptyPlayerMode {}
+
+  /**
+   * Always show a notification when the {@link Player} is empty and the notification wasn't
+   * explicitly dismissed.
+   */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_ALWAYS = 1;
+
+  /** Never show a notification when the {@link Player} is empty. */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER = 2;
+
+  /**
+   * Shows a notification when the {@link Player} is empty, in {@link Player#STATE_IDLE} due to
+   * {@link Player#stop} or an error, and the notification wasn't explicitly dismissed.
+   */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_AFTER_STOP_OR_ERROR = 3;
 
   /**
    * Key for {@link ControllerInfo#getConnectionHints()} to hint the type of a fallback controller.
@@ -661,6 +696,18 @@ public abstract class MediaSessionService extends LifecycleService {
       @ShowNotificationForIdlePlayerMode int showNotificationForIdlePlayerMode) {
     getMediaNotificationManager()
         .setShowNotificationForIdlePlayer(showNotificationForIdlePlayerMode);
+  }
+
+  /**
+   * Sets whether and when a notification for a {@link Player} that has no media should be shown.
+   *
+   * @param showNotificationForEmptyPlayerMode The {@link ShowNotificationForEmptyPlayerMode}.
+   */
+  @UnstableApi
+  public final void setShowNotificationForEmptyPlayer(
+      @ShowNotificationForEmptyPlayerMode int showNotificationForEmptyPlayerMode) {
+    getMediaNotificationManager()
+        .setShowNotificationForEmptyPlayer(showNotificationForEmptyPlayerMode);
   }
 
   /**
