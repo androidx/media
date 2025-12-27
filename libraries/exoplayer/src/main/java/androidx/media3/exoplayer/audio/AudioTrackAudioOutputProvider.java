@@ -494,15 +494,21 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         Log.w(TAG, "Invalid PCM encoding: " + format.pcmEncoding);
         return FORMAT_UNSUPPORTED;
       }
-
-      if (format.pcmEncoding == C.ENCODING_PCM_16BIT
-          || (formatConfig.enableHighResolutionPcmOutput
-              && format.pcmEncoding == C.ENCODING_PCM_FLOAT)) {
-        return FORMAT_SUPPORTED_DIRECTLY;
+      if (format.pcmEncoding != C.ENCODING_PCM_16BIT
+          && !formatConfig.enableHighResolutionPcmOutput) {
+        // We will transcode to 16-bit PCM to allow the full audio processor chain to operate.
+        return FORMAT_SUPPORTED_WITH_TRANSCODING;
       }
-      // We can resample all linear PCM encodings to 16-bit integer PCM, which AudioTrack is
-      // guaranteed to support.
-      return FORMAT_SUPPORTED_WITH_TRANSCODING;
+      if (SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(format.pcmEncoding)) {
+        // This PCM format is not supported by AudioTrack, but we can resample all linear PCM
+        // encodings to 16-bit integer PCM, which AudioTrack is guaranteed to support.
+        return FORMAT_SUPPORTED_WITH_TRANSCODING;
+      }
+      // This format is supported by AudioTrack directly. Note that the method checks if AudioTrack
+      // accepts input in this format, but AudioTrack may resample internally even if it returns
+      // true. However, this resampling is done in optimized C++ code, so we generally have no
+      // reason to prefer our own, nor try to detect whether AudioTrack is doing resampling.
+      return FORMAT_SUPPORTED_DIRECTLY;
     }
     if (audioCapabilities.isPassthroughPlaybackSupported(format, formatConfig.audioAttributes)) {
       return FORMAT_SUPPORTED_DIRECTLY;
