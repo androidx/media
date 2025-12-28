@@ -1260,9 +1260,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public boolean hasPendingData() {
     return isAudioOutputInitialized()
-        && (SDK_INT < 29
-            || !audioOutput.isOffloadedPlayback()
-            || !handledOffloadOnPresentationEnded)
+        && (!audioOutput.isOffloadedPlayback() || !handledOffloadOnPresentationEnded)
         && hasAudioOutputPendingData(getWrittenFrames());
   }
 
@@ -1399,14 +1397,11 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  @RequiresApi(29)
   @Override
   public void setOffloadMode(@OffloadMode int offloadMode) {
-    checkState(SDK_INT >= 29);
     this.offloadMode = offloadMode;
   }
 
-  @RequiresApi(29)
   @Override
   public void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {
     if (audioOutput != null
