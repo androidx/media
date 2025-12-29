@@ -28,7 +28,6 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
@@ -49,6 +48,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithPro
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.getVideoSampleTimesUs;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED;
@@ -3007,14 +3007,17 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void export_withEditedMediaItemFrameRateSet_outputFrameCountIsCorrect() throws Exception {
+  public void export_withEditedMediaItemFrameRateSet_outputFrameTimestampsAreCorrect()
+      throws Exception {
     Composition composition =
         new Composition.Builder(
                 EditedMediaItemSequence.withAudioAndVideoFrom(
                     ImmutableList.of(
                         new EditedMediaItem.Builder(
                                 new MediaItem.Builder()
-                                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                    .setUri(
+                                        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S
+                                            .uri)
                                     .build())
                             .setFrameRate(30)
                             .build())))
@@ -3026,15 +3029,15 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    FakeExtractorOutput fakeExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(
-            new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput =
-        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
-    // Input at 60 fps; output at 30 fps, so half of original frames.
-    assertThat(videoTrackOutput.getSampleCount())
-        .isWithin(2)
-        .of(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFrameCount / 2);
+    // Input at 60 fps; output at 30 fps, so half of original frames = ~30 frames.
+    ImmutableList<Long> videoSampleTimestamps = getVideoSampleTimesUs(result.filePath);
+    assertThat(videoSampleTimestamps)
+        .containsExactly(
+            0L, 33_333L, 66_666L, 100_000L, 133_333L, 166_666L, 200_000L, 233_333L, 266_666L,
+            300_000L, 333_333L, 366_666L, 400_000L, 433_333L, 466_666L, 500_000L, 533_333L,
+            566_666L, 600_000L, 633_333L, 666_666L, 700_000L, 733_333L, 766_666L, 800_000L,
+            833_333L, 866_666L, 900_000L, 933_333L, 966_666L)
+        .inOrder();
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
