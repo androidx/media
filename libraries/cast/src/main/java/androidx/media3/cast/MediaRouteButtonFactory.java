@@ -33,6 +33,7 @@ import androidx.mediarouter.app.MediaRouteButton;
 import androidx.mediarouter.media.MediaRouteSelector;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Consumer;
 
 /**
@@ -132,6 +133,7 @@ public final class MediaRouteButtonFactory {
    *     androidx.mediarouter.app.MediaRouteActionProvider} as its action provider.
    * @throws IllegalStateException if this method is not called on the main thread.
    */
+  @CanIgnoreReturnValue
   public static ListenableFuture<MenuItem> setUpMediaRouteButton(
       Context context, Menu menu, int menuResourceId) {
     verifyMainThread();
@@ -237,6 +239,7 @@ public final class MediaRouteButtonFactory {
    * @throws IllegalArgumentException if the media route button is null.
    * @throws IllegalStateException if this method is not called on the main thread.
    */
+  @CanIgnoreReturnValue
   public static ListenableFuture<Void> setUpMediaRouteButton(
       Context context, MediaRouteButton button) {
     verifyMainThread();

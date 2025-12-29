@@ -228,8 +228,7 @@ public final class MediaRouteButtonFactoryTest {
         .execute(
             () -> {
               try {
-                ListenableFuture<Void> unused =
-                    MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
+                MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
               } catch (Throwable t) {
                 exceptionRef.set(t);
               } finally {
