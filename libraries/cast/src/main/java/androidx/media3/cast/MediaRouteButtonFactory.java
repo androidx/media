@@ -135,7 +135,7 @@ public final class MediaRouteButtonFactory {
   public static ListenableFuture<MenuItem> setUpMediaRouteButton(
       Context context, Menu menu, int menuResourceId) {
     verifyMainThread();
-    MenuItem mediaRouteMenuItem = (menu != null) ? menu.findItem(menuResourceId) : null;
+    MenuItem mediaRouteMenuItem = menu.findItem(menuResourceId);
     if (mediaRouteMenuItem == null) {
       throw new IllegalArgumentException(MESSAGE_FAILED_TO_GET_MENU_ITEM);
     }
