@@ -146,8 +146,7 @@ public final class MediaRouteButtonFactory {
     if (mediaRouteActionProvider == null) {
       throw new IllegalArgumentException(MESSAGE_FAILED_TO_GET_MEDIA_ROUTE_ACTION_PROVIDER);
     }
-    return setUpMediaRouteButton(
-        context, mediaRouteMenuItem, mediaRouteActionProvider, menuResourceId);
+    return setUpMediaRouteButton(context, mediaRouteMenuItem, mediaRouteActionProvider);
   }
 
   /**
@@ -161,7 +160,6 @@ public final class MediaRouteButtonFactory {
    *
    * @param mediaRouteMenuItem The {@link MenuItem} of the media route button.
    * @param mediaRouteActionProvider The {@link MediaRouteActionProvider} of the media route button.
-   * @param menuResourceId The resource ID of the menu item for the media route button.
    * @return A {@link ListenableFuture} that resolves to the created {@link MenuItem} when the media
    *     route button is set up successfully. The future may fail with {@link IllegalStateException}
    *     if this method is failed to set a {@link MediaRouteSelector} to the menu item. The
@@ -171,8 +169,7 @@ public final class MediaRouteButtonFactory {
   /* package */ static ListenableFuture<MenuItem> setUpMediaRouteButton(
       Context context,
       MenuItem mediaRouteMenuItem,
-      MediaRouteActionProvider mediaRouteActionProvider,
-      int menuResourceId) {
+      MediaRouteActionProvider mediaRouteActionProvider) {
     ListenableFuture<Void> setUpFuture =
         setUpMediaRouteButton(
             context, selector -> mediaRouteActionProvider.setRouteSelector(selector));

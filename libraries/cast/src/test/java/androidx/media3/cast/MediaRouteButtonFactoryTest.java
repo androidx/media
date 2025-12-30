@@ -131,8 +131,7 @@ public final class MediaRouteButtonFactoryTest {
     // RoboMenu doesn't support setting a non-null MediaRouteActionProvider in the menu item. So we
     // use the setUpMediaRouteButton() method that accepts the MediaRouteActionProvider directly.
     ListenableFuture<MenuItem> future =
-        MediaRouteButtonFactory.setUpMediaRouteButton(
-            context, menuItem, mediaRouteActionProvider, MENU_ITEM_ID);
+        MediaRouteButtonFactory.setUpMediaRouteButton(context, menuItem, mediaRouteActionProvider);
 
     assertThat(future.get()).isEqualTo(menuItem);
     assertThat(mediaRouteActionProvider.getRouteSelector()).isEqualTo(mediaRouteSelector);
@@ -155,7 +154,7 @@ public final class MediaRouteButtonFactoryTest {
               try {
                 ListenableFuture<MenuItem> unused =
                     MediaRouteButtonFactory.setUpMediaRouteButton(
-                        context, menuItem, mediaRouteActionProvider, MENU_ITEM_ID);
+                        context, menuItem, mediaRouteActionProvider);
               } catch (Throwable t) {
                 exceptionRef.set(t);
               } finally {
