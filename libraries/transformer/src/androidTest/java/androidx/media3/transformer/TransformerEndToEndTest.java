@@ -3040,6 +3040,35 @@ public class TransformerEndToEndTest {
         .inOrder();
   }
 
+  @Test
+  public void
+      export_withBFramesInputAndEditedMediaItemFrameRateSet_outputFrameTimestampsAreCorrect()
+          throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder().setUri(MP4_ASSET.uri).build())
+                            .setFrameRate(15)
+                            .build())))
+            .build();
+    Transformer transformer = new Transformer.Builder(context).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // Input at 30 fps with B-frames; output at 15 fps, so half of original frames = ~15 frames.
+    ImmutableList<Long> videoSampleTimestamps = getVideoSampleTimesUs(result.filePath);
+    assertThat(videoSampleTimestamps)
+        .containsExactly(
+            0L, 66_733L, 133_466L, 200_200L, 266_933L, 333_666L, 400_400L, 467_133L, 533_866L,
+            600_600L, 667_333L, 734_066L, 800_800L, 867_533L, 934_266L)
+        .inOrder();
+  }
+
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
     return SDK_INT < 29;
   }
