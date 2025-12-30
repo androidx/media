@@ -2347,6 +2347,52 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(callbackMethodCount).isEqualTo(1);
   }
 
+  @SuppressWarnings("deprecation") // Testing controller behaviour when using a legacy session
+  @Test
+  public void stop_whilePlayingAd_stopWasCalled() throws Exception {
+    // Regression test for: https://github.com/androidx/media/issues/2948
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING, /* position= */ 1_000, /* playbackSpeed= */ 1.0f)
+            .build());
+    session.setMetadata(
+        new MediaMetadataCompat.Builder()
+            .putString(METADATA_KEY_ARTIST, "Artist")
+            .putLong(METADATA_KEY_ADVERTISEMENT, 1)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch stopLatch = new CountDownLatch(2);
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(int playbackState) {
+            if (playbackState == Player.STATE_IDLE) {
+              // This callback is called immediately as part of masking when stop() is called.
+              stopLatch.countDown();
+            }
+          }
+
+          @Override
+          public void onMediaMetadataChanged(MediaMetadata mediaMetadata) {
+            if (mediaMetadata.artist == null) {
+              // This callback is called as a result of the state change in the remote session.
+              // Wait for this update to avoid a race condition when asserting the callback count.
+              stopLatch.countDown();
+            }
+          }
+        });
+    assertThat(threadTestRule.getHandler().postAndSync(controller::isPlayingAd)).isTrue();
+
+    threadTestRule.getHandler().postAndSync(controller::stop);
+
+    assertThat(stopLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(threadTestRule.getHandler().postAndSync(controller::isPlayingAd)).isFalse();
+    int callbackMethodCount =
+        session.getCallbackMethodCount(MediaSessionCompatProviderService.METHOD_ON_STOP);
+    assertThat(callbackMethodCount).isEqualTo(1);
+  }
+
   @Nullable
   private Bitmap getBitmapFromMetadata(MediaMetadata metadata) throws Exception {
     @Nullable Bitmap bitmap = null;
