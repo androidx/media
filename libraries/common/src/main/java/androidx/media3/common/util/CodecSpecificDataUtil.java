@@ -348,6 +348,44 @@ public final class CodecSpecificDataUtil {
   }
 
   /**
+   * Returns initialization data for Opus according to <a
+   * href="https://tools.ietf.org/html/rfc7845#section-5.1">RFC 7845: 5.1</a>.
+   *
+   * @param format The {@link Format}.
+   * @return A byte array containing the Opus initialization data.
+   */
+  public static byte[] getOpusInitializationData(Format format) {
+    checkArgument(!format.initializationData.isEmpty(), "csd-0 must be present for Opus.");
+    // If csd0 starts with "AOPUSHDR", it indicates a custom CSD structure of:
+    // Marker (AOPUSHDR) | Length (Length of OpusIdentificationHeader) |
+    // OpusIdentificationHeader("OpusHead" + data).
+    //     8 bytes       |                    8 bytes                  |   Length no. of bytes
+    // Reference:
+    // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/av/media/module/foundation/include/media/stagefright/foundation/OpusHeader.h;l=28
+    int aopushdrSignatureLength = 8;
+    int opusHeadSignatureLength = 8;
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length >= opusHeadSignatureLength);
+    ParsableByteArray parsableCsd0 = new ParsableByteArray(csd0);
+    int payloadOffset = 0;
+    int payloadLength = csd0.length;
+    String csd0SignatureString = parsableCsd0.readString(aopushdrSignatureLength);
+    if (csd0SignatureString.equals("AOPUSHDR")) {
+      // The offset of the OpusIdentificationHeader data within the "AOPUSHDR" custom CSD.
+      int opusIdentificationHeaderOffset = 16;
+      checkArgument(csd0.length >= opusIdentificationHeaderOffset + opusHeadSignatureLength);
+      long identificationHeaderLength = parsableCsd0.readLittleEndianLong();
+      checkArgument(opusIdentificationHeaderOffset + identificationHeaderLength <= csd0.length);
+      payloadOffset = opusIdentificationHeaderOffset;
+      payloadLength = (int) identificationHeaderLength;
+    } else {
+      // Otherwise, the OpusIdentificationHeader must start with "OpusHead" signature.
+      checkArgument(csd0SignatureString.equals("OpusHead"));
+    }
+    return Arrays.copyOfRange(csd0, payloadOffset, payloadOffset + payloadLength);
+  }
+
+  /**
    * Parses an MPEG-4 Visual configuration information, as defined in ISO/IEC14496-2.
    *
    * @param videoSpecificConfig A byte array containing the MPEG-4 Visual configuration information
