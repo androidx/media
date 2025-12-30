@@ -106,6 +106,9 @@
     *   Correctly handle RTP Packets with timestamps that wrap around
         ([#2930](https://github.com/androidx/media/issues/2930)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Fix potential `NullPointerException` that can occur when seeking prior
+        to processing the first video frame
+        ([#2965](https://github.com/androidx/media/issues/2965)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
