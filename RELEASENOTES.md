@@ -38,6 +38,12 @@
         overrides of `SegmentDownloader` using the protected `execute` method
         need to provide their task wrapped in a `Supplier` so it can be
         recreated ([#2931](https://github.com/androidx/media/issues/2931)).
+*   HLS extension:
+    *   Pass the raw asset list JSON document to
+        `Listener.onAssetListLoadCompleted` callback. This is a breaking change
+        in an unstable API that requires apps that implement this callback to
+        add an additional argument of type `JSONObject`
+        ([#2950](https://github.com/androidx/media/issues/2950)).
 *   RTSP extension:
     *   Correctly handle RTP Packets with timestamps that wrap around
         ([#2930](https://github.com/androidx/media/issues/2930)).
