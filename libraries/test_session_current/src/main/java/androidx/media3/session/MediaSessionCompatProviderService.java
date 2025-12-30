@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.session.legacy.PlaybackStateCompat.STATE_STOPPED;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA_SESSION_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_METADATA_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_PLAYBACK_STATE_COMPAT;
@@ -51,6 +52,7 @@ public class MediaSessionCompatProviderService extends Service {
 
   public static final String METHOD_ON_PREPARE_FROM_MEDIA_ID = "onPrepareFromMediaId";
   public static final String METHOD_ON_PREPARE = "onPrepare";
+  public static final String METHOD_ON_STOP = "onStop";
 
   private static final String TAG = "MSCProviderService";
 
@@ -271,6 +273,21 @@ public class MediaSessionCompatProviderService extends Service {
     public void onPrepare() {
       countCallbackCall(METHOD_ON_PREPARE);
       sessionMap.get(sessionTag).setMetadata(new MediaMetadataCompat.Builder().build());
+    }
+
+    @Override
+    public void onStop() {
+      countCallbackCall(METHOD_ON_STOP);
+      sessionMap.get(sessionTag).setMetadata(new MediaMetadataCompat.Builder().build());
+      sessionMap
+          .get(sessionTag)
+          .setPlaybackState(
+              new PlaybackStateCompat.Builder()
+                  .setState(
+                      STATE_STOPPED,
+                      PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                      /* playbackSpeed= */ 0.0f)
+                  .build());
     }
 
     private void countCallbackCall(String callbackName) {

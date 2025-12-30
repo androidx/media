@@ -184,7 +184,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         controllerInfo.playerInfo.copyWithSessionPositionInfo(
             createSessionPositionInfo(
                 controllerInfo.playerInfo.sessionPositionInfo.positionInfo,
-                /* isPlayingAd= */ false,
+                controllerInfo.playerInfo.sessionPositionInfo.isPlayingAd,
                 controllerInfo.playerInfo.sessionPositionInfo.durationMs,
                 /* bufferedPositionMs= */ controllerInfo
                     .playerInfo
