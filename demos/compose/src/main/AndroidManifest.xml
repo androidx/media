@@ -24,7 +24,7 @@
       android:allowBackup="false"
       android:icon="@mipmap/ic_launcher"
       android:label="@string/app_name"
-      android:theme="@style/Theme.Media3ComposeDemo">
+      android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
     <activity
         android:name="androidx.media3.demo.compose.MainActivity"
