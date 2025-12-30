@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -73,6 +74,7 @@ public final class DecoderVideoRendererTest {
   private Surface surface;
   private DecoderVideoRenderer renderer;
   @Mock private VideoRendererEventListener eventListener;
+  private Format capturedOutputFormat;
 
   @Before
   public void setUp() {
@@ -100,6 +102,14 @@ public final class DecoderVideoRendererTest {
           @Override
           protected void setDecoderOutputMode(@C.VideoOutputMode int outputMode) {
             this.outputMode = outputMode;
+          }
+
+          @Override
+          protected void renderOutputBuffer(
+              VideoDecoderOutputBuffer outputBuffer, long presentationTimeUs, Format outputFormat)
+              throws DecoderException {
+            capturedOutputFormat = outputFormat;
+            super.renderOutputBuffer(outputBuffer, presentationTimeUs, outputFormat);
           }
 
           @Override
@@ -396,5 +406,50 @@ public final class DecoderVideoRendererTest {
 
     verify(eventListener, times(2))
         .onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+  }
+
+  @Test
+  public void
+      render_withResetPositionPrecedingProcessingFirstOutputBuffer_correctlySetsOutputFormat()
+          throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    assertThat(capturedOutputFormat).isNull();
+    renderer.resetPosition(0, /* sampleStreamIsResetToKeyFrame= */ true);
+    renderer.setCurrentStreamFinal();
+    fakeSampleStream.append(
+        ImmutableList.of(
+            oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    int positionUs = 10;
+    do {
+      renderer.render(positionUs, SystemClock.elapsedRealtime() * 1000);
+      positionUs += 10;
+      // Ensure pending messages are delivered.
+      ShadowLooper.idleMainLooper();
+    } while (!renderer.isEnded());
+
+    assertThat(capturedOutputFormat).isEqualTo(H264_FORMAT);
+    verify(eventListener).onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
   }
 }
