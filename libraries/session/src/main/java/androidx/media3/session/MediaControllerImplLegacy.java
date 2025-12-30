@@ -31,6 +31,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.TextUtils;
 import android.util.Pair;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -80,7 +81,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -1692,7 +1692,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
                   newControllerInfo.playerInfo.timeline,
                   newControllerInfo.playerInfo.timelineChangeReason));
     }
-    if (!Objects.equals(oldLegacyPlayerInfo.queueTitle, newLegacyPlayerInfo.queueTitle)) {
+
+    if (!TextUtils.equals(oldLegacyPlayerInfo.queueTitle, newLegacyPlayerInfo.queueTitle)) {
       listeners.queueEvent(
           Player.EVENT_PLAYLIST_METADATA_CHANGED,
           (listener) ->
