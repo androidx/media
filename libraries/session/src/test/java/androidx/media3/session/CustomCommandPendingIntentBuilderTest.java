@@ -19,6 +19,7 @@ import static androidx.media3.session.CustomCommandPendingIntentBuilder.ACTION_C
 import static androidx.media3.session.CustomCommandPendingIntentBuilder.EXTRAS_KEY_ACTION_CUSTOM;
 import static androidx.media3.session.CustomCommandPendingIntentBuilder.EXTRAS_KEY_ACTION_CUSTOM_EXTRAS;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.app.PendingIntent;
@@ -74,5 +75,60 @@ public class CustomCommandPendingIntentBuilderTest {
 
     Intent intent = shadowOf(pendingIntent).getSavedIntent();
     assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/"));
+  }
+
+  @Test
+  public void createCustomCommandIntent() {
+    Context context = ApplicationProvider.getApplicationContext();
+    String action = "test_action";
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    SessionCommand customSessionCommand = new SessionCommand(action, extras);
+
+    Intent intent =
+        CustomCommandPendingIntentBuilder.createCustomCommandIntent(
+            ApplicationProvider.getApplicationContext(),
+            customSessionCommand,
+            "sessionId",
+            MediaLibraryService.class);
+
+    assertThat(intent.getAction()).isEqualTo(ACTION_CUSTOM);
+    assertThat(intent.getComponent())
+        .isEqualTo(new ComponentName(context, MediaLibraryService.class));
+    assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/sessionId"));
+    assertThat(MediaSessionImpl.getSessionId(intent.getData())).isEqualTo("sessionId");
+    assertThat(intent.getStringExtra(EXTRAS_KEY_ACTION_CUSTOM)).isEqualTo(action);
+    Bundle actualExtras = intent.getBundleExtra(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS);
+    assertThat(actualExtras).isNotNull();
+    assertThat(actualExtras.getString("key")).isEqualTo("value");
+  }
+
+  @Test
+  public void createCustomCommandIntent_withNullSessionId_usesDefaultSessionId() {
+    SessionCommand customSessionCommand = new SessionCommand("test_action", Bundle.EMPTY);
+
+    Intent intent =
+        CustomCommandPendingIntentBuilder.createCustomCommandIntent(
+            ApplicationProvider.getApplicationContext(),
+            customSessionCommand,
+            /* sessionId= */ null,
+            MediaLibraryService.class);
+
+    assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/"));
+    assertThat(MediaSessionImpl.getSessionId(intent.getData()))
+        .isEqualTo(MediaSession.DEFAULT_SESSION_ID);
+  }
+
+  @Test
+  public void
+      createCustomCommandIntent_withInternalSessionCommand_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            CustomCommandPendingIntentBuilder.createCustomCommandIntent(
+                ApplicationProvider.getApplicationContext(),
+                new SessionCommand(SessionCommand.COMMAND_CODE_LIBRARY_SEARCH),
+                /* sessionId= */ null,
+                MediaLibraryService.class));
   }
 }

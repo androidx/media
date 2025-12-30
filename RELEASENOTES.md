@@ -74,6 +74,9 @@
         a new required method.
     *   Add builders for `PendingIntent` instances to be used with home screen
         widgets ([#2933](https://github.com/androidx/media/issues/2933)).
+    *   Add static methods for creating `Intent` instances for Compose-based
+        home screen widgets
+        ([#2933](https://github.com/androidx/media/issues/2933)).
     *   Fix bug where stopping a `MediaController` connected to a platform
         session crashed the app if stop happened during ad playback
         ([#2948](https://github.com/androidx/media/issues/2948)).

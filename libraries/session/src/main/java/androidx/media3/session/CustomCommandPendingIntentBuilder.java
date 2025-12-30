@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.session.MediaSessionImpl.createSessionUri;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -62,10 +63,35 @@ public final class CustomCommandPendingIntentBuilder {
       Context context,
       Class<? extends MediaSessionService> serviceClass,
       SessionCommand customSessionCommand) {
+    checkArgument(customSessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM);
     this.context = context;
     this.serviceClass = serviceClass;
     this.customSessionCommand = customSessionCommand;
     this.sessionId = null;
+  }
+
+  /**
+   * Creates an {@link Intent} to send a custom command to a {@link MediaSessionService}.
+   *
+   * @param context The context.
+   * @param customSessionCommand The custom {@link SessionCommand}.
+   * @param sessionId The ID of the session as set with {@link MediaSession.Builder#setId(String)}
+   *     or null if the default ID was used when building the session.
+   * @param serviceClass The class of the service to which the intent should be sent.
+   * @return The {@link Intent}.
+   */
+  public static Intent createCustomCommandIntent(
+      Context context,
+      SessionCommand customSessionCommand,
+      @Nullable String sessionId,
+      Class<? extends MediaSessionService> serviceClass) {
+    checkArgument(customSessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM);
+    Intent intent = new Intent(ACTION_CUSTOM);
+    intent.setData(createSessionUri(sessionId));
+    intent.setComponent(new ComponentName(context, serviceClass));
+    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM, customSessionCommand.customAction);
+    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS, customSessionCommand.customExtras);
+    return intent;
   }
 
   /**
@@ -95,16 +121,11 @@ public final class CustomCommandPendingIntentBuilder {
    */
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   public PendingIntent build() {
-    Intent intent = new Intent(ACTION_CUSTOM);
-    intent.setData(createSessionUri(sessionId));
-    intent.setComponent(new ComponentName(context, serviceClass));
-    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM, customSessionCommand.customAction);
-    intent.putExtra(EXTRAS_KEY_ACTION_CUSTOM_EXTRAS, customSessionCommand.customExtras);
     // Custom actions always start the service in the background.
     return PendingIntent.getService(
         context,
         /* requestCode= */ ThreadLocalRandom.current().nextInt(),
-        intent,
+        createCustomCommandIntent(context, customSessionCommand, sessionId, serviceClass),
         /* flags= */ PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 }

@@ -163,4 +163,59 @@ public class PlaybackPendingIntentBuilderTest {
             new PlaybackPendingIntentBuilder(
                 context, Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, MediaSessionService.class));
   }
+
+  @Test
+  public void createMediaButtonIntent() {
+    Bundle extras = new Bundle();
+    extras.putString("key0", "value0");
+
+    Intent intent =
+        PlaybackPendingIntentBuilder.createMediaButtonIntent(
+            ApplicationProvider.getApplicationContext(),
+            COMMAND_SEEK_BACK,
+            extras,
+            "test_session_id",
+            MediaLibraryService.class);
+
+    KeyEvent keyEvent = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+    assertThat(keyEvent.getAction()).isEqualTo(KeyEvent.ACTION_DOWN);
+    assertThat(keyEvent.getKeyCode()).isEqualTo(KEYCODE_MEDIA_REWIND);
+    assertThat(intent.getAction()).isEqualTo(Intent.ACTION_MEDIA_BUTTON);
+    assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/test_session_id"));
+    assertThat(MediaSessionImpl.getSessionId(intent.getData())).isEqualTo("test_session_id");
+    assertThat(intent.getComponent())
+        .isEqualTo(
+            new ComponentName(
+                ApplicationProvider.getApplicationContext(), MediaLibraryService.class));
+    assertThat(intent.getStringExtra("key0")).isEqualTo("value0");
+  }
+
+  @Test
+  public void createMediaButtonIntent_withNullSessionId_usesDefaultSessionId() {
+
+    Intent intent =
+        PlaybackPendingIntentBuilder.createMediaButtonIntent(
+            ApplicationProvider.getApplicationContext(),
+            COMMAND_SEEK_BACK,
+            Bundle.EMPTY,
+            /* sessionId= */ null,
+            MediaLibraryService.class);
+
+    assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/"));
+    assertThat(MediaSessionImpl.getSessionId(intent.getData()))
+        .isEqualTo(MediaSession.DEFAULT_SESSION_ID);
+  }
+
+  @Test
+  public void createMediaButtonIntent_invalidCommand_throwsIllegalArgumentException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            PlaybackPendingIntentBuilder.createMediaButtonIntent(
+                ApplicationProvider.getApplicationContext(),
+                Player.COMMAND_SET_AUDIO_ATTRIBUTES,
+                Bundle.EMPTY,
+                "test_session_id",
+                MediaLibraryService.class));
+  }
 }

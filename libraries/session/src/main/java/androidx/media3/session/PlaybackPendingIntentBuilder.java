@@ -104,6 +104,40 @@ public final class PlaybackPendingIntentBuilder {
   }
 
   /**
+   * Creates an {@link Intent} for a media button event.
+   *
+   * <p>Throws an {@link IllegalArgumentException} if the {@link Player.Command} is not in the set
+   * of supported commands. Supported commands are:
+   *
+   * <ul>
+   *   <li>{@link Player#COMMAND_PLAY_PAUSE}
+   *   <li>{@link Player#COMMAND_SEEK_BACK}
+   *   <li>{@link Player#COMMAND_SEEK_FORWARD}
+   *   <li>{@link Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM}
+   *   <li>{@link Player#COMMAND_SEEK_TO_NEXT}
+   *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM}
+   *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS}
+   *   <li>{@link Player#COMMAND_STOP}
+   * </ul>
+   *
+   * @param context The context.
+   * @param command The {@link Player.Command}.
+   * @param extras The additional extras.
+   * @param sessionId The ID of the session or null if the default session ID should be used.
+   * @param serviceClass The class of the service to which the intent should be sent.
+   * @return The created {@link Intent}.
+   */
+  public static Intent createMediaButtonIntent(
+      Context context,
+      @Command int command,
+      @Nullable Bundle extras,
+      @Nullable String sessionId,
+      Class<? extends MediaSessionService> serviceClass) {
+    return createMediaButtonIntentInternal(
+        context, toKeyCode(command), extras, sessionId, serviceClass);
+  }
+
+  /**
    * Sets whether the service should be started into the foreground.
    *
    * <p>This is usually the case for the {@link Player#COMMAND_PLAY_PAUSE} command only, hence when
@@ -159,21 +193,16 @@ public final class PlaybackPendingIntentBuilder {
    */
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   public PendingIntent build() {
-    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    intent.setData(createSessionUri(sessionId));
-    intent.setComponent(new ComponentName(context, serviceClass));
-    intent.putExtras(extras);
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
     return SDK_INT >= 26 && startAsForegroundService && command == COMMAND_PLAY_PAUSE
         ? PendingIntent.getForegroundService(
             context,
             /* requestCode= */ keyCode,
-            intent,
+            createMediaButtonIntentInternal(context, keyCode, extras, sessionId, serviceClass),
             /* flags= */ PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT)
         : PendingIntent.getService(
             context,
             /* requestCode= */ keyCode,
-            intent,
+            createMediaButtonIntentInternal(context, keyCode, extras, sessionId, serviceClass),
             /* flags= */ PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
   }
 
@@ -215,5 +244,32 @@ public final class PlaybackPendingIntentBuilder {
       default:
         return KEYCODE_UNKNOWN;
     }
+  }
+
+  /**
+   * Creates an {@link Intent} for a media button event.
+   *
+   * @param context The context.
+   * @param keyCode The key code of the media button event.
+   * @param extras The additional extras.
+   * @param sessionId The ID of the session.
+   * @param serviceClass The class of the service to which the intent should be sent.
+   * @return The created {@link Intent}.
+   */
+  /* package */ static Intent createMediaButtonIntentInternal(
+      Context context,
+      int keyCode,
+      @Nullable Bundle extras,
+      @Nullable String sessionId,
+      Class<? extends MediaSessionService> serviceClass) {
+    checkArgument(isSupportedKeyCode(keyCode));
+    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+    intent.setData(createSessionUri(sessionId));
+    intent.setComponent(new ComponentName(context, serviceClass));
+    if (extras != null) {
+      intent.putExtras(extras);
+    }
+    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+    return intent;
   }
 }
