@@ -95,6 +95,11 @@
         ([#2484](https://github.com/androidx/media/issues/2484)).
     *   Support the `QUERYPARAM` attribute with `#EXT-X-DEFINE`
         ([#1854](https://github.com/androidx/media/issues/1854)).
+    *   Pass the raw asset list JSON document to
+        `Listener.onAssetListLoadCompleted` callback. This is a breaking change
+        in an unstable API that requires apps that implement this callback to
+        add an additional argument of type `JSONObject`
+        ([#2950](https://github.com/androidx/media/issues/2950)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

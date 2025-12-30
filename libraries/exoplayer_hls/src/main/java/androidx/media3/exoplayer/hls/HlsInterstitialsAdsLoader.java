@@ -46,6 +46,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.LongSparseArray;
+import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
@@ -94,6 +95,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.json.JSONObject;
 
 /**
  * An {@linkplain AdsLoader ads loader} that reads interstitials from the HLS playlist, adds them to
@@ -113,24 +115,17 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   public static final class AssetList {
 
     /* package */ static final AssetList EMPTY =
-        new AssetList(ImmutableList.of(), ImmutableList.of(), /* skipInfo= */ null);
+        new AssetList(ImmutableList.of(), /* skipInfo= */ null);
 
     /** The list of assets. */
     public final ImmutableList<Asset> assets;
-
-    /** The list of string attributes of the asset list JSON object. */
-    public final ImmutableList<StringAttribute> stringAttributes;
 
     /** The skip control information, or {@code null} if not specified. */
     @Nullable public final SkipInfo skipInfo;
 
     /** Creates an instance. */
-    /* package */ AssetList(
-        ImmutableList<Asset> assets,
-        ImmutableList<StringAttribute> stringAttributes,
-        @Nullable SkipInfo skipInfo) {
+    /* package */ AssetList(ImmutableList<Asset> assets, @Nullable SkipInfo skipInfo) {
       this.assets = assets;
-      this.stringAttributes = stringAttributes;
       this.skipInfo = skipInfo;
     }
 
@@ -144,13 +139,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
       AssetList assetList = (AssetList) o;
       return Objects.equals(assets, assetList.assets)
-          && Objects.equals(stringAttributes, assetList.stringAttributes)
           && Objects.equals(skipInfo, assetList.skipInfo);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(assets, stringAttributes, skipInfo);
+      return Objects.hash(assets, skipInfo);
     }
   }
 
@@ -188,39 +182,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     @Override
     public int hashCode() {
       return Objects.hash(uri, durationUs);
-    }
-  }
-
-  /** A string attribute with its name and value. */
-  public static final class StringAttribute {
-
-    /** The name of the attribute. */
-    public final String name;
-
-    /** The value of the attribute. */
-    public final String value;
-
-    /** Creates an instance. */
-    /* package */ StringAttribute(String name, String value) {
-      this.name = name;
-      this.value = value;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof StringAttribute)) {
-        return false;
-      }
-      StringAttribute that = (StringAttribute) o;
-      return Objects.equals(name, that.name) && Objects.equals(value, that.value);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(name, value);
     }
   }
 
@@ -442,13 +403,15 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
      * @param adGroupIndex The index of the ad group of the ad period.
      * @param adIndexInAdGroup The index of the ad in the ad group of the ad period.
      * @param assetList The {@link AssetList} for which loading has completed.
+     * @param rawAssetListJson The raw JSON response received from the server.
      */
     default void onAssetListLoadCompleted(
         MediaItem mediaItem,
         Object adsId,
         int adGroupIndex,
         int adIndexInAdGroup,
-        AssetList assetList) {
+        AssetList assetList,
+        JSONObject rawAssetListJson) {
       // Do nothing.
     }
 
@@ -1953,7 +1916,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
-  private class LoaderCallback implements Loader.Callback<ParsingLoadable<AssetList>> {
+  private class LoaderCallback
+      implements Loader.Callback<ParsingLoadable<Pair<AssetList, JSONObject>>> {
 
     private final AssetListData assetListData;
     private final Window window;
@@ -1966,8 +1930,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
     @Override
     public void onLoadCompleted(
-        ParsingLoadable<AssetList> loadable, long elapsedRealtimeMs, long loadDurationMs) {
-      @Nullable AssetList assetList = loadable.getResult();
+        ParsingLoadable<Pair<AssetList, JSONObject>> loadable,
+        long elapsedRealtimeMs,
+        long loadDurationMs) {
+      Pair<AssetList, JSONObject> result = checkNotNull(loadable.getResult());
+      @Nullable AssetList assetList = result.first;
       AdPlaybackState adPlaybackState =
           contentMediaSourceAdDataHolder.getAdPlaybackState(assetListData.adsId);
       // Get the state of the ad to validate there was no manual change since we started loading.
@@ -2050,13 +2017,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                   assetListData.adsId,
                   assetListData.adGroupIndex,
                   assetListData.adIndexInAdGroup,
-                  assetList));
+                  assetList,
+                  /* rawAssetListJson= */ result.second));
       maybeContinueAssetResolution();
     }
 
     @Override
     public void onLoadCanceled(
-        ParsingLoadable<AssetList> loadable,
+        ParsingLoadable<Pair<AssetList, JSONObject>> loadable,
         long elapsedRealtimeMs,
         long loadDurationMs,
         boolean released) {
@@ -2065,7 +2033,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
     @Override
     public Loader.LoadErrorAction onLoadError(
-        ParsingLoadable<AssetList> loadable,
+        ParsingLoadable<Pair<AssetList, JSONObject>> loadable,
         long elapsedRealtimeMs,
         long loadDurationMs,
         IOException error,
