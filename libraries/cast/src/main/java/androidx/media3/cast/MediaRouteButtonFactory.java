@@ -27,6 +27,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.view.MenuItemCompat;
 import androidx.media3.cast.CastContextWrapper.MediaRouteSelectorListener;
 import androidx.media3.common.util.BackgroundExecutor;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.mediarouter.app.MediaRouteActionProvider;
 import androidx.mediarouter.app.MediaRouteButton;
@@ -34,7 +35,6 @@ import androidx.mediarouter.media.MediaRouteSelector;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.function.Consumer;
 
 /**
  * A factory class to set up a media route button.
