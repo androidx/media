@@ -109,8 +109,15 @@ import com.google.android.gms.cast.MediaTrack;
     }
   }
 
-  /** Returns a {@link TrackGroup} that represents the given {@link MediaTrack}. */
-  public static TrackGroup mediaTrackToTrackGroup(String trackGroupId, MediaTrack mediaTrack) {
+  /**
+   * Returns a {@link TrackGroup} that represents the given Cast media track.
+   *
+   * @param mediaItemId The ID of the media item to which the given track belongs.
+   * @param mediaTrack The Cast media track to convert.
+   * @return A {@link TrackGroup} representing the Cast media track.
+   */
+  public static TrackGroup mediaTrackToTrackGroup(int mediaItemId, MediaTrack mediaTrack) {
+    String trackGroupId = Util.formatInvariant("item=%d,track=%d", mediaItemId, mediaTrack.getId());
     String mimeType = mediaTrack.getContentType();
     @TrackType int media3TrackType = toMedia3TrackType(mediaTrack.getType());
     if (media3TrackType != MimeTypes.getTrackType(mimeType)) {

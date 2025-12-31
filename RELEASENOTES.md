@@ -118,6 +118,8 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Add `RemoteCastPlayer.Builder#setTrackSelector` method that enables the
+        implementation of track selection for Cast playbacks.
 *   Test Utilities:
 *   Remove deprecated symbols:
 

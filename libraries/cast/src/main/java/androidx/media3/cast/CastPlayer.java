@@ -278,6 +278,7 @@ public final class CastPlayer extends ForwardingPlayer {
             context,
             CastContextWrapper.getSingletonInstance().initWithContext(castContext),
             mediaItemConverter,
+            /* trackSelector= */ null,
             seekBackIncrementMs,
             seekForwardIncrementMs,
             maxSeekToPreviousPositionMs));

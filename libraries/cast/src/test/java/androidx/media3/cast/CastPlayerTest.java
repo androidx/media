@@ -104,6 +104,7 @@ public final class CastPlayerTest {
             /* context= */ null,
             CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
             new DefaultMediaItemConverter(),
+            /* trackSelector= */ null,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
             C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
