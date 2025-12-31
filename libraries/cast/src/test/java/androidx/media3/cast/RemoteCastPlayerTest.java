@@ -656,7 +656,8 @@ public class RemoteCastPlayerTest {
           MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED
         },
         /* durationsMs= */ new long[] {20_000, 20_000},
-        /* positionMs= */ 2000L);
+        /* positionMs= */ 2000L,
+        /* notifyStatusUpdate= */ true);
     // Replacing existing playlist.
     remoteCastPlayer.setMediaItems(
         secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
@@ -666,7 +667,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 3,
         /* streamTypes= */ new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000},
-        /* positionMs= */ 1000L);
+        /* positionMs= */ 1000L,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -974,7 +976,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.clearMediaItems();
     updateTimeLine(
         /* mediaItems= */ ImmutableList.of(),
@@ -982,7 +985,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ C.INDEX_UNSET,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1057,7 +1061,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.removeMediaItem(/* index= */ 0);
     // Update with the new timeline after removal.
     updateTimeLine(
@@ -1066,7 +1071,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1139,7 +1145,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
-        /* positionMs= */ 1234);
+        /* positionMs= */ 1234,
+        /* notifyStatusUpdate= */ true);
     // Update with the new timeline after removal on the device.
     updateTimeLine(
         ImmutableList.of(mediaItem2),
@@ -1147,7 +1154,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {30_000L},
-        /* positionMs= */ 0);
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1400,14 +1408,16 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         /* streamTypes= */ streamTypes,
         /* durationsMs= */ durationsFirstMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
         /* currentItemId= */ 2,
         /* streamTypes= */ streamTypes,
         /* durationsMs= */ durationsSecondMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1456,7 +1466,13 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
-        mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
+        mediaItems,
+        mediaQueueItemIds,
+        currentItemId,
+        streamTypes,
+        durationsMs,
+        positionMs,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.seekBack();
 
     Player.PositionInfo oldPosition =
@@ -1504,7 +1520,13 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
-        mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
+        mediaItems,
+        mediaQueueItemIds,
+        currentItemId,
+        streamTypes,
+        durationsMs,
+        positionMs,
+        /* notifyStatusUpdate= */ true);
     remoteCastPlayer.seekForward();
 
     Player.PositionInfo oldPosition =
@@ -1662,7 +1684,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isFalse();
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isFalse();
@@ -1684,7 +1707,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isFalse();
   }
@@ -1704,7 +1728,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 2,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
   }
@@ -1724,7 +1749,8 @@ public class RemoteCastPlayerTest {
         /* currentItemId= */ 1,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
 
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
   }
@@ -2253,7 +2279,8 @@ public class RemoteCastPlayerTest {
         currentItemId,
         streamTypes,
         durationsMs,
-        /* positionMs= */ C.TIME_UNSET);
+        /* positionMs= */ C.TIME_UNSET,
+        /* notifyStatusUpdate= */ true);
   }
 
   private void updateTimeLine(
@@ -2262,7 +2289,8 @@ public class RemoteCastPlayerTest {
       int currentItemId,
       int[] streamTypes,
       long[] durationsMs,
-      long positionMs) {
+      long positionMs,
+      boolean notifyStatusUpdate) {
     // Set up mocks to allow the player to update the timeline.
     List<MediaQueueItem> queueItems = new ArrayList<>();
     for (int i = 0; i < mediaQueueItemIds.length; i++) {
@@ -2299,8 +2327,10 @@ public class RemoteCastPlayerTest {
     when(mockMediaStatus.getCurrentItemId())
         .thenReturn(currentItemId == C.INDEX_UNSET ? 0 : currentItemId);
 
-    // Call listener to update the timeline of the player.
-    remoteMediaClientCallback.onStatusUpdated();
+    if (notifyStatusUpdate) {
+      // Call listener to update the timeline of the player.
+      remoteMediaClientCallback.onStatusUpdated();
+    }
   }
 
   private static Player.Commands createWithDefaultCommands(
