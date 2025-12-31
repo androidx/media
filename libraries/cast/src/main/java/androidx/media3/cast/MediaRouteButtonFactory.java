@@ -171,8 +171,7 @@ public final class MediaRouteButtonFactory {
       MenuItem mediaRouteMenuItem,
       MediaRouteActionProvider mediaRouteActionProvider) {
     ListenableFuture<Void> setUpFuture =
-        setUpMediaRouteButton(
-            context, selector -> mediaRouteActionProvider.setRouteSelector(selector));
+        setUpMediaRouteButton(context, mediaRouteActionProvider::setRouteSelector);
     return Futures.transform(setUpFuture, unused -> mediaRouteMenuItem, BackgroundExecutor.get());
   }
 
@@ -241,7 +240,7 @@ public final class MediaRouteButtonFactory {
       Context context, MediaRouteButton button) {
     verifyMainThread();
     checkNotNull(button, MESSAGE_FAILED_WITH_NULL_MEDIA_ROUTE_BUTTON);
-    return setUpMediaRouteButton(context, selector -> button.setRouteSelector(selector));
+    return setUpMediaRouteButton(context, button::setRouteSelector);
   }
 
   /**

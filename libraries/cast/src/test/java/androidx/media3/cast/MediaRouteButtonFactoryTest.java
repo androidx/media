@@ -183,7 +183,7 @@ public final class MediaRouteButtonFactoryTest {
     ListenableFuture<Void> future =
         MediaRouteButtonFactory.setUpMediaRouteButton(context, mediaRouteButton);
 
-    ExecutionException thrown = assertThrows(ExecutionException.class, () -> future.get());
+    ExecutionException thrown = assertThrows(ExecutionException.class, future::get);
     assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
     assertThat(thrown)
         .hasCauseThat()
