@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
+import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
@@ -285,7 +287,6 @@ public final class SilenceMediaSource extends BaseMediaSource {
 
     public SilenceSampleStream(long durationUs) {
       durationBytes = getAudioByteCount(durationUs);
-      seekTo(0);
     }
 
     public void seekTo(long positionUs) {
@@ -337,12 +338,12 @@ public final class SilenceMediaSource extends BaseMediaSource {
   }
 
   private static long getAudioByteCount(long durationUs) {
-    long audioSampleCount = durationUs * SAMPLE_RATE_HZ / C.MICROS_PER_SECOND;
+    long audioSampleCount = durationUsToSampleCount(durationUs, SAMPLE_RATE_HZ);
     return Util.getPcmFrameSize(PCM_ENCODING, CHANNEL_COUNT) * audioSampleCount;
   }
 
   private static long getAudioPositionUs(long bytes) {
     long audioSampleCount = bytes / Util.getPcmFrameSize(PCM_ENCODING, CHANNEL_COUNT);
-    return audioSampleCount * C.MICROS_PER_SECOND / SAMPLE_RATE_HZ;
+    return sampleCountToDurationUs(audioSampleCount, SAMPLE_RATE_HZ);
   }
 }
