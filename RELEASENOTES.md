@@ -120,6 +120,8 @@
 *   Cast extension:
     *   Add `RemoteCastPlayer.Builder#setTrackSelector` method that enables the
         implementation of track selection for Cast playbacks.
+    *   Fix bug preventing the `RemoteCastPlayer` timeline from updating
+        correctly when replacing the playlist.
 *   Test Utilities:
 *   Remove deprecated symbols:
 

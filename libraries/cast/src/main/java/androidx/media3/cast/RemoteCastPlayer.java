@@ -79,6 +79,7 @@ import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManagerListener;
+import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
 import com.google.android.gms.common.api.PendingResult;
@@ -329,6 +330,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private final Cast.Listener castListener;
 
   private final StatusListener statusListener;
+  private final MediaQueue.Callback mediaQueueCallback;
   private final SeekResultCallback seekResultCallback;
 
   // Listeners and notification.
@@ -407,6 +409,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     period = new Timeline.Period();
     castListener = new CastListener();
     statusListener = new StatusListener();
+    mediaQueueCallback = new MediaQueueCallback();
     seekResultCallback = new SeekResultCallback();
     listeners =
         new ListenerSet<>(
@@ -1770,6 +1773,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (this.remoteMediaClient != null) {
       this.remoteMediaClient.unregisterCallback(statusListener);
       this.remoteMediaClient.removeProgressListener(statusListener);
+      this.remoteMediaClient.getMediaQueue().unregisterCallback(mediaQueueCallback);
     }
     this.remoteMediaClient = remoteMediaClient;
     if (remoteMediaClient != null) {
@@ -1779,6 +1783,7 @@ public final class RemoteCastPlayer extends BasePlayer {
       if (internalSessionAvailabilityListener != null) {
         internalSessionAvailabilityListener.onCastSessionAvailable();
       }
+      remoteMediaClient.getMediaQueue().registerCallback(mediaQueueCallback);
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
@@ -2146,6 +2151,15 @@ public final class RemoteCastPlayer extends BasePlayer {
     @Override
     public void onVolumeChanged() {
       updateDeviceVolumeAndNotifyIfChanged();
+      listeners.flushEvents();
+    }
+  }
+
+  private class MediaQueueCallback extends MediaQueue.Callback {
+
+    @Override
+    public void mediaQueueChanged() {
+      updateTimelineAndNotifyIfChanged();
       listeners.flushEvents();
     }
   }
