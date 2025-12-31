@@ -193,20 +193,27 @@ public final class EditedMediaItem {
     /**
      * Sets the {@link MediaItem} frame rate in the output video, in frames per second.
      *
-     * <p>This should be set for inputs that don't have an intrinsic frame rate (e.g., images). It
-     * will be ignored for inputs that do have an intrinsic frame rate (e.g., video).
-     *
-     * <p>For images, the frame rate depends on factors such as desired look, output format
-     * requirement, and whether the content is static or dynamic (e.g., animation). However, 30 fps
-     * is suitable for most use cases.
+     * <ul>
+     *   <li>For inputs that don't have an intrinsic frame rate (e.g., images), this value
+     *       determines the frame rate of the output video. For images, the frame rate depends on
+     *       factors such as desired look, output format requirement, and whether the content is
+     *       static or dynamic (e.g., animation). However, 30 fps is suitable for most use cases.
+     *   <li>For inputs that do have an intrinsic frame rate (e.g., video), this value acts as a
+     *       maximum frame rate. If the intrinsic frame rate is higher than the value set here,
+     *       frames will be dropped to achieve the specified maximum frame rate in the output. If
+     *       the intrinsic frame rate is lower, this parameter has no effect. Setting the max frame
+     *       rate is particularly important when increasing media speed using the {@link
+     *       #setSpeed(SpeedProvider)} API. Increasing media speed adjusts video sample timestamps
+     *       to the new rate, resulting in a higher effective output frame rate. By setting a
+     *       maximum frame rate, you can prevent the output from having an excessively high frame
+     *       rate.
+     * </ul>
      *
      * <p>No frame rate is set by default.
      *
      * @param frameRate The frame rate, in frames per second.
      * @return This builder.
      */
-    // TODO: b/210593170 - Remove/deprecate frameRate parameter when frameRate parameter is added to
-    //  transformer.
     @CanIgnoreReturnValue
     public Builder setFrameRate(@IntRange(from = 0) int frameRate) {
       checkArgument(frameRate > 0);

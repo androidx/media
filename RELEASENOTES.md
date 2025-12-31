@@ -31,6 +31,9 @@
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
+    *   `EditedMediaItem.Builder.setFrameRate()` can now set a maximum output
+        frame rate for video, which is particularly helpful when increasing
+        media speed with `setSpeed()`.
 *   Track Selection:
 *   Extractors:
 *   Inspector:
