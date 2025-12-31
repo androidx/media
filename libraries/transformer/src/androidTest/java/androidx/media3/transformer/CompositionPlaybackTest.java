@@ -282,6 +282,37 @@ public class CompositionPlaybackTest {
   }
 
   @Test
+  public void playback_withTransitionToVideoOnlyClippedItem_signalsNextSampleAfterClipStart()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    EditedMediaItem item1 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET.uri)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(2).build())
+                    .build())
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .build();
+    // Use video-only sequence to generate silence.
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(item1, item2)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    // SilenceMediaSource generates silence in 44.1KHz. The sample position immediately after 2000us
+    // is 2018us, and thus the positionOffsetUs should be 2018us - 2000us = 18us.
+    assertThat(processor.positionOffsetsUs).containsExactly(18L);
+  }
+
+  @Test
   public void seek_withSpeedAdjustedAndClippedEncodedAudioStream_signalsNextFrameAfterSeekPosition()
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
