@@ -81,7 +81,7 @@ public final class DvbSubtitleReader implements ElementaryStreamReader {
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     if ((flags & FLAG_DATA_ALIGNMENT_INDICATOR) == 0) {
-      return;
+      //return; [Remove this able to Detect DVB Subtittles & Mutiple Audio Tracks in TS Container (.ts)
     }
     writingSample = true;
     sampleTimeUs = pesTimeUs;
