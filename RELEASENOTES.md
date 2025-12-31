@@ -51,6 +51,9 @@
     *   Fix potential `NullPointerException` that can occur when seeking prior
         to processing the first video frame
         ([#2965](https://github.com/androidx/media/issues/2965)).
+*   Cast extension:
+    *   Fix bug preventing the `RemoteCastPlayer` timeline from updating
+        correctly when replacing the playlist.
 
 ## 1.9
 

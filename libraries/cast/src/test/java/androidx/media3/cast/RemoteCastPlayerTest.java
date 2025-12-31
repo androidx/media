@@ -57,6 +57,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -115,6 +116,7 @@ public class RemoteCastPlayerTest {
   private DefaultMediaItemConverter mediaItemConverter;
   private Cast.Listener castListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
+  private MediaQueue.Callback mediaQueueCallback;
 
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private MediaStatus mockMediaStatus;
@@ -130,7 +132,11 @@ public class RemoteCastPlayerTest {
       setResultCallbackArgumentCaptor;
 
   @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
-  @Captor private ArgumentCaptor<RemoteMediaClient.Callback> callbackArgumentCaptor;
+
+  @Captor
+  private ArgumentCaptor<RemoteMediaClient.Callback> remoteMediaClientCallbackArgumentCaptor;
+
+  @Captor private ArgumentCaptor<MediaQueue.Callback> mediaQueueCallbackArgumentCaptor;
   @Captor private ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
@@ -163,8 +169,11 @@ public class RemoteCastPlayerTest {
     remoteCastPlayer.addListener(mockListener);
     verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
     castListener = castListenerArgumentCaptor.getValue();
-    verify(mockRemoteMediaClient).registerCallback(callbackArgumentCaptor.capture());
-    remoteMediaClientCallback = callbackArgumentCaptor.getValue();
+    verify(mockRemoteMediaClient)
+        .registerCallback(remoteMediaClientCallbackArgumentCaptor.capture());
+    remoteMediaClientCallback = remoteMediaClientCallbackArgumentCaptor.getValue();
+    verify(mockMediaQueue).registerCallback(mediaQueueCallbackArgumentCaptor.capture());
+    mediaQueueCallback = mediaQueueCallbackArgumentCaptor.getValue();
   }
 
   @Test
@@ -335,6 +344,46 @@ public class RemoteCastPlayerTest {
 
     assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
     assertThat(remoteCastPlayer.getPlaybackState()).isEqualTo(STATE_IDLE);
+  }
+
+  @Test
+  public void mediaQueueChanged_updatesCurrentTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    MediaItem firstMediaItem =
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build();
+    firstPlaylist.add(firstMediaItem);
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    ImmutableList<MediaItem> secondPlaylist = ImmutableList.of(firstMediaItem);
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 1);
+    clearInvocations(mockListener);
+    int[] streamTypes = new int[secondPlaylist.size()];
+    Arrays.fill(streamTypes, MediaInfo.STREAM_TYPE_BUFFERED);
+    long[] durationsMs = new long[secondPlaylist.size()];
+    updateTimeLine(
+        secondPlaylist,
+        /* mediaQueueItemIds= */ new int[] {firstItemId},
+        /* currentItemId= */ 1,
+        streamTypes,
+        durationsMs,
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ false);
+
+    mediaQueueCallback.mediaQueueChanged();
+
+    Timeline newTimeline = remoteCastPlayer.getCurrentTimeline();
+    verify(mockListener)
+        .onTimelineChanged(eq(newTimeline), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    assertThat(newTimeline.getPeriodCount()).isEqualTo(1);
+    Timeline.Period period = new Timeline.Period();
+    assertThat(newTimeline.getPeriod(/* periodIndex= */ 0, period).id).isEqualTo(firstItemId);
   }
 
   @Test
