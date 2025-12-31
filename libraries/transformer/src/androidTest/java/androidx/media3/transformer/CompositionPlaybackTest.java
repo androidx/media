@@ -184,7 +184,7 @@ public class CompositionPlaybackTest {
     runCompositionPlayer(composition);
 
     // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
-    assertThat(processor.positionOffsetsUs).containsExactly(0L, 4199L, 4199L).inOrder();
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 4200L, 4200L).inOrder();
   }
 
   @Test
@@ -278,7 +278,7 @@ public class CompositionPlaybackTest {
 
     // Seek at 250ms resolves to 500ms, and next audio frame is 508.399ms (b/458654879).
     // 250ms + (8.399ms / 2) gives us position offset.
-    assertThat(processor.positionOffsetsUs).containsExactly(0L, 254199L, 22000L).inOrder();
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 254200L, 22000L).inOrder();
   }
 
   @Test
@@ -315,7 +315,7 @@ public class CompositionPlaybackTest {
     // Seek at 100ms with clip start of 500ms resolves to 700ms (500ms + 100ms * 2x). Next audio
     // frame is 717.378ms. 100ms + ((717.378ms - 700ms) / 2) gives us position offset.
     // Next audio frame after clip start of 500ms is 508.399ms (b/458654879).
-    assertThat(processor.positionOffsetsUs).containsExactly(0L, 108689L, 4199L).inOrder();
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 108689L, 4200L).inOrder();
   }
 
   @Test

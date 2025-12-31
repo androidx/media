@@ -151,19 +151,19 @@ public class CompositionPlayerParameterizedPlaybackTest {
               // last is at (967633 - 500_000) / 2
               250L,
               16933L,
-              33616L,
+              33617L,
               50300L,
               66983L,
-              83666L,
+              83667L,
               100350L,
               117033L,
-              133716L,
+              133717L,
               150400L,
               167083L,
-              183766L,
+              183767L,
               200450L,
               217133L,
-              233816L),
+              233817L),
           /* inputName= */ "Video_only_clipped_half_speed");
   private static final Input VIDEO_ONLY_CLIPPED_HALF_SPEED =
       new Input(

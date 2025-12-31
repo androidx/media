@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.getMediaDurationForPlayoutDuration;
+import static androidx.media3.common.util.Util.getPlayoutDurationForMediaDuration;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -328,8 +330,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       while (nextSpeedChangeTimeUs != C.TIME_UNSET) {
         checkState(nextSpeedChangeTimeUs > lastInputSegmentStartTimeUs);
+        checkState(lastSpeed > 0);
         lastOutputSegmentStartTimeUs +=
-            (long) ((nextSpeedChangeTimeUs - lastInputSegmentStartTimeUs) / lastSpeed);
+            getPlayoutDurationForMediaDuration(
+                nextSpeedChangeTimeUs - lastInputSegmentStartTimeUs, lastSpeed);
         lastInputSegmentStartTimeUs = nextSpeedChangeTimeUs;
         lastSpeed = speedProvider.getSpeed(lastInputSegmentStartTimeUs);
         outputSegmentStartTimesUs.add(lastOutputSegmentStartTimeUs);
@@ -393,9 +397,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               originalTimeUs,
               /* inclusive= */ true,
               /* stayInBounds= */ true);
-      return (long)
-          (outputSegmentStartTimesUs[index]
-              + (originalTimeUs - inputSegmentStartTimesUs[index]) / speeds[index]);
+      return outputSegmentStartTimesUs[index]
+          + getPlayoutDurationForMediaDuration(
+              originalTimeUs - inputSegmentStartTimesUs[index], speeds[index]);
     }
 
     public long getOriginalTimeUs(long adjustedTimeUs) {
@@ -407,9 +411,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               adjustedTimeUs,
               /* inclusive= */ true,
               /* stayInBounds= */ true);
-      return (long)
-          (inputSegmentStartTimesUs[index]
-              + (adjustedTimeUs - outputSegmentStartTimesUs[index]) * speeds[index]);
+      return inputSegmentStartTimesUs[index]
+          + getMediaDurationForPlayoutDuration(
+              adjustedTimeUs - outputSegmentStartTimesUs[index], speeds[index]);
     }
   }
 }
