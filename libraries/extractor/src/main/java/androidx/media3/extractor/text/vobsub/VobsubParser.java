@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.zip.Inflater;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A {@link SubtitleParser} for Vobsub subtitles. */
 @UnstableApi
@@ -100,7 +101,7 @@ public final class VobsubParser implements SubtitleParser {
     if (bytesLeft < 2 || scratch.readUnsignedShort() != bytesLeft) {
       return null;
     }
-    cueBuilder.parseSpu(scratch);
+    cueBuilder.parseSpuControlSequenceTable(scratch);
     return cueBuilder.build(scratch);
   }
 
@@ -167,53 +168,95 @@ public final class VobsubParser implements SubtitleParser {
       }
     }
 
-    public void parseSpu(ParsableByteArray buffer) {
+    /**
+     * Parses cue info from the control sequence table of an SPU.
+     *
+     * <p>See this <a href="https://sam.zoy.org/writings/dvd/subtitles/">description of the SPU
+     * format</a> for more info.
+     *
+     * @param buffer An SPU packet with {@link ParsableByteArray#getPosition()} set to just after
+     *     the 2-byte SPU size, and before the 2-byte control-table offset.
+     */
+    private void parseSpuControlSequenceTable(ParsableByteArray buffer) {
       if (palette == null || !hasPlane) {
         // Give up if we don't have the color palette or the video size.
         return;
       }
-      int[] palette = this.palette;
-      buffer.skipBytes(buffer.readUnsignedShort() - 2);
-      int end = buffer.readUnsignedShort();
-      parseControl(palette, buffer, end);
+      // The SPU packet starts before the size that has already been read.
+      int spuStartOffset = buffer.getPosition() - 2;
+      int controlStartOffset = buffer.readUnsignedShort();
+      // Skip over the image data to reach the control sequence table. The image data will be
+      // parsed later in CueBuilder.build().
+      buffer.setPosition(spuStartOffset + controlStartOffset);
+      boolean hasNextSequence;
+      do {
+        hasNextSequence = parseControlSequence(buffer, spuStartOffset);
+      } while (hasNextSequence);
     }
 
-    private void parseControl(int[] palette, ParsableByteArray buffer, int end) {
-      while (buffer.getPosition() < end && buffer.bytesLeft() > 0) {
-        switch (buffer.readUnsignedByte()) {
-          case CMD_COLORS:
-            if (!parseControlColors(palette, buffer)) {
-              return;
-            }
-            break;
-          case CMD_ALPHA:
-            if (!parseControlAlpha(buffer)) {
-              return;
-            }
-            break;
-          case CMD_AREA:
-            if (!parseControlArea(buffer)) {
-              return;
-            }
-            break;
-          case CMD_OFFSETS:
-            if (!parseControlOffsets(buffer)) {
-              return;
-            }
-            break;
-          case CMD_FORCE_START:
-          case CMD_START:
-          case CMD_STOP:
-            // ignore unused commands without arguments
-            break;
-          case CMD_END:
-          default:
-            return;
-        }
+    /**
+     * Parses a single control sequence.
+     *
+     * @param buffer An SPU packet with {@link ParsableByteArray#getPosition()} set to the start of
+     *     a control sequence.
+     * @param spuStartPosition The {@linkplain ParsableByteArray#getPosition() position} within
+     *     {@code buffer} that the whole SPU packet starts at.
+     * @return True if there is another control sequence after this one (in which case the
+     *     {@linkplain ParsableByteArray#getPosition() position} of {@code buffer} will be updated
+     *     to point to the start of it). False otherwise (in which case the position of {@code
+     *     buffer} is undefined).
+     */
+    @RequiresNonNull("this.palette")
+    private boolean parseControlSequence(ParsableByteArray buffer, int spuStartPosition) {
+      if (buffer.bytesLeft() < 4) {
+        return false;
+      }
+      int sequenceStartPosition = buffer.getPosition();
+      buffer.skipBytes(2); // Skip the date
+      int nextSequencePosition = spuStartPosition + buffer.readUnsignedShort();
+      boolean hasNextSequence =
+          nextSequencePosition != sequenceStartPosition && nextSequencePosition < buffer.limit();
+      int sequenceEndPosition = hasNextSequence ? nextSequencePosition : buffer.limit();
+
+      boolean hasNextCommand = true;
+      while (buffer.getPosition() < sequenceEndPosition && hasNextCommand) {
+        hasNextCommand = parseCommand(buffer);
+      }
+      if (hasNextSequence) {
+        buffer.setPosition(nextSequencePosition);
+      }
+      return hasNextSequence;
+    }
+
+    /**
+     * Parses a single control sequence command, returning whether parsing the next command in the
+     * sequence should be attempted.
+     */
+    @RequiresNonNull("this.palette")
+    private boolean parseCommand(ParsableByteArray buffer) {
+      int command = buffer.readUnsignedByte();
+      switch (command) {
+        case CMD_COLORS:
+          return parseControlColors(buffer);
+        case CMD_ALPHA:
+          return parseControlAlpha(buffer);
+        case CMD_AREA:
+          return parseControlArea(buffer);
+        case CMD_OFFSETS:
+          return parseControlOffsets(buffer);
+        case CMD_FORCE_START:
+        case CMD_START:
+        case CMD_STOP:
+          // ignore unused commands without arguments
+          return true;
+        case CMD_END:
+        default:
+          return false;
       }
     }
 
-    private boolean parseControlColors(int[] palette, ParsableByteArray buffer) {
+    @RequiresNonNull("this.palette")
+    private boolean parseControlColors(ParsableByteArray buffer) {
       if (buffer.bytesLeft() < 2) {
         return false;
       }

@@ -47,6 +47,10 @@
         ([#2609](https://github.com/androidx/media/pull/2609)).
 *   Video:
 *   Text:
+    *   VobSub: Fix some missing subtitles by correctly handling SPUs that
+        either contain only a single control sequence, or have critical info
+        split across multiple control sequences
+        ([#2935](https://github.com/androidx/media/issues/2935)).
 *   Metadata:
 *   Image:
 *   DataSource:
