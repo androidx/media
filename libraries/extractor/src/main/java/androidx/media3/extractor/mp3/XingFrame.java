@@ -115,8 +115,8 @@ import androidx.media3.extractor.MpegAudioUtil;
     if (frame.bytesLeft() >= bytesToSkipBeforeReplayGain + 8 + bytesToSkipAfterReplayGain + 3) {
       frame.skipBytes(bytesToSkipBeforeReplayGain);
       float peak = frame.readFloat();
-      short field1 = frame.readShort();
-      short field2 = frame.readShort();
+      int field1 = frame.readUnsignedShort();
+      int field2 = frame.readUnsignedShort();
       replayGain = new Mp3InfoReplayGain(peak, field1, field2);
 
       frame.skipBytes(bytesToSkipAfterReplayGain);
