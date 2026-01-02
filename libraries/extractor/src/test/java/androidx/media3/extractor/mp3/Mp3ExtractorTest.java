@@ -318,6 +318,30 @@ public final class Mp3ExtractorTest {
         /* expectedResult= */ false);
   }
 
+  @Test
+  public void sampleWithLameReplayGainFast(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+      ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header-replaygain-fast.mp3",
+        /* peekLimit= */ 1201,
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithLameReplayGainAccurate(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+      ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header-replaygain-accurate.mp3",
+        /* peekLimit= */ 1201,
+        simulationConfig);
+  }
+
   @Nullable
   private static String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
     String configName = flagConfig.name();
