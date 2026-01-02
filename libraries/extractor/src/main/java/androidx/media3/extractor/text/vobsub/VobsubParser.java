@@ -146,15 +146,16 @@ public final class VobsubParser implements SubtitleParser {
           // We need this line to calculate the relative positions and size required when building
           // the Cue below.
           String[] sizes = Util.split(line.substring("size: ".length()).trim(), "x");
-
-          if (sizes.length == 2) {
-            try {
-              planeWidth = Integer.parseInt(sizes[0]);
-              planeHeight = Integer.parseInt(sizes[1]);
-              hasPlane = true;
-            } catch (RuntimeException e) {
-              Log.w(TAG, "Parsing IDX failed", e);
-            }
+          if (sizes.length != 2) {
+            Log.w(TAG, "Ignoring malformed IDX size line: '" + line + "'");
+            continue;
+          }
+          try {
+            planeWidth = Integer.parseInt(sizes[0]);
+            planeHeight = Integer.parseInt(sizes[1]);
+            hasPlane = true;
+          } catch (RuntimeException e) {
+            Log.w(TAG, "Parsing IDX failed", e);
           }
         }
       }
@@ -164,6 +165,7 @@ public final class VobsubParser implements SubtitleParser {
       try {
         return Integer.parseInt(value, 16);
       } catch (RuntimeException e) {
+        Log.w(TAG, "Parsing color failed", e);
         return 0;
       }
     }
@@ -178,8 +180,13 @@ public final class VobsubParser implements SubtitleParser {
      *     the 2-byte SPU size, and before the 2-byte control-table offset.
      */
     private void parseSpuControlSequenceTable(ParsableByteArray buffer) {
-      if (palette == null || !hasPlane) {
-        // Give up if we don't have the color palette or the video size.
+      // Give up if we don't have the color palette or the video size.
+      if (palette == null) {
+        Log.w(TAG, "Skipping SPU (no palette)");
+        return;
+      }
+      if (!hasPlane) {
+        Log.w(TAG, "Skipping SPU (no plane)");
         return;
       }
       // The SPU packet starts before the size that has already been read.
@@ -250,7 +257,9 @@ public final class VobsubParser implements SubtitleParser {
           // ignore unused commands without arguments
           return true;
         case CMD_END:
+          return false;
         default:
+          Log.w(TAG, "Unrecognized command: " + command);
           return false;
       }
     }
@@ -258,6 +267,7 @@ public final class VobsubParser implements SubtitleParser {
     @RequiresNonNull("this.palette")
     private boolean parseControlColors(ParsableByteArray buffer) {
       if (buffer.bytesLeft() < 2) {
+        Log.w(TAG, "Incomplete color command");
         return false;
       }
 
@@ -278,8 +288,12 @@ public final class VobsubParser implements SubtitleParser {
     }
 
     private boolean parseControlAlpha(ParsableByteArray buffer) {
-
-      if (buffer.bytesLeft() < 2 || !hasColors) {
+      if (buffer.bytesLeft() < 2) {
+        Log.w(TAG, "Incomplete alpha command");
+        return false;
+      }
+      if (!hasColors) {
+        Log.w(TAG, "Ignoring alpha command before color command");
         return false;
       }
 
@@ -300,6 +314,7 @@ public final class VobsubParser implements SubtitleParser {
 
     private boolean parseControlArea(ParsableByteArray buffer) {
       if (buffer.bytesLeft() < 6) {
+        Log.w(TAG, "Incomplete area command");
         return false;
       }
 
@@ -324,6 +339,7 @@ public final class VobsubParser implements SubtitleParser {
 
     private boolean parseControlOffsets(ParsableByteArray buffer) {
       if (buffer.bytesLeft() < 4) {
+        Log.w(TAG, "Incomplete offsets command");
         return false;
       }
 
