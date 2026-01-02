@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.demo.compose.buttons.Controls
 import androidx.media3.exoplayer.ExoPlayer
 
 @Composable
@@ -84,7 +85,9 @@ internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
       player,
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
-    )
+    ) {
+      Controls(player)
+    }
     ContentScaleButton(
       currentContentScaleIndex,
       Modifier.align(Alignment.TopCenter).padding(top = 48.dp),
