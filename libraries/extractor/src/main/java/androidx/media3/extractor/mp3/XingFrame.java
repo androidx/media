@@ -37,7 +37,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   public final long dataSize;
 
   /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
-  public final @Nullable Mp3InfoReplayGain replayGain;
+  @Nullable public final Mp3InfoReplayGain replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -156,7 +156,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
-  public @Nullable Metadata getMetadata() {
+  @Nullable public Metadata getMetadata() {
     if (replayGain != null) {
       return new Metadata(replayGain);
     }
