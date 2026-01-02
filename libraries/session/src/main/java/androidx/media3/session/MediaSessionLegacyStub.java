@@ -850,9 +850,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private void dispatchSessionTaskWithPlayRequest() {
     dispatchSessionTaskWithPlayerCommand(
         COMMAND_PLAY_PAUSE,
-        controller ->
-            sessionImpl.handleMediaControllerPlayRequest(
-                controller, /* callOnPlayerInteractionFinished= */ true),
+        controller -> {
+          ListenableFuture<SessionResult> resultFuture =
+              sessionImpl.handleMediaControllerPlayRequest(
+                  controller, /* callOnPlayerInteractionFinished= */ true);
+          Futures.addCallback(
+              resultFuture,
+              new FutureCallback<SessionResult>() {
+                @Override
+                public void onSuccess(SessionResult result) {
+                  if (result.resultCode != RESULT_SUCCESS) {
+                    Log.w(TAG, "onPlay() failed: " + result + " (from: " + controller + ")");
+                  }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  Log.e(TAG, "Unexpected exception in onPlay() of " + controller, t);
+                }
+              },
+              MoreExecutors.directExecutor());
+        },
         sessionCompat.getCurrentControllerInfo(),
         /* callOnPlayerInteractionFinished= */ false);
   }
