@@ -44,13 +44,13 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   /** A gain field can store one gain adjustment with name and originator metadata. */
   public static final class GainField {
 
-    /**
-     * The name of a gain field.
-     */
+    /** The name of a gain field. */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
-    @IntDef(value = {NAME_UNSET, NAME_RADIO, NAME_AUDIOPHILE}, open = true)
+    @IntDef(
+        value = {NAME_UNSET, NAME_RADIO, NAME_AUDIOPHILE},
+        open = true)
     public @interface Name {}
 
     /** This gain field contains no valid data, and should be ignored. */
@@ -87,19 +87,19 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
      */
     public static final int NAME_AUDIOPHILE = 2;
 
-    /**
-     * The originator of a gain field.
-     */
+    /** The originator of a gain field. */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
-    @IntDef(value = {
-        ORIGINATOR_UNSET,
-        ORIGINATOR_ARTIST,
-        ORIGINATOR_USER,
-        ORIGINATOR_REPLAYGAIN,
-        ORIGINATOR_SIMPLE_RMS
-    }, open = true)
+    @IntDef(
+        value = {
+          ORIGINATOR_UNSET,
+          ORIGINATOR_ARTIST,
+          ORIGINATOR_USER,
+          ORIGINATOR_REPLAYGAIN,
+          ORIGINATOR_SIMPLE_RMS
+        },
+        open = true)
     public @interface Originator {}
 
     /** The origin of this gain adjustment is not set. */
@@ -144,13 +144,11 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
      */
     public final float gain;
 
-    /**
-     * Parses an instance from the packed representation.
-     * */
+    /** Parses an instance from the packed representation. */
     private GainField(int field) {
       name = (field >> 13) & 7;
-       originator = (field >> 10) & 7;
-       gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
+      originator = (field >> 10) & 7;
+      gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
     }
 
     @Override

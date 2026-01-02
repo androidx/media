@@ -321,7 +321,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void sampleWithLameReplayGainFast(
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
-      ExtractorAsserts.SimulationConfig simulationConfig)
+          ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
@@ -333,7 +333,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void sampleWithLameReplayGainAccurate(
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
-      ExtractorAsserts.SimulationConfig simulationConfig)
+          ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
