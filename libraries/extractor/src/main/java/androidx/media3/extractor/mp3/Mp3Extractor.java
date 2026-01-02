@@ -176,7 +176,7 @@ public final class Mp3Extractor implements Extractor {
 
   private int synchronizedHeaderData;
 
-  @Nullable private Metadata metadata;
+  @Nullable private Metadata id3Metadata;
   @Nullable private Metadata infoMetadata;
   private long basisTimeUs;
   private long samplesRead;
@@ -294,11 +294,11 @@ public final class Mp3Extractor implements Extractor {
     if (seeker == null) {
       seeker = computeSeeker(input);
       extractorOutput.seekMap(seeker);
-      @Nullable Metadata finalMetadata = (flags & FLAG_DISABLE_ID3_METADATA) != 0 ? null : metadata;
-      if (finalMetadata != null) {
-        finalMetadata = finalMetadata.copyWithAppendedEntriesFrom(infoMetadata);
+      Metadata metadata;
+      if (id3Metadata != null && (flags & FLAG_DISABLE_ID3_METADATA) == 0){
+        metadata = infoMetadata != null ? id3Metadata.copyWithAppendedEntriesFrom(infoMetadata) : id3Metadata;
       } else {
-        finalMetadata = infoMetadata;
+        metadata = infoMetadata;
       }
       Format.Builder format =
           new Format.Builder()
@@ -309,7 +309,7 @@ public final class Mp3Extractor implements Extractor {
               .setSampleRate(synchronizedHeader.sampleRate)
               .setEncoderDelay(gaplessInfoHolder.encoderDelay)
               .setEncoderPadding(gaplessInfoHolder.encoderPadding)
-              .setMetadata(finalMetadata);
+              .setMetadata(metadata);
       if (seeker.getAverageBitrate() != C.RATE_UNSET_INT) {
         format.setAverageBitrate(seeker.getAverageBitrate());
       }
@@ -395,9 +395,9 @@ public final class Mp3Extractor implements Extractor {
       boolean parseAllId3Frames = (flags & FLAG_DISABLE_ID3_METADATA) == 0;
       Id3Decoder.FramePredicate id3FramePredicate =
           parseAllId3Frames ? null : REQUIRED_ID3_FRAME_PREDICATE;
-      metadata = id3Peeker.peekId3Data(input, id3FramePredicate, MAX_SEARCH_BYTES);
-      if (metadata != null) {
-        gaplessInfoHolder.setFromMetadata(metadata);
+      id3Metadata = id3Peeker.peekId3Data(input, id3FramePredicate, MAX_SEARCH_BYTES);
+      if (id3Metadata != null) {
+        gaplessInfoHolder.setFromMetadata(id3Metadata);
       }
       peekedId3Bytes = (int) input.getPeekPosition();
       if (!sniffing) {
@@ -482,7 +482,7 @@ public final class Mp3Extractor implements Extractor {
     // Read past any seek frame and set the seeker based on metadata or a seek frame. Metadata
     // takes priority as it can provide greater precision.
     Seeker seekFrameSeeker = maybeReadSeekFrame(input);
-    Seeker metadataSeeker = maybeHandleSeekMetadata(metadata, input.getPosition());
+    Seeker metadataSeeker = maybeHandleSeekMetadata(id3Metadata, input.getPosition());
 
     if (disableSeeking) {
       return new UnseekableSeeker();

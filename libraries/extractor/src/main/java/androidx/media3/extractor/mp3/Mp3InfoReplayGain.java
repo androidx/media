@@ -44,19 +44,32 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
 
   /** A gain field can store one gain adjustment with name and originator metadata. */
   public static final class GainField {
+
+    /**
+     * The name of a gain field.
+     */
+    @Documented
+    @Retention(RetentionPolicy.SOURCE)
+    @Target(TYPE_USE)
+    @IntDef(value = {NAME_INVALID, NAME_RADIO, NAME_AUDIOPHILE}, open = true)
+    public @interface Name {}
+
     /** This gain field contains no valid data, and should be ignored. */
     public static final int NAME_INVALID = 0;
 
     /**
-     * This gain field contains a gain adjustment that will make all the tracks sound equally loud
-     * (as they do on the radio, hence the name!). If the ReplayGain is calculated on a
+     * A gain adjustment that makes all the tracks sound equally loud.
+     *
+     * <p>This behaves like tracks do on the radio, hence the name. If the ReplayGain is calculated on a
      * track-by-track basis (i.e. an individual ReplayGain calculation is carried out for each
      * track), this will be the result.
      */
     public static final int NAME_RADIO = 1;
 
     /**
-     * The problem with the "Radio" setting is that tracks which should be quiet will be brought up
+     * A gain adjustment that represents the ideal listening gain for each track.
+     *
+     * <p>The problem with {@link #NAME_RADIO} is that tracks which should be quiet will be brought up
      * to the level of all the rest.
      *
      * <p>To solve this problem, the "Audiophile" setting represents the ideal listening gain for
@@ -75,6 +88,21 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
      */
     public static final int NAME_AUDIOPHILE = 2;
 
+    /**
+     * The originator of a gain field.
+     */
+    @Documented
+    @Retention(RetentionPolicy.SOURCE)
+    @Target(TYPE_USE)
+    @IntDef(value = {
+        ORIGINATOR_UNKNOWN,
+        ORIGINATOR_ARTIST,
+        ORIGINATOR_USER,
+        ORIGINATOR_REPLAYGAIN,
+        ORIGINATOR_SIMPLE_RMS
+    }, open = true)
+    public @interface Originator {}
+
     /** The origin of this gain adjustment is not known. */
     public static final int ORIGINATOR_UNKNOWN = 0;
 
@@ -89,39 +117,6 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
 
     /** This gain adjustment was automatically determined by a simple RMS algorithm. */
     public static final int ORIGINATOR_SIMPLE_RMS = 4;
-
-    /** Creates a gain field from already unpacked values. */
-    public GainField(@Name int name, @Originator int originator, float gain) {
-      this.name = name;
-      this.originator = originator;
-      this.gain = gain;
-    }
-
-    /** Creates a gain field from the packed representation. */
-    @SuppressLint("WrongConstant")
-    public GainField(short field) {
-      this.name = (field >> 13) & 7;
-      this.originator = (field >> 10) & 7;
-      this.gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
-    }
-
-    @Documented
-    @Retention(RetentionPolicy.SOURCE)
-    @Target(TYPE_USE)
-    @IntDef({NAME_INVALID, NAME_RADIO, NAME_AUDIOPHILE})
-    public @interface Name {}
-
-    @Documented
-    @Retention(RetentionPolicy.SOURCE)
-    @Target(TYPE_USE)
-    @IntDef({
-      ORIGINATOR_UNKNOWN,
-      ORIGINATOR_ARTIST,
-      ORIGINATOR_USER,
-      ORIGINATOR_REPLAYGAIN,
-      ORIGINATOR_SIMPLE_RMS
-    })
-    public @interface Originator {}
 
     /**
      * Name/type of the gain field.
@@ -151,6 +146,15 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     public final float gain;
 
     /**
+     * Parses an instance from the packed representation.
+     * */
+    private  GainField(int field) {
+      name = (field >> 13) & 7;
+       originator = (field >> 10) & 7;
+       gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
+    }
+
+    /**
      * @return Whether the name field is set to a valid value, hence, whether this gain field should
      *     be considered or not. If false, the entire field should be ignored.
      */
@@ -176,7 +180,10 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
 
     @Override
     public int hashCode() {
-      return Objects.hash(name, originator, gain);
+      int result = name;
+      result = 31 * result + originator;
+      result = 31 * result + Float.hashCode(gain);
+      return result;
     }
   }
 
@@ -186,16 +193,11 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   /** The second of two gain fields in the LAME MP3 Info header. */
   public GainField field2;
 
-  /** Creates the gain field from already unpacked values. */
-  public Mp3InfoReplayGain(float peak, GainField field1, GainField field2) {
-    this.peak = peak;
-    this.field1 = field1;
-    this.field2 = field2;
-  }
-
   /** Creates the gain fields from the packed representation. */
-  public Mp3InfoReplayGain(float peak, short field1, short field2) {
-    this(peak, new GainField(field1), new GainField(field2));
+  public Mp3InfoReplayGain(float peak, int field1, int field2) {
+    this.peak = peak;
+    this.field1 = new GainField(field1);
+    this.field2 = new GainField(field2);
   }
 
   @Override
@@ -222,6 +224,9 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
 
   @Override
   public int hashCode() {
-    return Objects.hash(peak, field1, field2);
+    int result = Float.hashCode(peak);
+    result = 31 * result + field1.hashCode();
+    result = 31 * result + field2.hashCode();
+    return result;
   }
 }
