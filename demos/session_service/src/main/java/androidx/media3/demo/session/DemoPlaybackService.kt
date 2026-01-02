@@ -54,18 +54,20 @@ open class DemoPlaybackService : MediaLibraryService() {
 
   private lateinit var mediaLibrarySession: MediaLibrarySession
 
-  private val turnShuffleOnButton by lazy {
-    CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
-      .setDisplayName(getString(androidx.media3.ui.R.string.exo_controls_shuffle_off_description))
-      .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE, /* parameter= */ true)
-      .build()
-  }
-  private val turnShuffleOffButton by lazy {
-    CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-      .setDisplayName(getString(androidx.media3.ui.R.string.exo_controls_shuffle_on_description))
-      .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE, /* parameter= */ false)
-      .build()
-  }
+  private val turnShuffleOnButton by
+    lazy @OptIn(UnstableApi::class) {
+      CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
+        .setDisplayName(getString(androidx.media3.ui.R.string.exo_controls_shuffle_off_description))
+        .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE, /* parameter= */ true)
+        .build()
+    }
+  private val turnShuffleOffButton by
+    lazy @OptIn(UnstableApi::class) {
+      CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
+        .setDisplayName(getString(androidx.media3.ui.R.string.exo_controls_shuffle_on_description))
+        .setPlayerCommand(Player.COMMAND_SET_SHUFFLE_MODE, /* parameter= */ false)
+        .build()
+    }
 
   companion object {
     private const val NOTIFICATION_ID = 123
@@ -183,6 +185,7 @@ open class DemoPlaybackService : MediaLibraryService() {
     return CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
   }
 
+  @OptIn(UnstableApi::class)
   private fun MediaSession.setCustomShuffleModeButton() =
     setMediaButtonPreferences(
       listOf(if (player.shuffleModeEnabled) turnShuffleOffButton else turnShuffleOnButton)
