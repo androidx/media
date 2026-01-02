@@ -247,7 +247,8 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
       }
 
       int position = buffer.position();
-      capturedSamples.writeBytes(createByteArray(buffer));
+      byte[] bufferBytes = createByteArray(buffer);
+      capturedSamples.write(bufferBytes, /* off= */ 0, bufferBytes.length);
       buffer.position(position);
     }
 
