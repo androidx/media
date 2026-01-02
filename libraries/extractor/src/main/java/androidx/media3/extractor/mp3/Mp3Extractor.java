@@ -177,7 +177,7 @@ public final class Mp3Extractor implements Extractor {
   private int synchronizedHeaderData;
 
   @Nullable private Metadata id3Metadata;
-  @Nullable private Metadata infoMetadata;
+  @Nullable private Metadata xingMetadata;
   private long basisTimeUs;
   private long samplesRead;
   private long firstSamplePosition;
@@ -297,11 +297,11 @@ public final class Mp3Extractor implements Extractor {
       Metadata metadata;
       if (id3Metadata != null && (flags & FLAG_DISABLE_ID3_METADATA) == 0) {
         metadata =
-            infoMetadata != null
-                ? id3Metadata.copyWithAppendedEntriesFrom(infoMetadata)
+            xingMetadata != null
+                ? id3Metadata.copyWithAppendedEntriesFrom(xingMetadata)
                 : id3Metadata;
       } else {
-        metadata = infoMetadata;
+        metadata = xingMetadata;
       }
       Format.Builder format =
           new Format.Builder()
@@ -593,7 +593,7 @@ public final class Mp3Extractor implements Extractor {
           gaplessInfoHolder.encoderDelay = xingFrame.encoderDelay;
           gaplessInfoHolder.encoderPadding = xingFrame.encoderPadding;
         }
-        infoMetadata = xingFrame.getMetadata();
+        xingMetadata = xingFrame.getMetadata();
         long startPosition = input.getPosition();
         if (input.getLength() != C.LENGTH_UNSET
             && xingFrame.dataSize != C.LENGTH_UNSET
