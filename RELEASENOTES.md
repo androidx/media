@@ -24,6 +24,11 @@
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios
         ([#2609](https://github.com/androidx/media/pull/2609)).
+*   Text:
+    *   VobSub: Fix some missing subtitles by correctly handling SPUs that
+        either contain only a single control sequence, or have critical info
+        split across multiple control sequences
+        ([#2935](https://github.com/androidx/media/issues/2935)).
 *   IMA extension:
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
