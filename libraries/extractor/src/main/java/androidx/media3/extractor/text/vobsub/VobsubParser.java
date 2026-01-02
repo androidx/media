@@ -52,7 +52,9 @@ public final class VobsubParser implements SubtitleParser {
       Format.CUE_REPLACEMENT_BEHAVIOR_REPLACE;
 
   private static final String TAG = "VobsubParser";
-  private static final int DEFAULT_DURATION_US = 5_000_000;
+  public static final CuesWithTiming EMPTY_CUES =
+      new CuesWithTiming(
+          ImmutableList.of(), /* startTimeUs= */ C.TIME_UNSET, /* durationUs= */ C.TIME_UNSET);
 
   private final ParsableByteArray scratch;
   private final ParsableByteArray inflatedScratch;
@@ -80,16 +82,10 @@ public final class VobsubParser implements SubtitleParser {
       Consumer<CuesWithTiming> output) {
     scratch.reset(data, offset + length);
     scratch.setPosition(offset);
-    @Nullable Cue cue = parse();
-    output.accept(
-        new CuesWithTiming(
-            cue != null ? ImmutableList.of(cue) : ImmutableList.of(),
-            /* startTimeUs= */ C.TIME_UNSET,
-            /* durationUs= */ DEFAULT_DURATION_US));
+    output.accept(parse());
   }
 
-  @Nullable
-  private Cue parse() {
+  private CuesWithTiming parse() {
     if (inflater == null) {
       inflater = new Inflater();
     }
@@ -99,10 +95,24 @@ public final class VobsubParser implements SubtitleParser {
     cueBuilder.reset();
     int bytesLeft = scratch.bytesLeft();
     if (bytesLeft < 2 || scratch.readUnsignedShort() != bytesLeft) {
-      return null;
+      return EMPTY_CUES;
     }
     cueBuilder.parseSpuControlSequenceTable(scratch);
-    return cueBuilder.build(scratch);
+    Cue result = cueBuilder.build(scratch);
+    long cueDurationUs;
+    if (cueBuilder.endTimeUs != C.TIME_UNSET) {
+      if (cueBuilder.startTimeUs != C.TIME_UNSET && cueBuilder.endTimeUs > cueBuilder.startTimeUs) {
+        cueDurationUs = cueBuilder.endTimeUs - cueBuilder.startTimeUs;
+      } else {
+        cueDurationUs = cueBuilder.endTimeUs;
+      }
+    } else {
+      cueDurationUs = C.TIME_UNSET;
+    }
+    return new CuesWithTiming(
+        result != null ? ImmutableList.of(result) : ImmutableList.of(),
+        cueBuilder.startTimeUs,
+        cueDurationUs);
   }
 
   private static final class CueBuilder {
@@ -118,6 +128,8 @@ public final class VobsubParser implements SubtitleParser {
 
     private final int[] colors;
 
+    private long startTimeUs;
+    private long endTimeUs;
     private boolean hasPlane;
     private boolean hasColors;
     private int @MonotonicNonNull [] palette;
@@ -128,6 +140,8 @@ public final class VobsubParser implements SubtitleParser {
     private int dataOffset1;
 
     public CueBuilder() {
+      startTimeUs = C.TIME_UNSET;
+      endTimeUs = C.TIME_UNSET;
       colors = new int[4];
       dataOffset0 = C.INDEX_UNSET;
       dataOffset1 = C.INDEX_UNSET;
@@ -212,7 +226,8 @@ public final class VobsubParser implements SubtitleParser {
         return false;
       }
       int sequenceStartPosition = buffer.getPosition();
-      buffer.skipBytes(2); // Skip the date
+      // SPU 'date' is stored in 100ths of a second
+      int spuTimeUs = buffer.readUnsignedShort() * 10_000;
       int nextSequencePosition = spuStartPosition + buffer.readUnsignedShort();
       boolean hasNextSequence =
           nextSequencePosition != sequenceStartPosition && nextSequencePosition < buffer.limit();
@@ -220,7 +235,7 @@ public final class VobsubParser implements SubtitleParser {
 
       boolean hasNextCommand = true;
       while (buffer.getPosition() < sequenceEndPosition && hasNextCommand) {
-        hasNextCommand = parseCommand(buffer);
+        hasNextCommand = parseCommand(spuTimeUs, buffer);
       }
       if (hasNextSequence) {
         buffer.setPosition(nextSequencePosition);
@@ -233,9 +248,12 @@ public final class VobsubParser implements SubtitleParser {
      * sequence should be attempted.
      */
     @RequiresNonNull("this.palette")
-    private boolean parseCommand(ParsableByteArray buffer) {
+    private boolean parseCommand(long spuTimeUs, ParsableByteArray buffer) {
       int command = buffer.readUnsignedByte();
       switch (command) {
+        case CMD_START:
+          startTimeUs = spuTimeUs;
+          return true;
         case CMD_COLORS:
           return parseControlColors(buffer);
         case CMD_ALPHA:
@@ -244,10 +262,11 @@ public final class VobsubParser implements SubtitleParser {
           return parseControlArea(buffer);
         case CMD_OFFSETS:
           return parseControlOffsets(buffer);
-        case CMD_FORCE_START:
-        case CMD_START:
         case CMD_STOP:
-          // ignore unused commands without arguments
+          endTimeUs = spuTimeUs;
+          return true;
+        case CMD_FORCE_START:
+          // ignore unused command without arguments
           return true;
         case CMD_END:
         default:
@@ -428,6 +447,8 @@ public final class VobsubParser implements SubtitleParser {
     }
 
     public void reset() {
+      startTimeUs = C.TIME_UNSET;
+      endTimeUs = C.TIME_UNSET;
       hasColors = false;
       boundingBox = null;
       dataOffset0 = C.INDEX_UNSET;

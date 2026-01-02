@@ -537,3 +537,6 @@ TextOutput:
       positionAnchor = 0
       size = 1.0
       bitmapHeight = 0.08055556
+  Subtitle[2]:
+    presentationTimeUs = 1080000
+    Cues = []
