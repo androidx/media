@@ -18,6 +18,9 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -79,15 +82,20 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
 internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
+  var showControls by remember { mutableStateOf(true) }
 
   Box(modifier) {
     MediaPlayer(
       player,
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
-    ) {
-      Controls(player)
-    }
+      onContentClick = { showControls = !showControls },
+      controls = {
+        AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
+          Box(modifier.fillMaxSize()) { Controls(player) }
+        }
+      },
+    )
     ContentScaleButton(
       currentContentScaleIndex,
       Modifier.align(Alignment.TopCenter).padding(top = 48.dp),

@@ -21,10 +21,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -60,23 +56,19 @@ internal fun MediaPlayer(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
+  onContentClick: () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
   controls: @Composable BoxScope.() -> Unit,
 ) {
   Box(modifier) {
-    var showControls by remember { mutableStateOf(true) }
     ContentFrame(
       player = player,
-      modifier = Modifier.noRippleClickable { showControls = !showControls },
+      modifier = Modifier.noRippleClickable { onContentClick() },
       surfaceType = surfaceType,
       contentScale = contentScale,
       keepContentOnReset = keepContentOnReset,
       shutter = shutter,
     )
-
-    if (showControls) {
-      // drawn on top of a potential shutter
-      controls()
-    }
+    controls()
   }
 }
