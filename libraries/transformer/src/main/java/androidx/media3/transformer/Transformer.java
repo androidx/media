@@ -58,6 +58,7 @@ import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
@@ -352,6 +353,38 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setPortraitEncodingEnabled(boolean enabled) {
       allowedEncodingRotationDegrees = enabled ? ImmutableList.of(0) : ALL_ROTATION_DEGREES;
+      return this;
+    }
+
+    /**
+     * Sets the {@link PacketProcessor} used to process the video frames.
+     *
+     * <p>This parameter has no effect when transmuxing video, or when processing audio.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
+     * VideoFrameProcessor.Factory}.
+     *
+     * <p>The caller must make sure that, if {@link PacketProcessor} performs OpenGL operations,
+     * they use the same {@link GlObjectsProvider} and run on the same {@link ExecutorService}. The
+     * {@link PacketProcessor}, {@link GlObjectsProvider} and {@link ExecutorService} are released
+     * when {@link Transformer} finishes.
+     *
+     * @param packetProcessor The {@link PacketProcessor} to process frames.
+     * @param glObjectsProvider The {@link GlObjectsProvider}.
+     * @param glExecutorService The {@link ExecutorService} that executes OpenGL operations.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi
+    public Builder setPacketProcessor(
+        PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+        GlObjectsProvider glObjectsProvider,
+        ExecutorService glExecutorService) {
+      this.packetProcessor = packetProcessor;
+      this.glObjectsProvider = glObjectsProvider;
+      this.glExecutorService = glExecutorService;
       return this;
     }
 
