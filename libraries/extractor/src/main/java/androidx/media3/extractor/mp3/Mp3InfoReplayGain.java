@@ -145,6 +145,8 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     public final float gain;
 
     /** Parses an instance from the packed representation. */
+    // Lint incorrectly thinks we're doing bitwise flag manipulation.
+    @SuppressWarnings("WrongConstant")
     private GainField(int field) {
       name = (field >> 13) & 7;
       originator = (field >> 10) & 7;
