@@ -17,7 +17,6 @@ package androidx.media3.extractor.mp3;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.SuppressLint;
 import androidx.annotation.IntDef;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
@@ -51,17 +50,17 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     @Documented
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
-    @IntDef(value = {NAME_INVALID, NAME_RADIO, NAME_AUDIOPHILE}, open = true)
+    @IntDef(value = {NAME_UNSET, NAME_RADIO, NAME_AUDIOPHILE}, open = true)
     public @interface Name {}
 
     /** This gain field contains no valid data, and should be ignored. */
-    public static final int NAME_INVALID = 0;
+    public static final int NAME_UNSET = 0;
 
     /**
      * A gain adjustment that makes all the tracks sound equally loud.
      *
-     * <p>This behaves like tracks do on the radio, hence the name. If the ReplayGain is calculated on a
-     * track-by-track basis (i.e. an individual ReplayGain calculation is carried out for each
+     * <p>This behaves like tracks do on the radio, hence the name. If the ReplayGain is calculated
+     * on a track-by-track basis (i.e. an individual ReplayGain calculation is carried out for each
      * track), this will be the result.
      */
     public static final int NAME_RADIO = 1;
@@ -69,8 +68,8 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     /**
      * A gain adjustment that represents the ideal listening gain for each track.
      *
-     * <p>The problem with {@link #NAME_RADIO} is that tracks which should be quiet will be brought up
-     * to the level of all the rest.
+     * <p>The problem with {@link #NAME_RADIO} is that tracks which should be quiet will be brought
+     * up to the level of all the rest.
      *
      * <p>To solve this problem, the "Audiophile" setting represents the ideal listening gain for
      * each track. ReplayGain can have a good guess at this too, by reading the entire CD, and
@@ -95,7 +94,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
     @IntDef(value = {
-        ORIGINATOR_UNKNOWN,
+        ORIGINATOR_UNSET,
         ORIGINATOR_ARTIST,
         ORIGINATOR_USER,
         ORIGINATOR_REPLAYGAIN,
@@ -103,8 +102,8 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     }, open = true)
     public @interface Originator {}
 
-    /** The origin of this gain adjustment is not known. */
-    public static final int ORIGINATOR_UNKNOWN = 0;
+    /** The origin of this gain adjustment is not set. */
+    public static final int ORIGINATOR_UNSET = 0;
 
     /** This gain adjustment was manually determined by the artist. */
     public static final int ORIGINATOR_ARTIST = 1;
@@ -121,7 +120,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     /**
      * Name/type of the gain field.
      *
-     * <p>If equal to {@link #NAME_INVALID}, or an unknown name, the entire {@link GainField} should
+     * <p>If equal to {@link #NAME_UNSET}, or an unknown name, the entire {@link GainField} should
      * be ignored.
      */
     public final @Name int name;
@@ -148,18 +147,10 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     /**
      * Parses an instance from the packed representation.
      * */
-    private  GainField(int field) {
+    private GainField(int field) {
       name = (field >> 13) & 7;
        originator = (field >> 10) & 7;
        gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
-    }
-
-    /**
-     * @return Whether the name field is set to a valid value, hence, whether this gain field should
-     *     be considered or not. If false, the entire field should be ignored.
-     */
-    public boolean isValid() {
-      return name == NAME_RADIO || name == NAME_AUDIOPHILE;
     }
 
     @Override
