@@ -15,7 +15,7 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.legacy.PlaybackStateCompat.STATE_STOPPED;
+import static android.support.v4.media.session.PlaybackStateCompat.STATE_STOPPED;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA_SESSION_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_METADATA_COMPAT;
 import static androidx.media3.test.session.common.CommonConstants.KEY_PLAYBACK_STATE_COMPAT;
