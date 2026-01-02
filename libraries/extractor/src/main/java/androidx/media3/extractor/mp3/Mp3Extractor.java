@@ -295,8 +295,11 @@ public final class Mp3Extractor implements Extractor {
       seeker = computeSeeker(input);
       extractorOutput.seekMap(seeker);
       Metadata metadata;
-      if (id3Metadata != null && (flags & FLAG_DISABLE_ID3_METADATA) == 0){
-        metadata = infoMetadata != null ? id3Metadata.copyWithAppendedEntriesFrom(infoMetadata) : id3Metadata;
+      if (id3Metadata != null && (flags & FLAG_DISABLE_ID3_METADATA) == 0) {
+        metadata =
+            infoMetadata != null
+                ? id3Metadata.copyWithAppendedEntriesFrom(infoMetadata)
+                : id3Metadata;
       } else {
         metadata = infoMetadata;
       }
