@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -636,7 +637,7 @@ public class PlaybackException extends Exception {
   }
 
   private static Bundle getExtrasFromBundle(Bundle bundle) {
-    Bundle extras = bundle.getBundle(FIELD_BUNDLE_EXTRAS);
+    Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_BUNDLE_EXTRAS));
     return extras != null ? extras : Bundle.EMPTY;
   }
 

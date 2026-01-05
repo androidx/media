@@ -74,6 +74,7 @@ import android.media.MediaCodec;
 import android.media.MediaDrm;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Parcel;
@@ -117,6 +118,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -3992,6 +3994,35 @@ public final class Util {
       return handlePlayButtonAction(player);
     } else {
       return handlePauseButtonAction(player);
+    }
+  }
+
+  /**
+   * Converts the provided {@link Bundle} to {@code null} if it is invalid.
+   *
+   * <p>Typical reasons for why the validation may fail are {@link android.os.Parcelable} classes in
+   * this bundle that are not part of the app class loader or a corrupt internal state caused by
+   * concurrent writes.
+   *
+   * @param bundle The {@link Bundle} to verify, or null.
+   * @return The same {@link Bundle}, or null if the verification failed or the parameter is null.
+   */
+  @Nullable
+  @CheckReturnValue
+  @UnstableApi
+  public static Bundle convertToNullIfInvalid(@Nullable Bundle bundle) {
+    if (bundle == null) {
+      return null;
+    }
+    // Handle cases where the Bundle doesn't have a valid class loader. See b/110768808.
+    bundle.setClassLoader(checkNotNull(Util.class.getClassLoader()));
+    try {
+      // Force validation.
+      bundle.isEmpty();
+      return bundle;
+    } catch (RuntimeException e) {
+      Log.e(TAG, "Ignoring invalid bundle", e);
+      return null;
     }
   }
 

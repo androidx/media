@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -2285,7 +2286,7 @@ public final class MediaItem {
       return new RequestMetadata.Builder()
           .setMediaUri(bundle.getParcelable(FIELD_MEDIA_URI))
           .setSearchQuery(bundle.getString(FIELD_SEARCH_QUERY))
-          .setExtras(bundle.getBundle(FIELD_EXTRAS))
+          .setExtras(convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS)))
           .build();
     }
   }

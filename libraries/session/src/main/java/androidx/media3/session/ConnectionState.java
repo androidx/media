@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
@@ -236,8 +237,8 @@ import java.util.List;
         playerCommandsFromSessionBundle == null
             ? Player.Commands.EMPTY
             : Player.Commands.fromBundle(playerCommandsFromSessionBundle);
-    @Nullable Bundle tokenExtras = bundle.getBundle(FIELD_TOKEN_EXTRAS);
-    @Nullable Bundle sessionExtras = bundle.getBundle(FIELD_SESSION_EXTRAS);
+    @Nullable Bundle tokenExtras = convertToNullIfInvalid(bundle.getBundle(FIELD_TOKEN_EXTRAS));
+    @Nullable Bundle sessionExtras = convertToNullIfInvalid(bundle.getBundle(FIELD_SESSION_EXTRAS));
     @Nullable Bundle playerInfoBundle = bundle.getBundle(FIELD_PLAYER_INFO);
     PlayerInfo playerInfo =
         playerInfoBundle == null

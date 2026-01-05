@@ -17,6 +17,7 @@ package androidx.media3.session.legacy;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -723,7 +724,7 @@ public final class MediaControllerCompat {
 
       @Override
       public void onSessionEvent(String event, @Nullable Bundle extras) {
-        MediaSessionCompat.ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.onSessionEvent(event, extras);
@@ -768,7 +769,7 @@ public final class MediaControllerCompat {
 
       @Override
       public void onExtrasChanged(@Nullable Bundle extras) {
-        MediaSessionCompat.ensureClassLoader(extras);
+        extras = convertToNullIfInvalid(extras);
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.onExtrasChanged(extras);
@@ -1417,7 +1418,7 @@ public final class MediaControllerCompat {
     @Nullable
     @Override
     public Bundle getExtras() {
-      return controllerFwk.getExtras();
+      return convertToNullIfInvalid(controllerFwk.getExtras());
     }
 
     @Override
@@ -1531,7 +1532,7 @@ public final class MediaControllerCompat {
         }
       }
 
-      sessionInfo = MediaSessionCompat.unparcelWithClassLoader(sessionInfo);
+      sessionInfo = convertToNullIfInvalid(sessionInfo);
       return sessionInfo == null ? Bundle.EMPTY : new Bundle(sessionInfo);
     }
 
@@ -1605,7 +1606,7 @@ public final class MediaControllerCompat {
         return new Bundle(sessionInfo);
       }
       sessionInfo = controllerFwk.getSessionInfo();
-      sessionInfo = MediaSessionCompat.unparcelWithClassLoader(sessionInfo);
+      sessionInfo = convertToNullIfInvalid(sessionInfo);
       return sessionInfo == null ? Bundle.EMPTY : new Bundle(sessionInfo);
     }
   }

@@ -29,6 +29,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.os.Bundle;
+import android.os.Parcel;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -52,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /** Utilities for tests. */
 public final class MediaTestUtils {
@@ -380,6 +382,88 @@ public final class MediaTestUtils {
                   + actualItem.mediaId)
           .that(actualItem)
           .isEqualTo(expectedItem);
+    }
+  }
+
+  /**
+   * Creates an invalid {@link Bundle} instance.
+   *
+   * <p>Accessing this {@link Bundle} after reading it from a {@link android.os.Parcel} will throw
+   * an exception.
+   */
+  public static Bundle createInvalidBundle() {
+    Bundle invalid = null;
+    while (invalid == null) {
+      invalid = tryCreateInvalidBundle();
+    }
+    return invalid;
+  }
+
+  private static Bundle tryCreateInvalidBundle() {
+    Bundle bundle = new Bundle();
+    CountDownLatch waitForThreadCreation = new CountDownLatch(2);
+    Thread thread1 =
+        new Thread(
+            () -> {
+              waitForThreadCreation.countDown();
+              try {
+                waitForThreadCreation.await();
+              } catch (InterruptedException e) {
+                // Ignore.
+              }
+              for (int i = 0; i < 10; i++) {
+                try {
+                  bundle.putInt("key" + i, 1);
+                } catch (RuntimeException e) {
+                  // Attempt was detected.
+                }
+              }
+            });
+    Thread thread2 =
+        new Thread(
+            () -> {
+              waitForThreadCreation.countDown();
+              try {
+                waitForThreadCreation.await();
+              } catch (InterruptedException e) {
+                // Ignore.
+              }
+              for (int i = 0; i < 10; i++) {
+                try {
+                  bundle.putInt("key" + i, 1);
+                } catch (RuntimeException e) {
+                  // Attempt was detected.
+                }
+              }
+            });
+    thread1.start();
+    thread2.start();
+    try {
+      thread1.join();
+      thread2.join();
+    } catch (InterruptedException e) {
+      // Ignore.
+    }
+    return isBundleInvalid(bundle) ? bundle : null;
+  }
+
+  private static boolean isBundleInvalid(Bundle bundle) {
+    Parcel parcel = Parcel.obtain();
+    try {
+      parcel.writeBundle(bundle);
+      parcel.setDataPosition(0);
+      Bundle restoredBundle = parcel.readBundle();
+      // Access restored Bundle to verify it triggers an exception.
+      try {
+        restoredBundle.isEmpty();
+        return false;
+      } catch (RuntimeException e) {
+        return true;
+      }
+    } catch (RuntimeException e) {
+      return false; // Likely an invalid Bundle, but it fails too early to be useful for testing.
+    } finally {
+      parcel.recycle();
     }
   }
 }

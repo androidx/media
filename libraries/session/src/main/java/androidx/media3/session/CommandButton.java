@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_SESSION_SET_RATING;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -1768,7 +1769,7 @@ public final class CommandButton {
         bundle.getInt(FIELD_PLAYER_COMMAND, /* defaultValue= */ Player.COMMAND_INVALID);
     int iconResId = bundle.getInt(FIELD_ICON_RES_ID, /* defaultValue= */ 0);
     CharSequence displayName = bundle.getCharSequence(FIELD_DISPLAY_NAME, /* defaultValue= */ "");
-    @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
     // Before interfaceVersion == 3, the session expected this value to be meaningless and we
     // can only assume it was meant to be true.
     boolean enabled =

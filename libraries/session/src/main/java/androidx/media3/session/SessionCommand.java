@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -188,7 +189,7 @@ public final class SessionCommand {
       return new SessionCommand(commandCode);
     } else {
       String customAction = checkNotNull(bundle.getString(FIELD_CUSTOM_ACTION));
-      @Nullable Bundle customExtras = bundle.getBundle(FIELD_CUSTOM_EXTRAS);
+      @Nullable Bundle customExtras = convertToNullIfInvalid(bundle.getBundle(FIELD_CUSTOM_EXTRAS));
       return new SessionCommand(customAction, customExtras == null ? Bundle.EMPTY : customExtras);
     }
   }

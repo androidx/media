@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.LibraryResult.ofVoid;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
@@ -1001,7 +1002,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
     /** Restores a {@code LibraryParams} from a {@link Bundle}. */
     @UnstableApi
     public static LibraryParams fromBundle(Bundle bundle) {
-      @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+      @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
       boolean recent = bundle.getBoolean(FIELD_RECENT, /* defaultValue= */ false);
       boolean offline = bundle.getBoolean(FIELD_OFFLINE, /* defaultValue= */ false);
       boolean suggested = bundle.getBoolean(FIELD_SUGGESTED, /* defaultValue= */ false);

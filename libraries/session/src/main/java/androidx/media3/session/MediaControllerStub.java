@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.common.util.Util.postOrRun;
 
 import android.app.PendingIntent;
@@ -310,11 +311,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public void onExtrasChanged(int seq, @Nullable Bundle extras) {
-    if (extras == null) {
+    Bundle verifiedExtras = convertToNullIfInvalid(extras);
+    if (verifiedExtras == null) {
       Log.w(TAG, "Ignoring null Bundle for extras");
       return;
     }
-    dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(extras));
+    dispatchControllerTaskOnHandler(controller -> controller.onExtrasChanged(verifiedExtras));
   }
 
   @Override

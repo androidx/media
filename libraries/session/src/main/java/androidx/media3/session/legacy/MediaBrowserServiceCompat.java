@@ -17,6 +17,7 @@ package androidx.media3.session.legacy;
 
 import static android.os.Looper.myLooper;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_REGISTER_CALLBACK_MESSENGER;
@@ -435,7 +436,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
       @Override
       public MediaBrowserService.BrowserRoot onGetRoot(
           String clientPackageName, int clientUid, @Nullable Bundle rootHints) {
-        MediaSessionCompat.ensureClassLoader(rootHints);
+        rootHints = convertToNullIfInvalid(rootHints);
         MediaBrowserServiceCompat.BrowserRoot browserRootCompat =
             MediaBrowserServiceImplApi23.this.onGetRoot(
                 clientPackageName, clientUid, rootHints == null ? null : new Bundle(rootHints));
@@ -466,7 +467,9 @@ public abstract class MediaBrowserServiceCompat extends Service {
     }
 
     public void onLoadChildren(
-        String parentId, final ResultWrapper<List<Parcel>> resultWrapper, final Bundle options) {
+        String parentId,
+        final ResultWrapper<List<Parcel>> resultWrapper,
+        @Nullable Bundle options) {
       final Result<List<MediaBrowserCompat.MediaItem>> result =
           new Result<List<MediaBrowserCompat.MediaItem>>(parentId) {
             @Override
@@ -533,10 +536,10 @@ public abstract class MediaBrowserServiceCompat extends Service {
       @Override
       public void onLoadChildren(
           String parentId, Result<List<MediaBrowser.MediaItem>> result, Bundle options) {
-        MediaSessionCompat.ensureClassLoader(options);
+        Bundle optionsForCallback = convertToNullIfInvalid(options);
         curConnection = connectionFromFwk;
         MediaBrowserServiceImplApi26.this.onLoadChildren(
-            parentId, new ResultWrapper<>(result), options);
+            parentId, new ResultWrapper<>(result), optionsForCallback);
         curConnection = null;
       }
     }
@@ -1186,7 +1189,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
   public void onLoadChildren(
       @Nullable String parentId,
       Result<List<MediaBrowserCompat.MediaItem>> result,
-      Bundle options) {
+      @Nullable Bundle options) {
     // To support backward compatibility, when the implementation of MediaBrowserService doesn't
     // override onLoadChildren() with options, onLoadChildren() without options will be used
     // instead, and the options will be applied in the implementation of result.onResultSent().
@@ -1396,8 +1399,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
     switch (msg.what) {
       case CLIENT_MSG_ADD_SUBSCRIPTION:
         {
-          Bundle options = data.getBundle(DATA_OPTIONS);
-          MediaSessionCompat.ensureClassLoader(options);
+          Bundle options = convertToNullIfInvalid(data.getBundle(DATA_OPTIONS));
 
           serviceBinderImpl.addSubscription(
               data.getString(DATA_MEDIA_ITEM_ID),
@@ -1420,9 +1422,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
         break;
       case CLIENT_MSG_REGISTER_CALLBACK_MESSENGER:
         {
-          @Nullable Bundle rootHints = data.getBundle(DATA_ROOT_HINTS);
-          MediaSessionCompat.ensureClassLoader(rootHints);
-
+          @Nullable Bundle rootHints = convertToNullIfInvalid(data.getBundle(DATA_ROOT_HINTS));
           serviceBinderImpl.registerCallbacks(
               new ServiceCallbacksCompat(msg.replyTo),
               data.getString(DATA_PACKAGE_NAME),
@@ -1436,9 +1436,8 @@ public abstract class MediaBrowserServiceCompat extends Service {
         break;
       case CLIENT_MSG_SEARCH:
         {
-          @Nullable Bundle searchExtras = data.getBundle(DATA_SEARCH_EXTRAS);
-          MediaSessionCompat.ensureClassLoader(searchExtras);
-
+          @Nullable
+          Bundle searchExtras = convertToNullIfInvalid(data.getBundle(DATA_SEARCH_EXTRAS));
           serviceBinderImpl.search(
               data.getString(DATA_SEARCH_QUERY),
               searchExtras,
@@ -1448,9 +1447,9 @@ public abstract class MediaBrowserServiceCompat extends Service {
         }
       case CLIENT_MSG_SEND_CUSTOM_ACTION:
         {
-          @Nullable Bundle customActionExtras = data.getBundle(DATA_CUSTOM_ACTION_EXTRAS);
-          MediaSessionCompat.ensureClassLoader(customActionExtras);
-
+          @Nullable
+          Bundle customActionExtras =
+              convertToNullIfInvalid(data.getBundle(DATA_CUSTOM_ACTION_EXTRAS));
           serviceBinderImpl.sendCustomAction(
               data.getString(DATA_CUSTOM_ACTION),
               customActionExtras,

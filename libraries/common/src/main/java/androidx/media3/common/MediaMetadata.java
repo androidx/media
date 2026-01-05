@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
@@ -1521,7 +1522,7 @@ public final class MediaMetadata {
         .setGenre(bundle.getCharSequence(FIELD_GENRE))
         .setCompilation(bundle.getCharSequence(FIELD_COMPILATION))
         .setStation(bundle.getCharSequence(FIELD_STATION))
-        .setExtras(bundle.getBundle(FIELD_EXTRAS));
+        .setExtras(convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS)));
 
     if (bundle.containsKey(FIELD_ARTWORK_DATA)) {
       @Nullable
