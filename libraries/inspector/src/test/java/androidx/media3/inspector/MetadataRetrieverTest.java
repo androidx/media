@@ -36,8 +36,10 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4TimestampData;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
@@ -350,6 +352,39 @@ public class MetadataRetrieverTest {
 
       // Duration
       assertThat(durationUs).isEqualTo(11_793_400);
+    }
+  }
+
+  @Test
+  public void retrieveDuration_adtsWithDefaultBuilder_returnsEstimatedDuration() throws Exception {
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/ts/sample.adts"));
+
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+      long durationUs = retriever.retrieveDurationUs().get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+
+      // With constant bitrate seeking enabled by default for AdtsExtractor, the duration is set.
+      assertThat(durationUs).isEqualTo(3_356_772);
+    }
+  }
+
+  @Test
+  public void retrieveDuration_adtsWithCbrSeekingDisabled_returnsUnsetDuration() throws Exception {
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/ts/sample.adts"));
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory());
+
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, mediaItem)
+            .setClock(clock)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()) {
+      long durationUs = retriever.retrieveDurationUs().get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+
+      // Without the CBR seeking flag, AdtsExtractor reports duration as unset.
+      assertThat(durationUs).isEqualTo(C.TIME_UNSET);
     }
   }
 

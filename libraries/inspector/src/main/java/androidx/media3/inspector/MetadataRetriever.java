@@ -33,7 +33,9 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
@@ -101,8 +103,14 @@ public final class MetadataRetriever implements AutoCloseable {
     public MetadataRetriever build() {
       if (mediaSourceFactory == null) {
         checkState(context != null, "Context must be provided if MediaSource.Factory is not set.");
+        // Enable CBR seeking for ADTS and AMR to support duration estimation for raw bitstreams.
+        // For these formats, duration is only calculated when this flag is set. This flag is
+        // omitted for MP3 because clean CBR MP3 files provide duration automatically, and
+        // for VBR MP3s, enabling this flag can result in inaccurate duration estimates.
         ExtractorsFactory extractorsFactory =
             new DefaultExtractorsFactory()
+                .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+                .setAmrExtractorFlags(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
                 .setMp4ExtractorFlags(
                     Mp4Extractor.FLAG_READ_SEF_DATA | Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
         mediaSourceFactory = new DefaultMediaSourceFactory(context, extractorsFactory);
