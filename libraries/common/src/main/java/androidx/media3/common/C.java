@@ -343,7 +343,6 @@ public final class C {
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
   @SuppressLint("UniqueConstants") // Intentional duplication to set STREAM_TYPE_DEFAULT.
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target({FIELD, METHOD, PARAMETER, LOCAL_VARIABLE, TYPE_USE})
@@ -361,32 +360,31 @@ public final class C {
   public @interface StreamType {}
 
   /** See {@link AudioManager#STREAM_ALARM}. */
-  @UnstableApi public static final int STREAM_TYPE_ALARM = AudioManager.STREAM_ALARM;
+  public static final int STREAM_TYPE_ALARM = AudioManager.STREAM_ALARM;
 
   /** See {@link AudioManager#STREAM_DTMF}. */
-  @UnstableApi public static final int STREAM_TYPE_DTMF = AudioManager.STREAM_DTMF;
+  public static final int STREAM_TYPE_DTMF = AudioManager.STREAM_DTMF;
 
   /** See {@link AudioManager#STREAM_MUSIC}. */
-  @UnstableApi public static final int STREAM_TYPE_MUSIC = AudioManager.STREAM_MUSIC;
+  public static final int STREAM_TYPE_MUSIC = AudioManager.STREAM_MUSIC;
 
   /** See {@link AudioManager#STREAM_NOTIFICATION}. */
-  @UnstableApi public static final int STREAM_TYPE_NOTIFICATION = AudioManager.STREAM_NOTIFICATION;
+  public static final int STREAM_TYPE_NOTIFICATION = AudioManager.STREAM_NOTIFICATION;
 
   /** See {@link AudioManager#STREAM_RING}. */
-  @UnstableApi public static final int STREAM_TYPE_RING = AudioManager.STREAM_RING;
+  public static final int STREAM_TYPE_RING = AudioManager.STREAM_RING;
 
   /** See {@link AudioManager#STREAM_SYSTEM}. */
-  @UnstableApi public static final int STREAM_TYPE_SYSTEM = AudioManager.STREAM_SYSTEM;
+  public static final int STREAM_TYPE_SYSTEM = AudioManager.STREAM_SYSTEM;
 
   /** See {@link AudioManager#STREAM_VOICE_CALL}. */
-  @UnstableApi public static final int STREAM_TYPE_VOICE_CALL = AudioManager.STREAM_VOICE_CALL;
+  public static final int STREAM_TYPE_VOICE_CALL = AudioManager.STREAM_VOICE_CALL;
 
   /** See {@link AudioManager#STREAM_ACCESSIBILITY}. */
-  @UnstableApi
   public static final int STREAM_TYPE_ACCESSIBILITY = AudioManager.STREAM_ACCESSIBILITY;
 
   /** The default stream type used by audio renderers. Equal to {@link #STREAM_TYPE_MUSIC}. */
-  @UnstableApi public static final int STREAM_TYPE_DEFAULT = STREAM_TYPE_MUSIC;
+  public static final int STREAM_TYPE_DEFAULT = STREAM_TYPE_MUSIC;
 
   /**
    * Volume flags to be used when setting or adjusting device volume. The value can be either 0 or a

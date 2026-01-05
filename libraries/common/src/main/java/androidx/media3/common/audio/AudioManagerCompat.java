@@ -159,7 +159,7 @@ public final class AudioManagerCompat {
     } else {
       return audioManager.requestAudioFocus(
           focusRequest.getOnAudioFocusChangeListener(),
-          focusRequest.getAudioAttributes().getStreamType(),
+          focusRequest.getAudioAttributes().getVolumeControlStream(),
           focusRequest.getFocusGain());
     }
   }

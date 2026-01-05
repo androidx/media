@@ -453,7 +453,7 @@ import java.util.function.IntConsumer;
             new StreamVolumeManager(
                 builder.context,
                 componentListener,
-                audioAttributes.getStreamType(),
+                audioAttributes.getVolumeControlStream(),
                 playbackLooper,
                 applicationLooper,
                 clock);
@@ -1579,7 +1579,7 @@ import java.util.function.IntConsumer;
       this.audioAttributes = newAudioAttributes;
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, newAudioAttributes);
       if (streamVolumeManager != null) {
-        streamVolumeManager.setStreamType(newAudioAttributes.getStreamType());
+        streamVolumeManager.setStreamType(newAudioAttributes.getVolumeControlStream());
       }
       // Queue event only and flush after updating playWhenReady in case both events are triggered.
       listeners.queueEvent(

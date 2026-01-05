@@ -18,6 +18,7 @@ package androidx.media3.common;
 import static android.os.Build.VERSION.SDK_INT;
 
 import android.annotation.SuppressLint;
+import android.media.AudioManager;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -245,41 +246,18 @@ public final class AudioAttributes {
     return platformAudioAttributes;
   }
 
-  /** Returns the {@link C.StreamType} corresponding to these audio attributes. */
+  /** Returns the {@linkplain C.StreamType volume control stream} for these audio attributes. */
+  public @C.StreamType int getVolumeControlStream() {
+    return getStreamTypeInternal();
+  }
+
+  /**
+   * @deprecated Use {@link #getVolumeControlStream()} instead.
+   */
   @UnstableApi
+  @Deprecated
   public @C.StreamType int getStreamType() {
-    // Flags to stream type mapping
-    if ((flags & C.FLAG_AUDIBILITY_ENFORCED) == C.FLAG_AUDIBILITY_ENFORCED) {
-      return C.STREAM_TYPE_SYSTEM;
-    }
-    // Usage to stream type mapping
-    switch (usage) {
-      case C.USAGE_ASSISTANCE_SONIFICATION:
-        return C.STREAM_TYPE_SYSTEM;
-      case C.USAGE_VOICE_COMMUNICATION:
-        return C.STREAM_TYPE_VOICE_CALL;
-      case C.USAGE_VOICE_COMMUNICATION_SIGNALLING:
-        return C.STREAM_TYPE_DTMF;
-      case C.USAGE_ALARM:
-        return C.STREAM_TYPE_ALARM;
-      case C.USAGE_NOTIFICATION_RINGTONE:
-        return C.STREAM_TYPE_RING;
-      case C.USAGE_NOTIFICATION:
-      case C.USAGE_NOTIFICATION_COMMUNICATION_REQUEST:
-      case C.USAGE_NOTIFICATION_COMMUNICATION_INSTANT:
-      case C.USAGE_NOTIFICATION_COMMUNICATION_DELAYED:
-      case C.USAGE_NOTIFICATION_EVENT:
-        return C.STREAM_TYPE_NOTIFICATION;
-      case C.USAGE_ASSISTANCE_ACCESSIBILITY:
-        return C.STREAM_TYPE_ACCESSIBILITY;
-      case C.USAGE_MEDIA:
-      case C.USAGE_GAME:
-      case C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
-      case C.USAGE_ASSISTANT:
-      case C.USAGE_UNKNOWN:
-      default:
-        return C.STREAM_TYPE_MUSIC;
-    }
+    return getStreamTypeInternal();
   }
 
   @Override
@@ -374,6 +352,53 @@ public final class AudioAttributes {
       builder.setHapticChannelsMuted(bundle.getBoolean(FIELD_HAPTIC_CHANNELS_MUTED));
     }
     return builder.build();
+  }
+
+  private @C.StreamType int getStreamTypeInternal() {
+    if (SDK_INT >= 26) {
+      int platformStreamType;
+      try {
+        platformStreamType = getPlatformAudioAttributes().getVolumeControlStream();
+      } catch (RuntimeException e) {
+        // The platform method may throw if it doesn't recognize the configured values.
+        return C.STREAM_TYPE_MUSIC;
+      }
+      return platformStreamType == AudioManager.USE_DEFAULT_STREAM_TYPE
+          ? C.STREAM_TYPE_MUSIC
+          : platformStreamType;
+    }
+    // Flags to stream type mapping
+    if ((flags & C.FLAG_AUDIBILITY_ENFORCED) == C.FLAG_AUDIBILITY_ENFORCED) {
+      return C.STREAM_TYPE_SYSTEM;
+    }
+    // Usage to stream type mapping
+    switch (usage) {
+      case C.USAGE_ASSISTANCE_SONIFICATION:
+        return C.STREAM_TYPE_SYSTEM;
+      case C.USAGE_VOICE_COMMUNICATION:
+        return C.STREAM_TYPE_VOICE_CALL;
+      case C.USAGE_VOICE_COMMUNICATION_SIGNALLING:
+        return C.STREAM_TYPE_DTMF;
+      case C.USAGE_ALARM:
+        return C.STREAM_TYPE_ALARM;
+      case C.USAGE_NOTIFICATION_RINGTONE:
+        return C.STREAM_TYPE_RING;
+      case C.USAGE_NOTIFICATION:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_REQUEST:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_INSTANT:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_DELAYED:
+      case C.USAGE_NOTIFICATION_EVENT:
+        return C.STREAM_TYPE_NOTIFICATION;
+      case C.USAGE_ASSISTANCE_ACCESSIBILITY:
+        return C.STREAM_TYPE_ACCESSIBILITY;
+      case C.USAGE_MEDIA:
+      case C.USAGE_GAME:
+      case C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
+      case C.USAGE_ASSISTANT:
+      case C.USAGE_UNKNOWN:
+      default:
+        return C.STREAM_TYPE_MUSIC;
+    }
   }
 
   @RequiresApi(29)

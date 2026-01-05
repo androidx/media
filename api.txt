@@ -29,6 +29,7 @@ package androidx.media3.common {
     method public static androidx.media3.common.AudioAttributes fromPlatformAudioAttributes(android.media.AudioAttributes);
     method @Deprecated public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
     method public android.media.AudioAttributes getPlatformAudioAttributes();
+    method @androidx.media3.common.C.StreamType public int getVolumeControlStream();
     field public static final androidx.media3.common.AudioAttributes DEFAULT;
     field @androidx.media3.common.C.AudioAllowedCapturePolicy public final int allowedCapturePolicy;
     field @androidx.media3.common.C.AudioContentType public final int contentType;
@@ -122,6 +123,15 @@ package androidx.media3.common {
     field public static final int SELECTION_FLAG_FORCED = 2; // 0x2
     field public static final int SPATIALIZATION_BEHAVIOR_AUTO = 0; // 0x0
     field public static final int SPATIALIZATION_BEHAVIOR_NEVER = 1; // 0x1
+    field public static final int STREAM_TYPE_ACCESSIBILITY = 10; // 0xa
+    field public static final int STREAM_TYPE_ALARM = 4; // 0x4
+    field public static final int STREAM_TYPE_DEFAULT = 3; // 0x3
+    field public static final int STREAM_TYPE_DTMF = 8; // 0x8
+    field public static final int STREAM_TYPE_MUSIC = 3; // 0x3
+    field public static final int STREAM_TYPE_NOTIFICATION = 5; // 0x5
+    field public static final int STREAM_TYPE_RING = 2; // 0x2
+    field public static final int STREAM_TYPE_SYSTEM = 1; // 0x1
+    field public static final int STREAM_TYPE_VOICE_CALL = 0; // 0x0
     field public static final long TIME_END_OF_SOURCE = -9223372036854775808L; // 0x8000000000000000L
     field public static final long TIME_UNSET = -9223372036854775807L; // 0x8000000000000001L
     field public static final int TRACK_TYPE_AUDIO = 1; // 0x1
@@ -190,6 +200,9 @@ package androidx.media3.common {
   }
 
   @IntDef({androidx.media3.common.C.SPATIALIZATION_BEHAVIOR_AUTO, androidx.media3.common.C.SPATIALIZATION_BEHAVIOR_NEVER}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface C.SpatializationBehavior {
+  }
+
+  @IntDef({androidx.media3.common.C.STREAM_TYPE_ALARM, androidx.media3.common.C.STREAM_TYPE_DTMF, androidx.media3.common.C.STREAM_TYPE_MUSIC, androidx.media3.common.C.STREAM_TYPE_NOTIFICATION, androidx.media3.common.C.STREAM_TYPE_RING, androidx.media3.common.C.STREAM_TYPE_SYSTEM, androidx.media3.common.C.STREAM_TYPE_VOICE_CALL, androidx.media3.common.C.STREAM_TYPE_ACCESSIBILITY, androidx.media3.common.C.STREAM_TYPE_DEFAULT}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface C.StreamType {
   }
 
   @IntDef(open=true, value={androidx.media3.common.C.TRACK_TYPE_UNKNOWN, androidx.media3.common.C.TRACK_TYPE_DEFAULT, androidx.media3.common.C.TRACK_TYPE_AUDIO, androidx.media3.common.C.TRACK_TYPE_VIDEO, androidx.media3.common.C.TRACK_TYPE_TEXT, androidx.media3.common.C.TRACK_TYPE_IMAGE, androidx.media3.common.C.TRACK_TYPE_METADATA, androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION, androidx.media3.common.C.TRACK_TYPE_NONE}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface C.TrackType {

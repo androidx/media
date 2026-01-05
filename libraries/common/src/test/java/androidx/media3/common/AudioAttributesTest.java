@@ -124,39 +124,44 @@ public class AudioAttributesTest {
   }
 
   @Test
-  public void getStreamType_defaultInstance_returnsMusic() {
-    assertThat(AudioAttributes.DEFAULT.getStreamType()).isEqualTo(C.STREAM_TYPE_MUSIC);
+  public void getVolumeControlStream_defaultInstance_returnsMusic() {
+    assertThat(AudioAttributes.DEFAULT.getVolumeControlStream()).isEqualTo(C.STREAM_TYPE_MUSIC);
   }
 
   @Test
-  public void getStreamType_withUsageNotification_returnsNotification() {
-    assertThat(new AudioAttributes.Builder().setUsage(C.USAGE_NOTIFICATION).build().getStreamType())
+  public void getVolumeControlStream_withUsageNotification_returnsNotification() {
+    assertThat(
+            new AudioAttributes.Builder()
+                .setUsage(C.USAGE_NOTIFICATION)
+                .build()
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_NOTIFICATION);
   }
 
   @Test
-  public void getStreamType_withUsageAlarm_returnsAlarm() {
-    assertThat(new AudioAttributes.Builder().setUsage(C.USAGE_ALARM).build().getStreamType())
+  public void getVolumeControlStream_withUsageAlarm_returnsAlarm() {
+    assertThat(
+            new AudioAttributes.Builder().setUsage(C.USAGE_ALARM).build().getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_ALARM);
   }
 
   @Test
-  public void getStreamType_withUsageAssistanceSonification_returnsSystem() {
+  public void getVolumeControlStream_withUsageAssistanceSonification_returnsSystem() {
     assertThat(
             new AudioAttributes.Builder()
                 .setUsage(C.USAGE_ASSISTANCE_SONIFICATION)
                 .build()
-                .getStreamType())
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_SYSTEM);
   }
 
   @Test
-  public void getStreamType_withAudibilityEnforcedFlag_returnsSystem() {
+  public void getVolumeControlStream_withAudibilityEnforcedFlag_returnsSystem() {
     assertThat(
             new AudioAttributes.Builder()
                 .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
                 .build()
-                .getStreamType())
+                .getVolumeControlStream())
         .isEqualTo(C.STREAM_TYPE_SYSTEM);
   }
 }
