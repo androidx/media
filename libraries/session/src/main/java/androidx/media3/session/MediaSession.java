@@ -32,6 +32,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
 import android.view.KeyEvent;
+import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -55,6 +56,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BitmapLoader;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -492,7 +494,7 @@ public class MediaSession {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
+    @ExperimentalApi // TODO: b/469431007 - Remove method once workaround is no longer needed.
     public Builder setExperimentalSetUseLegacySurfaceHandling(boolean useLegacySurfaceHandling) {
       this.useLegacySurfaceHandling = useLegacySurfaceHandling;
       return this;

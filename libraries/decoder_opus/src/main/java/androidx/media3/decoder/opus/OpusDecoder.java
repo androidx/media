@@ -150,6 +150,7 @@ public final class OpusDecoder
    *
    * <p>This method is experimental, and will be renamed or removed in a future release.
    */
+  // TODO: b/470358402 - Remove method and default to true.
   public void experimentalSetDiscardPaddingEnabled(boolean enabled) {
     this.experimentalDiscardPaddingEnabled = enabled;
   }

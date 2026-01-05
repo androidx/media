@@ -27,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -147,6 +148,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   public final CapturingRenderersFactory experimentalSetParseAv1SampleDependencies(
       boolean parseAv1SampleDependencies) {
     this.parseAv1SampleDependencies = parseAv1SampleDependencies;

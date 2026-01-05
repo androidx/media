@@ -24,7 +24,7 @@ import androidx.media3.effect.PacketConsumer.Packet
  * A [PacketConsumer] implementation that holds a reference to all queued packets, and optionally
  * releases the underlying frames.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
   PacketConsumer<MutableList<HardwareBufferFrame>> {
   val queuedPackets: List<MutableList<HardwareBufferFrame>>

@@ -36,6 +36,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -184,6 +185,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
      * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/369523131 - Remove once feature is enabled by default.
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;
       return this;

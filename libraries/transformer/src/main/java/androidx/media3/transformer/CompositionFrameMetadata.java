@@ -23,7 +23,7 @@ import androidx.media3.effect.Frame;
  *
  * <p>Applications can extend this class to add custom metadata.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/470355043 - Publish CompositionPlayer.
 public class CompositionFrameMetadata implements Frame.Metadata {
 
   /** The {@link Composition} that this frame belongs to. */

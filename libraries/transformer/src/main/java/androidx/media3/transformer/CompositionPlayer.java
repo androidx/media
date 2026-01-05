@@ -142,7 +142,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * {@linkplain Player#REPEAT_MODE_ALL all} of the {@link Composition}, or {@linkplain
  * Player#REPEAT_MODE_OFF off}.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/470355043 - Publish CompositionPlayer.
 public final class CompositionPlayer extends SimpleBasePlayer {
 
   /** A builder for {@link CompositionPlayer} instances. */
@@ -407,6 +407,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @return This builder, for convenience.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470383420 - Remove or convert to non-experimental method.
     public Builder experimentalSetEnableReplayableCache(boolean enableReplayableCache) {
       this.enableReplayableCache = enableReplayableCache;
       return this;
@@ -426,6 +427,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @param lateThresholdToDropInputUs The threshold.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470367421 - Remove or make non-experimental.
     public Builder experimentalSetLateThresholdToDropInputUs(long lateThresholdToDropInputUs) {
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       return this;
@@ -448,7 +450,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
      *     #setVideoGraphFactory set}.
      */
-    @ExperimentalApi
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     @CanIgnoreReturnValue
     public Builder setPacketConsumerFactory(
         PacketConsumer.Factory<List<HardwareBufferFrame>> packetConsumerFactory) {
@@ -776,6 +778,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    * <p>The player must be {@linkplain Builder#experimentalSetEnableReplayableCache built with
    * replayable cache support}.
    */
+  @ExperimentalApi // TODO: b/470383420 - Remove or convert to non-experimental method.
   public void experimentalRedrawLastFrame() {
     checkState(enableReplayableCache);
     if (playbackThreadHandler == null || playbackVideoGraphWrapper == null) {

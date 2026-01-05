@@ -171,7 +171,7 @@ public final class MediaBrowser extends MediaController {
      * @param platformSessionCallbackAggregationTimeoutMs The timeout, in milliseconds.
      * @return The builder to allow chaining.
      */
-    @UnstableApi
+    @ExperimentalApi // TODO: b/470378769 - Remove or convert to permanent config.
     @CanIgnoreReturnValue
     public Builder experimentalSetPlatformSessionCallbackAggregationTimeoutMs(
         long platformSessionCallbackAggregationTimeoutMs) {
@@ -185,6 +185,8 @@ public final class MediaBrowser extends MediaController {
      * Player#COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS} are allowed to be available for {@linkplain
      * DeviceInfo#PLAYBACK_TYPE_LOCAL local} playbacks (assuming the media session supports it).
      *
+     * <p>This method will be removed in a future release.
+     *
      * <p>The default is {@code false}. Local device volume changes should not generally be done by
      * apps and can be triggered via {@link android.media.AudioManager} without using a media
      * controller or media session.
@@ -193,7 +195,7 @@ public final class MediaBrowser extends MediaController {
      */
     @UnstableApi
     @CanIgnoreReturnValue
-    @ExperimentalApi
+    @ExperimentalApi // TODO: b/470349284 - Remove method after a transition period.
     public Builder setAllowDeviceVolumeCommandsForLocalPlayback(
         boolean allowDeviceVolumeCommandsForLocalPlayback) {
       this.allowDeviceVolumeCommandsForLocalPlayback = allowDeviceVolumeCommandsForLocalPlayback;

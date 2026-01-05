@@ -227,7 +227,8 @@ public interface ExoPlayer extends Player {
      *
      * <p>This value is experimental and will be removed in a future release.
      */
-    @UnstableApi public static boolean experimentalEnableStuckPlayingDetection = true;
+    @ExperimentalApi // TODO: b/443074686 - Remove once global opt-out no longer needed.
+    public static boolean experimentalEnableStuckPlayingDetection = true;
 
     /* package */ final Context context;
 
@@ -518,6 +519,7 @@ public interface ExoPlayer extends Player {
      */
     @CanIgnoreReturnValue
     @UnstableApi
+    @ExperimentalApi // TODO: b/470371146 - Remove this method.
     public Builder experimentalSetForegroundModeTimeoutMs(long timeoutMs) {
       checkState(!buildCalled);
       foregroundModeTimeoutMs = timeoutMs;
@@ -538,7 +540,7 @@ public interface ExoPlayer extends Player {
      * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
+    @ExperimentalApi // TODO: b/369523131 - Remove once feature is enabled by default.
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       checkState(!buildCalled);
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;

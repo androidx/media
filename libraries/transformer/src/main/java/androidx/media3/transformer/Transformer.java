@@ -297,6 +297,7 @@ public final class Transformer {
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/350497683 - Remove once opt-out is no longer needed.
     public Builder experimentalSetTrimOptimizationEnabled(boolean enabled) {
       trimOptimizationEnabled = enabled;
       return this;
@@ -333,6 +334,7 @@ public final class Transformer {
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470388636 - Experiment with MP4 Edit list trimming.
     public Builder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
       mp4EditListTrimEnabled = enabled;
       return this;
@@ -377,7 +379,7 @@ public final class Transformer {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setPacketProcessor(
         PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
         GlObjectsProvider glObjectsProvider,
@@ -406,6 +408,7 @@ public final class Transformer {
      *     C#INDEX_UNSET} and is non-positive.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470387382 - Make method non-experimental.
     public Builder experimentalSetMaxFramesInEncoder(int maxFramesInEncoder) {
       checkArgument(maxFramesInEncoder > 0 || maxFramesInEncoder == C.INDEX_UNSET);
       this.maxFramesInEncoder = maxFramesInEncoder;

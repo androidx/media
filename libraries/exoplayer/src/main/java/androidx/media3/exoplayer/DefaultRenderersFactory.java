@@ -188,6 +188,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * in a future release.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470368123 - Remove method once flag usage once safe.
   public final DefaultRenderersFactory experimentalSetMediaCodecAsyncCryptoFlagEnabled(
       boolean enableAsyncCryptoFlag) {
     codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(enableAsyncCryptoFlag);
@@ -295,6 +296,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365582 - Enable as a permanent, non-experimental option.
   public final DefaultRenderersFactory experimentalSetEnableMediaCodecVideoRendererPrewarming(
       boolean enableMediaCodecVideoRendererPrewarming) {
     this.enableMediaCodecVideoRendererPrewarming = enableMediaCodecVideoRendererPrewarming;
@@ -313,6 +315,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   public final DefaultRenderersFactory experimentalSetParseAv1SampleDependencies(
       boolean parseAv1SampleDependencies) {
     this.parseAv1SampleDependencies = parseAv1SampleDependencies;
@@ -333,6 +336,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   @RequiresApi(34)
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470367414 - Run experiments and enable by default.
   public DefaultRenderersFactory experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
       boolean enableMediaCodecBufferDecodeOnlyFlag) {
     this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
@@ -359,7 +363,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled
    */
   @CanIgnoreReturnValue
-  @ExperimentalApi
+  @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
   public DefaultRenderersFactory setEnableMediaCodecVideoRendererDurationToProgressUs(
       boolean enableMediaCodecVideoRendererDurationToProgressUs) {
     this.enableMediaCodecVideoRendererDurationToProgressUs =
@@ -400,6 +404,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *     buffers, or {@link C#TIME_UNSET} to disable dropping decoder input buffers.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470367421 - Remove or make non-experimental.
   public final DefaultRenderersFactory experimentalSetLateThresholdToDropDecoderInputUs(
       long lateThresholdToDropDecoderInputUs) {
     this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;

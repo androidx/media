@@ -29,7 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public class GlTextureFrame implements Frame {
   public static final GlTextureFrame END_OF_STREAM_FRAME =
       new Builder(

@@ -25,7 +25,7 @@ import androidx.media3.common.util.ExperimentalApi
  * @param I The type of the input packets.
  * @param O The type of the output packets.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 interface PacketProcessor<I, O> : PacketConsumer<I> {
 
   /**

@@ -30,6 +30,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -286,6 +287,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
    *     be removed in a future release.
    */
   @Deprecated
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   public void experimentalSetLegacyDecodingEnabled(boolean legacyDecodingEnabled) {
     this.legacyDecodingEnabled = legacyDecodingEnabled;
   }

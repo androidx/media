@@ -43,7 +43,7 @@ import kotlinx.coroutines.withContext
  * A [PacketConsumer] implementation that renders [GlTextureFrame]s to an output
  * [android.view.Surface].
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class GlTextureFrameRenderer
 private constructor(
   private val context: Context,

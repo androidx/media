@@ -33,6 +33,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.decoder.CryptoInfo;
 import com.google.common.base.Supplier;
@@ -95,6 +96,7 @@ import java.util.List;
      * <p>This method is experimental. Its default value may change, or it may be renamed or removed
      * in a future release.
      */
+    @ExperimentalApi // TODO: b/470368123 - Remove method once flag usage once safe.
     public void experimentalSetAsyncCryptoFlagEnabled(boolean enableAsyncCryptoFlag) {
       enableSynchronousBufferQueueingWithAsyncCryptoFlag = enableAsyncCryptoFlag;
     }

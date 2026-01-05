@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
  * the queued [Packet] to the wrapped [PacketConsumer]. The owner is also responsible for calling
  * [release] to close the underlying [Channel] once this consumer is no longer needed.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class PacketConsumerCaller<T>
 private constructor(
   private val packetConsumer: PacketConsumer<T>,

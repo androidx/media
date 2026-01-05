@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -118,6 +119,7 @@ public interface MediaSource {
      */
     @UnstableApi
     @Deprecated
+    @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
     default Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       return this;
@@ -150,6 +152,7 @@ public interface MediaSource {
      */
     @UnstableApi
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
     default Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
         @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
       return this;

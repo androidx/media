@@ -113,6 +113,7 @@ public final class GlUtil {
       };
 
   /** Marker value for when no fence sync is set. */
+  // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
   @ExperimentalApi public static final long GL_FENCE_SYNC_UNSET = -1;
 
   // https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glFenceSync.xhtml

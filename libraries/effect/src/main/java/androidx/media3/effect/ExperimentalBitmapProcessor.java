@@ -77,7 +77,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p><b>This class is NOT thread-safe.</b> All public methods must be called from the same thread
  * that instantiated the instance. This is verified by the implementation.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/470356083 - Publish or remove BitmapProcessor.
 public final class ExperimentalBitmapProcessor {
 
   /** A builder for {@link ExperimentalBitmapProcessor} instances. */

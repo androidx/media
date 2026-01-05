@@ -42,7 +42,7 @@ import java.util.concurrent.ExecutorService;
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
 /** Computes the release time for each {@linkplain List<HardwareBufferFrame> packet}. */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 /* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;

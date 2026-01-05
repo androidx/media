@@ -33,6 +33,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -350,6 +351,7 @@ public final class Mp4Muxer implements Muxer {
      * <p>This method is experimental and will be renamed or removed in a future release.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470374355 - Remove or make non-experimental.
     public Mp4Muxer.Builder experimentalSetFreeSpaceAfterFileTypeBox(int bytes) {
       checkArgument(bytes >= 0);
       this.freeSpaceAfterFtypInBytes = bytes;

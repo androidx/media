@@ -38,7 +38,7 @@ import java.util.concurrent.Executor;
  * will be set for use within this package. {@link #internalFrame} is not intended for use by third
  * party apps.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public class HardwareBufferFrame implements Frame {
   public static final HardwareBufferFrame END_OF_STREAM_FRAME =
       new HardwareBufferFrame.Builder(/* hardwareBuffer= */ null, directExecutor(), () -> {})

@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -97,6 +98,7 @@ public interface HlsExtractorFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   default HlsExtractorFactory experimentalParseSubtitlesDuringExtraction(
       boolean parseSubtitlesDuringExtraction) {
     return this;
@@ -116,6 +118,7 @@ public interface HlsExtractorFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   default HlsExtractorFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
       @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
     return this;

@@ -51,6 +51,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TraceUtil;
@@ -532,6 +533,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * <p>When not enabled, {@link #onProcessedStreamChange()} is invoked from the second stream
    * onwards.
    */
+  @ExperimentalApi // TODO: b/470373575 - Enable this feature by default.
   public void experimentalEnableProcessedStreamChangedAtStart() {
     this.experimentalEnableProcessedStreamChangedAtStart = true;
   }

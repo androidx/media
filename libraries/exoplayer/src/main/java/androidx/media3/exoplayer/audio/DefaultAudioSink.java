@@ -49,6 +49,7 @@ import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -441,6 +442,7 @@ public final class DefaultAudioSink implements AudioSink {
      * <p>The default value is null.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470374585 - Make method non-experimental.
     public Builder setExperimentalAudioOffloadListener(
         @Nullable AudioOffloadListener audioOffloadListener) {
       this.audioOffloadListener = audioOffloadListener;

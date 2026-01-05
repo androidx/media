@@ -18,6 +18,7 @@ package androidx.media3.extractor;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -50,6 +51,7 @@ public interface ExtractorsFactory {
    */
   @CanIgnoreReturnValue
   @Deprecated
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   default ExtractorsFactory experimentalSetTextTrackTranscodingEnabled(
       boolean textTrackTranscodingEnabled) {
     return this;
@@ -82,6 +84,7 @@ public interface ExtractorsFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
   default ExtractorsFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
       @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
     return this;

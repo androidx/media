@@ -24,7 +24,7 @@ import androidx.media3.common.util.ExperimentalApi
  *
  * @param T The type of [Packet.payload] being consumed.
  */
-@ExperimentalApi
+@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 interface PacketConsumer<T> {
 
   /**

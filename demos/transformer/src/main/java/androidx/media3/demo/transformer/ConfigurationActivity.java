@@ -43,11 +43,13 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.transformer.Composition;
 import com.google.android.material.slider.RangeSlider;
@@ -134,6 +136,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final int COLOR_FILTER_SEPIA = 2;
 
   public static final int FILE_PERMISSION_REQUEST_CODE = 1;
+
+  @OptIn(markerClass = ExperimentalApi.class)
   private static final ImmutableMap<String, @Composition.HdrMode Integer> HDR_MODE_DESCRIPTIONS =
       new ImmutableMap.Builder<String, @Composition.HdrMode Integer>()
           .put("Keep HDR", HDR_MODE_KEEP_HDR)
@@ -141,6 +145,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
           .put("OpenGL tone-map HDR to SDR", HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
           .put("Force Interpret HDR as SDR", HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR)
           .build();
+
   private static final ImmutableMap<String, Integer> OVERLAY_COLORS =
       new ImmutableMap.Builder<String, Integer>()
           .put("BLACK", Color.BLACK)

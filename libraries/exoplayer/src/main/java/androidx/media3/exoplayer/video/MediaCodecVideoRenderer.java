@@ -391,6 +391,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      * <p>This method is experimental and will be renamed or removed in a future release.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470365670 - Remove method once config is enabled by default.
     public Builder experimentalSetParseAv1SampleDependencies(boolean parseAv1SampleDependencies) {
       this.parseAv1SampleDependencies = parseAv1SampleDependencies;
       return this;
@@ -411,6 +412,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      *     buffers, or {@link C#TIME_UNSET} to disable dropping decoder input buffers.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470367421 - Remove or make non-experimental.
     public Builder experimentalSetLateThresholdToDropDecoderInputUs(
         long lateThresholdToDropDecoderInputUs) {
       this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
@@ -431,6 +433,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      */
     @RequiresApi(34)
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470367414 - Run experiments and enable by default.
     public Builder experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
         boolean enableMediaCodecBufferDecodeOnlyFlag) {
       this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
@@ -454,7 +457,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      * @see ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean)
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi
+    @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
     public Builder setEnableDurationToProgressUs(boolean enableDurationToProgressUs) {
       this.enableDurationToProgressUs = enableDurationToProgressUs;
       return this;
@@ -2054,7 +2057,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * Experimental setter to ignore the checks for advancing timestamps before checking whether a
    * late frame needs to be force released.
    */
-  // TODO: b/417646815 - Remove this workaround method once it's no longer needed
+  @ExperimentalApi // TODO: b/417646815 - Remove this workaround method once it's no longer needed.
   protected void experimentalDisableAdvancingTimestampChecksInVideoFrameReleaseControl() {
     videoFrameReleaseControl.experimentalDisableAdvancingTimestampChecks();
   }

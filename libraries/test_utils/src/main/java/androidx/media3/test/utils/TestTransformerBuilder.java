@@ -22,6 +22,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.muxer.BufferInfo;
@@ -98,6 +99,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetTrimOptimizationEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/289983417 - Remove legacy subtitle decoding paths.
   public TestTransformerBuilder experimentalSetTrimOptimizationEnabled(
       boolean trimOptimizationEnabled) {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
@@ -112,6 +114,7 @@ public final class TestTransformerBuilder {
    * @see Transformer.Builder#experimentalSetMp4EditListTrimEnabled(boolean)
    */
   @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/470388636 - Experiment with MP4 Edit list trimming.
   public TestTransformerBuilder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
     this.mp4EditListTrimEnabled = enabled;
     return this;

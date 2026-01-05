@@ -47,6 +47,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.HandlerWrapper;
@@ -217,6 +218,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
      * @param lateThresholdToDropInputUs The threshold.
      */
     @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/470367421 - Remove or make non-experimental.
     public Builder experimentalSetLateThresholdToDropInputUs(long lateThresholdToDropInputUs) {
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
       return this;

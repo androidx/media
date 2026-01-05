@@ -56,6 +56,7 @@ import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
@@ -325,6 +326,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        */
       @CanIgnoreReturnValue
       @Deprecated
+      @ExperimentalApi // TODO: b/350497683 - Remove opt-out in future release.
       public Builder setExperimentalAdjustSurfaceTextureTransformationMatrix(
           boolean experimentalAdjustSurfaceTextureTransformationMatrix) {
         this.experimentalAdjustSurfaceTextureTransformationMatrix =
@@ -343,6 +345,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
        */
       @CanIgnoreReturnValue
       @Deprecated
+      @ExperimentalApi // TODO: b/350497683 - Remove opt-out in future release.
       public Builder setExperimentalRepeatInputBitmapWithoutResampling(
           boolean experimentalRepeatInputBitmapWithoutResampling) {
         this.experimentalRepeatInputBitmapWithoutResampling =
