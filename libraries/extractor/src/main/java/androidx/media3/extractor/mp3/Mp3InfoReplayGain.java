@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp3;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
@@ -159,7 +160,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
       if (!(o instanceof GainField)) {
         return false;
       }
@@ -203,7 +204,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (!(o instanceof Mp3InfoReplayGain)) {
       return false;
     }
