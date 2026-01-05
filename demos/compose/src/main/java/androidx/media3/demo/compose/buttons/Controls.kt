@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +37,7 @@ import androidx.media3.common.Player
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
+import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedBottomSheetButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.SeekBackButton
@@ -75,6 +78,7 @@ private fun RowControls(
  * |00:01-02:34-----------Speed--Shuffle--Repeat--Mute--|
  * ```
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BoxScope.Controls(player: Player) {
   val buttonModifier = Modifier.size(50.dp).background(Color.Gray.copy(alpha = 0.1f), CircleShape)
@@ -92,16 +96,21 @@ internal fun BoxScope.Controls(player: Player) {
   )
   // Button panel controls
   Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-    ProgressSlider(player, Modifier.fillMaxWidth())
+    ProgressSlider(player, Modifier.fillMaxWidth().padding(horizontal = 15.dp))
     Row(
       modifier =
-        Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.4f)).padding(start = 15.dp),
+        Modifier.fillMaxWidth()
+          .background(Color.Gray.copy(alpha = 0.4f))
+          .padding(horizontal = 15.dp),
       horizontalArrangement = Arrangement.Start,
       verticalAlignment = Alignment.CenterVertically,
     ) {
       PositionAndDurationText(player)
       Spacer(Modifier.weight(1f))
-      PlaybackSpeedPopUpButton(player)
+      PlaybackSpeedBottomSheetButton(
+        player,
+        colors = ButtonDefaults.textButtonColors(contentColor = Color.Black),
+      )
       ShuffleButton(player)
       RepeatButton(player)
       MuteButton(player)

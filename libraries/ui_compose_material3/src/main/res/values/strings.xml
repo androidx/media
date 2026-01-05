@@ -50,4 +50,9 @@
   <string name="mute_button_shown_unmuted">Mute</string>
   <!-- Accessibility description for a mute button in the muted state. If a user clicks it, the player's volume will be changed to whatever it was previously before muting. [CHAR_LIMIT=NONE] -->
   <string name="mute_button_shown_muted">Unmute</string>
+  <!-- Accessibility description for a button that increases the playback speed. [CHAR_LIMIT=NONE] -->
+  <string name="playback_speed_increase">Increase speed by %.2f</string>
+  <!-- Accessibility description for a button that decreases the playback speed. [CHAR_LIMIT=NONE] -->
+  <string name="playback_speed_decrease">Decrease speed by %.2f</string>
+  <string name="playback_speed_format" translatable="false">%.2fx</string>
 </resources>
