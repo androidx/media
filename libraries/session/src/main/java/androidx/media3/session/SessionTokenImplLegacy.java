@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.SessionToken.TYPE_BROWSER_SERVICE_LEGACY;
 import static androidx.media3.session.SessionToken.TYPE_LIBRARY_SERVICE;
 import static androidx.media3.session.SessionToken.TYPE_SESSION;
@@ -212,7 +213,7 @@ import java.util.Objects;
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);
     String packageName = bundle.getString(FIELD_PACKAGE_NAME);
     checkArgument(!TextUtils.isEmpty(packageName), "package name should be set.");
-    @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
     return new SessionTokenImplLegacy(
         legacyToken, uid, type, componentName, packageName, extras == null ? Bundle.EMPTY : extras);
   }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -267,7 +268,7 @@ import java.util.Objects;
     String serviceName = bundle.getString(FIELD_SERVICE_NAME, /* defaultValue= */ "");
     @Nullable IBinder iSession = BundleCompat.getBinder(bundle, FIELD_ISESSION);
     @Nullable ComponentName componentName = bundle.getParcelable(FIELD_COMPONENT_NAME);
-    @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
     @Nullable
     MediaSession.Token platformTokenFromBundle = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
     if (platformTokenFromBundle != null) {

@@ -111,6 +111,7 @@ import org.junit.runner.RunWith;
 
 /** Tests for {@link MediaController} interacting with {@link MediaSessionCompat}. */
 @RunWith(AndroidJUnit4.class)
+@SuppressWarnings("deprecation") // Testing deprecated MediaSessionCompat connection
 @MediumTest
 public class MediaControllerWithMediaSessionCompatTest {
 
@@ -232,6 +233,23 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     assertThat(exception).hasCauseThat().isInstanceOf(SecurityException.class);
     assertThat(onDisconnectedCalled.get()).isFalse();
+  }
+
+  @Test
+  public void createController_withInvalidExtrasBundleAndCustomActions_doesNotThrow()
+      throws Exception {
+    session.setExtras(MediaTestUtils.createInvalidBundle());
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_PLAYING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .setExtras(MediaTestUtils.createInvalidBundle())
+            .addCustomAction("action", "name", R.drawable.media3_icon_album)
+            .build());
+
+    MediaController controller =
+        controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
+
+    assertThat(controller.isConnected()).isTrue();
   }
 
   @Test

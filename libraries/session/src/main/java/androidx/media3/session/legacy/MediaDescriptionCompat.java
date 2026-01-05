@@ -16,6 +16,7 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
@@ -363,8 +364,7 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setDescription(description.getDescription());
     bob.setIconBitmap(description.getIconBitmap());
     bob.setIconUri(description.getIconUri());
-    Bundle extras = description.getExtras();
-    extras = MediaSessionCompat.unparcelWithClassLoader(extras);
+    Bundle extras = convertToNullIfInvalid(description.getExtras());
     if (extras != null) {
       extras = new Bundle(extras);
     }

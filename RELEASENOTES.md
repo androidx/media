@@ -37,6 +37,9 @@
     *   Fix bug where stopping a `MediaController` connected to a platform
         session crashed the app if stop happened during ad playback
         ([#2948](https://github.com/androidx/media/issues/2948)).
+    *   Add additional verifications on `extras` `Bundle` instances in various
+        classes to guard against malformed `Bundle` instances sent from other
+        processes.
 *   Downloads:
     *   Fix potential infinite loops when a `PriorityTooLowException` is handled
         by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom

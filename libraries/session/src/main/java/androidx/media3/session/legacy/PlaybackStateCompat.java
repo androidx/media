@@ -16,6 +16,7 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
@@ -806,8 +807,7 @@ public final class PlaybackStateCompat implements Parcelable {
           customActions.add(CustomAction.fromCustomAction(customActionFwk));
         }
       }
-      Bundle extras = stateFwk.getExtras();
-      MediaSessionCompat.ensureClassLoader(extras);
+      Bundle extras = convertToNullIfInvalid(stateFwk.getExtras());
       PlaybackStateCompat stateCompat =
           new PlaybackStateCompat(
               stateFwk.getState(),
@@ -919,8 +919,7 @@ public final class PlaybackStateCompat implements Parcelable {
      */
     public static PlaybackStateCompat.CustomAction fromCustomAction(Object customActionObj) {
       PlaybackState.CustomAction customActionFwk = (PlaybackState.CustomAction) customActionObj;
-      Bundle extras = customActionFwk.getExtras();
-      MediaSessionCompat.ensureClassLoader(extras);
+      Bundle extras = convertToNullIfInvalid(customActionFwk.getExtras());
       PlaybackStateCompat.CustomAction customActionCompat =
           new PlaybackStateCompat.CustomAction(
               customActionFwk.getAction(),

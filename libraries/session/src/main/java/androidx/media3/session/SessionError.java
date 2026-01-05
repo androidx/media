@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -251,7 +252,7 @@ public final class SessionError {
     int code =
         bundle.getInt(FIELD_CODE, /* defaultValue= */ PlaybackException.ERROR_CODE_UNSPECIFIED);
     String message = bundle.getString(FIELD_MESSAGE, /* defaultValue= */ "");
-    @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
+    @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
     return new SessionError(code, message, extras == null ? Bundle.EMPTY : extras);
   }
 }

@@ -16,6 +16,7 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_REGISTER_CALLBACK_MESSENGER;
@@ -718,15 +719,15 @@ public final class MediaBrowserCompat {
       @Override
       public void onChildrenLoaded(
           String parentId, List<MediaBrowser.MediaItem> children, Bundle options) {
-        MediaSessionCompat.ensureClassLoader(options);
+        Bundle optionsForCallback = convertToNullIfInvalid(options);
         SubscriptionCallback.this.onChildrenLoaded(
-            parentId, MediaItem.fromMediaItemList(children), options);
+            parentId, MediaItem.fromMediaItemList(children), optionsForCallback);
       }
 
       @Override
       public void onError(String parentId, Bundle options) {
-        MediaSessionCompat.ensureClassLoader(options);
-        SubscriptionCallback.this.onError(parentId, options);
+        Bundle optionsForCallback = convertToNullIfInvalid(options);
+        SubscriptionCallback.this.onError(parentId, optionsForCallback);
       }
     }
   }
@@ -930,7 +931,7 @@ public final class MediaBrowserCompat {
     @Override
     @Nullable
     public Bundle getExtras() {
-      return browserFwk.getExtras();
+      return convertToNullIfInvalid(browserFwk.getExtras());
     }
 
     @Override
@@ -1158,7 +1159,7 @@ public final class MediaBrowserCompat {
     public void onConnected() {
       Bundle extras;
       try {
-        extras = browserFwk.getExtras();
+        extras = convertToNullIfInvalid(browserFwk.getExtras());
       } catch (IllegalStateException e) {
         // Should not be here since onConnected() will be called in a connected state.
         Log.e(TAG, "Unexpected IllegalStateException", e);
@@ -1363,12 +1364,10 @@ public final class MediaBrowserCompat {
         switch (msg.what) {
           case SERVICE_MSG_ON_LOAD_CHILDREN:
             {
-              Bundle options = data.getBundle(DATA_OPTIONS);
-              MediaSessionCompat.ensureClassLoader(options);
+              Bundle options = convertToNullIfInvalid(data.getBundle(DATA_OPTIONS));
 
               Bundle notifyChildrenChangedOptions =
-                  data.getBundle(DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS);
-              MediaSessionCompat.ensureClassLoader(notifyChildrenChangedOptions);
+                  convertToNullIfInvalid(data.getBundle(DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS));
 
               serviceCallback.onLoadChildren(
                   callbacksMessenger,
@@ -1507,9 +1506,7 @@ public final class MediaBrowserCompat {
 
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
-      if (resultData != null) {
-        resultData = MediaSessionCompat.unparcelWithClassLoader(resultData);
-      }
+      resultData = convertToNullIfInvalid(resultData);
       if (resultCode != MediaBrowserServiceCompat.RESULT_OK
           || resultData == null
           || !resultData.containsKey(MediaBrowserServiceCompat.KEY_MEDIA_ITEM)) {
@@ -1540,9 +1537,7 @@ public final class MediaBrowserCompat {
 
     @Override
     protected void onReceiveResult(int resultCode, @Nullable Bundle resultData) {
-      if (resultData != null) {
-        resultData = MediaSessionCompat.unparcelWithClassLoader(resultData);
-      }
+      resultData = convertToNullIfInvalid(resultData);
       if (resultCode != MediaBrowserServiceCompat.RESULT_OK
           || resultData == null
           || !resultData.containsKey(MediaBrowserServiceCompat.KEY_SEARCH_RESULTS)) {
@@ -1585,7 +1580,7 @@ public final class MediaBrowserCompat {
       if (callback == null) {
         return;
       }
-      MediaSessionCompat.ensureClassLoader(resultData);
+      resultData = convertToNullIfInvalid(resultData);
       switch (resultCode) {
         case MediaBrowserServiceCompat.RESULT_PROGRESS_UPDATE:
           callback.onProgressUpdate(

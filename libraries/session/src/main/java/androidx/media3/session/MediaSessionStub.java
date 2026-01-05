@@ -39,6 +39,7 @@ import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETE
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
+import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.postOrRunWithCompletion;
 import static androidx.media3.common.util.Util.transformFutureAsync;
@@ -920,7 +921,8 @@ import java.util.concurrent.ExecutionException;
       @Nullable Bundle commandBundle,
       @Nullable Bundle args,
       boolean progressUpdateRequested) {
-    if (caller == null || commandBundle == null || args == null) {
+    Bundle verifiedArgs = convertToNullIfInvalid(args);
+    if (caller == null || commandBundle == null || verifiedArgs == null) {
       return;
     }
     SessionCommand command;
@@ -943,10 +945,12 @@ import java.util.concurrent.ExecutionException;
               ProgressReporter progressReporter = null;
               if (progressUpdateRequested) {
                 progressReporter =
-                    new ProgressReporter(sessionImpl, controller, sequenceNum, command, args);
+                    new ProgressReporter(
+                        sessionImpl, controller, sequenceNum, command, verifiedArgs);
               }
               ListenableFuture<SessionResult> future =
-                  sessionImpl.onCustomCommandOnHandler(controller, progressReporter, command, args);
+                  sessionImpl.onCustomCommandOnHandler(
+                      controller, progressReporter, command, verifiedArgs);
               if (progressReporter != null) {
                 progressReporter.setFuture(future);
               }
