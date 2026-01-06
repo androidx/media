@@ -35,6 +35,7 @@ import android.os.ResultReceiver;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
@@ -43,10 +44,10 @@ import androidx.media3.session.legacy.LegacyParcelableUtil;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -391,38 +392,40 @@ public final class SessionToken {
     checkNotNull(context, "context must not be null");
     checkNotNull(compatToken, "compatToken must not be null");
 
-    SettableFuture<SessionToken> future = SettableFuture.create();
     // Try retrieving media3 token by connecting to the session.
     MediaControllerCompat controller = new MediaControllerCompat(context, compatToken);
     String packageName = checkNotNull(controller.getPackageName());
     Handler handler = new Handler(completionLooper);
-    Runnable createFallbackLegacyToken =
+    Supplier<SessionToken> fallbackLegacyTokenSupplier =
         () -> {
           int uid = getUid(context.getPackageManager(), packageName);
-          SessionToken resultToken =
-              new SessionToken(compatToken, packageName, uid, controller.getSessionInfo());
-          future.set(resultToken);
+          return new SessionToken(compatToken, packageName, uid, controller.getSessionInfo());
         };
-    // Post creating a fallback token if the command receives no result after a timeout.
-    handler.postDelayed(createFallbackLegacyToken, WAIT_TIME_MS_FOR_SESSION3_TOKEN);
-    controller.sendCommand(
-        MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN,
-        /* params= */ null,
-        new ResultReceiver(handler) {
-          @Override
-          protected void onReceiveResult(int resultCode, Bundle resultData) {
-            // Remove timeout callback.
-            handler.removeCallbacksAndMessages(null);
-            try {
-              future.set(SessionToken.fromBundle(resultData, compatToken.getToken()));
-            } catch (RuntimeException e) {
-              // Fallback to a legacy token if we receive an unexpected result, e.g. a legacy
-              // session acknowledging commands by a success callback.
-              createFallbackLegacyToken.run();
-            }
-          }
+
+    return CallbackToFutureAdapter.getFuture(
+        completer -> {
+          handler.postDelayed(
+              () -> completer.set(fallbackLegacyTokenSupplier.get()),
+              WAIT_TIME_MS_FOR_SESSION3_TOKEN);
+          controller.sendCommand(
+              MediaConstants.SESSION_COMMAND_REQUEST_SESSION3_TOKEN,
+              /* params= */ null,
+              new ResultReceiver(handler) {
+                @Override
+                protected void onReceiveResult(int resultCode, Bundle resultData) {
+                  // Remove timeout callback.
+                  handler.removeCallbacksAndMessages(null);
+                  try {
+                    completer.set(SessionToken.fromBundle(resultData, compatToken.getToken()));
+                  } catch (RuntimeException e) {
+                    // Fallback to a legacy token if we receive an unexpected result, e.g. a
+                    // legacy session acknowledging commands by a success callback.
+                    completer.set(fallbackLegacyTokenSupplier.get());
+                  }
+                }
+              });
+          return "createSessionToken";
         });
-    return future;
   }
 
   /**

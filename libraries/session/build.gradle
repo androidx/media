@@ -41,6 +41,7 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation project(modulePrefix + 'lib-datasource')
     implementation 'androidx.collection:collection:' + androidxCollectionVersion
+    implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     implementation 'androidx.media:media:' + androidxMediaVersion
     implementation 'androidx.core:core:' + androidxCoreVersion
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
