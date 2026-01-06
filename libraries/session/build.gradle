@@ -22,9 +22,6 @@ android {
         }
     }
     sourceSets.test.assets.srcDir '../test_data/src/test/assets/'
-    lint {
-        baseline = file("lint-baseline.xml")
-    }
     publishing {
         singleVariant('release') {
             withSourcesJar()
