@@ -212,13 +212,13 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   /**
    * Parses an instance from the packed representation.
    *
-   * <p>Returns null if both {@code field1} and {@code field2} are invalid or should be ignored.
+   * <p>Returns null if the representation is invalid or should be ignored.
    */
   @Nullable
   public static Mp3InfoReplayGain parse(float peak, int field1, int field2) {
     GainField parsedField1 = GainField.parse(field1);
     GainField parsedField2 = GainField.parse(field2);
-    if (parsedField1 == null && parsedField2 == null) {
+    if (peak <= 0 || parsedField1 == null && parsedField2 == null) {
       return null;
     }
     return new Mp3InfoReplayGain(peak, parsedField1, parsedField2);
