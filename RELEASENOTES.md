@@ -43,6 +43,8 @@
         media speed with `setSpeed()`.
 *   Track Selection:
 *   Extractors:
+    *   MP3: Parse LAME ReplayGain data
+        ([#2840](https://github.com/androidx/media/pull/2840)).
 *   Inspector:
 *   Audio:
     *   Change underlying decoding library for IAMF decoder extension from

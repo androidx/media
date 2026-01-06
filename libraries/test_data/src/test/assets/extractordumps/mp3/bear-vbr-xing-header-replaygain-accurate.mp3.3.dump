@@ -1,0 +1,27 @@
+seekMap:
+  isSeekable = true
+  duration = 2807978
+  getPosition(0) = [[timeUs=0, position=429]]
+  getPosition(1) = [[timeUs=0, position=429], [timeUs=23999, position=813]]
+  getPosition(1403989) = [[timeUs=1391989, position=22701], [timeUs=1415988, position=23085]]
+  getPosition(2807978) = [[timeUs=2783978, position=44973]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 384
+  sample count = 1
+  track duration = 2807978
+  format 0:
+    averageBitrate = 128001
+    containerMimeType = audio/mpeg
+    sampleMimeType = audio/mpeg
+    maxInputSize = 4096
+    channelCount = 2
+    sampleRate = 48000
+    encoderDelay = 576
+    encoderPadding = 576
+    metadata = entries=[TSSE: description=null: values=[Lavf58.29.100], ReplayGain Xing/Info: peak=8.14048E-40, field 1=GainField{name=1, originator=3, gain=23.3}, field 2=null]
+  sample 0:
+    time = 2783978
+    flags = 1
+    data = length 384, hash 5FE294B5
+tracksEnded = true
