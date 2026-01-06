@@ -157,11 +157,20 @@ public final class HlsMediaPeriodTest {
   }
 
   private static Variant createVariant(Format format) {
-    return new Variant(Uri.parse("https://variant"), format, null, null, null, null);
+    return new Variant(
+        Uri.parse("https://variant"),
+        format,
+        /* videoGroupId= */ null,
+        /* audioGroupId= */ null,
+        /* subtitleGroupId= */ null,
+        /* captionGroupId= */ null,
+        /* pathwayId= */ null,
+        /* stableVariantId= */ null);
   }
 
   private static Rendition createRendition(Format format, String groupId, String name) {
-    return new Rendition(Uri.parse("https://rendition"), format, groupId, name);
+    return new Rendition(
+        Uri.parse("https://rendition"), format, groupId, name, /* stableRenditionId= */ null);
   }
 
   private static Format createAudioFormat(String language) {

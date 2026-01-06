@@ -73,6 +73,12 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     /** The caption rendition group referenced by this variant, or {@code null}. */
     @Nullable public final String captionGroupId;
 
+    /** The identifier of the pathway that this variant belongs, or {@code null}. */
+    @Nullable public final String pathwayId;
+
+    /** The stable identifier for this variant, or {@code null}. */
+    @Nullable public final String stableVariantId;
+
     /**
      * @param url See {@link #url}.
      * @param format See {@link #format}.
@@ -80,6 +86,8 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
      * @param audioGroupId See {@link #audioGroupId}.
      * @param subtitleGroupId See {@link #subtitleGroupId}.
      * @param captionGroupId See {@link #captionGroupId}.
+     * @param pathwayId See {@link #pathwayId}.
+     * @param stableVariantId See {@link #stableVariantId}.
      */
     public Variant(
         Uri url,
@@ -87,13 +95,17 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
         @Nullable String videoGroupId,
         @Nullable String audioGroupId,
         @Nullable String subtitleGroupId,
-        @Nullable String captionGroupId) {
+        @Nullable String captionGroupId,
+        @Nullable String pathwayId,
+        @Nullable String stableVariantId) {
       this.url = url;
       this.format = format;
       this.videoGroupId = videoGroupId;
       this.audioGroupId = audioGroupId;
       this.subtitleGroupId = subtitleGroupId;
       this.captionGroupId = captionGroupId;
+      this.pathwayId = pathwayId;
+      this.stableVariantId = stableVariantId;
     }
 
     /**
@@ -111,12 +123,22 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
           /* videoGroupId= */ null,
           /* audioGroupId= */ null,
           /* subtitleGroupId= */ null,
-          /* captionGroupId= */ null);
+          /* captionGroupId= */ null,
+          /* pathwayId= */ null,
+          /* stableVariantId= */ null);
     }
 
     /** Returns a copy of this instance with the given {@link Format}. */
     public Variant copyWithFormat(Format format) {
-      return new Variant(url, format, videoGroupId, audioGroupId, subtitleGroupId, captionGroupId);
+      return new Variant(
+          url,
+          format,
+          videoGroupId,
+          audioGroupId,
+          subtitleGroupId,
+          captionGroupId,
+          pathwayId,
+          stableVariantId);
     }
   }
 
@@ -135,17 +157,27 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     /** The name of the rendition. */
     public final String name;
 
+    /** The stable identifier for this rendition, or {@code null}. * */
+    @Nullable public final String stableRenditionId;
+
     /**
      * @param url See {@link #url}.
      * @param format See {@link #format}.
      * @param groupId See {@link #groupId}.
      * @param name See {@link #name}.
+     * @param stableRenditionId See {@link #stableRenditionId}.
      */
-    public Rendition(@Nullable Uri url, Format format, String groupId, String name) {
+    public Rendition(
+        @Nullable Uri url,
+        Format format,
+        String groupId,
+        String name,
+        @Nullable String stableRenditionId) {
       this.url = url;
       this.format = format;
       this.groupId = groupId;
       this.name = name;
+      this.stableRenditionId = stableRenditionId;
     }
   }
 

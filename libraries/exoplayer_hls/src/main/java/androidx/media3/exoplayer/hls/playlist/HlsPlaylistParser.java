@@ -161,6 +161,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("SUPPLEMENTAL-CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_PATHWAY_ID =
+      Pattern.compile("PATHWAY-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_STABLE_VARIANT_ID =
+      Pattern.compile("STABLE-VARIANT-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_STABLE_RENDITION_ID =
+      Pattern.compile("STABLE-RENDITION-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_TARGET_DURATION =
       Pattern.compile(TAG_TARGET_DURATION + ":(\\d+)\\b");
   private static final Pattern REGEX_ATTR_DURATION = Pattern.compile("DURATION=([\\d\\.]+)\\b");
@@ -531,12 +537,17 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         if (frameRateString != null) {
           frameRate = Float.parseFloat(frameRateString);
         }
+        @Nullable
+        String pathwayId = parseOptionalStringAttr(line, REGEX_PATHWAY_ID, variableDefinitions);
         String videoGroupId = parseOptionalStringAttr(line, REGEX_VIDEO, variableDefinitions);
         String audioGroupId = parseOptionalStringAttr(line, REGEX_AUDIO, variableDefinitions);
         String subtitlesGroupId =
             parseOptionalStringAttr(line, REGEX_SUBTITLES, variableDefinitions);
         String closedCaptionsGroupId =
             parseOptionalStringAttr(line, REGEX_CLOSED_CAPTIONS, variableDefinitions);
+        @Nullable
+        String stableVariantId =
+            parseOptionalStringAttr(line, REGEX_STABLE_VARIANT_ID, variableDefinitions);
         Uri uri;
         if (isIFrameOnlyVariant) {
           uri =
@@ -565,7 +576,14 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .build();
         Variant variant =
             new Variant(
-                uri, format, videoGroupId, audioGroupId, subtitlesGroupId, closedCaptionsGroupId);
+                uri,
+                format,
+                videoGroupId,
+                audioGroupId,
+                subtitlesGroupId,
+                closedCaptionsGroupId,
+                pathwayId,
+                stableVariantId);
         variants.add(variant);
         @Nullable ArrayList<VariantInfo> variantInfosForUrl = urlToVariantInfos.get(uri);
         if (variantInfosForUrl == null) {
@@ -605,6 +623,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       line = mediaTags.get(i);
       String groupId = parseStringAttr(line, REGEX_GROUP_ID, variableDefinitions);
       String name = parseStringAttr(line, REGEX_NAME, variableDefinitions);
+      @Nullable
+      String stableRenditionId =
+          parseOptionalStringAttr(line, REGEX_STABLE_RENDITION_ID, variableDefinitions);
       Format.Builder formatBuilder =
           new Format.Builder()
               .setId(groupId + ":" + name)
@@ -640,7 +661,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             // TODO: Remove this case and add a Rendition with a null uri to videos.
           } else {
             formatBuilder.setMetadata(metadata);
-            videos.add(new Rendition(uri, formatBuilder.build(), groupId, name));
+            videos.add(new Rendition(uri, formatBuilder.build(), groupId, name, stableRenditionId));
           }
           break;
         case TYPE_AUDIO:
@@ -666,7 +687,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           formatBuilder.setSampleMimeType(sampleMimeType);
           if (uri != null) {
             formatBuilder.setMetadata(metadata);
-            audios.add(new Rendition(uri, formatBuilder.build(), groupId, name));
+            audios.add(new Rendition(uri, formatBuilder.build(), groupId, name, stableRenditionId));
           } else if (variant != null) {
             // TODO: Remove muxedAudioFormat and add a Rendition with a null uri to audios.
             muxedAudioFormat = formatBuilder.build();
@@ -686,7 +707,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
           formatBuilder.setSampleMimeType(sampleMimeType).setMetadata(metadata);
           if (uri != null) {
-            subtitles.add(new Rendition(uri, formatBuilder.build(), groupId, name));
+            subtitles.add(
+                new Rendition(uri, formatBuilder.build(), groupId, name, stableRenditionId));
           } else {
             Log.w(LOG_TAG, "EXT-X-MEDIA tag with missing mandatory URI attribute: skipping");
           }
