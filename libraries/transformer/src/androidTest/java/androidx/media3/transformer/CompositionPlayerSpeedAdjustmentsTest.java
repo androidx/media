@@ -236,7 +236,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   }
 
   @Test
-  public void setSpeed_withTargetFrameRate_outputFrameCountIsCorrect() throws Exception {
+  public void setSpeed_withTargetFrameRate_outputFrameTimestampsAreCorrect() throws Exception {
     EditedMediaItem video =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
@@ -248,11 +248,17 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
 
     // 5 sec video with 5X speed = 1 sec = ~30 frames
-    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(30);
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
+            300_000L, 333_333L, 366_667L, 400_000L, 433_333L, 466_667L, 500_000L, 533_333L,
+            566_667L, 600_000L, 633_333L, 666_667L, 700_000L, 733_333L, 766_667L, 800_000L,
+            833_333L, 866_667L, 900_000L, 933_333L, 966_667L, 996_667L)
+        .inOrder();
   }
 
   @Test
-  public void setSpeed_withHighSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+  public void setSpeed_withHighSpeedAndTargetFrameRate_outputFrameTimestampsAreCorrect()
       throws Exception {
     EditedMediaItem video =
         new EditedMediaItem.Builder(
@@ -265,11 +271,14 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
 
     // 5 sec video with 20X speed = 0.25 sec = ~8 frames
-    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(8);
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 249_167L)
+        .inOrder();
   }
 
   @Test
-  public void setSpeed_withVariableSpeedAndTargetFrameRate_outputFrameCountIsCorrect()
+  public void setSpeed_withVariableSpeedAndTargetFrameRate_outputFrameTimestampsAreCorrect()
       throws Exception {
     EditedMediaItem video =
         new EditedMediaItem.Builder(
@@ -284,9 +293,114 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     ImmutableList<Long> timestampsFromCompositionPlayer = getTimestampsFromCompositionPlayer(video);
 
     // (2.5 sec at 5X = 0.5 sec) + (2 sec at 1X = 2 sec) + (0.5 sec at 0.5X = 1 sec) = 3.5 sec =
-    // ~105
-    // frames
-    assertThat(timestampsFromCompositionPlayer.size()).isWithin(2).of(105);
+    // ~105 frames
+    assertThat(timestampsFromCompositionPlayer)
+        .containsExactly(
+            0L,
+            33_333L,
+            66_667L,
+            100_000L,
+            133_333L,
+            166_667L,
+            200_000L,
+            233_333L,
+            266_667L,
+            300_000L,
+            333_333L,
+            366_667L,
+            400_000L,
+            433_333L,
+            466_667L,
+            500_000L,
+            533_333L,
+            566_666L,
+            600_000L,
+            633_333L,
+            666_666L,
+            700_000L,
+            733_333L,
+            766_666L,
+            800_000L,
+            833_333L,
+            866_666L,
+            900_000L,
+            933_333L,
+            966_666L,
+            1_000_000L,
+            1_033_333L,
+            1_066_666L,
+            1_100_000L,
+            1_133_333L,
+            1_166_666L,
+            1_200_000L,
+            1_233_333L,
+            1_266_666L,
+            1_300_000L,
+            1_333_333L,
+            1_366_666L,
+            1_400_000L,
+            1_433_333L,
+            1_466_666L,
+            1_500_000L,
+            1_533_333L,
+            1_566_666L,
+            1_600_000L,
+            1_633_333L,
+            1_666_666L,
+            1_700_000L,
+            1_733_333L,
+            1_766_666L,
+            1_800_000L,
+            1_833_333L,
+            1_866_666L,
+            1_900_000L,
+            1_933_333L,
+            1_966_666L,
+            2_000_000L,
+            2_033_333L,
+            2_066_666L,
+            2_100_000L,
+            2_133_333L,
+            2_166_666L,
+            2_200_000L,
+            2_233_333L,
+            2_266_666L,
+            2_300_000L,
+            2_333_333L,
+            2_366_666L,
+            2_400_000L,
+            2_433_333L,
+            2_466_666L,
+            2_500_000L,
+            2_533_332L,
+            2_566_666L,
+            2_600_000L,
+            2_633_332L,
+            2_666_666L,
+            2_700_000L,
+            2_733_332L,
+            2_766_666L,
+            2_800_000L,
+            2_833_332L,
+            2_866_666L,
+            2_900_000L,
+            2_933_332L,
+            2_966_666L,
+            3_000_000L,
+            3_033_332L,
+            3_066_666L,
+            3_100_000L,
+            3_133_332L,
+            3_166_666L,
+            3_200_000L,
+            3_233_332L,
+            3_266_666L,
+            3_300_000L,
+            3_333_332L,
+            3_366_666L,
+            3_400_000L,
+            3_433_332L,
+            3_466_666L);
   }
 
   private ImmutableList<Long> getTimestampsFromCompositionPlayer(EditedMediaItem item)

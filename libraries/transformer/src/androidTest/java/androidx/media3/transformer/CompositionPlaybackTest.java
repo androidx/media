@@ -22,7 +22,7 @@ import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -583,9 +583,10 @@ public class CompositionPlaybackTest {
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.uri))
             .setFrameRate(30)
-            .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoDurationUs)
+            .setDurationUs(
+                MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoDurationUs)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -598,17 +599,21 @@ public class CompositionPlaybackTest {
 
     runCompositionPlayer(composition);
 
-    // Input: 5 sec video at 60 fps; Output: 5 sec video at 30 fps = ~150 frames
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
-        .isWithin(2)
-        .of(150);
+    // Input: 1 sec video at 60 fps; Output: 1 sec video at 30 fps = ~30 frames
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .containsExactly(
+            0L, 33_333L, 66_666L, 100_000L, 133_333L, 166_666L, 200_000L, 233_333L, 266_666L,
+            300_000L, 333_333L, 366_666L, 400_000L, 433_333L, 466_666L, 500_000L, 533_333L,
+            566_666L, 600_000L, 633_333L, 666_666L, 700_000L, 733_333L, 766_666L, 800_000L,
+            833_333L, 866_666L, 900_000L, 933_333L, 966_666L, 983_333L)
+        .inOrder();
     DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
     if (SDK_INT >= 34) {
       // Frames are dropped by MediaCodec internally.
       assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(0);
     } else {
       // Frames are dropped after MediaCodec output.
-      assertThat(videoDecoderCounters.skippedOutputBufferCount).isWithin(2).of(150);
+      assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(29);
     }
   }
 
@@ -635,12 +640,15 @@ public class CompositionPlaybackTest {
     runCompositionPlayer(composition);
 
     // Input: 1 sec video containing B-frames at 30 fps; Output: 1 sec video at 15 fps = ~15 frames
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs().size())
-        .isWithin(2)
-        .of(15);
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .containsExactly(
+            0L, 66_733L, 133_466L, 200_200L, 266_933L, 333_666L, 400_400L, 467_133L, 533_866L,
+            600_600L, 667_333L, 734_066L, 800_800L, 867_533L, 934_266L, 967_633L)
+        .inOrder();
+    ;
     DecoderCounters videoDecoderCounters = playerTestListener.getVideoDecoderCounters();
     // For input containing B-frames, frames are always dropped after MediaCodec output.
-    assertThat(videoDecoderCounters.skippedOutputBufferCount).isWithin(2).of(15);
+    assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(14);
   }
 
   private void runCompositionPlayer(Composition composition)

@@ -548,6 +548,7 @@ public final class AssetInfo {
                           .build())
                   .build())
           .setVideoFrameCount(60)
+          .setVideoDurationUs(1_009_000L)
           .build();
 
   public static final AssetInfo MP4_ASSET_WITH_SHORTER_AUDIO =
