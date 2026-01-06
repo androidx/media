@@ -114,12 +114,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     playbackExecutor = new PlaybackExecutor(playbackHandler);
     // The default width and height are ignored when writing from MediaCodec.
     // Sensible values greater than 1 allow HardwareBufferFrameReaderTest to pass.
-    imageReader =
-        ImageReader.newInstance(
-            /* width= */ 640,
-            /* height= */ 360,
-            defaultSurfacePixelFormat,
-            /* maxImages= */ CAPACITY);
+    if (SDK_INT >= 29) {
+      imageReader =
+          ImageReader.newInstance(
+              /* width= */ 640,
+              /* height= */ 360,
+              defaultSurfacePixelFormat,
+              /* maxImages= */ CAPACITY,
+              // Setting the HardwareBuffer usage to GPU_SAMPLED_IMAGE allows the ImageReader to
+              // run on emulators.
+              /* usage= */ HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+    } else {
+      imageReader =
+          ImageReader.newInstance(
+              /* width= */ 640,
+              /* height= */ 360,
+              defaultSurfacePixelFormat,
+              /* maxImages= */ CAPACITY);
+    }
     imageReader.setOnImageAvailableListener(playbackExecutor, playbackHandler);
     pendingFrameInfo = new ArrayDeque<>();
   }
