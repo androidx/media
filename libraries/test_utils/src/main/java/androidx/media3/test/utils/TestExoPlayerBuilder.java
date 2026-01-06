@@ -79,8 +79,9 @@ public class TestExoPlayerBuilder {
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
     maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     deviceVolumeControlEnabled = false;
-    stuckPlayingDetectionTimeoutMs = ExoPlayer.DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
-    stuckSuppressedDetectionTimeoutMs = ExoPlayer.DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
+    stuckPlayingDetectionTimeoutMs = ExoPlayer.Builder.DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
+    stuckSuppressedDetectionTimeoutMs =
+        ExoPlayer.Builder.DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
   }
 
   /**

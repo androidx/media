@@ -28,6 +28,13 @@
         ([#2873](https://github.com/androidx/media/issues/2873)).
     *   Allow setting a custom `DataSource.Factory` in
         `DefaultPreloadManager.Builder`.
+    *   Allow `ExoPlayer` to be mocked without Robolectric by moving some
+        default constants to `ExoPlayer.Builder`. Mocking this complex interface
+        is not generally encouraged - only when the usage is
+        minimal/simple/incidental
+        ([#2985](https://github.com/androidx/media/issues/2985)).
+        *   This required moving `DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS`
+            from `ExoPlayer` to `ExoPlayer.Builder` (without deprecation).
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

@@ -220,6 +220,35 @@ public interface ExoPlayer extends Player {
   final class Builder {
 
     /**
+     * The default timeout for calls to {@link #release} and {@link #setForegroundMode}, in
+     * milliseconds.
+     */
+    @UnstableApi public static final long DEFAULT_RELEASE_TIMEOUT_MS = 500;
+
+    /** The default timeout for detaching a surface from the player, in milliseconds. */
+    @UnstableApi public static final long DEFAULT_DETACH_SURFACE_TIMEOUT_MS = 2000;
+
+    /** The default timeout for detecting whether playback is stuck buffering, in milliseconds. */
+    @UnstableApi public static final int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS = 600_000;
+
+    /** The default timeout for detecting whether playback is stuck playing, in milliseconds. */
+    @UnstableApi
+    public static final int DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS =
+        isRunningOnEmulator() ? 30_000 : 10_000;
+
+    /**
+     * The default timeout for detecting whether playback is stuck playing but not ending, in
+     * milliseconds.
+     */
+    @UnstableApi public static final int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 60_000;
+
+    /**
+     * The default timeout for detecting whether playback is stuck in a suppressed state, in
+     * milliseconds.
+     */
+    @UnstableApi public static final int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS = 600_000;
+
+    /**
      * Static override to allow stuck playing detection. If {@code false}, the provided timeouts
      * default to {@link Integer#MAX_VALUE} instead of {@link
      * #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS} and {@link
@@ -1282,32 +1311,36 @@ public interface ExoPlayer extends Player {
   }
 
   /**
-   * The default timeout for calls to {@link #release} and {@link #setForegroundMode}, in
-   * milliseconds.
+   * @deprecated Use {@link Builder#DEFAULT_RELEASE_TIMEOUT_MS} instead.
    */
-  @UnstableApi long DEFAULT_RELEASE_TIMEOUT_MS = 500;
-
-  /** The default timeout for detaching a surface from the player, in milliseconds. */
-  @UnstableApi long DEFAULT_DETACH_SURFACE_TIMEOUT_MS = 2_000;
-
-  /** The default timeout for detecting whether playback is stuck buffering, in milliseconds. */
-  @UnstableApi int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS = 600_000;
-
-  /** The default timeout for detecting whether playback is stuck playing, in milliseconds. */
-  @UnstableApi
-  int DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 10_000;
+  @Deprecated @UnstableApi long DEFAULT_RELEASE_TIMEOUT_MS = Builder.DEFAULT_RELEASE_TIMEOUT_MS;
 
   /**
-   * The default timeout for detecting whether playback is stuck playing but not ending, in
-   * milliseconds.
+   * @deprecated Use {@link Builder#DEFAULT_DETACH_SURFACE_TIMEOUT_MS} instead.
    */
-  @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 60_000;
+  @Deprecated @UnstableApi
+  long DEFAULT_DETACH_SURFACE_TIMEOUT_MS = Builder.DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
 
   /**
-   * The default timeout for detecting whether playback is stuck in a suppressed state, in
-   * milliseconds.
+   * @deprecated Use {@link Builder#DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS} instead.
    */
-  @UnstableApi int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS = 600_000;
+  @Deprecated @UnstableApi
+  int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS =
+      Builder.DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
+
+  /**
+   * @deprecated Use {@link Builder#DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS} instead.
+   */
+  @Deprecated @UnstableApi
+  int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS =
+      Builder.DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS;
+
+  /**
+   * @deprecated Use {@link Builder#DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS} instead.
+   */
+  @Deprecated @UnstableApi
+  int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS =
+      Builder.DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
 
   /**
    * Equivalent to {@link Player#getPlayerError()}, except the exception is guaranteed to be an
