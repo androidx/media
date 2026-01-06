@@ -29,8 +29,6 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.media.AudioAttributes;
-import android.media.AudioManager;
 import android.media.MediaDescription;
 import android.media.Rating;
 import android.media.VolumeProvider;
@@ -57,6 +55,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
@@ -419,12 +418,12 @@ public class MediaSessionCompat {
    * this session. If {@link #setPlaybackToRemote} was previously called it will stop receiving
    * volume commands and the system will begin sending volume changes to the appropriate stream.
    *
-   * <p>By default sessions are on {@link AudioManager#STREAM_MUSIC}.
+   * <p>By default sessions use {@link AudioAttributes#DEFAULT}.
    *
-   * @param stream The {@link AudioManager} stream this session is playing on.
+   * @param audioAttributes The {@link AudioAttributes} this session is using.
    */
-  public void setPlaybackToLocal(int stream) {
-    impl.setPlaybackToLocal(stream);
+  public void setPlaybackToLocal(AudioAttributes audioAttributes) {
+    impl.setPlaybackToLocal(audioAttributes);
   }
 
   /**
@@ -1818,7 +1817,7 @@ public class MediaSessionCompat {
 
     void setFlags(@SessionFlags int flags);
 
-    void setPlaybackToLocal(int stream);
+    void setPlaybackToLocal(AudioAttributes audioAttributes);
 
     void setPlaybackToRemote(VolumeProviderCompat volumeProvider);
 
@@ -1939,11 +1938,8 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setPlaybackToLocal(int stream) {
-      // TODO update APIs to use support version of AudioAttributes
-      AudioAttributes.Builder bob = new AudioAttributes.Builder();
-      bob.setLegacyStreamType(stream);
-      sessionFwk.setPlaybackToLocal(bob.build());
+    public void setPlaybackToLocal(AudioAttributes audioAttributes) {
+      sessionFwk.setPlaybackToLocal(audioAttributes.getPlatformAudioAttributes());
     }
 
     @Override

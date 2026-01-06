@@ -1657,7 +1657,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @DeviceInfo.PlaybackType
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
-        sessionCompat.setPlaybackToLocal(audioAttributes.getStreamType());
+        sessionCompat.setPlaybackToLocal(audioAttributes);
       }
     }
 
@@ -1666,8 +1666,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       PlayerWrapper player = sessionImpl.getPlayerWrapper();
       volumeProviderCompat = createVolumeProviderCompat(player);
       if (volumeProviderCompat == null) {
-        int streamType = player.getAudioAttributesWithCommandCheck().getStreamType();
-        sessionCompat.setPlaybackToLocal(streamType);
+        sessionCompat.setPlaybackToLocal(player.getAudioAttributesWithCommandCheck());
       } else {
         sessionCompat.setPlaybackToRemote(volumeProviderCompat);
       }
