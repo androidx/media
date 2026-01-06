@@ -33,21 +33,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CodecSpecificDataUtilTest {
 
-  // TODO: b/426125651 - Replace these hard-coded constants with references to the framework
-  //  CodecProfileLevel constants once the compileSdk is at least 36.
-  private static final int APV_PROFILE_422_10 = 1;
-  private static final int APV_LEVEL_1_BAND_1 = 258;
-  private static final int APV_LEVEL_2_BAND_2 = 1028;
-  private static final int APV_PROFILE_422_10_HDR_10_PLUS = 8192;
-  private static final int IAMF_PROFILE_SIMPLE_OPUS = 16842753;
-  private static final int IAMF_PROFILE_SIMPLE_AAC = 16842754;
-  private static final int IAMF_PROFILE_SIMPLE_FLAC = 16842756;
-  private static final int IAMF_PROFILE_SIMPLE_PCM = 16842760;
-  private static final int IAMF_PROFILE_BASE_OPUS = 16908289;
-  private static final int IAMF_PROFILE_BASE_AAC = 16908290;
-  private static final int IAMF_PROFILE_BASE_FLAC = 16908292;
-  private static final int IAMF_PROFILE_BASE_PCM = 16908296;
-
   @Test
   public void parseAlacAudioSpecificConfig() {
     byte[] alacSpecificConfig =
@@ -238,7 +223,10 @@ public class CodecSpecificDataUtilTest {
   public void
       getCodecProfileAndLevel_withApvProfile422_10CodecString_returnsCorrectProfileAndLevel() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.VIDEO_APV, "apv1.apvf33.apvl30.apvb1", APV_PROFILE_422_10, APV_LEVEL_1_BAND_1);
+        MimeTypes.VIDEO_APV,
+        "apv1.apvf33.apvl30.apvb1",
+        MediaCodecInfo.CodecProfileLevel.APVProfile422_10,
+        MediaCodecInfo.CodecProfileLevel.APVLevel1Band1);
   }
 
   @Test
@@ -247,8 +235,8 @@ public class CodecSpecificDataUtilTest {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_APV,
         "apv1.apvf44.apvl60.apvb2",
-        APV_PROFILE_422_10_HDR_10_PLUS,
-        APV_LEVEL_2_BAND_2);
+        MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus,
+        MediaCodecInfo.CodecProfileLevel.APVLevel2Band2);
   }
 
   @Test
@@ -263,49 +251,73 @@ public class CodecSpecificDataUtilTest {
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileOpus() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.Opus", IAMF_PROFILE_SIMPLE_OPUS, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.Opus",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleOpus,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileAac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.mp4a.40.2", IAMF_PROFILE_SIMPLE_AAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.mp4a.40.2",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleAac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileFlac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.fLaC", IAMF_PROFILE_SIMPLE_FLAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.fLaC",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimpleFlac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfilePcm() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.000.000.ipcm", IAMF_PROFILE_SIMPLE_PCM, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.000.000.ipcm",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileSimplePcm,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileOpus() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.Opus", IAMF_PROFILE_BASE_OPUS, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.Opus",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseOpus,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileAac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.mp4a.40.2", IAMF_PROFILE_BASE_AAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.mp4a.40.2",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseAac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfileFlac() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.fLaC", IAMF_PROFILE_BASE_FLAC, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.fLaC",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBaseFlac,
+        0);
   }
 
   @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forBaseProfilePcm() {
     assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.AUDIO_IAMF, "iamf.001.000.ipcm", IAMF_PROFILE_BASE_PCM, 0);
+        MimeTypes.AUDIO_IAMF,
+        "iamf.001.000.ipcm",
+        MediaCodecInfo.CodecProfileLevel.IAMFProfileBasePcm,
+        0);
   }
 
   private static void assertCodecProfileAndLevelForCodecsString(

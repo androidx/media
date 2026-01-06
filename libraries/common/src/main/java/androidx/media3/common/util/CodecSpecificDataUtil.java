@@ -1003,14 +1003,9 @@ public final class CodecSpecificDataUtil {
 
     int profile = 0;
     if (profileInteger == 33) {
-      // TODO(b/426125651): Replace apv profile value with
-      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10 when compile SDK is updated to 36.
-      profile = 0x01;
+      profile = MediaCodecInfo.CodecProfileLevel.APVProfile422_10;
     } else if (profileInteger == 44) {
-      // TODO(b/426125651): Replace apv profile value with
-      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus when compile SDK is updated
-      // to 36.
-      profile = 0x2000;
+      profile = MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus;
     } else {
       Log.w(TAG, "Ignoring invalid APV profile: " + profileInteger);
       return null;
