@@ -3,7 +3,6 @@ bin
 gen
 libs
 obj
-lint.xml
 .kotlin
 
 # IntelliJ IDEA
