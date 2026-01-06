@@ -20,6 +20,9 @@
     *   Fix bug where loading continues after playback ended when removing the
         currently playing item from a playlist
         ([#2873](https://github.com/androidx/media/issues/2873)).
+*   Extractors:
+    *   MP3: Parse LAME ReplayGain data
+        ([#2840](https://github.com/androidx/media/pull/2840)).
 *   Audio:
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios
