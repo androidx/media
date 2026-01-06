@@ -19,7 +19,7 @@ track 0:
     sampleRate = 44100
     encoderDelay = 576
     encoderPadding = 1404
-    metadata = entries=[TSSE: description=null: values=[Lavf58.45.100], ReplayGain Xing/Info: peak=0.0, field 1=GainField{name=0, originator=0, gain=0.0}, field 2=GainField{name=0, originator=0, gain=0.0}]
+    metadata = entries=[TSSE: description=null: values=[Lavf58.45.100]]
   sample 0:
     time = 727157
     flags = 1

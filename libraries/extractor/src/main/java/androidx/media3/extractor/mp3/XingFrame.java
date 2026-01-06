@@ -117,7 +117,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       float peak = frame.readFloat();
       int field1 = frame.readUnsignedShort();
       int field2 = frame.readUnsignedShort();
-      replayGain = new Mp3InfoReplayGain(peak, field1, field2);
+      replayGain = Mp3InfoReplayGain.parse(peak, field1, field2);
 
       frame.skipBytes(bytesToSkipAfterReplayGain);
       int encoderDelayAndPadding = frame.readUnsignedInt24();
@@ -156,7 +156,8 @@ import androidx.media3.extractor.MpegAudioUtil;
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
-  @Nullable public Metadata getMetadata() {
+  @Nullable
+  public Metadata getMetadata() {
     if (replayGain != null) {
       return new Metadata(replayGain);
     }

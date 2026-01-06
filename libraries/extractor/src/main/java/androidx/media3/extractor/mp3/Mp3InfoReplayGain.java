@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 The Android Open Source Project
+ * Copyright 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -50,12 +51,9 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
     @IntDef(
-        value = {NAME_UNSET, NAME_RADIO, NAME_AUDIOPHILE},
+        value = {NAME_RADIO, NAME_AUDIOPHILE},
         open = true)
     public @interface Name {}
-
-    /** This gain field contains no valid data, and should be ignored. */
-    public static final int NAME_UNSET = 0;
 
     /**
      * A gain adjustment that makes all the tracks sound equally loud.
@@ -118,12 +116,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     /** This gain adjustment was automatically determined by a simple RMS algorithm. */
     public static final int ORIGINATOR_SIMPLE_RMS = 4;
 
-    /**
-     * Name/type of the gain field.
-     *
-     * <p>If equal to {@link #NAME_UNSET}, or an unknown name, the entire {@link GainField} should
-     * be ignored.
-     */
+    /** Name/type of the gain field. */
     public final @Name int name;
 
     /**
@@ -145,13 +138,31 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
      */
     public final float gain;
 
-    /** Parses an instance from the packed representation. */
     // Lint incorrectly thinks we're doing bitwise flag manipulation.
     @SuppressWarnings("WrongConstant")
-    private GainField(int field) {
-      name = (field >> 13) & 7;
-      originator = (field >> 10) & 7;
-      gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
+    private GainField(@Name int name, @Originator int originator, float gain) {
+      this.name = name;
+      this.originator = originator;
+      this.gain = gain;
+    }
+
+    /**
+     * Parses an instance from the packed representation.
+     *
+     * <p>Returns {@code null} if the representation is invalid or should be ignored (e.g. {@code
+     * name} is unset).
+     */
+    // Lint incorrectly thinks we're doing bitwise flag manipulation.
+    @SuppressWarnings("WrongConstant")
+    @Nullable
+    private static GainField parse(int field) {
+      int name = (field >> 13) & 7;
+      if (name == 0) {
+        return null;
+      }
+      int originator = (field >> 10) & 7;
+      float gain = ((field & 0x1ff) * ((field & 0x200) != 0 ? -1 : 1)) / 10f;
+      return new GainField(name, originator, gain);
     }
 
     @Override
@@ -179,17 +190,38 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
     }
   }
 
-  /** The first of two gain fields in the LAME MP3 Info header. */
-  public GainField field1;
+  /**
+   * The first of two gain fields in the LAME MP3 Info header, or null if the field is invalid or
+   * unset.
+   */
+  @Nullable public GainField field1;
 
-  /** The second of two gain fields in the LAME MP3 Info header. */
-  public GainField field2;
+  /**
+   * The second of two gain fields in the LAME MP3 Info header, or null if the field is invalid or
+   * unset.
+   */
+  @Nullable public GainField field2;
 
-  /** Creates the gain fields from the packed representation. */
-  public Mp3InfoReplayGain(float peak, int field1, int field2) {
+  private Mp3InfoReplayGain(float peak, @Nullable GainField field1, @Nullable GainField field2) {
+    checkArgument(field1 != null || field2 != null);
     this.peak = peak;
-    this.field1 = new GainField(field1);
-    this.field2 = new GainField(field2);
+    this.field1 = field1;
+    this.field2 = field2;
+  }
+
+  /**
+   * Parses an instance from the packed representation.
+   *
+   * <p>Returns null if both {@code field1} and {@code field2} are invalid or should be ignored.
+   */
+  @Nullable
+  public static Mp3InfoReplayGain parse(float peak, int field1, int field2) {
+    GainField parsedField1 = GainField.parse(field1);
+    GainField parsedField2 = GainField.parse(field2);
+    if (parsedField1 == null && parsedField2 == null) {
+      return null;
+    }
+    return new Mp3InfoReplayGain(peak, parsedField1, parsedField2);
   }
 
   @Override
@@ -217,8 +249,8 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   @Override
   public int hashCode() {
     int result = Float.hashCode(peak);
-    result = 31 * result + field1.hashCode();
-    result = 31 * result + field2.hashCode();
+    result = 31 * result + (field1 != null ? field1.hashCode() : 0);
+    result = 31 * result + (field2 != null ? field2.hashCode() : 0);
     return result;
   }
 }
