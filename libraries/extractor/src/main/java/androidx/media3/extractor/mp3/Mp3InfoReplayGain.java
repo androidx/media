@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.mp3;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -31,17 +30,6 @@ import java.util.Objects;
 /** Representation of the ReplayGain data stored in a LAME Xing or Info frame. */
 @UnstableApi
 public final class Mp3InfoReplayGain implements Metadata.Entry {
-  /**
-   * 32 bit floating point "Peak signal amplitude".
-   *
-   * <p>1.0 is maximal signal amplitude store-able in decoding format. 0.8 is 80% of maximal signal
-   * amplitude store-able in decoding format. 1.5 is 150% of maximal signal amplitude store-able in
-   * decoding format.
-   *
-   * <p>A value above 1.0 can occur for example due to "true peak" measurement. A value of 0.0 means
-   * the peak signal amplitude is unknown.
-   */
-  public final float peak;
 
   /** A gain field can store one gain adjustment with name and originator metadata. */
   public static final class GainField {
@@ -191,6 +179,18 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   }
 
   /**
+   * 32 bit floating point "Peak signal amplitude".
+   *
+   * <p>1.0 is maximal signal amplitude store-able in decoding format. 0.8 is 80% of maximal signal
+   * amplitude store-able in decoding format. 1.5 is 150% of maximal signal amplitude store-able in
+   * decoding format.
+   *
+   * <p>A value above 1.0 can occur for example due to "true peak" measurement. A value of 0.0 means
+   * the peak signal amplitude is unknown.
+   */
+  public final float peak;
+
+  /**
    * The first of two gain fields in the LAME MP3 Info header, or null if the field is invalid or
    * unset.
    */
@@ -203,7 +203,6 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   @Nullable public GainField field2;
 
   private Mp3InfoReplayGain(float peak, @Nullable GainField field1, @Nullable GainField field2) {
-    checkArgument(field1 != null || field2 != null);
     this.peak = peak;
     this.field1 = field1;
     this.field2 = field2;
