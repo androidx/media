@@ -17,6 +17,8 @@ package androidx.media3.cast
 
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.MainThread
+import androidx.annotation.VisibleForTesting
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -30,8 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.media3.common.util.BackgroundExecutor
-import androidx.media3.common.util.Log
+import androidx.media3.cast.CastContextWrapper.MediaRouteSelectorListener
 import androidx.media3.common.util.UnstableApi
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.app.MediaRouteControllerDialog
@@ -39,7 +40,6 @@ import androidx.mediarouter.app.SystemOutputSwitcherDialogController
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter.RouteInfo
 import androidx.mediarouter.media.MediaTransferReceiver
-import com.google.android.gms.cast.framework.CastContext
 
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that displays a media route
@@ -60,10 +60,13 @@ import com.google.android.gms.cast.framework.CastContext
  * ```
  *
  * @param modifier the [Modifier] to be applied to the button.
+ * @throws IllegalStateException if this method is not called on the main thread.
  */
+@MainThread
 @UnstableApi
 @Composable
 fun MediaRouteButton(modifier: Modifier = Modifier) {
+  CastUtils.verifyMainThread()
   MediaRouteButtonContainer() {
     var showDialog by remember { mutableStateOf(false) }
     IconButton(onClick = { showDialog = true }, modifier) { mediaRouteButtonIcon() }
@@ -130,18 +133,29 @@ private fun MediaRouteButtonState.MediaRouteControllerDialog(onDismissRequest: (
  * @param content The composable content to be displayed for the media route button.
  */
 @Composable
-private fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonState.() -> Unit) {
+@VisibleForTesting
+internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonState.() -> Unit) {
   val context = LocalContext.current
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
   LaunchedEffect(context) {
-    CastContext.getSharedInstance(context, BackgroundExecutor.get())
-      .addOnSuccessListener { castContext ->
-        selector = castContext.mergedSelector ?: MediaRouteSelector.EMPTY
+    val castContextWrapper = CastContextWrapper.getSingletonInstance()
+    val mediaRouteSelectorListener: MediaRouteSelectorListener =
+      object : MediaRouteSelectorListener() {
+        override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
+          selector = mediaRouteSelector
+        }
       }
-      .addOnFailureListener { e ->
-        Log.w("MediaRouteButton", "Failed to get CastContext", e)
-        selector = MediaRouteSelector.EMPTY
-      }
+    val currentSelector =
+      castContextWrapper.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
+    if (currentSelector != null) {
+      selector = currentSelector
+    }
+    if (castContextWrapper.needsInitialization()) {
+      // TODO: b/452356348 - Apps need to initialize the CastContextWrapper. The media3 needs
+      // to throws an exception if the CastContextWrapper is not initialized and there is no
+      // manifest-configured options provider for automatically initializing the CastContextWrapper.
+      castContextWrapper.asyncInit(context)
+    }
   }
   if (!selector.isEmpty) {
     rememberMediaRouteButtonState(context, selector).content()
