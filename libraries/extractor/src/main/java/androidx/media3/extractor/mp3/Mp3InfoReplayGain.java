@@ -218,7 +218,7 @@ public final class Mp3InfoReplayGain implements Metadata.Entry {
   public static Mp3InfoReplayGain parse(float peak, int field1, int field2) {
     GainField parsedField1 = GainField.parse(field1);
     GainField parsedField2 = GainField.parse(field2);
-    if (peak <= 0 || parsedField1 == null && parsedField2 == null) {
+    if (peak <= 0 && parsedField1 == null && parsedField2 == null) {
       return null;
     }
     return new Mp3InfoReplayGain(peak, parsedField1, parsedField2);
