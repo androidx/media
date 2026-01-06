@@ -16,7 +16,7 @@
 
 package androidx.media3.test.utils
 
-import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.common.util.UnstableApi
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +33,7 @@ import kotlinx.coroutines.runBlocking
  * fun myTest() = doBlocking {...}
  * ```
  */
-@ExperimentalApi
+@UnstableApi
 fun doBlocking(
   context: CoroutineContext = EmptyCoroutineContext,
   block: suspend CoroutineScope.() -> Unit,
