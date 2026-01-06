@@ -60,6 +60,7 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -93,7 +94,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Objects;
@@ -1133,10 +1133,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   /* package */ boolean onPlayRequested() {
     if (Looper.myLooper() != Looper.getMainLooper()) {
-      SettableFuture<Boolean> playRequested = SettableFuture.create();
-      mainHandler.post(() -> playRequested.set(onPlayRequested()));
       try {
-        return playRequested.get();
+        return CallbackToFutureAdapter.<Boolean>getFuture(
+                completer -> {
+                  mainHandler.post(() -> completer.set(onPlayRequested()));
+                  return "onPlayRequested";
+                })
+            .get();
       } catch (InterruptedException | ExecutionException e) {
         throw new IllegalStateException(e);
       }

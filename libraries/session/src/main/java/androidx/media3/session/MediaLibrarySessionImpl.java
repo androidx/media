@@ -21,6 +21,7 @@ import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -42,11 +43,8 @@ import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -415,37 +413,34 @@ import java.util.concurrent.Future;
   private ListenableFuture<LibraryResult<ImmutableList<MediaItem>>>
       getRecentMediaItemAtDeviceBootTime(
           ControllerInfo controller, @Nullable LibraryParams params) {
-    SettableFuture<LibraryResult<ImmutableList<MediaItem>>> settableFuture =
-        SettableFuture.create();
     controller =
         isMediaNotificationControllerConnected()
             ? checkNotNull(getMediaNotificationControllerInfo())
             : controller;
     ListenableFuture<MediaSession.MediaItemsWithStartPosition> future =
         callback.onPlaybackResumption(instance, controller, /* isForPlayback= */ false);
-    Futures.addCallback(
-        future,
-        new FutureCallback<MediaSession.MediaItemsWithStartPosition>() {
-          @Override
-          public void onSuccess(MediaSession.MediaItemsWithStartPosition playlist) {
-            if (playlist.mediaItems.isEmpty()) {
-              settableFuture.set(LibraryResult.ofError(ERROR_INVALID_STATE, params));
-              return;
-            }
-            int sanitizedStartIndex =
-                max(0, min(playlist.startIndex, playlist.mediaItems.size() - 1));
-            settableFuture.set(
-                LibraryResult.ofItemList(
-                    ImmutableList.of(playlist.mediaItems.get(sanitizedStartIndex)), params));
-          }
 
-          @Override
-          public void onFailure(Throwable t) {
-            settableFuture.set(LibraryResult.ofError(ERROR_UNKNOWN, params));
-            Log.e(TAG, "Failed fetching recent media item at boot time: " + t.getMessage(), t);
-          }
+    ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> result =
+        Futures.transform(
+            future,
+            playlist -> {
+              if (playlist.mediaItems.isEmpty()) {
+                return LibraryResult.ofError(ERROR_INVALID_STATE, params);
+              }
+              int sanitizedStartIndex =
+                  max(0, min(playlist.startIndex, playlist.mediaItems.size() - 1));
+              return LibraryResult.ofItemList(
+                  ImmutableList.of(playlist.mediaItems.get(sanitizedStartIndex)), params);
+            },
+            directExecutor());
+
+    return Futures.catching(
+        result,
+        Throwable.class,
+        t -> {
+          Log.e(TAG, "Failed fetching recent media item at boot time.", t);
+          return LibraryResult.ofError(ERROR_UNKNOWN, params);
         },
-        MoreExecutors.directExecutor());
-    return settableFuture;
+        directExecutor());
   }
 }
