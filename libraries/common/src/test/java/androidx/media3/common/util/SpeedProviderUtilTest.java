@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.SpeedProviderUtil.SpeedProviderMapper;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -31,6 +32,28 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link SpeedProviderUtil}. */
 @RunWith(AndroidJUnit4.class)
 public class SpeedProviderUtilTest {
+
+  private static final SpeedProvider MALFORMED_SPEED_PROVIDER =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          if (timeUs >= 1_000_000) {
+            return 2f;
+          }
+          return 0.5f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          // If timeUs is a speed change, the next speed change time should point to the following
+          // speed change. However, the next speed change at 1_000_000 points to itself, causing
+          // an infinite loop.
+          if (timeUs > 1_000_000) {
+            return C.TIME_UNSET;
+          }
+          return 1_000_000;
+        }
+      };
 
   @Test
   public void getDurationAfterProcessorApplied_returnsCorrectDuration() throws Exception {
@@ -44,32 +67,11 @@ public class SpeedProviderUtilTest {
 
   @Test
   public void getDurationAfterProcessorApplied_withInvalidSpeedProvider_throws() throws Exception {
-    SpeedProvider speedProvider =
-        new SpeedProvider() {
-          @Override
-          public float getSpeed(long timeUs) {
-            if (timeUs >= 1_000_000) {
-              return 2f;
-            }
-            return 0.5f;
-          }
-
-          @Override
-          public long getNextSpeedChangeTimeUs(long timeUs) {
-            // If timeUs is a speed change, the next speed change time should point to the following
-            // speed change. However, the next speed change at 1_000_000 points to itself, causing
-            // an
-            // infinite loop.
-            if (timeUs > 1_000_000) {
-              return C.TIME_UNSET;
-            }
-            return 1_000_000;
-          }
-        };
-
     assertThrows(
         IllegalStateException.class,
-        () -> getDurationAfterSpeedProviderApplied(speedProvider, /* durationUs= */ 2_000_000));
+        () ->
+            getDurationAfterSpeedProviderApplied(
+                MALFORMED_SPEED_PROVIDER, /* durationUs= */ 2_000_000));
   }
 
   @Test
@@ -230,5 +232,96 @@ public class SpeedProviderUtilTest {
 
     assertThat(getNextSpeedChangeSamplePosition(speedProvider, /* samplePosition= */ 0, sampleRate))
         .isEqualTo(4);
+  }
+
+  @Test
+  public void getAdjustedTimeUs_returnsExpectedDurations() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0, 1_000_000, 2_000_000},
+            /* speeds= */ new float[] {2, 1, 0.5f});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 0)).isEqualTo(0);
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 1_000_000)).isEqualTo(500_000);
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 2_000_000)).isEqualTo(1_500_000);
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 3_000_000)).isEqualTo(3_500_000);
+  }
+
+  @Test
+  public void getAdjustedTimeUs_withConstantSpeedOfOne_returnsSameTimestamp() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0}, /* speeds= */ new float[] {1});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 0)).isEqualTo(0);
+    // Test an arbitrarily large number.
+    assertThat(mapper.getAdjustedTimeUs(/* originalTimeUs= */ 92_345_930_932L))
+        .isEqualTo(92_345_930_932L);
+  }
+
+  @Test
+  public void getAdjustedTimeUs_withNegativeInput_throws() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0}, /* speeds= */ new float[] {1});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThrows(
+        IllegalArgumentException.class, () -> mapper.getAdjustedTimeUs(/* originalTimeUs= */ -1));
+  }
+
+  @Test
+  public void getOriginalTimeUs_returnsExpectedDurations() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0, 1_000_000, 2_000_000},
+            /* speeds= */ new float[] {2, 1, 0.5f});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 0)).isEqualTo(0);
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 500_000)).isEqualTo(1_000_000);
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 1_500_000)).isEqualTo(2_000_000);
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 3_500_000)).isEqualTo(3_000_000);
+  }
+
+  @Test
+  public void getOriginalTimeUs_withConstantSpeedOfOne_returnsSameTimestamp() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0}, /* speeds= */ new float[] {1});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 0)).isEqualTo(0);
+    // Test an arbitrarily large number.
+    assertThat(mapper.getOriginalTimeUs(/* adjustedTimeUs= */ 92_345_930_932L))
+        .isEqualTo(92_345_930_932L);
+  }
+
+  @Test
+  public void getOriginalTimeUs_withNegativeInput_throws() {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            /* startTimesUs= */ new long[] {0}, /* speeds= */ new float[] {1});
+
+    SpeedProviderMapper mapper = new SpeedProviderMapper(speedProvider);
+    assertThrows(
+        IllegalArgumentException.class, () -> mapper.getOriginalTimeUs(/* adjustedTimeUs= */ -1));
+  }
+
+  @Test
+  public void speedProviderMapper_withMalformedSpeedProvider_throws() {
+    assertThrows(
+        IllegalStateException.class, () -> new SpeedProviderMapper(MALFORMED_SPEED_PROVIDER));
+  }
+
+  @Test
+  public void speedProviderMapper_withNegativeSpeed_throws() {
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            new SpeedProviderMapper(
+                TestSpeedProvider.createWithStartTimes(new long[] {0}, new float[] {-1})));
   }
 }

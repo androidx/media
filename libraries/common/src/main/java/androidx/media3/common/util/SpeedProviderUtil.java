@@ -16,6 +16,8 @@
 package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
+import static androidx.media3.common.util.Util.getMediaDurationForPlayoutDuration;
+import static androidx.media3.common.util.Util.getPlayoutDurationForMediaDuration;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -24,6 +26,9 @@ import static java.lang.Math.min;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.SpeedProvider;
+import com.google.common.primitives.Floats;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Utilities for {@link SpeedProvider}. */
 @UnstableApi
@@ -90,5 +95,83 @@ public class SpeedProviderUtil {
 
     // Use RoundingMode#UP to return next closest sample if duration falls between samples.
     return durationUsToSampleCount(nextSpeedChangeTimeUs, sampleRate);
+  }
+
+  /**
+   * Class that maps timestamps between original media time and adjusted time after applying a
+   * {@link SpeedProvider}.
+   */
+  public static final class SpeedProviderMapper {
+    private final long[] outputSegmentStartTimesUs;
+    private final long[] inputSegmentStartTimesUs;
+    private final float[] speeds;
+
+    /**
+     * Creates an instance.
+     *
+     * @param speedProvider The {@link SpeedProvider} to map.
+     */
+    public SpeedProviderMapper(SpeedProvider speedProvider) {
+      LongArray outputSegmentStartTimesUs = new LongArray();
+      LongArray inputSegmentStartTimesUs = new LongArray();
+      List<Float> speeds = new ArrayList<>();
+
+      long lastOutputSegmentStartTimeUs = 0;
+      long lastInputSegmentStartTimeUs = 0;
+      float lastSpeed = speedProvider.getSpeed(lastInputSegmentStartTimeUs);
+      outputSegmentStartTimesUs.add(lastOutputSegmentStartTimeUs);
+      inputSegmentStartTimesUs.add(lastInputSegmentStartTimeUs);
+      speeds.add(lastSpeed);
+      long nextSpeedChangeTimeUs =
+          speedProvider.getNextSpeedChangeTimeUs(lastInputSegmentStartTimeUs);
+      checkState(lastSpeed > 0);
+
+      while (nextSpeedChangeTimeUs != C.TIME_UNSET) {
+        checkState(nextSpeedChangeTimeUs > lastInputSegmentStartTimeUs);
+        checkState(lastSpeed > 0);
+        lastOutputSegmentStartTimeUs +=
+            getPlayoutDurationForMediaDuration(
+                nextSpeedChangeTimeUs - lastInputSegmentStartTimeUs, lastSpeed);
+        lastInputSegmentStartTimeUs = nextSpeedChangeTimeUs;
+        lastSpeed = speedProvider.getSpeed(lastInputSegmentStartTimeUs);
+        outputSegmentStartTimesUs.add(lastOutputSegmentStartTimeUs);
+        inputSegmentStartTimesUs.add(lastInputSegmentStartTimeUs);
+        speeds.add(lastSpeed);
+        nextSpeedChangeTimeUs = speedProvider.getNextSpeedChangeTimeUs(lastInputSegmentStartTimeUs);
+      }
+      this.outputSegmentStartTimesUs = outputSegmentStartTimesUs.toArray();
+      this.inputSegmentStartTimesUs = inputSegmentStartTimesUs.toArray();
+      this.speeds = Floats.toArray(speeds);
+    }
+
+    /** Returns the adjusted time in microseconds for a given original media time. */
+    public long getAdjustedTimeUs(long originalTimeUs) {
+      checkArgument(originalTimeUs != C.TIME_UNSET && originalTimeUs != C.TIME_END_OF_SOURCE);
+      checkArgument(originalTimeUs >= 0);
+      int index =
+          Util.binarySearchFloor(
+              inputSegmentStartTimesUs,
+              originalTimeUs,
+              /* inclusive= */ true,
+              /* stayInBounds= */ true);
+      return outputSegmentStartTimesUs[index]
+          + getPlayoutDurationForMediaDuration(
+              originalTimeUs - inputSegmentStartTimesUs[index], speeds[index]);
+    }
+
+    /** Returns the original media time in microseconds for a given adjusted time. */
+    public long getOriginalTimeUs(long adjustedTimeUs) {
+      checkArgument(adjustedTimeUs != C.TIME_UNSET && adjustedTimeUs != C.TIME_END_OF_SOURCE);
+      checkArgument(adjustedTimeUs >= 0);
+      int index =
+          Util.binarySearchFloor(
+              outputSegmentStartTimesUs,
+              adjustedTimeUs,
+              /* inclusive= */ true,
+              /* stayInBounds= */ true);
+      return inputSegmentStartTimesUs[index]
+          + getMediaDurationForPlayoutDuration(
+              adjustedTimeUs - outputSegmentStartTimesUs[index], speeds[index]);
+    }
   }
 }
