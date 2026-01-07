@@ -19,13 +19,18 @@ import static androidx.media3.cast.CastUtils.verifyMainThread;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
+import android.app.Application;
 import android.content.Context;
+import android.os.Build.VERSION;
+import android.os.Build.VERSION_CODES;
+import android.text.TextUtils;
 import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.mediarouter.media.MediaRouteSelector;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
@@ -37,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -45,13 +51,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Optionally performs the loading of the Cast context asynchronously, hiding asynchrony from
  * clients.
  *
- * <p>Must be called on the main thread.
+ * <p>Must be called on the main process and the main thread.
  */
 @MainThread
 @UnstableApi
 public class CastContextWrapper {
 
   private static final String TAG = "CastContextWrapper";
+  /* package */ static final String MESSAGE_MUST_BE_CREATED_WITH_CONTEXT =
+      "CastContextWrapper must be created via getSingletonInstance(Context).";
+  /* package */ static final String MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS =
+      "The method must be called on the main process (%s), but "
+          + "was called on the process (%s).";
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
@@ -62,15 +73,29 @@ public class CastContextWrapper {
 
   private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
 
+  @Nullable private final Context context;
   @Nullable private CastContext castContext;
   private @MonotonicNonNull Throwable castContextLoadFailure;
   private boolean isInitOngoing;
 
-  /** Returns a singleton instance of {@link CastContextWrapper}. */
-  public static CastContextWrapper getSingletonInstance() {
+  /**
+   * Returns a singleton instance of {@link CastContextWrapper}.
+   *
+   * @param context A {@link Context}.
+   */
+  public static CastContextWrapper getSingletonInstance(Context context) {
     verifyMainThread();
     if (singletonInstance == null) {
-      singletonInstance = new CastContextWrapper();
+      singletonInstance = new CastContextWrapper(context);
+    }
+    return singletonInstance;
+  }
+
+  /** Returns a singleton instance of {@link CastContextWrapper}. */
+  /* package */ static CastContextWrapper getSingletonInstance() {
+    verifyMainThread();
+    if (singletonInstance == null) {
+      singletonInstance = new CastContextWrapper(/* context= */ null);
     }
     return singletonInstance;
   }
@@ -98,10 +123,15 @@ public class CastContextWrapper {
    *
    * <p>Cast context loading is offloaded to {@link BackgroundExecutor}.
    *
-   * @param context A {@link Context}.
+   * @throws NullPointerException if the {@link CastContextWrapper} is not created via {@link
+   *     #getSingletonInstance(Context)}.
    */
-  public void asyncInit(Context context) {
-    asyncInit(() -> CastContext.getSharedInstance(context, BackgroundExecutor.get()));
+  public void asyncInit() {
+    asyncInit(
+        () ->
+            CastContext.getSharedInstance(
+                checkNotNull(context, MESSAGE_MUST_BE_CREATED_WITH_CONTEXT),
+                BackgroundExecutor.get()));
   }
 
   @VisibleForTesting
@@ -255,7 +285,9 @@ public class CastContextWrapper {
     pendingMediaRouteSelectorListeners.clear();
   }
 
-  private CastContextWrapper() {
+  private CastContextWrapper(@Nullable Context context) {
+    checkRunningOnMainProcess(context);
+    this.context = (context != null) ? context.getApplicationContext() : null;
     pendingListeners = new ArrayList<>();
     pendingMediaRouteSelectorListeners = new HashSet<>();
   }
@@ -264,6 +296,35 @@ public class CastContextWrapper {
   /* package */ static void reset() {
     verifyMainThread();
     singletonInstance = null;
+  }
+
+  /**
+   * Verifies that this {@link CastContextWrapper} instance is executing on the application's main
+   * process.
+   *
+   * <p>This verification is crucial because both the underlying {@link CastContext} and Android's
+   * {@link androidx.mediarouter.media.MediaRouter} are designed to operate exclusively on the main
+   * process. Failure to do so will lead to unpredictable behavior.
+   *
+   * @param context The application context.
+   * @throws IllegalStateException if the active process is not the application's main process.
+   */
+  private void checkRunningOnMainProcess(
+      @UnderInitialization CastContextWrapper this, @Nullable Context context) {
+    if (context == null) {
+      return;
+    }
+    // Only check on Android P and above because apps must support newer versions of Android. This
+    // check should be sufficient to ensure that the app is running in the main process.
+    if (VERSION.SDK_INT >= VERSION_CODES.P) {
+      String mainProcessName = context.getPackageName();
+      String processName = Application.getProcessName();
+      if (!TextUtils.equals(processName, mainProcessName)) {
+        throw new IllegalStateException(
+            Util.formatInvariant(
+                MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS, mainProcessName, processName));
+      }
+    }
   }
 
   @VisibleForTesting

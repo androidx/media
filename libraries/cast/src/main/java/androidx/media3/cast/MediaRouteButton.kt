@@ -138,7 +138,7 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
   val context = LocalContext.current
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
   LaunchedEffect(context) {
-    val castContextWrapper = CastContextWrapper.getSingletonInstance()
+    val castContextWrapper = CastContextWrapper.getSingletonInstance(context)
     val mediaRouteSelectorListener: MediaRouteSelectorListener =
       object : MediaRouteSelectorListener() {
         override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
@@ -154,7 +154,7 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
       // TODO: b/452356348 - Apps need to initialize the CastContextWrapper. The media3 needs
       // to throws an exception if the CastContextWrapper is not initialized and there is no
       // manifest-configured options provider for automatically initializing the CastContextWrapper.
-      castContextWrapper.asyncInit(context)
+      castContextWrapper.asyncInit()
     }
   }
   if (!selector.isEmpty) {

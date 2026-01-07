@@ -257,7 +257,7 @@ public final class MediaRouteButtonFactory {
    */
   private static ListenableFuture<Void> setUpMediaRouteButton(
       Context context, Consumer<MediaRouteSelector> onCompletion) {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
     return CallbackToFutureAdapter.getFuture(
         completer -> {
           final MediaRouteSelectorListener mediaRouteSelectorListener =
@@ -286,7 +286,7 @@ public final class MediaRouteButtonFactory {
           if (castContextWrapper.needsInitialization()) {
             // TODO: b/452356348 - Apps need to initialize the CastContextWrapper. The media3 needs
             // to throws an exception if the CastContextWrapper is not initialized.
-            castContextWrapper.asyncInit(context);
+            castContextWrapper.asyncInit();
           }
           completer.addCancellationListener(
               () -> castContextWrapper.unregisterListener(mediaRouteSelectorListener),

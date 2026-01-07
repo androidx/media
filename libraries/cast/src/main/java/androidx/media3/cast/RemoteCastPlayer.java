@@ -42,7 +42,6 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
-import androidx.core.util.Preconditions;
 import androidx.media3.cast.CastTrackSelector.CastTrackSelectorRequest;
 import androidx.media3.cast.CastTrackSelector.CastTrackSelectorResult;
 import androidx.media3.cast.CastTrackSelector.TrackSelectionRequestReason;
@@ -366,7 +365,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private RemoteCastPlayer(Builder builder) {
     this(
         builder.context,
-        CastContextWrapper.getSingletonInstance(),
+        CastContextWrapper.getSingletonInstance(builder.context),
         builder.mediaItemConverter,
         builder.trackSelector,
         builder.seekBackIncrementMs,
@@ -436,9 +435,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekPositionMs = C.TIME_UNSET;
 
     if (castContextWrapper.needsInitialization()) {
-      Preconditions.checkNotNull(
-          context, "A context is mandatory if the CastContextWrapper is not initialized.");
-      castContextWrapper.asyncInit(context);
+      castContextWrapper.asyncInit();
     }
     castContextWrapper.addSessionManagerListener(statusListener);
     setCastSession(castContextWrapper.getCurrentCastSession());

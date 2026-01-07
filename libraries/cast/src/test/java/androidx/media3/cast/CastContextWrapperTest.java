@@ -16,6 +16,7 @@
 package androidx.media3.cast;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -23,9 +24,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.app.Application;
+import android.content.Context;
+import android.os.Build.VERSION_CODES;
 import androidx.annotation.Nullable;
 import androidx.media3.cast.CastContextWrapper.MediaRouteSelectorListener;
 import androidx.mediarouter.media.MediaRouteSelector;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
@@ -43,6 +48,8 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link CastContextWrapper}. */
@@ -58,11 +65,13 @@ public final class CastContextWrapperTest {
   @Mock private SessionManagerListener<CastSession> mockListener;
   @Mock private CastContextWrapper.CastContextInitializer mockCastContextInitializer;
   @Mock private MediaRouteSelectorListener mockMediaRouteSelectorListener;
+  private Context context;
   private MediaRouteSelector mediaRouteSelector;
   private TaskCompletionSource<CastContext> castContextTaskCompletionSource;
 
   @Before
   public void setUp() {
+    context = ApplicationProvider.getApplicationContext();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     castContextTaskCompletionSource = new TaskCompletionSource<>();
     when(mockCastContextInitializer.init()).thenReturn(castContextTaskCompletionSource.getTask());
@@ -204,7 +213,7 @@ public final class CastContextWrapperTest {
 
   @Test
   public void asyncInit_successful_initializesContext() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
     castContextWrapper.addSessionManagerListener(mockListener);
     castContextWrapper.asyncInit(mockCastContextInitializer);
     assertThat(castContextWrapper.needsInitialization()).isFalse();
@@ -225,7 +234,7 @@ public final class CastContextWrapperTest {
 
   @Test
   public void asyncInit_failure_setsFailure() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
     castContextWrapper.asyncInit(mockCastContextInitializer);
     assertThat(castContextWrapper.needsInitialization()).isFalse();
 
@@ -239,12 +248,64 @@ public final class CastContextWrapperTest {
 
   @Test
   public void asyncInit_alreadyInitialized_doesNothing() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
     castContextWrapper.initWithContext(mockCastContext);
 
     castContextWrapper.asyncInit(mockCastContextInitializer);
 
     verify(mockCastContextInitializer, never()).init();
+  }
+
+  @Test
+  public void asyncInit_withoutContext_throwsException() {
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+
+    NullPointerException exception =
+        assertThrows(NullPointerException.class, () -> castContextWrapper.asyncInit());
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(CastContextWrapper.MESSAGE_MUST_BE_CREATED_WITH_CONTEXT);
+  }
+
+  @Test
+  @Config(minSdk = VERSION_CODES.P)
+  public void constructor_withContext_notOnMainProcess_throwsException() {
+    final String mainProcessName = context.getPackageName();
+    final String backgroundProcessName = mainProcessName + ":background";
+    final String originalProcessName = Application.getProcessName();
+    // Configure the ShadowApplication to return on the background process.
+    ShadowApplication.setProcessName(backgroundProcessName);
+
+    try {
+      IllegalStateException exception =
+          assertThrows(
+              IllegalStateException.class, () -> CastContextWrapper.getSingletonInstance(context));
+      assertThat(exception)
+          .hasMessageThat()
+          .contains(
+              String.format(
+                  CastContextWrapper.MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS,
+                  mainProcessName,
+                  backgroundProcessName));
+    } finally {
+      ShadowApplication.setProcessName(originalProcessName);
+    }
+  }
+
+  @Test
+  @Config(minSdk = VERSION_CODES.P)
+  public void constructor_withoutContext_notOnMainProcess_doesNotThrowException() {
+    final String mainProcessName = context.getPackageName();
+    final String backgroundProcessName = mainProcessName + ":background";
+    final String originalProcessName = Application.getProcessName();
+    // Configure the ShadowApplication to return on the background process.
+    ShadowApplication.setProcessName(backgroundProcessName);
+
+    try {
+      CastContextWrapper unused = CastContextWrapper.getSingletonInstance();
+    } finally {
+      ShadowApplication.setProcessName(originalProcessName);
+    }
   }
 
   @Test
