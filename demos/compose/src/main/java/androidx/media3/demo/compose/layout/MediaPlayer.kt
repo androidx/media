@@ -56,14 +56,12 @@ internal fun MediaPlayer(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  onContentClick: () -> Unit = {},
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
   controls: @Composable BoxScope.() -> Unit,
 ) {
   Box(modifier) {
     ContentFrame(
       player = player,
-      modifier = Modifier.noRippleClickable { onContentClick() },
       surfaceType = surfaceType,
       contentScale = contentScale,
       keepContentOnReset = keepContentOnReset,
