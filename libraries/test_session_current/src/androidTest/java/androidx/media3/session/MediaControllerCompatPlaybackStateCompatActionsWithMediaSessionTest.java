@@ -1986,6 +1986,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     List<PlaybackStateCompat.CustomAction> customActions1 =
         controllerCompat.getPlaybackState().getCustomActions();
     Bundle extras1 = controllerCompat.getExtras();
+    if (extras1 == null) {
+      extras1 = new Bundle();
+    }
     long actions1 = controllerCompat.getPlaybackState().getActions();
     controllerCompat.registerCallback(controllerCallback, threadTestRule.getHandler());
     mediaSession.setMediaButtonPreferences(mediaButtonPreferencesWithoutBackForward);
@@ -1993,6 +1996,9 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     List<PlaybackStateCompat.CustomAction> customActions2 =
         controllerCompat.getPlaybackState().getCustomActions();
     Bundle extras2 = controllerCompat.getExtras();
+    if (extras2 == null) {
+      extras2 = new Bundle();
+    }
     long actions2 = controllerCompat.getPlaybackState().getActions();
     mediaSession.release();
     releasePlayer(player);
@@ -2025,9 +2031,88 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
             extras2.getBoolean(
                 androidx.media.utils.MediaConstants
                     .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
-        .isTrue();
+        .isFalse();
     assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT).isNotEqualTo(0);
     assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isNotEqualTo(0);
+  }
+
+  @Test
+  public void
+      playerWithMediaButtonPreferences_withForwardAndOverflowSlotsOnly_overridesPrevNextActionsWhenNeeded()
+          throws Exception {
+    Player player =
+        createPlayer(
+            /* onPostCreationTask= */ createdPlayer -> {
+              createdPlayer.setMediaItems(
+                  ImmutableList.of(
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav"),
+                      MediaItem.fromUri("asset:///media/wav/sample.wav")));
+              createdPlayer.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+            });
+    SessionCommand command1 = new SessionCommand("command1", Bundle.EMPTY);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button1")
+                .setSessionCommand(command1)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_PAUSE)
+                .setDisplayName("button2")
+                .setSessionCommand(command2)
+                .setSlots(CommandButton.SLOT_FORWARD)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new AcceptedResultBuilder(session)
+                .setAvailablePlayerCommands(Player.Commands.EMPTY)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS
+                        .buildUpon()
+                        .add(command1)
+                        .add(command2)
+                        .build())
+                .build();
+          }
+        };
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setCallback(callback)
+            .setMediaButtonPreferences(mediaButtonPreferences)
+            .build();
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    List<PlaybackStateCompat.CustomAction> customActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+    Bundle extras = controllerCompat.getExtras();
+    if (extras == null) {
+      extras = new Bundle();
+    }
+    long actions = controllerCompat.getPlaybackState().getActions();
+    mediaSession.release();
+    releasePlayer(player);
+
+    assertThat(customActions).hasSize(2);
+    assertThat(customActions.get(0).getAction()).isEqualTo("command2");
+    assertThat(customActions.get(1).getAction()).isEqualTo("command1");
+    assertThat(
+            extras.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV))
+        .isTrue();
+    assertThat(
+            extras.getBoolean(
+                androidx.media.utils.MediaConstants
+                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
+        .isFalse();
+    assertThat(actions & PlaybackStateCompat.ACTION_SKIP_TO_NEXT).isEqualTo(0);
+    assertThat(actions & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isEqualTo(0);
   }
 
   @Test
