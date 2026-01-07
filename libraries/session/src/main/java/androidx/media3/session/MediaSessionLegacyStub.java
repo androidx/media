@@ -1268,12 +1268,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             /* backSlotAllowed= */ true,
             /* forwardSlotAllowed= */ true,
             MediaLibraryInfo.INTERFACE_VERSION);
+    // If no custom back slot button is defined and other custom forward or overflow buttons exist,
+    // we need to reserve the back slot to prevent the other buttons from moving into this slot. The
+    // forward slot should never be reserved to avoid gaps in the output. We explicitly clear the
+    // value to avoid any manually defined extras to interfere with our logic.
+    boolean reserveBackSpaceSlot =
+        !customLayout.isEmpty()
+            && !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
     legacyExtras.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
-        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));
-    legacyExtras.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
-        !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD));
+        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, reserveBackSpaceSlot);
+    legacyExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, false);
   }
 
   private static MediaItem createMediaItemForMediaRequest(
@@ -1864,11 +1868,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           convertCommandToPlaybackStateActions(availableCommands.get(i), shouldShowPlayButton);
     }
     if (!mediaButtonPreferences.isEmpty()
-        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV)) {
+        && CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK)) {
       actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
     }
     if (!mediaButtonPreferences.isEmpty()
-        && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT)) {
+        && CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD)) {
       actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
     }
     if (!canReadPositions) {

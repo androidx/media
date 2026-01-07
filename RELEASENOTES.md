@@ -102,6 +102,9 @@
     *   Add additional verifications on `extras` `Bundle` instances in various
         classes to guard against malformed `Bundle` instances sent from other
         processes.
+    *   Fix issue where missing commands for `COMMAND_SEEK_NEXT` or
+        `COMMAND_SEEK_BACK` can cause gaps in the system media notification
+        ([#2976](https://github.com/androidx/media/issues/2976)).
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.
