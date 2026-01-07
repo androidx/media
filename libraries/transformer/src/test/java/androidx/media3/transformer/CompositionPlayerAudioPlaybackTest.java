@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
@@ -54,6 +55,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
@@ -77,6 +79,25 @@ public final class CompositionPlayerAudioPlaybackTest {
 
         @Override
         public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
+
+  private static final SpeedProvider SPEED_PROVIDER_MULTIPLE_SPEEDS =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          if (timeUs >= 500_000) {
+            return 0.5f;
+          }
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          if (timeUs < 500_000) {
+            return 500_000;
+          }
           return C.TIME_UNSET;
         }
       };
@@ -976,6 +997,88 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
+  public void seek_withSpeedAdjustedRawAudioStream_appliesCorrectSpeedRegion() throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    AtomicInteger bytesRead = new AtomicInteger();
+    AudioProcessor byteCountingAudioProcessor = createByteCountingAudioProcessor(bytesRead);
+    EditedMediaItem normalSpeedItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+    EditedMediaItem item =
+        normalSpeedItem
+            .buildUpon()
+            .setEffects(fromProcessors(processor, byteCountingAudioProcessor))
+            .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(normalSpeedItem, item)))
+            .build();
+
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setComposition(composition);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 1250);
+    play(player).untilState(Player.STATE_ENDED);
+
+    // The audio pipeline calls an additional flush with a position offset of 0 before it knows the
+    // actual position offset. Seek position 1250ms maps to speed adjusted position 250ms within the
+    // second item.
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 250_000L).inOrder();
+    assertThat(bytesRead.get() / 2).isEqualTo(44100);
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "seek_withSpeedAdjustedRawAudioStream_appliesCorrectSpeedRegion.dump");
+  }
+
+  @Test
+  public void seek_withClippedSpeedAdjustedRawAudioStream_appliesCorrectSpeedRegion()
+      throws Exception {
+    PositionOffsetRecorder processor = new PositionOffsetRecorder();
+    AtomicInteger bytesRead = new AtomicInteger();
+    AudioProcessor byteCountingAudioProcessor = createByteCountingAudioProcessor(bytesRead);
+    EditedMediaItem normalSpeedItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(WAV_ASSET.uri)
+                    .setClippingConfiguration(
+                        new ClippingConfiguration.Builder().setStartPositionMs(100).build())
+                    .build())
+            .setDurationUs(1_000_000)
+            .setEffects(fromProcessors(processor, byteCountingAudioProcessor))
+            .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(normalSpeedItem, item)))
+            .build();
+
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setComposition(composition);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 1100);
+    play(player).untilState(Player.STATE_ENDED);
+
+    // The audio pipeline calls an additional flush with a position offset of 0 before it knows the
+    // actual position offset. Seek position 1100ms maps to speed adjusted and clipped position
+    // 100ms within the second item.
+    assertThat(processor.positionOffsetsUs).containsExactly(0L, 100_000L).inOrder();
+    assertThat(bytesRead.get() / 2).isWithin(1).of(41895);
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "seek_withClippedSpeedAdjustedRawAudioStream_appliesCorrectSpeedRegion.dump");
+  }
+
+  @Test
   public void seek_withSpeedAdjustedAndClippedRawAudioStream_signalsSeekPositionAsPositionOffset()
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
@@ -1070,6 +1173,10 @@ public final class CompositionPlayerAudioPlaybackTest {
     public void reset() {
       wrappedAudioMixer.reset();
     }
+  }
+
+  private static Effects fromProcessors(AudioProcessor... processors) {
+    return new Effects(ImmutableList.copyOf(processors), ImmutableList.of());
   }
 
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {

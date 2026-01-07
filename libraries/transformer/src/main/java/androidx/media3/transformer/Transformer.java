@@ -1433,7 +1433,7 @@ public final class Transformer {
 
   private static EditedMediaItem addSpeedChangingEffects(EditedMediaItem item) {
     SpeedChangingAudioProcessor processor =
-        new SpeedChangingAudioProcessor(item.speedProvider, /* shouldAdjustTimestamps= */ false);
+        new SpeedChangingAudioProcessor(item.speedProvider, /* areInputTimestampsAdjusted= */ true);
     return item.buildUpon().setPreProcessingAudioProcessors(ImmutableList.of(processor)).build();
   }
 

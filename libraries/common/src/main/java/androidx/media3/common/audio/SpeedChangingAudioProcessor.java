@@ -34,6 +34,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.SpeedProviderUtil;
+import androidx.media3.common.util.SpeedProviderUtil.SpeedProviderMapper;
 import androidx.media3.common.util.TimestampConsumer;
 import androidx.media3.common.util.UnstableApi;
 import java.math.RoundingMode;
@@ -68,7 +69,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   @GuardedBy("lock")
   private final Queue<TimestampConsumer> pendingCallbacks;
 
-  private final boolean shouldAdjustTimestamps;
+  private final boolean areInputTimestampsAdjusted;
+  private final SpeedProviderMapper speedProviderMapper;
 
   private float currentSpeed;
   private long framesRead;
@@ -84,30 +86,32 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   /** Creates a new instance. */
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
-    this(speedProvider, /* shouldAdjustTimestamps= */ true);
+    this(speedProvider, /* areInputTimestampsAdjusted= */ false);
   }
 
   /**
    * Creates a new instance.
    *
    * @param speedProvider The {@link SpeedProvider} to apply over the audio stream.
-   * @param shouldAdjustTimestamps Whether the processor should adjust the {@linkplain
-   *     #getDurationAfterProcessorApplied audio stream's timestamps}.
+   * @param areInputTimestampsAdjusted Whether the timestamps fed to the processor have already been
+   *     speed adjusted and the processor should not adjust them again.
    */
   @RestrictTo(Scope.LIBRARY_GROUP)
-  public SpeedChangingAudioProcessor(SpeedProvider speedProvider, boolean shouldAdjustTimestamps) {
+  public SpeedChangingAudioProcessor(
+      SpeedProvider speedProvider, boolean areInputTimestampsAdjusted) {
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     inputAudioFormat = AudioFormat.NOT_SET;
 
     this.speedProvider = speedProvider;
+    this.speedProviderMapper = new SpeedProviderMapper(speedProvider);
     lock = new Object();
     sonicAudioProcessor =
         new SynchronizedSonicAudioProcessor(lock, /* keepActiveWithDefaultParameters= */ true);
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
     currentSpeed = 1f;
-    this.shouldAdjustTimestamps = shouldAdjustTimestamps;
+    this.areInputTimestampsAdjusted = areInputTimestampsAdjusted;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -160,10 +164,12 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
-    if (shouldAdjustTimestamps) {
-      return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    if (areInputTimestampsAdjusted) {
+      return durationUs;
     }
-    return durationUs;
+    // TODO: b/473853921 - Migrate to SpeedProviderMapper after unexpected dynamic SpeedProvider
+    // changes are removed.
+    return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
   }
 
   @Override
@@ -230,8 +236,11 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
       inputAudioFormat = pendingInputAudioFormat;
       sonicAudioProcessor.flush(streamMetadata);
       processPendingCallbacks();
-      framesRead =
-          durationUsToSampleCount(streamMetadata.positionOffsetUs, inputAudioFormat.sampleRate);
+      long positionOffsetUs = streamMetadata.positionOffsetUs;
+      if (areInputTimestampsAdjusted) {
+        positionOffsetUs = speedProviderMapper.getOriginalTimeUs(streamMetadata.positionOffsetUs);
+      }
+      framesRead = durationUsToSampleCount(positionOffsetUs, inputAudioFormat.sampleRate);
     }
   }
 
