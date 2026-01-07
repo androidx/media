@@ -62,6 +62,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
+    implementation project(modulePrefix + 'lib-effect-lottie')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
     implementation project(modulePrefix + 'lib-muxer')

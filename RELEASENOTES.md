@@ -68,6 +68,12 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Moved `LottieOverlay` to a new `:media3-effect-lottie` module (which
+        also involved renaming it from `androidx.media3.effect.LottieOverlay` to
+        `androidx.media3.effect.lottie.LottieOverlay`).
+*   Effect Lottie:
+    *   Introduced a new `:media3-effect-lottie` module which provides
+        functionality for applying lottie effects to video frames.
 *   Muxers:
 *   IMA extension:
     *   Bug fix: Corrected an issue where the ad MIME type did not match the

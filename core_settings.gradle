@@ -99,6 +99,9 @@ project(modulePrefix + 'lib-cast').projectDir = new File(rootDir, 'libraries/cas
 include modulePrefix + 'lib-effect'
 project(modulePrefix + 'lib-effect').projectDir = new File(rootDir, 'libraries/effect')
 
+include modulePrefix + 'lib-effect-lottie'
+project(modulePrefix + 'lib-effect-lottie').projectDir = new File(rootDir, 'libraries/effect_lottie')
+
 include modulePrefix + 'lib-inspector'
 project(modulePrefix + 'lib-inspector').projectDir = new File(rootDir, 'libraries/inspector')
 

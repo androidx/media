@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.effect.lottie;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -22,7 +22,7 @@ import android.graphics.Typeface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
-import androidx.media3.effect.LottieOverlay.LottieProvider;
+import androidx.media3.effect.StaticOverlaySettings;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.airbnb.lottie.ImageAssetDelegate;
 import com.airbnb.lottie.LottieComposition;
@@ -193,7 +193,7 @@ public final class LottieOverlayTest {
   }
 
   /** A simple, mock implementation of LottieProvider for testing. */
-  private static class TestLottieProvider implements LottieProvider {
+  private static class TestLottieProvider implements LottieOverlay.LottieProvider {
     private final LottieComposition composition;
     private final ImageAssetDelegate assetDelegate;
     private final Map<String, Typeface> fontMap;

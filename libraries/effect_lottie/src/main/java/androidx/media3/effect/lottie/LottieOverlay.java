@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.effect.lottie;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
@@ -27,6 +27,8 @@ import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.CanvasOverlay;
+import androidx.media3.effect.StaticOverlaySettings;
 import com.airbnb.lottie.ImageAssetDelegate;
 import com.airbnb.lottie.LottieComposition;
 import com.airbnb.lottie.LottieDrawable;

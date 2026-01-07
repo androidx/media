@@ -24,7 +24,7 @@ import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.LottieOverlay
+import androidx.media3.effect.lottie.LottieOverlay
 import com.airbnb.lottie.ImageAssetDelegate
 import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieImageAsset
