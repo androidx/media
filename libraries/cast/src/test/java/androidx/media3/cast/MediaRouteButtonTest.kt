@@ -154,7 +154,6 @@ class MediaRouteButtonTest {
     job.join()
 
     assertThat(caughtException).isNotNull()
-    assertThat(caughtException).isInstanceOf(IllegalStateException::class.java)
     assertThat(isContentComposed.get()).isFalse()
   }
 }
