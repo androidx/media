@@ -654,11 +654,14 @@ public final class FrameExtractorInternal {
     @Override
     protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
         Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
-      if (glObjectsProvider == null) {
-        return super.createPlaybackVideoGraphWrapper(context, videoFrameReleaseControl);
-      }
+      // Avoid calling super.createPlaybackVideoGraphWrapper() to bypass reflection. Direct
+      // instantiation makes the dependency explicit to R8's static analysis, ensuring required
+      // classes are preserved.
       DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
-          new DefaultVideoFrameProcessor.Factory.Builder().setGlObjectsProvider(glObjectsProvider);
+          new DefaultVideoFrameProcessor.Factory.Builder();
+      if (glObjectsProvider != null) {
+        videoFrameProcessorFactoryBuilder.setGlObjectsProvider(glObjectsProvider);
+      }
       VideoGraph.Factory videoGraphFactory =
           new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
       return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
