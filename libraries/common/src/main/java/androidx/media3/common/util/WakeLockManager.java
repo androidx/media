@@ -161,7 +161,11 @@ public final class WakeLockManager {
       }
     }
 
-    private synchronized void forceReleaseWakeLock() {
+    private void forceReleaseWakeLock() {
+      new Thread(this::forceReleaseWakeLockInternal, WAKE_LOCK_TAG).start();
+    }
+
+    private synchronized void forceReleaseWakeLockInternal() {
       if (wakeLock != null) {
         wakeLock.release();
       }

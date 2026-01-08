@@ -157,7 +157,11 @@ public final class WifiLockManager {
       }
     }
 
-    private synchronized void forceReleaseWifiLock() {
+    private void forceReleaseWifiLock() {
+      new Thread(this::forceReleaseWifiLockInternal, WIFI_LOCK_TAG).start();
+    }
+
+    private synchronized void forceReleaseWifiLockInternal() {
       if (wifiLock != null) {
         wifiLock.release();
       }

@@ -38,6 +38,8 @@
     *   Avoid leaking `MediaItem` instances when repeatedly using
         `ExoPlayer.replaceMediaItem` on the same item
         ([#2993](https://github.com/androidx/media/issues/2993)).
+    *   Prevent potential ANRs caused by emergency wake lock releases
+        ([#2979](https://github.com/androidx/media/issues/2979)).
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:

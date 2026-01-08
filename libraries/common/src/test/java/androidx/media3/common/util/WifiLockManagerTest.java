@@ -94,7 +94,7 @@ public class WifiLockManagerTest {
   }
 
   @Test
-  public void blockedWakeLockThread_wifiLockIsStillReleasedAfterTimeout() {
+  public void blockedWakeLockThread_wifiLockIsStillReleasedAfterTimeout() throws Exception {
     WifiLockManager wifiLockManager =
         new WifiLockManager(context, handlerThread.getLooper(), Clock.DEFAULT);
     wifiLockManager.setEnabled(true);
@@ -115,6 +115,7 @@ public class WifiLockManagerTest {
     assertThat(shadowOf(wifiManager).getActiveLockCount()).isEqualTo(lockCountWhenEnabled);
     ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
     ShadowLooper.idleMainLooper();
+    Thread.sleep(50); // Waiting for a background thread we can't control, so do a real time sleep.
 
     assertThat(shadowOf(wifiManager).getActiveLockCount()).isLessThan(lockCountWhenEnabled);
 
