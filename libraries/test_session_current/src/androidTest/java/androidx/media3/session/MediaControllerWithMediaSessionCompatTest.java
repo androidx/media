@@ -142,6 +142,7 @@ public class MediaControllerWithMediaSessionCompatTest {
   @After
   public void cleanUp() throws Exception {
     session.cleanUp();
+    MediaTestUtils.cleanPotentiallyCorruptedArrayMapCache();
   }
 
   @Test

@@ -21,12 +21,18 @@ import android.os.Bundle;
 import android.os.Parcel;
 import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test for {@link MediaTestUtils}. */
 @RunWith(AndroidJUnit4.class)
 public class MediaTestUtilsTest {
+
+  @After
+  public void cleanUp() throws Exception {
+    MediaTestUtils.cleanPotentiallyCorruptedArrayMapCache();
+  }
 
   @Test
   public void createInvalidBundle_afterWritingToParcel_isDetectedAsInvalid() {

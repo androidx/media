@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ALBUM_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIST;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
@@ -33,6 +34,7 @@ import android.os.Parcel;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
+import android.util.ArrayMap;
 import androidx.annotation.Nullable;
 import androidx.media.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.common.C;
@@ -51,6 +53,7 @@ import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -390,6 +393,10 @@ public final class MediaTestUtils {
    *
    * <p>Accessing this {@link Bundle} after reading it from a {@link android.os.Parcel} will throw
    * an exception.
+   *
+   * <p>Using this method may permanently corrupt {@link Bundle} and {@link ArrayMap} instances for
+   * this process on API 28 or below. Call {@link #cleanPotentiallyCorruptedArrayMapCache()} as a
+   * clean up step after using this method in a test.
    */
   public static Bundle createInvalidBundle() {
     Bundle invalid = null;
@@ -397,6 +404,36 @@ public final class MediaTestUtils {
       invalid = tryCreateInvalidBundle();
     }
     return invalid;
+  }
+
+  /**
+   * On API 28 or below, {@link ArrayMap} caches may be corrupted with no automatic clean-up and
+   * detection. Use this method to manually clean the caches to avoid unintended side effects.
+   *
+   * <p>This method should always be called as a clean up step after {@link #createInvalidBundle()}
+   * was used in a test.
+   */
+  public static void cleanPotentiallyCorruptedArrayMapCache() {
+    if (SDK_INT >= 29) {
+      // ArrayMap automatically detects and ignores invalid caches from API 29.
+      return;
+    }
+    try {
+      Class<?> arrayMapClass = ArrayMap.class;
+      setStaticField(arrayMapClass, "mBaseCache", null);
+      setStaticField(arrayMapClass, "mTwiceBaseCache", null);
+      setStaticField(arrayMapClass, "mBaseCacheSize", 0);
+      setStaticField(arrayMapClass, "mTwiceBaseCacheSize", 0);
+    } catch (ReflectiveOperationException e) {
+      throw new IllegalStateException(e); // Shouldn't happen, these fields exist on all versions
+    }
+  }
+
+  private static void setStaticField(Class<?> clazz, String fieldName, @Nullable Object value)
+      throws ReflectiveOperationException {
+    Field baseCacheField = clazz.getDeclaredField(fieldName);
+    baseCacheField.setAccessible(true);
+    baseCacheField.set(null, value);
   }
 
   private static Bundle tryCreateInvalidBundle() {
