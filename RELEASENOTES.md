@@ -20,6 +20,9 @@
     *   Fix bug where loading continues after playback ended when removing the
         currently playing item from a playlist
         ([#2873](https://github.com/androidx/media/issues/2873)).
+    *   Avoid leaking `MediaItem` instances when repeatedly using
+        `ExoPlayer.replaceMediaItem` on the same item
+        ([#2993](https://github.com/androidx/media/issues/2993)).
 *   Extractors:
     *   MP3: Parse LAME ReplayGain data
         ([#2840](https://github.com/androidx/media/pull/2840)).

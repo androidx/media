@@ -31,7 +31,17 @@ public final class TimelineWithUpdatedMediaItem extends ForwardingTimeline {
    * @param timeline The wrapped {@link Timeline}.
    * @param mediaItem The {@link MediaItem} that replaced the original one in {@code timeline}.
    */
-  public TimelineWithUpdatedMediaItem(Timeline timeline, MediaItem mediaItem) {
+  public static TimelineWithUpdatedMediaItem create(Timeline timeline, MediaItem mediaItem) {
+    if (timeline instanceof TimelineWithUpdatedMediaItem) {
+      // Replace existing wrapper instead of wrapping it further. This avoids keeping a reference to
+      // the previous MediaItem, see https://github.com/androidx/media/issues/2993.
+      return new TimelineWithUpdatedMediaItem(
+          ((TimelineWithUpdatedMediaItem) timeline).timeline, mediaItem);
+    }
+    return new TimelineWithUpdatedMediaItem(timeline, mediaItem);
+  }
+
+  private TimelineWithUpdatedMediaItem(Timeline timeline, MediaItem mediaItem) {
     super(timeline);
     this.updatedMediaItem = mediaItem;
   }
