@@ -338,7 +338,7 @@ public class FakeMediaSource extends BaseMediaSource {
     if (timeline == null) {
       return;
     }
-    timeline = new TimelineWithUpdatedMediaItem(timeline, mediaItem);
+    timeline = TimelineWithUpdatedMediaItem.create(timeline, mediaItem);
     if (preparedSource && preparationAllowed) {
       refreshSourceInfo(timeline);
     }

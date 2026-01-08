@@ -35,6 +35,9 @@
         ([#2985](https://github.com/androidx/media/issues/2985)).
         *   This required moving `DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS`
             from `ExoPlayer` to `ExoPlayer.Builder` (without deprecation).
+    *   Avoid leaking `MediaItem` instances when repeatedly using
+        `ExoPlayer.replaceMediaItem` on the same item
+        ([#2993](https://github.com/androidx/media/issues/2993)).
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
