@@ -90,7 +90,7 @@ public class WakeLockManagerTest {
   }
 
   @Test
-  public void blockedWakeLockThread_wakeLockIsStillReleasedAfterTimeout() {
+  public void blockedWakeLockThread_wakeLockIsStillReleasedAfterTimeout() throws Exception {
     WakeLockManager wakeLockManager =
         new WakeLockManager(context, handlerThread.getLooper(), Clock.DEFAULT);
     wakeLockManager.setEnabled(true);
@@ -110,6 +110,7 @@ public class WakeLockManagerTest {
     assertThat(wakeLock.isHeld()).isTrue(); // Verify it didn't work.
     ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
     ShadowLooper.idleMainLooper();
+    Thread.sleep(50); // Waiting for a background thread we can't control, so do a real time sleep.
 
     assertThat(wakeLock.isHeld()).isFalse();
 
