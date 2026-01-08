@@ -36,6 +36,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Objects;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -282,8 +283,8 @@ public final class EditedMediaItem {
      */
     @CanIgnoreReturnValue
     /* package */ Builder setPreProcessingAudioProcessors(
-        ImmutableList<AudioProcessor> preProcessingAudioProcessors) {
-      this.preProcessingAudioProcessors = preProcessingAudioProcessors;
+        List<AudioProcessor> preProcessingAudioProcessors) {
+      this.preProcessingAudioProcessors = ImmutableList.copyOf(preProcessingAudioProcessors);
       return this;
     }
   }
