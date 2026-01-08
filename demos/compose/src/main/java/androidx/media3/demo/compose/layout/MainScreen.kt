@@ -18,16 +18,12 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,16 +31,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.buttons.Controls
 import androidx.media3.exoplayer.ExoPlayer
-import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
@@ -85,39 +78,13 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
 internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
-  var showControls by remember { mutableStateOf(true) }
-  var isInteracting by remember { mutableStateOf(false) }
-
-  // Timer only runs when controls are shown AND user is NOT currently touching the screen
-  LaunchedEffect(showControls, isInteracting) {
-    if (showControls && !isInteracting) {
-      delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
-      showControls = false
-    }
-  }
 
   Box(modifier) {
-    MediaPlayer(
-      player,
-      modifier =
-        Modifier.noRippleClickable { showControls = !showControls }
-          .pointerInput(Unit) {
-            awaitPointerEventScope {
-              while (true) {
-                val event = awaitPointerEvent()
-                // Check if any pointers are currently down
-                // Useful to prevent recomposition mid-drag (pointer will remain pressed)
-                isInteracting = event.changes.any { it.pressed }
-              }
-            }
-          },
+    AutoHidingPlayerBox(
+      player = player,
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
-      controls = {
-        AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-          Box(modifier) { Controls(player) }
-        }
-      },
+      controlsTimeoutMs = CONTROLS_VISIBILITY_TIMEOUT_MS,
     )
     ContentScaleButton(
       currentContentScaleIndex,

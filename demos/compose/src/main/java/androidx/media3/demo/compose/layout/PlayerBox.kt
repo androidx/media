@@ -39,7 +39,7 @@ import androidx.media3.ui.compose.SurfaceType
  * of the player's video or audio, overlaid with optional controls and a shutter.
  *
  * @param player The [Player] instance to be controlled and whose content is displayed.
- * @param modifier The [Modifier] to be applied.
+ * @param modifier The [Modifier] to be applied to the outer [Box].
  * @param surfaceType The type of surface to use for video rendering. See [SurfaceType].
  * @param contentScale The scaling mode to apply to the content within the
  *   [ContentFrame][androidx.media3.ui.compose.ContentFrame].
@@ -50,7 +50,7 @@ import androidx.media3.ui.compose.SurfaceType
  *   [BoxScope] of [ContentFrame].
  */
 @Composable
-internal fun MediaPlayer(
+internal fun PlayerBox(
   player: Player,
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
