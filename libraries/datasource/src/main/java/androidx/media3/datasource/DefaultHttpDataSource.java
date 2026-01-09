@@ -15,11 +15,13 @@
  */
 package androidx.media3.datasource;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.datasource.HttpUtil.buildRangeRequestHeader;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
+import android.net.TrafficStats;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -360,6 +362,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
     String responseMessage;
     HttpURLConnection connection;
     try {
+      TrafficStats.setThreadStatsTag((int) getCurrentThreadId());
       this.connection = makeConnection(dataSpec);
       connection = this.connection;
       responseCode = connection.getResponseCode();
@@ -504,6 +507,7 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
       }
       connection = null;
       dataSpec = null;
+      TrafficStats.clearThreadStatsTag();
     }
   }
 
@@ -800,6 +804,11 @@ public class DefaultHttpDataSource extends BaseDataSource implements HttpDataSou
   private static boolean isCompressed(HttpURLConnection connection) {
     String contentEncoding = connection.getHeaderField("Content-Encoding");
     return "gzip".equalsIgnoreCase(contentEncoding);
+  }
+
+  @SuppressWarnings("deprecation") // Using deprecated method on API<36
+  private static long getCurrentThreadId() {
+    return Thread.currentThread().getId();
   }
 
   private static class NullFilteringHeadersMap extends ForwardingMap<String, List<String>> {
