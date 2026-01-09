@@ -30,6 +30,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import androidx.annotation.DrawableRes;
@@ -42,10 +43,13 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaStyleNotificationHelper.MediaStyle;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -246,6 +250,9 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   private static final String TAG = "NotificationProvider";
 
+  private static final Supplier<Integer> maxNotificationIconSize =
+      Suppliers.memoize(DefaultMediaNotificationProvider::getMaxNotificationIconSize);
+
   private final Context context;
   private final NotificationIdProvider notificationIdProvider;
   private final String channelId;
@@ -254,6 +261,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
 
   private @MonotonicNonNull OnBitmapLoadedFutureCallback pendingOnBitmapLoadedFutureCallback;
   @DrawableRes private int smallIconResourceId;
+  @Nullable private BitmapLoader mediaSessionBitmapLoader;
+  @Nullable private BitmapLoader notificationIconBitmapLoader;
 
   /**
    * Creates an instance. Use this constructor only when you want to override methods of this class.
@@ -327,9 +336,20 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       builder
           .setContentTitle(getNotificationContentTitle(metadata))
           .setContentText(getNotificationContentText(metadata));
+      BitmapLoader currentMediaSessionBitmapLoader = mediaSession.getBitmapLoader();
+      if (notificationIconBitmapLoader == null
+          || !currentMediaSessionBitmapLoader.equals(mediaSessionBitmapLoader)) {
+        mediaSessionBitmapLoader = currentMediaSessionBitmapLoader;
+        notificationIconBitmapLoader =
+            new CacheBitmapLoader(
+                new SizeLimitedBitmapLoader(
+                    mediaSessionBitmapLoader,
+                    maxNotificationIconSize.get(),
+                    /* makeShared= */ true));
+      }
       @Nullable
       ListenableFuture<Bitmap> bitmapFuture =
-          mediaSession.getBitmapLoader().loadBitmapFromMetadata(metadata);
+          notificationIconBitmapLoader.loadBitmapFromMetadata(metadata);
       if (bitmapFuture != null) {
         if (pendingOnBitmapLoadedFutureCallback != null) {
           pendingOnBitmapLoadedFutureCallback.discardIfPending();
@@ -619,6 +639,18 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       return System.currentTimeMillis() - player.getContentPosition();
     } else {
       return C.TIME_UNSET;
+    }
+  }
+
+  @SuppressWarnings("DiscouragedApi") // Using Resources.getIdentifier() to access system property
+  private static int getMaxNotificationIconSize() {
+    Resources res = Resources.getSystem();
+    try {
+      int id = res.getIdentifier("notification_right_icon_size", "dimen", "android");
+      return res.getDimensionPixelSize(id);
+    } catch (Resources.NotFoundException e) {
+      // Fallback to assumed icon size of 48dp if the system property is missing.
+      return (int) (48 * res.getDisplayMetrics().density);
     }
   }
 
