@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,7 +63,7 @@ fun SeekBackButton(
   painter: @Composable SeekBackButtonState.() -> Painter = defaultSeekBackPainterIcon,
   contentDescription: @Composable SeekBackButtonState.() -> String =
     defaultSeekBackContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: SeekBackButtonState.() -> Unit = SeekBackButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -117,7 +116,7 @@ fun SeekBackButton(
   imageVector: SeekBackButtonState.() -> ImageVector,
   contentDescription: @Composable SeekBackButtonState.() -> String =
     defaultSeekBackContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: SeekBackButtonState.() -> Unit = SeekBackButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.

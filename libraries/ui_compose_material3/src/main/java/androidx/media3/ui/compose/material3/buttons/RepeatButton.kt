@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -69,7 +68,7 @@ fun RepeatButton(
   painter: @Composable RepeatButtonState.() -> Painter = defaultRepeatModePainterIcon,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: RepeatButtonState.() -> Unit = RepeatButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -128,7 +127,7 @@ fun RepeatButton(
   imageVector: RepeatButtonState.() -> ImageVector,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: RepeatButtonState.() -> Unit = RepeatButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.

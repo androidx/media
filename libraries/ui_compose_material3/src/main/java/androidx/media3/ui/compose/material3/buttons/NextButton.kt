@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -67,7 +66,7 @@ fun NextButton(
   contentDescription: @Composable NextButtonState.() -> String = {
     stringResource(R.string.next_button)
   },
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -121,7 +120,7 @@ fun NextButton(
   contentDescription: @Composable NextButtonState.() -> String = {
     stringResource(R.string.next_button)
   },
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.

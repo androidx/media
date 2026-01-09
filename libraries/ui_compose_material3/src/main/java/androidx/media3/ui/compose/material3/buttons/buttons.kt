@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable
@@ -31,10 +32,16 @@ internal fun ClickableIconButton(
   enabled: Boolean,
   icon: Painter,
   contentDescription: String,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: () -> Unit,
 ) {
-  IconButton(onClick, modifier, enabled) { Icon(icon, contentDescription, tint = tint) }
+  IconButton(onClick, modifier, enabled) {
+    Icon(
+      painter = icon,
+      contentDescription = contentDescription,
+      tint = tint.takeOrElse { LocalContentColor.current },
+    )
+  }
 }
 
 @Composable
@@ -43,8 +50,14 @@ internal fun ClickableIconButton(
   enabled: Boolean,
   icon: ImageVector,
   contentDescription: String,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: () -> Unit,
 ) {
-  IconButton(onClick, modifier, enabled) { Icon(icon, contentDescription, tint = tint) }
+  IconButton(onClick, modifier, enabled) {
+    Icon(
+      imageVector = icon,
+      contentDescription = contentDescription,
+      tint = tint.takeOrElse { LocalContentColor.current },
+    )
+  }
 }

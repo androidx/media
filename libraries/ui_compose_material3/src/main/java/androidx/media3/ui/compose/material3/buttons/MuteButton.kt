@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,7 +60,7 @@ fun MuteButton(
   modifier: Modifier = Modifier,
   painter: @Composable MuteButtonState.() -> Painter = defaultMutePainterIcon,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -112,7 +111,7 @@ fun MuteButton(
   modifier: Modifier = Modifier,
   imageVector: MuteButtonState.() -> ImageVector,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: MuteButtonState.() -> Unit = MuteButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.

@@ -16,7 +16,6 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,7 +64,7 @@ fun ShuffleButton(
   painter: @Composable ShuffleButtonState.() -> Painter = defaultShufflePainterIcon,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: ShuffleButtonState.() -> Unit = ShuffleButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -120,7 +119,7 @@ fun ShuffleButton(
   imageVector: ShuffleButtonState.() -> ImageVector,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
-  tint: Color = LocalContentColor.current,
+  tint: Color = Color.Unspecified,
   onClick: ShuffleButtonState.() -> Unit = ShuffleButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
