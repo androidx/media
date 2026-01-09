@@ -51,6 +51,8 @@
     *   Fix issue where missing commands for `COMMAND_SEEK_NEXT` or
         `COMMAND_SEEK_BACK` can cause gaps in the system media notification
         ([#2976](https://github.com/androidx/media/issues/2976)).
+    *   Move bitmap scaling for notification icon off the main thread
+        ([#2829](https://github.com/androidx/media/issues/2829)).
 *   Downloads:
     *   Fix potential infinite loops when a `PriorityTooLowException` is handled
         by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom

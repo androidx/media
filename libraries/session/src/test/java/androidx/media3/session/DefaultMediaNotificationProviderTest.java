@@ -15,10 +15,12 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID;
 import static androidx.media3.session.DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,12 +30,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
@@ -60,11 +64,13 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowNotificationManager;
 
 /** Tests for {@link DefaultMediaNotificationProvider}. */
 @RunWith(AndroidJUnit4.class)
+@Config(sdk = ALL_SDKS)
 public class DefaultMediaNotificationProviderTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -1086,6 +1092,43 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
+  public void createNotification_withMediaMetadataArtworkUrl_usedAsScaledLargeIcon() {
+    Context context = ApplicationProvider.getApplicationContext();
+    DefaultMediaNotificationProvider defaultMediaNotificationProvider =
+        new DefaultMediaNotificationProvider.Builder(context).build();
+    DefaultActionFactory defaultActionFactory =
+        new DefaultActionFactory(Robolectric.setupService(TestService.class));
+    Player player =
+        createPlayerWithMetadata(
+            new MediaMetadata.Builder().setArtworkUri(Uri.parse("http://test.test")).build());
+    Bitmap largeBitmap =
+        Bitmap.createBitmap(/* width= */ 1000, /* height= */ 2000, Bitmap.Config.ARGB_8888);
+    BitmapLoader mockBitmapLoader = mock(BitmapLoader.class);
+    when(mockBitmapLoader.loadBitmapFromMetadata(any())).thenReturn(immediateFuture(largeBitmap));
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, player).setBitmapLoader(mockBitmapLoader).build();
+
+    MediaNotification notification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            ImmutableList.of(),
+            defaultActionFactory,
+            mock(MediaNotification.Provider.Callback.class));
+    Drawable notificationIcon = notification.notification.getLargeIcon().loadDrawable(context);
+    int notificationIconWidth = notificationIcon.getIntrinsicWidth();
+    int notificationIconHeight = notificationIcon.getIntrinsicHeight();
+    mediaSession.release();
+    player.release();
+
+    // The notification should generally be smaller than the full media session artwork. So even if
+    // we can't assert a specific value, we can still check it has been scaled down.
+    int mediaSessionBitmapLimit = MediaSession.getBitmapDimensionLimit(context);
+    assertThat(notificationIconWidth).isLessThan(mediaSessionBitmapLimit);
+    assertThat(notificationIconHeight).isLessThan(mediaSessionBitmapLimit);
+    assertThat(notificationIconWidth * 2).isEqualTo(notificationIconHeight);
+  }
+
+  @Test
   public void provider_withCustomNotificationIdProvider_notificationsUseCustomId() {
     Context context = ApplicationProvider.getApplicationContext();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
@@ -1303,14 +1346,16 @@ public class DefaultMediaNotificationProviderTest {
     player.release();
 
     assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
-    assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ DEFAULT_CHANNEL_ID,
-        /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ DEFAULT_CHANNEL_ID,
+          /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    }
   }
 
   @Test
@@ -1340,14 +1385,16 @@ public class DefaultMediaNotificationProviderTest {
     player.release();
 
     assertThat(notification.notificationId).isEqualTo(2);
-    assertThat(notification.notification.getChannelId()).isEqualTo("customChannelId");
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ "customChannelId",
-        /* channelName= */ context.getString(R.string.media3_controls_play_description));
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo("customChannelId");
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ "customChannelId",
+          /* channelName= */ context.getString(R.string.media3_controls_play_description));
+    }
   }
 
   /**
@@ -1377,14 +1424,16 @@ public class DefaultMediaNotificationProviderTest {
     player.release();
 
     assertThat(notification.notificationId).isEqualTo(DEFAULT_NOTIFICATION_ID);
-    assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
-    ShadowNotificationManager shadowNotificationManager =
-        Shadows.shadowOf(
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
-    assertHasNotificationChannel(
-        shadowNotificationManager.getNotificationChannels(),
-        /* channelId= */ DEFAULT_CHANNEL_ID,
-        /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    if (SDK_INT >= 26) {
+      assertThat(notification.notification.getChannelId()).isEqualTo(DEFAULT_CHANNEL_ID);
+      ShadowNotificationManager shadowNotificationManager =
+          Shadows.shadowOf(
+              (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      assertHasNotificationChannel(
+          shadowNotificationManager.getNotificationChannels(),
+          /* channelId= */ DEFAULT_CHANNEL_ID,
+          /* channelName= */ context.getString(R.string.default_notification_channel_name));
+    }
   }
 
   private Player createPlayerWithMetadata(MediaMetadata mediaMetadata) {
