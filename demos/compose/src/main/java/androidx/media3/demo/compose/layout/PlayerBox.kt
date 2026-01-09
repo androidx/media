@@ -51,7 +51,7 @@ import androidx.media3.ui.compose.SurfaceType
  */
 @Composable
 internal fun PlayerBox(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,

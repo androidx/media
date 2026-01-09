@@ -55,7 +55,7 @@ import kotlinx.coroutines.delay
  */
 @Composable
 internal fun AutoHidingPlayerBox(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
@@ -92,8 +92,11 @@ internal fun AutoHidingPlayerBox(
     contentScale = contentScale,
     keepContentOnReset = keepContentOnReset,
     controls = {
-      AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-        Box(Modifier.fillMaxSize()) { Controls(player) }
+      // TODO: b/474553667 - remove guard clause once Controls can take nullable Player
+      if (player != null) {
+        AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
+          Box(Modifier.fillMaxSize()) { Controls(player) }
+        }
       }
     },
   )

@@ -71,11 +71,11 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
     }
   }
 
-  player?.let { MainScreen(player = it, modifier = modifier.fillMaxSize()) }
+  MainScreen(player, modifier = modifier.fillMaxSize())
 }
 
 @Composable
-internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
+internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
 
