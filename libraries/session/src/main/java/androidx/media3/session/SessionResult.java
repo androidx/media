@@ -20,7 +20,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -242,6 +244,7 @@ public final class SessionResult {
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1);
   private static final String FIELD_COMPLETION_TIME_MS = Util.intToStringMaxRadix(2);
   private static final String FIELD_SESSION_ERROR = Util.intToStringMaxRadix(3);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(4);
 
   @UnstableApi
   public Bundle toBundle() {
@@ -255,9 +258,24 @@ public final class SessionResult {
     return bundle;
   }
 
+  /**
+   * Returns a {@link Bundle} containing the entirety of this {@link #SessionResult} object without
+   * bundling it, for use in local process communication only.
+   */
+  @UnstableApi
+  public Bundle toBundleForLocalProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
+    return bundle;
+  }
+
   /** Restores a {@code SessionResult} from a {@link Bundle}. */
   @UnstableApi
   public static SessionResult fromBundle(Bundle bundle) {
+    IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getSessionResult();
+    }
     int resultCode =
         bundle.getInt(FIELD_RESULT_CODE, /* defaultValue= */ SessionError.ERROR_UNKNOWN);
     @Nullable Bundle extras = convertToNullIfInvalid(bundle.getBundle(FIELD_EXTRAS));
@@ -274,5 +292,11 @@ public final class SessionResult {
     }
     return new SessionResult(
         resultCode, extras == null ? Bundle.EMPTY : extras, completionTimeMs, sessionError);
+  }
+
+  private final class InProcessBinder extends Binder {
+    public SessionResult getSessionResult() {
+      return SessionResult.this;
+    }
   }
 }
