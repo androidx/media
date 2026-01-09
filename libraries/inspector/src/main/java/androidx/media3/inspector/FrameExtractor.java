@@ -268,6 +268,14 @@ public final class FrameExtractor implements AutoCloseable {
     return FrameExtractorInternal.getInstance().submitTask(request);
   }
 
+  /**
+   * Extracts a representative thumbnail {@link Frame} from the media.
+   *
+   * <p>The implementation uses a heuristic to identify a good thumbnail position. If no specific
+   * thumbnail position is found, the frame at the beginning of the media is extracted.
+   *
+   * @return A {@link ListenableFuture} of the result.
+   */
   public ListenableFuture<Frame> getThumbnail() {
     if (released.get()) {
       return Futures.immediateFailedFuture(
