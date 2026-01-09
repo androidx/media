@@ -54,7 +54,7 @@ class PlayPauseButtonState(private val player: Player) {
   var isEnabled by mutableStateOf(false)
     private set
 
-  var showPlay by mutableStateOf(false)
+  var showPlay by mutableStateOf(true)
     private set
 
   private val playerStateObserver =
