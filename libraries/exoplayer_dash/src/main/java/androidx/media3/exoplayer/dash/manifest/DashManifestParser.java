@@ -27,6 +27,7 @@ import android.util.Pair;
 import android.util.Xml;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
@@ -852,6 +853,9 @@ public class DashManifestParser extends DefaultHandler
         codecs = MimeTypes.CODEC_E_AC3_JOC;
       }
     }
+
+    ColorInfo colorInfo =  getColorInfoForFormat(codecs, supplementalCodecs, supplementalProfiles);
+
     if (MimeTypes.isDolbyVisionCodec(codecs, supplementalCodecs)) {
       sampleMimeType = MimeTypes.VIDEO_DOLBY_VISION;
       codecs = supplementalCodecs != null ? supplementalCodecs : codecs;
@@ -872,6 +876,7 @@ public class DashManifestParser extends DefaultHandler
             .setPeakBitrate(bitrate)
             .setSelectionFlags(selectionFlags)
             .setRoleFlags(roleFlags)
+            .setColorInfo(colorInfo)
             .setLanguage(language)
             .setTileCountHorizontal(tileCounts != null ? tileCounts.first : Format.NO_VALUE)
             .setTileCountVertical(tileCounts != null ? tileCounts.second : Format.NO_VALUE);
@@ -2176,6 +2181,47 @@ public class DashManifestParser extends DefaultHandler
       }
     }
     return false;
+  }
+
+  private static ColorInfo getColorInfoForFormat(
+      @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles) {
+
+    @C.ColorSpace int colorSpace = Format.NO_VALUE;
+    @C.ColorRange int colorRange = Format.NO_VALUE;
+    @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
+
+    if (MimeTypes.isDolbyVisionCodec(codecs, supplementalCodecs)) {
+      if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1") || codecs.startsWith("dav1")) {
+        // profiles 5, 10.0 and 20.0
+        colorSpace = C.COLOR_SPACE_BT2020;
+        colorTransfer = C.COLOR_TRANSFER_ST2084;
+        colorRange = C.COLOR_RANGE_FULL;
+      } else if (supplementalProfiles != null) {
+        if (supplementalProfiles.equals("db1p")) {
+          //BL signal cross-compatibility ID = 1 (e.g profile 8.1)
+          colorSpace = C.COLOR_SPACE_BT2020;
+          colorTransfer = C.COLOR_TRANSFER_ST2084;
+          colorRange = C.COLOR_RANGE_LIMITED;
+        } else if (supplementalProfiles.startsWith("db4")) { // db4g or db4h
+          //BL signal cross-compatibility ID = 4 (e.g profile 8.4)
+          colorSpace = C.COLOR_SPACE_BT2020;
+          colorTransfer = C.COLOR_TRANSFER_HLG;
+          colorRange = C.COLOR_RANGE_LIMITED;
+        }
+      }
+    }
+
+    if (colorSpace == Format.NO_VALUE) {
+      return null;
+    }
+
+    return new ColorInfo.Builder()
+        .setColorSpace(colorSpace)
+        .setColorRange(colorRange)
+        .setColorTransfer(colorTransfer)
+        .build();
   }
 
   /** A parsed Representation element. */
