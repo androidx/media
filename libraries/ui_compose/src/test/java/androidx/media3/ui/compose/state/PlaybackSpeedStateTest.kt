@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
@@ -142,5 +145,44 @@ class PlaybackSpeedStateTest {
 
     // UI syncs up with the fact that we increased playback speed
     assertThat(state.playbackSpeed).isEqualTo(2f)
+  }
+
+  @Test
+  fun nullPlayer_buttonStateIsDisabled() {
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player = null) }
+
+    assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun nullPlayer_updatePlaybackSpeed_throwsIllegalStateException() {
+    val state = PlaybackSpeedState(player = null)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+  }
+
+  @Test
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+    val player = createReadyPlayerWithTwoItems()
+
+    lateinit var state: PlaybackSpeedState
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      state = rememberPlaybackSpeedState(player = if (isPlayerNull.value) null else player)
+    }
+    assertThat(state.isEnabled).isTrue()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isFalse()
+
+    isPlayerNull.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isTrue()
   }
 }

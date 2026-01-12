@@ -34,6 +34,6 @@ import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
  */
 @UnstableApi
 @Composable
-fun PlaybackSpeedControl(player: Player, content: @Composable PlaybackSpeedState.() -> Unit) {
+fun PlaybackSpeedControl(player: Player?, content: @Composable PlaybackSpeedState.() -> Unit) {
   rememberPlaybackSpeedState(player).content()
 }

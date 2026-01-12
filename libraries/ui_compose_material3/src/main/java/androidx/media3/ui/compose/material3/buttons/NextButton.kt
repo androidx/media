@@ -58,7 +58,7 @@ import androidx.media3.ui.compose.state.NextButtonState
 @UnstableApi
 @Composable
 fun NextButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable NextButtonState.() -> Painter = {
     painterResource(R.drawable.media3_icon_next)
@@ -114,7 +114,7 @@ fun NextButton(
 @UnstableApi
 @Composable
 fun NextButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: @Composable NextButtonState.() -> ImageVector,
   contentDescription: @Composable NextButtonState.() -> String = {

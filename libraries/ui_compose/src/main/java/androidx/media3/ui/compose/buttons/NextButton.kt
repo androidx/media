@@ -33,6 +33,6 @@ import androidx.media3.ui.compose.state.rememberNextButtonState
  */
 @UnstableApi
 @Composable
-fun NextButton(player: Player, content: @Composable NextButtonState.() -> Unit) {
+fun NextButton(player: Player?, content: @Composable NextButtonState.() -> Unit) {
   rememberNextButtonState(player).content()
 }

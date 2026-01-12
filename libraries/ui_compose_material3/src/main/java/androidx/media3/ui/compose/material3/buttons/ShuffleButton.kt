@@ -59,7 +59,7 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
 @UnstableApi
 @Composable
 fun ShuffleButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable ShuffleButtonState.() -> Painter = defaultShufflePainterIcon,
   contentDescription: @Composable ShuffleButtonState.() -> String =
@@ -114,7 +114,7 @@ fun ShuffleButton(
 @UnstableApi
 @Composable
 fun ShuffleButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: ShuffleButtonState.() -> ImageVector,
   contentDescription: @Composable ShuffleButtonState.() -> String =

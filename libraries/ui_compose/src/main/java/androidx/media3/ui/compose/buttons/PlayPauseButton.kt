@@ -33,6 +33,6 @@ import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
  */
 @UnstableApi
 @Composable
-fun PlayPauseButton(player: Player, content: @Composable PlayPauseButtonState.() -> Unit) {
+fun PlayPauseButton(player: Player?, content: @Composable PlayPauseButtonState.() -> Unit) {
   rememberPlayPauseButtonState(player).content()
 }

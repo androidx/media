@@ -58,7 +58,7 @@ import androidx.media3.ui.compose.state.PlayPauseButtonState
 @UnstableApi
 @Composable
 fun PlayPauseButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable PlayPauseButtonState.() -> Painter = defaultPlayPausePainterIcon,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
@@ -112,7 +112,7 @@ fun PlayPauseButton(
 @UnstableApi
 @Composable
 fun PlayPauseButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: PlayPauseButtonState.() -> ImageVector,
   contentDescription: @Composable PlayPauseButtonState.() -> String =

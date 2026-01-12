@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -160,5 +163,47 @@ class SeekBackButtonStateTest {
 
     // UI syncs up with the fact that SeekBackButton is now disabled
     assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun nullPlayer_buttonStateIsDisabled() {
+    lateinit var state: SeekBackButtonState
+    composeTestRule.setContent { state = rememberSeekBackButtonState(player = null) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.seekBackAmountMs).isEqualTo(0)
+  }
+
+  @Test
+  fun nullPlayer_onClick_throwsIllegalStateException() {
+    val state = SeekBackButtonState(player = null)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+    val player = createReadyPlayerWithTwoItems()
+
+    lateinit var state: SeekBackButtonState
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      state = rememberSeekBackButtonState(player = if (isPlayerNull.value) null else player)
+    }
+    assertThat(state.isEnabled).isTrue()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.seekBackAmountMs).isEqualTo(0)
+
+    isPlayerNull.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isTrue()
+    assertThat(state.seekBackAmountMs).isEqualTo(C.DEFAULT_SEEK_BACK_INCREMENT_MS)
   }
 }

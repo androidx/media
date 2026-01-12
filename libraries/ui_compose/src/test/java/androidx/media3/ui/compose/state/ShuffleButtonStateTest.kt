@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE
@@ -151,5 +154,47 @@ class ShuffleButtonStateTest {
 
     // UI syncs up with the fact that shuffle mode got flipped to true
     assertThat(state.shuffleOn).isTrue()
+  }
+
+  @Test
+  fun nullPlayer_buttonStateIsDisabled() {
+    lateinit var state: ShuffleButtonState
+    composeTestRule.setContent { state = rememberShuffleButtonState(player = null) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.shuffleOn).isFalse()
+  }
+
+  @Test
+  fun nullPlayer_onClick_throwsIllegalStateException() {
+    val state = ShuffleButtonState(player = null)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+    val player = createReadyPlayerWithTwoItems()
+
+    lateinit var state: ShuffleButtonState
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      state = rememberShuffleButtonState(player = if (isPlayerNull.value) null else player)
+    }
+    assertThat(state.isEnabled).isTrue()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.shuffleOn).isFalse()
+
+    isPlayerNull.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isTrue()
+    assertThat(state.shuffleOn).isFalse()
   }
 }

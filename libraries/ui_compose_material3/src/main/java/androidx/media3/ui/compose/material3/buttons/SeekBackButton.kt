@@ -58,7 +58,7 @@ import androidx.media3.ui.compose.state.SeekBackButtonState
 @UnstableApi
 @Composable
 fun SeekBackButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable SeekBackButtonState.() -> Painter = defaultSeekBackPainterIcon,
   contentDescription: @Composable SeekBackButtonState.() -> String =
@@ -111,7 +111,7 @@ fun SeekBackButton(
 @UnstableApi
 @Composable
 fun SeekBackButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: SeekBackButtonState.() -> ImageVector,
   contentDescription: @Composable SeekBackButtonState.() -> String =

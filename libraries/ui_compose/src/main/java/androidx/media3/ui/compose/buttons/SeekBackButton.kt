@@ -34,6 +34,6 @@ import androidx.media3.ui.compose.state.rememberSeekBackButtonState
  */
 @UnstableApi
 @Composable
-fun SeekBackButton(player: Player, content: @Composable SeekBackButtonState.() -> Unit) {
+fun SeekBackButton(player: Player?, content: @Composable SeekBackButtonState.() -> Unit) {
   rememberSeekBackButtonState(player).content()
 }

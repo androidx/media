@@ -59,7 +59,7 @@ import androidx.media3.ui.compose.state.PreviousButtonState
 @UnstableApi
 @Composable
 fun PreviousButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable PreviousButtonState.() -> Painter = {
     painterResource(R.drawable.media3_icon_previous)

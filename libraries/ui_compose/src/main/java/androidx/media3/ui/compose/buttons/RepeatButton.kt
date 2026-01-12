@@ -37,7 +37,7 @@ import androidx.media3.ui.compose.state.rememberRepeatButtonState
 @UnstableApi
 @Composable
 fun RepeatButton(
-  player: Player,
+  player: Player?,
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
   content: @Composable RepeatButtonState.() -> Unit,

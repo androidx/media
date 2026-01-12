@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
@@ -252,5 +255,45 @@ class MuteButtonStateTest {
 
     // UI syncs up with the fact that MuteButton is now disabled
     assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun nullPlayer_buttonStateIsDisabled() {
+    lateinit var state: MuteButtonState
+    composeTestRule.setContent { state = rememberMuteButtonState(player = null) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.showMuted).isFalse()
+  }
+
+  @Test
+  fun nullPlayer_onClick_throwsIllegalStateException() {
+    val state = MuteButtonState(player = null)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+    val player = FakePlayer()
+
+    lateinit var state: MuteButtonState
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      state = rememberMuteButtonState(player = if (isPlayerNull.value) null else player)
+    }
+    assertThat(state.isEnabled).isTrue()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isFalse()
+
+    isPlayerNull.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isTrue()
   }
 }

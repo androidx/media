@@ -32,7 +32,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberNextButtonState(player: Player): NextButtonState {
+fun rememberNextButtonState(player: Player?): NextButtonState {
   val nextButtonState = remember(player) { NextButtonState(player) }
   LaunchedEffect(player) { nextButtonState.observe() }
   return nextButtonState
@@ -44,15 +44,16 @@ fun rememberNextButtonState(player: Player): NextButtonState {
  *
  * This button has no internal state to maintain, it can only be enabled or disabled.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)`
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SEEK_TO_NEXT] is
+ *   available.
  */
 @UnstableApi
-class NextButtonState(private val player: Player) {
+class NextButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)
     private set
 
-  private val playerStateObserver =
-    player.observeState(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
       isEnabled = player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
     }
 
@@ -69,9 +70,7 @@ class NextButtonState(private val player: Player) {
    */
   fun onClick() {
     check(isEnabled)
-    if (player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) {
-      player.seekToNext()
-    }
+    player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) it.seekToNext() }
   }
 
   /**
@@ -79,5 +78,7 @@ class NextButtonState(private val player: Player) {
    * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    * enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing = playerStateObserver.observe()
+  suspend fun observe() {
+    playerStateObserver?.observe()
+  }
 }

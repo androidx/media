@@ -17,6 +17,9 @@
 package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
@@ -159,5 +162,47 @@ class RepeatButtonStateTest {
 
     // UI syncs up with the fact that repeat mode moved from REPEAT_MODE_OFF to ONE
     assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_ONE)
+  }
+
+  @Test
+  fun nullPlayer_buttonStateIsDisabled() {
+    lateinit var state: RepeatButtonState
+    composeTestRule.setContent { state = rememberRepeatButtonState(player = null) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
+  }
+
+  @Test
+  fun nullPlayer_onClick_throwsIllegalStateException() {
+    val state = RepeatButtonState(player = null)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+    val player = createReadyPlayerWithTwoItems()
+
+    lateinit var state: RepeatButtonState
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      state = rememberRepeatButtonState(player = if (isPlayerNull.value) null else player)
+    }
+    assertThat(state.isEnabled).isTrue()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isFalse()
+    assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
+
+    isPlayerNull.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.isEnabled).isTrue()
+    assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
   }
 }

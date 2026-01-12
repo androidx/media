@@ -60,7 +60,7 @@ import androidx.media3.ui.compose.state.SeekForwardButtonState
 @UnstableApi
 @Composable
 fun SeekForwardButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable SeekForwardButtonState.() -> Painter = defaultSeekForwardPainterIcon,
   contentDescription: @Composable SeekForwardButtonState.() -> String =
@@ -114,7 +114,7 @@ fun SeekForwardButton(
 @UnstableApi
 @Composable
 fun SeekForwardButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: SeekForwardButtonState.() -> ImageVector,
   contentDescription: @Composable SeekForwardButtonState.() -> String =

@@ -33,6 +33,6 @@ import androidx.media3.ui.compose.state.rememberPreviousButtonState
  */
 @UnstableApi
 @Composable
-fun PreviousButton(player: Player, content: @Composable PreviousButtonState.() -> Unit) {
+fun PreviousButton(player: Player?, content: @Composable PreviousButtonState.() -> Unit) {
   rememberPreviousButtonState(player).content()
 }

@@ -32,7 +32,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
+fun rememberShuffleButtonState(player: Player?): ShuffleButtonState {
   val shuffleButtonState = remember(player) { ShuffleButtonState(player) }
   LaunchedEffect(player) { shuffleButtonState.observe() }
   return shuffleButtonState
@@ -42,19 +42,21 @@ fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
  * State that holds all interactions to correctly deal with a UI component representing a Shuffle
  * On/Off button.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)`
- * @property[shuffleOn] determined by [Player's][Player] `shuffleModeEnabled`
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SET_SHUFFLE_MODE] is
+ *   available.
+ * @property[shuffleOn] true if [player] is not `null` and
+ *   [player's shuffle mode][Player.shuffleModeEnabled] is enabled.
  */
 @UnstableApi
-class ShuffleButtonState(private val player: Player) {
+class ShuffleButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)
     private set
 
   var shuffleOn by mutableStateOf(false)
     private set
 
-  private val playerStateObserver =
-    player.observeState(
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(
       Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
     ) {
@@ -74,8 +76,10 @@ class ShuffleButtonState(private val player: Player) {
    */
   fun onClick() {
     check(isEnabled)
-    if (player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)) {
-      player.shuffleModeEnabled = !player.shuffleModeEnabled
+    player?.let {
+      if (it.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)) {
+        it.shuffleModeEnabled = !it.shuffleModeEnabled
+      }
     }
   }
 
@@ -86,5 +90,7 @@ class ShuffleButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing = playerStateObserver.observe()
+  suspend fun observe() {
+    playerStateObserver?.observe()
+  }
 }

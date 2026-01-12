@@ -61,7 +61,7 @@ import androidx.media3.ui.compose.state.RepeatButtonState
 @UnstableApi
 @Composable
 fun RepeatButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
@@ -120,7 +120,7 @@ fun RepeatButton(
 @UnstableApi
 @Composable
 fun RepeatButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),

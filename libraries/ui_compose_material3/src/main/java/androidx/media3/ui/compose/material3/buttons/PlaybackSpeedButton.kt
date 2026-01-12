@@ -77,7 +77,7 @@ import kotlin.math.round
 @UnstableApi
 @Composable
 fun PlaybackSpeedToggleButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   colors: ButtonColors = ButtonDefaults.textButtonColors(),
   interactionSource: MutableInteractionSource? = null,
@@ -124,7 +124,7 @@ fun PlaybackSpeedToggleButton(
 @UnstableApi
 @Composable
 fun PlaybackSpeedBottomSheetButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   colors: ButtonColors = ButtonDefaults.textButtonColors(),
   interactionSource: MutableInteractionSource? = null,

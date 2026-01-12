@@ -33,7 +33,7 @@ import androidx.media3.common.util.UnstableApi
  */
 @UnstableApi
 @Composable
-fun rememberSeekBackButtonState(player: Player): SeekBackButtonState {
+fun rememberSeekBackButtonState(player: Player?): SeekBackButtonState {
   val seekBackButtonState = remember(player) { SeekBackButtonState(player) }
   LaunchedEffect(player) { seekBackButtonState.observe() }
   return seekBackButtonState
@@ -43,19 +43,21 @@ fun rememberSeekBackButtonState(player: Player): SeekBackButtonState {
  * State that holds all interactions to correctly deal with a UI component representing a seek back
  * button.
  *
- * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SEEK_BACK)`
- * @property[seekBackAmountMs] determined by [Player's][Player] `seekBackIncrement`.
+ * @property[isEnabled] true if [player] is not `null` and [Player.COMMAND_SEEK_BACK] is available.
+ * @property[seekBackAmountMs] determined by
+ *   [player's seekBackIncrement][Player.getSeekBackIncrement]. Defaults to `0` if [player] is
+ *   `null`.
  */
 @UnstableApi
-class SeekBackButtonState(private val player: Player) {
+class SeekBackButtonState(private val player: Player?) {
   var isEnabled by mutableStateOf(false)
     private set
 
   var seekBackAmountMs by mutableLongStateOf(0)
     private set
 
-  private val playerStateObserver =
-    player.observeState(
+  private val playerStateObserver: PlayerStateObserver? =
+    player?.observeState(
       Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
       Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
     ) {
@@ -76,9 +78,7 @@ class SeekBackButtonState(private val player: Player) {
    */
   fun onClick() {
     check(isEnabled)
-    if (player.isCommandAvailable(Player.COMMAND_SEEK_BACK)) {
-      player.seekBack()
-    }
+    player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_BACK)) it.seekBack() }
   }
 
   /**
@@ -87,5 +87,7 @@ class SeekBackButtonState(private val player: Player) {
    *   enabled, i.e. respond to user input.
    * * [Player.EVENT_SEEK_BACK_INCREMENT_CHANGED] to get the newest seek back increment.
    */
-  suspend fun observe(): Nothing = playerStateObserver.observe()
+  suspend fun observe() {
+    playerStateObserver?.observe()
+  }
 }

@@ -56,7 +56,7 @@ import androidx.media3.ui.compose.state.MuteButtonState
 @UnstableApi
 @Composable
 fun MuteButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable MuteButtonState.() -> Painter = defaultMutePainterIcon,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,
@@ -107,7 +107,7 @@ fun MuteButton(
 @UnstableApi
 @Composable
 fun MuteButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: MuteButtonState.() -> ImageVector,
   contentDescription: @Composable MuteButtonState.() -> String = defaultMuteContentDescription,

@@ -62,7 +62,7 @@ fun rememberPresentationState(
  * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
  *   visible when tracks change or player changes. Defaults to false.
  * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
- *   either height or width of the video is zero. Takes into account
+ *   either height or width of the video is zero, or [player] is null. Takes into account
  *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
  *   device-independent pixel. To use this measurement in Compose's Drawing and Layout stages,
  *   convert it into pixels using [Density.toPx][androidx.compose.ui.unit.Density.toPx]. Note that
