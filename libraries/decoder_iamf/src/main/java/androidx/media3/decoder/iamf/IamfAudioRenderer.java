@@ -15,18 +15,13 @@
  */
 package androidx.media3.decoder.iamf;
 
-import static android.os.Build.VERSION.SDK_INT;
-
 import android.content.Context;
 import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.Spatializer;
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -37,10 +32,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
 import androidx.media3.exoplayer.audio.IamfUtil;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.List;
 import java.util.Objects;
 
 /** Decodes and renders audio using the native IAMF decoder. */
@@ -120,22 +112,6 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   }
 
   private static final String TAG = "IamfAudioRenderer";
-  // Determined by what ChannelMasks can be translated to what IAMF output layouts.
-  private static final ImmutableSet<Integer> IAMF_SUPPORTED_LAYOUTS =
-      (SDK_INT < 32)
-          ? ImmutableSet.of()
-          : ImmutableSet.of(
-              AudioFormat.CHANNEL_OUT_MONO,
-              AudioFormat.CHANNEL_OUT_STEREO,
-              AudioFormat.CHANNEL_OUT_5POINT1,
-              AudioFormat.CHANNEL_OUT_5POINT1POINT2,
-              AudioFormat.CHANNEL_OUT_5POINT1POINT4,
-              AudioFormat.CHANNEL_OUT_7POINT1_SURROUND,
-              AudioFormat.CHANNEL_OUT_7POINT1POINT2,
-              AudioFormat.CHANNEL_OUT_7POINT1POINT4,
-              AudioFormat.CHANNEL_OUT_9POINT1POINT4,
-              AudioFormat.CHANNEL_OUT_9POINT1POINT6);
-
   private final Context context;
   private final @IamfDecoder.OutputSampleType int outputSampleType;
   private final @IamfDecoder.ChannelOrdering int channelOrdering;
@@ -210,54 +186,6 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     if (requestedChannelMask != null) {
       return requestedChannelMask;
     }
-
-    List<Integer> spatializerChannelMasks =
-        getSpatializerChannelMasksIfSpatializationSupported(context);
-    if (!spatializerChannelMasks.isEmpty()) {
-      for (Integer channelMask : spatializerChannelMasks) {
-        if (IAMF_SUPPORTED_LAYOUTS.contains(channelMask)) {
-          return channelMask;
-        }
-      }
-    }
-
-    return AudioFormat.CHANNEL_OUT_STEREO;
-    // TODO(b/392950453): Define other branches for other device types like HDMI, built-in, etc.
-  }
-
-  private static List<Integer> getSpatializerChannelMasksIfSpatializationSupported(
-      Context context) {
-    Log.i(TAG, "Checking for Spatializer");
-    // Spatializer is only available on API 32 and above.
-    if (SDK_INT < 32) {
-      return ImmutableList.of();
-    }
-    AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
-    if (audioManager == null) {
-      Log.i(TAG, "Audio Manager is null");
-      return ImmutableList.of();
-    }
-    Spatializer spatializer = audioManager.getSpatializer();
-    boolean canSpatialize =
-        spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE
-            && spatializer.isAvailable()
-            && spatializer.isEnabled();
-    Log.d(TAG, "canSpatialize: " + canSpatialize);
-    Log.d(TAG, "spatializer.getImmersiveAudioLevel(): " + spatializer.getImmersiveAudioLevel());
-    Log.d(TAG, "spatializer.isAvailable(): " + spatializer.isAvailable());
-    Log.d(TAG, "spatializer.isEnabled(): " + spatializer.isEnabled());
-    if (!canSpatialize) {
-      return ImmutableList.of();
-    }
-    if (SDK_INT >= 36) {
-      // Starting in 36, we can query the Spatializer for the supported layouts.
-      Log.d(
-          TAG,
-          "Spatializer reports supporting ChannelMasks: "
-              + spatializer.getSpatializedChannelMasks());
-      return spatializer.getSpatializedChannelMasks();
-    }
-    // If we are not in 36 or greater, assume 5.1.
-    return ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1);
+    return IamfUtil.getOutputChannelMaskForCurrentConfiguration(context);
   }
 }

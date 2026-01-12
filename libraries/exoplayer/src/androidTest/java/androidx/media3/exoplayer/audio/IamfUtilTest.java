@@ -18,6 +18,9 @@ package androidx.media3.exoplayer.audio;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.content.Context;
+import android.media.AudioFormat;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import org.junit.Test;
@@ -93,5 +96,21 @@ public final class IamfUtilTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> IamfUtil.getChannelMaskForOutputLayout(IamfUtil.OUTPUT_LAYOUT_UNSET));
+  }
+
+  @Test
+  public void getOutputChannelMaskForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(context))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
+  }
+
+  @Test
+  public void iamfSupportedLayouts_allAreConvertableToLayout() {
+    for (int layout : IamfUtil.IAMF_SUPPORTED_CHANNEL_MASKS) {
+      assertThat(IamfUtil.getOutputLayoutForChannelMask(layout))
+          .isNotEqualTo(IamfUtil.OUTPUT_LAYOUT_UNSET);
+    }
   }
 }
