@@ -41,6 +41,7 @@
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
         type using the ad pod index and ad position.
+    *   Add a null check before accessing result of `getAdsManager()`.
 *   Session:
     *   Fix bug where stopping a `MediaController` connected to a platform
         session crashed the app if stop happened during ad playback
