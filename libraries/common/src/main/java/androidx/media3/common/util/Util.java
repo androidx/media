@@ -125,6 +125,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -401,12 +402,12 @@ public final class Util {
       if (uriPath == null) {
         return false;
       }
-      String filePath = new File(uriPath).getCanonicalPath();
-      String internalAppDirectoryPath = activity.getFilesDir().getCanonicalPath();
+      Path filePath = new File(uriPath).toPath().toRealPath();
+      Path internalAppDirectoryPath = activity.getFilesDir().toPath().toRealPath();
       @Nullable File externalAppDirectory = activity.getExternalFilesDir(/* type= */ null);
       @Nullable
-      String externalAppDirectoryPath =
-          externalAppDirectory == null ? null : externalAppDirectory.getCanonicalPath();
+      Path externalAppDirectoryPath =
+          externalAppDirectory == null ? null : externalAppDirectory.toPath().toRealPath();
       return filePath.startsWith(internalAppDirectoryPath)
           || (externalAppDirectoryPath != null && filePath.startsWith(externalAppDirectoryPath));
     } catch (IOException e) {
