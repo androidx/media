@@ -14,6 +14,6 @@
  * limitations under the License.
  */
 @NonNullApi
-package androidx.media3.inspector.mh;
+package androidx.media3.inspector.frame.mh;
 
 import androidx.media3.common.util.NonNullApi;

@@ -51,6 +51,12 @@
     *   MP3: Parse LAME ReplayGain data
         ([#2840](https://github.com/androidx/media/pull/2840)).
 *   Inspector:
+    *   Moved `FrameExtractor` to a new `:media3-inspector-frame` module (and
+        renamed it from `androidx.media3.inspector.FrameExtractor` to
+        `androidx.media3.inspector.frame.FrameExtractor`).
+*   Inspector Frame:
+    *   Introduced a new module for extracting and processing decoded video
+        frames.
 *   Audio:
     *   Change underlying decoding library for IAMF decoder extension from
         'libiamf' to 'iamf_tools'.

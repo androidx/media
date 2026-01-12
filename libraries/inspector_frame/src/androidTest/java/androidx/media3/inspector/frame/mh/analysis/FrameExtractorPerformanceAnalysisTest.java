@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.inspector.mh.analysis;
+package androidx.media3.inspector.frame.mh.analysis;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
@@ -27,8 +27,8 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.inspector.FrameExtractor;
-import androidx.media3.inspector.FrameExtractor.Frame;
+import androidx.media3.inspector.frame.FrameExtractor;
+import androidx.media3.inspector.frame.FrameExtractor.Frame;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.test.core.app.ApplicationProvider;

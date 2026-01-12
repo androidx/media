@@ -104,6 +104,8 @@ project(modulePrefix + 'lib-effect-lottie').projectDir = new File(rootDir, 'libr
 
 include modulePrefix + 'lib-inspector'
 project(modulePrefix + 'lib-inspector').projectDir = new File(rootDir, 'libraries/inspector')
+include modulePrefix + 'lib-inspector-frame'
+project(modulePrefix + 'lib-inspector-frame').projectDir = new File(rootDir, 'libraries/inspector_frame')
 
 include modulePrefix + 'lib-muxer'
 project(modulePrefix + 'lib-muxer').projectDir = new File(rootDir, 'libraries/muxer')

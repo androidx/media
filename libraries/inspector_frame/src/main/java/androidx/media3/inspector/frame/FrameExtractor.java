@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package androidx.media3.inspector;
+package androidx.media3.inspector.frame;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
 import android.media.MediaCodec;
+import android.view.SurfaceView;
+import android.widget.ImageView;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
@@ -34,12 +35,12 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.RgbMatrix;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.inspector.frame.FrameExtractorInternal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,20 +49,37 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * @deprecated Use {@link androidx.media3.inspector.frame.FrameExtractor} instead.
+ * Extracts decoded frames from {@link MediaItem}.
+ *
+ * <p>Frame extractor instances must be accessed from a single application thread.
+ *
+ * <p>This class may produce incorrect or washed out colors, or images that have too high contrast
+ * for inputs not covered by <a
+ * href="https://cs.android.com/android/_/android/platform/cts/+/aaa242e5c26466cf245fa85ff8a7750378de9d72:tests/media/src/android/mediav2/cts/DecodeGlAccuracyTest.java;drc=d0d5ff338f8b84adf9066358bac435b1be3bbe61;l=534">testDecodeGlAccuracyRGB
+ * CTS test</a>. That is:
+ *
+ * <ul>
+ *   <li>Inputs of BT.601 limited range are likely to produce accurate output with either
+ *       {@linkplain MediaCodecSelector#PREFER_SOFTWARE software} or {@linkplain
+ *       MediaCodecSelector#DEFAULT hardware} decoders across a wide range of devices.
+ *   <li>Other inputs are likely to produce accurate output when using {@linkplain
+ *       MediaCodecSelector#DEFAULT hardware} decoders on devices that are launched with API 33 or
+ *       later.
+ *   <li>HDR inputs will produce a {@link Bitmap} with {@link ColorSpace.Named#BT2020_HLG}. There
+ *       are no guarantees that an HLG {@link Bitmap} displayed in {@link ImageView} and an HLG
+ *       video displayed in {@link SurfaceView} will look the same.
+ *   <li>Depending on the device and input video, color inaccuracies can be mitigated with an
+ *       appropriate {@link RgbMatrix} effect.
+ * </ul>
  */
-@Deprecated
 @UnstableApi
 public final class FrameExtractor implements AutoCloseable {
 
   static {
-    MediaLibraryInfo.registerModule("media3.inspector");
+    MediaLibraryInfo.registerModule("media3.inspector.frame");
   }
 
-  /**
-   * @deprecated Use {@link androidx.media3.inspector.frame.FrameExtractor.Builder} instead.
-   */
-  @Deprecated
+  /** A builder for {@link FrameExtractor} instances. */
   public static final class Builder {
     private final Context context;
     private final MediaItem mediaItem;
@@ -185,10 +203,7 @@ public final class FrameExtractor implements AutoCloseable {
     }
   }
 
-  /**
-   * @deprecated Use {@link androidx.media3.inspector.frame.FrameExtractor.Frame} instead.
-   */
-  @Deprecated
+  /** Stores an extracted and decoded video frame. */
   public static final class Frame {
 
     /** The presentation timestamp of the extracted frame, in milliseconds. */
@@ -250,13 +265,7 @@ public final class FrameExtractor implements AutoCloseable {
             this.extractHdrFrames,
             positionMs);
 
-    ListenableFuture<androidx.media3.inspector.frame.FrameExtractor.Frame> internalFrameFuture =
-        FrameExtractorInternal.getInstance().submitTask(request);
-
-    return Futures.transform(
-        internalFrameFuture,
-        internalFrame -> new Frame(internalFrame.presentationTimeMs, internalFrame.bitmap),
-        directExecutor());
+    return FrameExtractorInternal.getInstance().submitTask(request);
   }
 
   /**
@@ -283,14 +292,7 @@ public final class FrameExtractor implements AutoCloseable {
             mediaSourceFactory,
             extractHdrFrames,
             /* positionMs= */ C.TIME_UNSET);
-
-    ListenableFuture<androidx.media3.inspector.frame.FrameExtractor.Frame> internalFrameFuture =
-        FrameExtractorInternal.getInstance().submitTask(request);
-
-    return Futures.transform(
-        internalFrameFuture,
-        internalFrame -> new Frame(internalFrame.presentationTimeMs, internalFrame.bitmap),
-        directExecutor());
+    return FrameExtractorInternal.getInstance().submitTask(request);
   }
 
   /**

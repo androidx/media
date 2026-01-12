@@ -33,8 +33,8 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.inspector.FrameExtractor;
-import androidx.media3.inspector.FrameExtractorInternal;
+import androidx.media3.inspector.frame.FrameExtractor;
+import androidx.media3.inspector.frame.FrameExtractorInternal;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * @deprecated Use {@link androidx.media3.inspector.FrameExtractor} instead.
+ * @deprecated Use {@link androidx.media3.inspector.frame.FrameExtractor} instead.
  */
 @Deprecated
 @UnstableApi

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.inspector.mh;
+package androidx.media3.inspector.frame.mh;
 
 import static android.graphics.Bitmap.Config.RGBA_1010102;
 import static android.graphics.Bitmap.Config.RGBA_F16;
@@ -37,7 +37,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import androidx.media3.common.MediaItem;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.inspector.FrameExtractor;
+import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;

@@ -1,14 +1,13 @@
-# Inspector module
+# Inspector Frame module
 
-Provides functionality for inspecting media files, including retrieving metadata
-and providing a replacement for `android.media.MediaExtractor`.
+Provides functionality for extracting and processing decoded video frames.
 
 ## Getting the module
 
 The easiest way to get the module is to add it as a gradle dependency:
 
 ```groovy
-implementation 'androidx.media3:media3-inspector:1.X.X'
+implementation 'androidx.media3:media3-inspector-frame:1.X.X'
 ```
 
 where `1.X.X` is the version, which must match the version of the other media
@@ -23,4 +22,4 @@ locally. Instructions for doing this can be found in the [top level README][].
 
 *   [Javadoc][]
 
-[Javadoc]: https://developer.android.com/reference/androidx/media3/inspector/package-summary
+[Javadoc]: https://developer.android.com/reference/androidx/media3/inspector/frame/package-summary

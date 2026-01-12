@@ -14,7 +14,7 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
-    namespace 'androidx.media3.inspector'
+    namespace 'androidx.media3.inspector.frame'
 
     buildTypes {
         debug {
@@ -24,7 +24,6 @@ android {
 
     sourceSets {
         androidTest.assets.srcDir '../test_data/src/test/assets'
-        test.assets.srcDir '../test_data/src/test/assets/'
     }
 
     publishing {
@@ -36,22 +35,18 @@ android {
 
 dependencies {
     api project(modulePrefix + 'lib-exoplayer')
-    implementation project(modulePrefix + 'lib-inspector-frame')
+    api project(modulePrefix + 'lib-effect')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.concurrent:concurrent-futures:1.2.0'
+    implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
-    testImplementation project(modulePrefix + 'test-utils')
-    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
-    testImplementation 'com.google.truth:truth:' + truthVersion
-    testImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
 }
 
 ext {
-    releaseArtifactId = 'media3-inspector'
-    releaseName = 'Media3 Inspector module'
+    releaseArtifactId = 'media3-inspector-frame'
+    releaseName = 'Media3 Inspector Frame module'
 }
 apply from: '../../publish.gradle'

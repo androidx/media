@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.inspector;
+package androidx.media3.inspector.frame;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
@@ -49,7 +49,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.extractor.DefaultExtractorsFactory;
-import androidx.media3.inspector.FrameExtractor.Frame;
+import androidx.media3.inspector.frame.FrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
