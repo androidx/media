@@ -43,6 +43,7 @@ dependencies {
     implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     implementation project(modulePrefix + 'lib-datasource')
     implementation project(modulePrefix + 'lib-container')
+    implementation project(modulePrefix + 'lib-inspector')
     api project(modulePrefix + 'lib-exoplayer')
     api project(modulePrefix + 'lib-effect')
     api project(modulePrefix + 'lib-muxer')
