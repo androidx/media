@@ -18,6 +18,7 @@ package androidx.media3.demo.compose.buttons
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,10 +49,10 @@ import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 @Composable
 private fun RowControls(
   modifier: Modifier = Modifier,
+  buttons: List<@Composable () -> Unit>,
   horizontalArrangement: Arrangement.Horizontal = Arrangement.Center,
   verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
   additionalSpacer: Float? = null,
-  buttons: List<@Composable () -> Unit>,
 ) {
   Row(modifier, horizontalArrangement, verticalAlignment) {
     buttons.forEachIndexed { index, button ->
@@ -78,42 +78,74 @@ private fun RowControls(
  * |00:01-02:34-----------Speed--Shuffle--Repeat--Mute--|
  * ```
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun BoxScope.Controls(player: Player) {
-  val buttonModifier = Modifier.size(50.dp).background(Color.Gray.copy(alpha = 0.1f), CircleShape)
-  // Central controls
-  RowControls(
-    Modifier.fillMaxWidth().align(Alignment.Center),
-    buttons =
-      listOf(
-        { PreviousButton(player, buttonModifier) },
-        { SeekBackButton(player, buttonModifier) },
-        { PlayPauseButton(player, buttonModifier) },
-        { SeekForwardButton(player, buttonModifier) },
-        { NextButton(player, buttonModifier) },
-      ),
-  )
-  // Button panel controls
-  Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-    ProgressSlider(player, Modifier.fillMaxWidth().padding(horizontal = 15.dp))
-    Row(
-      modifier =
-        Modifier.fillMaxWidth()
-          .background(Color.Gray.copy(alpha = 0.4f))
-          .padding(horizontal = 15.dp),
-      horizontalArrangement = Arrangement.Start,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      PositionAndDurationText(player)
-      Spacer(Modifier.weight(1f))
-      PlaybackSpeedBottomSheetButton(
-        player,
-        colors = ButtonDefaults.textButtonColors(contentColor = Color.Black),
-      )
-      ShuffleButton(player)
-      RepeatButton(player)
-      MuteButton(player)
-    }
+internal fun BoxScope.Controls(
+  player: Player,
+  modifier: Modifier = Modifier.matchParentSize(),
+  topBar: @Composable BoxScope.() -> Unit = {},
+  centerControls: @Composable BoxScope.() -> Unit = { DefaultCenterControls(player) },
+  bottomBar: @Composable BoxScope.() -> Unit = { DefaultBottomBar(player) },
+) {
+  Box(modifier) {
+    Box(Modifier.align(Alignment.TopCenter)) { topBar() }
+    Box(Modifier.align(Alignment.Center)) { centerControls() }
+    Box(Modifier.align(Alignment.BottomCenter)) { bottomBar() }
+  }
+}
+
+@Composable
+private fun DefaultCenterControls(
+  player: Player,
+  modifier: Modifier = Modifier,
+  buttonModifier: Modifier =
+    Modifier.size(50.dp).background(Color.Gray.copy(alpha = 0.1f), CircleShape),
+  buttons: List<@Composable () -> Unit> =
+    listOf(
+      { PreviousButton(player, buttonModifier) },
+      { SeekBackButton(player, buttonModifier) },
+      { PlayPauseButton(player, buttonModifier) },
+      { SeekForwardButton(player, buttonModifier) },
+      { NextButton(player, buttonModifier) },
+    ),
+) {
+  RowControls(modifier.fillMaxWidth(), buttons)
+}
+
+@Composable
+private fun DefaultBottomBar(
+  player: Player,
+  modifier: Modifier = Modifier,
+  progressSlider: @Composable (Player) -> Unit = {
+    ProgressSlider(player = it, Modifier.padding(horizontal = 15.dp))
+  },
+  bottomRow: @Composable (Player) -> Unit = {
+    DefaultBottomRow(
+      player = it,
+      Modifier.background(Color.Gray.copy(alpha = 0.4f)).padding(horizontal = 15.dp),
+    )
+  },
+) {
+  Column(modifier.fillMaxWidth()) {
+    progressSlider(player)
+    bottomRow(player)
+  }
+}
+
+@Composable
+private fun DefaultBottomRow(player: Player, modifier: Modifier = Modifier) {
+  Row(
+    modifier = modifier,
+    horizontalArrangement = Arrangement.Start,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    PositionAndDurationText(player)
+    Spacer(Modifier.weight(1f))
+    PlaybackSpeedBottomSheetButton(
+      player,
+      colors = ButtonDefaults.textButtonColors(contentColor = Color.Black),
+    )
+    ShuffleButton(player)
+    RepeatButton(player)
+    MuteButton(player)
   }
 }
