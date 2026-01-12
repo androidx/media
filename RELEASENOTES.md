@@ -90,6 +90,7 @@
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
         type using the ad pod index and ad position.
+    *   Add a null check before accessing result of `getAdsManager()`.
 *   Session:
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.
