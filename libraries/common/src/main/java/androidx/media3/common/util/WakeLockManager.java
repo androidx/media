@@ -22,6 +22,7 @@ import android.content.pm.PackageManager;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -104,11 +105,13 @@ public final class WakeLockManager {
     } else {
       // When we are about to release a wakelock, add emergency safeguard on main thread in case
       // the wakelock handler thread is unresponsive.
-      Runnable emergencyRelease = wakeLockManagerInternal::forceReleaseWakeLock;
-      mainHandler.postDelayed(emergencyRelease, UNREACTIVE_WAKELOCK_HANDLER_RELEASE_DELAY_MS);
+      AtomicBoolean emergencyReleaseNeeded = new AtomicBoolean(true);
+      mainHandler.postDelayed(
+          () -> wakeLockManagerInternal.forceReleaseWakeLock(emergencyReleaseNeeded),
+          UNREACTIVE_WAKELOCK_HANDLER_RELEASE_DELAY_MS);
       wakeLockHandler.post(
           () -> {
-            mainHandler.removeCallbacks(emergencyRelease);
+            emergencyReleaseNeeded.set(false);
             wakeLockManagerInternal.updateWakeLock(enabled, stayAwake);
           });
     }
@@ -161,12 +164,14 @@ public final class WakeLockManager {
       }
     }
 
-    private void forceReleaseWakeLock() {
-      new Thread(this::forceReleaseWakeLockInternal, WAKE_LOCK_TAG).start();
+    private void forceReleaseWakeLock(AtomicBoolean shouldForceRelease) {
+      if (shouldForceRelease.get()) {
+        new Thread(() -> forceReleaseWakeLockInternal(shouldForceRelease), WAKE_LOCK_TAG).start();
+      }
     }
 
-    private synchronized void forceReleaseWakeLockInternal() {
-      if (wakeLock != null) {
+    private synchronized void forceReleaseWakeLockInternal(AtomicBoolean shouldForceRelease) {
+      if (shouldForceRelease.get() && wakeLock != null) {
         wakeLock.release();
       }
     }
