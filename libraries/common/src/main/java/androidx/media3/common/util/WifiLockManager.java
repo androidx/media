@@ -21,6 +21,7 @@ import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Looper;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -103,11 +104,13 @@ public final class WifiLockManager {
     } else {
       // When we are about to release a Wifi lock, add emergency safeguard on main thread in case
       // the lock handler thread is unresponsive.
-      Runnable emergencyRelease = wifiLockManagerInternal::forceReleaseWifiLock;
-      mainHandler.postDelayed(emergencyRelease, UNREACTIVE_WIFILOCK_HANDLER_RELEASE_DELAY_MS);
+      AtomicBoolean emergencyReleaseNeeded = new AtomicBoolean(true);
+      mainHandler.postDelayed(
+          () -> wifiLockManagerInternal.forceReleaseWifiLock(emergencyReleaseNeeded),
+          UNREACTIVE_WIFILOCK_HANDLER_RELEASE_DELAY_MS);
       wifiLockHandler.post(
           () -> {
-            mainHandler.removeCallbacks(emergencyRelease);
+            emergencyReleaseNeeded.set(false);
             wifiLockManagerInternal.updateWifiLock(enabled, stayAwake);
           });
     }
@@ -157,12 +160,14 @@ public final class WifiLockManager {
       }
     }
 
-    private void forceReleaseWifiLock() {
-      new Thread(this::forceReleaseWifiLockInternal, WIFI_LOCK_TAG).start();
+    private void forceReleaseWifiLock(AtomicBoolean shouldForceRelease) {
+      if (shouldForceRelease.get()) {
+        new Thread(() -> forceReleaseWifiLockInternal(shouldForceRelease), WIFI_LOCK_TAG).start();
+      }
     }
 
-    private synchronized void forceReleaseWifiLockInternal() {
-      if (wifiLock != null) {
+    private synchronized void forceReleaseWifiLockInternal(AtomicBoolean shouldForceRelease) {
+      if (shouldForceRelease.get() && wifiLock != null) {
         wifiLock.release();
       }
     }
