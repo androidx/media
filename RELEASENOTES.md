@@ -170,6 +170,8 @@
         correctly when replacing the playlist.
 *   Test Utilities:
 *   Remove deprecated symbols:
+    *   Removed `ExperimentalFrameExtractor`. Use
+        `androidx.media3.inspector.frame.FrameExtractor` instead.
 
 ## 1.9
 
