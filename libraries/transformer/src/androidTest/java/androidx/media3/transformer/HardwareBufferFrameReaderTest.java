@@ -162,6 +162,85 @@ public class HardwareBufferFrameReaderTest {
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
+  @Test
+  public void frameReader_queueFrameViaSurfaceThenQueueEndOfStream_receivesFrameThenEos()
+      throws Exception {
+    long frameTimeUs = 1234;
+    hardwareBufferFrameReader.queueFrameViaSurface(frameTimeUs, /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.queueEndOfStream();
+
+    produceFrameToFrameReaderSurface(frameTimeUs);
+
+    HardwareBufferFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    HardwareBufferFrame secondFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    HardwareBufferFrame shouldBeNull = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(firstFrame).isNotNull();
+    assertThat(firstFrame.presentationTimeUs).isEqualTo(frameTimeUs);
+    assertThat(secondFrame).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    assertThat(shouldBeNull).isNull();
+  }
+
+  @Test
+  public void frameReader_queueEndOfStreamThenQueueFrameViaSurface_receivesEosThenFrame()
+      throws Exception {
+    long frameTimeUs = 5678;
+    hardwareBufferFrameReader.queueEndOfStream();
+    hardwareBufferFrameReader.queueFrameViaSurface(frameTimeUs, /* indexOfItem= */ 0);
+
+    HardwareBufferFrame receivedEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedEos).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+
+    produceFrameToFrameReaderSurface(frameTimeUs);
+
+    HardwareBufferFrame firstFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    HardwareBufferFrame shouldBeNull = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(firstFrame).isNotNull();
+    assertThat(firstFrame.presentationTimeUs).isEqualTo(frameTimeUs);
+    assertThat(shouldBeNull).isNull();
+  }
+
+  @Test
+  public void frameReader_queueMultipleSurfaceFramesAndEos_receivesInOrder() throws Exception {
+    long frameTimeUs1 = 1000;
+    long frameTimeUs2 = 2000;
+    long frameTimeUs3 = 3000;
+
+    hardwareBufferFrameReader.queueFrameViaSurface(frameTimeUs1, /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.queueFrameViaSurface(frameTimeUs2, /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.queueEndOfStream();
+    hardwareBufferFrameReader.queueFrameViaSurface(frameTimeUs3, /* indexOfItem= */ 0);
+
+    produceFrameToFrameReaderSurface(frameTimeUs1);
+    HardwareBufferFrame recFrame1 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(recFrame1).isNotNull();
+    assertThat(recFrame1.presentationTimeUs).isEqualTo(frameTimeUs1);
+    recFrame1.release();
+
+    produceFrameToFrameReaderSurface(frameTimeUs2);
+    HardwareBufferFrame recFrame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(recFrame2).isNotNull();
+    assertThat(recFrame2.presentationTimeUs).isEqualTo(frameTimeUs2);
+    recFrame2.release();
+
+    HardwareBufferFrame recEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(recEos).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+
+    produceFrameToFrameReaderSurface(frameTimeUs3);
+    HardwareBufferFrame recFrame3 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    assertThat(recFrame3).isNotNull();
+    assertThat(recFrame3.presentationTimeUs).isEqualTo(frameTimeUs3);
+    recFrame3.release();
+
+    assertThat(receivedFrames).isEmpty();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
   private void produceFrameToFrameReaderSurface(long presentationTimeUs) {
     try (ImageWriter imageWriter =
         ImageWriter.newInstance(hardwareBufferFrameReader.getSurface(), /* maxImages= */ 1)) {

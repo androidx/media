@@ -1407,8 +1407,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           new HardwareBufferFrameReader(
               composition,
               sequenceIndex,
-              /* frameConsumer= */ hardwareBufferFrame ->
-                  checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex),
+              /* frameConsumer= */ hardwareBufferFrame -> {
+                if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                  checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                } else {
+                  checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex);
+                }
+              },
               checkNotNull(playbackThread).getLooper(),
               /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
               e ->

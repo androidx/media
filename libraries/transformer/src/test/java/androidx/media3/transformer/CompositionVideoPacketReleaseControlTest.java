@@ -17,6 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -206,6 +207,121 @@ public class CompositionVideoPacketReleaseControlTest {
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
     assertThat(releasedFrameTimestamps)
         .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs);
+  }
+
+  @Test
+  public void isEnded_initially_returnsFalse() {
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+  }
+
+  @Test
+  public void queue_eosPacket_doesNotIsEndedWhenOnRenderNotCalled() {
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+  }
+
+  @Test
+  public void onRender_eosPacket_setsIsEndedTrue() throws Exception {
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+    assertOutputPackets(/* ignoreReleaseTime= */ true);
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void onRender_eosPacketAfterFrames_setsIsEndedTrue() throws ExoPlaybackException {
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void onRender_eosPacketBeforeFrames_doesNotSetIsEndedTrue() throws ExoPlaybackException {
+    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void onStarted_afterEos_resetsIsEndedToFalse() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+
+    compositionVideoPacketReleaseControl.onStarted();
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+  }
+
+  @Test
+  public void reset_afterEos_resetsIsEndedToFalse() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+
+    compositionVideoPacketReleaseControl.reset();
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+  }
+
+  @Test
+  public void onRender_emptyQueueWhenEnded_isEndedRemainsTrue() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 10_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime() + 10_000),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(long presentationTimeUs) {

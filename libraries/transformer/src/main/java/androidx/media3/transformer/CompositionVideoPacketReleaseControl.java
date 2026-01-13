@@ -50,6 +50,7 @@ import java.util.concurrent.ExecutorService;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final PlaceholderSurface placeholderSurface;
+  private boolean isEnded;
 
   /**
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
@@ -90,19 +91,17 @@ import java.util.concurrent.ExecutorService;
    */
   public void queue(List<HardwareBufferFrame> packet) {
     checkArgument(!packet.isEmpty());
-    // TODO: b/449956776 - Propagate EOS signal.
-    if (packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
-      return;
-    }
-    // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
-    // manually release all frames to handle this discontinuity.
-    // TODO: b/449956936 - There is still a race condition in this check that could result in an
-    //  extra dropped frame on a seek backwards, update VideoFrameReleaseControl to handle this
-    //  case, or handle queueFrame and onRender on a single internal thread to fix this.
-    @Nullable ImmutableList<HardwareBufferFrame> nextRenderedFrames = packetQueue.peek();
-    if (nextRenderedFrames != null
-        && packet.get(0).presentationTimeUs < nextRenderedFrames.get(0).presentationTimeUs) {
-      reset();
+    if (!packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
+      // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
+      // manually release all frames to handle this discontinuity.
+      // TODO: b/449956936 - There is still a race condition in this check that could result in an
+      //  extra dropped frame on a seek backwards, update VideoFrameReleaseControl to handle this
+      //  case, or handle queueFrame and onRender on a single internal thread to fix this.
+      @Nullable ImmutableList<HardwareBufferFrame> nextRenderedFrames = packetQueue.peek();
+      if (nextRenderedFrames != null
+          && packet.get(0).presentationTimeUs < nextRenderedFrames.get(0).presentationTimeUs) {
+        reset();
+      }
     }
     packetQueue.add(ImmutableList.copyOf(packet));
   }
@@ -127,6 +126,15 @@ import java.util.concurrent.ExecutorService;
     @Nullable ImmutableList<HardwareBufferFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       checkState(!packet.isEmpty());
+      if (packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
+        if (packetQueue.peek() == null) {
+          isEnded = true;
+          // TODO: b/449956776 - Propagate EOS signal.
+          return;
+        }
+        // Ignore EOS frames if there are more frames to be rendered.
+        continue;
+      }
       long presentationTimeUs = checkNotNull(packet).get(0).presentationTimeUs;
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
@@ -146,6 +154,11 @@ import java.util.concurrent.ExecutorService;
     }
   }
 
+  @Override
+  public boolean isEnded() {
+    return isEnded;
+  }
+
   /**
    * Called when rendering starts.
    *
@@ -153,6 +166,7 @@ import java.util.concurrent.ExecutorService;
    */
   public void onStarted() {
     videoFrameReleaseControl.onStarted();
+    isEnded = false;
   }
 
   /**
@@ -174,6 +188,7 @@ import java.util.concurrent.ExecutorService;
       releasePacket(packet);
     }
     videoFrameReleaseControl.reset();
+    isEnded = false;
   }
 
   /**

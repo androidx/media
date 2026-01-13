@@ -189,6 +189,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     maybeOutputPendingBitmaps();
   }
 
+  /**
+   * Forwards a {@link HardwareBufferFrame#END_OF_STREAM_FRAME} to the downstream consumer after all
+   * pending frames have been forwarded.
+   */
+  void queueEndOfStream() {
+    pendingFrameInfo.add(FrameInfo.END_OF_STREAM);
+    maybeOutputPendingBitmaps();
+  }
+
   /** Releases any resources. */
   void release() {
     if (imageReaderSurface != null) {
@@ -226,6 +235,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           createHardwareBufferFrameFromBitmap(
               checkNotNull(frameInfo.bitmap), presentationTimeUs, frameInfo.itemIndex);
       sendFrameDownstream(hardwareBufferFrame);
+    }
+    maybeOutputEndOfStream();
+  }
+
+  private void maybeOutputEndOfStream() {
+    @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
+    while (frameInfo == FrameInfo.END_OF_STREAM) {
+      frameConsumer.accept(HardwareBufferFrame.END_OF_STREAM_FRAME);
+      pendingFrameInfo.remove();
+      frameInfo = pendingFrameInfo.peek();
     }
   }
 
@@ -341,6 +360,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class FrameInfo {
+
+    /** A {@link FrameInfo} marking that the sequence has ended. */
+    private static final FrameInfo END_OF_STREAM =
+        new FrameInfo(
+            null,
+            null,
+            /* presentationTimeUs= */ C.TIME_END_OF_SOURCE,
+            /* itemIndex= */ C.INDEX_UNSET);
+
     /**
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
      * #getSurface()}.

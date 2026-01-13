@@ -161,4 +161,92 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(2).presentationTimeUs).isEqualTo(66_667);
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
+
+  @Test
+  public void queueEndOfStream_outputsEosFrame() {
+    hardwareBufferFrameReader.queueEndOfStream();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrames).containsExactly(HardwareBufferFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void outputBitmap_thenQueueEndOfStream_outputsBitmapThenEos() {
+    TimestampIterator singleFrameIterator =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+
+    hardwareBufferFrameReader.outputBitmap(bitmap, singleFrameIterator, /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.queueEndOfStream();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0).internalFrame).isInstanceOf(Bitmap.class);
+    assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
+    assertThat(receivedFrames.get(1)).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+  }
+
+  @Test
+  public void queueEndOfStream_thenOutputBitmap_outputsEosThenBitmap() {
+    // Use a single frame iterator to avoid capacity issues blocking immediate output
+    TimestampIterator singleFrameIterator =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000, /* frameRate= */ 1f);
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+
+    hardwareBufferFrameReader.queueEndOfStream();
+    hardwareBufferFrameReader.outputBitmap(bitmap, singleFrameIterator, /* indexOfItem= */ 0);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0)).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    assertThat(receivedFrames.get(1).internalFrame).isInstanceOf(Bitmap.class);
+    assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(0);
+  }
+
+  @Test
+  public void queueEndOfStream_multipleTimes_outputsMultipleEosFrames() {
+    hardwareBufferFrameReader.queueEndOfStream();
+    hardwareBufferFrameReader.queueEndOfStream();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+    assertThat(receivedFrames)
+        .containsExactly(
+            HardwareBufferFrame.END_OF_STREAM_FRAME, HardwareBufferFrame.END_OF_STREAM_FRAME)
+        .inOrder();
+  }
+
+  @Test
+  public void queueEndOfStream_afterBitmapsFillCapacity_isOutputAfterBitmapsReleased() {
+    TimestampIterator threeFrames =
+        new ConstantRateTimestampIterator(/* durationUs= */ 100_000, /* frameRate= */ 30f);
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    // Queue 3 bitmaps and EOS. Only the first 2 should be output immediately, filling the capacity.
+    hardwareBufferFrameReader.outputBitmap(bitmap, threeFrames, /* indexOfItem= */ 0);
+    hardwareBufferFrameReader.queueEndOfStream();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
+    assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(33_333);
+
+    receivedFrames.remove(0).release();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(33_333);
+    assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(66_667);
+    assertThat(threeFrames.hasNext()).isFalse();
+
+    receivedFrames.remove(0).release();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(66_667);
+    assertThat(receivedFrames.get(1)).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
 }

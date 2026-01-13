@@ -95,6 +95,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long elapsedRealtimeUs,
         long compositionTimeOutputStreamStartPositionUs)
         throws ExoPlaybackException;
+
+    /**
+     * Called on {@link Renderer#isEnded}.
+     *
+     * <p>Called on the playback thread.
+     */
+    boolean isEnded();
   }
 
   private static final int DEFAULT_FRAME_RATE = 30;
@@ -912,6 +919,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
 
+    private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
 
@@ -956,6 +964,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
+      this.mediaPeriodId = mediaPeriodId;
       // The media item might have been repeated in the sequence.
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
@@ -1039,6 +1048,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return false;
     }
 
+    @Override
+    protected void renderToEndOfStream() {
+      super.renderToEndOfStream();
+      if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
+        hardwareBufferFrameReader.queueEndOfStream();
+      }
+    }
+
+    @Override
+    public boolean isEnded() {
+      // Wait until the listener has also ended before ending the renderer, to avoid frames being
+      // stuck between the renderer and listener if this renderer ends too early.
+      return super.isEnded()
+          && (!isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))
+              || compositionRendererListener.isEnded());
+    }
+
     private int indexOfCurrentItem() {
       return getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
     }
@@ -1052,6 +1078,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final CompositionRendererListener compositionRendererListener;
     private final HardwareBufferFrameReader hardwareBufferFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
+    private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
 
@@ -1088,6 +1115,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // While this is not a strict requirement, multiple playlist items are not tested or
       // deliberately supported by this renderer.
       checkState(getTimeline().getWindowCount() == 1);
+      this.mediaPeriodId = mediaPeriodId;
       streamStartPositionUs = startPositionUs;
       // The media item might have been repeated in the sequence.
       offsetToCompositionTimeUs =
@@ -1118,7 +1146,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } else {
         hardwareBufferFrameReader.outputBitmap(outputImage, timestampIterator, indexOfItem);
       }
+      if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
+        hardwareBufferFrameReader.queueEndOfStream();
+      }
       return true;
+    }
+
+    @Override
+    public boolean isEnded() {
+      // Wait until the listener has also ended before ending the renderer, to avoid frames being
+      // stuck between the renderer and listener if this renderer ends too early.
+      return super.isEnded()
+          && (!isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))
+              || compositionRendererListener.isEnded());
     }
 
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
