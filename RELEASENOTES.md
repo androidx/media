@@ -128,9 +128,8 @@
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.
-    *   Add `PlaybackSpeedToggleButton` and `PlaybackSpeedBottomSheetButton`
-        Composables to `media3-ui-compose-material3` as Material3 themed buttons
-        for controlling playback speed.
+    *   Add `PlaybackSpeedToggleButton` Composable to
+        `media3-ui-compose-material3` for controlling playback speed.
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and
         tapping ([#2288](https://github.com/androidx/media/issues/2288)).

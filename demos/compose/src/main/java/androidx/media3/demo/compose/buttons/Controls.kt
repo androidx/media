@@ -37,7 +37,7 @@ import androidx.media3.common.Player
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
-import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedBottomSheetButton
+import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedToggleButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.SeekBackButton
@@ -140,7 +140,7 @@ private fun DefaultBottomRow(player: Player?, modifier: Modifier = Modifier) {
   ) {
     PositionAndDurationText(player)
     Spacer(Modifier.weight(1f))
-    PlaybackSpeedBottomSheetButton(
+    PlaybackSpeedToggleButton(
       player,
       colors = ButtonDefaults.textButtonColors(contentColor = Color.Black),
     )
