@@ -863,6 +863,11 @@ public class PlayerControlView extends FrameLayout {
     addOnLayoutChangeListener(this::onLayoutChange);
   }
 
+  @Override
+  public boolean hasOverlappingRendering() {
+    return false;
+  }
+
   /**
    * Returns the {@link Player} currently being controlled by this view, or null if no player is
    * set.

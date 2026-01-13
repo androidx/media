@@ -133,6 +133,7 @@
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and
         tapping ([#2288](https://github.com/androidx/media/issues/2288)).
+    *   Avoid large offscreen buffer in animating PlayerControlView.
 *   Downloads:
     *   Fix potential infinite loops when a `PriorityTooLowException` is handled
         by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom
