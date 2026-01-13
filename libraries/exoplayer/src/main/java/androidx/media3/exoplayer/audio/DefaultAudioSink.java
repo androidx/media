@@ -669,9 +669,24 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public @SinkFormatSupport int getFormatSupport(Format format) {
+    // For PCM formats, convert the format to what our audio processors will produce.
+    boolean transcodingViaAudioProcessors = false;
+    if (Util.isEncodingLinearPcm(format.pcmEncoding)) {
+      boolean usesFloatPcm = shouldUseFloatOutput(format.pcmEncoding);
+      if (usesFloatPcm && format.pcmEncoding != C.ENCODING_PCM_FLOAT) {
+        format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build();
+        transcodingViaAudioProcessors = true;
+      }
+      if (!usesFloatPcm && format.pcmEncoding != C.ENCODING_PCM_16BIT) {
+        format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build();
+        transcodingViaAudioProcessors = true;
+      }
+    }
     switch (audioOutputProvider.getFormatSupport(getFormatConfig(format)).supportLevel) {
       case AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY:
-        return SINK_FORMAT_SUPPORTED_DIRECTLY;
+        return transcodingViaAudioProcessors
+            ? SINK_FORMAT_SUPPORTED_WITH_TRANSCODING
+            : SINK_FORMAT_SUPPORTED_DIRECTLY;
       case AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING:
         return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
       case AudioOutputProvider.FORMAT_UNSUPPORTED:
