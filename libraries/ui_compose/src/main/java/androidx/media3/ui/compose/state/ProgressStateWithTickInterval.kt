@@ -51,7 +51,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun rememberProgressStateWithTickInterval(
-  player: Player,
+  player: Player?,
   @IntRange(from = 0) tickIntervalMs: Long = 0,
   scope: CoroutineScope = rememberCoroutineScope(),
 ): ProgressStateWithTickInterval {
@@ -96,7 +96,7 @@ fun rememberProgressStateWithTickInterval(
  */
 @UnstableApi
 class ProgressStateWithTickInterval(
-  private val player: Player,
+  private val player: Player?,
   @IntRange(from = 0) private val tickIntervalMs: Long = 0,
   scope: CoroutineScope,
 ) {
@@ -110,13 +110,15 @@ class ProgressStateWithTickInterval(
     private set
 
   private val updateJob =
-    ProgressStateJob(
-      player,
-      scope,
-      nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
-      shouldScheduleTask = { isReadyOrBuffering(player) },
-      scheduledTask = ::updateProgress,
-    )
+    player?.let {
+      ProgressStateJob(
+        player = it,
+        scope = scope,
+        nextMediaTickMsSupplier = { nextMediaWakeUpPositionMs(player = it) },
+        shouldScheduleTask = { isReadyOrBuffering(player = it) },
+        scheduledTask = { updateProgress(player = it) },
+      )
+    }
 
   init {
     require(tickIntervalMs >= 0)
@@ -126,9 +128,9 @@ class ProgressStateWithTickInterval(
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
-  suspend fun observe(): Nothing = updateJob.observeProgress()
+  suspend fun observe() = updateJob?.observeProgress()
 
-  private fun nextMediaWakeUpPositionMs(): Long {
+  private fun nextMediaWakeUpPositionMs(player: Player): Long {
     if (tickIntervalMs == 0L) {
       return 0
     }
@@ -142,9 +144,9 @@ class ProgressStateWithTickInterval(
     return nextMediaWakeUpPositionMs
   }
 
-  private fun updateProgress() {
-    currentPositionMs = snapPositionToNearestTick(::getCurrentPositionMsOrDefault)
-    bufferedPositionMs = snapPositionToNearestTick(::getBufferedPositionMsOrDefault)
+  private fun updateProgress(player: Player) {
+    currentPositionMs = snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault)
+    bufferedPositionMs = snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault)
     durationMs = getDurationMsOrDefault(player)
   }
 
@@ -155,7 +157,7 @@ class ProgressStateWithTickInterval(
    * Note how this is different to [ProgressStateWithTickCount] rounding that takes half of the
    * interval into account to round up.
    */
-  private fun snapPositionToNearestTick(positionSupplier: (Player) -> Long): Long {
+  private fun snapPositionToNearestTick(player: Player, positionSupplier: (Player) -> Long): Long {
     val actualPositionMs = positionSupplier(player)
     if (tickIntervalMs == 0L || actualPositionMs % tickIntervalMs == 0L) {
       return actualPositionMs

@@ -39,7 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun PositionText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
@@ -56,7 +56,7 @@ fun PositionText(
 @UnstableApi
 @Composable
 fun DurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   scope: CoroutineScope = rememberCoroutineScope(),
 ) {
@@ -74,7 +74,7 @@ fun DurationText(
 @UnstableApi
 @Composable
 fun RemainingDurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   showNegative: Boolean = false,
   scope: CoroutineScope = rememberCoroutineScope(),
@@ -93,7 +93,7 @@ fun RemainingDurationText(
 @UnstableApi
 @Composable
 fun PositionAndDurationText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   separator: String = " / ",
   scope: CoroutineScope = rememberCoroutineScope(),
@@ -115,7 +115,7 @@ fun PositionAndDurationText(
 @UnstableApi
 @Composable
 fun TimeText(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   timeFormat: TimeFormat,
   scope: CoroutineScope = rememberCoroutineScope(),

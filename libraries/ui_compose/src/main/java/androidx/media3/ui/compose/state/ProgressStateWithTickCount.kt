@@ -59,7 +59,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun rememberProgressStateWithTickCount(
-  player: Player,
+  player: Player?,
   @IntRange(from = 0) totalTickCount: Int = 0,
   scope: CoroutineScope = rememberCoroutineScope(),
 ): ProgressStateWithTickCount {
@@ -99,7 +99,7 @@ fun rememberProgressStateWithTickCount(
  */
 @UnstableApi
 class ProgressStateWithTickCount(
-  private val player: Player,
+  private val player: Player?,
   @IntRange(from = 0) private var totalTickCount: Int = 0,
   scope: CoroutineScope,
 ) {
@@ -121,16 +121,18 @@ class ProgressStateWithTickCount(
     private set
 
   private val updateJob =
-    ProgressStateJob(
-      player,
-      scope,
-      nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
-      shouldScheduleTask = {
-        isReadyOrBuffering(player) &&
-          canCalculateTicks(totalTickCount, getDurationMsOrDefault(player))
-      },
-      scheduledTask = ::updateProgress,
-    )
+    player?.let {
+      ProgressStateJob(
+        player = it,
+        scope = scope,
+        nextMediaTickMsSupplier = { nextMediaWakeUpPositionMs(player = it) },
+        shouldScheduleTask = {
+          isReadyOrBuffering(player = it) &&
+            canCalculateTicks(totalTickCount, getDurationMsOrDefault(player = it))
+        },
+        scheduledTask = { updateProgress(player = it) },
+      )
+    }
 
   /**
    * Dynamically set [totalTickCount] to another value with the change taking effect immediately,
@@ -139,7 +141,7 @@ class ProgressStateWithTickCount(
   fun updateTotalTickCount(newTotalTickCount: Int) {
     if (totalTickCount != newTotalTickCount) {
       totalTickCount = newTotalTickCount
-      updateJob.cancelPendingUpdatesAndMaybeRelaunch()
+      updateJob?.cancelPendingUpdatesAndMaybeRelaunch()
     }
   }
 
@@ -151,6 +153,7 @@ class ProgressStateWithTickCount(
    * the state]. Throws an `IllegalStateException` otherwise.
    */
   fun updateCurrentPositionProgress(progress: Float) {
+    val player = player ?: return
     check(changingProgressEnabled)
     val durationMs = getDurationMsOrDefault(player)
     if (
@@ -170,9 +173,9 @@ class ProgressStateWithTickCount(
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
-  suspend fun observe(): Nothing = updateJob.observeProgress()
+  suspend fun observe() = updateJob?.observeProgress()
 
-  private fun nextMediaWakeUpPositionMs(): Long {
+  private fun nextMediaWakeUpPositionMs(player: Player): Long {
     checkState(totalTickCount != 0)
     val durationMs = getDurationMsOrDefault(player)
     checkState(durationMs != C.TIME_UNSET)
@@ -183,7 +186,7 @@ class ProgressStateWithTickCount(
     return (nextTickIndex * durationMs) / totalTickCount - midInterval
   }
 
-  private fun updateProgress() {
+  private fun updateProgress(player: Player) {
     val duration = getDurationMsOrDefault(player)
     currentPositionProgress =
       positionToProgress(getCurrentPositionMsOrDefault(player), duration, totalTickCount)

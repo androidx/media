@@ -60,7 +60,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun TimeText(
-  player: Player,
+  player: Player?,
   @IntRange(from = 0) tickIntervalMs: Int = 1000,
   scope: CoroutineScope = rememberCoroutineScope(),
   content: @Composable ProgressStateWithTickInterval.() -> Unit,

@@ -41,7 +41,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun ProgressIndicator(
-  player: Player,
+  player: Player?,
   @IntRange(from = 0) totalTickCount: Int = 0,
   scope: CoroutineScope = rememberCoroutineScope(),
   content: @Composable ProgressStateWithTickCount.() -> Unit,

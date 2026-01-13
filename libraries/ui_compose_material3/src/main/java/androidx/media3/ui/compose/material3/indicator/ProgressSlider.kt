@@ -49,7 +49,7 @@ import kotlinx.coroutines.CoroutineScope
 @UnstableApi
 @Composable
 fun ProgressSlider(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   onValueChange: ((Float) -> Unit)? = null,
   onValueChangeFinished: (() -> Unit)? = null,
