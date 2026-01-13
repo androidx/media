@@ -36,7 +36,6 @@ android {
 
 dependencies {
     api project(modulePrefix + 'lib-exoplayer')
-    implementation project(modulePrefix + 'lib-inspector-frame')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
