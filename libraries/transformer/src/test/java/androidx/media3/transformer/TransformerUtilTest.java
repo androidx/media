@@ -20,6 +20,7 @@ import static androidx.media3.transformer.EditedMediaItemSequence.withAudioAndVi
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_DEFAULT;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
+import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
@@ -28,6 +29,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -51,6 +55,19 @@ public final class TransformerUtilTest {
           .setFrameRate(29.97f)
           .setCodecs("avc1.64001F")
           .build();
+
+  public static final SpeedProvider DOUBLE_SPEED_PROVIDER =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
 
   @Test
   public void shouldTranscodeVideo_regularRotationAndTranscodingPresentation_returnsTrue()
@@ -116,6 +133,67 @@ public final class TransformerUtilTest {
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
                 muxerWrapper))
         .isTrue();
+  }
+
+  @Test
+  public void shouldTranscodeAudio_withSpeedProvider_returnsTrue() throws Exception {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(DOUBLE_SPEED_PROVIDER).build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+    Format format =
+        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 1, /* sampleRate= */ 44100);
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+
+    assertThat(
+            shouldTranscodeAudio(
+                format,
+                composition,
+                /* sequenceIndex= */ 0,
+                new TransformationRequest.Builder().build(),
+                new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
+                muxerWrapper))
+        .isTrue();
+  }
+
+  @Test
+  public void shouldTranscodeAudio_withOnlyPreProcessingEffects_returnsFalse() throws Exception {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setPreProcessingAudioProcessors(ImmutableList.of(new ToInt16PcmAudioProcessor()))
+            .build();
+
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+    Format format =
+        Util.getPcmFormat(C.ENCODING_PCM_24BIT, /* channels= */ 1, /* sampleRate= */ 44100);
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+
+    assertThat(
+            shouldTranscodeAudio(
+                format,
+                composition,
+                /* sequenceIndex= */ 0,
+                new TransformationRequest.Builder().build(),
+                new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
+                muxerWrapper))
+        .isFalse();
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {

@@ -116,6 +116,9 @@ public final class TransformerUtil {
     if (firstEditedMediaItem.flattenForSlowMotion && containsSlowMotionData(inputFormat)) {
       return true;
     }
+    if (firstEditedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+      return true;
+    }
     if (!firstEditedMediaItem.effects.audioProcessors.isEmpty()) {
       return true;
     }

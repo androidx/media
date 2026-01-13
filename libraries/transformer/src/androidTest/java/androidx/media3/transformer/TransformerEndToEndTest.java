@@ -2595,6 +2595,40 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void setSpeed_withNoOtherEffects_transcodesAndAppliesEffect() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 300_000, 600_000}, new float[] {4f, 0.5f, 2f});
+    // Use a WAV file without any effects so that the EditedMediaItem is a candidate for
+    // transmuxing.
+    EditedMediaItem input =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setSpeed(speedProvider)
+            .build();
+
+    TransformerAndroidTestRunner testRunner =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+    ExportTestResult result = testRunner.run(testId, input);
+
+    // When Transformer transmuxes a file, it skips the entire effects pipeline. We should make sure
+    // that the file is processed and the speed adjustment is applied.
+    assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
+
+    AtomicInteger bytesRead = new AtomicInteger();
+    EditedMediaItem speedAdjustedOutput =
+        new EditedMediaItem.Builder(MediaItem.fromUri(result.filePath))
+            .setEffects(fromProcessors(createByteCountingAudioProcessor(bytesRead)))
+            .build();
+
+    testRunner.run(testId, speedAdjustedOutput);
+
+    // Allow 0.05ms of tolerance because of encoder dropping frames (b/475182836).
+    // 300ms / 4 + 300ms / 0.5 + 400ms / 2 = 875ms -> 38588 frames.
+    assertThat(bytesRead.get() / 2).isWithin(2300).of(38588);
+  }
+
+  @Test
   public void export_setAudioEncodingProfile_changesProfile() throws Exception {
     assumeFalse(shouldSkipDeviceForAacObjectHeProfileEncoding());
     assumeCanEncodeWithProfile(MimeTypes.AUDIO_AAC, AACObjectHE);
@@ -3077,6 +3111,10 @@ public class TransformerEndToEndTest {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setPitch(pitch);
     return sonic;
+  }
+
+  private static Effects fromProcessors(AudioProcessor... processors) {
+    return new Effects(ImmutableList.copyOf(processors), ImmutableList.of());
   }
 
   private final class TestTextureAssetLoaderFactory implements AssetLoader.Factory {
