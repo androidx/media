@@ -490,19 +490,25 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
   private @SupportLevel int getFormatSupportLevel(FormatConfig formatConfig) {
     Format format = formatConfig.format;
     if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+      if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
+        // Always supported.
+        return FORMAT_SUPPORTED_DIRECTLY;
+      }
+      if (!formatConfig.enableHighResolutionPcmOutput) {
+        // Other PCM formats explicitly disabled, so claim no support.
+        return FORMAT_UNSUPPORTED;
+      }
       if (!Util.isEncodingLinearPcm(format.pcmEncoding)) {
         Log.w(TAG, "Invalid PCM encoding: " + format.pcmEncoding);
         return FORMAT_UNSUPPORTED;
       }
-
-      if (format.pcmEncoding == C.ENCODING_PCM_16BIT
-          || (formatConfig.enableHighResolutionPcmOutput
-              && format.pcmEncoding == C.ENCODING_PCM_FLOAT)) {
-        return FORMAT_SUPPORTED_DIRECTLY;
+      if (SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(format.pcmEncoding)) {
+        // Format not yet supported by AudioTrack on this SDK level.
+        return FORMAT_UNSUPPORTED;
       }
-      // We can resample all linear PCM encodings to 16-bit integer PCM, which AudioTrack is
-      // guaranteed to support.
-      return FORMAT_SUPPORTED_WITH_TRANSCODING;
+      // AudioTrack can play this PCM format. It may internally resample to other PCM formats, but
+      // this is outside of our control and knowledge.
+      return FORMAT_SUPPORTED_DIRECTLY;
     }
     if (audioCapabilities.isPassthroughPlaybackSupported(format, formatConfig.audioAttributes)) {
       return FORMAT_SUPPORTED_DIRECTLY;

@@ -17,11 +17,12 @@ package androidx.media3.exoplayer.audio;
 
 import static android.media.AudioFormat.CHANNEL_OUT_STEREO;
 import static androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY;
-import static androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING;
+import static androidx.media3.exoplayer.audio.AudioOutputProvider.FORMAT_UNSUPPORTED;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -44,11 +45,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.ShadowAudioTrack;
 
 /** Unit tests for {@link AudioTrackAudioOutputProvider}. */
 @RunWith(AndroidJUnit4.class)
+@Config(sdk = ALL_SDKS)
 public class AudioTrackAudioOutputProviderTest {
 
   private Context context;
@@ -86,7 +89,7 @@ public class AudioTrackAudioOutputProviderTest {
   }
 
   @Test
-  public void getFormatSupport_pcm8Bit_isSupportedWithTranscoding() {
+  public void getFormatSupport_pcm8BitWithHighResolutionPcmOutputDisabled_isUnsupported() {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
@@ -95,14 +98,194 @@ public class AudioTrackAudioOutputProviderTest {
             .setPcmEncoding(C.ENCODING_PCM_8BIT)
             .build();
     FormatConfig config =
-        new FormatConfig.Builder(format).setAudioAttributes(TEST_ATTRIBUTES).build();
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(false)
+            .build();
 
     assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
-        .isEqualTo(FORMAT_SUPPORTED_WITH_TRANSCODING);
+        .isEqualTo(FORMAT_UNSUPPORTED);
   }
 
   @Test
-  public void getFormatSupport_floatPcmWithFloatOutputDisabled_isSupportedWithTranscoding() {
+  public void getFormatSupport_pcm8BitWithHighResolutionPcmOutputEnabled_isSupportedDirectly() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_8BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Test
+  public void getFormatSupport_pcm24BitWithHighResolutionPcmOutputDisabled_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(false)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Config(minSdk = 31)
+  @Test
+  public void getFormatSupport_pcm24BitWithHighResolutionPcmOutputEnabled_isSupportedDirectly() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Config(maxSdk = 30)
+  @Test
+  public void
+      getFormatSupport_pcm24BitWithHighResolutionPcmOutputEnabledBeforeIntroduced_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  public void getFormatSupport_pcm24BitBigEndianWithHighResolutionPcmOutputEnabled_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT_BIG_ENDIAN)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  public void getFormatSupport_pcm32BitWithHighResolutionPcmOutputDisabled_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_32BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(false)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Config(minSdk = 31)
+  @Test
+  public void getFormatSupport_pcm32BitWithHighResolutionPcmOutputEnabled_isSupportedDirectly() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_32BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Config(maxSdk = 30)
+  @Test
+  public void
+      getFormatSupport_pcm32BitWithHighResolutionPcmOutputEnabledBeforeIntroduced_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_32BIT)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  public void getFormatSupport_pcm32BitBigEndianWithHighResolutionPcmOutputEnabled_isUnsupported() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .setPcmEncoding(C.ENCODING_PCM_32BIT_BIG_ENDIAN)
+            .build();
+    FormatConfig config =
+        new FormatConfig.Builder(format)
+            .setAudioAttributes(TEST_ATTRIBUTES)
+            .setEnableHighResolutionPcmOutput(true)
+            .build();
+
+    assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
+        .isEqualTo(FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  public void getFormatSupport_floatPcmWithHighResolutionPcmOutputDisabled_isUnsupported() {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
@@ -117,11 +300,11 @@ public class AudioTrackAudioOutputProviderTest {
             .build();
 
     assertThat(audioOutputProvider.getFormatSupport(config).supportLevel)
-        .isEqualTo(FORMAT_SUPPORTED_WITH_TRANSCODING);
+        .isEqualTo(FORMAT_UNSUPPORTED);
   }
 
   @Test
-  public void getFormatSupport_floatPcmWithFloatOutputEnabled_isSupportedDirectly() {
+  public void getFormatSupport_floatPcmWithHighResolutionPcmOutputEnabled_isSupportedDirectly() {
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)

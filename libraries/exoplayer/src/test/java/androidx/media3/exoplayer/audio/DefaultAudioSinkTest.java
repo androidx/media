@@ -70,6 +70,7 @@ import org.robolectric.shadows.ShadowUIModeManager;
 
 /** Unit tests for {@link DefaultAudioSink}. */
 @RunWith(AndroidJUnit4.class)
+@Config(sdk = ALL_SDKS)
 public final class DefaultAudioSinkTest {
 
   private static final long TIMEOUT_MS = 10_000;
@@ -340,41 +341,99 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  public void floatPcmNeedsTranscodingIfFloatOutputDisabled() {
-    defaultAudioSink = new DefaultAudioSink.Builder().build();
+  public void getFormatSupport_pcm16BitFloatOutputDisabled_supportedDirectly() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
     Format floatFormat =
         STEREO_44_1_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
             .build();
-    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
-        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
-  }
 
-  @Config(minSdk = Config.OLDEST_SDK)
-  @Test
-  public void floatOutputSupportedIfFloatOutputEnabled() {
-    defaultAudioSink = new DefaultAudioSink.Builder().setEnableFloatOutput(true).build();
-    Format floatFormat =
-        STEREO_44_1_FORMAT
-            .buildUpon()
-            .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
-            .build();
     assertThat(defaultAudioSink.getFormatSupport(floatFormat))
         .isEqualTo(SINK_FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
-  public void supportsFloatPcm() {
+  public void getFormatSupport_pcm16BitFloatOutputEnabled_supportedDirectly() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setEnableFloatOutput(true)
+            .build();
+    Format floatFormat =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Test
+  public void getFormatSupport_pcm24BitFloatOutputDisabled_supportedWithTranscoding() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
+    Format floatFormat =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
+  }
+
+  @Test
+  public void getFormatSupport_pcm24BitFloatOutputEnabled_supportedDirectly() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setEnableFloatOutput(true)
+            .build();
+    Format floatFormat =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
+  }
+
+  @Test
+  public void getFormatSupport_floatPcmFloatOutputDisabled_supportedWithTranscoding() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
     Format floatFormat =
         STEREO_44_1_FORMAT
             .buildUpon()
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
             .setPcmEncoding(C.ENCODING_PCM_FLOAT)
             .build();
-    assertThat(defaultAudioSink.supportsFormat(floatFormat)).isTrue();
+
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
+  }
+
+  @Test
+  public void getFormatSupport_floatPcmFloatOutputEnabled_supportedDirectly() {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setEnableFloatOutput(true)
+            .build();
+    Format floatFormat =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
+            .build();
+
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_DIRECTLY);
   }
 
   @Test
