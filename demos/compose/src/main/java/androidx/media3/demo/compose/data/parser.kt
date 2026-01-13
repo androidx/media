@@ -23,15 +23,27 @@ import androidx.core.net.toUri
 import androidx.core.util.Preconditions.checkState
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.Log
 import java.io.IOException
 import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-internal fun Context.loadPlaylistHolderGroups(): List<PlaylistGroup> {
-  val jsonReader = JsonReader(InputStreamReader(assets.open("media.exolist.json")))
-  val playlistGroups = mutableListOf<PlaylistGroup>()
-  readPlaylistGroups(jsonReader, playlistGroups)
-  return playlistGroups
-}
+internal suspend fun Context.loadPlaylistHolderGroups(): List<PlaylistGroup> =
+  withContext(Dispatchers.IO) {
+    try {
+      assets.open("media.exolist.json").use { inputStream ->
+        val jsonReader = JsonReader(InputStreamReader(inputStream, StandardCharsets.UTF_8))
+        val playlistGroups = mutableListOf<PlaylistGroup>()
+        readPlaylistGroups(jsonReader, playlistGroups)
+        playlistGroups
+      }
+    } catch (e: IOException) {
+      Log.e("parser", "Error loading playlist groups", e)
+      emptyList()
+    }
+  }
 
 private fun readPlaylistGroups(reader: JsonReader, groups: MutableList<PlaylistGroup>) {
   reader.beginArray()
