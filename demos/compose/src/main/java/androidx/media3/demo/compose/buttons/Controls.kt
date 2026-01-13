@@ -80,7 +80,7 @@ private fun RowControls(
  */
 @Composable
 internal fun BoxScope.Controls(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier.matchParentSize(),
   topBar: @Composable BoxScope.() -> Unit = {},
   centerControls: @Composable BoxScope.() -> Unit = { DefaultCenterControls(player) },
@@ -95,7 +95,7 @@ internal fun BoxScope.Controls(
 
 @Composable
 private fun DefaultCenterControls(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   buttonModifier: Modifier =
     Modifier.size(50.dp).background(Color.Gray.copy(alpha = 0.1f), CircleShape),
@@ -113,12 +113,12 @@ private fun DefaultCenterControls(
 
 @Composable
 private fun DefaultBottomBar(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
-  progressSlider: @Composable (Player) -> Unit = {
+  progressSlider: @Composable (Player?) -> Unit = {
     ProgressSlider(player = it, Modifier.padding(horizontal = 15.dp))
   },
-  bottomRow: @Composable (Player) -> Unit = {
+  bottomRow: @Composable (Player?) -> Unit = {
     DefaultBottomRow(
       player = it,
       Modifier.background(Color.Gray.copy(alpha = 0.4f)).padding(horizontal = 15.dp),
@@ -132,7 +132,7 @@ private fun DefaultBottomBar(
 }
 
 @Composable
-private fun DefaultBottomRow(player: Player, modifier: Modifier = Modifier) {
+private fun DefaultBottomRow(player: Player?, modifier: Modifier = Modifier) {
   Row(
     modifier = modifier,
     horizontalArrangement = Arrangement.Start,

@@ -92,11 +92,8 @@ internal fun AutoHidingPlayerBox(
     contentScale = contentScale,
     keepContentOnReset = keepContentOnReset,
     controls = {
-      // TODO: b/474553667 - remove guard clause once Controls can take nullable Player
-      if (player != null) {
-        AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-          Box(Modifier.fillMaxSize()) { Controls(player) }
-        }
+      AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
+        Box(Modifier.fillMaxSize()) { Controls(player) }
       }
     },
   )
