@@ -68,9 +68,9 @@ public final class FakeVideoRendererTest {
     player.prepare();
     player.play();
 
-    advance(player).untilPosition(0, 100);
+    advance(player).untilPositionAtLeast(0, 100);
     player.seekTo(2500);
-    advance(player).untilPosition(0, 2600);
+    advance(player).untilPositionAtLeast(0, 2600);
     player.stop();
     player.release();
     surface.release();
