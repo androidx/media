@@ -78,7 +78,7 @@ public final class MediaRouteButtonFactoryTest {
         new ContextThemeWrapper(
             ApplicationProvider.getApplicationContext(), R.style.Theme_TestAppTheme);
     mediaRouteSelector = new MediaRouteSelector.Builder().addControlCategory("category").build();
-    castContextWrapper = CastContextWrapper.getSingletonInstance();
+    castContextWrapper = CastContextWrapper.getSingletonInstance(context);
     when(mockCastContextInitializer.init()).thenReturn(mockCastContextTask);
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockCastContext.getMergedSelector()).thenReturn(mediaRouteSelector);

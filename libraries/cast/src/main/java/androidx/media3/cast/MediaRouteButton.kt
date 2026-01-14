@@ -60,7 +60,10 @@ import androidx.mediarouter.media.MediaTransferReceiver
  * ```
  *
  * @param modifier the [Modifier] to be applied to the button.
- * @throws IllegalStateException if this method is not called on the main thread.
+ * @throws IllegalStateException if any of the following condition occurs:
+ *     - This method is not called on the main thread.
+ *     - The [CastContextWrapper] has not been initialized via [CastContextWrapper.asyncInit()]
+ *       before this method is called.
  */
 @MainThread
 @UnstableApi
@@ -139,6 +142,7 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
   LaunchedEffect(context) {
     val castContextWrapper = CastContextWrapper.getSingletonInstance(context)
+    castContextWrapper.ensureInitialized(context)
     val mediaRouteSelectorListener: MediaRouteSelectorListener =
       object : MediaRouteSelectorListener() {
         override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
@@ -149,12 +153,6 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
       castContextWrapper.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
     if (currentSelector != null) {
       selector = currentSelector
-    }
-    if (castContextWrapper.needsInitialization()) {
-      // TODO: b/452356348 - Apps need to initialize the CastContextWrapper. The media3 needs
-      // to throws an exception if the CastContextWrapper is not initialized and there is no
-      // manifest-configured options provider for automatically initializing the CastContextWrapper.
-      castContextWrapper.asyncInit()
     }
   }
   if (!selector.isEmpty) {

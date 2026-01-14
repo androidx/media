@@ -131,7 +131,12 @@ public final class MediaRouteButtonFactory {
    * @throws IllegalArgumentException if the menu doesn't contain a menu item with the given {@code
    *     menuResourceId} identifier or the menu item doesn't have a {@link
    *     androidx.mediarouter.app.MediaRouteActionProvider} as its action provider.
-   * @throws IllegalStateException if this method is not called on the main thread.
+   * @throws IllegalStateException If any of the following condition occurs:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>The {@link CastContextWrapper} has not been initialized via {@link
+   *           CastContextWrapper#asyncInit()} before this method is called.
+   *     </ul>
    */
   @CanIgnoreReturnValue
   public static ListenableFuture<MenuItem> setUpMediaRouteButton(
@@ -232,8 +237,13 @@ public final class MediaRouteButtonFactory {
    *     is failed to set a {@link MediaRouteSelector} to the media route button. The completer of
    *     the returned {@link ListenableFuture} may be called on a different thread than the caller's
    *     thread.
-   * @throws IllegalArgumentException if the media route button is null.
-   * @throws IllegalStateException if this method is not called on the main thread.
+   * @throws IllegalArgumentException If the media route button is null.
+   * @throws IllegalStateException If any of the following conditions occur:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>The {@link CastContextWrapper} has not been initialized via {@link
+   *           CastContextWrapper#asyncInit()} before this method is called.
+   *     </ul>
    */
   @CanIgnoreReturnValue
   public static ListenableFuture<Void> setUpMediaRouteButton(
@@ -254,10 +264,13 @@ public final class MediaRouteButtonFactory {
    *     successfully set up. The future may fail with {@link IllegalStateException} if this method
    *     is not called on the main thread or it is failed to set a {@link MediaRouteSelector} to the
    *     media route button.
+   * @throws IllegalStateException If the {@link CastContextWrapper} has not been initialized via
+   *     {@link CastContextWrapper#asyncInit()} before this method is called.
    */
   private static ListenableFuture<Void> setUpMediaRouteButton(
       Context context, Consumer<MediaRouteSelector> onCompletion) {
     CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
+    castContextWrapper.ensureInitialized(context);
     return CallbackToFutureAdapter.getFuture(
         completer -> {
           final MediaRouteSelectorListener mediaRouteSelectorListener =
@@ -282,11 +295,6 @@ public final class MediaRouteButtonFactory {
             } else {
               completer.setException(new IllegalStateException(MESSAGE_FAILED_TO_GET_SELECTOR));
             }
-          }
-          if (castContextWrapper.needsInitialization()) {
-            // TODO: b/452356348 - Apps need to initialize the CastContextWrapper. The media3 needs
-            // to throws an exception if the CastContextWrapper is not initialized.
-            castContextWrapper.asyncInit();
           }
           completer.addCancellationListener(
               () -> castContextWrapper.unregisterListener(mediaRouteSelectorListener),

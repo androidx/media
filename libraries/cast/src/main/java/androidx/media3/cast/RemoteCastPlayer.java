@@ -245,7 +245,12 @@ public final class RemoteCastPlayer extends BasePlayer {
     /**
      * Builds and returns a {@link RemoteCastPlayer} instance.
      *
-     * @throws IllegalStateException If this method has already been called.
+     * @throws IllegalStateException If any of the following condition occurs:
+     *     <ul>
+     *       <li>This method has already been called.
+     *       <li>The {@link CastContextWrapper} has not been initialized via {@link
+     *           CastContextWrapper#asyncInit()} before this method is called.
+     *     </ul>
      */
     public RemoteCastPlayer build() {
       checkState(!buildCalled);
@@ -434,8 +439,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
 
-    if (castContextWrapper.needsInitialization()) {
-      castContextWrapper.asyncInit();
+    if (context != null) {
+      castContextWrapper.ensureInitialized(context);
     }
     castContextWrapper.addSessionManagerListener(statusListener);
     setCastSession(castContextWrapper.getCurrentCastSession());

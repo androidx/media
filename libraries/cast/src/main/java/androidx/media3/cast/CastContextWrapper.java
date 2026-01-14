@@ -63,6 +63,9 @@ public class CastContextWrapper {
   /* package */ static final String MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS =
       "The method must be called on the main process (%s), but "
           + "was called on the process (%s).";
+  /* package */ static final String MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED =
+      "Must initialize CastContextWrapper prior to using it. To achieve this, call asyncInit in the"
+          + " Application#onCreate() method.";
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
@@ -162,6 +165,46 @@ public class CastContextWrapper {
    */
   public boolean needsInitialization() {
     return castContext == null && castContextLoadFailure == null && !isInitOngoing;
+  }
+
+  /**
+   * Ensures that the {@link CastContextWrapper} is initialized.
+   *
+   * <p>If the {@link CastContextWrapper} is already initialized, this method returns immediately.
+   * If the {@link CastContextWrapper} hasn't been initialized yet, this method triggers
+   * asynchronous initialization using the manifest-configured options provider.
+   *
+   * <p>This method is intended to maintain backwards compatibility with media3 versions that used
+   * the CastSDK manifest-based OptionsProvider. Once the preferred {@link #asyncInit} has been
+   * available for a while in a stable release, this method may be removed.
+   *
+   * @param context A {@link Context}.
+   * @throws IllegalStateException If any of the following condition occurs:
+   *     <ul>
+   *       <li>This method is not called on the main thread.
+   *       <li>The {@link CastContextWrapper} was not initialized via {@link
+   *           CastContextWrapper#asyncInit()} by the app yet and there is no manifest-configured
+   *           options provider in the app's manifest for automatically initializing the {@link
+   *           CastContextWrapper}.
+   *     </ul>
+   */
+  /* package */ void ensureInitialized(Context context) {
+    ensureInitialized(() -> CastContext.getSharedInstance(context, BackgroundExecutor.get()));
+  }
+
+  @VisibleForTesting
+  /* package */ void ensureInitialized(CastContextInitializer castContextInitializer) {
+    verifyMainThread();
+    if (!needsInitialization()) {
+      return;
+    }
+    try {
+      asyncInit(castContextInitializer);
+    } catch (IllegalStateException exception) {
+      // We want to rethrow the exception with a different message that instructs the app developer
+      // to call asyncInit() in the Application#onCreate() method.
+      throw new IllegalStateException(MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED, exception);
+    }
   }
 
   /**

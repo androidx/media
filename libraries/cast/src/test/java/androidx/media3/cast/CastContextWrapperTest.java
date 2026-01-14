@@ -145,6 +145,61 @@ public final class CastContextWrapperTest {
   }
 
   @Test
+  public void ensureInitialized_alreadyInitialized_doesNotThrowException() {
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    castContextWrapper.initWithContext(mockCastContext);
+    assertThat(castContextWrapper.needsInitialization()).isFalse();
+
+    castContextWrapper.ensureInitialized(context);
+  }
+
+  @Test
+  public void ensureInitialized_notInitializedAndExceptionThrownAfterInit_rethrowsException() {
+    IllegalStateException originalException =
+        new IllegalStateException("No manifest options provider to initialize CastContext");
+    when(mockCastContextInitializer.init()).thenThrow(originalException);
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    assertThat(castContextWrapper.needsInitialization()).isTrue();
+
+    IllegalStateException exception =
+        assertThrows(
+            IllegalStateException.class,
+            () -> castContextWrapper.ensureInitialized(mockCastContextInitializer));
+
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(CastContextWrapper.MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED);
+    assertThat(exception).hasCauseThat().isEqualTo(originalException);
+  }
+
+  @Test
+  public void ensureInitialized_notInitializedAndSuccessfulAfterInit_initializesContext() {
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    assertThat(castContextWrapper.needsInitialization()).isTrue();
+
+    castContextWrapper.ensureInitialized(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(castContextWrapper.needsInitialization()).isFalse();
+    assertThat(castContextWrapper.getCastContextLoadFailure()).isNull();
+  }
+
+  @Test
+  public void ensureInitialized_notInitializedAndFailureAfterInit_setsFailure() {
+    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    assertThat(castContextWrapper.needsInitialization()).isTrue();
+
+    castContextWrapper.ensureInitialized(mockCastContextInitializer);
+    IllegalStateException exception = new IllegalStateException("Failed to load");
+    castContextTaskCompletionSource.setException(exception);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(castContextWrapper.needsInitialization()).isFalse();
+    assertThat(castContextWrapper.getCastContextLoadFailure()).isEqualTo(exception);
+  }
+
+  @Test
   public void getCastContextLoadFailure_byDefault_returnsNull() {
     assertThat(CastContextWrapper.getSingletonInstance().getCastContextLoadFailure()).isNull();
   }
@@ -273,7 +328,7 @@ public final class CastContextWrapperTest {
     final String mainProcessName = context.getPackageName();
     final String backgroundProcessName = mainProcessName + ":background";
     final String originalProcessName = Application.getProcessName();
-    // Configure the ShadowApplication to return on the background process.
+    // Configure the ShadowApplication to run on the background process.
     ShadowApplication.setProcessName(backgroundProcessName);
 
     try {
@@ -298,7 +353,7 @@ public final class CastContextWrapperTest {
     final String mainProcessName = context.getPackageName();
     final String backgroundProcessName = mainProcessName + ":background";
     final String originalProcessName = Application.getProcessName();
-    // Configure the ShadowApplication to return on the background process.
+    // Configure the ShadowApplication to run on the background process.
     ShadowApplication.setProcessName(backgroundProcessName);
 
     try {
