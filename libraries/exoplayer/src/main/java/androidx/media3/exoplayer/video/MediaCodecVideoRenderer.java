@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.video;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
@@ -1398,6 +1399,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     if (getMaxInputSize(codecInfo, newFormat) > codecMaxValues.inputSize) {
       discardReasons |= DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
+    }
+    if (changeFrameRateStrategy != C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+        && oldFormat.frameRate != Format.NO_VALUE
+        && newFormat.frameRate != Format.NO_VALUE
+        && Math.abs(newFormat.frameRate - oldFormat.frameRate) > 1f
+        && cannotChangeSurfaceFrameRateMidPlayback()) {
+      discardReasons |= DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED;
     }
 
     return new DecoderReuseEvaluation(
@@ -2851,6 +2859,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private static int getMaxSampleSize(int pixelCount, int minCompressionRatio) {
     return (pixelCount * 3) / (2 * minCompressionRatio);
+  }
+
+  private static boolean cannotChangeSurfaceFrameRateMidPlayback() {
+    // We can't tell the surface about the new frame rate before API 30, so it's likely to keep
+    // the initially estimated screen refresh rate from the previous format.
+    // See https://github.com/androidx/media/issues/2941. MiTV boxes were also reported to
+    // still have this problem on API 30.
+    return SDK_INT < 30 || (SDK_INT == 30 && Build.MODEL.startsWith("MiTV"));
   }
 
   private static boolean evaluateDeviceNeedsSetOutputSurfaceWorkaround() {
