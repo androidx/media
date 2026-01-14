@@ -85,7 +85,8 @@ public final class DecoderReuseEvaluation {
         DISCARD_REASON_AUDIO_CHANNEL_COUNT_CHANGED,
         DISCARD_REASON_AUDIO_SAMPLE_RATE_CHANGED,
         DISCARD_REASON_AUDIO_ENCODING_CHANGED,
-        DISCARD_REASON_AUDIO_BYPASS_POSSIBLE
+        DISCARD_REASON_AUDIO_BYPASS_POSSIBLE,
+        DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED
       })
   public @interface DecoderDiscardReasons {}
 
@@ -136,6 +137,9 @@ public final class DecoderReuseEvaluation {
 
   /** The audio bypass mode is possible. */
   public static final int DISCARD_REASON_AUDIO_BYPASS_POSSIBLE = 1 << 15;
+
+  /** The video frame rate is changing. */
+  public static final int DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED = 1 << 16;
 
   /** The name of the decoder. */
   public final String decoderName;

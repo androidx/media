@@ -32,6 +32,10 @@
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios
         ([#2609](https://github.com/androidx/media/pull/2609)).
+*   Video:
+    *   Discard video codecs on devices below API 30 when the content frame rate
+        changes to avoid stuttering playback
+        ([#2941](https://github.com/androidx/media/issues/2941)).
 *   Text:
     *   VobSub: Fix some missing subtitles by correctly handling SPUs that
         either contain only a single control sequence, or have critical info
