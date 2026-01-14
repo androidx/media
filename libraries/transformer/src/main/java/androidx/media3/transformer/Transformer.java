@@ -914,6 +914,7 @@ public final class Transformer {
   private final Clock clock;
   private final HandlerWrapper applicationHandler;
   private final ComponentListener componentListener;
+  private final ExportOperationListener exportOperationListener;
   private final ExportResult.Builder exportResultBuilder;
   @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
@@ -924,6 +925,7 @@ public final class Transformer {
   @Nullable private final ExecutorService glExecutorService;
 
   @Nullable private TransformerInternal transformerInternal;
+  @Nullable private ExportOperation currentExportOperation;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Composition originalComposition;
@@ -995,6 +997,7 @@ public final class Transformer {
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     componentListener = new ComponentListener();
+    exportOperationListener = new ExportOperationListener();
     exportResultBuilder = new ExportResult.Builder();
   }
 
@@ -1099,22 +1102,14 @@ public final class Transformer {
    */
   public void start(Composition composition, String path) {
     verifyApplicationThread();
+    checkState(
+        currentExportOperation == null && transformerInternal == null,
+        "There is already an export in progress.");
     initialize(composition, path);
     if (trimOptimizationEnabled && isSingleAssetTrimming()) {
       processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     } else {
-      startInternal(
-          this.composition,
-          new MuxerWrapper(
-              outputFilePath,
-              muxerFactory,
-              componentListener,
-              MuxerWrapper.MUXER_MODE_DEFAULT,
-              /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null),
-          componentListener,
-          /* initialTimestampOffsetUs= */ 0,
-          /* forceRemuxing= */ false);
+      startExportOperation();
     }
   }
 
@@ -1213,6 +1208,10 @@ public final class Transformer {
    */
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
     verifyApplicationThread();
+    if (currentExportOperation != null) {
+      return currentExportOperation.getProgress(progressHolder);
+    }
+
     if (isExportResumed()) {
       return getResumeProgress(progressHolder);
     }
@@ -1340,16 +1339,19 @@ public final class Transformer {
    */
   public void cancel() {
     verifyApplicationThread();
-    if (transformerInternal == null) {
+    if (currentExportOperation == null && transformerInternal == null) {
       maybeStopExportWatchdogTimer();
       return;
     }
     try {
-      transformerInternal.cancel();
+      if (currentExportOperation != null) {
+        currentExportOperation.cancel();
+      } else {
+        checkNotNull(transformerInternal).cancel();
+      }
     } finally {
       ProgressHolder progressHolder = new ProgressHolder();
       int progressState = getProgress(progressHolder);
-      transformerInternal = null;
 
       if (canCollectEditingMetrics()) {
         int progressPercentage =
@@ -1361,6 +1363,11 @@ public final class Transformer {
         }
         checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
       }
+
+      currentExportOperation = null;
+      transformerInternal = null;
+
+      maybeStopExportWatchdogTimer();
     }
 
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
@@ -1369,7 +1376,6 @@ public final class Transformer {
     if (copyOutputFuture != null && !copyOutputFuture.isDone()) {
       copyOutputFuture.cancel(/* mayInterruptIfRunning= */ false);
     }
-    maybeStopExportWatchdogTimer();
   }
 
   /**
@@ -1397,6 +1403,9 @@ public final class Transformer {
   // TODO: b/450253391 - Add support for resumption with #setSpeed().
   public void resume(Composition composition, String outputFilePath, String oldFilePath) {
     verifyApplicationThread();
+    checkState(
+        currentExportOperation == null && transformerInternal == null,
+        "There is already an export in progress.");
     checkArgument(!compositionContainsSpeedChangingEffects(composition));
     initialize(composition, outputFilePath);
     this.oldFilePath = oldFilePath;
@@ -1454,7 +1463,15 @@ public final class Transformer {
                               maxDelayBetweenMuxerSamplesMs,
                               DebugTraceUtil.generateTraceSummary())),
                       ExportException.ERROR_CODE_MUXING_TIMEOUT);
-              checkNotNull(transformerInternal).endWithException(exportException);
+              if (currentExportOperation != null) {
+                currentExportOperation.endWithException(exportException);
+              } else if (transformerInternal != null) {
+                transformerInternal.endWithException(exportException);
+              } else {
+                // Fallback if the timeout hits before the operation is even created
+                exportOperationListener.onError(
+                    new ExportResult.Builder().build(), exportException);
+              }
             });
     exportWatchdogTimer.start();
   }
@@ -1829,6 +1846,48 @@ public final class Transformer {
     transformerInternal.start();
   }
 
+  private void startExportOperation() {
+    TransformationRequest transformationRequest = this.transformationRequest;
+    if (checkNotNull(composition).hdrMode != Composition.HDR_MODE_KEEP_HDR) {
+      transformationRequest =
+          transformationRequest.buildUpon().setHdrMode(composition.hdrMode).build();
+    }
+    LogSessionId logSessionId = setUpMetricsCollection();
+    FallbackListener fallbackListener =
+        new FallbackListener(
+            checkNotNull(originalComposition),
+            listeners,
+            applicationHandler,
+            transformationRequest);
+    AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
+    DebugTraceUtil.reset();
+    currentExportOperation =
+        new DefaultExportOperation(
+            context,
+            checkNotNull(composition),
+            transformationRequest,
+            assetLoaderFactory,
+            audioMixerFactory,
+            videoFrameProcessorFactory,
+            encoderFactory,
+            allowedEncodingRotationDegrees,
+            maxFramesInEncoder,
+            exportOperationListener,
+            fallbackListener,
+            applicationHandler,
+            debugViewProvider,
+            clock,
+            packetProcessor,
+            glExecutorService,
+            glObjectsProvider,
+            logSessionId,
+            shouldApplyMp4EditListTrim(),
+            muxerFactory,
+            checkNotNull(outputFilePath),
+            fileStartsOnVideoFrameEnabled);
+    currentExportOperation.start();
+  }
+
   private void onExportCompletedWithSuccess() {
     maybeStopExportWatchdogTimer();
     ExportResult exportResult = exportResultBuilder.build();
@@ -1915,6 +1974,50 @@ public final class Transformer {
         compositionHasVideoEffects);
   }
 
+  private final class ExportOperationListener implements ExportOperation.Listener {
+    @Override
+    public void onCompleted(ExportResult exportResult) {
+      maybeStopExportWatchdogTimer();
+      listeners.sendEvent(
+          listener -> listener.onCompleted(checkNotNull(composition), exportResult));
+      if (canCollectEditingMetrics()) {
+        checkNotNull(editingMetricsCollector).onExportSuccess(exportResult, isExportResumed());
+      }
+      currentExportOperation = null;
+    }
+
+    @Override
+    public void onError(ExportResult exportResult, ExportException exportException) {
+      maybeStopExportWatchdogTimer();
+      listeners.sendEvent(
+          listener -> listener.onError(checkNotNull(composition), exportResult, exportException));
+      if (canCollectEditingMetrics()) {
+        ProgressHolder progressHolder = new ProgressHolder();
+        int progressState = getProgress(progressHolder);
+        int progressPercentage =
+            (progressState == PROGRESS_STATE_AVAILABLE)
+                ? progressHolder.progress
+                : C.PERCENTAGE_UNSET;
+        if (editingMetricsCollector == null) {
+          LogSessionId unused = setUpMetricsCollection();
+        }
+        checkNotNull(editingMetricsCollector)
+            .onExportError(progressPercentage, exportException, exportResult, isExportResumed());
+      }
+      currentExportOperation = null;
+    }
+
+    @Override
+    public void onSampleWrittenOrDropped() {
+      if (exportWatchdogTimer != null) {
+        exportWatchdogTimer.reset();
+      } else {
+        checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
+      }
+    }
+  }
+
+  // TODO: b/464179601 - Remove listener after fully migrating to ExportOperation.
   private final class ComponentListener
       implements TransformerInternal.Listener, MuxerWrapper.Listener {
 
