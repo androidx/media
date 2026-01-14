@@ -28,6 +28,9 @@ import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
@@ -63,6 +66,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private static final int CAPACITY = 2;
 
+  private static final int DEFAULT_FRAME_RATE = 30;
+
   private final Composition composition;
   private final int sequenceIndex;
   private final Consumer<HardwareBufferFrame> frameConsumer;
@@ -81,6 +86,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Queue<FrameInfo> pendingFrameInfo;
 
   private @MonotonicNonNull Surface imageReaderSurface;
+
+  @Nullable private Format lastFormat;
+  private @MonotonicNonNull Format lastAdjustedFormat;
 
   /** The number of frames that are currently in use by the downstream consumer. */
   private int framesInUse;
@@ -168,9 +176,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * @param presentationTimeUs The presentation time of the frame, in microseconds.
    * @param indexOfItem The position of the edited media item in the sequence.
+   * @param format The {@link Format} of the edited media item.
    */
-  void queueFrameViaSurface(long presentationTimeUs, int indexOfItem) {
-    pendingFrameInfo.add(FrameInfo.createForSurface(presentationTimeUs, indexOfItem));
+  void queueFrameViaSurface(long presentationTimeUs, int indexOfItem, Format format) {
+    pendingFrameInfo.add(
+        FrameInfo.createForSurface(presentationTimeUs, indexOfItem, getAdjustedFormat(format)));
   }
 
   /**
@@ -185,7 +195,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // TODO: b/319484746 - Move Bitmap repeating into the Renderer when ImageRenderer takes positionUs
   // into account.
   void outputBitmap(Bitmap bitmap, TimestampIterator timestampIterator, int indexOfItem) {
-    pendingFrameInfo.add(FrameInfo.createForBitmap(bitmap, timestampIterator, indexOfItem));
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.IMAGE_RAW)
+            .setWidth(bitmap.getWidth())
+            .setHeight(bitmap.getHeight())
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
+            .build();
+    pendingFrameInfo.add(FrameInfo.createForBitmap(bitmap, timestampIterator, indexOfItem, format));
     maybeOutputPendingBitmaps();
   }
 
@@ -206,6 +224,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     imageReader.close();
   }
 
+  /** Sets a default {@link ColorInfo} on the given {@link Format}. */
+  private Format getAdjustedFormat(Format format) {
+    if (format.equals(lastFormat)) {
+      return checkNotNull(lastAdjustedFormat);
+    }
+    lastFormat = format;
+    lastAdjustedFormat =
+        format
+            .buildUpon()
+            .setColorInfo(
+                format.colorInfo == null || !format.colorInfo.isDataSpaceValid()
+                    ? ColorInfo.SDR_BT709_LIMITED
+                    : format.colorInfo)
+            .build();
+    return lastAdjustedFormat;
+  }
+
   private void onImageAvailable() {
     FrameInfo frameInfo = checkNotNull(pendingFrameInfo.poll());
     long presentationTimeUs = frameInfo.presentationTimeUs;
@@ -217,7 +252,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         image.getTimestamp(),
         presentationTimeUs * 1000);
 
-    sendFrameDownstream(createHardwareBufferFrameFromImage(image, presentationTimeUs, indexOfItem));
+    sendFrameDownstream(
+        createHardwareBufferFrameFromImage(
+            image, presentationTimeUs, indexOfItem, frameInfo.format));
     maybeOutputPendingBitmaps();
   }
 
@@ -233,7 +270,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long presentationTimeUs = frameInfo.timestampIterator.next();
       HardwareBufferFrame hardwareBufferFrame =
           createHardwareBufferFrameFromBitmap(
-              checkNotNull(frameInfo.bitmap), presentationTimeUs, frameInfo.itemIndex);
+              checkNotNull(frameInfo.bitmap),
+              presentationTimeUs,
+              frameInfo.itemIndex,
+              frameInfo.format);
       sendFrameDownstream(hardwareBufferFrame);
     }
     maybeOutputEndOfStream();
@@ -249,7 +289,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private HardwareBufferFrame createHardwareBufferFrameFromImage(
-      Image image, long presentationTimeUs, int indexOfItem) {
+      Image image, long presentationTimeUs, int indexOfItem, Format format) {
     HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
@@ -279,11 +319,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
     frameBuilder.setInternalFrame(image);
-    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, indexOfItem);
+    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, indexOfItem, format);
   }
 
   private HardwareBufferFrame createHardwareBufferFrameFromBitmap(
-      Bitmap bitmap, long presentationTimeUs, int itemIndex) {
+      Bitmap bitmap, long presentationTimeUs, int itemIndex, Format format) {
     HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Copy the Bitmap into a HardwareBuffer using NDK on earlier API levels.
     if (SDK_INT >= 31 && checkNotNull(bitmap).getConfig() == Bitmap.Config.HARDWARE) {
@@ -304,14 +344,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* releaseCallback= */ this::releaseFrame);
     }
     frameBuilder.setInternalFrame(bitmap);
-    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, itemIndex);
+    return createHardwareBufferFrame(frameBuilder, presentationTimeUs, itemIndex, format);
   }
 
   private HardwareBufferFrame createHardwareBufferFrame(
-      HardwareBufferFrame.Builder frameBuilder, long presentationTimeUs, int itemIndex) {
+      HardwareBufferFrame.Builder frameBuilder,
+      long presentationTimeUs,
+      int itemIndex,
+      Format format) {
     return frameBuilder
         .setPresentationTimeUs(presentationTimeUs)
         .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))
+        .setFormat(format)
         .build();
   }
 
@@ -367,7 +411,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             null,
             null,
             /* presentationTimeUs= */ C.TIME_END_OF_SOURCE,
-            /* itemIndex= */ C.INDEX_UNSET);
+            /* itemIndex= */ C.INDEX_UNSET,
+            /* format= */ new Format.Builder().build());
 
     /**
      * The pending frame {@link Bitmap}, or {@code null} if the frame will be output via {@link
@@ -381,29 +426,32 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     @Nullable final TimestampIterator timestampIterator;
 
+    final Format format;
     final long presentationTimeUs;
     final int itemIndex;
 
     static FrameInfo createForBitmap(
-        Bitmap bitmap, TimestampIterator timestampIterator, int itemIndex) {
+        Bitmap bitmap, TimestampIterator timestampIterator, int itemIndex, Format format) {
       return new FrameInfo(
-          bitmap, timestampIterator, /* presentationTimeUs= */ C.TIME_UNSET, itemIndex);
+          bitmap, timestampIterator, /* presentationTimeUs= */ C.TIME_UNSET, itemIndex, format);
     }
 
-    static FrameInfo createForSurface(long presentationTimeUs, int itemIndex) {
+    static FrameInfo createForSurface(long presentationTimeUs, int itemIndex, Format format) {
       return new FrameInfo(
-          /* bitmap= */ null, /* timestampIterator= */ null, presentationTimeUs, itemIndex);
+          /* bitmap= */ null, /* timestampIterator= */ null, presentationTimeUs, itemIndex, format);
     }
 
     private FrameInfo(
         @Nullable Bitmap bitmap,
         @Nullable TimestampIterator timestampIterator,
         long presentationTimeUs,
-        int itemIndex) {
+        int itemIndex,
+        Format format) {
       this.bitmap = bitmap;
       this.timestampIterator = timestampIterator;
       this.presentationTimeUs = presentationTimeUs;
       this.itemIndex = itemIndex;
+      this.format = format;
     }
   }
 }

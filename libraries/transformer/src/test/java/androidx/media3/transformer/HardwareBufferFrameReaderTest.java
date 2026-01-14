@@ -23,6 +23,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.os.HandlerThread;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.SystemClock;
@@ -86,7 +87,7 @@ public class HardwareBufferFrameReaderTest {
   @Test
   public void canAcceptFrameViaSurface_afterSurfaceFrame_returnsFalse() {
     hardwareBufferFrameReader.queueFrameViaSurface(
-        /* presentationTimeUs= */ 0, /* indexOfItem= */ 0);
+        /* presentationTimeUs= */ 0, /* indexOfItem= */ 0, new Format.Builder().build());
 
     assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();

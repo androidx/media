@@ -920,6 +920,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final long lateThresholdToDropInputUs;
 
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
+    private @MonotonicNonNull Format nextFormat;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
 
@@ -991,6 +992,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
         return false;
       }
+      nextFormat = format;
       return super.processOutputBuffer(
           positionUs,
           elapsedRealtimeUs,
@@ -1014,7 +1016,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // backpressure in processOutputBuffer can't. See what parts of this logic can be moved to
       // vanilla ExoPlayer.
       hardwareBufferFrameReader.queueFrameViaSurface(
-          /* presentationTimeUs= */ compositionPresentationTimeUs, indexOfCurrentItem());
+          /* presentationTimeUs= */ compositionPresentationTimeUs,
+          indexOfCurrentItem(),
+          checkNotNull(nextFormat));
       super.renderOutputBufferV21(
           codec,
           index,

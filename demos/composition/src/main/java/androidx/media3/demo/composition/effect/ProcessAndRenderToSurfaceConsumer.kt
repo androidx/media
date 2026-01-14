@@ -72,7 +72,16 @@ private constructor(private val output: SurfaceHolder?) :
             val left = index * width
             val right = (index + 1) * width
             val dst = Rect(left, canvas.clipBounds.top, right, canvas.clipBounds.bottom)
+            canvas.save()
+            if (frame.format.rotationDegrees != 0) {
+              canvas.rotate(
+                frame.format.rotationDegrees.toFloat(),
+                dst.exactCenterX(),
+                dst.exactCenterY(),
+              )
+            }
             canvas.drawBitmap(bitmap, null, dst, Paint())
+            canvas.restore()
           }
         }
         output.unlockCanvasAndPost(canvas)
