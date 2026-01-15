@@ -70,6 +70,7 @@ public final class TestUtil {
       "mp4/internal_emulator_transformer_output_270_rotated.mp4";
   public static final String FILE_MP4_TRIM_OPTIMIZATION_180 =
       "mp4/internal_emulator_transformer_output_180_rotated.mp4";
+  public static final String FILE_PNG = "png/media3test.png";
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "transformerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
 

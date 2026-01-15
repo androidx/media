@@ -19,6 +19,7 @@ import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
+import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
@@ -28,10 +29,12 @@ import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
+import static androidx.media3.transformer.TestUtil.FILE_PNG;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -68,6 +71,7 @@ import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
+import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import com.google.common.base.Supplier;
@@ -76,6 +80,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1212,6 +1217,84 @@ public class CompositionPlayerTest {
     play(player).untilState(STATE_ENDED);
 
     assertThat(bytes.get() / 2).isEqualTo(88200);
+  }
+
+  @Test
+  public void packetConsumer_imagePlayback_completesWithExpectedNumberOfFrames() throws Exception {
+    CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
+    RecordingPacketConsumer packetConsumer =
+        new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
+    packetConsumer.setOnQueue(
+        () -> {
+          if (packetConsumer.getQueuedPackets().size() == 30) {
+            allExpectedPacketsQueued.countDown();
+          }
+        });
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_PNG)
+                    .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
+                    .build())
+            .setDurationUs(1_000_000L)
+            .setFrameRate(30)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withVideoFrom(ImmutableList.of(item)))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    assertThat(allExpectedPacketsQueued.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void packetConsumer_imagePlayback_seekToMiddle_completesWithExpectedNumberOfFrames()
+      throws Exception {
+    CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
+    RecordingPacketConsumer packetConsumer =
+        new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
+    packetConsumer.setOnQueue(
+        () -> {
+          if (packetConsumer.getQueuedPackets().size() == 15) {
+            allExpectedPacketsQueued.countDown();
+          }
+        });
+
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(ASSET_URI_PREFIX + FILE_PNG)
+                    .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
+                    .build())
+            .setDurationUs(1_000_000L)
+            .setFrameRate(30)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withVideoFrom(ImmutableList.of(item)))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    player.setPlayWhenReady(false);
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(/* positionMs= */ 500);
+    play(player).untilState(STATE_ENDED);
+
+    assertThat(allExpectedPacketsQueued.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   private static Composition buildComposition() {

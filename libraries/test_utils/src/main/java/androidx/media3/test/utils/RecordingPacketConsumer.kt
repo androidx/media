@@ -27,6 +27,7 @@ import androidx.media3.effect.PacketConsumer.Packet
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
   PacketConsumer<MutableList<HardwareBufferFrame>> {
+  var onQueue: Runnable = Runnable {}
   val queuedPackets: List<MutableList<HardwareBufferFrame>>
     get() {
       return _queuedPackets.toList()
@@ -49,5 +50,6 @@ class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
       }
     }
     _queuedPackets.add(frames)
+    onQueue.run()
   }
 }

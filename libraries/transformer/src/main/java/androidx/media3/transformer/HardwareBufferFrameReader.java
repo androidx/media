@@ -216,6 +216,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     maybeOutputPendingBitmaps();
   }
 
+  /** Clears all pending frames. */
+  void flush() {
+    pendingFrameInfo.clear();
+  }
+
   /** Releases any resources. */
   void release() {
     if (imageReaderSurface != null) {
@@ -242,10 +247,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onImageAvailable() {
-    FrameInfo frameInfo = checkNotNull(pendingFrameInfo.poll());
+    Image image = imageReader.acquireNextImage();
+    @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+    // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but before
+    // onImageAvailable, then when onImageAvailable is called there will be no matching
+    // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in this
+    // scenario.
+    if (frameInfo == null) {
+      image.close();
+      return;
+    }
     long presentationTimeUs = frameInfo.presentationTimeUs;
     int indexOfItem = frameInfo.itemIndex;
-    Image image = imageReader.acquireNextImage();
     checkState(
         image.getTimestamp() == presentationTimeUs * 1000,
         "%s != %s",

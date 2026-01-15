@@ -993,10 +993,24 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < playerHolders.size(); i++) {
+      if (packetConsumer != null) {
+        // TODO: b/449956936 - move packetConsumer playback thread seek handling to
+        //  CompositionPlayerInternal.
+        int sequenceIndex = i;
+        playerHolders
+            .get(i)
+            .player
+            .createMessage(
+                (unused, message) -> {
+                  HardwareBufferFrameReader frameReader =
+                      (HardwareBufferFrameReader) checkNotNull(message);
+                  frameReader.flush();
+                  checkNotNull(frameAggregator).flush(sequenceIndex);
+                })
+            .setPayload(playerHolders.get(i).hardwareBufferFrameReader)
+            .send();
+      }
       playerHolders.get(i).player.seekTo(positionMs);
-    }
-    if (packetConsumer != null) {
-      checkNotNull(videoPacketReleaseControl).reset();
     }
     compositionPlayerInternal.endSeek();
     return Futures.immediateVoidFuture();

@@ -250,4 +250,30 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(1)).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
+
+  @Test
+  public void flush_preventsMoreFramesFromBeingOutput() {
+    TimestampIterator thirtyFrames =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888),
+        /* timestampIterator= */ thirtyFrames,
+        /* indexOfItem= */ 0);
+
+    // Trying to output 30 frames, but HardwareBufferFrameReader#CAPACITY is only 2.
+    assertThat(receivedFrames).hasSize(2);
+
+    hardwareBufferFrameReader.flush();
+
+    receivedFrames.get(0).release();
+    shadowOf(handlerThread.getLooper()).idle();
+
+    // Once a frame is released, more output can be accepted downstream. But calling flush()
+    // clears the remaining frames from the thirtyFrames timestamp iterator.
+    assertThat(receivedFrames).hasSize(2);
+    assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
+    assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(33_333);
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
 }
