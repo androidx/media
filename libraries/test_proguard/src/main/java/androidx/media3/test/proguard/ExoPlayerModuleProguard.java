@@ -222,11 +222,9 @@ public final class ExoPlayerModuleProguard {
 
   /**
    * Creates a {@link PlaybackVideoGraphWrapper} then {@linkplain VideoSink#initialize(Format)
-   * initializes} the sink in order to reflectively instantiate a {@code
-   * androidx.media3.effect.SingleInputVideoGraph.Factory} via {@code
-   * CompositingVideoSinkProvider.ReflectiveDefaultVideoFrameProcessorFactory}.
+   * initializes} the sink in order to test reflective access in {@link PlaybackVideoGraphWrapper}.
    */
-  public static void createSingleInputVideoGraphWithCompositingVideoSinkProvider(Context context)
+  public static void setVideoEffectsAndCheckReflectiveAccess(Context context)
       throws VideoSink.VideoSinkException {
     ExoPlayer player = new ExoPlayer.Builder(context).build();
     player.setVideoEffects(VideoFrameProcessor.REDRAW);
