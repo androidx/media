@@ -335,7 +335,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   public HlsPlaylist parse(Uri uri, InputStream inputStream) throws IOException {
     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
     Queue<String> extraLines = new ArrayDeque<>();
-    MatcherCache cacheState = new MatcherCache();
+    MatcherCache matcherCache = new MatcherCache();
     String line;
     try {
       if (!checkPlaylistHeader(reader)) {
@@ -348,7 +348,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           // Do nothing.
         } else if (line.startsWith(TAG_STREAM_INF)) {
           extraLines.add(line);
-          return parseMultivariantPlaylist(new LineIterator(extraLines, reader), uri, cacheState);
+          return parseMultivariantPlaylist(new LineIterator(extraLines, reader), uri, matcherCache);
         } else if (line.startsWith(TAG_TARGET_DURATION)
             || line.startsWith(TAG_MEDIA_SEQUENCE)
             || line.startsWith(TAG_MEDIA_DURATION)
@@ -363,7 +363,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               previousMediaPlaylist,
               new LineIterator(extraLines, reader),
               uri,
-              cacheState);
+              matcherCache);
         } else {
           extraLines.add(line);
         }
@@ -1836,7 +1836,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   }
 
   private static final class MatcherCache extends LinkedHashMap<Pattern, Matcher> {
-    public MatcherCache() {
+    private MatcherCache() {
       super(/* initialCapacity= */ 16, /* loadFactor= */ 0.75f, /* accessOrder= */ true);
     }
 
