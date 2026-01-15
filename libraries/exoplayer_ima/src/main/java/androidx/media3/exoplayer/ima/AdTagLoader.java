@@ -47,6 +47,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.source.ads.AdsLoader.EventListener;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource.AdLoadException;
+import com.google.ads.interactivemedia.v3.api.Ad;
 import com.google.ads.interactivemedia.v3.api.AdDisplayContainer;
 import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdErrorEvent;
@@ -792,10 +793,13 @@ import java.util.Objects;
         Log.i(TAG, message);
         break;
       case LOADED:
-        String adMimeType = adEvent.getAd().getContentType();
-        if (!TextUtils.isEmpty(adMimeType)) {
-          // TODO: b/437870080 - Remove this once the SDK provides a mime type in the AdPodInfo.
-          setAdMimeType(adEvent.getAd().getAdPodInfo(), adMimeType);
+        @Nullable Ad ad = adEvent.getAd();
+        if (ad != null) {
+          String adMimeType = ad.getContentType();
+          if (!TextUtils.isEmpty(adMimeType)) {
+            // TODO: b/437870080 - Remove this once the SDK provides a mime type in the AdPodInfo.
+            setAdMimeType(ad.getAdPodInfo(), adMimeType);
+          }
         }
         break;
       default:
