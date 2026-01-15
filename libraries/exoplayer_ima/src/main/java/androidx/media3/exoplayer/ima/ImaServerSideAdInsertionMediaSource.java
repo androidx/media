@@ -1484,6 +1484,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     @Override
     public void onAdEvent(AdEvent event) {
       AdPlaybackState newAdPlaybackState = adPlaybackState;
+      @Nullable Ad ad = event.getAd();
       switch (event.getType()) {
         case CUEPOINTS_CHANGED:
           if (newAdPlaybackState.equals(AdPlaybackState.NONE)) {
@@ -1493,10 +1494,14 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
           }
           break;
         case LOADED:
-          newAdPlaybackState = setVodAdInPlaceholder(event.getAd(), newAdPlaybackState);
+          if (ad != null) {
+            newAdPlaybackState = setVodAdInPlaceholder(ad, newAdPlaybackState);
+          }
           break;
         case SKIPPED:
-          newAdPlaybackState = skipAd(event.getAd(), newAdPlaybackState);
+          if (ad != null) {
+            newAdPlaybackState = skipAd(ad, newAdPlaybackState);
+          }
           break;
         default:
           // Do nothing.
@@ -1509,8 +1514,10 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private class SinglePeriodLiveAdEventListener implements AdEventListener {
     @Override
     public void onAdEvent(AdEvent event) {
+      @Nullable Ad ad = event.getAd();
       if (!Objects.equals(event.getType(), LOADED)
-          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
+          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)
+          || ad == null) {
         return;
       }
       AdPlaybackState newAdPlaybackState = adPlaybackState;
@@ -1522,7 +1529,6 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
           player.isPlayingAd()
               ? currentPeriod.getAdGroupTimeUs(player.getCurrentAdGroupIndex())
               : msToUs(player.getContentPosition());
-      Ad ad = event.getAd();
       AdPodInfo adPodInfo = ad.getAdPodInfo();
       newAdPlaybackState =
           addLiveAdBreak(
@@ -1541,11 +1547,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private class MultiPeriodLiveAdEventListener implements AdEventListener {
     @Override
     public void onAdEvent(AdEvent event) {
+      @Nullable Ad ad = event.getAd();
       if (!Objects.equals(event.getType(), LOADED)
-          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
+          || !isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)
+          || ad == null) {
         return;
       }
-      AdPodInfo adPodInfo = event.getAd().getAdPodInfo();
+      AdPodInfo adPodInfo = ad.getAdPodInfo();
       Timeline timeline = player.getCurrentTimeline();
       Timeline.Window window = new Timeline.Window();
       Timeline.Period adPeriod = new Timeline.Period();
@@ -1564,7 +1572,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       long adDurationUs =
           adPeriod.durationUs != C.TIME_UNSET
               ? adPeriod.durationUs
-              : secToUsRounded(event.getAd().getDuration());
+              : secToUsRounded(ad.getDuration());
       setAdPlaybackState(
           addLiveAdBreak(
               /* currentContentPeriodPositionUs= */ adPeriodStartTimeUs,
