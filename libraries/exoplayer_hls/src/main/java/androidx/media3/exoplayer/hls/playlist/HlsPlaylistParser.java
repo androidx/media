@@ -466,7 +466,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               /* key= */ variableName,
               /* value= */ parseStringAttr(line, REGEX_VALUE, variableDefinitions, matcherCache));
         } else {
-          variableName = parseStringAttr(line, REGEX_QUERY_PARAM, variableDefinitions, matcherCache);
+          variableName =
+              parseStringAttr(line, REGEX_QUERY_PARAM, variableDefinitions, matcherCache);
           verifyVariableNameNotContainedOrThrow(variableName, variableDefinitions);
           @Nullable String value = playlistUri.getQueryParameter(variableName);
           if (value == null) {
@@ -559,7 +560,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             parseOptionalStringAttr(line, REGEX_CLOSED_CAPTIONS, variableDefinitions, matcherCache);
         @Nullable
         String stableVariantId =
-            parseOptionalStringAttr(line, REGEX_STABLE_VARIANT_ID, variableDefinitions, matcherCache);
+            parseOptionalStringAttr(
+                line, REGEX_STABLE_VARIANT_ID, variableDefinitions, matcherCache);
         Uri uri;
         if (isIFrameOnlyVariant) {
           uri =
@@ -637,7 +639,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       String name = parseStringAttr(line, REGEX_NAME, variableDefinitions, matcherCache);
       @Nullable
       String stableRenditionId =
-          parseOptionalStringAttr(line, REGEX_STABLE_RENDITION_ID, variableDefinitions, matcherCache);
+          parseOptionalStringAttr(
+              line, REGEX_STABLE_RENDITION_ID, variableDefinitions, matcherCache);
       Format.Builder formatBuilder =
           new Format.Builder()
               .setId(groupId + ":" + name)
@@ -950,7 +953,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
           variableDefinitions.put(queryParam, value);
         } else {
-          String importName = parseStringAttr(line, REGEX_IMPORT, variableDefinitions, matcherCache);
+          String importName =
+              parseStringAttr(line, REGEX_IMPORT, variableDefinitions, matcherCache);
           verifyVariableNameNotContainedOrThrow(importName, variableDefinitions);
           String value = multivariantPlaylist.variableDefinitions.get(importName);
           if (value != null) {
@@ -1035,7 +1039,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
       } else if (line.startsWith(TAG_BYTERANGE)) {
-        String byteRange = parseStringAttr(line, REGEX_BYTERANGE, variableDefinitions, matcherCache);
+        String byteRange =
+            parseStringAttr(line, REGEX_BYTERANGE, variableDefinitions, matcherCache);
         String[] splitByteRange = Util.split(byteRange, "@");
         segmentByteRangeLength = Long.parseLong(splitByteRange[0]);
         if (splitByteRange.length > 1) {
@@ -1061,7 +1066,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       } else if (line.startsWith(TAG_RENDITION_REPORT)) {
         long lastMediaSequence =
             parseOptionalLongAttr(line, REGEX_LAST_MSN, C.INDEX_UNSET, matcherCache);
-        int lastPartIndex = parseOptionalIntAttr(line, REGEX_LAST_PART, C.INDEX_UNSET, matcherCache);
+        int lastPartIndex =
+            parseOptionalIntAttr(line, REGEX_LAST_PART, C.INDEX_UNSET, matcherCache);
         String uri = parseStringAttr(line, REGEX_URI, variableDefinitions, matcherCache);
         Uri renditionReportUri = Uri.parse(UriUtil.resolve(baseUri, uri));
         renditionReports.add(
@@ -1278,14 +1284,16 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
         @Nullable Boolean contentMayVary = null;
         String contentMayVaryString =
-            parseOptionalStringAttr(line, REGEX_CONTENT_MAY_VARY, variableDefinitions, matcherCache);
+            parseOptionalStringAttr(
+                line, REGEX_CONTENT_MAY_VARY, variableDefinitions, matcherCache);
         if (contentMayVaryString != null) {
           contentMayVary = !contentMayVaryString.equals(BOOLEAN_FALSE); // default is true
         }
 
         @Nullable String timelineOccupies = null;
         String timelineOccupiesString =
-            parseOptionalStringAttr(line, REGEX_TIMELINE_OCCUPIES, variableDefinitions, matcherCache);
+            parseOptionalStringAttr(
+                line, REGEX_TIMELINE_OCCUPIES, variableDefinitions, matcherCache);
         if (timelineOccupiesString != null) {
           if (timelineOccupiesString.equals(Interstitial.TIMELINE_OCCUPIES_RANGE)) {
             timelineOccupies = Interstitial.TIMELINE_OCCUPIES_RANGE;
@@ -1525,8 +1533,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return Long.toHexString(segmentMediaSequence);
   }
 
-  private static @C.SelectionFlags int parseSelectionFlags(
-      String line, MatcherCache matcherCache) {
+  private static @C.SelectionFlags int parseSelectionFlags(String line, MatcherCache matcherCache) {
     int flags = 0;
     if (parseOptionalBooleanAttribute(line, REGEX_DEFAULT, false, matcherCache)) {
       flags |= C.SELECTION_FLAG_DEFAULT;
@@ -1658,8 +1665,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return defaultValue;
   }
 
-  private static long parseTimeSecondsToUs(
-      String line, Pattern pattern, MatcherCache matcherCache) throws ParserException {
+  private static long parseTimeSecondsToUs(String line, Pattern pattern, MatcherCache matcherCache)
+      throws ParserException {
     String timeValueSeconds = parseStringAttr(line, pattern, Collections.emptyMap(), matcherCache);
     BigDecimal timeValue = new BigDecimal(timeValueSeconds);
     return timeValue.multiply(new BigDecimal(C.MICROS_PER_SECOND)).longValue();
@@ -1845,8 +1852,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
      * @param input The input to match against.
      * @return A Matcher for the pattern, reset to match the input.
      */
-    private Matcher obtainMatcher(
-        Pattern pattern, CharSequence input) {
+    private Matcher obtainMatcher(Pattern pattern, CharSequence input) {
       Matcher matcher = this.get(pattern);
       if (matcher == null) {
         matcher = pattern.matcher(input);
