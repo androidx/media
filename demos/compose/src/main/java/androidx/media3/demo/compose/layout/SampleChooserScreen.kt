@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,16 +42,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.demo.compose.data.PlaylistGroup
+import androidx.media3.demo.compose.data.loadDurationsForMediaItems
 import androidx.media3.demo.compose.data.loadPlaylistHolderGroups
+import kotlinx.coroutines.launch
 
 @Composable
 fun SampleChooserScreen(
-  onPlaylistClick: (List<MediaItem>) -> Unit,
+  onPlaylistClick: suspend (List<MediaItem>) -> Unit,
   modifier: Modifier = Modifier,
   context: Context = LocalContext.current,
 ) {
   var playlistGroups by remember { mutableStateOf<List<PlaylistGroup>>(emptyList()) }
   var isLoading by remember { mutableStateOf(true) }
+  val coroutineScope = rememberCoroutineScope()
 
   LaunchedEffect(context) {
     playlistGroups = context.loadPlaylistHolderGroups()
@@ -80,7 +84,13 @@ fun SampleChooserScreen(
           items(group.playlists) { playlist ->
             ListItem(
               headlineContent = { Text(playlist.name) },
-              modifier = Modifier.clickable { onPlaylistClick(playlist.mediaItems) },
+              modifier =
+                Modifier.clickable(enabled = !isLoading) {
+                  coroutineScope.launch {
+                    isLoading = true
+                    onPlaylistClick(loadDurationsForMediaItems(context, playlist.mediaItems))
+                  }
+                },
             )
           }
         }

@@ -68,8 +68,10 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:' + androidxLifecycleVersion
     implementation 'androidx.navigation:navigation-compose:' + androidxNavigationVersion
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion
 
     implementation project(modulePrefix + 'lib-exoplayer')
+    implementation project(modulePrefix + 'lib-inspector')
     implementation project(modulePrefix + 'lib-ui-compose-material3')
 
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
