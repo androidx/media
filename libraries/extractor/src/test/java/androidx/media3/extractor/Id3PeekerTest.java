@@ -138,7 +138,6 @@ public final class Id3PeekerTest {
   }
 
   @Test
-  @SuppressWarnings("deprecation") // Testing deprecated method
   public void peekId3Data_returnId3TagAccordingToGivenPredicate_ifId3TagPresent()
       throws IOException {
     Id3Peeker id3Peeker = new Id3Peeker();

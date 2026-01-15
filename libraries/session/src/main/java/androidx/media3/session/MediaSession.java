@@ -1956,7 +1956,6 @@ public class MediaSession {
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
-    @SuppressWarnings("deprecation") // calling deprecated API for backwards compatibility
     default ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
         MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
       return onPlaybackResumption(mediaSession, controller);

@@ -799,7 +799,6 @@ public abstract class MediaSessionService extends LifecycleService {
    * @param session A session that needs notification update.
    * @param startInForegroundRequired Whether the service is required to start in the foreground.
    */
-  @SuppressWarnings("deprecation") // Calling deprecated method.
   public void onUpdateNotification(MediaSession session, boolean startInForegroundRequired) {
     onUpdateNotification(session);
     if (defaultMethodCalled) {

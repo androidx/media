@@ -854,7 +854,6 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param context The {@link Context} associated with the player.
    * @param out An array to which the built renderers should be appended.
    */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method for compatibility.
   protected void buildImageRenderers(Context context, ArrayList<Renderer> out) {
     buildImageRenderers(out);
   }

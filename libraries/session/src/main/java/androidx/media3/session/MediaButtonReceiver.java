@@ -268,7 +268,6 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
-  @SuppressWarnings("deprecation")
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
       Context context, Intent intent, ForegroundServiceStartNotAllowedException e) {

@@ -858,7 +858,6 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      @SuppressWarnings("unchecked")
       public void handleMessage(Message msg) {
         if (!registered) {
           return;

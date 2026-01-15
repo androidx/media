@@ -734,9 +734,8 @@ public final class AdPlaybackState {
      *     process.
      * @return A {@link Bundle} containing the data of this instance.
      */
-    // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
-    @SuppressWarnings({"deprecation", "nullness:argument"})
+    @SuppressWarnings("nullness:argument")
     public Bundle toBundle(int interfaceVersion) {
       Bundle bundle = new Bundle();
       bundle.putLong(FIELD_TIME_US, timeUs);
