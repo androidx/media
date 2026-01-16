@@ -158,6 +158,8 @@
         in an unstable API that requires apps that implement this callback to
         add an additional argument of type `JSONObject`
         ([#2950](https://github.com/androidx/media/issues/2950)).
+    *   Optimize HLS playlist parsing by caching regex Matchers
+        ([#3008](https://github.com/androidx/media/pull/3008)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
