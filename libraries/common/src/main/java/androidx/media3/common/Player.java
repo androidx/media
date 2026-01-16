@@ -3275,7 +3275,6 @@ public interface Player {
    * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
    */
-  @UnstableApi
   void mute();
 
   /**
@@ -3285,7 +3284,6 @@ public interface Player {
    * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
    * #getAvailableCommands() available}.
    */
-  @UnstableApi
   void unmute();
 
   /**

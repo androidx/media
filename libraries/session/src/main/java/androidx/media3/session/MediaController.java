@@ -1963,7 +1963,6 @@ public class MediaController implements Player {
     impl.setVolume(volume);
   }
 
-  @UnstableApi
   @Override
   public final void mute() {
     verifyApplicationThread();
@@ -1974,7 +1973,6 @@ public class MediaController implements Player {
     impl.mute();
   }
 
-  @UnstableApi
   @Override
   public final void unmute() {
     verifyApplicationThread();

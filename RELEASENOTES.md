@@ -5,6 +5,8 @@
 *   Common Library:
     *   Support date-time strings with only hours in the timezone offset
         ([#2929](https://github.com/androidx/media/issues/2929)).
+    *   Promote `Player.mute()` and `Player.unmute()` from UnstableApi to
+        stable.
 *   ExoPlayer:
     *   Allow dynamic scheduling to slow `doSomeWork` interval only after audio
         starts to support smoother A/V sync at beginning of playback.

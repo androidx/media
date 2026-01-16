@@ -800,6 +800,7 @@ package androidx.media3.common {
     method public boolean isPlayingAd();
     method public void moveMediaItem(int, int);
     method public void moveMediaItems(int, int, int);
+    method public void mute();
     method public void pause();
     method public void play();
     method public void prepare();
@@ -843,6 +844,7 @@ package androidx.media3.common {
     method public void setVideoTextureView(@Nullable android.view.TextureView);
     method public void setVolume(@FloatRange(from=0, to=1.0) float);
     method public void stop();
+    method public void unmute();
     field @Deprecated public static final int COMMAND_ADJUST_DEVICE_VOLUME = 26; // 0x1a
     field public static final int COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS = 34; // 0x22
     field public static final int COMMAND_CHANGE_MEDIA_ITEMS = 20; // 0x14
@@ -2020,6 +2022,7 @@ package androidx.media3.session {
     method public final boolean isSessionCommandAvailable(@androidx.media3.session.SessionCommand.CommandCode int);
     method public final void moveMediaItem(int, int);
     method public final void moveMediaItems(int, int, int);
+    method public final void mute();
     method public final void pause();
     method public final void play();
     method public final void prepare();
@@ -2067,6 +2070,7 @@ package androidx.media3.session {
     method public final void setVideoTextureView(@Nullable android.view.TextureView);
     method public final void setVolume(@FloatRange(from=0, to=1) float);
     method public final void stop();
+    method public final void unmute();
   }
 
   public static final class MediaController.Builder {
