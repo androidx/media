@@ -851,6 +851,33 @@ public final class DashPlaybackTest {
   }
 
   @Test
+  public void play_multiSegmentManifest() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/cmaf/multi-segment/manifest.mpd"));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/cmaf/multi-segment.dump");
+  }
+
+  @Test
   public void multiPeriod_withOffsetInSegment() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
