@@ -27,7 +27,7 @@
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setEventHandlerAndListener(android.os.Handler, androidx.media3.exoplayer.audio.AudioRendererEventListener);
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setOutputSampleType(int);
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setChannelOrdering(int);
-  androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setRequestedChannelMask(int);
+  androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setRequestedOutputLayout(int);
   androidx.media3.decoder.iamf.IamfAudioRenderer build();
 }
 -dontnote androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer

@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
-import android.media.AudioFormat;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -99,17 +98,17 @@ public final class IamfUtilTest {
   }
 
   @Test
-  public void getOutputChannelMaskForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
+  public void getOutputLayoutForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
     Context context = ApplicationProvider.getApplicationContext();
 
-    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(context))
-        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
+    assertThat(IamfUtil.getOutputLayoutForCurrentConfiguration(context))
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
   }
 
   @Test
   public void iamfSupportedLayouts_allAreConvertableToLayout() {
-    for (int layout : IamfUtil.IAMF_SUPPORTED_CHANNEL_MASKS) {
-      assertThat(IamfUtil.getOutputLayoutForChannelMask(layout))
+    for (int channelMask : IamfUtil.IAMF_SUPPORTED_CHANNEL_MASKS) {
+      assertThat(IamfUtil.getOutputLayoutForChannelMask(channelMask))
           .isNotEqualTo(IamfUtil.OUTPUT_LAYOUT_UNSET);
     }
   }

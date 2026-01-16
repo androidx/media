@@ -45,7 +45,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     private final AudioSink audioSink;
     @Nullable private Handler eventHandler;
     @Nullable private AudioRendererEventListener eventListener;
-    @Nullable private Integer requestedChannelMask;
+    private @IamfUtil.OutputLayout int requestedOutputLayout;
     private @IamfDecoder.OutputSampleType int outputSampleType;
     private @IamfDecoder.ChannelOrdering int channelOrdering;
 
@@ -58,6 +58,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     public Builder(Context context, AudioSink audioSink) {
       this.context = context;
       this.audioSink = audioSink;
+      this.requestedOutputLayout = IamfUtil.OUTPUT_LAYOUT_UNSET;
       this.outputSampleType = IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN;
       this.channelOrdering = IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING;
     }
@@ -92,16 +93,16 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     }
 
     /**
-     * Sets a requested channel mask to target for the output audio.
+     * Sets a requested {@link IamfUtil.OutputLayout} to target for the output audio.
      *
-     * <p>If not set, the renderer will use its own logic to decide what channel mask to request.
-     * The decoder might not be able to produce the channel mask requested, so the actual channel
-     * mask used might be different. To get the actual channel mask used by the decoder, use {@link
+     * <p>If not set, the renderer will use its own logic to decide what layout to request. The
+     * decoder might not be able to produce the layout requested, so the actual layout used may be
+     * different. To get the actual layout used by the decoder, use {@link
      * IamfDecoder#getSelectedOutputLayout()}.
      */
     @CanIgnoreReturnValue
-    public Builder setRequestedChannelMask(int requestedChannelMask) {
-      this.requestedChannelMask = requestedChannelMask;
+    public Builder setRequestedOutputLayout(@IamfUtil.OutputLayout int requestedOutputLayout) {
+      this.requestedOutputLayout = requestedOutputLayout;
       return this;
     }
 
@@ -115,16 +116,16 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   private final Context context;
   private final @IamfDecoder.OutputSampleType int outputSampleType;
   private final @IamfDecoder.ChannelOrdering int channelOrdering;
-  @Nullable private final Integer requestedChannelMask;
-  private final int currentChannelMask;
+  private final @IamfUtil.OutputLayout int requestedOutputLayout;
+  private final @IamfUtil.OutputLayout int currentOutputLayout;
 
   private IamfAudioRenderer(Builder builder) {
     super(builder.eventHandler, builder.eventListener, builder.audioSink);
     this.context = builder.context;
     this.outputSampleType = builder.outputSampleType;
     this.channelOrdering = builder.channelOrdering;
-    this.requestedChannelMask = builder.requestedChannelMask;
-    this.currentChannelMask = determineOutputChannelMask(context, requestedChannelMask);
+    this.requestedOutputLayout = builder.requestedOutputLayout;
+    this.currentOutputLayout = determineOutputLayout(context, requestedOutputLayout);
   }
 
   @Override
@@ -142,7 +143,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     IamfDecoder decoder =
         new IamfDecoder(
             format.initializationData,
-            IamfUtil.getOutputLayoutForChannelMask(currentChannelMask),
+            currentOutputLayout,
             IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
             outputSampleType,
             channelOrdering);
@@ -180,12 +181,12 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     }
   }
 
-  private static int determineOutputChannelMask(
-      Context context, @Nullable Integer requestedChannelMask) {
-    // If the user has requested a specific channel mask, use that.
-    if (requestedChannelMask != null) {
-      return requestedChannelMask;
+  private static @IamfUtil.OutputLayout int determineOutputLayout(
+      Context context, @IamfUtil.OutputLayout int requestedOutputLayout) {
+    // If the user has requested a specific output layout, use that.
+    if (requestedOutputLayout != IamfUtil.OUTPUT_LAYOUT_UNSET) {
+      return requestedOutputLayout;
     }
-    return IamfUtil.getOutputChannelMaskForCurrentConfiguration(context);
+    return IamfUtil.getOutputLayoutForCurrentConfiguration(context);
   }
 }

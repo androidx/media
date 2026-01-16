@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.IamfUtil;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -128,7 +129,7 @@ public class IamfPlaybackTest {
               new Renderer[] {
                 new IamfAudioRenderer.Builder(context, audioSink)
                     .setEventHandlerAndListener(eventHandler, audioRendererEventListener)
-                    .setRequestedChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                    .setRequestedOutputLayout(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0)
                     .build()
               };
       player = new ExoPlayer.Builder(context, renderersFactory).build();

@@ -366,18 +366,19 @@ public final class IamfUtil {
     throw new IllegalArgumentException("Unsupported output layout: " + outputLayout);
   }
 
-  public static int getOutputChannelMaskForCurrentConfiguration(Context context) {
+  /** Returns an appropriate output layout for the current audio output configuration. */
+  public static @OutputLayout int getOutputLayoutForCurrentConfiguration(Context context) {
     List<Integer> spatializerChannelMasks =
         getSpatializerChannelMasksIfSpatializationSupported(context);
     if (!spatializerChannelMasks.isEmpty()) {
       for (Integer channelMask : spatializerChannelMasks) {
         if (IAMF_SUPPORTED_CHANNEL_MASKS.contains(channelMask)) {
-          return channelMask;
+          return getOutputLayoutForChannelMask(channelMask);
         }
       }
     }
 
-    return AudioFormat.CHANNEL_OUT_STEREO;
+    return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0; // Default to stereo.
     // TODO(b/392950453): Define other branches for other device types like HDMI, built-in, etc.
   }
 
