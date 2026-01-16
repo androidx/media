@@ -131,6 +131,10 @@
         ([#2976](https://github.com/androidx/media/issues/2976)).
     *   Move bitmap scaling for notification icon off the main thread
         ([#2829](https://github.com/androidx/media/issues/2829)).
+    *   Fix bug where the media item transition wasn't reported to controllers
+        when playback transitioned from a given media item index to another with
+        the same media item for discontinuity reason 'AUTO' and 'SEEK'
+        ([#2997](https://github.com/androidx/media/issues/2997)).
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.

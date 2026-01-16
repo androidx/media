@@ -39,6 +39,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
+import androidx.media3.common.Player.Events;
+import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
 import androidx.media3.common.util.ConditionVariable;
@@ -1532,7 +1534,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void
-      seekToNextMediaItem_controllerListenerTriggeredByMasking_commandNotYetArrivedAtSession()
+      seekToNextMediaItem_controllerListenerTriggeredByMasking_playerAndControllerOutOfSyncDuringMasking()
           throws Exception {
     MediaItem mediaItem1 =
         new MediaItem.Builder().setMediaId("id1").setUri("http://www.example.com/1").build();
@@ -1549,15 +1551,17 @@ public class MediaSessionCallbackTest {
                 });
     List<MediaItem> currentMediaItemsOfPlayer = new ArrayList<>();
     AtomicReference<MediaController> controller = new AtomicReference<>();
-    List<String> eventOrder = new ArrayList<>();
-    CountDownLatch latch = new CountDownLatch(2);
-    // Listener added to player before the the session is built and the session adds a listener.
+    List<String> passiveControllerEvents = new ArrayList<>();
+    List<String> activeControllerEvents = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(4);
+    // Listener added to player before the session is built and the session adds a listener.
     testPlayer.addListener(
         new Player.Listener() {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-            eventOrder.add("player.onMediaItemTransition");
+            passiveControllerEvents.add("player.onMediaItemTransition");
+            activeControllerEvents.add("player.onMediaItemTransition");
           }
 
           @Override
@@ -1565,7 +1569,8 @@ public class MediaSessionCallbackTest {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               // Player still has the first item. Command has not yet arrived at the session.
               currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
-              eventOrder.add("player.onEvents");
+              passiveControllerEvents.add("player.onEvents");
+              activeControllerEvents.add("player.onEvents");
               latch.countDown();
             }
           }
@@ -1576,6 +1581,24 @@ public class MediaSessionCallbackTest {
                 .setId(
                     "listener_controllerListenerTriggeredByMasking_commandNotYetArrivedAtSession")
                 .build());
+    MediaController passiveController = controllerTestRule.createController(session.getToken());
+    passiveController.addListener(
+        new Listener() {
+
+          @Override
+          public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+            passiveControllerEvents.add("controller.onMediaItemTransition");
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Events events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+              passiveControllerEvents.add("controller.onEvents");
+              latch.countDown();
+            }
+          }
+        });
     controller.set(controllerTestRule.createController(session.getToken()));
     controller
         .get()
@@ -1583,7 +1606,7 @@ public class MediaSessionCallbackTest {
             /* listener= */ new Player.Listener() {
               @Override
               public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-                eventOrder.add("controller.onMediaItemTransition");
+                activeControllerEvents.add("controller.onMediaItemTransition");
                 postToPlayerAndSync(
                     () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
               }
@@ -1593,7 +1616,7 @@ public class MediaSessionCallbackTest {
                 if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
                   // Triggered by masking in the same looper iteration as where
                   // controller.seekToNextMediaItem() is called.
-                  eventOrder.add("controller.onEvents");
+                  activeControllerEvents.add("controller.onEvents");
                   postToPlayerAndSync(
                       () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
                   latch.countDown();
@@ -1604,22 +1627,32 @@ public class MediaSessionCallbackTest {
     postToControllerAndSync(controller.get()::seekToNextMediaItem);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(currentMediaItemsOfPlayer)
-        .containsExactly(mediaItem1, mediaItem1, mediaItem2, mediaItem2)
-        .inOrder();
-    assertThat(eventOrder)
+    // player event first
+    assertThat(passiveControllerEvents.get(0)).isEqualTo("player.onMediaItemTransition");
+    assertThat(passiveControllerEvents)
+        .containsExactly(
+            "player.onMediaItemTransition",
+            "player.onEvents",
+            "controller.onMediaItemTransition",
+            "controller.onEvents"); // using inOrder makes test flaky
+    // controller event first (masking)
+    assertThat(activeControllerEvents.get(0)).isEqualTo("controller.onMediaItemTransition");
+    assertThat(activeControllerEvents)
         .containsExactly(
             "controller.onMediaItemTransition",
             "controller.onEvents",
             "player.onMediaItemTransition",
-            "player.onEvents")
+            "player.onEvents"); // using inOrder makes test flaky
+    assertThat(currentMediaItemsOfPlayer)
+        .containsExactly(mediaItem1, mediaItem1, mediaItem2, mediaItem2)
         .inOrder();
     postToControllerAndSync(() -> controller.get().release());
   }
 
   @Test
-  public void seekToNextMediaItem_playerListenerTriggeredByMasking_immediateCallHasStaleController()
-      throws Exception {
+  public void
+      seekToNextMediaItem_playerListenerTriggeredByMasking_immediateListenerCallUpdatesControllers()
+          throws Exception {
     MediaItem mediaItem1 =
         new MediaItem.Builder().setMediaId("id1").setUri("http://www.example.com/1").build();
     MediaItem mediaItem2 =
@@ -1633,30 +1666,22 @@ public class MediaSessionCallbackTest {
                   exoPlayer.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
                   return exoPlayer;
                 });
-    List<String> currentMediaIdsOfController = new ArrayList<>();
-    List<String> eventOrder = new ArrayList<>();
+    List<String> activeControllerEvents = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(2);
     AtomicReference<MediaController> controller = new AtomicReference<>();
-    // Listener added to player before the the session is built and the session adds a listener.
+    // Listener added to player before the session is built and the session adds a listener.
     testPlayer.addListener(
         new Player.Listener() {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             postToControllerAndSync(
-                () ->
-                    currentMediaIdsOfController.add(
-                        controller.get().getCurrentMediaItem().mediaId));
-            eventOrder.add("player.onMediaItemTransition");
+                () -> activeControllerEvents.add("player.onMediaItemTransition"));
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
             if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-              postToControllerAndSync(
-                  () ->
-                      currentMediaIdsOfController.add(
-                          controller.get().getCurrentMediaItem().mediaId));
-              eventOrder.add("player.onEvents");
+              postToControllerAndSync(() -> activeControllerEvents.add("player.onEvents"));
               latch.countDown();
             }
           }
@@ -1665,7 +1690,7 @@ public class MediaSessionCallbackTest {
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSession.Builder(context, testPlayer)
                 .setId(
-                    "listener_playerListenerTriggeredByMasking_statusUpdateArrivedAtSameProcessController")
+                    "seekToNextMediaItem_playerListenerTriggeredByMasking_immediateCallHasStaleController")
                 .build());
     controller.set(controllerTestRule.createController(session.getToken()));
     controller
@@ -1674,15 +1699,13 @@ public class MediaSessionCallbackTest {
             new Player.Listener() {
               @Override
               public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-                currentMediaIdsOfController.add(controller.get().getCurrentMediaItem().mediaId);
-                eventOrder.add("controller.onMediaItemTransition");
+                activeControllerEvents.add("controller.onMediaItemTransition");
               }
 
               @Override
               public void onEvents(Player player, Player.Events events) {
                 if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-                  currentMediaIdsOfController.add(controller.get().getCurrentMediaItem().mediaId);
-                  eventOrder.add("controller.onEvents");
+                  activeControllerEvents.add("controller.onEvents");
                   latch.countDown();
                 }
               }
@@ -1691,14 +1714,129 @@ public class MediaSessionCallbackTest {
     postToPlayerAndSync(testPlayer::seekToNextMediaItem);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(eventOrder)
+    assertThat(activeControllerEvents.get(0)).isEqualTo("player.onMediaItemTransition");
+    assertThat(activeControllerEvents)
         .containsExactly(
             "player.onMediaItemTransition",
             "controller.onMediaItemTransition",
             "controller.onEvents",
-            "player.onEvents")
+            "player.onEvents");
+  }
+
+  @Test
+  public void
+      seekToNextMediaItemIndex_calledOnControllerForSameMediaItemAtBothIndices_onMediaItemTransitionCalled()
+          throws Exception {
+    MediaItem mediaItem =
+        new MediaItem.Builder().setMediaId("id1").setUri("http://www.example.com/1").build();
+    ExoPlayer testPlayer =
+        playerThreadTestRule
+            .getHandler()
+            .postAndSync(
+                () -> {
+                  ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+                  exoPlayer.setMediaItems(ImmutableList.of(mediaItem, mediaItem));
+                  return exoPlayer;
+                });
+    List<MediaItem> currentMediaItemsOfPlayer = new ArrayList<>();
+    AtomicReference<MediaController> activeController = new AtomicReference<>();
+    List<String> activeControllerEvents = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(5);
+    List<String> passiveControllerEvents = new ArrayList<>();
+    // Listener added to player before the session is built and the session adds a listener.
+    testPlayer.addListener(
+        new Player.Listener() {
+          @Override
+          public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+            currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+            activeControllerEvents.add("player.onMediaItemTransition");
+            passiveControllerEvents.add("player.onMediaItemTransition");
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+              // Player still has the first item. Command has not yet arrived at the session.
+              currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem());
+              activeControllerEvents.add("player.onEvents");
+              passiveControllerEvents.add("player.onEvents");
+              latch.countDown();
+            }
+          }
+        });
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, testPlayer)
+                .setId(
+                    "listener_controllerListenerTriggeredByMasking_commandNotYetArrivedAtSession")
+                .build());
+    MediaController passiveController = controllerTestRule.createController(session.getToken());
+    passiveController.addListener(
+        new Listener() {
+
+          @Override
+          public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+            passiveControllerEvents.add("controller.onMediaItemTransition");
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Events events) {
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+              passiveControllerEvents.add("controller.onEvents");
+              latch.countDown();
+            }
+          }
+        });
+    activeController.set(controllerTestRule.createController(session.getToken()));
+    activeController
+        .get()
+        .addListener(
+            /* listener= */ new Player.Listener() {
+              @Override
+              public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+                activeControllerEvents.add("controller.onMediaItemTransition");
+                postToPlayerAndSync(
+                    () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
+              }
+
+              @Override
+              public void onEvents(Player player, Player.Events events) {
+                if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                  // Triggered by masking in the same looper iteration as where
+                  // controller.seekToNextMediaItem() is called.
+                  activeControllerEvents.add("controller.onEvents");
+                  postToPlayerAndSync(
+                      () -> currentMediaItemsOfPlayer.add(testPlayer.getCurrentMediaItem()));
+                  latch.countDown();
+                }
+              }
+            });
+
+    postToControllerAndSync(activeController.get()::seekToNextMediaItem);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // controller event first for the controller that initiates the state change (masking)
+    assertThat(activeControllerEvents.get(0)).isEqualTo("controller.onMediaItemTransition");
+    assertThat(activeControllerEvents)
+        .containsExactly(
+            "controller.onMediaItemTransition",
+            "controller.onEvents",
+            "player.onMediaItemTransition",
+            "player.onEvents");
+    // player events first for controllers just receiving the state change
+    assertThat(passiveControllerEvents.get(0)).isEqualTo("player.onMediaItemTransition");
+    assertThat(passiveControllerEvents)
+        .containsExactly(
+            "player.onMediaItemTransition",
+            "player.onEvents",
+            "controller.onMediaItemTransition",
+            "controller.onEvents");
+    assertThat(currentMediaItemsOfPlayer)
+        .containsExactly(mediaItem, mediaItem, mediaItem, mediaItem)
         .inOrder();
-    assertThat(currentMediaIdsOfController).containsExactly("id1", "id2", "id2", "id2").inOrder();
+    postToControllerAndSync(() -> activeController.get().release());
   }
 
   @Test

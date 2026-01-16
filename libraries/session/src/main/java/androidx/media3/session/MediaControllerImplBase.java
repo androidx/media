@@ -16,6 +16,13 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
+import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO;
+import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT;
+import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
+import static androidx.media3.common.Player.REPEAT_MODE_OFF;
+import static androidx.media3.common.Player.REPEAT_MODE_ONE;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static androidx.media3.session.MediaUtils.mergePlayerInfo;
@@ -2421,7 +2428,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                   playerInfo.sessionPositionInfo.currentLiveOffsetMs,
                   playerInfo.sessionPositionInfo.contentDurationMs,
                   /* contentBufferedPositionMs= */ positionMs == C.TIME_UNSET ? 0 : positionMs),
-              Player.DISCONTINUITY_REASON_SEEK);
+              DISCONTINUITY_REASON_SEEK);
     } else {
       newPlayerInfo = maskPositionInfo(newPlayerInfo, timeline, periodInfo);
     }
@@ -2440,9 +2447,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         newPlayerInfo,
         /* timelineChangeReason= */ null,
         /* playWhenReadyChangeReason= */ null,
-        /* positionDiscontinuityReason= */ Player.DISCONTINUITY_REASON_SEEK,
+        /* positionDiscontinuityReason= */ DISCONTINUITY_REASON_SEEK,
         /* mediaItemTransitionReason= */ mediaItemTransition
-            ? Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
+            ? MEDIA_ITEM_TRANSITION_REASON_SEEK
             : null);
   }
 
@@ -2972,12 +2979,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             ? finalPlayerInfo.discontinuityReason
             : null;
 
+    boolean areMediaItemsEqual =
+        Objects.equals(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem());
     @Nullable
     @Player.MediaItemTransitionReason
     Integer mediaItemTransitionReason =
-        !Objects.equals(oldPlayerInfo.getCurrentMediaItem(), finalPlayerInfo.getCurrentMediaItem())
-            ? finalPlayerInfo.mediaItemTransitionReason
-            : null;
+        !areMediaItemsEqual ? finalPlayerInfo.mediaItemTransitionReason : null;
+    if (areMediaItemsEqual
+        && positionDiscontinuityReason != null
+        && (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+            || positionDiscontinuityReason == DISCONTINUITY_REASON_SEEK)) {
+      if (oldPlayerInfo.newPositionInfo.mediaItemIndex
+          != finalPlayerInfo.newPositionInfo.mediaItemIndex) {
+        mediaItemTransitionReason =
+            positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+                ? MEDIA_ITEM_TRANSITION_REASON_AUTO
+                : MEDIA_ITEM_TRANSITION_REASON_SEEK;
+      } else if (oldPlayerInfo.repeatMode != REPEAT_MODE_OFF
+          && positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+          && oldPlayerInfo.oldPositionInfo.adGroupIndex == C.INDEX_UNSET
+          && finalPlayerInfo.newPositionInfo.adGroupIndex == C.INDEX_UNSET) {
+        mediaItemTransitionReason = MEDIA_ITEM_TRANSITION_REASON_REPEAT;
+      }
+    }
 
     @Nullable
     @Player.TimelineChangeReason
@@ -3306,7 +3330,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Player.RepeatMode
   private static int convertRepeatModeForNavigation(@Player.RepeatMode int repeatMode) {
-    return repeatMode == Player.REPEAT_MODE_ONE ? Player.REPEAT_MODE_OFF : repeatMode;
+    return repeatMode == REPEAT_MODE_ONE ? REPEAT_MODE_OFF : repeatMode;
   }
 
   private boolean isPlayerCommandAvailable(@Player.Command int command) {
@@ -3365,7 +3389,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     playerInfo =
         playerInfo.copyWithPositionInfos(
-            oldPositionInfo, newPositionInfo, Player.DISCONTINUITY_REASON_SEEK);
+            oldPositionInfo, newPositionInfo, DISCONTINUITY_REASON_SEEK);
 
     if (playingPeriodChanged || newPositionUs < oldPositionUs) {
       // The playing period changes or a backwards seek within the playing period occurs.
