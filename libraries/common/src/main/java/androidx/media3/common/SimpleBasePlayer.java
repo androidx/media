@@ -3817,6 +3817,11 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
           listener -> listener.onAudioAttributesChanged(newState.audioAttributes));
     }
+    if (previousState.audioSessionId != newState.audioSessionId) {
+      listeners.queueEvent(
+          Player.EVENT_AUDIO_SESSION_ID,
+          listener -> listener.onAudioSessionIdChanged(newState.audioSessionId));
+    }
     if (!previousState.videoSize.equals(newState.videoSize)) {
       listeners.queueEvent(
           Player.EVENT_VIDEO_SIZE_CHANGED,
