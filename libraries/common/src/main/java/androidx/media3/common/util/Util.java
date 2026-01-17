@@ -1271,6 +1271,19 @@ public final class Util {
   }
 
   /**
+   * Constrains a value to the specified bounds.
+   *
+   * @param value The value to constrain.
+   * @param min The lower bound.
+   * @param max The upper bound.
+   * @return The constrained value {@code Math.max(min, Math.min(value, max))}.
+   */
+  @UnstableApi
+  public static double constrainValue(double value, double min, double max) {
+    return max(min, min(value, max));
+  }
+
+  /**
    * Returns the sum of two arguments, or a third argument if the result overflows.
    *
    * @param x The first value.
@@ -2359,7 +2372,8 @@ public final class Util {
         || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_32BIT
         || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
-        || encoding == C.ENCODING_PCM_FLOAT;
+        || encoding == C.ENCODING_PCM_FLOAT
+        || encoding == C.ENCODING_PCM_DOUBLE;
   }
 
   /**
@@ -2374,7 +2388,8 @@ public final class Util {
         || encoding == C.ENCODING_PCM_24BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_32BIT
         || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
-        || encoding == C.ENCODING_PCM_FLOAT;
+        || encoding == C.ENCODING_PCM_FLOAT
+        || encoding == C.ENCODING_PCM_DOUBLE;
   }
 
   /**
@@ -2517,6 +2532,7 @@ public final class Util {
       case C.ENCODING_PCM_32BIT:
         return 31;
       case C.ENCODING_DTS_UHD_P2:
+      case C.ENCODING_DSD:
         return 34;
       default:
         return Integer.MAX_VALUE;
@@ -2556,6 +2572,8 @@ public final class Util {
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
         return 4;
+      case C.ENCODING_PCM_DOUBLE:
+        return 8;
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
       default:
