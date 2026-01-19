@@ -18,6 +18,7 @@ package androidx.media3.demo.composition
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.view.SurfaceHolder
 import androidx.annotation.OptIn
@@ -108,15 +109,21 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   internal var frameConsumerEnabled: Boolean = false
   internal var holder: SurfaceHolder? = null
   internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
-    ProcessAndRenderToSurfaceConsumer.Factory(
-      getApplication(),
-      glExecutorService,
-      glObjectsProvider,
-      errorListener = { e ->
-        Log.e(TAG, "FrameConsumer error", e)
-        _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
-      },
-    )
+    if (SDK_INT >= 26) {
+      ProcessAndRenderToSurfaceConsumer.Factory(
+        getApplication(),
+        glExecutorService,
+        glObjectsProvider,
+        errorListener = { e ->
+          Log.e(TAG, "FrameConsumer error", e)
+          _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
+        },
+      )
+    } else {
+      throw IllegalStateException(
+        "Render with PacketConsumer<HardwareBufferFrame> requires API 26+"
+      )
+    }
   }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
@@ -775,7 +782,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder = CompositionPlayer.Builder(getApplication())
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled) {
+    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 26) {
       packetConsumerFactory.setOutput(holder)
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)

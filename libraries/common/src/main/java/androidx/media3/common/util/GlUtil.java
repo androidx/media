@@ -566,6 +566,19 @@ public final class GlUtil {
   }
 
   /**
+   * Collects EGL errors that occurred in the last called EGL function and throws a {@link
+   * GlException} with the combined error code.
+   */
+  public static void checkEglException(String errorMessage) throws GlException {
+    int error = EGL14.eglGetError();
+    if (error != EGL14.EGL_SUCCESS) {
+      throw new GlException(
+          errorMessage + ", error code: 0x" + Integer.toHexString(error),
+          /* errorCodes= */ ImmutableList.of(error));
+    }
+  }
+
+  /**
    * Asserts the texture size is valid.
    *
    * @param width The width for a texture.
@@ -1125,14 +1138,5 @@ public final class GlUtil {
     EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
     checkEglException("Error making context current");
     focusFramebufferUsingCurrentContext(framebuffer, width, height);
-  }
-
-  private static void checkEglException(String errorMessage) throws GlException {
-    int error = EGL14.eglGetError();
-    if (error != EGL14.EGL_SUCCESS) {
-      throw new GlException(
-          errorMessage + ", error code: 0x" + Integer.toHexString(error),
-          /* errorCodes= */ ImmutableList.of(error));
-    }
   }
 }

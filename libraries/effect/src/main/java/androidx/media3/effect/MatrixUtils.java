@@ -15,16 +15,19 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.opengl.Matrix;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Size;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 
 /** Utility functions for working with matrices, vertices, and polygons. */
-/* package */ final class MatrixUtils {
+@RestrictTo(LIBRARY_GROUP)
+public final class MatrixUtils {
   /**
    * Contains the normal vectors of the clipping planes in homogeneous coordinates which
    * conveniently also double as origin vectors and parameters of the normal form of the planes ax +

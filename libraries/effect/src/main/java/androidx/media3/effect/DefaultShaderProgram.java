@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static android.opengl.GLES20.GL_FALSE;
 import static android.opengl.GLES20.GL_TRUE;
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -29,6 +30,7 @@ import android.graphics.Gainmap;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -61,7 +63,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Can copy frames from an external texture and apply color transformations for HDR if needed.
  */
 @SuppressWarnings("FunctionalInterfaceClash") // b/228192298
-/* package */ final class DefaultShaderProgram extends BaseGlShaderProgram
+@RestrictTo(LIBRARY_GROUP)
+public final class DefaultShaderProgram extends BaseGlShaderProgram
     implements ExternalShaderProgram, RepeatingGainmapShaderProgram {
 
   private static final ImmutableList<float[]> NDC_SQUARE =
@@ -197,6 +200,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     If this is an optical color, it must be BT.2020 if {@code inputColorInfo} is {@linkplain
    *     ColorInfo#isTransferHdr(ColorInfo) HDR}, and RGB BT.709 if not.
    * @param sdrWorkingColorSpace The {@link WorkingColorSpace} to apply effects in.
+   * @param inputType The {@link InputType} of the input frame.
    * @throws VideoFrameProcessingException If a problem occurs while reading shader files or an
    *     OpenGL operation fails or is unsupported.
    */

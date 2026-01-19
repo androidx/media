@@ -15,11 +15,13 @@
  */
 package androidx.media3.effect;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -41,7 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>The internal {@link GlShaderProgram} must output one frame for every input frame.
  */
-/* package */ class GlShaderProgramFrameProcessor
+@RestrictTo(LIBRARY_GROUP)
+public final class GlShaderProgramFrameProcessor
     implements FrameProcessor<GlTextureFrame, GlTextureFrame>,
         GlShaderProgram.InputListener,
         GlShaderProgram.OutputListener,
@@ -118,10 +121,9 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  public ListenableFuture<Void> setOutputAsync(
-      @Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
+  public ListenableFuture<Void> setOutputAsync(@Nullable FrameConsumer<GlTextureFrame> output) {
     checkState(!isReleased.get());
-    return Futures.submit(() -> setOutputInternal(nextOutputConsumer), glThreadExecutorService);
+    return Futures.submit(() -> setOutputInternal(output), glThreadExecutorService);
   }
 
   @Override

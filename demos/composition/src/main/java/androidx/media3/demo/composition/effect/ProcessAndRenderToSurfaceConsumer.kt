@@ -16,30 +16,61 @@
 package androidx.media3.demo.composition.effect
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Paint
-import android.graphics.Rect
 import android.os.Build.VERSION.SDK_INT
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import androidx.media3.common.GlObjectsProvider
+import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.GlTextureFrameRenderer
 import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
+import androidx.media3.effect.ndk.HardwareBufferToGlTextureFrameProcessor
+import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.util.concurrent.ExecutorService
 
 // TODO: b/449957627 - Remove once pipeline has been migrated to PacketConsumer interface.
 /**
  * A [PacketConsumer] that renders a [Packet] of [HardwareBufferFrame]s to a [SurfaceHolder] by
- * tiling them horizontally on the [output canvas][SurfaceHolder.lockHardwareCanvas].
+ * using a [HardwareBufferToGlTextureFrameProcessor] and [GlTextureFrameRenderer].
  */
+@RequiresApi(26)
 @ExperimentalApi
 @UnstableApi
 internal class ProcessAndRenderToSurfaceConsumer
-private constructor(private val output: SurfaceHolder?) :
-  PacketConsumer<List<HardwareBufferFrame>> {
+private constructor(
+  context: Context,
+  glExecutorService: ExecutorService,
+  glObjectsProvider: GlObjectsProvider,
+  output: SurfaceHolder?,
+) : PacketConsumer<List<HardwareBufferFrame>>, SurfaceHolder.Callback {
+
+  private val glTextureFrameRenderer: GlTextureFrameRenderer
+  private val hardwareBufferToGlTextureFrameProcessor: HardwareBufferToGlTextureFrameProcessor
+
+  init {
+    val errorListener = Consumer<Exception> { t -> throw IllegalArgumentException(t) }
+    glTextureFrameRenderer =
+      GlTextureFrameRenderer.create(
+        context,
+        listeningDecorator(glExecutorService),
+        glObjectsProvider,
+        { vfpException -> errorListener.accept(vfpException) },
+        GlTextureFrameRenderer.Listener.NO_OP,
+      )
+    hardwareBufferToGlTextureFrameProcessor =
+      HardwareBufferToGlTextureFrameProcessor(
+        context,
+        glExecutorService,
+        glObjectsProvider,
+        errorListener,
+      )
+    hardwareBufferToGlTextureFrameProcessor.setOutput(glTextureFrameRenderer)
+    output?.addCallback(this)
+  }
 
   /** [PacketConsumer.Factory] for creating [ProcessAndRenderToSurfaceConsumer] instances. */
   class Factory(
@@ -51,7 +82,12 @@ private constructor(private val output: SurfaceHolder?) :
     private var output: SurfaceHolder? = null
 
     override fun create(): PacketConsumer<List<HardwareBufferFrame>> {
-      return ProcessAndRenderToSurfaceConsumer(output)
+      return ProcessAndRenderToSurfaceConsumer(
+        context,
+        glExecutorService,
+        glObjectsProvider,
+        output,
+      )
     }
 
     fun setOutput(output: SurfaceHolder?) {
@@ -59,41 +95,27 @@ private constructor(private val output: SurfaceHolder?) :
     }
   }
 
-  var last: List<HardwareBufferFrame>? = null
-
   // PacketConsumer implementation.
 
   override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
     if ((SDK_INT >= 29) && (packet is Packet.Payload)) {
-      output?.lockHardwareCanvas()?.let { canvas ->
-        packet.payload.forEachIndexed { index, frame ->
-          Bitmap.wrapHardwareBuffer(frame.hardwareBuffer!!, null)?.let { bitmap ->
-            val width = canvas.clipBounds.width() / packet.payload.size
-            val left = index * width
-            val right = (index + 1) * width
-            val dst = Rect(left, canvas.clipBounds.top, right, canvas.clipBounds.bottom)
-            canvas.save()
-            if (frame.format.rotationDegrees != 0) {
-              canvas.rotate(
-                frame.format.rotationDegrees.toFloat(),
-                dst.exactCenterX(),
-                dst.exactCenterY(),
-              )
-            }
-            canvas.drawBitmap(bitmap, null, dst, Paint())
-            canvas.restore()
-          }
-        }
-        output.unlockCanvasAndPost(canvas)
-      }
+      // TODO: b/474075198 - Add multi-sequence support.
+      hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(packet.payload[0]))
     }
-    // Release the previous packet to double buffer and prevent the decoder from overriding the
-    // screen contents.
-    last?.forEach { it.release() }
-    last = (packet as? Packet.Payload)?.payload
   }
 
   override suspend fun release() {
-    last?.forEach { it.release() }
+    hardwareBufferToGlTextureFrameProcessor.release()
+    glTextureFrameRenderer.release()
+  }
+
+  override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+    glTextureFrameRenderer.setOutputSurfaceInfo(SurfaceInfo(holder.surface, width, height))
+  }
+
+  override fun surfaceCreated(holder: SurfaceHolder) {}
+
+  override fun surfaceDestroyed(holder: SurfaceHolder) {
+    glTextureFrameRenderer.setOutputSurfaceInfo(null)
   }
 }

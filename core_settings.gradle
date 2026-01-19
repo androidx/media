@@ -102,6 +102,9 @@ project(modulePrefix + 'lib-effect').projectDir = new File(rootDir, 'libraries/e
 include modulePrefix + 'lib-effect-lottie'
 project(modulePrefix + 'lib-effect-lottie').projectDir = new File(rootDir, 'libraries/effect_lottie')
 
+include modulePrefix + 'lib-effect-ndk'
+project(modulePrefix + 'lib-effect-ndk').projectDir = new File(rootDir, 'libraries/effect_ndk')
+
 include modulePrefix + 'lib-inspector'
 project(modulePrefix + 'lib-inspector').projectDir = new File(rootDir, 'libraries/inspector')
 include modulePrefix + 'lib-inspector-frame'
