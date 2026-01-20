@@ -36,8 +36,7 @@ import androidx.media3.common.util.GlUtil
 import androidx.media3.effect.DefaultShaderProgram
 import androidx.media3.effect.DefaultVideoFrameProcessor
 import androidx.media3.effect.ExternalShaderProgram
-import androidx.media3.effect.FrameConsumer
-import androidx.media3.effect.GlShaderProgramFrameProcessor
+import androidx.media3.effect.GlShaderProgramPacketProcessor
 import androidx.media3.effect.GlTextureFrame
 import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.MatrixUtils
@@ -48,13 +47,8 @@ import androidx.media3.effect.PacketProcessor
 import androidx.opengl.EGLExt
 import androidx.opengl.EGLImageKHR
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
-import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
-import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.guava.await
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** A [PacketProcessor] implementation that converts a [HardwareBufferFrame] to [GlTextureFrame]. */
@@ -68,10 +62,9 @@ class HardwareBufferToGlTextureFrameProcessor(
 ) : PacketProcessor<HardwareBufferFrame, GlTextureFrame> {
 
   private val glDispatcher = glExecutorService.asCoroutineDispatcher()
-  private val glScope = CoroutineScope(glDispatcher)
 
   private var outputConsumer: PacketConsumer<GlTextureFrame>? = null
-  private var glShaderProgramFrameProcessor: GlShaderProgramFrameProcessor? = null
+  private var glShaderProgramPacketProcessor: GlShaderProgramPacketProcessor? = null
   private var eglContext: EGLContext? = null
   private var eglSurface: EGLSurface? = null
 
@@ -141,19 +134,18 @@ class HardwareBufferToGlTextureFrameProcessor(
         GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
       )
 
-    val glShaderProgramFrameProcessor =
-      this.glShaderProgramFrameProcessor ?: createGlShaderFrameProcessor(hardwareBufferFrame)
-
-    glShaderProgramFrameProcessor.input.queueFrame(
-      createGlTextureFrame(texture, hardwareBufferFrame, eglImage)
+    val glShaderProgramPacketProcessor =
+      this.glShaderProgramPacketProcessor
+        ?: createGlShaderProgramPacketProcessor(hardwareBufferFrame)
+    glShaderProgramPacketProcessor.queuePacket(
+      Packet.of(createGlTextureFrame(texture, hardwareBufferFrame, eglImage))
     )
   }
 
-  private suspend fun createGlShaderFrameProcessor(
+  private suspend fun createGlShaderProgramPacketProcessor(
     hardwareBufferFrame: HardwareBufferFrame
-  ): GlShaderProgramFrameProcessor {
+  ): GlShaderProgramPacketProcessor {
     // TODO: b/474075198 - Add HDR support.
-    // TODO: b/474075198 - Use the PacketConsumer version when ready.
     val glShaderProgram =
       DefaultShaderProgram.createWithExternalSampler(
         context,
@@ -163,31 +155,16 @@ class HardwareBufferToGlTextureFrameProcessor(
         true,
       ) as ExternalShaderProgram
     glShaderProgram.setTextureTransformMatrix(constructTransformationMatrix(hardwareBufferFrame))
-    val glShaderProgramFrameProcessor =
-      GlShaderProgramFrameProcessor.create(
-        listeningDecorator(glExecutorService),
+    val glShaderProgramPacketProcessor =
+      GlShaderProgramPacketProcessor.create(
         glShaderProgram,
+        glDispatcher,
         glObjectsProvider,
+        { e -> errorConsumer.accept(e) },
       )
-    glShaderProgramFrameProcessor
-      .setOutputAsync(
-        object : FrameConsumer<GlTextureFrame> {
-          override fun queueFrame(frame: GlTextureFrame): Boolean {
-            glScope.launch { outputConsumer?.queuePacket(Packet.of(frame)) }
-            return true
-          }
-
-          override fun setOnCapacityAvailableCallback(
-            executor: Executor,
-            onCapacityAvailableCallback: Runnable,
-          ) {}
-
-          override fun clearOnCapacityAvailableCallback() {}
-        }
-      )
-      ?.await()
-    this.glShaderProgramFrameProcessor = glShaderProgramFrameProcessor
-    return glShaderProgramFrameProcessor
+    glShaderProgramPacketProcessor.setOutput(checkNotNull(outputConsumer))
+    this.glShaderProgramPacketProcessor = glShaderProgramPacketProcessor
+    return glShaderProgramPacketProcessor
   }
 
   private fun createGlTextureFrame(

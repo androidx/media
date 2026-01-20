@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect
 
+import androidx.annotation.RestrictTo
+import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.VideoFrameProcessingException
@@ -47,7 +49,8 @@ import kotlinx.coroutines.withContext
  *   wrapped GlShaderProgram.
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-internal class GlShaderProgramPacketProcessor
+@RestrictTo(LIBRARY_GROUP)
+class GlShaderProgramPacketProcessor
 private constructor(
   private val glThreadDispatcher: CoroutineDispatcher,
   private val shaderProgram: GlShaderProgram,
@@ -145,6 +148,7 @@ private constructor(
   }
 
   // GlShaderProgram.OutputListener - Called on GL thread
+
   override fun onOutputFrameAvailable(outputTexture: GlTextureInfo, presentationTimeUs: Long) {
     if (isReleased.get()) {
       shaderProgram.releaseOutputFrame(outputTexture)
