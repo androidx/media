@@ -52,7 +52,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
@@ -127,7 +127,8 @@ public final class Transformer {
         metricsReporterFactory;
 
     @Nullable
-    private PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+    private PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+        packetProcessor;
 
     @Nullable private GlObjectsProvider glObjectsProvider;
     @Nullable private ExecutorService glExecutorService;
@@ -362,10 +363,11 @@ public final class Transformer {
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setPacketProcessor(
-        PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+        PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
         GlObjectsProvider glObjectsProvider,
         ExecutorService glExecutorService) {
       this.packetProcessor = packetProcessor;
+      // TODO: b/475744934 - Remove once rendering to the output Surface is injectable.
       this.glObjectsProvider = glObjectsProvider;
       this.glExecutorService = glExecutorService;
       return this;
@@ -829,7 +831,8 @@ public final class Transformer {
   @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
   @Nullable
-  private final PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+      packetProcessor;
 
   @Nullable private final GlObjectsProvider glObjectsProvider;
   @Nullable private final ExecutorService glExecutorService;
@@ -867,7 +870,8 @@ public final class Transformer {
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
-      @Nullable PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+      @Nullable
+          PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
       @Nullable GlObjectsProvider glObjectsProvider,
       @Nullable ExecutorService glExecutorService) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");

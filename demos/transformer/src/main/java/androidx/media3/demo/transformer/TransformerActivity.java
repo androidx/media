@@ -80,7 +80,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
-import androidx.media3.effect.GlTextureFrameCompositor;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -130,7 +129,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import kotlinx.coroutines.ExecutorsKt;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -418,14 +416,9 @@ public final class TransformerActivity extends AppCompatActivity {
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
         GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
         ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
+        // TODO: b/449957627 - Implement HardwareBuffer compositing.
         transformerBuilder.setPacketProcessor(
-            new GlTextureFrameCompositor(
-                this.getApplicationContext(),
-                ExecutorsKt.from(glExecutorService),
-                singleContextGlObjectsProvider,
-                composition.videoCompositorSettings),
-            singleContextGlObjectsProvider,
-            glExecutorService);
+            new PassthroughPacketProcessor(), singleContextGlObjectsProvider, glExecutorService);
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {

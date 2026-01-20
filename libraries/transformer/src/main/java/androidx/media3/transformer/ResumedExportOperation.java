@@ -38,7 +38,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.effect.DebugTraceUtil;
-import androidx.media3.effect.GlTextureFrame;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketProcessor;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
@@ -139,7 +139,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Clock clock;
 
   @Nullable
-  private final PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
+  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+      packetProcessor;
 
   @Nullable private final ExecutorService glExecutorService;
   @Nullable private final GlObjectsProvider glObjectsProvider;
@@ -172,7 +173,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+      @Nullable
+          PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
       @Nullable ExecutorService glExecutorService,
       @Nullable GlObjectsProvider glObjectsProvider,
       @Nullable LogSessionId logSessionId,

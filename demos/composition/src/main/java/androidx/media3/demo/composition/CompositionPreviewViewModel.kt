@@ -57,6 +57,7 @@ import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.effect.LottieEffectFactory
+import androidx.media3.demo.composition.effect.PassthroughPacketProcessor
 import androidx.media3.demo.composition.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
@@ -233,7 +234,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update {
       it.copy(outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled))
     }
-    previewComposition()
   }
 
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
@@ -528,6 +528,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       MUXER_OPTIONS[2] -> {
         transformerBuilder.setMuxerFactory(InAppFragmentedMp4Muxer.Factory())
       }
+    }
+
+    if (uiState.value.outputSettingsState.frameConsumerEnabled) {
+      transformerBuilder.setPacketProcessor(
+        // TODO: b/449957627 - Implement HardwareBuffer compositing.
+        PassthroughPacketProcessor(),
+        glObjectsProvider,
+        glExecutorService,
+      )
     }
 
     transformer =

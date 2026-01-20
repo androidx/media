@@ -19,25 +19,19 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
-import androidx.media3.common.util.Util;
-import androidx.media3.effect.GlTextureFrameCompositor;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
-import java.util.concurrent.ExecutorService;
-import kotlinx.coroutines.ExecutorsKt;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,22 +78,13 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
+    // TODO: b/475744934 - Re-enable once HardwareBuffer support is added.
+    assumeFalse(
+        "Disable PacketProcessor Transformer test until HardwareBuffer support is added",
+        usePacketProcessor);
 
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory());
-
-    if (usePacketProcessor) {
-      GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
-      ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
-      transformerBuilder.setPacketProcessor(
-          new GlTextureFrameCompositor(
-              context,
-              ExecutorsKt.from(glExecutorService),
-              singleContextGlObjectsProvider,
-              VideoCompositorSettings.DEFAULT),
-          singleContextGlObjectsProvider,
-          glExecutorService);
-    }
 
     Transformer transformer = transformerBuilder.build();
 

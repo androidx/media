@@ -46,7 +46,6 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
-import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.GlTextureFrameRenderer.Listener;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -55,6 +54,7 @@ import androidx.media3.effect.PacketConsumer.Packet.EndOfStream;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.PlaceholderHardwareBufferToGlTextureConverter;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
@@ -78,8 +78,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final ExecutorService glExecutorService;
   private final Consumer<ExportException> errorConsumer;
   private final GlTextureFrameRenderer glTextureFrameRenderer;
-  private final PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor;
-  private final PacketConsumerCaller<List<? extends GlTextureFrame>> packetConsumerCaller;
+  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+      packetProcessor;
+  private final PacketConsumerCaller<List<? extends HardwareBufferFrame>> packetConsumerCaller;
   private final Composition composition;
   private final FrameAggregator frameAggregator;
 
@@ -99,7 +100,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Format firstInputFormat,
       TransformationRequest transformationRequest,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
-      PacketProcessor<List<? extends GlTextureFrame>, GlTextureFrame> packetProcessor,
+      PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
       GlObjectsProvider glObjectsProvider,
       ExecutorService glExecutorService,
       EncoderFactory encoderFactory,
@@ -175,7 +176,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             (e) -> errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e)),
             new FrameRendererListener(errorConsumer));
     this.packetProcessor = packetProcessor;
-    this.packetProcessor.setOutput(glTextureFrameRenderer);
+
+    // TODO: b/475744934 - This outputs a blank texture for every input frame, replace it with an
+    // injectable renderer.
+    PlaceholderHardwareBufferToGlTextureConverter converter =
+        new PlaceholderHardwareBufferToGlTextureConverter(glExecutorService, glObjectsProvider);
+    converter.setOutput(glTextureFrameRenderer);
+    this.packetProcessor.setOutput(converter);
     packetConsumerCaller =
         PacketConsumerCaller.create(
             packetProcessor,
@@ -218,16 +225,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (frames.contains(END_OF_STREAM_FRAME)) {
       queuePacketFuture = packetConsumerCaller.queuePacket(EndOfStream.INSTANCE);
     } else {
-      ImmutableList.Builder<GlTextureFrame> framesWithReleaseTime = new ImmutableList.Builder<>();
+      ImmutableList.Builder<HardwareBufferFrame> framesWithReleaseTime =
+          new ImmutableList.Builder<>();
       for (int i = 0; i < frames.size(); i++) {
-        // TODO: b/449956936 - Use HardwareBufferFrame instead of this non-functional wrapping
-        // of GlTextureFrame.
-        GlTextureFrame glTextureFrame = (GlTextureFrame) frames.get(i).internalFrame;
         // The encoder will use the releaseTimeNs as the frame's presentation time.
         framesWithReleaseTime.add(
-            checkNotNull(glTextureFrame)
+            frames
+                .get(i)
                 .buildUpon()
-                .setReleaseTimeNs(glTextureFrame.presentationTimeUs * 1000)
+                .setReleaseTimeNs(frames.get(i).presentationTimeUs * 1000)
                 .build());
       }
 
