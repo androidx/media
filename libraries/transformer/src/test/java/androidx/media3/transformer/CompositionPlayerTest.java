@@ -63,6 +63,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -1222,13 +1223,17 @@ public class CompositionPlayerTest {
   @Test
   public void packetConsumer_imagePlayback_completesWithExpectedNumberOfFrames() throws Exception {
     CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
-    RecordingPacketConsumer packetConsumer =
-        new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
+    RecordingPacketConsumer<List<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
     packetConsumer.setOnQueue(
-        () -> {
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release();
+          }
           if (packetConsumer.getQueuedPackets().size() == 30) {
             allExpectedPacketsQueued.countDown();
           }
+          return null;
         });
     EditedMediaItem item =
         new EditedMediaItem.Builder(
@@ -1260,13 +1265,17 @@ public class CompositionPlayerTest {
   public void packetConsumer_imagePlayback_seekToMiddle_completesWithExpectedNumberOfFrames()
       throws Exception {
     CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
-    RecordingPacketConsumer packetConsumer =
-        new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
+    RecordingPacketConsumer<List<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
     packetConsumer.setOnQueue(
-        () -> {
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release();
+          }
           if (packetConsumer.getQueuedPackets().size() == 15) {
             allExpectedPacketsQueued.countDown();
           }
+          return null;
         });
 
     EditedMediaItem item =

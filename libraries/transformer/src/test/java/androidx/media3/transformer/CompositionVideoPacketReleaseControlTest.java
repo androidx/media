@@ -48,7 +48,7 @@ public class CompositionVideoPacketReleaseControlTest {
   private VideoFrameReleaseControl videoFrameReleaseControl;
   private FakeFrameTimingEvaluator fakeFrameTimingEvaluator;
   private FakeClock fakeClock;
-  private RecordingPacketConsumer outputConsumer;
+  private RecordingPacketConsumer<List<HardwareBufferFrame>> outputConsumer;
   private Set<Long> releasedFrameTimestamps;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
@@ -66,7 +66,7 @@ public class CompositionVideoPacketReleaseControlTest {
             context, fakeFrameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
     videoFrameReleaseControl.setClock(fakeClock);
     videoFrameReleaseControl.onStarted();
-    outputConsumer = new RecordingPacketConsumer(/* releaseIncomingFrames= */ false);
+    outputConsumer = new RecordingPacketConsumer<>();
     compositionVideoPacketReleaseControl =
         new CompositionVideoPacketReleaseControl(
             context,
@@ -172,7 +172,7 @@ public class CompositionVideoPacketReleaseControlTest {
     // is correct.
     ImmutableList<HardwareBufferFrame> expectedFirstFrame =
         updatePacketWithReleaseTime(
-            firstPacket, outputConsumer.getQueuedPackets().get(0).get(0).releaseTimeNs);
+            firstPacket, outputConsumer.getQueuedPayloads().get(0).get(0).releaseTimeNs);
     assertOutputPackets(/* ignoreReleaseTime= */ false, expectedFirstFrame, expectedPacket);
     assertThat(releasedFrameTimestamps).isEmpty();
   }
@@ -339,7 +339,7 @@ public class CompositionVideoPacketReleaseControlTest {
   @SafeVarargs
   private final void assertOutputPackets(
       boolean ignoreReleaseTime, List<HardwareBufferFrame>... expectedPackets) {
-    List<List<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPackets();
+    List<List<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPayloads();
     assertThat(outputPackets).hasSize(expectedPackets.length);
     for (int i = 0; i < expectedPackets.length; i++) {
       List<HardwareBufferFrame> receivedFrames = outputPackets.get(i);

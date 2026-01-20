@@ -16,7 +16,6 @@
 package androidx.media3.test.utils
 
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 
@@ -25,31 +24,26 @@ import androidx.media3.effect.PacketConsumer.Packet
  * releases the underlying frames.
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
-  PacketConsumer<MutableList<HardwareBufferFrame>> {
-  var onQueue: Runnable = Runnable {}
-  val queuedPackets: List<MutableList<HardwareBufferFrame>>
+class RecordingPacketConsumer<T> : PacketConsumer<T> {
+  var onQueue: (T) -> Unit = {}
+  val queuedPackets: List<Packet<T>>
     get() {
       return _queuedPackets.toList()
     }
 
-  private val _queuedPackets: MutableList<MutableList<HardwareBufferFrame>> = ArrayList()
+  val queuedPayloads: List<T>
+    get() {
+      return _queuedPackets.toList().filterIsInstance<Packet.Payload<T>>().map { it.payload }
+    }
 
-  override suspend fun queuePacket(packet: Packet<MutableList<HardwareBufferFrame>>) {
+  private val _queuedPackets: MutableList<Packet<T>> = ArrayList()
+
+  override suspend fun queuePacket(packet: Packet<T>) {
+    _queuedPackets.add(packet)
     if (packet is Packet.Payload) {
-      queue(packet.payload)
+      onQueue(packet.payload)
     }
   }
 
   override suspend fun release() {}
-
-  private fun queue(frames: MutableList<HardwareBufferFrame>) {
-    if (releaseIncomingFrames) {
-      for (frame in frames) {
-        frame.release()
-      }
-    }
-    _queuedPackets.add(frames)
-    onQueue.run()
-  }
 }
