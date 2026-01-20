@@ -76,7 +76,8 @@ public final class IamfUtil {
     OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_7_0,
     OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_2_3_0,
     OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_0_1_0,
-    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0
+    OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0,
+    OUTPUT_LAYOUT_BINAURAL
   })
   public @interface OutputLayout {}
 
@@ -124,6 +125,9 @@ public final class IamfUtil {
 
   /** IAMF Extension 9.1.6. */
   public static final int OUTPUT_LAYOUT_IAMF_SOUND_SYSTEM_EXTENSION_6_9_0 = 13;
+
+  /** Decoder rendered binaural audio. */
+  public static final int OUTPUT_LAYOUT_BINAURAL = 14;
 
   // ===== Additionally defined Channel Masks =====
   // The following channel masks are supplements to those defined in {@link AudioFormat}, to allow
@@ -366,16 +370,34 @@ public final class IamfUtil {
     throw new IllegalArgumentException("Unsupported output layout: " + outputLayout);
   }
 
-  /** Returns an appropriate output layout for the current audio output configuration. */
-  public static @OutputLayout int getOutputLayoutForCurrentConfiguration(Context context) {
+  /**
+   * Returns an appropriate output layout for the current audio output configuration.
+   *
+   * @param context The {@link Context} to use for querying the current audio output configuration.
+   * @param useIntegratedBinauralRenderer When it seems the user is using headphones (based on the
+   *     {@link Context}), if {@code useIntegratedBinauralRenderer} is {@code true}, this method
+   *     will return {@link OUTPUT_LAYOUT_BINAURAL} to get binaural audio directly from the decoder,
+   *     otherwise, it will return an output layout appropriate for the {@link
+   *     android.media.Spatializer}.
+   */
+  public static @OutputLayout int getOutputLayoutForCurrentConfiguration(
+      Context context, boolean useIntegratedBinauralRenderer) {
+
     List<Integer> spatializerChannelMasks =
         getSpatializerChannelMasksIfSpatializationSupported(context);
     if (!spatializerChannelMasks.isEmpty()) {
+      // If Spatializer enabled and available, we will use that as a signal that the user is likely
+      // using headphones.
+      if (useIntegratedBinauralRenderer) {
+        // Directly request binaural audio from the decoder.
+        return OUTPUT_LAYOUT_BINAURAL;
+      }
       for (Integer channelMask : spatializerChannelMasks) {
         if (IAMF_SUPPORTED_CHANNEL_MASKS.contains(channelMask)) {
           return getOutputLayoutForChannelMask(channelMask);
         }
       }
+      Log.w(TAG, "No Spatializer channel mask is supported by IAMF Decoder.");
     }
 
     return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0; // Default to stereo.

@@ -28,6 +28,7 @@
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setOutputSampleType(int);
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setChannelOrdering(int);
   androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setRequestedOutputLayout(int);
+  androidx.media3.decoder.iamf.IamfAudioRenderer$Builder setEnableIntegratedBinaural(boolean);
   androidx.media3.decoder.iamf.IamfAudioRenderer build();
 }
 -dontnote androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer

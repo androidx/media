@@ -42,7 +42,7 @@ In addition, it's necessary to fetch iamf_tools with dependencies as follows:
     cd "${IAMF_MODULE_PATH}/jni" && \
     git clone https://github.com/AOMediaCodec/iamf-tools.git iamf_tools && \
     cd iamf_tools && \
-    git reset --hard dd31fd756
+    git reset --hard de364b983
     ```
 
 *   Build the library.

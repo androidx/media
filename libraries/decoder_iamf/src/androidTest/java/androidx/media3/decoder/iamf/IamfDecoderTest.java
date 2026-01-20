@@ -126,6 +126,25 @@ public final class IamfDecoderTest {
   }
 
   @Test
+  public void decoderCreate_willAcceptBinauralLayout() throws Exception {
+    int expectedNumOutputChannels = 2;
+
+    IamfDecoder decoder =
+        new IamfDecoder(
+            ImmutableList.of(iacbObus),
+            IamfUtil.OUTPUT_LAYOUT_BINAURAL,
+            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+            IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
+
+    assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
+    assertThat(decoder.getNumberOfOutputChannels()).isEqualTo(expectedNumOutputChannels);
+    assertThat(decoder.getSelectedOutputLayout()).isEqualTo(IamfUtil.OUTPUT_LAYOUT_BINAURAL);
+
+    decoder.release();
+  }
+
+  @Test
   public void decoderDecode_succeeds() throws Exception {
     IamfDecoder decoder =
         new IamfDecoder(

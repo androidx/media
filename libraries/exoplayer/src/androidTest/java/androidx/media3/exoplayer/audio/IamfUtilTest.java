@@ -100,8 +100,10 @@ public final class IamfUtilTest {
   @Test
   public void getOutputLayoutForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
     Context context = ApplicationProvider.getApplicationContext();
+    boolean useIntegratedBinauralRenderer = true; // Does not matter, no Spatializer.
 
-    assertThat(IamfUtil.getOutputLayoutForCurrentConfiguration(context))
+    assertThat(
+            IamfUtil.getOutputLayoutForCurrentConfiguration(context, useIntegratedBinauralRenderer))
         .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
   }
 

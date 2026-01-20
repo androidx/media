@@ -48,6 +48,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     private @IamfUtil.OutputLayout int requestedOutputLayout;
     private @IamfDecoder.OutputSampleType int outputSampleType;
     private @IamfDecoder.ChannelOrdering int channelOrdering;
+    private boolean enableIntegratedBinaural;
 
     /**
      * Creates a builder.
@@ -61,6 +62,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
       this.requestedOutputLayout = IamfUtil.OUTPUT_LAYOUT_UNSET;
       this.outputSampleType = IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN;
       this.channelOrdering = IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING;
+      this.enableIntegratedBinaural = true;
     }
 
     /** Sets an event handler and listener to use when delivering events. */
@@ -106,6 +108,28 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
       return this;
     }
 
+    /**
+     * Enables or disables binaural rendering within the IAMF decoder. Default {@code true}.
+     *
+     * <p>This setting controls the behaviour when we believe the user is using headphones. If
+     * {@code true}, the IAMF decoder can output pre-rendered binaural audio. If this is {@code
+     * false}, the {@link IamfAudioRenderer} will instead produce output appropriate for the Android
+     * {@link android.media.Spatializer}.
+     *
+     * <p>The IAMF binaural renderer may be higher fidelity because the audio content of the IAMF
+     * stream can be rendered directly to binaural audio, without first producing an intermediate
+     * format to pass to the {@link android.media.Spatializer}, which may require downmixing and
+     * loss of height information.
+     *
+     * <p>If a specific decoder layout is requested using {@link #setRequestedOutputLayout}, then
+     * this setting is irrelevant.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableIntegratedBinaural(boolean enableIntegratedBinaural) {
+      this.enableIntegratedBinaural = enableIntegratedBinaural;
+      return this;
+    }
+
     /** Builds an {@link IamfAudioRenderer}. */
     public IamfAudioRenderer build() {
       return new IamfAudioRenderer(this);
@@ -125,7 +149,8 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     this.outputSampleType = builder.outputSampleType;
     this.channelOrdering = builder.channelOrdering;
     this.requestedOutputLayout = builder.requestedOutputLayout;
-    this.currentOutputLayout = determineOutputLayout(context, requestedOutputLayout);
+    this.currentOutputLayout =
+        determineOutputLayout(context, requestedOutputLayout, builder.enableIntegratedBinaural);
   }
 
   @Override
@@ -182,11 +207,13 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   }
 
   private static @IamfUtil.OutputLayout int determineOutputLayout(
-      Context context, @IamfUtil.OutputLayout int requestedOutputLayout) {
+      Context context,
+      @IamfUtil.OutputLayout int requestedOutputLayout,
+      boolean enableIntegratedBinaural) {
     // If the user has requested a specific output layout, use that.
     if (requestedOutputLayout != IamfUtil.OUTPUT_LAYOUT_UNSET) {
       return requestedOutputLayout;
     }
-    return IamfUtil.getOutputLayoutForCurrentConfiguration(context);
+    return IamfUtil.getOutputLayoutForCurrentConfiguration(context, enableIntegratedBinaural);
   }
 }

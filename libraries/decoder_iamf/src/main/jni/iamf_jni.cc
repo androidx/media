@@ -105,6 +105,8 @@ std::optional<iamf_tools::api::OutputLayout> ToIamfToolsOutputLayout(
       return iamf_tools::api::OutputLayout::kIAMF_SoundSystemExtension_0_1_0;
     case 13:
       return iamf_tools::api::OutputLayout::kIAMF_SoundSystemExtension_6_9_0;
+    case 14:
+      return iamf_tools::api::OutputLayout::kIAMF_Binaural;
     default:
       return std::nullopt;
   }
@@ -141,6 +143,8 @@ jint FromIamfToolsOutputLayout(iamf_tools::api::OutputLayout outputLayout) {
       return 12;
     case iamf_tools::api::OutputLayout::kIAMF_SoundSystemExtension_6_9_0:
       return 13;
+    case iamf_tools::api::OutputLayout::kIAMF_Binaural:
+      return 14;
     default:
       return ERROR;
   }

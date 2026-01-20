@@ -62,8 +62,8 @@
 *   Audio:
     *   Change underlying decoding library for IAMF decoder extension from
         'libiamf' to 'iamf_tools'.
-    *   `IamfDecoder` now supports changing output mix (layout or ID) during
-        playback.
+    *   `IamfDecoder` now supports binaural output and changing output mix
+        (layout or ID) during playback.
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios
         ([#2609](https://github.com/androidx/media/pull/2609)).
