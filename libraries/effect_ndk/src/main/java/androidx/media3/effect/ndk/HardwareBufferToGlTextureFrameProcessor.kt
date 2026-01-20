@@ -16,6 +16,7 @@
 package androidx.media3.effect.ndk
 
 import android.content.Context
+import android.graphics.Matrix
 import android.graphics.PixelFormat.RGBA_8888
 import android.hardware.HardwareBuffer
 import android.opengl.EGLContext
@@ -39,6 +40,7 @@ import androidx.media3.effect.FrameConsumer
 import androidx.media3.effect.GlShaderProgramFrameProcessor
 import androidx.media3.effect.GlTextureFrame
 import androidx.media3.effect.HardwareBufferFrame
+import androidx.media3.effect.MatrixUtils
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
@@ -140,14 +142,16 @@ class HardwareBufferToGlTextureFrameProcessor(
       )
 
     val glShaderProgramFrameProcessor =
-      this.glShaderProgramFrameProcessor ?: createGlShaderFrameProcessor()
+      this.glShaderProgramFrameProcessor ?: createGlShaderFrameProcessor(hardwareBufferFrame)
 
     glShaderProgramFrameProcessor.input.queueFrame(
       createGlTextureFrame(texture, hardwareBufferFrame, eglImage)
     )
   }
 
-  private suspend fun createGlShaderFrameProcessor(): GlShaderProgramFrameProcessor {
+  private suspend fun createGlShaderFrameProcessor(
+    hardwareBufferFrame: HardwareBufferFrame
+  ): GlShaderProgramFrameProcessor {
     // TODO: b/474075198 - Add HDR support.
     // TODO: b/474075198 - Use the PacketConsumer version when ready.
     val glShaderProgram =
@@ -158,7 +162,7 @@ class HardwareBufferToGlTextureFrameProcessor(
         DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
         true,
       ) as ExternalShaderProgram
-    glShaderProgram.setTextureTransformMatrix(MEDIA_CODEC_TRANSFORMATION_MATRIX)
+    glShaderProgram.setTextureTransformMatrix(constructTransformationMatrix(hardwareBufferFrame))
     val glShaderProgramFrameProcessor =
       GlShaderProgramFrameProcessor.create(
         listeningDecorator(glExecutorService),
@@ -191,15 +195,16 @@ class HardwareBufferToGlTextureFrameProcessor(
     hardwareBufferFrame: HardwareBufferFrame,
     eglImage: EGLImageKHR,
   ): GlTextureFrame {
-    val hardwareBuffer = checkNotNull(hardwareBufferFrame.hardwareBuffer)
+    val format = hardwareBufferFrame.format
+    val frameWidth =
+      if (format.rotationDegrees != 90 && format.rotationDegrees != 270) format.width
+      else format.height
+    val frameHeight =
+      if (format.rotationDegrees != 90 && format.rotationDegrees != 270) format.height
+      else format.width
+
     return GlTextureFrame.Builder(
-        GlTextureInfo(
-          texture,
-          C.INDEX_UNSET,
-          C.INDEX_UNSET,
-          hardwareBuffer.width,
-          hardwareBuffer.height,
-        ),
+        GlTextureInfo(texture, C.INDEX_UNSET, C.INDEX_UNSET, frameWidth, frameHeight),
         directExecutor(),
         { glTextureInfo ->
           // TODO: b/474075198 - Use a more efficient sync method.
@@ -248,9 +253,33 @@ class HardwareBufferToGlTextureFrameProcessor(
   }
 
   companion object {
-    // TODO: b/474075198 - Calculate the transformation matrix from Image and MediaFormat.
+    fun constructTransformationMatrix(hardwareBufferFrame: HardwareBufferFrame): FloatArray {
+      // TODO: b/327467890 - This should work on most devices, but it's better to get the matrix
+      //  directly from MediaCodec.
+      val hardwareBuffer = checkNotNull(hardwareBufferFrame.hardwareBuffer)
+      val format = hardwareBufferFrame.format
 
-    val MEDIA_CODEC_TRANSFORMATION_MATRIX =
-      floatArrayOf(1f, 0f, 0f, 0f, 0f, -1f, 0f, 1f, 0f, 0f, 1f, 0f, 0f, 1f, 0f, 1f)
+      // y' = 1 - y
+      val flipMatrix = Matrix()
+      flipMatrix.setScale(1f, -1f)
+      flipMatrix.postTranslate(0f, 1f)
+
+      // Rotate back around the center.
+      val rotateMatrix = Matrix()
+      rotateMatrix.setRotate(-format.rotationDegrees.toFloat(), 0.5f, 0.5f)
+
+      val cropMatrix = Matrix()
+      val croppedWidth = format.width.toFloat()
+      val croppedHeight = format.height.toFloat()
+      val bufferWidth = hardwareBuffer.width.toFloat()
+      val bufferHeight = hardwareBuffer.height.toFloat()
+      cropMatrix.setScale(croppedWidth / bufferWidth, croppedHeight / bufferHeight)
+
+      // Applies flipping, rotation and cropping, in order
+      val transformMatrix = Matrix()
+      transformMatrix.setConcat(rotateMatrix, flipMatrix)
+      transformMatrix.setConcat(cropMatrix, transformMatrix)
+      return MatrixUtils.getGlMatrixArray(transformMatrix)
+    }
   }
 }

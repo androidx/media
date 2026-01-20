@@ -22,8 +22,10 @@ import android.graphics.PixelFormat
 import android.media.Image
 import android.media.ImageReader
 import android.os.Build.VERSION.SDK_INT
+import androidx.media3.common.Format
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.SurfaceInfo
@@ -131,6 +133,13 @@ class HardwareBufferToGlTextureFrameProcessorTest {
             glExecutorService,
             { argb8888HardwareBuffer.close() },
           )
+          .setFormat(
+            Format.Builder()
+              .setSampleMimeType(MimeTypes.VIDEO_RAW)
+              .setWidth(TEST_BITMAP_WIDTH)
+              .setHeight(TEST_BITMAP_HEIGHT)
+              .build()
+          )
           .build()
 
       hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(argb8888HardwareBufferFrame))
@@ -165,7 +174,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
           GlTextureFrameRenderer.Listener.NO_OP,
         )
       outputImageReader =
-        ImageReader.newInstance(TEST_VIDEO_WIDTH, TEST_VIDEO_HEIGHT, PixelFormat.RGBA_8888, 10)
+        ImageReader.newInstance(TEST_VIDEO_WIDTH, TEST_VIDEO_HEIGHT, PixelFormat.RGBA_8888, 1)
       glTextureFrameRenderer?.setOutputSurfaceInfo(
         SurfaceInfo(
           outputImageReader!!.surface,
@@ -177,7 +186,15 @@ class HardwareBufferToGlTextureFrameProcessorTest {
         Composition.Builder(
             EditedMediaItemSequence.withVideoFrom(
               listOf(
-                EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                EditedMediaItem.Builder(
+                    MediaItem.fromUri(MP4_ASSET.uri)
+                      .buildUpon()
+                      .setClippingConfiguration(
+                        // One frame
+                        MediaItem.ClippingConfiguration.Builder().setEndPositionMs(50).build()
+                      )
+                      .build()
+                  )
                   .setDurationUs(MP4_ASSET.videoDurationUs)
                   .build()
               )
