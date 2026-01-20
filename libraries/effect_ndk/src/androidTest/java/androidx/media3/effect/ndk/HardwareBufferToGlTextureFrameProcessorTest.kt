@@ -22,7 +22,6 @@ import android.graphics.PixelFormat
 import android.media.Image
 import android.media.ImageReader
 import android.os.Build.VERSION.SDK_INT
-import androidx.annotation.RequiresApi
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -46,6 +45,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.util.concurrent.Executors
@@ -65,7 +65,7 @@ import org.junit.rules.TestName
 import org.junit.runner.RunWith
 
 /** Tests for [HardwareBufferToGlTextureFrameProcessor]. */
-@RequiresApi(26)
+@SdkSuppress(minSdkVersion = 26)
 @RunWith(AndroidJUnit4::class)
 class HardwareBufferToGlTextureFrameProcessorTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
@@ -107,6 +107,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     glExecutorService.shutdown()
   }
 
+  @SdkSuppress(minSdkVersion = 31)
   @Test
   fun queuePacket_withARGB8888HardwareBuffer_outputsCorrectGlTexture() {
     assumeTrue(SDK_INT >= 31) // Bitmap.getHardwareBuffer() is only available on API31+.
