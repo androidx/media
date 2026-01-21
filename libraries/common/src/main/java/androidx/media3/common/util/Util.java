@@ -23,7 +23,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_METADATA;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
-import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
 import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
@@ -3873,8 +3872,8 @@ public final class Util {
   public static boolean shouldEnablePlayPauseButton(@Nullable Player player) {
     return player != null
         && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
-        && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-            || !player.getCurrentTimeline().isEmpty());
+        && !(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+            && player.getCurrentMediaItem() == null);
   }
 
   /**
