@@ -1236,9 +1236,11 @@ public class MediaControllerListenerTest {
 
                       @Override
                       public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                        latch.countDown();
+                        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                          eventsRef.set(events);
+                          mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                          latch.countDown();
+                        }
                       }
                     }));
     remoteSession.getMockPlayer().setTimeline(timeline);
@@ -1322,9 +1324,11 @@ public class MediaControllerListenerTest {
 
                       @Override
                       public void onEvents(Player player, Player.Events events) {
-                        eventsRef.set(events);
-                        mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
-                        latch.countDown();
+                        if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                          eventsRef.set(events);
+                          mediaItemFromOnEventsRef.set(player.getCurrentMediaItem());
+                          latch.countDown();
+                        }
                       }
                     }));
     remoteSession.getMockPlayer().setTimeline(timeline);
