@@ -247,28 +247,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onImageAvailable() {
-    Image image = imageReader.acquireNextImage();
-    @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-    // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but before
-    // onImageAvailable, then when onImageAvailable is called there will be no matching
-    // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in this
-    // scenario.
-    if (frameInfo == null) {
-      image.close();
-      return;
-    }
-    long presentationTimeUs = frameInfo.presentationTimeUs;
-    int indexOfItem = frameInfo.itemIndex;
-    checkState(
-        image.getTimestamp() == presentationTimeUs * 1000,
-        "%s != %s",
-        image.getTimestamp(),
-        presentationTimeUs * 1000);
+    // Ensure the image is closed if any exceptions are thrown.
+    try (Image image = imageReader.acquireNextImage()) {
+      @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+      // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
+      // before
+      // onImageAvailable, then when onImageAvailable is called there will be no matching
+      // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in this
+      // scenario.
+      if (frameInfo == null) {
+        return;
+      }
+      long presentationTimeUs = frameInfo.presentationTimeUs;
+      int indexOfItem = frameInfo.itemIndex;
+      checkState(
+          image.getTimestamp() == presentationTimeUs * 1000,
+          "%s != %s",
+          image.getTimestamp(),
+          presentationTimeUs * 1000);
 
-    sendFrameDownstream(
-        createHardwareBufferFrameFromImage(
-            image, presentationTimeUs, indexOfItem, frameInfo.format));
-    maybeOutputPendingBitmaps();
+      sendFrameDownstream(
+          createHardwareBufferFrameFromImage(
+              image, presentationTimeUs, indexOfItem, frameInfo.format));
+      maybeOutputPendingBitmaps();
+    }
   }
 
   private void maybeOutputPendingBitmaps() {

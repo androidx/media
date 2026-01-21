@@ -789,13 +789,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   maxFramesInEncoder,
                   logSessionId));
         } else {
+          Looper internalLooper = internalHandlerThread.getLooper();
           PacketConsumerVideoSampleExporter videoSampleExporter =
               new PacketConsumerVideoSampleExporter(
                   context,
                   composition,
                   firstFormat,
                   transformationRequest,
-                  videoFrameProcessorFactory,
                   packetProcessor,
                   checkNotNull(glObjectsProvider),
                   checkNotNull(glExecutorService),
@@ -803,10 +803,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,
                   fallbackListener,
-                  debugViewProvider,
-                  videoSampleTimestampOffsetUs,
                   allowedEncodingRotationDegrees,
-                  logSessionId);
+                  logSessionId,
+                  internalLooper,
+                  clock.createHandler(internalLooper, /* callback= */ null));
           assetLoaderInputTracker.registerSampleExporter(C.TRACK_TYPE_VIDEO, videoSampleExporter);
         }
       }

@@ -15,14 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.C.COLOR_RANGE_FULL;
-import static androidx.media3.common.C.COLOR_SPACE_BT2020;
-import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
-import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
-import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -31,21 +25,17 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.ColorInfo;
-import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.VideoFrameProcessor;
-import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.GlTextureFrameRenderer.Listener;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -55,14 +45,12 @@ import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.PlaceholderHardwareBufferToGlTextureConverter;
-import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.initialization.qual.Initialized;
 
@@ -71,7 +59,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   private static final long RELEASE_TIMEOUT_MS = 100;
 
-  private final VideoGraphWrapper videoGraphWrapper;
   private final VideoEncoderWrapper encoderWrapper;
   private final DecoderInputBuffer encoderOutputBuffer;
   private final GlObjectsProvider glObjectsProvider;
@@ -81,12 +68,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
       packetProcessor;
   private final PacketConsumerCaller<List<? extends HardwareBufferFrame>> packetConsumerCaller;
-  private final Composition composition;
   private final FrameAggregator frameAggregator;
+  private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
 
   /**
-   * The timestamp of the last buffer processed before {@linkplain
-   * VideoFrameProcessor.Listener#onEnded() frame processing has ended}.
+   * The timestamp of the last buffer processed before {@linkplain FrameRendererListener#onEnded()
+   * frame processing has ended}.
    */
   private volatile long finalFramePresentationTimeUs;
 
@@ -99,7 +86,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Composition composition,
       Format firstInputFormat,
       TransformationRequest transformationRequest,
-      VideoFrameProcessor.Factory videoFrameProcessorFactory,
       PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
       GlObjectsProvider glObjectsProvider,
       ExecutorService glExecutorService,
@@ -107,52 +93,28 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
       FallbackListener fallbackListener,
-      DebugViewProvider debugViewProvider,
-      long initialTimestampOffsetUs,
       ImmutableList<Integer> allowedEncodingRotationDegrees,
-      @Nullable LogSessionId logSessionId)
-      throws ExportException {
+      @Nullable LogSessionId logSessionId,
+      Looper playbackLooper,
+      HandlerWrapper handlerWrapper) {
     // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
     super(firstInputFormat, muxerWrapper);
-    checkArgument(
-        composition.sequences.size() == 1,
-        "Transformer with PacketProcessor supports only single-sequence");
     this.glObjectsProvider = glObjectsProvider;
     this.glExecutorService = glExecutorService;
     this.errorConsumer = errorConsumer;
-    this.composition = composition;
 
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
 
-    ColorInfo videoGraphInputColor = checkNotNull(firstInputFormat.colorInfo);
-    ColorInfo videoGraphOutputColor;
-    if (Objects.equals(firstInputFormat.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
-        && videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_SRGB) {
-      // We only support the sRGB color transfer for Ultra HDR images.
-      // When an Ultra HDR image transcoded into a video, we use BT2020 HLG full range colors in the
-      // resulting HDR video.
-      videoGraphOutputColor =
-          new ColorInfo.Builder()
-              .setColorSpace(COLOR_SPACE_BT2020)
-              .setColorTransfer(COLOR_TRANSFER_HLG)
-              .setColorRange(COLOR_RANGE_FULL)
-              .build();
-    } else if (videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_SRGB
-        || videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
-      // Convert to BT.709 which is a more commonly used color space.
-      // COLOR_TRANSFER_SDR (BT.709), COLOR_TRANSFER_SRGB and COLOR_TRANSFER_GAMMA_2_2 are similar,
-      // so the conversion should not bring a large quality degradation.
-      videoGraphOutputColor = SDR_BT709_LIMITED;
-    } else {
-      videoGraphOutputColor = videoGraphInputColor;
-    }
-
+    // TODO: b/475744934 - Build the encoderWrapper using the Format from the first frame fed from
+    //  the PacketProcessor.
+    Format encoderInputFormat =
+        firstInputFormat.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
     encoderWrapper =
         new VideoEncoderWrapper(
             encoderFactory,
-            firstInputFormat.buildUpon().setColorInfo(videoGraphOutputColor).build(),
+            encoderInputFormat,
             allowedEncodingRotationDegrees,
             muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
             transformationRequest,
@@ -160,13 +122,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             logSessionId);
     encoderOutputBuffer =
         new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-
-    boolean isGlToneMapping =
-        encoderWrapper.getHdrModeAfterFallback() == HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL
-            && isTransferHdr(videoGraphInputColor);
-    if (isGlToneMapping) {
-      videoGraphOutputColor = SDR_BT709_LIMITED;
-    }
 
     glTextureFrameRenderer =
         GlTextureFrameRenderer.create(
@@ -199,21 +154,30 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     frameAggregator =
         new FrameAggregator(composition.sequences.size(), thisRef::queueAggregatedFrames);
-    try {
-      videoGraphWrapper =
-          new VideoGraphWrapper(
-              context,
-              videoFrameProcessorFactory,
-              videoGraphOutputColor,
-              glObjectsProvider,
-              glExecutorService,
-              debugViewProvider,
-              errorConsumer,
-              initialTimestampOffsetUs);
-      videoGraphWrapper.initialize();
-    } catch (VideoFrameProcessingException e) {
-      throw ExportException.createForVideoFrameProcessingException(e);
+
+    ImmutableList.Builder<HardwareBufferSampleConsumer> sampleConsumerBuilder =
+        new ImmutableList.Builder<>();
+    for (int i = 0; i < composition.sequences.size(); i++) {
+      int sequenceIndex = i;
+      Consumer<HardwareBufferFrame> frameConsumer =
+          (frame) -> {
+            if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+              checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+            } else {
+              checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
+            }
+          };
+      HardwareBufferSampleConsumer sampleConsumer =
+          new HardwareBufferSampleConsumer(
+              composition,
+              sequenceIndex,
+              playbackLooper,
+              handlerWrapper,
+              frameConsumer,
+              errorConsumer);
+      sampleConsumerBuilder.add(sampleConsumer);
     }
+    sampleConsumers = sampleConsumerBuilder.build();
   }
 
   @SuppressWarnings("unchecked")
@@ -225,20 +189,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (frames.contains(END_OF_STREAM_FRAME)) {
       queuePacketFuture = packetConsumerCaller.queuePacket(EndOfStream.INSTANCE);
     } else {
-      ImmutableList.Builder<HardwareBufferFrame> framesWithReleaseTime =
-          new ImmutableList.Builder<>();
-      for (int i = 0; i < frames.size(); i++) {
-        // The encoder will use the releaseTimeNs as the frame's presentation time.
-        framesWithReleaseTime.add(
-            frames
-                .get(i)
-                .buildUpon()
-                .setReleaseTimeNs(frames.get(i).presentationTimeUs * 1000)
-                .build());
-      }
-
-      queuePacketFuture =
-          packetConsumerCaller.queuePacket(Packet.of(framesWithReleaseTime.build()));
+      queuePacketFuture = packetConsumerCaller.queuePacket(Packet.of(frames));
     }
     Futures.addCallback(
         queuePacketFuture,
@@ -256,13 +207,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public GraphInput getInput(EditedMediaItem editedMediaItem, Format format, int inputIndex) {
-    return videoGraphWrapper.videoEncoderGraphInput;
+    return sampleConsumers.get(inputIndex);
   }
 
   @Override
   public void release() {
-    videoGraphWrapper.release();
     encoderWrapper.release();
+    for (int i = 0; i < sampleConsumers.size(); i++) {
+      sampleConsumers.get(i).release();
+    }
     // Wait until the frame renderer and packet processors are released.
     ListenableFuture<Void> releaseFrameRendererFuture =
         PacketConsumerUtil.release(glTextureFrameRenderer, glExecutorService);
@@ -331,97 +284,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Override
   protected boolean isMuxerInputEnded() {
     return encoderWrapper.isEnded();
-  }
-
-  public final class VideoGraphWrapper implements VideoGraph.Listener {
-
-    private final Consumer<ExportException> errorConsumer;
-    private final VideoGraph videoGraph;
-    private final VideoEncoderGraphInput videoEncoderGraphInput;
-
-    public VideoGraphWrapper(
-        Context context,
-        VideoFrameProcessor.Factory videoFrameProcessorFactory,
-        ColorInfo videoFrameProcessorOutputColor,
-        GlObjectsProvider glObjectsProvider,
-        ExecutorService glExecutorService,
-        DebugViewProvider debugViewProvider,
-        Consumer<ExportException> errorConsumer,
-        long initialTimestampOffsetUs)
-        throws VideoFrameProcessingException {
-      if (!(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory)) {
-        videoFrameProcessorFactory = new DefaultVideoFrameProcessor.Factory.Builder().build();
-      }
-      DefaultVideoFrameProcessor.Factory defaultVideoFrameProcessorFactory =
-          ((DefaultVideoFrameProcessor.Factory) videoFrameProcessorFactory)
-              .buildUpon()
-              .setGlObjectsProvider(glObjectsProvider)
-              .setExecutorService(glExecutorService)
-              .build();
-      this.errorConsumer = errorConsumer;
-
-      // TODO: b/449956776 - Add multiple sequence support
-      int sequenceIndex = 0;
-      CompositionTextureListener textureListener =
-          new CompositionTextureListener(
-              checkNotNull(composition),
-              sequenceIndex,
-              checkNotNull(frameAggregator),
-              glExecutorService);
-      InternalListener videoGraphListener = new InternalListener(textureListener, sequenceIndex);
-      videoGraph =
-          new SingleInputVideoGraph.Factory(
-                  defaultVideoFrameProcessorFactory
-                      .buildUpon()
-                      .setTextureOutput(textureListener, /* textureOutputCapacity= */ 2)
-                      .build())
-              .create(
-                  context,
-                  videoFrameProcessorOutputColor,
-                  debugViewProvider,
-                  videoGraphListener,
-                  /* listenerExecutor= */ directExecutor(),
-                  initialTimestampOffsetUs,
-                  /* renderFramesAutomatically= */ true);
-      videoGraph.registerInput(sequenceIndex);
-      videoEncoderGraphInput =
-          new VideoEncoderGraphInput(videoGraph, sequenceIndex, initialTimestampOffsetUs);
-    }
-
-    public void initialize() throws VideoFrameProcessingException {
-      videoGraph.initialize();
-    }
-
-    public void release() {
-      videoGraph.release();
-    }
-
-    private class InternalListener implements VideoGraph.Listener {
-
-      private final CompositionTextureListener textureListener;
-      private final int inputIndex;
-
-      private InternalListener(CompositionTextureListener textureListener, int inputIndex) {
-        this.textureListener = textureListener;
-        this.inputIndex = inputIndex;
-      }
-
-      @Override
-      public void onOutputFrameAvailableForRendering(
-          long framePresentationTimeUs, boolean isRedrawnFrame) {
-        textureListener.willOutputFrame(framePresentationTimeUs, inputIndex);
-      }
-
-      @Override
-      public void onEnded(long finalFramePresentationTimeUs) {
-        checkNotNull(frameAggregator).queueEndOfStream(inputIndex);
-      }
-
-      @Override
-      public void onError(VideoFrameProcessingException e) {
-        errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
-      }
-    }
   }
 
   private class FrameRendererListener implements Listener {
