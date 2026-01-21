@@ -717,6 +717,18 @@ import java.util.concurrent.TimeoutException;
       builder.putLong(MediaMetadataCompat.METADATA_KEY_YEAR, metadata.recordingYear);
     }
 
+    if (metadata.author != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_AUTHOR, metadata.author);
+    }
+
+    if (metadata.writer != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_WRITER, metadata.writer);
+    }
+
+    if (metadata.composer != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_COMPOSER, metadata.composer);
+    }
+
     if (mediaUri != null) {
       builder.putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, mediaUri.toString());
     }
@@ -875,8 +887,12 @@ import java.util.concurrent.TimeoutException;
         return metadata.writer;
       case MediaMetadataCompat.METADATA_KEY_COMPOSER:
         return metadata.composer;
+      case MediaMetadataCompat.METADATA_KEY_AUTHOR:
+        return metadata.author;
       case MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE:
         return metadata.subtitle;
+      case MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION:
+        return metadata.description;
       default:
         return null;
     }

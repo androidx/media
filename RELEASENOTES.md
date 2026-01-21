@@ -135,6 +135,10 @@
         when playback transitioned from a given media item index to another with
         the same media item for discontinuity reason 'AUTO' and 'SEEK'
         ([#2997](https://github.com/androidx/media/issues/2997)).
+    *   Fix bug where author, writer and composer were not used as a fallback
+        when converting from legacy `MediaMetadataCompat` and
+        `MediaDescriptionCompat`
+        ([#3018](https://github.com/androidx/media/issues/3018)).
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.
