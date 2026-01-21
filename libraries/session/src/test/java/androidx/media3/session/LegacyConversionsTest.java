@@ -267,6 +267,78 @@ public final class LegacyConversionsTest {
 
   @Test
   public void
+      convertToMediaDescriptionCompat_roundTripWithAuthorAndComposer_titleAndSubtitleHandledCorrectlyLoosesAuthorAndWriter() {
+    MediaMetadata metadataWithAuthorAndComposerOnly =
+        new MediaMetadata.Builder()
+            .setAuthor("author")
+            .setComposer("composer")
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
+    MediaItem mediaItemWithAuthorAndComposerOnly =
+        new MediaItem.Builder().setMediaMetadata(metadataWithAuthorAndComposerOnly).build();
+
+    MediaDescriptionCompat descriptionCompatWithAuthorAndComposer =
+        LegacyConversions.convertToMediaDescriptionCompat(
+            mediaItemWithAuthorAndComposerOnly, /* artworkBitmap= */ null);
+
+    assertThat(descriptionCompatWithAuthorAndComposer.getTitle().toString()).isEqualTo("author");
+    assertThat(descriptionCompatWithAuthorAndComposer.getSubtitle().toString())
+        .isEqualTo("composer");
+
+    MediaItem convertedMediaItemWithAuthorAndComposer =
+        LegacyConversions.convertToMediaItem(descriptionCompatWithAuthorAndComposer);
+
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.title.toString())
+        .isEqualTo("author");
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.subtitle.toString())
+        .isEqualTo("composer");
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.description).isNull();
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.displayTitle).isNull();
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.author).isNull();
+    assertThat(convertedMediaItemWithAuthorAndComposer.mediaMetadata.writer).isNull();
+  }
+
+  @Test
+  public void
+      convertToMediaDescriptionCompat_roundTripWithAuthorWriterAndComposer_titleAndSubtitleHandledCorrectlyLoosesAuthorAndWriter() {
+    MediaMetadata metadataWithWriterAuthorAndComposer =
+        new MediaMetadata.Builder()
+            .setAuthor("author")
+            .setWriter("writer")
+            .setComposer("composer")
+            .setIsBrowsable(false)
+            .setIsPlayable(true)
+            .build();
+    MediaItem mediaItemWithWriterAuthorWriterAndComposer =
+        new MediaItem.Builder().setMediaMetadata(metadataWithWriterAuthorAndComposer).build();
+
+    MediaDescriptionCompat descriptionCompatWithWriterAndAuthor =
+        LegacyConversions.convertToMediaDescriptionCompat(
+            mediaItemWithWriterAuthorWriterAndComposer, /* artworkBitmap= */ null);
+
+    assertThat(descriptionCompatWithWriterAndAuthor.getTitle().toString()).isEqualTo("writer");
+    assertThat(descriptionCompatWithWriterAndAuthor.getSubtitle().toString()).isEqualTo("author");
+    assertThat(descriptionCompatWithWriterAndAuthor.getDescription().toString())
+        .isEqualTo("composer");
+
+    MediaItem convertedMediaItemWithWriterAuthorAndComposer =
+        LegacyConversions.convertToMediaItem(descriptionCompatWithWriterAndAuthor);
+
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.title.toString())
+        .isEqualTo("writer");
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.subtitle.toString())
+        .isEqualTo("author");
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.description.toString())
+        .isEqualTo("composer");
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.displayTitle).isNull();
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.author).isNull();
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.writer).isNull();
+    assertThat(convertedMediaItemWithWriterAuthorAndComposer.mediaMetadata.composer).isNull();
+  }
+
+  @Test
+  public void
       convertToMediaDescriptionCompat_withoutDisplayTitleWithSubtitle_subtitleUsedAsSubtitle() {
     MediaMetadata metadata =
         new MediaMetadata.Builder().setTitle("a_title").setSubtitle("a_subtitle").build();
@@ -371,7 +443,7 @@ public final class LegacyConversionsTest {
         LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
 
     assertThat(mediaMetadata.title.toString()).isEqualTo("displayTitle");
-    assertThat(mediaMetadata.displayTitle).isEqualTo("displayTitle");
+    assertThat(mediaMetadata.displayTitle.toString()).isEqualTo("displayTitle");
   }
 
   @Test
@@ -1494,6 +1566,7 @@ public final class LegacyConversionsTest {
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
             .setTitle("title")
             .setDisplayTitle("displayTitle")
+            .setAuthor("author")
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setExtras(extras);

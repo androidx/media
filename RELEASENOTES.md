@@ -59,6 +59,10 @@
         ([#2976](https://github.com/androidx/media/issues/2976)).
     *   Move bitmap scaling for notification icon off the main thread
         ([#2829](https://github.com/androidx/media/issues/2829)).
+    *   Fix bug where author, writer and composer were not used as a fallback
+        when converting from legacy `MediaMetadataCompat` and
+        `MediaDescriptionCompat`
+        ([#3018](https://github.com/androidx/media/issues/3018)).
 *   Downloads:
     *   Fix potential infinite loops when a `PriorityTooLowException` is handled
         by `SegmentDownloader` (for DASH, HLS and SmoothStreaming). Custom
