@@ -39,7 +39,7 @@ import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.SingleContextGlObjectsProvider
-import androidx.media3.test.utils.AssetInfo.MP4_ASSET
+import androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS
 import androidx.media3.test.utils.BitmapPixelTestUtil
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
@@ -187,15 +187,15 @@ class HardwareBufferToGlTextureFrameProcessorTest {
             EditedMediaItemSequence.withVideoFrom(
               listOf(
                 EditedMediaItem.Builder(
-                    MediaItem.fromUri(MP4_ASSET.uri)
+                    MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri)
                       .buildUpon()
                       .setClippingConfiguration(
                         // One frame
-                        MediaItem.ClippingConfiguration.Builder().setEndPositionMs(50).build()
+                        MediaItem.ClippingConfiguration.Builder().setEndPositionMs(500).build()
                       )
                       .build()
                   )
-                  .setDurationUs(MP4_ASSET.videoDurationUs)
+                  .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoDurationUs)
                   .build()
               )
             )
@@ -204,11 +204,8 @@ class HardwareBufferToGlTextureFrameProcessorTest {
       val imageAcquiredDeferred = CompletableDeferred<Image>()
       outputImageReader?.setOnImageAvailableListener(
         { reader ->
-          val image = checkNotNull(reader).acquireNextImage()
           if (!imageAcquiredDeferred.isCompleted) {
-            imageAcquiredDeferred.complete(image)
-          } else {
-            image.close()
+            imageAcquiredDeferred.complete(checkNotNull(reader).acquireNextImage())
           }
         },
         Util.createHandlerForCurrentOrMainLooper(),
@@ -302,8 +299,8 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     val TEST_TIMEOUT_MS = if (isRunningOnEmulator()) 20_000L else 10_000L
     const val TEST_BITMAP_WIDTH = 32
     const val TEST_BITMAP_HEIGHT = 32
-    val TEST_VIDEO_WIDTH = MP4_ASSET.videoFormat!!.width
-    val TEST_VIDEO_HEIGHT = MP4_ASSET.videoFormat!!.height
+    val TEST_VIDEO_WIDTH = MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.width
+    val TEST_VIDEO_HEIGHT = MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.height
     // TODO: b/474075198 - Calculate the transformation matrix from MediaFormat. The current
     //  transformation matrix is hardcoded, and causing the output bitmap to be a bit misaligned.
     const val MAX_AVG_PIXEL_DIFFERENCE = 10F
