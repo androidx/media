@@ -53,9 +53,9 @@
     *   MP3: Parse LAME ReplayGain data
         ([#2840](https://github.com/androidx/media/pull/2840)).
 *   Inspector:
-    *   Moved `FrameExtractor` to a new `:media3-inspector-frame` module (and
-        renamed it from `androidx.media3.inspector.FrameExtractor` to
-        `androidx.media3.inspector.frame.FrameExtractor`).
+    *   Breaking change: Removed `FrameExtractor`. Users should now depend on
+        the new `:media3-inspector-frame` module and update imports to
+        `androidx.media3.inspector.frame.FrameExtractor`.
 *   Inspector Frame:
     *   Introduced a new module for extracting and processing decoded video
         frames.
@@ -142,9 +142,8 @@
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.
-    *   Add `PlaybackSpeedToggleButton` and `PlaybackSpeedBottomSheetButton`
-        Composables to `media3-ui-compose-material3` as Material3 themed buttons
-        for controlling playback speed.
+    *   Add `PlaybackSpeedToggleButton` Composable to
+        `media3-ui-compose-material3` for controlling playback speed.
     *   Add `ProgressSlider` Composable to `media3-ui-compose-material3` for
         displaying player progress and performing seeks using dragging and
         tapping ([#2288](https://github.com/androidx/media/issues/2288)).
