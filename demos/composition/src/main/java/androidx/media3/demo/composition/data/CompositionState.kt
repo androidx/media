@@ -16,6 +16,7 @@
 package androidx.media3.demo.composition.data
 
 import android.graphics.Bitmap
+import androidx.annotation.OptIn
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.media3.common.util.UnstableApi
@@ -37,7 +38,7 @@ import java.util.UUID
  * @param outputSettingsState The state for all output settings.
  * @param exportState The state for the current export process.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 data class CompositionPreviewState(
   val availableLayouts: List<String> = emptyList(),
   val compositionLayout: String,
@@ -84,7 +85,7 @@ data class Item(
  * @param committedOverlays The list of overlays that have been placed on the timeline.
  * @param placementState The current state of the overlay placement UI (either Inactive or Placing).
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 data class OverlayState(
   val availableOverlays: List<OverlayAsset> = emptyList(),
   val committedOverlays: List<PlacedOverlay> = emptyList(),
@@ -102,7 +103,7 @@ data class OverlayState(
  * @param overlay The Media3 [BitmapOverlay] object used by the player/transformer.
  * @param uiTransformOffset The current top-left offset of the overlay in UI pixel coordinates.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 data class PlacedOverlay(
   val id: UUID = UUID.randomUUID(),
   val assetName: String,
@@ -122,7 +123,7 @@ data class PlacedOverlay(
 data class OverlayAsset(val name: String, val assetPath: String)
 
 /** A sealed interface to model the different states of the overlay placement UI. */
-@UnstableApi
+@OptIn(UnstableApi::class)
 sealed interface PlacementState {
   /** The state when no overlay is being actively placed or moved. */
   data object Inactive : PlacementState
@@ -151,7 +152,7 @@ sealed interface PlacementState {
  * @param muxerOption The selected muxer implementation for the export.
  * @param renderSize The actual size of the render surface in UI pixels.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 data class OutputSettingsState(
   val frameConsumerEnabled: Boolean = false,
   val includeBackgroundAudio: Boolean = false,

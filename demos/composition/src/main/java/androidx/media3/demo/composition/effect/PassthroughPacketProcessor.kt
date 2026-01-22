@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.composition.effect
 
+import androidx.annotation.OptIn
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer
@@ -24,7 +25,7 @@ import androidx.media3.effect.PacketProcessor
  * A [PacketProcessor] that selects the first frame from a list of input frames and passes it to the
  * output consumer.
  */
-@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+@OptIn(ExperimentalApi::class) // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class PassthroughPacketProcessor : PacketProcessor<List<HardwareBufferFrame>, HardwareBufferFrame> {
   @Volatile private var outputConsumer: PacketConsumer<HardwareBufferFrame>? = null
 

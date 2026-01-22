@@ -21,6 +21,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.util.Base64
 import android.util.Log
+import androidx.annotation.OptIn
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
 import androidx.media3.common.util.UnstableApi
@@ -48,7 +49,7 @@ import kotlinx.coroutines.launch
  *
  * @param context The application context.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal class DemoLottieProvider(
   private val context: Context,
   private val composition: LottieComposition,

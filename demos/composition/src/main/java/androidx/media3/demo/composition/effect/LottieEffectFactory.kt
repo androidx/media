@@ -16,6 +16,7 @@
 package androidx.media3.demo.composition.effect
 
 import android.content.Context
+import androidx.annotation.OptIn
 import androidx.media3.common.Effect
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.composition.R
@@ -30,7 +31,7 @@ import com.airbnb.lottie.LottieCompositionFactory
  * <p>This object provides methods to access and create [Effect] instances based on Lottie
  * animations defined in resources.
  */
-@UnstableApi
+@OptIn(UnstableApi::class)
 internal object LottieEffectFactory {
 
   /**

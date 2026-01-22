@@ -30,7 +30,7 @@ import java.lang.Math.abs
 // constants to make the code snippets work
 const val currentPlayingIndex = 10
 
-@UnstableApi
+@OptIn(UnstableApi::class)
 // [START android_defaultpreloadmanager_MyTargetPreloadStatusControl]
 class MyTargetPreloadStatusControl(currentPlayingIndex: Int = C.INDEX_UNSET) :
   TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {

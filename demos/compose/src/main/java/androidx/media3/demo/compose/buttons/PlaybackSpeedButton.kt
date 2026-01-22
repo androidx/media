@@ -77,8 +77,8 @@ import kotlin.math.round
  *   receives a [PlaybackSpeedState] as a receiver and a lambda to dismiss the sheet. The default
  *   content is a [PlaybackSpeedBottomSheet].
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class) // for rememberModalBottomSheetState
-@UnstableApi
 @Composable
 fun PlaybackSpeedBottomSheetButton(
   player: Player?,
@@ -129,7 +129,7 @@ fun PlaybackSpeedBottomSheetButton(
  * @param controls A slot for the slider and adjusters (default: slider with +/- buttons).
  * @param presets A slot for preset buttons (default: row of preset speed buttons).
  */
-@UnstableApi
+@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaybackSpeedBottomSheet(

@@ -18,6 +18,7 @@ package androidx.media3.demo.composition.effect
 import android.content.Context
 import android.os.Build.VERSION.SDK_INT
 import android.view.SurfaceHolder
+import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.SurfaceInfo
@@ -38,8 +39,7 @@ import java.util.concurrent.ExecutorService
  * using a [HardwareBufferToGlTextureFrameProcessor] and [GlTextureFrameRenderer].
  */
 @RequiresApi(26)
-@ExperimentalApi
-@UnstableApi
+@OptIn(UnstableApi::class, ExperimentalApi::class)
 internal class ProcessAndRenderToSurfaceConsumer
 private constructor(
   context: Context,
