@@ -412,6 +412,28 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  public void start_trimOptimizationEnabled_concurrentExports_throwsError() throws Exception {
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .experimentalSetTrimOptimizationEnabled(true)
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_VIDEO_ONLY)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(1000).build())
+            .build();
+
+    transformer.start(mediaItem, outputDir.newFile("first").getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(mediaItem, outputDir.newFile("second").getPath()));
+  }
+
+  @Test
   public void start_removeAudio_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =

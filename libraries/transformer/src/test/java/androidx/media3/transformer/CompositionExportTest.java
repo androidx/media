@@ -827,6 +827,86 @@ public class CompositionExportTest {
                 /* oldFilePath= */ "fakePath"));
   }
 
+  @Test
+  public void start_afterStart_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+
+    transformer.start(composition, outputDir.newFile().getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(composition, outputDir.newFile().getPath()));
+  }
+
+  @Test
+  public void resume_afterStart_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+
+    transformer.start(composition, outputDir.newFile("first").getPath());
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            transformer.resume(
+                composition, /* outputFilePath= */ "fakePath", /* oldFilePath= */ "fakePath"));
+  }
+
+  @Test
+  public void start_afterResume_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+    String firstOutputPath = outputDir.newFile("first").getPath();
+
+    transformer.start(composition, firstOutputPath);
+    transformer.cancel();
+    transformer.resume(
+        composition, /* outputFilePath= */ "second", /* oldFilePath= */ firstOutputPath);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> transformer.start(composition, outputDir.newFile("third").getPath()));
+  }
+
+  @Test
+  public void resume_afterResume_throwsIllegalStateException() throws Exception {
+    Transformer transformer = new TestTransformerBuilder(context).build();
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(new EditedMediaItem.Builder(mediaItem).build())))
+            .build();
+    String firstOutputPath = outputDir.newFile("first").getPath();
+
+    transformer.start(composition, firstOutputPath);
+    transformer.cancel();
+    transformer.resume(
+        composition, /* outputFilePath= */ "second", /* oldFilePath= */ firstOutputPath);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            transformer.resume(
+                composition, /* outputFilePath= */ "third", /* oldFilePath= */ firstOutputPath));
+  }
+
   private static String getFileName(String filePath) {
     int lastSeparator = filePath.lastIndexOf("/");
     return filePath.substring(lastSeparator + 1);
