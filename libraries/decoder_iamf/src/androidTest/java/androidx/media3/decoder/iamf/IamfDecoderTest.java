@@ -16,7 +16,6 @@
 package androidx.media3.decoder.iamf;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
@@ -64,7 +63,7 @@ public final class IamfDecoderTest {
 
   @Before
   public void setUp() {
-    assumeTrue(IamfLibrary.isAvailable());
+    assertThat(IamfLibrary.isAvailable()).isTrue();
   }
 
   @Test
