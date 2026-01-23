@@ -20,6 +20,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -46,7 +48,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemoViewModel) {
   val navController = rememberNavController()
-  NavHost(navController = navController, startDestination = ROUTE_SAMPLE_CHOOSER) {
+  NavHost(
+    navController = navController,
+    startDestination = ROUTE_SAMPLE_CHOOSER,
+    enterTransition = { EnterTransition.None },
+    exitTransition = { ExitTransition.None },
+  ) {
     composable(ROUTE_SAMPLE_CHOOSER) {
       SampleChooserScreen(
         onPlaylistClick = { selectedMedia ->
