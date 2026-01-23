@@ -15,14 +15,12 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
@@ -40,6 +38,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -119,8 +118,8 @@ public class HardwareBufferFrameReaderTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void frameReader_releaseOutputFrame_closesTheHardwareBuffer() throws Exception {
-    assumeTrue(SDK_INT >= 28);
     hardwareBufferFrameReader.queueFrameViaSurface(
         /* presentationTimeUs= */ 1234, /* indexOfItem= */ 0, TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);

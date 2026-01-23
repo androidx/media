@@ -20,7 +20,6 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -28,7 +27,6 @@ import android.graphics.Color;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
-import android.os.Build;
 import androidx.annotation.ColorInt;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -37,6 +35,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.effect.EffectsTestUtil.FakeFrameConsumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -128,8 +127,8 @@ public final class GlTextureToBitmapFrameProcessorTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 34)
   public void queueFrame_hdrTexture_outputsBitmapFrame() throws Exception {
-    assumeTrue(Build.VERSION.SDK_INT >= 34);
     CountDownLatch queueFrameLatch = new CountDownLatch(1);
     FakeFrameConsumer<BitmapFrame> fakeFrameConsumer =
         new FakeFrameConsumer<>(queueFrameLatch::countDown);

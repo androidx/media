@@ -24,7 +24,6 @@ import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.Intent;
@@ -43,6 +42,7 @@ import androidx.media3.test.session.common.R;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -271,12 +271,12 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
   public void playPauseKeyEvent_paused_play(@TestParameter PlayPauseEvent playPauseEvent)
       throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_READY;
@@ -287,12 +287,12 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
   public void playPauseKeyEvent_fromIdle_prepareAndPlay(
       @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
     handler.postAndSync(
         () -> {
           player.playbackState = Player.STATE_IDLE;
@@ -304,12 +304,12 @@ public class MediaSessionKeyEventTest {
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
+  // We don't receive media key events when we are not playing on API < 26, so we can't test this
+  // case as it's not supported.
+  @SdkSuppress(minSdkVersion = 26)
   @Test
   public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay(
       @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
-    // We don't receive media key events when we are not playing on API < 26, so we can't test this
-    // case as it's not supported.
-    assumeTrue(SDK_INT >= 26);
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;

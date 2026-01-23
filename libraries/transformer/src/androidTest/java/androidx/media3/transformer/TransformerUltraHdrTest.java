@@ -17,7 +17,6 @@
 
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
@@ -26,7 +25,6 @@ import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -38,6 +36,7 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -78,9 +77,9 @@ public final class TransformerUltraHdrTest {
   }
 
   @Test
+  @SdkSuppress(maxSdkVersion = 33)
   public void exportUltraHdrImage_withUltraHdrEnabledOnUnsupportedApiLevel_fallbackToExportSdr()
       throws Exception {
-    assumeTrue(SDK_INT < 34);
     assumeFormatsSupported(
         context,
         testId,

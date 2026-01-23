@@ -61,7 +61,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -1963,13 +1962,13 @@ public class TransformerEndToEndTest {
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
+  // Hevc support is available from API 24.
+  // The asset has B-frames and B-frame support is available from API 25.
+  // Dolby vision support is available from API 33.
+  @SdkSuppress(minSdkVersion = 25, maxSdkVersion = 32)
   @Test
   public void transmuxDolbyVisionVideo_whenMuxerDoesNotSupportDolbyVision_transmuxesToHevc()
       throws Exception {
-    // Hevc support is available from API 24.
-    // The asset has B-frames and B-frame support is available from API 25.
-    // Dolby vision support is available from API 33.
-    assumeTrue(SDK_INT >= 25 && SDK_INT < 33);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri)))
             .setRemoveAudio(true)
@@ -2406,6 +2405,8 @@ public class TransformerEndToEndTest {
     }
   }
 
+  // Old SDKs have large audio encoder buffer, and hits deadlocks due to b/329087277.
+  @SdkSuppress(minSdkVersion = 31)
   @Test
   public void transcode_shorterAudioSequence_extendsAudioTrack() throws Exception {
     assumeFormatsSupported(
@@ -2413,9 +2414,6 @@ public class TransformerEndToEndTest {
         testId,
         /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat,
         /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
-    assumeTrue(
-        "Old SDKs have large audio encoder buffer, and hits deadlocks due to b/329087277.",
-        SDK_INT >= 31);
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_SHORTER_AUDIO.uri));
@@ -2628,9 +2626,10 @@ public class TransformerEndToEndTest {
     assertThat(bytesRead.get() / 2).isWithin(2300).of(38588);
   }
 
+  // HE-AAC profile support is available from API 29.
+  @SdkSuppress(minSdkVersion = 29)
   @Test
   public void export_setAudioEncodingProfile_changesProfile() throws Exception {
-    assumeFalse(shouldSkipDeviceForAacObjectHeProfileEncoding());
     assumeCanEncodeWithProfile(MimeTypes.AUDIO_AAC, AACObjectHE);
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
@@ -2659,11 +2658,12 @@ public class TransformerEndToEndTest {
     assertThat(profileAndLevel.first).isEqualTo(AACObjectHE);
   }
 
+  // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.
+  @SdkSuppress(minSdkVersion = 24)
   @Test
   public void export_setAudioEncodingBitrate_configuresEncoderWithRequestedBitrate()
       throws Exception {
     // On API 23, the encoder output format does not seem to contain bitrate, hence the test fails.
-    assumeTrue(SDK_INT > 23);
     Context context = ApplicationProvider.getApplicationContext();
     int requestedBitrate = 60_000;
     // The MediaMuxer is not writing the bitrate hence use the InAppMuxer.
@@ -3101,10 +3101,6 @@ public class TransformerEndToEndTest {
             0L, 66_733L, 133_466L, 200_200L, 266_933L, 333_666L, 400_400L, 467_133L, 533_866L,
             600_600L, 667_333L, 734_066L, 800_800L, 867_533L, 934_266L)
         .inOrder();
-  }
-
-  private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
-    return SDK_INT < 29;
   }
 
   private static AudioProcessor createSonic(float pitch) {
