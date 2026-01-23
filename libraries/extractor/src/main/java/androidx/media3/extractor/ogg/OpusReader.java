@@ -23,7 +23,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.extractor.OpusUtil;
+import androidx.media3.container.OpusUtil;
 import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
