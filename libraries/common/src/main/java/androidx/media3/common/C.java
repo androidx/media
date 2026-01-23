@@ -223,7 +223,6 @@ public final class C {
    * #ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_32BIT}, {@link
    * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}.
    */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)

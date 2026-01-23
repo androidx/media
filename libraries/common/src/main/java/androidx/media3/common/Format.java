@@ -1091,7 +1091,7 @@ public final class Format {
    * The {@link C.PcmEncoding} for PCM or losslessly compressed audio. Set to {@link #NO_VALUE} for
    * other media types.
    */
-  @UnstableApi public final @C.PcmEncoding int pcmEncoding;
+  public final @C.PcmEncoding int pcmEncoding;
 
   /**
    * The number of frames to trim from the start of the decoded audio stream, or 0 if not

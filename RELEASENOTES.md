@@ -5,6 +5,8 @@
 *   Common Library:
     *   Promote `Player.mute()` and `Player.unmute()` from UnstableApi to
         stable.
+    *   Promote `Format.pcmEncoding` and `C.PcmEncoding` from UnstableApi to
+        stable.
 *   ExoPlayer:
     *   Add clipping capabilities to `AdsMediaSource`.
     *   Add support for dynamic scheduling in `MediaCodecVideoRenderer` to
