@@ -105,6 +105,7 @@ import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.InAppFragmentedMp4Muxer;
+import androidx.media3.transformer.InAppMp4Muxer;
 import androidx.media3.transformer.JsonUtil;
 import androidx.media3.transformer.MediaProjectionAssetLoader;
 import androidx.media3.transformer.ProgressHolder;
@@ -411,6 +412,8 @@ public final class TransformerActivity extends AppCompatActivity {
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_MP4_EDIT_LIST_TRIMMING)) {
         transformerBuilder.experimentalSetMp4EditListTrimEnabled(true);
+        // TODO: b/478186967 - Remove this once DefaultMuxer supports edit list trimming.
+        transformerBuilder.setMuxerFactory(new InAppMp4Muxer.Factory());
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
@@ -471,9 +474,12 @@ public final class TransformerActivity extends AppCompatActivity {
 
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
-    // For image inputs. Automatically ignored if input is audio/video.
-    editedMediaItemBuilder.setFrameRate(DEFAULT_FRAME_RATE_FPS);
     if (bundle != null) {
+      // TODO: 478186967 - Remove this once setting frame rate does not force transcoding.
+      if (!bundle.getBoolean(ConfigurationActivity.ENABLE_MP4_EDIT_LIST_TRIMMING)) {
+        // For image inputs.
+        editedMediaItemBuilder.setFrameRate(DEFAULT_FRAME_RATE_FPS);
+      }
       ImmutableList<AudioProcessor> audioProcessors = createAudioProcessorsFromBundle(bundle);
       ImmutableList<Effect> videoEffects = createVideoEffectsFromBundle(bundle);
       editedMediaItemBuilder
