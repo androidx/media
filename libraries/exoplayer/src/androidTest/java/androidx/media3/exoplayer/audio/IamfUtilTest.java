@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import android.media.AudioFormat;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -105,6 +106,14 @@ public final class IamfUtilTest {
     assertThat(
             IamfUtil.getOutputLayoutForCurrentConfiguration(context, useIntegratedBinauralRenderer))
         .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
+  }
+
+  @Test
+  public void getOutputChannelMaskForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
+    Context context = ApplicationProvider.getApplicationContext();
+
+    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(context))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
   }
 
   @Test

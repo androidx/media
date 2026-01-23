@@ -1090,6 +1090,17 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
+
+    if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)) {
+      // IAMF can support many different output Layouts, which are communicated to the Media Codec
+      // (IAMF Codec2 software decoder) as a channel mask.  We want to choose one appropriate
+      // for the current audio output configuration.
+      int channelMask = IamfUtil.getOutputChannelMaskForCurrentConfiguration(context);
+      int channelCount = Integer.bitCount(channelMask);
+      mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
+      mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, channelCount);
+    }
+
     applyCodecParametersToMediaFormat(mediaFormat);
     return mediaFormat;
   }

@@ -39,8 +39,11 @@
 *   Audio:
     *   Change underlying decoding library for IAMF decoder extension from
         'libiamf' to 'iamf_tools'.
-    *   `IamfDecoder` now supports binaural output and changing output mix
-        (layout or ID) during playback.
+    *   IAMF decoding supports binaural output either through the decoder (when
+        using the IAMF decoder extension) or through the Android Spatializer.
+    *   Correctly remove support for `AC4Profile22` and other legacy profiles
+        when assessing AC-4 decoder support in Automotive scenarios
+        ([#2609](https://github.com/androidx/media/pull/2609)).
 *   Video:
 *   Text:
     *   VobSub: Use `START` and `STOP` SPU control commands to derive cue

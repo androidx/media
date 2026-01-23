@@ -29,7 +29,6 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Log;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -382,40 +381,49 @@ public final class IamfUtil {
    */
   public static @OutputLayout int getOutputLayoutForCurrentConfiguration(
       Context context, boolean useIntegratedBinauralRenderer) {
-
-    List<Integer> spatializerChannelMasks =
-        getSpatializerChannelMasksIfSpatializationSupported(context);
-    if (!spatializerChannelMasks.isEmpty()) {
+    int spatializerChannelMask = getSpatializerChannelMaskIfSpatializationSupported(context);
+    if (spatializerChannelMask != AudioFormat.CHANNEL_INVALID) {
       // If Spatializer enabled and available, we will use that as a signal that the user is likely
-      // using headphones.
+      // using headphones and wants spatial audio, but we will use decoder built-in binaural.
       if (useIntegratedBinauralRenderer) {
         // Directly request binaural audio from the decoder.
         return OUTPUT_LAYOUT_BINAURAL;
       }
-      for (Integer channelMask : spatializerChannelMasks) {
-        if (IAMF_SUPPORTED_CHANNEL_MASKS.contains(channelMask)) {
-          return getOutputLayoutForChannelMask(channelMask);
-        }
-      }
-      Log.w(TAG, "No Spatializer channel mask is supported by IAMF Decoder.");
+      return getOutputLayoutForChannelMask(spatializerChannelMask);
     }
 
     return OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0; // Default to stereo.
     // TODO(b/392950453): Define other branches for other device types like HDMI, built-in, etc.
   }
 
-  /** Returns the set of ChannelMasks that the Spatializer (if usable) inherently supports. */
-  private static List<Integer> getSpatializerChannelMasksIfSpatializationSupported(
-      Context context) {
+  /**
+   * Returns an appropriate channel mask for the current audio output configuration.
+   *
+   * <p>This is used to set the channel count and channel mask when using the framework Codec2
+   * software decoder, which takes a ChannelMask to indicate the output layout and does not
+   * currently support direct binaural output from the decoder.
+   */
+  public static int getOutputChannelMaskForCurrentConfiguration(Context context) {
+    int spatializerChannelMask = getSpatializerChannelMaskIfSpatializationSupported(context);
+    if (spatializerChannelMask != AudioFormat.CHANNEL_INVALID) {
+      return spatializerChannelMask;
+    }
+
+    return AudioFormat.CHANNEL_OUT_STEREO; // Default to stereo.
+    // TODO(b/392950453): Define shared logic for other branches for other device types, as above.
+  }
+
+  /** Returns the first ChannelMask that the Spatializer (if usable) inherently supports. */
+  private static int getSpatializerChannelMaskIfSpatializationSupported(Context context) {
     // Spatializer is only available on API 32 and above.
     if (SDK_INT < 32) {
       Log.w(TAG, "Spatializer is not available on API < 32.");
-      return ImmutableList.of();
+      return AudioFormat.CHANNEL_INVALID;
     }
     AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
     if (audioManager == null) {
       Log.w(TAG, "Audio Manager is null.");
-      return ImmutableList.of();
+      return AudioFormat.CHANNEL_INVALID;
     }
     Spatializer spatializer = audioManager.getSpatializer();
     boolean canSpatialize =
@@ -423,15 +431,21 @@ public final class IamfUtil {
             && spatializer.isAvailable()
             && spatializer.isEnabled();
     if (!canSpatialize) {
-      return ImmutableList.of();
+      return AudioFormat.CHANNEL_INVALID;
     }
     if (SDK_INT >= 36) {
       // Starting in 36, we can query the Spatializer for its inherently supported layouts, that is
       // to say, the highest channel-count layouts which the Spatializer is able to use as input
       // without downsampling.
-      return spatializer.getSpatializedChannelMasks();
+      List<Integer> supportedChannelMasks = spatializer.getSpatializedChannelMasks();
+      for (int channelMask : supportedChannelMasks) {
+        if (IAMF_SUPPORTED_CHANNEL_MASKS.contains(channelMask)) {
+          return channelMask;
+        }
+      }
+      Log.w(TAG, "No Spatializer channel mask is supported by IAMF Decoder.");
     }
     // If we are not in 36 or greater, we assume 5.1 is the inherently supported layout.
-    return ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1);
+    return AudioFormat.CHANNEL_OUT_5POINT1;
   }
 }
