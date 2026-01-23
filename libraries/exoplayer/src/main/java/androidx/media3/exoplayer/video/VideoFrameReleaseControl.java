@@ -424,6 +424,7 @@ public final class VideoFrameReleaseControl {
     initialPositionUs = C.TIME_UNSET;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     joiningDeadlineMs = C.TIME_UNSET;
+    frameReadyWithoutSurface = false;
   }
 
   /**

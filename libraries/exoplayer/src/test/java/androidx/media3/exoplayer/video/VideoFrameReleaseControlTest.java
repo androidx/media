@@ -103,6 +103,29 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
+  public void isReady_withoutSurfaceAfterReset_returnsFalse() throws Exception {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+
+    // Process first frame.
+    videoFrameReleaseControl.getFrameReleaseAction(
+        /* presentationTimeUs= */ 0,
+        /* positionUs= */ 0,
+        /* elapsedRealtimeUs= */ 0,
+        /* outputStreamStartPositionUs= */ 0,
+        /* isDecodeOnlyFrame= */ false,
+        /* isLastFrame= */ false,
+        frameReleaseInfo);
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+
+    videoFrameReleaseControl.reset();
+
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+  }
+
+  @Test
   public void isReady_withinJoiningDeadlineWhenRenderingNextFrameImmediately_returnsTrue() {
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
     VideoFrameReleaseControl videoFrameReleaseControl =
