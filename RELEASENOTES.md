@@ -1,6 +1,11 @@
 # Release notes
 
-### Unreleased changes
+## 1.9
+
+### 1.9.1 (2026-01-26)
+
+This release includes the following changes since
+[1.9.0 release](#190-2025-12-17):
 
 *   Common Library:
     *   Support date-time strings with only hours in the timezone offset
@@ -85,8 +90,6 @@
 *   Cast extension:
     *   Fix bug preventing the `RemoteCastPlayer` timeline from updating
         correctly when replacing the playlist.
-
-## 1.9
 
 ### 1.9.0 (2025-12-17)
 
