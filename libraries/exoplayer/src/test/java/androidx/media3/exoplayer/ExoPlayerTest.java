@@ -1796,7 +1796,7 @@ public final class ExoPlayerTest {
 
   @Test
   public void internalDiscontinuityAtNewPosition() throws Exception {
-    FakeTimeline timeline = new FakeTimeline(1);
+    FakeTimeline timeline = new FakeTimeline();
     FakeMediaSource mediaSource =
         new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {
           @Override
@@ -1818,13 +1818,15 @@ public final class ExoPlayerTest {
             return mediaPeriod;
           }
         };
-    ExoPlayerTestRunner testRunner =
-        parameterizeExoPlayerTestRunnerBuilder(
-                new ExoPlayerTestRunner.Builder(context).setMediaSources(mediaSource))
-            .build()
-            .start()
-            .blockUntilEnded(TIMEOUT_MS);
-    testRunner.assertPositionDiscontinuityReasonsEqual(Player.DISCONTINUITY_REASON_INTERNAL);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(mediaSource);
+    player.prepare();
+
+    player.play();
+    // Assert we reach the reported internal discontinuity.
+    advance(player).untilPositionDiscontinuityWithReason(Player.DISCONTINUITY_REASON_INTERNAL);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
   }
 
   @Test
