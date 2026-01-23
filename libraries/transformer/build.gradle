@@ -63,6 +63,7 @@ dependencies {
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     androidTestImplementation project(modulePrefix + 'lib-inspector')
+    androidTestImplementation project(modulePrefix + 'lib-inspector-frame')
     androidTestImplementation project(modulePrefix + 'test-utils')
 }
 
