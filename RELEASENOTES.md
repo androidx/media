@@ -124,6 +124,8 @@
 *   Remove deprecated symbols:
     *   Removed `ExperimentalFrameExtractor`. Use
         `androidx.media3.inspector.frame.FrameExtractor` instead.
+    *   Removed `ChannelMixingMatrix.create()`. Use
+        `ChannelMixingMatrix.createForConstantGain()` instead.
 
 ## 1.9
 
