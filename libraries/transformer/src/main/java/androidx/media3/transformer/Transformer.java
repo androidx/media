@@ -293,11 +293,11 @@ public final class Transformer {
      * IllegalStateException} if they are not met:
      *
      * <ul>
-     *   <li>Transformer is configured with any {@link Muxer.Factory} where {@link
-     *       Muxer.Factory#supportsWritingNegativeTimestampsInEditList()} is false. It is
-     *       recommended to use {@link InAppMp4Muxer.Factory}.
      *   <li>Transformer has to transcode for any reason while trimming (such as if any video
      *       effects, apart from 90, 180 and 270 degree rotations are applied while trimming).
+     *   <li>Transformer is configured with any {@link Muxer.Factory} where {@link
+     *       Muxer.Factory#supportsWritingNegativeTimestampsInEditList()} is false. The {@link
+     *       DefaultMuxer.Factory} supports this.
      * </ul>
      *
      * <p>This optimization will be ignored in the following cases:

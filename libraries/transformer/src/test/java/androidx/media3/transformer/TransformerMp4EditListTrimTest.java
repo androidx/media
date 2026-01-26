@@ -79,10 +79,7 @@ public class TransformerMp4EditListTrimTest {
   public void exportWithoutTrimming_mp4WithMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
       throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder().setUri(ASSET_URI_PREFIX + FILE_MP4_VISUAL_TIMESTAMPS).build();
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
@@ -219,10 +216,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withNoKeyFrameBetweenClipTimesAndMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
@@ -257,10 +251,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withNoKeyFramesAfterClipStartAndMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(Uri.parse(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S))
@@ -292,10 +283,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_positiveEditListWithMp4EditListTrimEnabled_setsFirstVideoTimestampToZero()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_POSITIVE_SHIFT_EDIT_LIST)
@@ -323,10 +311,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withInputFileRotated270AndMp4EditListTrimEnabled_exportsWithCorrectOrientation()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_TRIM_OPTIMIZATION_270)
@@ -353,10 +338,7 @@ public class TransformerMp4EditListTrimTest {
       trimAndExport_withInputFileRotated180AndMp4EditListTrimEnabled_exportsWithCorrectOrientation()
           throws Exception {
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .experimentalSetMp4EditListTrimEnabled(true)
-            .setMuxerFactory(new InAppMp4Muxer.Factory())
-            .build();
+        new TestTransformerBuilder(context).experimentalSetMp4EditListTrimEnabled(true).build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_MP4_TRIM_OPTIMIZATION_180)

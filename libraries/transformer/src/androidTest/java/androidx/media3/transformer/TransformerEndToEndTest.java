@@ -3041,7 +3041,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void export_withEditedMediaItemFrameRateSet_outputFrameTimestampsAreCorrect()
+  public void export_withEditedMediaItemFrameRateSet_transmuxesAndDoesNotDropFrames()
       throws Exception {
     Composition composition =
         new Composition.Builder(
@@ -3063,6 +3063,46 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
+    // Input at 60 fps, expect all original frames.
+    ImmutableList<Long> videoSampleTimestamps = getVideoSampleTimesUs(result.filePath);
+    assertThat(videoSampleTimestamps)
+        .containsExactly(
+            0L, 16_666L, 33_333L, 50_000L, 66_666L, 83_333L, 100_000L, 116_666L, 133_333L, 150_000L,
+            166_666L, 183_333L, 200_000L, 216_666L, 233_333L, 250_000L, 266_666L, 283_333L,
+            300_000L, 316_666L, 333_333L, 350_000L, 366_666L, 383_333L, 400_000L, 416_666L,
+            433_333L, 450_000L, 466_666L, 483_333L, 500_000L, 516_666L, 533_333L, 550_000L,
+            566_666L, 583_333L, 600_000L, 616_666L, 633_333L, 650_000L, 666_666L, 683_333L,
+            700_000L, 716_666L, 733_333L, 750_000L, 766_666L, 783_333L, 800_000L, 816_666L,
+            833_333L, 850_000L, 866_666L, 883_333L, 900_000L, 916_666L, 933_333L, 950_000L,
+            966_666L, 983_333L)
+        .inOrder();
+  }
+
+  @Test
+  public void export_withEditedMediaItemFrameRateSetForceTranscode_dropsFrames() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder()
+                                    .setUri(
+                                        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S
+                                            .uri)
+                                    .build())
+                            .setFrameRate(30)
+                            .build())))
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
     // Input at 60 fps; output at 30 fps, so half of original frames = ~30 frames.
     ImmutableList<Long> videoSampleTimestamps = getVideoSampleTimesUs(result.filePath);
     assertThat(videoSampleTimestamps)
@@ -3075,9 +3115,8 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void
-      export_withBFramesInputAndEditedMediaItemFrameRateSet_outputFrameTimestampsAreCorrect()
-          throws Exception {
+  public void export_withBFramesInputAndEditedMediaItemFrameRateSet_transmuxesAndDoesNotDropFrames()
+      throws Exception {
     Composition composition =
         new Composition.Builder(
                 EditedMediaItemSequence.withAudioAndVideoFrom(
@@ -3088,6 +3127,39 @@ public class TransformerEndToEndTest {
                             .build())))
             .build();
     Transformer transformer = new Transformer.Builder(context).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // Input at 30 fps with B-frames, expect all original frames.
+    ImmutableList<Long> videoSampleTimestamps = getVideoSampleTimesUs(result.filePath);
+    assertThat(videoSampleTimestamps)
+        .containsExactly(
+            0L, 66_733L, 33_366L, 200_200L, 133_466L, 100_100L, 166_833L, 333_666L, 266_933L,
+            233_566L, 300_300L, 433_766L, 400_400L, 367_033L, 567_233L, 500_500L, 467_133L,
+            533_866L, 700_700L, 633_966L, 600_600L, 667_333L, 834_166L, 767_433L, 734_066L,
+            800_800L, 967_633L, 900_900L, 867_533L, 934_266L)
+        .inOrder();
+  }
+
+  @Test
+  public void export_withBFramesInputAndEditedMediaItemFrameRateSetForceTranscode_dropsFrames()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder().setUri(MP4_ASSET.uri).build())
+                            .setFrameRate(15)
+                            .build())))
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)

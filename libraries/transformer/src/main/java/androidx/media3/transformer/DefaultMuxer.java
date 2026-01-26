@@ -75,6 +75,11 @@ public final class DefaultMuxer implements Muxer {
     public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
       return muxerFactory.getSupportedSampleMimeTypes(trackType);
     }
+
+    @Override
+    public boolean supportsWritingNegativeTimestampsInEditList() {
+      return muxerFactory.supportsWritingNegativeTimestampsInEditList();
+    }
   }
 
   public static final String MUXER_NAME = FrameworkMuxer.MUXER_NAME;
