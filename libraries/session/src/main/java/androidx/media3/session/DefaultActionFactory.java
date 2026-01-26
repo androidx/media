@@ -160,7 +160,7 @@ import androidx.media3.common.Player;
   }
 
   @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
-  private PendingIntent createCustomActionPendingIntent(
+  public PendingIntent createCustomActionPendingIntent(
       MediaSession mediaSession, String action, Bundle extras) {
     Intent intent = new Intent(ACTION_CUSTOM);
     intent.setData(mediaSession.getImpl().getUri());
