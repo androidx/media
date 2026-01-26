@@ -52,10 +52,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * configurations (such as the receiver application id) and resource initialization.
  *
  * <p>The singleton instance must be initialized for Cast playback to function. The recommended
- * approach is to call {@link #initialize} within {@link Application#onCreate}. Alternatively, you
- * can call {@link #sideloadCastContext}. If neither initialization method is called but an
- * OptionsProvider is configured in the app's manifest, {@link RemoteCastPlayer} and UI elements
- * will trigger initialization automatically .
+ * approach is to call {@link #initialize} within {@link Application#onCreate}. If the
+ * initialization method is called but an OptionsProvider is configured in the app's manifest,
+ * {@link RemoteCastPlayer} and UI elements will trigger initialization automatically .
  *
  * <p>Must be called on the main process and the main thread.
  */
@@ -117,7 +116,7 @@ public class Cast {
    * errors, or to perform the Cast module loading on a background thread.
    */
   @CanIgnoreReturnValue
-  public Cast sideloadCastContext(CastContext castContext) {
+  /* package */ Cast sideloadCastContext(CastContext castContext) {
     verifyMainThread();
     checkNotNull(castContext);
     if (needsInitialization()) {
@@ -197,7 +196,6 @@ public class Cast {
    * Returns true if initialization has not yet started.
    *
    * @see #initialize
-   * @see #sideloadCastContext
    */
   public boolean needsInitialization() {
     return castContext == null && castContextLoadFailure == null && !isInitOngoing;
