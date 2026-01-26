@@ -32,7 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.media3.cast.CastContextWrapper.MediaRouteSelectorListener
+import androidx.media3.cast.Cast.MediaRouteSelectorListener
 import androidx.media3.common.util.UnstableApi
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.app.MediaRouteControllerDialog
@@ -62,8 +62,7 @@ import androidx.mediarouter.media.MediaTransferReceiver
  * @param modifier the [Modifier] to be applied to the button.
  * @throws IllegalStateException if any of the following condition occurs:
  *     - This method is not called on the main thread.
- *     - The [CastContextWrapper] has not been initialized via [CastContextWrapper.asyncInit()]
- *       before this method is called.
+ *     - The [Cast] has not been initialized via [Cast.initialize()] before this method is called.
  */
 @MainThread
 @UnstableApi
@@ -141,16 +140,15 @@ internal fun MediaRouteButtonContainer(content: @Composable MediaRouteButtonStat
   val context = LocalContext.current
   var selector by remember { mutableStateOf(MediaRouteSelector.EMPTY) }
   LaunchedEffect(context) {
-    val castContextWrapper = CastContextWrapper.getSingletonInstance(context)
-    castContextWrapper.ensureInitialized(context)
+    val cast = Cast.getSingletonInstance(context)
+    cast.ensureInitialized(context)
     val mediaRouteSelectorListener: MediaRouteSelectorListener =
       object : MediaRouteSelectorListener() {
         override fun onMediaRouteSelectorChanged(mediaRouteSelector: MediaRouteSelector) {
           selector = mediaRouteSelector
         }
       }
-    val currentSelector =
-      castContextWrapper.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
+    val currentSelector = cast.registerListenerAndGetCurrentSelector(mediaRouteSelectorListener)
     if (currentSelector != null) {
       selector = currentSelector
     }

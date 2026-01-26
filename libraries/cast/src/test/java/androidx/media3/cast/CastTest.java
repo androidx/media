@@ -28,7 +28,7 @@ import android.app.Application;
 import android.content.Context;
 import android.os.Build.VERSION_CODES;
 import androidx.annotation.Nullable;
-import androidx.media3.cast.CastContextWrapper.MediaRouteSelectorListener;
+import androidx.media3.cast.Cast.MediaRouteSelectorListener;
 import androidx.mediarouter.media.MediaRouteSelector;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -52,9 +52,9 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowLooper;
 
-/** Tests for {@link CastContextWrapper}. */
+/** Tests for {@link Cast}. */
 @RunWith(AndroidJUnit4.class)
-public final class CastContextWrapperTest {
+public final class CastTest {
 
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
   @Mock private CastContext mockCastContext;
@@ -63,7 +63,7 @@ public final class CastContextWrapperTest {
   @Captor ArgumentCaptor<OnCompleteListener<CastContext>> completionListenerCaptor;
 
   @Mock private SessionManagerListener<CastSession> mockListener;
-  @Mock private CastContextWrapper.CastContextInitializer mockCastContextInitializer;
+  @Mock private Cast.CastContextInitializer mockCastContextInitializer;
   @Mock private MediaRouteSelectorListener mockMediaRouteSelectorListener;
   private Context context;
   private MediaRouteSelector mediaRouteSelector;
@@ -81,37 +81,36 @@ public final class CastContextWrapperTest {
 
   @After
   public void tearDown() {
-    CastContextWrapper.reset();
+    Cast.reset();
   }
 
   @Test
   public void getSingletonInstance_returnsSameInstance() {
-    CastContextWrapper instance1 = CastContextWrapper.getSingletonInstance();
-    CastContextWrapper instance2 = CastContextWrapper.getSingletonInstance();
+    Cast instance1 = Cast.getSingletonInstance();
+    Cast instance2 = Cast.getSingletonInstance();
 
     assertThat(instance1).isSameInstanceAs(instance2);
   }
 
   @Test
-  public void initWithContext_alreadyInitialized_doesNothing() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.initWithContext(mockCastContext);
+  public void sideloadCastContext_alreadyInitialized_doesNothing() {
+    Cast cast = Cast.getSingletonInstance();
+    cast.sideloadCastContext(mockCastContext);
 
-    castContextWrapper.initWithContext(
-        mock(CastContext.class)); // Try to init with another context.
+    cast.sideloadCastContext(mock(CastContext.class)); // Try to init with another context.
 
     // Still using the first context.
-    castContextWrapper.endCurrentSession(true);
+    cast.endCurrentSession(true);
     verify(mockSessionManager).endCurrentSession(true);
   }
 
   @Test
-  public void initWithContext_withPendingListener_onSessionStartedNotCalledWithNullSessionId() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.addSessionManagerListener(mockListener);
+  public void sideloadCastContext_withPendingListener_onSessionStartedNotCalledWithNullSessionId() {
+    Cast cast = Cast.getSingletonInstance();
+    cast.addSessionManagerListener(mockListener);
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
     verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
     verify(mockListener, never()).onSessionStarted(any(), any());
@@ -119,12 +118,12 @@ public final class CastContextWrapperTest {
 
   @Test
   public void
-      initWithContext_withPendingListenerAndNoSession_addsListenerButDoesNotCallOnSessionStarted() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.addSessionManagerListener(mockListener);
+      sideloadCastContext_withPendingListenerAndNoSession_addsListenerButDoesNotCallOnSessionStarted() {
+    Cast cast = Cast.getSingletonInstance();
+    cast.addSessionManagerListener(mockListener);
     when(mockSessionManager.getCurrentCastSession()).thenReturn(null);
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
     verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
     verify(mockListener, never()).onSessionStarted(any(), any());
@@ -132,25 +131,25 @@ public final class CastContextWrapperTest {
 
   @Test
   public void needsInitialization_byDefault_returnsTrue() {
-    assertThat(CastContextWrapper.getSingletonInstance().needsInitialization()).isTrue();
+    assertThat(Cast.getSingletonInstance().needsInitialization()).isTrue();
   }
 
   @Test
   public void needsInitialization_returnsFalse() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
+    assertThat(cast.needsInitialization()).isFalse();
   }
 
   @Test
   public void ensureInitialized_alreadyInitialized_doesNotThrowException() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.initWithContext(mockCastContext);
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
+    Cast cast = Cast.getSingletonInstance();
+    cast.sideloadCastContext(mockCastContext);
+    assertThat(cast.needsInitialization()).isFalse();
 
-    castContextWrapper.ensureInitialized(context);
+    cast.ensureInitialized(context);
   }
 
   @Test
@@ -158,168 +157,163 @@ public final class CastContextWrapperTest {
     IllegalStateException originalException =
         new IllegalStateException("No manifest options provider to initialize CastContext");
     when(mockCastContextInitializer.init()).thenThrow(originalException);
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    assertThat(castContextWrapper.needsInitialization()).isTrue();
+    Cast cast = Cast.getSingletonInstance();
+    assertThat(cast.needsInitialization()).isTrue();
 
     IllegalStateException exception =
         assertThrows(
-            IllegalStateException.class,
-            () -> castContextWrapper.ensureInitialized(mockCastContextInitializer));
+            IllegalStateException.class, () -> cast.ensureInitialized(mockCastContextInitializer));
 
-    assertThat(exception)
-        .hasMessageThat()
-        .contains(CastContextWrapper.MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED);
+    assertThat(exception).hasMessageThat().contains(Cast.MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED);
     assertThat(exception).hasCauseThat().isEqualTo(originalException);
   }
 
   @Test
   public void ensureInitialized_notInitializedAndSuccessfulAfterInit_initializesContext() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    assertThat(castContextWrapper.needsInitialization()).isTrue();
+    Cast cast = Cast.getSingletonInstance();
+    assertThat(cast.needsInitialization()).isTrue();
 
-    castContextWrapper.ensureInitialized(mockCastContextInitializer);
+    cast.ensureInitialized(mockCastContextInitializer);
     castContextTaskCompletionSource.setResult(mockCastContext);
     ShadowLooper.idleMainLooper();
 
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
-    assertThat(castContextWrapper.getCastContextLoadFailure()).isNull();
+    assertThat(cast.needsInitialization()).isFalse();
+    assertThat(cast.getCastContextLoadFailure()).isNull();
   }
 
   @Test
   public void ensureInitialized_notInitializedAndFailureAfterInit_setsFailure() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    assertThat(castContextWrapper.needsInitialization()).isTrue();
+    Cast cast = Cast.getSingletonInstance();
+    assertThat(cast.needsInitialization()).isTrue();
 
-    castContextWrapper.ensureInitialized(mockCastContextInitializer);
+    cast.ensureInitialized(mockCastContextInitializer);
     IllegalStateException exception = new IllegalStateException("Failed to load");
     castContextTaskCompletionSource.setException(exception);
     ShadowLooper.idleMainLooper();
 
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
-    assertThat(castContextWrapper.getCastContextLoadFailure()).isEqualTo(exception);
+    assertThat(cast.needsInitialization()).isFalse();
+    assertThat(cast.getCastContextLoadFailure()).isEqualTo(exception);
   }
 
   @Test
   public void getCastContextLoadFailure_byDefault_returnsNull() {
-    assertThat(CastContextWrapper.getSingletonInstance().getCastContextLoadFailure()).isNull();
+    assertThat(Cast.getSingletonInstance().getCastContextLoadFailure()).isNull();
   }
 
   @Test
   public void addSessionManagerListener_beforeInit_addsListenerAfterInit() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.addSessionManagerListener(mockListener);
+    Cast cast = Cast.getSingletonInstance();
+    cast.addSessionManagerListener(mockListener);
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
     verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
   }
 
   @Test
   public void addSessionManagerListener_afterInit_isAddedDirectly() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
-    castContextWrapper.addSessionManagerListener(mockListener);
+    cast.addSessionManagerListener(mockListener);
     verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
   }
 
   @Test
   public void removeSessionManagerListener_beforeInit_removesFromPending() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.addSessionManagerListener(mockListener);
-    castContextWrapper.removeSessionManagerListener(mockListener);
+    Cast cast = Cast.getSingletonInstance();
+    cast.addSessionManagerListener(mockListener);
+    cast.removeSessionManagerListener(mockListener);
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
     verify(mockSessionManager, never()).addSessionManagerListener(any(), any());
   }
 
   @Test
   public void removeSessionManagerListener_afterInit_removesFromSessionManager() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.initWithContext(mockCastContext);
+    Cast cast = Cast.getSingletonInstance();
+    cast.sideloadCastContext(mockCastContext);
 
-    castContextWrapper.removeSessionManagerListener(mockListener);
+    cast.removeSessionManagerListener(mockListener);
 
     verify(mockSessionManager).removeSessionManagerListener(mockListener, CastSession.class);
   }
 
   @Test
   public void getCurrentCastSession_beforeInit_returnsNull() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    assertThat(castContextWrapper.getCurrentCastSession()).isNull();
+    Cast cast = Cast.getSingletonInstance();
+    assertThat(cast.getCurrentCastSession()).isNull();
   }
 
   @Test
   public void getCurrentCastSession_afterInit_returnsSession() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
 
-    castContextWrapper.initWithContext(mockCastContext);
+    cast.sideloadCastContext(mockCastContext);
 
-    assertThat(castContextWrapper.getCurrentCastSession()).isSameInstanceAs(mockCastSession);
+    assertThat(cast.getCurrentCastSession()).isSameInstanceAs(mockCastSession);
   }
 
   @Test
   public void endCurrentSession_beforeInit_doesNotCrash() {
-    CastContextWrapper.getSingletonInstance().endCurrentSession(true);
+    Cast.getSingletonInstance().endCurrentSession(true);
   }
 
   @Test
-  public void asyncInit_successful_initializesContext() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
-    castContextWrapper.addSessionManagerListener(mockListener);
-    castContextWrapper.asyncInit(mockCastContextInitializer);
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
+  public void initialize_successful_initializesContext() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.addSessionManagerListener(mockListener);
+    cast.initialize(mockCastContextInitializer);
+    assertThat(cast.needsInitialization()).isFalse();
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
 
-    CastSession sessionBeforeInit = castContextWrapper.getCurrentCastSession();
+    CastSession sessionBeforeInit = cast.getCurrentCastSession();
     castContextTaskCompletionSource.setResult(mockCastContext);
     ShadowLooper.idleMainLooper();
-    CastSession sessionAfterInit = castContextWrapper.getCurrentCastSession();
+    CastSession sessionAfterInit = cast.getCurrentCastSession();
 
     verify(mockSessionManager).addSessionManagerListener(mockListener, CastSession.class);
     verify(mockSessionManager, atLeastOnce()).getCurrentCastSession();
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
-    assertThat(castContextWrapper.getCastContextLoadFailure()).isNull();
+    assertThat(cast.needsInitialization()).isFalse();
+    assertThat(cast.getCastContextLoadFailure()).isNull();
     assertThat(sessionBeforeInit).isNull();
     assertThat(sessionAfterInit).isSameInstanceAs(mockCastSession);
   }
 
   @Test
-  public void asyncInit_failure_setsFailure() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
-    castContextWrapper.asyncInit(mockCastContextInitializer);
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
+  public void initialize_failure_setsFailure() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    assertThat(cast.needsInitialization()).isFalse();
 
     Exception exception = new RuntimeException("Failed to load");
     castContextTaskCompletionSource.setException(exception);
     ShadowLooper.idleMainLooper();
 
-    assertThat(castContextWrapper.needsInitialization()).isFalse();
-    assertThat(castContextWrapper.getCastContextLoadFailure()).isEqualTo(exception);
+    assertThat(cast.needsInitialization()).isFalse();
+    assertThat(cast.getCastContextLoadFailure()).isEqualTo(exception);
   }
 
   @Test
-  public void asyncInit_alreadyInitialized_doesNothing() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance(context);
-    castContextWrapper.initWithContext(mockCastContext);
+  public void initialize_alreadyInitialized_doesNothing() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.sideloadCastContext(mockCastContext);
 
-    castContextWrapper.asyncInit(mockCastContextInitializer);
+    cast.initialize(mockCastContextInitializer);
 
     verify(mockCastContextInitializer, never()).init();
   }
 
   @Test
-  public void asyncInit_withoutContext_throwsException() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+  public void initialize_withoutContext_throwsException() {
+    Cast cast = Cast.getSingletonInstance();
 
     NullPointerException exception =
-        assertThrows(NullPointerException.class, () -> castContextWrapper.asyncInit());
-    assertThat(exception)
-        .hasMessageThat()
-        .contains(CastContextWrapper.MESSAGE_MUST_BE_CREATED_WITH_CONTEXT);
+        assertThrows(NullPointerException.class, () -> cast.initialize());
+    assertThat(exception).hasMessageThat().contains(Cast.MESSAGE_MUST_BE_CREATED_WITH_CONTEXT);
   }
 
   @Test
@@ -333,13 +327,12 @@ public final class CastContextWrapperTest {
 
     try {
       IllegalStateException exception =
-          assertThrows(
-              IllegalStateException.class, () -> CastContextWrapper.getSingletonInstance(context));
+          assertThrows(IllegalStateException.class, () -> Cast.getSingletonInstance(context));
       assertThat(exception)
           .hasMessageThat()
           .contains(
               String.format(
-                  CastContextWrapper.MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS,
+                  Cast.MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS,
                   mainProcessName,
                   backgroundProcessName));
     } finally {
@@ -357,7 +350,7 @@ public final class CastContextWrapperTest {
     ShadowApplication.setProcessName(backgroundProcessName);
 
     try {
-      CastContextWrapper unused = CastContextWrapper.getSingletonInstance();
+      Cast unused = Cast.getSingletonInstance();
     } finally {
       ShadowApplication.setProcessName(originalProcessName);
     }
@@ -378,11 +371,11 @@ public final class CastContextWrapperTest {
   private void verifyRegisterListenerAndGetCurrentSelectorBeforeInit(
       @Nullable MediaRouteSelector selector) {
     when(mockCastContext.getMergedSelector()).thenReturn(selector);
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
     MediaRouteSelector unused =
-        castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
+        cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
     verify(mockMediaRouteSelectorListener, never()).onMediaRouteSelectorChanged(any());
-    castContextWrapper.asyncInit(mockCastContextInitializer);
+    cast.initialize(mockCastContextInitializer);
 
     castContextTaskCompletionSource.setResult(mockCastContext);
     ShadowLooper.idleMainLooper();
@@ -393,11 +386,11 @@ public final class CastContextWrapperTest {
 
   @Test
   public void registerListenerAndGetCurrentSelector_beforeInit_notifiesListenerAfterFailedInit() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
     MediaRouteSelector unused =
-        castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
+        cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
     verify(mockMediaRouteSelectorListener, never()).onMediaRouteSelectorChanged(any());
-    castContextWrapper.asyncInit(mockCastContextInitializer);
+    cast.initialize(mockCastContextInitializer);
 
     Exception exception = new RuntimeException("Failed to load");
     castContextTaskCompletionSource.setException(exception);
@@ -420,39 +413,35 @@ public final class CastContextWrapperTest {
   private void verifyRegisterListenerAndGetCurrentSelectorAfterInit(
       @Nullable MediaRouteSelector selector) {
     when(mockCastContext.getMergedSelector()).thenReturn(selector);
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.initWithContext(mockCastContext);
+    Cast cast = Cast.getSingletonInstance();
+    cast.sideloadCastContext(mockCastContext);
 
     MediaRouteSelector expectedSelector = (selector == null) ? MediaRouteSelector.EMPTY : selector;
-    assertThat(
-            castContextWrapper.registerListenerAndGetCurrentSelector(
-                mockMediaRouteSelectorListener))
+    assertThat(cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener))
         .isEqualTo(expectedSelector);
   }
 
   @Test
   public void registerListenerAndGetCurrentSelector_afterFailedInit_returnsEmptySelector() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
-    castContextWrapper.asyncInit(mockCastContextInitializer);
+    Cast cast = Cast.getSingletonInstance();
+    cast.initialize(mockCastContextInitializer);
 
     Exception exception = new RuntimeException("Failed to load");
     castContextTaskCompletionSource.setException(exception);
     ShadowLooper.idleMainLooper();
 
-    assertThat(castContextWrapper.getCastContextLoadFailure()).isEqualTo(exception);
-    assertThat(
-            castContextWrapper.registerListenerAndGetCurrentSelector(
-                mockMediaRouteSelectorListener))
+    assertThat(cast.getCastContextLoadFailure()).isEqualTo(exception);
+    assertThat(cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener))
         .isEqualTo(MediaRouteSelector.EMPTY);
   }
 
   @Test
   public void registerListenerAndGetCurrentSelector_unregisteredListener_doesNotNotifyListener() {
-    CastContextWrapper castContextWrapper = CastContextWrapper.getSingletonInstance();
+    Cast cast = Cast.getSingletonInstance();
     MediaRouteSelector unused =
-        castContextWrapper.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
-    castContextWrapper.unregisterListener(mockMediaRouteSelectorListener);
-    castContextWrapper.asyncInit(mockCastContextInitializer);
+        cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener);
+    cast.unregisterListener(mockMediaRouteSelectorListener);
+    cast.initialize(mockCastContextInitializer);
 
     castContextTaskCompletionSource.setResult(mockCastContext);
     ShadowLooper.idleMainLooper();

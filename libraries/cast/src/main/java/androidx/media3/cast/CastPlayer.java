@@ -276,7 +276,7 @@ public final class CastPlayer extends ForwardingPlayer {
     this(
         new RemoteCastPlayer(
             context,
-            CastContextWrapper.getSingletonInstance().initWithContext(castContext),
+            Cast.getSingletonInstance().sideloadCastContext(castContext),
             mediaItemConverter,
             /* trackSelector= */ null,
             seekBackIncrementMs,

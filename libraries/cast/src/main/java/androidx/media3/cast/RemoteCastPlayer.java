@@ -67,7 +67,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
@@ -248,8 +247,8 @@ public final class RemoteCastPlayer extends BasePlayer {
      * @throws IllegalStateException If any of the following condition occurs:
      *     <ul>
      *       <li>This method has already been called.
-     *       <li>The {@link CastContextWrapper} has not been initialized via {@link
-     *           CastContextWrapper#asyncInit()} before this method is called.
+     *       <li>The {@link Cast} has not been initialized via {@link Cast#initialize()} before this
+     *           method is called.
      *     </ul>
      */
     public RemoteCastPlayer build() {
@@ -318,7 +317,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long PROGRESS_REPORT_PERIOD_MS = 1000;
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
-  private final CastContextWrapper castContextWrapper;
+  private final Cast cast;
   private final MediaItemConverter mediaItemConverter;
   @Nullable private final CastTrackSelector trackSelector;
   @Nullable private CastTrackSelectorRequest lastSelectionRequest;
@@ -331,7 +330,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Nullable private final Api30Impl api30Impl;
 
   // Result callbacks.
-  private final Cast.Listener castListener;
+  private final com.google.android.gms.cast.Cast.Listener castListener;
 
   private final StatusListener statusListener;
   private final MediaQueue.Callback mediaQueueCallback;
@@ -370,7 +369,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private RemoteCastPlayer(Builder builder) {
     this(
         builder.context,
-        CastContextWrapper.getSingletonInstance(builder.context),
+        Cast.getSingletonInstance(builder.context),
         builder.mediaItemConverter,
         builder.trackSelector,
         builder.seekBackIncrementMs,
@@ -386,7 +385,7 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   /* package */ RemoteCastPlayer(
       @Nullable Context context,
-      CastContextWrapper castContextWrapper,
+      Cast cast,
       MediaItemConverter mediaItemConverter,
       @Nullable CastTrackSelector trackSelector,
       @IntRange(from = 1) long seekBackIncrementMs,
@@ -403,7 +402,7 @@ public final class RemoteCastPlayer extends BasePlayer {
             + "] ["
             + Util.DEVICE_DEBUG_INFO
             + "]");
-    this.castContextWrapper = castContextWrapper;
+    this.cast = cast;
     this.mediaItemConverter = mediaItemConverter;
     this.trackSelector = trackSelector;
     this.seekBackIncrementMs = seekBackIncrementMs;
@@ -440,10 +439,10 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekPositionMs = C.TIME_UNSET;
 
     if (context != null) {
-      castContextWrapper.ensureInitialized(context);
+      cast.ensureInitialized(context);
     }
-    castContextWrapper.addSessionManagerListener(statusListener);
-    setCastSession(castContextWrapper.getCurrentCastSession());
+    cast.addSessionManagerListener(statusListener);
+    setCastSession(cast.getCurrentCastSession());
     updateInternalStateAndNotifyIfChanged();
     if (SDK_INT >= 30 && context != null) {
       api30Impl = new Api30Impl(context);
@@ -773,8 +772,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (SDK_INT >= 30 && api30Impl != null) {
       api30Impl.release();
     }
-    castContextWrapper.removeSessionManagerListener(statusListener);
-    castContextWrapper.endCurrentSession(false);
+    cast.removeSessionManagerListener(statusListener);
+    cast.endCurrentSession(false);
   }
 
   @Override
@@ -2148,7 +2147,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
   }
 
-  private final class CastListener extends Cast.Listener {
+  private final class CastListener extends com.google.android.gms.cast.Cast.Listener {
 
     @Override
     public void onVolumeChanged() {

@@ -46,31 +46,38 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Wraps the Cast context.
+ * The primary entry point for interacting with the Cast context.
  *
- * <p>Optionally performs the loading of the Cast context asynchronously, hiding asynchrony from
- * clients.
+ * <p>This singleton class manages global state associated with Cast playback, including
+ * configurations (such as the receiver application id) and resource initialization.
+ *
+ * <p>The singleton instance must be initialized for Cast playback to function. The recommended
+ * approach is to call {@link #initialize} within {@link Application#onCreate}. Alternatively, you
+ * can call {@link #sideloadCastContext}. If neither initialization method is called but an
+ * OptionsProvider is configured in the app's manifest, {@link RemoteCastPlayer} and UI elements
+ * will trigger initialization automatically .
  *
  * <p>Must be called on the main process and the main thread.
  */
 @MainThread
 @UnstableApi
-public class CastContextWrapper {
+public class Cast {
 
-  private static final String TAG = "CastContextWrapper";
+  private static final String TAG = "Cast";
   /* package */ static final String MESSAGE_MUST_BE_CREATED_WITH_CONTEXT =
-      "CastContextWrapper must be created via getSingletonInstance(Context).";
+      "Cast must be created via getSingletonInstance(Context).";
   /* package */ static final String MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS =
       "The method must be called on the main process (%s), but "
           + "was called on the process (%s).";
   /* package */ static final String MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED =
-      "Must initialize CastContextWrapper prior to using it. To achieve this, call asyncInit in the"
+      "Must initialize Cast prior to using it. To achieve this, call"
+          + " androidx.media3.cast.Cast.getSingletoninstance(context).initialize() in"
           + " Application#onCreate() method.";
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
   @Nullable
-  private static CastContextWrapper singletonInstance;
+  private static Cast singletonInstance;
 
   private final List<SessionManagerListener<CastSession>> pendingListeners;
 
@@ -82,35 +89,35 @@ public class CastContextWrapper {
   private boolean isInitOngoing;
 
   /**
-   * Returns a singleton instance of {@link CastContextWrapper}.
+   * Returns a singleton instance of the class.
    *
    * @param context A {@link Context}.
    */
-  public static CastContextWrapper getSingletonInstance(Context context) {
+  public static Cast getSingletonInstance(Context context) {
     verifyMainThread();
     if (singletonInstance == null) {
-      singletonInstance = new CastContextWrapper(context);
+      singletonInstance = new Cast(context);
     }
     return singletonInstance;
   }
 
-  /** Returns a singleton instance of {@link CastContextWrapper}. */
-  /* package */ static CastContextWrapper getSingletonInstance() {
+  /** Returns a singleton instance of the class. */
+  /* package */ static Cast getSingletonInstance() {
     verifyMainThread();
     if (singletonInstance == null) {
-      singletonInstance = new CastContextWrapper(/* context= */ null);
+      singletonInstance = new Cast(/* context= */ null);
     }
     return singletonInstance;
   }
 
   /**
-   * Initializes this wrapper with the given Cast context, and returns this wrapper for convenience.
+   * Initializes the singleton instance with the given Cast context.
    *
-   * <p>Consider using {@link #asyncInit asynchronous initialization} to account for module load
+   * <p>Consider using {@link #initialize asynchronous initialization} to account for module load
    * errors, or to perform the Cast module loading on a background thread.
    */
   @CanIgnoreReturnValue
-  public CastContextWrapper initWithContext(CastContext castContext) {
+  public Cast sideloadCastContext(CastContext castContext) {
     verifyMainThread();
     checkNotNull(castContext);
     if (needsInitialization()) {
@@ -120,17 +127,46 @@ public class CastContextWrapper {
   }
 
   /**
-   * Triggers asynchronous initialization of the CastContext.
+   * Initializes the singleton instance.
    *
    * <p>Does nothing if {@link #needsInitialization() initialization} is not needed.
    *
    * <p>Cast context loading is offloaded to {@link BackgroundExecutor}.
    *
-   * @throws NullPointerException if the {@link CastContextWrapper} is not created via {@link
+   * <p>Cast configurations are determined by the manifest-configured options provider in the app's
+   * manifest.
+   *
+   * <p>Initialization must occur before the creation of a {@link RemoteCastPlayer} or the use of
+   * Cast UI widgets, such as the {@link MediaRouteButtonFactory} or the {@link MediaRouteButtonKt}
+   * composable. To achieve this, the application can perform initialization in the {@link
+   * Application#onCreate()} method as follows:
+   *
+   * <pre>{@code
+   * public class MainApplication extends Application {
+   *   @Override
+   *   public void onCreate() {
+   *     super.onCreate();
+   *     Cast.getSingletonInstance(this).initialize();
+   *   }
+   * }
+   * }</pre>
+   *
+   * Then the application can configure the {@code MainApplication} in the {@code
+   * AndroidManifest.xml} as follows:
+   *
+   * <pre>{@code
+   * <application
+   *     android:name=".MainApplication">
+   *     ...
+   * </application>
+   * }</pre>
+   *
+   * @throws NullPointerException if the singleton instance is not created via {@link
    *     #getSingletonInstance(Context)}.
+   * @throws IllegalStateException if this method is not called on the main process.
    */
-  public void asyncInit() {
-    asyncInit(
+  public void initialize() {
+    initialize(
         () ->
             CastContext.getSharedInstance(
                 checkNotNull(context, MESSAGE_MUST_BE_CREATED_WITH_CONTEXT),
@@ -138,10 +174,10 @@ public class CastContextWrapper {
   }
 
   @VisibleForTesting
-  /* package */ void asyncInit(CastContextInitializer castContextInitializer) {
+  /* package */ void initialize(CastContextInitializer castContextInitializer) {
     verifyMainThread();
     if (!needsInitialization()) {
-      Log.w(TAG, "Tried to initialize an already initialized CastContextWrapper.");
+      Log.w(TAG, "Tried to initialize an already initialized Cast.");
       return;
     }
     castContextInitializer
@@ -160,32 +196,31 @@ public class CastContextWrapper {
   /**
    * Returns true if initialization has not yet started.
    *
-   * @see #asyncInit
-   * @see #initWithContext
+   * @see #initialize
+   * @see #sideloadCastContext
    */
   public boolean needsInitialization() {
     return castContext == null && castContextLoadFailure == null && !isInitOngoing;
   }
 
   /**
-   * Ensures that the {@link CastContextWrapper} is initialized.
+   * Ensures that the singleton instance is initialized.
    *
-   * <p>If the {@link CastContextWrapper} is already initialized, this method returns immediately.
-   * If the {@link CastContextWrapper} hasn't been initialized yet, this method triggers
-   * asynchronous initialization using the manifest-configured options provider.
+   * <p>If the singleton instance is already initialized, this method returns immediately. If the
+   * singleton instance hasn't been initialized yet, this method triggers asynchronous
+   * initialization using the manifest-configured options provider.
    *
    * <p>This method is intended to maintain backwards compatibility with media3 versions that used
-   * the CastSDK manifest-based OptionsProvider. Once the preferred {@link #asyncInit} has been
+   * the CastSDK manifest-based OptionsProvider. Once the preferred {@link #initialize} has been
    * available for a while in a stable release, this method may be removed.
    *
    * @param context A {@link Context}.
    * @throws IllegalStateException If any of the following condition occurs:
    *     <ul>
    *       <li>This method is not called on the main thread.
-   *       <li>The {@link CastContextWrapper} was not initialized via {@link
-   *           CastContextWrapper#asyncInit()} by the app yet and there is no manifest-configured
-   *           options provider in the app's manifest for automatically initializing the {@link
-   *           CastContextWrapper}.
+   *       <li>The singleton instance was not initialized via {@link Cast#initialize()} by the app
+   *           yet and there is no manifest-configured options provider in the app's manifest for
+   *           automatically initializing the singleton instance.
    *     </ul>
    */
   /* package */ void ensureInitialized(Context context) {
@@ -199,10 +234,10 @@ public class CastContextWrapper {
       return;
     }
     try {
-      asyncInit(castContextInitializer);
+      initialize(castContextInitializer);
     } catch (IllegalStateException exception) {
       // We want to rethrow the exception with a different message that instructs the app developer
-      // to call asyncInit() in the Application#onCreate() method.
+      // to call initialize() in the Application#onCreate() method.
       throw new IllegalStateException(MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED, exception);
     }
   }
@@ -328,7 +363,7 @@ public class CastContextWrapper {
     pendingMediaRouteSelectorListeners.clear();
   }
 
-  private CastContextWrapper(@Nullable Context context) {
+  private Cast(@Nullable Context context) {
     checkRunningOnMainProcess(context);
     this.context = (context != null) ? context.getApplicationContext() : null;
     pendingListeners = new ArrayList<>();
@@ -342,8 +377,7 @@ public class CastContextWrapper {
   }
 
   /**
-   * Verifies that this {@link CastContextWrapper} instance is executing on the application's main
-   * process.
+   * Verifies that this instance is executing on the application's main process.
    *
    * <p>This verification is crucial because both the underlying {@link CastContext} and Android's
    * {@link androidx.mediarouter.media.MediaRouter} are designed to operate exclusively on the main
@@ -353,7 +387,7 @@ public class CastContextWrapper {
    * @throws IllegalStateException if the active process is not the application's main process.
    */
   private void checkRunningOnMainProcess(
-      @UnderInitialization CastContextWrapper this, @Nullable Context context) {
+      @UnderInitialization Cast this, @Nullable Context context) {
     if (context == null) {
       return;
     }

@@ -92,7 +92,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
@@ -140,7 +139,7 @@ public class RemoteCastPlayerTest {
   private RemoteCastPlayer remoteCastPlayer;
   private DefaultMediaItemConverter mediaItemConverter;
   private CastTrackSelector spyTrackSelector;
-  private Cast.Listener castListener;
+  private com.google.android.gms.cast.Cast.Listener castListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
   private MediaQueue.Callback mediaQueueCallback;
 
@@ -162,7 +161,8 @@ public class RemoteCastPlayerTest {
   private ArgumentCaptor<ResultCallback<RemoteMediaClient.MediaChannelResult>>
       setResultCallbackArgumentCaptor;
 
-  @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
+  @Captor
+  private ArgumentCaptor<com.google.android.gms.cast.Cast.Listener> castListenerArgumentCaptor;
 
   @Captor
   private ArgumentCaptor<RemoteMediaClient.Callback> remoteMediaClientCallbackArgumentCaptor;
@@ -199,7 +199,7 @@ public class RemoteCastPlayerTest {
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
+            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
             mediaItemConverter,
             spyTrackSelector,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
@@ -218,7 +218,7 @@ public class RemoteCastPlayerTest {
   @After
   public void tearDown() {
     remoteCastPlayer.release();
-    CastContextWrapper.reset();
+    Cast.reset();
   }
 
   @SuppressWarnings("deprecation")
@@ -2389,7 +2389,7 @@ public class RemoteCastPlayerTest {
     RemoteCastPlayer remoteCastPlayerWithTrackSelector =
         new RemoteCastPlayer(
             /* context= */ null,
-            CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
+            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
             mediaItemConverter,
             new CastTrackSelector() {
               @Override
@@ -2414,7 +2414,7 @@ public class RemoteCastPlayerTest {
     RemoteCastPlayer remoteCastPlayerWithoutTrackSelector =
         new RemoteCastPlayer(
             /* context= */ null,
-            CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
+            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
             mediaItemConverter,
             /* trackSelector= */ null,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
