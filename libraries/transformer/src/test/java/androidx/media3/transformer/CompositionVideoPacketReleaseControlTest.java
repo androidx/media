@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,18 +68,12 @@ public class CompositionVideoPacketReleaseControlTest {
     outputConsumer = new RecordingPacketConsumer<>();
     compositionVideoPacketReleaseControl =
         new CompositionVideoPacketReleaseControl(
-            context,
             videoFrameReleaseControl,
             outputConsumer,
             newDirectExecutorService(),
             exception -> {
               throw new IllegalStateException(exception);
             });
-  }
-
-  @After
-  public void tearDown() {
-    compositionVideoPacketReleaseControl.release();
   }
 
   @Test

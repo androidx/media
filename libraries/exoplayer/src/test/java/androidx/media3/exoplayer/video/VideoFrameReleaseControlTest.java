@@ -63,6 +63,15 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
+  public void isReady_requiresOutputSurfaceFalse_returnsFalseOnNewInstance() {
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+  }
+
+  @Test
   public void isReady_withoutSurfaceFirstFrameNotReady_returnsFalse() throws Exception {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
@@ -107,6 +116,51 @@ public class VideoFrameReleaseControlTest {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+
+    // Process first frame.
+    videoFrameReleaseControl.getFrameReleaseAction(
+        /* presentationTimeUs= */ 0,
+        /* positionUs= */ 0,
+        /* elapsedRealtimeUs= */ 0,
+        /* outputStreamStartPositionUs= */ 0,
+        /* isDecodeOnlyFrame= */ false,
+        /* isLastFrame= */ false,
+        frameReleaseInfo);
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+
+    videoFrameReleaseControl.reset();
+
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
+  }
+
+  @Test
+  public void isReady_requiresOutputSurfaceFalse_returnsTrueAfterFirstFrame() throws Exception {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
+    videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
+
+    // Process first frame.
+    videoFrameReleaseControl.getFrameReleaseAction(
+        /* presentationTimeUs= */ 0,
+        /* positionUs= */ 0,
+        /* elapsedRealtimeUs= */ 0,
+        /* outputStreamStartPositionUs= */ 0,
+        /* isDecodeOnlyFrame= */ false,
+        /* isLastFrame= */ false,
+        frameReleaseInfo);
+
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+  }
+
+  @Test
+  public void isReady_requiresOutputSurfaceFalse_returnsFalseAfterReset() throws Exception {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
     videoFrameReleaseControl.setOutputSurface(/* outputSurface= */ null);
 
     // Process first frame.

@@ -630,7 +630,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
-              context,
               videoFrameReleaseControl,
               packetConsumer,
               executorService,
@@ -899,9 +898,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       return Futures.immediateVoidFuture();
     }
 
-    if (videoPacketReleaseControl != null) {
-      videoPacketReleaseControl.release();
-    }
     audioFocusManager.release();
     checkState(checkNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.

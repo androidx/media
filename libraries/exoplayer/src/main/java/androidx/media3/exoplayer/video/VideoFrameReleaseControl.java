@@ -185,6 +185,7 @@ public final class VideoFrameReleaseControl {
   private boolean hasOutputSurface;
   private boolean frameReadyWithoutSurface;
   private boolean disableAdvancingTimestampChecks;
+  private boolean requiresOutputSurface;
 
   /**
    * Creates an instance.
@@ -209,6 +210,7 @@ public final class VideoFrameReleaseControl {
     joiningDeadlineMs = C.TIME_UNSET;
     playbackSpeed = 1f;
     clock = Clock.DEFAULT;
+    requiresOutputSurface = true;
   }
 
   /**
@@ -262,6 +264,15 @@ public final class VideoFrameReleaseControl {
   }
 
   /**
+   * Sets whether an output surface is required for the release control to release frames.
+   *
+   * <p>The default value is {@code true}.
+   */
+  public void setRequiresOutputSurface(boolean requiresOutputSurface) {
+    this.requiresOutputSurface = requiresOutputSurface;
+  }
+
+  /**
    * Called when a frame has been released.
    *
    * @return Whether this is the first released frame.
@@ -297,7 +308,7 @@ public final class VideoFrameReleaseControl {
   public boolean isReady(boolean otherwiseReady) {
     if (otherwiseReady
         && (firstFrameState == C.FIRST_FRAME_RENDERED
-            || (!hasOutputSurface && frameReadyWithoutSurface))) {
+            || (frameReadyWithoutSurface && (!hasOutputSurface || !requiresOutputSurface)))) {
       // Ready. If we were joining then we've now joined, so clear the joining deadline.
       joiningDeadlineMs = C.TIME_UNSET;
       return true;
@@ -372,7 +383,7 @@ public final class VideoFrameReleaseControl {
     if (isDecodeOnlyFrame && !isLastFrame) {
       return FRAME_RELEASE_SKIP;
     }
-    if (!hasOutputSurface) {
+    if (!hasOutputSurface && requiresOutputSurface) {
       // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
       if (frameTimingEvaluator.shouldIgnoreFrame(
           frameReleaseInfo.earlyUs,
@@ -387,6 +398,9 @@ public final class VideoFrameReleaseControl {
       }
       frameReadyWithoutSurface = true;
       return FRAME_RELEASE_TRY_AGAIN_LATER;
+    }
+    if (!requiresOutputSurface) {
+      frameReadyWithoutSurface = true;
     }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
       return FRAME_RELEASE_IMMEDIATELY;

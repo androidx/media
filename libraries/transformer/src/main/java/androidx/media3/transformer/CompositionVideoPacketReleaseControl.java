@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
@@ -31,7 +30,6 @@ import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
-import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +47,6 @@ import java.util.concurrent.ExecutorService;
   private final PacketConsumerCaller<List<HardwareBufferFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
-  private final PlaceholderSurface placeholderSurface;
   private boolean isEnded;
 
   /**
@@ -60,24 +57,17 @@ import java.util.concurrent.ExecutorService;
    *     release time}.
    */
   public CompositionVideoPacketReleaseControl(
-      Context context,
       VideoFrameReleaseControl videoFrameReleaseControl,
       PacketConsumer<List<HardwareBufferFrame>> downstreamConsumer,
       ExecutorService glExecutorService,
       Consumer<Exception> exceptionConsumer) {
-    placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
-    videoFrameReleaseControl.setOutputSurface(placeholderSurface);
+    videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.downstreamConsumer =
         PacketConsumerCaller.create(downstreamConsumer, glExecutorService, exceptionConsumer);
     this.downstreamConsumer.run();
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-  }
-
-  /** Releases the release control. */
-  public void release() {
-    placeholderSurface.release();
   }
 
   /**
