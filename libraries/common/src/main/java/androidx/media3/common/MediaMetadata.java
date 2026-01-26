@@ -25,6 +25,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
@@ -1245,13 +1246,13 @@ public final class MediaMetadata {
       return false;
     }
     MediaMetadata that = (MediaMetadata) obj;
-    return Objects.equals(title, that.title)
-        && Objects.equals(artist, that.artist)
-        && Objects.equals(albumTitle, that.albumTitle)
-        && Objects.equals(albumArtist, that.albumArtist)
-        && Objects.equals(displayTitle, that.displayTitle)
-        && Objects.equals(subtitle, that.subtitle)
-        && Objects.equals(description, that.description)
+    return TextUtils.equals(title, that.title)
+        && TextUtils.equals(artist, that.artist)
+        && TextUtils.equals(albumTitle, that.albumTitle)
+        && TextUtils.equals(albumArtist, that.albumArtist)
+        && TextUtils.equals(displayTitle, that.displayTitle)
+        && TextUtils.equals(subtitle, that.subtitle)
+        && TextUtils.equals(description, that.description)
         && Objects.equals(durationMs, that.durationMs)
         && Objects.equals(userRating, that.userRating)
         && Objects.equals(overallRating, that.overallRating)
@@ -1269,14 +1270,14 @@ public final class MediaMetadata {
         && Objects.equals(releaseYear, that.releaseYear)
         && Objects.equals(releaseMonth, that.releaseMonth)
         && Objects.equals(releaseDay, that.releaseDay)
-        && Objects.equals(writer, that.writer)
-        && Objects.equals(composer, that.composer)
-        && Objects.equals(conductor, that.conductor)
+        && TextUtils.equals(writer, that.writer)
+        && TextUtils.equals(composer, that.composer)
+        && TextUtils.equals(conductor, that.conductor)
         && Objects.equals(discNumber, that.discNumber)
         && Objects.equals(totalDiscCount, that.totalDiscCount)
-        && Objects.equals(genre, that.genre)
-        && Objects.equals(compilation, that.compilation)
-        && Objects.equals(station, that.station)
+        && TextUtils.equals(genre, that.genre)
+        && TextUtils.equals(compilation, that.compilation)
+        && TextUtils.equals(station, that.station)
         && Objects.equals(mediaType, that.mediaType)
         && Objects.equals(supportedCommands, that.supportedCommands)
         && ((extras == null) == (that.extras == null));

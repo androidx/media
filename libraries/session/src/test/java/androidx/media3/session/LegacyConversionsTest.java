@@ -36,6 +36,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.service.media.MediaBrowserService;
+import android.text.SpannableString;
 import android.text.SpannedString;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -133,7 +134,9 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToQueueItem_withArtworkData() throws Exception {
-    MediaItem mediaItem = createMediaItemWithArtworkData("testId", /* durationMs= */ 10_000L);
+    MediaItem mediaItem =
+        createMediaItemWithArtworkData(
+            "testId", /* durationMs= */ 10_000L, /* useSpannableString= */ false);
     MediaMetadata mediaMetadata = mediaItem.mediaMetadata;
     ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.decodeBitmap(mediaMetadata.artworkData);
     @Nullable Bitmap bitmap = bitmapFuture.get(10, SECONDS);
@@ -409,7 +412,12 @@ public final class LegacyConversionsTest {
   @Test
   public void convertToMediaMetadata_roundTripViaMediaMetadataCompat_returnsEqualMediaItemMetadata()
       throws Exception {
-    MediaItem testMediaItem = createMediaItemWithArtworkData("testZZZ", /* durationMs= */ 10_000L);
+    MediaItem testMediaItem =
+        createMediaItemWithArtworkData(
+            "testZZZ", /* durationMs= */ 10_000L, /* useSpannableString= */ false);
+    MediaItem testMediaItemWithSpannableStrings =
+        createMediaItemWithArtworkData(
+            "testZZZ", /* durationMs= */ 10_000L, /* useSpannableString= */ true);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -428,7 +436,7 @@ public final class LegacyConversionsTest {
     MediaMetadata mediaMetadata =
         LegacyConversions.convertToMediaMetadata(testMediaMetadataCompat, RatingCompat.RATING_NONE);
 
-    assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadata).isEqualTo(testMediaItemWithSpannableStrings.mediaMetadata);
     assertThat(mediaMetadata.artworkData).isNotNull();
   }
 
@@ -489,7 +497,11 @@ public final class LegacyConversionsTest {
       convertToMediaMetadata_roundTripViaMediaDescriptionCompat_returnsEqualMediaItemMetadata()
           throws Exception {
     MediaItem testMediaItem =
-        createMediaItemWithArtworkData("testZZZ", /* durationMs= */ C.TIME_UNSET);
+        createMediaItemWithArtworkData(
+            "testZZZ", /* durationMs= */ C.TIME_UNSET, /* useSpannableString= */ false);
+    MediaItem testMediaItemWithSpannableStrings =
+        createMediaItemWithArtworkData(
+            "testZZZ", /* durationMs= */ C.TIME_UNSET, /* useSpannableString= */ true);
     MediaMetadata testMediaMetadata = testMediaItem.mediaMetadata;
     @Nullable Bitmap testArtworkBitmap = null;
     @Nullable
@@ -503,7 +515,7 @@ public final class LegacyConversionsTest {
     MediaMetadata mediaMetadata =
         LegacyConversions.convertToMediaMetadata(mediaDescriptionCompat, RatingCompat.RATING_NONE);
 
-    assertThat(mediaMetadata).isEqualTo(testMediaMetadata);
+    assertThat(mediaMetadata).isEqualTo(testMediaItemWithSpannableStrings.mediaMetadata);
     assertThat(mediaMetadata.artworkData).isNotNull();
   }
 
@@ -1557,16 +1569,21 @@ public final class LegacyConversionsTest {
         .build();
   }
 
-  private static MediaItem createMediaItemWithArtworkData(String mediaId, long durationMs) {
+  private static MediaItem createMediaItemWithArtworkData(
+      String mediaId, long durationMs, boolean useSpannableString) {
     Bundle extras = new Bundle();
     extras.putLong(
         MediaConstants.EXTRAS_KEY_IS_EXPLICIT, MediaConstants.EXTRAS_VALUE_ATTRIBUTE_PRESENT);
+    CharSequence title = useSpannableString ? new SpannableString("title") : "title";
+    CharSequence displayTitle =
+        useSpannableString ? new SpannableString("displayTitle") : "displayTitle";
+    CharSequence author = useSpannableString ? new SpannableString("author") : "author";
     MediaMetadata.Builder mediaMetadataBuilder =
         new MediaMetadata.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
-            .setTitle("title")
-            .setDisplayTitle("displayTitle")
-            .setAuthor("author")
+            .setTitle(title)
+            .setDisplayTitle(displayTitle)
+            .setAuthor(author)
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .setExtras(extras);
