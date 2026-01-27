@@ -17,12 +17,17 @@ package androidx.media3.demo.session
 
 import android.app.Application
 import android.os.StrictMode
+import androidx.annotation.OptIn
+import androidx.media3.cast.Cast
+import androidx.media3.common.util.UnstableApi
 
 /** Enables strict mode penalties for the session demo app. */
 class SessionDemoApplication : Application() {
+  @OptIn(UnstableApi::class) // Cast is an unstable API.
   override fun onCreate() {
     super.onCreate()
     StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())
     StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build())
+    Cast.getSingletonInstance(this).initialize()
   }
 }
