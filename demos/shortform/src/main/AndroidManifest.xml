@@ -34,6 +34,10 @@
       android:exported="false"
       android:label="@string/title_activity_view_pager"
       android:name=".viewpager.ViewPagerActivity"/>
+    <activity
+      android:exported="false"
+      android:label="@string/title_activity_lazy_column"
+      android:name=".lazycolumn.LazyColumnActivity"/>
   </application>
 
   <uses-permission android:name="android.permission.INTERNET" />
