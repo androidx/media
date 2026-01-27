@@ -99,9 +99,7 @@ public final class MediaRouteButtonFactoryTest {
             IllegalArgumentException.class,
             () -> MediaRouteButtonFactory.setUpMediaRouteButton(context, menu, MENU_ITEM_ID));
 
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(MediaRouteButtonFactory.MESSAGE_FAILED_TO_GET_MENU_ITEM);
+    assertThat(thrown).hasMessageThat().contains("menu doesn't contain a menu item");
   }
 
   @Test
@@ -117,7 +115,7 @@ public final class MediaRouteButtonFactoryTest {
             () -> MediaRouteButtonFactory.setUpMediaRouteButton(context, menu, MENU_ITEM_ID));
     assertThat(thrown)
         .hasMessageThat()
-        .contains(MediaRouteButtonFactory.MESSAGE_FAILED_TO_GET_MEDIA_ROUTE_ACTION_PROVIDER);
+        .contains("menu item doesn't have a MediaRouteActionProvider.");
   }
 
   @Test
@@ -188,7 +186,7 @@ public final class MediaRouteButtonFactoryTest {
     assertThat(thrown)
         .hasCauseThat()
         .hasMessageThat()
-        .contains(MediaRouteButtonFactory.MESSAGE_FAILED_TO_GET_SELECTOR);
+        .contains("media route button failed to get the media route selector.");
   }
 
   @Test
@@ -199,9 +197,7 @@ public final class MediaRouteButtonFactoryTest {
         assertThrows(
             NullPointerException.class,
             () -> MediaRouteButtonFactory.setUpMediaRouteButton(context, /* button= */ null));
-    assertThat(thrown)
-        .hasMessageThat()
-        .contains(MediaRouteButtonFactory.MESSAGE_FAILED_WITH_NULL_MEDIA_ROUTE_BUTTON);
+    assertThat(thrown).hasMessageThat().contains("media route button can't be null.");
   }
 
   @Test

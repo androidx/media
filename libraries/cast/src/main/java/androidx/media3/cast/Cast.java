@@ -63,15 +63,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public class Cast {
 
   private static final String TAG = "Cast";
-  /* package */ static final String MESSAGE_MUST_BE_CREATED_WITH_CONTEXT =
-      "Cast must be created via getSingletonInstance(Context).";
-  /* package */ static final String MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS =
-      "The method must be called on the main process (%s), but "
-          + "was called on the process (%s).";
-  /* package */ static final String MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED =
-      "Must initialize Cast prior to using it. To achieve this, call"
-          + " androidx.media3.cast.Cast.getSingletoninstance(context).initialize() in"
-          + " Application#onCreate() method.";
 
   // Intentionally mutable static field. Listeners should only be temporary and not cause leaks.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
@@ -168,7 +159,7 @@ public class Cast {
     initialize(
         () ->
             CastContext.getSharedInstance(
-                checkNotNull(context, MESSAGE_MUST_BE_CREATED_WITH_CONTEXT),
+                checkNotNull(context, "Cast must be created via getSingletonInstance(Context)."),
                 BackgroundExecutor.get()));
   }
 
@@ -236,7 +227,11 @@ public class Cast {
     } catch (IllegalStateException exception) {
       // We want to rethrow the exception with a different message that instructs the app developer
       // to call initialize() in the Application#onCreate() method.
-      throw new IllegalStateException(MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED, exception);
+      throw new IllegalStateException(
+          "Must initialize Cast prior to using it. To achieve this, call"
+              + " androidx.media3.cast.Cast.getSingletoninstance(context).initialize() in"
+              + " Application#onCreate() method.",
+          exception);
     }
   }
 
@@ -397,7 +392,9 @@ public class Cast {
       if (!TextUtils.equals(processName, mainProcessName)) {
         throw new IllegalStateException(
             Util.formatInvariant(
-                MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS, mainProcessName, processName));
+                "The method must be called on the main process (%s), but was called on the process"
+                    + " (%s).",
+                mainProcessName, processName));
       }
     }
   }

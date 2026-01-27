@@ -164,7 +164,12 @@ public final class CastTest {
         assertThrows(
             IllegalStateException.class, () -> cast.ensureInitialized(mockCastContextInitializer));
 
-    assertThat(exception).hasMessageThat().contains(Cast.MESSAGE_CAST_CONTEXT_MUST_BE_INITIALIZED);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "Must initialize Cast prior to using it. To achieve this, call"
+                + " androidx.media3.cast.Cast.getSingletoninstance(context).initialize() in"
+                + " Application#onCreate() method.");
     assertThat(exception).hasCauseThat().isEqualTo(originalException);
   }
 
@@ -313,7 +318,9 @@ public final class CastTest {
 
     NullPointerException exception =
         assertThrows(NullPointerException.class, () -> cast.initialize());
-    assertThat(exception).hasMessageThat().contains(Cast.MESSAGE_MUST_BE_CREATED_WITH_CONTEXT);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("Cast must be created via getSingletonInstance(Context).");
   }
 
   @Test
@@ -332,9 +339,9 @@ public final class CastTest {
           .hasMessageThat()
           .contains(
               String.format(
-                  Cast.MESSAGE_MUST_BE_CALLED_ON_MAIN_PROCESS,
-                  mainProcessName,
-                  backgroundProcessName));
+                  "The method must be called on the main process (%s), but was called on the"
+                      + " process (%s).",
+                  mainProcessName, backgroundProcessName));
     } finally {
       ShadowApplication.setProcessName(originalProcessName);
     }

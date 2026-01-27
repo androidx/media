@@ -45,14 +45,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 @UnstableApi
 public final class MediaRouteButtonFactory {
 
-  /* package */ static final String MESSAGE_FAILED_WITH_NULL_MEDIA_ROUTE_BUTTON =
-      "media route button can't be null.";
-  /* package */ static final String MESSAGE_FAILED_TO_GET_SELECTOR =
+  private static final String MESSAGE_FAILED_TO_GET_SELECTOR =
       "media route button failed to get the media route selector.";
-  /* package */ static final String MESSAGE_FAILED_TO_GET_MENU_ITEM =
-      "menu doesn't contain a menu item";
-  /* package */ static final String MESSAGE_FAILED_TO_GET_MEDIA_ROUTE_ACTION_PROVIDER =
-      "menu item doesn't have a MediaRouteActionProvider.";
 
   /**
    * Sets up a media route button in the action bar menu with an asynchronous callback, which will
@@ -144,12 +138,12 @@ public final class MediaRouteButtonFactory {
     verifyMainThread();
     MenuItem mediaRouteMenuItem = menu.findItem(menuResourceId);
     if (mediaRouteMenuItem == null) {
-      throw new IllegalArgumentException(MESSAGE_FAILED_TO_GET_MENU_ITEM);
+      throw new IllegalArgumentException("menu doesn't contain a menu item");
     }
     MediaRouteActionProvider mediaRouteActionProvider =
         (MediaRouteActionProvider) MenuItemCompat.getActionProvider(mediaRouteMenuItem);
     if (mediaRouteActionProvider == null) {
-      throw new IllegalArgumentException(MESSAGE_FAILED_TO_GET_MEDIA_ROUTE_ACTION_PROVIDER);
+      throw new IllegalArgumentException("menu item doesn't have a MediaRouteActionProvider.");
     }
     return setUpMediaRouteButton(context, mediaRouteMenuItem, mediaRouteActionProvider);
   }
@@ -249,7 +243,7 @@ public final class MediaRouteButtonFactory {
   public static ListenableFuture<Void> setUpMediaRouteButton(
       Context context, MediaRouteButton button) {
     verifyMainThread();
-    checkNotNull(button, MESSAGE_FAILED_WITH_NULL_MEDIA_ROUTE_BUTTON);
+    checkNotNull(button, "media route button can't be null.");
     return setUpMediaRouteButton(context, button::setRouteSelector);
   }
 
