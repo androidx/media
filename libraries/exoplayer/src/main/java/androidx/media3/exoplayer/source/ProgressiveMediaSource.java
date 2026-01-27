@@ -345,6 +345,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   private long timelineDurationUs;
   private boolean timelineIsSeekable;
   private boolean timelineIsLive;
+  private boolean hasSeenNonEstimatedSeekMap;
   @Nullable private TransferListener transferListener;
 
   @GuardedBy("this")
@@ -469,6 +470,12 @@ public final class ProgressiveMediaSource extends BaseMediaSource
 
   @Override
   public void onSourceInfoRefreshed(long durationUs, SeekMap seekMap, boolean isLive) {
+    if (hasSeenNonEstimatedSeekMap && seekMap.isEstimated()) {
+      // If we've seen a non-estimated seekMap and the new seekMap is estimated, then we are
+      // receiving the out-of-date source info from the period, and we should suppress it.
+      return;
+    }
+    hasSeenNonEstimatedSeekMap = !seekMap.isEstimated();
     // If we already have the duration from a previous source info refresh, use it.
     durationUs = durationUs == C.TIME_UNSET ? timelineDurationUs : durationUs;
     boolean isSeekable = seekMap.isSeekable();

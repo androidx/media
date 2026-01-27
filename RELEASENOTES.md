@@ -2,6 +2,16 @@
 
 ## 1.9
 
+### 1.9.2 (2026-02-06)
+
+This release includes the following changes since
+[1.9.1 release](#191-2026-01-26):
+
+*   ExoPlayer:
+    *   Fix bug where `ProgressiveMediaSource` propagates out-of-date timeline
+        info to player and the queued periods unexpectedly get removed
+        ([#3016](https://github.com/androidx/media/issues/3016)).
+
 ### 1.9.1 (2026-01-26)
 
 This release includes the following changes since
