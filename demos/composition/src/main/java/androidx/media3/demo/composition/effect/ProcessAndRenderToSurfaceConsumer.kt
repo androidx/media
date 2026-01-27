@@ -101,6 +101,9 @@ private constructor(
     if ((SDK_INT >= 29) && (packet is Packet.Payload)) {
       // TODO: b/474075198 - Add multi-sequence support.
       hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(packet.payload[0]))
+      for (i in 1..<packet.payload.size) {
+        packet.payload[i].release()
+      }
     }
   }
 
