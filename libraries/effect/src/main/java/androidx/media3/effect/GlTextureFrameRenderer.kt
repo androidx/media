@@ -53,7 +53,7 @@ private constructor(
   private val errorHandler: Consumer<VideoFrameProcessingException>,
   private var listener: Listener,
 ) :
-  PacketConsumer<GlTextureFrame>,
+  RenderingPacketConsumer<GlTextureFrame, SurfaceInfo>,
   GlShaderProgram.InputListener,
   FinalShaderProgramWrapper.Listener {
 
@@ -137,13 +137,12 @@ private constructor(
   }
 
   /**
-   * Updates the output surface information.
-   *
-   * @param surfaceInfo The new [SurfaceInfo], or null if the surface is no longer available.
+   * Updates the output surface information with new [SurfaceInfo], or null if the surface is no
+   * longer available.
    */
-  fun setOutputSurfaceInfo(surfaceInfo: SurfaceInfo?) {
-    outputSurfaceInfo = surfaceInfo
-    finalShaderProgramWrapper?.setOutputSurfaceInfo(surfaceInfo)
+  override fun setRenderOutput(output: SurfaceInfo?) {
+    outputSurfaceInfo = output
+    finalShaderProgramWrapper?.setOutputSurfaceInfo(output)
   }
 
   override fun onReadyToAcceptInputFrame() {}

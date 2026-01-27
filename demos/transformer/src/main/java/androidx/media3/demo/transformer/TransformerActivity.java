@@ -77,9 +77,11 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -93,6 +95,7 @@ import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
+import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -120,6 +123,7 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -414,11 +418,25 @@ public final class TransformerActivity extends AppCompatActivity {
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
+        if (SDK_INT < 28) {
+          throw new IllegalStateException(
+              "API version 28+ required to export with PacketProcessor");
+        }
         GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
         ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
+        HardwareBufferSurfaceRenderer surfaceRenderer =
+            HardwareBufferSurfaceRenderer.create(
+                getApplication(),
+                MoreExecutors.listeningDecorator(glExecutorService),
+                singleContextGlObjectsProvider,
+                NO_OP.INSTANCE,
+                /* errorConsumer= */ e -> {
+                  runOnUiThread(() -> onError(ExportException.createForUnexpected(e)));
+                });
+
         // TODO: b/449957627 - Implement HardwareBuffer compositing.
         transformerBuilder.setPacketProcessor(
-            new PassthroughPacketProcessor(), singleContextGlObjectsProvider, glExecutorService);
+            new DefaultHardwareBufferEffectsPipeline(), surfaceRenderer);
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {

@@ -55,7 +55,7 @@ import org.checkerframework.dataflow.qual.Pure;
   private final Format inputFormat;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final List<String> muxerSupportedMimeTypes;
-  private final TransformationRequest transformationRequest;
+  @Nullable private final TransformationRequest transformationRequest;
   private final FallbackListener fallbackListener;
   private final String requestedOutputMimeType;
   private final @Composition.HdrMode int hdrModeAfterFallback;
@@ -72,7 +72,7 @@ import org.checkerframework.dataflow.qual.Pure;
       Format inputFormat,
       ImmutableList<Integer> allowedEncodingRotationDegrees,
       List<String> muxerSupportedMimeTypes,
-      TransformationRequest transformationRequest,
+      @Nullable TransformationRequest transformationRequest,
       FallbackListener fallbackListener,
       @Nullable LogSessionId logSessionId) {
     checkArgument(inputFormat.colorInfo != null);
@@ -90,10 +90,10 @@ import org.checkerframework.dataflow.qual.Pure;
   }
 
   private static Pair<String, Integer> getRequestedOutputMimeTypeAndHdrModeAfterFallback(
-      Format inputFormat, TransformationRequest transformationRequest) {
+      Format inputFormat, @Nullable TransformationRequest transformationRequest) {
     String inputSampleMimeType = checkNotNull(inputFormat.sampleMimeType);
     String requestedOutputMimeType;
-    if (transformationRequest.videoMimeType != null) {
+    if (transformationRequest != null && transformationRequest.videoMimeType != null) {
       requestedOutputMimeType = transformationRequest.videoMimeType;
     } else if (MimeTypes.isImage(inputSampleMimeType)) {
       requestedOutputMimeType = DEFAULT_OUTPUT_MIME_TYPE;
@@ -102,7 +102,9 @@ import org.checkerframework.dataflow.qual.Pure;
     }
 
     return getOutputMimeTypeAndHdrModeAfterFallback(
-        transformationRequest.hdrMode, requestedOutputMimeType, inputFormat.colorInfo);
+        transformationRequest == null ? HDR_MODE_KEEP_HDR : transformationRequest.hdrMode,
+        requestedOutputMimeType,
+        inputFormat.colorInfo);
   }
 
   public @Composition.HdrMode int getHdrModeAfterFallback() {
@@ -178,13 +180,15 @@ import org.checkerframework.dataflow.qual.Pure;
 
     Format actualEncoderFormat = encoder.getConfigurationFormat();
 
-    fallbackListener.onTransformationRequestFinalized(
-        createSupportedTransformationRequest(
-            transformationRequest,
-            /* hasOutputFormatRotation= */ outputRotationDegrees != 0,
-            requestedEncoderFormat,
-            actualEncoderFormat,
-            hdrModeAfterFallback));
+    if (transformationRequest != null) {
+      fallbackListener.onTransformationRequestFinalized(
+          createSupportedTransformationRequest(
+              transformationRequest,
+              /* hasOutputFormatRotation= */ outputRotationDegrees != 0,
+              requestedEncoderFormat,
+              actualEncoderFormat,
+              hdrModeAfterFallback));
+    }
 
     encoderSurfaceInfo =
         new SurfaceInfo(

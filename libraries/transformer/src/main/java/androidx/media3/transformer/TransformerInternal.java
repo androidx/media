@@ -56,10 +56,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -69,6 +69,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
@@ -78,7 +79,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /* package */ final class TransformerInternal {
@@ -137,8 +137,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
       packetProcessor;
 
-  @Nullable private final ExecutorService glExecutorService;
-  @Nullable private final GlObjectsProvider glObjectsProvider;
+  @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
   /**
    * The presentation timestamp offset for all the video samples. It will be set when resuming video
@@ -218,8 +217,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Clock clock,
       @Nullable
           PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
-      @Nullable ExecutorService glExecutorService,
-      @Nullable GlObjectsProvider glObjectsProvider,
+      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
@@ -233,8 +231,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.glExecutorService = glExecutorService;
-    this.glObjectsProvider = glObjectsProvider;
+    this.packetRenderer = packetRenderer;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
@@ -792,13 +789,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Looper internalLooper = internalHandlerThread.getLooper();
           PacketConsumerVideoSampleExporter videoSampleExporter =
               new PacketConsumerVideoSampleExporter(
-                  context,
                   composition,
                   firstFormat,
-                  transformationRequest,
-                  packetProcessor,
-                  checkNotNull(glObjectsProvider),
-                  checkNotNull(glExecutorService),
+                  checkNotNull(packetProcessor),
+                  checkNotNull(packetRenderer),
                   encoderFactory,
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,

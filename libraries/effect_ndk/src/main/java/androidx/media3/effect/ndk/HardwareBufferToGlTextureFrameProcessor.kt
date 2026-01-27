@@ -84,9 +84,8 @@ class HardwareBufferToGlTextureFrameProcessor(
             if (hardwareBuffer.format == RGBA_8888) {
               // Map RGBA_8888 buffers directly to OpenGL RGBA_8888 textures.
               val (eglImage, texture) = sampleToGlTexture(hardwareBuffer, GLES20.GL_TEXTURE_2D)
-              outputConsumer?.queuePacket(
-                Packet.of(createGlTextureFrame(texture, hardwareBufferFrame, eglImage))
-              )
+              val glFrame = createGlTextureFrame(texture, hardwareBufferFrame, eglImage)
+              outputConsumer?.queuePacket(Packet.of(glFrame))
             } else {
               sampleOpaqueHardwareBufferQueueDownstream(hardwareBufferFrame)
             }
@@ -200,6 +199,7 @@ class HardwareBufferToGlTextureFrameProcessor(
       )
       .setPresentationTimeUs(hardwareBufferFrame.presentationTimeUs)
       .setReleaseTimeNs(hardwareBufferFrame.releaseTimeNs)
+      .setFormat(hardwareBufferFrame.format)
       .build()
   }
 

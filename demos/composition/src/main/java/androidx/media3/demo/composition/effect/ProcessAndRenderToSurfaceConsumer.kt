@@ -113,12 +113,12 @@ private constructor(
   }
 
   override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-    glTextureFrameRenderer.setOutputSurfaceInfo(SurfaceInfo(holder.surface, width, height))
+    glTextureFrameRenderer.setRenderOutput(SurfaceInfo(holder.surface, width, height))
   }
 
   override fun surfaceCreated(holder: SurfaceHolder) {}
 
   override fun surfaceDestroyed(holder: SurfaceHolder) {
-    glTextureFrameRenderer.setOutputSurfaceInfo(null)
+    glTextureFrameRenderer.setRenderOutput(null)
   }
 }

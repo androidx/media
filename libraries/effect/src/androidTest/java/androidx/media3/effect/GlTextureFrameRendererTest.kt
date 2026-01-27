@@ -116,7 +116,7 @@ class GlTextureFrameRendererTest {
         errorConsumer,
         GlTextureFrameRenderer.Listener.NO_OP,
       )
-    consumer.setOutputSurfaceInfo(outputSurfaceInfo)
+    consumer.setRenderOutput(outputSurfaceInfo)
 
     // Verify each input after it is queued to avoid the flakiness from the Surface dropping frames.
     for (input in inputs) {

@@ -57,10 +57,11 @@ import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.effect.LottieEffectFactory
-import androidx.media3.demo.composition.effect.PassthroughPacketProcessor
 import androidx.media3.demo.composition.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
+import androidx.media3.effect.GlTextureFrameRenderer
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
@@ -68,6 +69,7 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.SingleContextGlObjectsProvider
 import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -81,6 +83,7 @@ import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
+import com.google.common.util.concurrent.MoreExecutors
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -531,11 +534,27 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     if (uiState.value.outputSettingsState.frameConsumerEnabled) {
+      if (SDK_INT < 28) {
+        _uiState.update {
+          it.copy(snackbarMessage = "API 28+ required to export with PacketConsumer")
+        }
+        return
+      }
+      val surfaceRenderer =
+        HardwareBufferSurfaceRenderer.create(
+          getApplication(),
+          MoreExecutors.listeningDecorator(glExecutorService),
+          glObjectsProvider,
+          listener = GlTextureFrameRenderer.Listener.NO_OP,
+          errorConsumer = { e ->
+            Log.e(TAG, "HardwareBufferToGlTextureFrameProcessor error", e)
+            _uiState.update { it.copy(snackbarMessage = "Export error: $e") }
+          },
+        )
       transformerBuilder.setPacketProcessor(
         // TODO: b/449957627 - Implement HardwareBuffer compositing.
-        PassthroughPacketProcessor(),
-        glObjectsProvider,
-        glExecutorService,
+        DefaultHardwareBufferEffectsPipeline(),
+        surfaceRenderer,
       )
     }
 

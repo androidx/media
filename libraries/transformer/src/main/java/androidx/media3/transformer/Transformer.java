@@ -34,10 +34,10 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -54,6 +54,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -65,7 +66,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -130,8 +130,7 @@ public final class Transformer {
     private PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
         packetProcessor;
 
-    @Nullable private GlObjectsProvider glObjectsProvider;
-    @Nullable private ExecutorService glExecutorService;
+    @Nullable private RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
     /**
      * Creates a builder with default values.
@@ -188,8 +187,7 @@ public final class Transformer {
       this.clock = transformer.clock;
       this.metricsReporterFactory = transformer.metricsReporterFactory;
       this.packetProcessor = transformer.packetProcessor;
-      this.glObjectsProvider = transformer.glObjectsProvider;
-      this.glExecutorService = transformer.glExecutorService;
+      this.packetRenderer = transformer.packetRenderer;
     }
 
     /**
@@ -350,26 +348,23 @@ public final class Transformer {
      * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
      * VideoFrameProcessor.Factory}.
      *
-     * <p>The caller must make sure that, if {@link PacketProcessor} performs OpenGL operations,
-     * they use the same {@link GlObjectsProvider} and run on the same {@link ExecutorService}. The
-     * {@link PacketProcessor}, {@link GlObjectsProvider} and {@link ExecutorService} are released
-     * when {@link Transformer} finishes.
+     * <p>If an encoder could not be created that supports the output of the {@link
+     * PacketProcessor}, the processor's {@linkplain PacketProcessor#setOutput downstream consumer}
+     * will throw an {@link ExportException} when the {@link PacketProcessor} attempts to queue
+     * frames downstream.
      *
      * @param packetProcessor The {@link PacketProcessor} to process frames.
-     * @param glObjectsProvider The {@link GlObjectsProvider}.
-     * @param glExecutorService The {@link ExecutorService} that executes OpenGL operations.
+     * @param packetRenderer The {@link RenderingPacketConsumer} to render frames output from the
+     *     {@link PacketProcessor} to the encoder's input {@link android.view.Surface}.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setPacketProcessor(
         PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
-        GlObjectsProvider glObjectsProvider,
-        ExecutorService glExecutorService) {
+        RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
       this.packetProcessor = packetProcessor;
-      // TODO: b/475744934 - Remove once rendering to the output Surface is injectable.
-      this.glObjectsProvider = glObjectsProvider;
-      this.glExecutorService = glExecutorService;
+      this.packetRenderer = packetRenderer;
       return this;
     }
 
@@ -705,8 +700,7 @@ public final class Transformer {
           clock,
           metricsReporterFactory,
           packetProcessor,
-          glObjectsProvider,
-          glExecutorService);
+          packetRenderer);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -834,8 +828,7 @@ public final class Transformer {
   private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
       packetProcessor;
 
-  @Nullable private final GlObjectsProvider glObjectsProvider;
-  @Nullable private final ExecutorService glExecutorService;
+  @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
   @Nullable private ExportOperation currentExportOperation;
   private boolean exportResumed;
@@ -872,8 +865,7 @@ public final class Transformer {
       @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
       @Nullable
           PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
-      @Nullable GlObjectsProvider glObjectsProvider,
-      @Nullable ExecutorService glExecutorService) {
+      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -898,8 +890,7 @@ public final class Transformer {
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.glObjectsProvider = glObjectsProvider;
-    this.glExecutorService = glExecutorService;
+    this.packetRenderer = packetRenderer;
     this.metricsReporterFactory = metricsReporterFactory;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     exportOperationListener = new ExportOperationListener();
@@ -1324,8 +1315,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              glExecutorService,
-              glObjectsProvider,
+              packetRenderer,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
@@ -1349,8 +1339,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              glExecutorService,
-              glObjectsProvider,
+              packetRenderer,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
@@ -1373,8 +1362,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              glExecutorService,
-              glObjectsProvider,
+              packetRenderer,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,

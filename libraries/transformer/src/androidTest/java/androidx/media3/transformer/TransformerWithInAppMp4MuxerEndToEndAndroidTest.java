@@ -19,18 +19,26 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Effect;
+import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
+import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.effect.SingleContextGlObjectsProvider;
+import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Test;
@@ -46,30 +54,30 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
   private static final String H264_MP4 = "sample_no_bframes.mp4";
   private static final String H265_MP4 = "h265_with_metadata_track.mp4";
 
-  @Parameters(name = "{0}, usePacketProcessor={1}")
-  public static ImmutableList<Object[]> mediaFiles() {
-    ImmutableList.Builder<Object[]> parametersBuilder = new ImmutableList.Builder<>();
-    ImmutableList<String> mediaFiles = ImmutableList.of(H264_MP4, H265_MP4);
-    ImmutableList<Boolean> usePacketProcessor = ImmutableList.of(true, false);
-    for (int i = 0; i < mediaFiles.size(); i++) {
-      for (int j = 0; j < usePacketProcessor.size(); j++) {
-        parametersBuilder.add(new Object[] {mediaFiles.get(i), usePacketProcessor.get(j)});
-      }
-    }
-    return parametersBuilder.build();
+  @Parameters(name = "{0}")
+  public static ImmutableList<String> mediaFiles() {
+    return ImmutableList.of(H264_MP4, H265_MP4);
   }
 
-  @Parameter(0)
-  public @MonotonicNonNull String inputFile;
-
-  @Parameter(1)
-  public boolean usePacketProcessor;
+  @Parameter public @MonotonicNonNull String inputFile;
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
   public void videoEditing_completesSuccessfully() throws Exception {
-    String testId = "videoEditing_completesSuccessfully_" + inputFile;
+    runVideoEditingTest("videoEditing_completesSuccessfully", /* usePacketProcessor= */ false);
+  }
+
+  // TODO: b/475744934 - Add more thorough PacketProcessor tests.
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void videoEditing_withPacketProcessor_completesSuccessfully() throws Exception {
+    runVideoEditingTest(
+        "videoEditing_withPacketProcessor_completesSuccessfully", /* usePacketProcessor= */ true);
+  }
+
+  private void runVideoEditingTest(String testName, boolean usePacketProcessor) throws Exception {
+    String testId = testName + "_" + inputFile;
     // Use MP4_ASSET_FORMAT for H265_MP4_ASSET_URI_STRING test skipping as well, because emulators
     // signal a lack of support for H265_MP4's actual format, but pass this test when using
     // MP4_ASSET_FORMAT for skipping.
@@ -78,14 +86,24 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-    // TODO: b/475744934 - Re-enable once HardwareBuffer support is added.
-    assumeFalse(
-        "Disable PacketProcessor Transformer test until HardwareBuffer support is added",
-        usePacketProcessor);
 
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory());
-
+    if (usePacketProcessor) {
+      GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
+      ListeningExecutorService glExecutorService =
+          MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("PacketProcessor:Effect"));
+      HardwareBufferSurfaceRenderer renderer =
+          HardwareBufferSurfaceRenderer.create(
+              context,
+              glExecutorService,
+              singleContextGlObjectsProvider,
+              NO_OP.INSTANCE,
+              /* errorConsumer= */ (e) -> {
+                throw new AssertionError(e);
+              });
+      transformerBuilder.setPacketProcessor(new DefaultHardwareBufferEffectsPipeline(), renderer);
+    }
     Transformer transformer = transformerBuilder.build();
 
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());

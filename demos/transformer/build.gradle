@@ -15,7 +15,6 @@
  */
 apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
     namespace 'androidx.media3.demo.transformer'
@@ -25,10 +24,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
     }
 
     defaultConfig {
@@ -83,6 +78,7 @@ dependencies {
     implementation 'androidx.window:window:' + androidxWindowVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
+    implementation project(modulePrefix + 'lib-effect-ndk')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
     implementation project(modulePrefix + 'lib-transformer')

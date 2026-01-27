@@ -33,13 +33,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
-import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
 import androidx.media3.transformer.Transformer.ProgressState;
@@ -56,7 +57,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** An {@link ExportOperation} implementation for resumed exports. */
@@ -142,8 +142,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
       packetProcessor;
 
-  @Nullable private final ExecutorService glExecutorService;
-  @Nullable private final GlObjectsProvider glObjectsProvider;
+  @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+
   @Nullable private final LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
   private final Muxer.Factory muxerFactory;
@@ -175,8 +175,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Clock clock,
       @Nullable
           PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
-      @Nullable ExecutorService glExecutorService,
-      @Nullable GlObjectsProvider glObjectsProvider,
+      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
       Muxer.Factory muxerFactory,
@@ -197,8 +196,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.glExecutorService = glExecutorService;
-    this.glObjectsProvider = glObjectsProvider;
+    this.packetRenderer = packetRenderer;
     this.logSessionId = logSessionId;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
     this.muxerFactory = muxerFactory;
@@ -414,8 +412,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             debugViewProvider,
             clock,
             packetProcessor,
-            glExecutorService,
-            glObjectsProvider,
+            packetRenderer,
             initialTimestampOffsetUs,
             logSessionId,
             applyMp4EditListTrim,

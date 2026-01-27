@@ -26,6 +26,7 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -76,6 +77,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final HandlerWrapper listenerHandler;
   private final PlaybackExecutor playbackExecutor;
 
+  // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /**
    * Information about frames that are waiting to be output.
    *
@@ -83,6 +85,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *
    * <p>Multiple frames from {@link #outputBitmap} can be pending.
    */
+  @GuardedBy("this")
   private final Queue<FrameInfo> pendingFrameInfo;
 
   private @MonotonicNonNull Surface imageReaderSurface;
@@ -90,7 +93,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Format lastFormat;
   private @MonotonicNonNull Format lastAdjustedFormat;
 
+  // TODO: b/478781219 - Ensure this class is only accessed from a single thread.
   /** The number of frames that are currently in use by the downstream consumer. */
+  @GuardedBy("this")
   private int framesInUse;
 
   /**
@@ -162,10 +167,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // https://developer.android.com/reference/android/media/MediaCodec#using-an-output-surface
     // Even after API 29, some devices still drop frames on the Surface. See
     // https://github.com/androidx/media/blob/7cc1056f840ce226598d3b990d4a6f7cd17e2831/libraries/common/src/main/java/androidx/media3/common/util/Util.java#L3651
-    if (!pendingFrameInfo.isEmpty()) {
-      return false;
+    synchronized (this) {
+      if (!pendingFrameInfo.isEmpty()) {
+        return false;
+      }
+      return framesInUse < CAPACITY;
     }
-    return framesInUse < CAPACITY;
   }
 
   /**
@@ -179,8 +186,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param format The {@link Format} of the edited media item.
    */
   void queueFrameViaSurface(long presentationTimeUs, int indexOfItem, Format format) {
-    pendingFrameInfo.add(
-        FrameInfo.createForSurface(presentationTimeUs, indexOfItem, getAdjustedFormat(format)));
+    synchronized (this) {
+      pendingFrameInfo.add(
+          FrameInfo.createForSurface(presentationTimeUs, indexOfItem, getAdjustedFormat(format)));
+    }
   }
 
   /**
@@ -203,7 +212,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             .setColorInfo(ColorInfo.SRGB_BT709_FULL)
             .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
             .build();
-    pendingFrameInfo.add(FrameInfo.createForBitmap(bitmap, timestampIterator, indexOfItem, format));
+    synchronized (this) {
+      pendingFrameInfo.add(
+          FrameInfo.createForBitmap(bitmap, timestampIterator, indexOfItem, format));
+    }
     maybeOutputPendingBitmaps();
   }
 
@@ -212,13 +224,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * pending frames have been forwarded.
    */
   void queueEndOfStream() {
-    pendingFrameInfo.add(FrameInfo.END_OF_STREAM);
-    maybeOutputPendingBitmaps();
+    synchronized (this) {
+      pendingFrameInfo.add(FrameInfo.END_OF_STREAM);
+      maybeOutputPendingBitmaps();
+    }
   }
 
   /** Clears all pending frames. */
   void flush() {
-    pendingFrameInfo.clear();
+    synchronized (this) {
+      pendingFrameInfo.clear();
+    }
   }
 
   /** Releases any resources. */
@@ -247,58 +263,77 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onImageAvailable() {
-    // The image is closed after the created HardwareBufferFrame is closed.
-    Image image = imageReader.acquireNextImage();
-    @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-    // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
-    // before onImageAvailable, then when onImageAvailable is called there will be no matching
-    // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in this
-    // scenario.
-    if (frameInfo == null) {
-      image.close();
-      return;
-    }
-    long presentationTimeUs = frameInfo.presentationTimeUs;
-    int indexOfItem = frameInfo.itemIndex;
-    checkState(
-        image.getTimestamp() == presentationTimeUs * 1000,
-        "%s != %s",
-        image.getTimestamp(),
-        presentationTimeUs * 1000);
+    Image image = null;
+    synchronized (this) {
+      try {
+        // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
+        // CAPACITY images are queued.
+        framesInUse++;
+        image = imageReader.acquireNextImage();
+        @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+        // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
+        // before onImageAvailable, then when onImageAvailable is called there will be no matching
+        // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
+        // this scenario.
+        if (frameInfo == null) {
+          image.close();
+          framesInUse--;
+          return;
+        }
+        long presentationTimeUs = frameInfo.presentationTimeUs;
+        int indexOfItem = frameInfo.itemIndex;
+        checkState(
+            image.getTimestamp() == presentationTimeUs * 1000,
+            "%s != %s",
+            image.getTimestamp(),
+            presentationTimeUs * 1000);
 
-    sendFrameDownstream(
-        createHardwareBufferFrameFromImage(
-            image, presentationTimeUs, indexOfItem, frameInfo.format));
-    maybeOutputPendingBitmaps();
+        frameConsumer.accept(
+            createHardwareBufferFrameFromImage(
+                image, presentationTimeUs, indexOfItem, frameInfo.format));
+        maybeOutputPendingBitmaps();
+      } catch (RuntimeException e) {
+        if (image != null) {
+          image.close();
+        }
+        framesInUse--;
+        throw e;
+      }
+    }
   }
 
   private void maybeOutputPendingBitmaps() {
-    @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
-    while (framesInUse < CAPACITY && frameInfo != null && frameInfo.timestampIterator != null) {
-      if (!frameInfo.timestampIterator.hasNext()) {
-        pendingFrameInfo.remove();
-        frameInfo = pendingFrameInfo.peek();
-        continue;
-      }
+    synchronized (this) {
+      @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
+      while (framesInUse < CAPACITY && frameInfo != null && frameInfo.timestampIterator != null) {
+        if (!frameInfo.timestampIterator.hasNext()) {
+          pendingFrameInfo.remove();
+          frameInfo = pendingFrameInfo.peek();
+          continue;
+        }
 
-      long presentationTimeUs = frameInfo.timestampIterator.next();
-      HardwareBufferFrame hardwareBufferFrame =
-          createHardwareBufferFrameFromBitmap(
-              checkNotNull(frameInfo.bitmap),
-              presentationTimeUs,
-              frameInfo.itemIndex,
-              frameInfo.format);
-      sendFrameDownstream(hardwareBufferFrame);
+        long presentationTimeUs = frameInfo.timestampIterator.next();
+        framesInUse++;
+        HardwareBufferFrame hardwareBufferFrame =
+            createHardwareBufferFrameFromBitmap(
+                checkNotNull(frameInfo.bitmap),
+                presentationTimeUs,
+                frameInfo.itemIndex,
+                frameInfo.format);
+        frameConsumer.accept(hardwareBufferFrame);
+      }
     }
     maybeOutputEndOfStream();
   }
 
   private void maybeOutputEndOfStream() {
-    @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
-    while (frameInfo == FrameInfo.END_OF_STREAM) {
-      frameConsumer.accept(HardwareBufferFrame.END_OF_STREAM_FRAME);
-      pendingFrameInfo.remove();
-      frameInfo = pendingFrameInfo.peek();
+    synchronized (this) {
+      @Nullable FrameInfo frameInfo = pendingFrameInfo.peek();
+      while (frameInfo == FrameInfo.END_OF_STREAM) {
+        frameConsumer.accept(HardwareBufferFrame.END_OF_STREAM_FRAME);
+        pendingFrameInfo.remove();
+        frameInfo = pendingFrameInfo.peek();
+      }
     }
   }
 
@@ -316,9 +351,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* releaseCallback= */ () -> {
                 // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
                 // is freed up, and run another render loop.
-                hardwareBuffer.close();
-                image.close();
-                releaseFrame();
+                releaseFrame(image, hardwareBuffer);
               });
     } else {
       // TODO: b/449956936 - Support earlier API levels via HardwareBufferFrame.internalFrame.
@@ -327,8 +360,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* hardwareBuffer= */ null,
               playbackExecutor,
               /* releaseCallback= */ () -> {
-                image.close();
-                releaseFrame();
+                releaseFrame(image, /* hardwareBuffer= */ null);
               });
     }
     // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
@@ -347,15 +379,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               hardwareBuffer,
               playbackExecutor,
               /* releaseCallback= */ () -> {
-                hardwareBuffer.close();
-                releaseFrame();
+                releaseFrame(/* image= */ null, hardwareBuffer);
               });
     } else {
       frameBuilder =
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
               playbackExecutor,
-              /* releaseCallback= */ this::releaseFrame);
+              /* releaseCallback= */ () ->
+                  releaseFrame(/* image= */ null, /* hardwareBuffer= */ null));
     }
     frameBuilder.setInternalFrame(bitmap);
     return createHardwareBufferFrame(frameBuilder, presentationTimeUs, itemIndex, format);
@@ -373,13 +405,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .build();
   }
 
-  private void sendFrameDownstream(HardwareBufferFrame hardwareBufferFrame) {
-    framesInUse += 1;
-    frameConsumer.accept(hardwareBufferFrame);
-  }
-
-  private void releaseFrame() {
-    framesInUse -= 1;
+  private void releaseFrame(@Nullable Image image, @Nullable HardwareBuffer hardwareBuffer) {
+    synchronized (this) {
+      framesInUse--;
+      if (SDK_INT >= 26 && hardwareBuffer != null) {
+        hardwareBuffer.close();
+      }
+      if (image != null) {
+        image.close();
+      }
+    }
     maybeOutputPendingBitmaps();
   }
 

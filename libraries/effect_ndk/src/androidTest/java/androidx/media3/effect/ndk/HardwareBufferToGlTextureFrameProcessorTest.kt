@@ -175,7 +175,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
         )
       outputImageReader =
         ImageReader.newInstance(TEST_VIDEO_WIDTH, TEST_VIDEO_HEIGHT, PixelFormat.RGBA_8888, 1)
-      glTextureFrameRenderer?.setOutputSurfaceInfo(
+      glTextureFrameRenderer?.setRenderOutput(
         SurfaceInfo(
           outputImageReader!!.surface,
           outputImageReader!!.width,
