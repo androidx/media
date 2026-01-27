@@ -47,6 +47,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -121,7 +122,7 @@ public class ProgressiveMediaSourceTest {
 
     mediaSource.updateMediaItem(updatedMediaItem);
     mediaSource.prepareSource(
-        (source, timeline) -> timelineReference.set(timeline),
+        (unusedSource, timeline) -> timelineReference.set(timeline),
         /* mediaTransferListener= */ null,
         PlayerId.UNSET);
     RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
@@ -171,7 +172,8 @@ public class ProgressiveMediaSourceTest {
                 }));
 
     AtomicReference<SeekMap> seekMapReference = new AtomicReference<>();
-    ProgressiveMediaSource.Listener listener = (source, seekMap) -> seekMapReference.set(seekMap);
+    ProgressiveMediaSource.Listener listener =
+        (unusedSource, seekMap) -> seekMapReference.set(seekMap);
     mediaSourceTestRunner.setListener(listener);
     Timeline timeline = mediaSourceTestRunner.prepareSource();
     MediaPeriod mediaPeriod =
@@ -204,7 +206,7 @@ public class ProgressiveMediaSourceTest {
             });
     assertThat(isLoading.get()).isTrue();
 
-    loadCompleted.block();
+    assertThat(loadCompleted.block(DEFAULT_TIMEOUT_MS)).isTrue();
 
     assertThat(mediaSourceTestRunner.asyncRunOnPlaybackThread(mediaPeriod::isLoading).get())
         .isFalse();
@@ -267,6 +269,88 @@ public class ProgressiveMediaSourceTest {
     assertThat(loadErrorReported.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     mediaSourceTestRunner.releasePeriod(mediaPeriod);
+    mediaSourceTestRunner.releaseSource();
+    mediaSourceTestRunner.release();
+  }
+
+  @Test
+  public void
+      onSourceInfoRefreshed_estimatedSeekMapComesAfterNonEstimatedOneIsSeen_doesNotPropagateSourceInfoUpdate()
+          throws Exception {
+    // We are using a CBR mp3 file with trailing garbage data which can produce at least one
+    // estimated seekMap by period preparation completed and a non-estimated seekMap by period
+    // loading completed.
+    ProgressiveMediaSource mediaSource =
+        new ProgressiveMediaSource.Factory(
+                new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
+            .createMediaSource(
+                MediaItem.fromUri(
+                    "asset:///media/mp3/bear-cbr-no-seek-table-trailing-garbage.mp3"));
+    ProgressiveMediaSourceTestRunner mediaSourceTestRunner =
+        new ProgressiveMediaSourceTestRunner(mediaSource);
+    ArrayList<SeekMap> seekMaps = new ArrayList<>();
+    ProgressiveMediaSource.Listener listener = (unusedSource, seekMap) -> seekMaps.add(seekMap);
+    mediaSourceTestRunner.setListener(listener);
+    Timeline timeline = mediaSourceTestRunner.prepareSource();
+    ConditionVariable loadCompleted = new ConditionVariable();
+    mediaSourceTestRunner.runOnPlaybackThread(
+        () ->
+            mediaSource.addEventListener(
+                new Handler(checkNotNull(Looper.myLooper())),
+                new MediaSourceEventListener() {
+                  @Override
+                  public void onLoadCompleted(
+                      int windowIndex,
+                      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                      LoadEventInfo loadEventInfo,
+                      MediaLoadData mediaLoadData) {
+                    loadCompleted.open();
+                  }
+                }));
+    MediaPeriod mediaPeriod1 =
+        mediaSourceTestRunner.createPeriod(
+            new MediaSource.MediaPeriodId(
+                timeline.getUidOfPeriod(/* periodIndex= */ 0), /* windowSequenceNumber= */ 0));
+    CountDownLatch preparedLatch =
+        mediaSourceTestRunner.preparePeriod(mediaPeriod1, /* positionUs= */ 0);
+    assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // Ensures that this media can produce one estimated seekMap by period preparation completed,
+    // thus the seekMap gets further propagated via ProgressiveMediaSource.Listener, and a timeline
+    // change can be observed.
+    assertThat(seekMaps.getLast().isEstimated()).isTrue();
+    Timeline unusedTimeline = mediaSourceTestRunner.assertTimelineChange();
+    ListenableFuture<Boolean> unusedFuture =
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(
+            () -> {
+              selectOnlyTrack(mediaPeriod1);
+              mediaPeriod1.continueLoading(
+                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+              return mediaPeriod1.isLoading();
+            });
+    assertThat(loadCompleted.block(DEFAULT_TIMEOUT_MS)).isTrue();
+    // Ensures that this media can produce one non-estimated seekMap by period loading completed,
+    // thus the seekMap gets further propagated via ProgressiveMediaSource.Listener, and a timeline
+    // change can be observed.
+    assertThat(seekMaps.getLast().isEstimated()).isFalse();
+    int seekMapCountAfterMediaPeriod1LoadCompleted = seekMaps.size();
+    unusedTimeline = mediaSourceTestRunner.assertTimelineChange();
+
+    MediaPeriod mediaPeriod2 =
+        mediaSourceTestRunner.createPeriod(
+            new MediaSource.MediaPeriodId(
+                timeline.getUidOfPeriod(/* periodIndex= */ 0), /* windowSequenceNumber= */ 0));
+    preparedLatch = mediaSourceTestRunner.preparePeriod(mediaPeriod2, /* positionUs= */ 0);
+    assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // No seekMap gets propagated via ProgressiveMediaSource.Listener, nor a timeline change,
+    // because by the time of mediaPeriod2 completes preparation, an estimated seekMap is received
+    // by ProgressiveMediaSource again, but it is suppressed as a non-estimated seekMap was already
+    // seen before that.
+    assertThat(seekMaps).hasSize(seekMapCountAfterMediaPeriod1LoadCompleted);
+    mediaSourceTestRunner.assertNoTimelineChange();
+
+    mediaSourceTestRunner.releasePeriod(mediaPeriod1);
+    mediaSourceTestRunner.releasePeriod(mediaPeriod2);
+    mediaSourceTestRunner.clearListener();
     mediaSourceTestRunner.releaseSource();
     mediaSourceTestRunner.release();
   }

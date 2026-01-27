@@ -52,7 +52,8 @@ import androidx.media3.extractor.MpegAudioUtil;
         firstFramePosition,
         mpegAudioHeader.bitrate,
         mpegAudioHeader.frameSize,
-        allowSeeksIfLengthUnknown);
+        allowSeeksIfLengthUnknown,
+        /* isEstimated= */ true);
   }
 
   /** See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. */
@@ -62,7 +63,29 @@ import androidx.media3.extractor.MpegAudioUtil;
       int bitrate,
       int frameSize,
       boolean allowSeeksIfLengthUnknown) {
-    super(inputLength, firstFramePosition, bitrate, frameSize, allowSeeksIfLengthUnknown);
+    this(
+        inputLength,
+        firstFramePosition,
+        bitrate,
+        frameSize,
+        allowSeeksIfLengthUnknown,
+        /* isEstimated= */ true);
+  }
+
+  private ConstantBitrateSeeker(
+      long inputLength,
+      long firstFramePosition,
+      int bitrate,
+      int frameSize,
+      boolean allowSeeksIfLengthUnknown,
+      boolean isEstimated) {
+    super(
+        inputLength,
+        firstFramePosition,
+        bitrate,
+        frameSize,
+        allowSeeksIfLengthUnknown,
+        isEstimated);
     this.firstFramePosition = firstFramePosition;
     this.bitrate = bitrate;
     this.frameSize = frameSize;
@@ -96,6 +119,7 @@ import androidx.media3.extractor.MpegAudioUtil;
         firstFramePosition,
         bitrate,
         frameSize,
-        allowSeeksIfLengthUnknown);
+        allowSeeksIfLengthUnknown,
+        /* isEstimated= */ false);
   }
 }

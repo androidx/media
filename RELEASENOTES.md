@@ -23,6 +23,9 @@
         ([#2985](https://github.com/androidx/media/issues/2985)).
         *   This required moving `DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS`
             from `ExoPlayer` to `ExoPlayer.Builder` (without deprecation).
+    *   Fix bug where `ProgressiveMediaSource` propagates out-of-date timeline
+        info to player and the queued periods unexpectedly get removed
+        ([#3016](https://github.com/androidx/media/issues/3016)).
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
