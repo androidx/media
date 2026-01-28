@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Util.contains;
@@ -68,7 +69,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
@@ -134,7 +135,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Clock clock;
 
   @Nullable
-  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+  private final RenderingPacketConsumer<
+          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -216,7 +218,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable
-          PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
+          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+              packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
@@ -787,6 +790,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   logSessionId));
         } else {
           Looper internalLooper = internalHandlerThread.getLooper();
+          if (SDK_INT < 26) {
+            throw new IllegalStateException(
+                "API 26+ required to use PacketProcessor in Transformer");
+          }
           PacketConsumerVideoSampleExporter videoSampleExporter =
               new PacketConsumerVideoSampleExporter(
                   composition,

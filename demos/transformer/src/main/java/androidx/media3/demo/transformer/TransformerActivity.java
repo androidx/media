@@ -418,9 +418,9 @@ public final class TransformerActivity extends AppCompatActivity {
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-        if (SDK_INT < 28) {
+        if (SDK_INT < 34) {
           throw new IllegalStateException(
-              "API version 28+ required to export with PacketProcessor");
+              "API version 34+ required to export with PacketProcessor");
         }
         GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
         ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");

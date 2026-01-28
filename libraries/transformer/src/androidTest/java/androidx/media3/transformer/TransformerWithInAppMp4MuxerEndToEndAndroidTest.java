@@ -68,9 +68,10 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
     runVideoEditingTest("videoEditing_completesSuccessfully", /* usePacketProcessor= */ false);
   }
 
+  // TODO: b/479415308 - Expand API versions below 34 once supported.
   // TODO: b/475744934 - Add more thorough PacketProcessor tests.
   @Test
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = 34)
   public void videoEditing_withPacketProcessor_completesSuccessfully() throws Exception {
     runVideoEditingTest(
         "videoEditing_withPacketProcessor_completesSuccessfully", /* usePacketProcessor= */ true);

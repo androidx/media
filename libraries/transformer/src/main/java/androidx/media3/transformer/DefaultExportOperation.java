@@ -28,7 +28,7 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.PacketProcessor;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
@@ -55,7 +55,8 @@ import java.util.List;
   private final Clock clock;
 
   @Nullable
-  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+  private final RenderingPacketConsumer<
+          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -86,7 +87,8 @@ import java.util.List;
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable
-          PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
+          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+              packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,

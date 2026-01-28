@@ -53,6 +53,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -127,7 +128,7 @@ public final class Transformer {
         metricsReporterFactory;
 
     @Nullable
-    private PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+    private RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor;
 
     @Nullable private RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -361,7 +362,8 @@ public final class Transformer {
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setPacketProcessor(
-        PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
+        RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+            packetProcessor,
         RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
       this.packetProcessor = packetProcessor;
       this.packetRenderer = packetRenderer;
@@ -825,7 +827,8 @@ public final class Transformer {
   @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
   @Nullable
-  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+  private final RenderingPacketConsumer<
+          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -864,7 +867,8 @@ public final class Transformer {
       Clock clock,
       @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
       @Nullable
-          PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
+          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+              packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;

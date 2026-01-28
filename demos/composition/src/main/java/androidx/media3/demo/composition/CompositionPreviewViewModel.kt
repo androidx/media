@@ -534,9 +534,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-      if (SDK_INT < 28) {
+      if (SDK_INT < 34) {
         _uiState.update {
-          it.copy(snackbarMessage = "API 28+ required to export with PacketConsumer")
+          it.copy(snackbarMessage = "API 34+ required to export with PacketConsumer")
         }
         return
       }

@@ -25,6 +25,7 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.SurfaceInfo;
@@ -34,9 +35,11 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumer.Packet.EndOfStream;
 import androidx.media3.effect.PacketConsumerCaller;
+import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.RenderingPacketConsumer;
@@ -51,6 +54,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Processes, encodes and muxes raw video frames. */
+@RequiresApi(26)
 /* package */ final class PacketConsumerVideoSampleExporter extends SampleExporter {
 
   private static final long RELEASE_TIMEOUT_MS = 100;
@@ -58,7 +62,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final DecoderInputBuffer encoderOutputBuffer;
 
   private final Consumer<ExportException> errorConsumer;
-  private final PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame>
+  private final RenderingPacketConsumer<
+          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
   private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
@@ -86,7 +91,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public PacketConsumerVideoSampleExporter(
       Composition composition,
       Format firstInputFormat,
-      PacketProcessor<List<? extends HardwareBufferFrame>, HardwareBufferFrame> packetProcessor,
+      RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          packetProcessor,
       RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
@@ -123,8 +129,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* onPayload= */ thisRef::onProcessedFrame,
             /* onEndOfStream= */ thisRef::onEndOfStream);
     encoderWrapperListener.setOutput(packetRenderer);
-    this.packetProcessor.setOutput(encoderWrapperListener);
-
     packetConsumerCaller =
         PacketConsumerCaller.create(
             packetProcessor,
@@ -134,6 +138,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     ExportException.createForVideoFrameProcessingException(
                         VideoFrameProcessingException.from(e))));
     packetConsumerCaller.run();
+
+    PacketConsumerHardwareBufferFrameQueue queue =
+        new PacketConsumerHardwareBufferFrameQueue(
+            /* errorConsumer= */ (e) ->
+                errorConsumer.accept(
+                    ExportException.createForVideoFrameProcessingException(
+                        VideoFrameProcessingException.from(e))));
+
+    queue.setOutput(encoderWrapperListener);
+
+    this.packetProcessor.setRenderOutput(queue);
 
     frameAggregator =
         new FrameAggregator(composition.sequences.size(), thisRef::queueAggregatedFrames);

@@ -68,6 +68,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int CAPACITY = 2;
 
   private static final int DEFAULT_FRAME_RATE = 30;
+  private static final String TAG = "HBFrameReader";
 
   private final Composition composition;
   private final int sequenceIndex;
@@ -351,6 +352,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* releaseCallback= */ () -> {
                 // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
                 // is freed up, and run another render loop.
+                // TODO: b/475744934 - Wait on a release fence, or set the fence on the image before
+                // releasing the frame.
                 releaseFrame(image, hardwareBuffer);
               });
     } else {
@@ -360,6 +363,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* hardwareBuffer= */ null,
               playbackExecutor,
               /* releaseCallback= */ () -> {
+                // TODO: b/475744934 - Wait on a release fence, or set the fence on the image before
+                // releasing the frame.
                 releaseFrame(image, /* hardwareBuffer= */ null);
               });
     }
@@ -379,6 +384,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               hardwareBuffer,
               playbackExecutor,
               /* releaseCallback= */ () -> {
+                // TODO: b/475744934 - Wait on a release fence before releasing the frame.
                 releaseFrame(/* image= */ null, hardwareBuffer);
               });
     } else {
@@ -386,8 +392,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
               playbackExecutor,
-              /* releaseCallback= */ () ->
-                  releaseFrame(/* image= */ null, /* hardwareBuffer= */ null));
+              /* releaseCallback= */ () -> {
+                // TODO: b/475744934 - Wait on a release fence before releasing the frame.
+                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null);
+              });
     }
     frameBuilder.setInternalFrame(bitmap);
     return createHardwareBufferFrame(frameBuilder, presentationTimeUs, itemIndex, format);
