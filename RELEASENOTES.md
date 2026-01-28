@@ -72,6 +72,9 @@
     *   Bug fix: Corrected an issue where the ad MIME type did not match the
         MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
         type using the ad media info provided by IMA.
+    *   Added `setEnableCustomTabs` to `ImaAdsLoader` and
+        `ImaServerSideAdInsertionMediaSource`, allowing users to control whether
+        ad click-through URLs are launched using Custom Tabs.
 *   Session:
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.

@@ -618,6 +618,7 @@ import java.util.Objects;
   private AdsRenderingSettings setupAdsRendering(long contentPositionMs, long contentDurationMs) {
     AdsRenderingSettings adsRenderingSettings = imaFactory.createAdsRenderingSettings();
     adsRenderingSettings.setEnablePreloading(true);
+    adsRenderingSettings.setEnableCustomTabs(configuration.enableCustomTabs);
     adsRenderingSettings.setMimeTypes(
         configuration.adMediaMimeTypes != null
             ? configuration.adMediaMimeTypes

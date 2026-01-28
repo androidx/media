@@ -141,6 +141,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
     private final AdsLoader adsLoader;
     private final MediaSource.Factory contentMediaSourceFactory;
+    private ImaSdkFactory imaSdkFactory;
 
     /**
      * Creates a new factory for {@link ImaServerSideAdInsertionMediaSource
@@ -152,6 +153,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     public Factory(AdsLoader adsLoader, MediaSource.Factory contentMediaSourceFactory) {
       this.adsLoader = adsLoader;
       this.contentMediaSourceFactory = contentMediaSourceFactory;
+      imaSdkFactory = ImaSdkFactory.getInstance();
     }
 
     @UnstableApi
@@ -187,7 +189,6 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       StreamRequest streamRequest =
           ImaServerSideAdInsertionUriBuilder.createStreamRequest(streamRequestUri);
       StreamPlayer streamPlayer = new StreamPlayer(player, mediaItem, streamRequest);
-      ImaSdkFactory imaSdkFactory = ImaSdkFactory.getInstance();
       StreamDisplayContainer streamDisplayContainer =
           createStreamDisplayContainer(imaSdkFactory, adsLoader.configuration, streamPlayer);
       com.google.ads.interactivemedia.v3.api.AdsLoader imaAdsLoader =
@@ -195,6 +196,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
               adsLoader.context, adsLoader.configuration.imaSdkSettings, streamDisplayContainer);
       ImaServerSideAdInsertionMediaSource mediaSource =
           new ImaServerSideAdInsertionMediaSource(
+              imaSdkFactory,
               player,
               mediaItem,
               streamRequest,
@@ -204,6 +206,11 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
               contentMediaSourceFactory);
       adsLoader.addMediaSourceResources(mediaSource, streamPlayer, imaAdsLoader);
       return mediaSource;
+    }
+
+    @VisibleForTesting
+    /* package */ void setImaSdkFactory(ImaSdkFactory imaSdkFactory) {
+      this.imaSdkFactory = imaSdkFactory;
     }
   }
 
@@ -223,6 +230,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       private State state;
       private ImmutableList<CompanionAdSlot> companionAdSlots;
       private boolean focusSkipButtonWhenAvailable;
+      private boolean enableCustomTabs;
 
       /**
        * Creates an instance.
@@ -236,6 +244,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         companionAdSlots = ImmutableList.of();
         state = new State(ImmutableMap.of());
         focusSkipButtonWhenAvailable = true;
+        enableCustomTabs = false;
         streamEventListener =
             (mediaItem, streamId) -> {
               // Do nothing.
@@ -355,6 +364,21 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         return this;
       }
 
+      /**
+       * Sets whether to enable custom tabs for the ad click-through URLs. The default value is
+       * {@code false}.
+       *
+       * @param enableCustomTabs Whether to enable custom tabs for the ad click-through URLs.
+       * @return This builder, for convenience.
+       * @see AdsRenderingSettings#setEnableCustomTabs(boolean)
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      public AdsLoader.Builder setEnableCustomTabs(boolean enableCustomTabs) {
+        this.enableCustomTabs = enableCustomTabs;
+        return this;
+      }
+
       /** Returns a new {@link AdsLoader}. */
       public AdsLoader build() {
         @Nullable ImaSdkSettings imaSdkSettings = this.imaSdkSettings;
@@ -371,6 +395,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
                 adErrorListener,
                 companionAdSlots,
                 focusSkipButtonWhenAvailable,
+                enableCustomTabs,
                 imaSdkSettings.isDebugMode());
         return new AdsLoader(context, configuration, state);
       }
@@ -591,6 +616,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private final StreamPlayer streamPlayer;
   private final Handler mainHandler;
   private final ComponentListener componentListener;
+  private final ImaSdkFactory imaSdkFactory;
 
   @Nullable private Loader loader;
   @Nullable private StreamManager streamManager;
@@ -604,6 +630,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
   private MediaItem mediaItem;
 
   private ImaServerSideAdInsertionMediaSource(
+      ImaSdkFactory imaSdkFactory,
       Player player,
       MediaItem mediaItem,
       StreamRequest streamRequest,
@@ -611,6 +638,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       com.google.ads.interactivemedia.v3.api.AdsLoader sdkAdsLoader,
       StreamPlayer streamPlayer,
       MediaSource.Factory contentMediaSourceFactory) {
+    this.imaSdkFactory = imaSdkFactory;
     this.player = player;
     this.mediaItem = mediaItem;
     this.streamRequest = streamRequest;
@@ -779,11 +807,11 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       if (applicationAdErrorListener != null) {
         streamManager.addAdErrorListener(applicationAdErrorListener);
       }
-      AdsRenderingSettings adsRenderingSettings =
-          ImaSdkFactory.getInstance().createAdsRenderingSettings();
+      AdsRenderingSettings adsRenderingSettings = imaSdkFactory.createAdsRenderingSettings();
       adsRenderingSettings.setLoadVideoTimeout(loadVideoTimeoutMs);
       adsRenderingSettings.setFocusSkipButtonWhenAvailable(
           adsLoader.configuration.focusSkipButtonWhenAvailable);
+      adsRenderingSettings.setEnableCustomTabs(adsLoader.configuration.enableCustomTabs);
       streamManager.init(adsRenderingSettings);
     }
   }

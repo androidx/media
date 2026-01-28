@@ -124,6 +124,7 @@ import java.util.Set;
     public final int mediaLoadTimeoutMs;
     public final boolean focusSkipButtonWhenAvailable;
     public final boolean playAdBeforeStartPosition;
+    public final boolean enableCustomTabs;
     public final int mediaBitrate;
     @Nullable public final Boolean enableContinuousPlayback;
     @Nullable public final List<String> adMediaMimeTypes;
@@ -141,6 +142,7 @@ import java.util.Set;
         int mediaLoadTimeoutMs,
         boolean focusSkipButtonWhenAvailable,
         boolean playAdBeforeStartPosition,
+        boolean enableCustomTabs,
         int mediaBitrate,
         @Nullable Boolean enableContinuousPlayback,
         @Nullable List<String> adMediaMimeTypes,
@@ -166,6 +168,7 @@ import java.util.Set;
       this.applicationVideoAdPlayerCallback = applicationVideoAdPlayerCallback;
       this.imaSdkSettings = imaSdkSettings;
       this.debugModeEnabled = debugModeEnabled;
+      this.enableCustomTabs = enableCustomTabs;
     }
   }
 
@@ -179,6 +182,7 @@ import java.util.Set;
     @Nullable public final AdErrorEvent.AdErrorListener applicationAdErrorListener;
     public final ImmutableList<CompanionAdSlot> companionAdSlots;
     public final boolean focusSkipButtonWhenAvailable;
+    public final boolean enableCustomTabs;
     public final boolean debugModeEnabled;
 
     public ServerSideAdInsertionConfiguration(
@@ -189,6 +193,7 @@ import java.util.Set;
         @Nullable AdErrorEvent.AdErrorListener applicationAdErrorListener,
         List<CompanionAdSlot> companionAdSlots,
         boolean focusSkipButtonWhenAvailable,
+        boolean enableCustomTabs,
         boolean debugModeEnabled) {
       this.imaSdkSettings = imaSdkSettings;
       this.adViewProvider = adViewProvider;
@@ -197,6 +202,7 @@ import java.util.Set;
       this.applicationAdErrorListener = applicationAdErrorListener;
       this.companionAdSlots = ImmutableList.copyOf(companionAdSlots);
       this.focusSkipButtonWhenAvailable = focusSkipButtonWhenAvailable;
+      this.enableCustomTabs = enableCustomTabs;
       this.debugModeEnabled = debugModeEnabled;
     }
   }

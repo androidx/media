@@ -1194,6 +1194,30 @@ public final class ImaAdsLoaderTest {
   }
 
   @Test
+  public void buildWithoutSetEnableCustomTabs_defaultToFalse() throws Exception {
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRenderingSettings).setEnableCustomTabs(false);
+  }
+
+  @Test
+  public void buildWithSetEnableCustomTabs_setsEnableCustomTabs() throws Exception {
+    ImaAdsLoader imaAdsLoaderWithCustomTabsEnabled =
+        new ImaAdsLoader.Builder(getApplicationContext())
+            .setEnableCustomTabs(true)
+            .setImaFactory(mockImaFactory)
+            .setImaSdkSettings(mockImaSdkSettings)
+            .build();
+    imaAdsLoaderWithCustomTabsEnabled.setPlayer(fakePlayer);
+    imaAdsLoaderWithCustomTabsEnabled.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRenderingSettings).setEnableCustomTabs(true);
+    imaAdsLoaderWithCustomTabsEnabled.release();
+  }
+
+  @Test
   public void buildWithAdMediaMimeTypes_setsMimeTypes() throws Exception {
     imaAdsLoader =
         new ImaAdsLoader.Builder(getApplicationContext())
