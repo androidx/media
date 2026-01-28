@@ -67,6 +67,11 @@
         functionality for applying lottie effects to video frames.
 *   Muxers:
 *   IMA extension:
+    *   Update the IMA SDK version to 3.39.0 in order to have access to the
+        latest Ad media info API.
+    *   Bug fix: Corrected an issue where the ad MIME type did not match the
+        MIME type provided in the IMA LOADED event. The fix now maps the ad MIME
+        type using the ad media info provided by IMA.
 *   Session:
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.
