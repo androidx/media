@@ -294,6 +294,11 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
         return;
       }
     }
+
+    if (trackData.mediaFormat.containsKey(MediaFormat.KEY_DURATION)) {
+      trackOutput.durationUs(trackData.mediaFormat.getLong(MediaFormat.KEY_DURATION));
+    }
+
     Format format = toExoPlayerFormat(trackData);
     trackOutput.format(
         primaryTrackManifestFormat != null && trackIndex == primaryTrackIndex
