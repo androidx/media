@@ -24,7 +24,6 @@ import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
 import androidx.annotation.RequiresApi
-import androidx.graphics.opengl.egl.EGLSpec
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.GlObjectsProvider
@@ -44,8 +43,6 @@ import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
 import androidx.media3.effect.PacketProcessor
-import androidx.opengl.EGLExt
-import androidx.opengl.EGLImageKHR
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -67,6 +64,15 @@ class HardwareBufferToGlTextureFrameProcessor(
   private var glShaderProgramPacketProcessor: GlShaderProgramPacketProcessor? = null
   private var eglContext: EGLContext? = null
   private var eglSurface: EGLSurface? = null
+
+  private external fun nativeCreateEglImageFromHardwareBuffer(
+    displayHandle: Long,
+    hardwareBuffer: HardwareBuffer,
+  ): Long
+
+  private external fun nativeBindEGLImage(target: Int, eglImageHandle: Long): Boolean
+
+  private external fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
 
   override fun setOutput(output: PacketConsumer<GlTextureFrame>) {
     this.outputConsumer = output
@@ -102,25 +108,24 @@ class HardwareBufferToGlTextureFrameProcessor(
 
   /**
    * Samples the input [HardwareBufferFrame.hardwareBuffer] to a texture of the specific [target].
-   * Returns the sampled [EGLImageKHR] and the texture ID.
+   * Returns the sampled EGLImageKHR handle and the texture ID.
    */
-  private fun sampleToGlTexture(
-    hardwareBuffer: HardwareBuffer,
-    target: Int,
-  ): Pair<EGLImageKHR, Int> {
-    // TODO: b/474075198 - Add JNI code to remove this dependency.
-    val eglImage =
-      EGLSpec.V14.eglCreateImageFromHardwareBuffer(hardwareBuffer)
-        ?: throw GlUtil.GlException(
-          "Unable to create EGLImageKHR, format:${hardwareBuffer.format}."
-        )
+  private fun sampleToGlTexture(hardwareBuffer: HardwareBuffer, target: Int): Pair<Long, Int> {
+    val eglImageHandle =
+      nativeCreateEglImageFromHardwareBuffer(
+        GlUtil.getDefaultEglDisplay().nativeHandle,
+        hardwareBuffer,
+      )
+    if (eglImageHandle == 0L) {
+      throw GlUtil.GlException(
+        "Unable to create EGLImageKHR via JNI, format:${hardwareBuffer.format}, usage:${hardwareBuffer.usage}."
+      )
+    }
     val texture = GlUtil.generateTexture()
     GLES20.glBindTexture(target, texture)
     GlUtil.checkGlError()
-    EGLExt.glEGLImageTargetTexture2DOES(target, eglImage)
-    GlUtil.checkGlError()
-    GlUtil.checkEglException("Error creating GL texture from HardwareBuffer")
-    return eglImage to texture
+    check(nativeBindEGLImage(target, eglImageHandle))
+    return eglImageHandle to texture
   }
 
   private suspend fun sampleOpaqueHardwareBufferQueueDownstream(
@@ -169,7 +174,7 @@ class HardwareBufferToGlTextureFrameProcessor(
   private fun createGlTextureFrame(
     texture: Int,
     hardwareBufferFrame: HardwareBufferFrame,
-    eglImage: EGLImageKHR,
+    eglImage: Long,
   ): GlTextureFrame {
     val format = hardwareBufferFrame.format
     val frameWidth =
@@ -186,7 +191,7 @@ class HardwareBufferToGlTextureFrameProcessor(
           // TODO: b/474075198 - Use a more efficient sync method.
           GLES20.glFinish()
           GlUtil.deleteTexture(glTextureInfo.texId)
-          if (!EGLExt.eglDestroyImageKHR(GlUtil.getDefaultEglDisplay(), eglImage)) {
+          if (!nativeDestroyEGLImage(GlUtil.getDefaultEglDisplay().nativeHandle, eglImage)) {
             errorConsumer.accept(
               VideoFrameProcessingException(
                 "eglDestroyImageKHR",
@@ -230,6 +235,10 @@ class HardwareBufferToGlTextureFrameProcessor(
   }
 
   companion object {
+    init {
+      System.loadLibrary("hardwareBufferJNI")
+    }
+
     fun constructTransformationMatrix(hardwareBufferFrame: HardwareBufferFrame): FloatArray {
       // TODO: b/327467890 - This should work on most devices, but it's better to get the matrix
       //  directly from MediaCodec.

@@ -26,6 +26,22 @@ android {
         jvmTarget = '1.8'
     }
 
+    defaultConfig {
+        minSdkVersion project.ext.minSdkVersion
+        externalNativeBuild {
+            cmake {
+                arguments.add("-DANDROID_WEAK_API_DEFS=ON")
+                arguments.add("-Werror=unguarded-availability")
+                targets "hardwareBufferJNI"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path 'src/main/jni/CMakeLists.txt'
+        }
+    }
+
     sourceSets {
         androidTest.assets.srcDir '../test_data/src/test/assets/'
         test.assets.srcDir '../test_data/src/test/assets/'
@@ -43,12 +59,12 @@ dependencies {
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-effect')
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:" + kotlinxCoroutinesVersion
-    implementation 'androidx.graphics:graphics-core:' + androidxGraphicsCoreVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:" + kotlinxCoroutinesVersion
 }
 
 ext {

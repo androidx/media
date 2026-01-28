@@ -67,7 +67,6 @@ project.ext {
     truthVersion = '1.4.0'
     okhttpVersion = '4.12.0'
     testParameterInjectorVersion = '1.18'
-    androidxGraphicsCoreVersion = '1.0.4'
     modulePrefix = ':'
     if (gradle.ext.has('androidxMediaModulePrefix')) {
         modulePrefix += gradle.ext.androidxMediaModulePrefix
