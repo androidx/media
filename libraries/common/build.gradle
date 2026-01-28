@@ -19,7 +19,8 @@ apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 rootProject.allprojects.forEach {
     if ((it.name.startsWith(modulePrefix.replace(':', '') + 'lib-')
                 || it.name.startsWith(modulePrefix.replace(':', '') + 'test-'))
-            && !it.name.endsWith('-common')) {
+            && !it.name.endsWith('-common')
+            && !it.name.endsWith('exoplayer-ima')) {
         evaluationDependsOn(':' + it.name)
     }
 }
