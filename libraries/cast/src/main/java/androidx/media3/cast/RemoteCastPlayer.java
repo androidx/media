@@ -1329,6 +1329,10 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   @SuppressWarnings("deprecation") // Calling deprecated listener method.
   private boolean updateTimelineAndNotifyIfChanged() {
+    if (remoteMediaClient == null) {
+      // There is no session. We leave the state of the player as it is now.
+      return false;
+    }
     Timeline oldTimeline = currentTimeline;
     int oldWindowIndex = currentWindowIndex;
     boolean playingPeriodChanged = false;
@@ -1981,7 +1985,12 @@ public final class RemoteCastPlayer extends BasePlayer {
 
     @Override
     public void onSessionEnding(CastSession castSession) {
-      // Do nothing.
+      // We don't wait until the onSessionEnded event because the media queue callback will send
+      // updates before that (but after onSessionEnding) indicating the queue is being cleared. This
+      // complicates playback state transfer to local. As a result, we clear the active cast session
+      // here so that the player keeps reflecting the state at this point in time, before the queue
+      // is cleared. See [internal: b/479112029].
+      setCastSession(null);
     }
 
     @Override

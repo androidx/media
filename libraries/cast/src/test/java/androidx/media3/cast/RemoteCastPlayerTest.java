@@ -101,6 +101,7 @@ import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
+import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.api.PendingResult;
@@ -140,6 +141,7 @@ public class RemoteCastPlayerTest {
   private DefaultMediaItemConverter mediaItemConverter;
   private CastTrackSelector spyTrackSelector;
   private com.google.android.gms.cast.Cast.Listener castListener;
+  private SessionManagerListener<CastSession> sessionManagerListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
   private MediaQueue.Callback mediaQueueCallback;
 
@@ -163,6 +165,8 @@ public class RemoteCastPlayerTest {
 
   @Captor
   private ArgumentCaptor<com.google.android.gms.cast.Cast.Listener> castListenerArgumentCaptor;
+
+  @Captor private ArgumentCaptor<SessionManagerListener<CastSession>> sessionManagerListenerCaptor;
 
   @Captor
   private ArgumentCaptor<RemoteMediaClient.Callback> remoteMediaClientCallbackArgumentCaptor;
@@ -206,6 +210,9 @@ public class RemoteCastPlayerTest {
             C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
             C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
     remoteCastPlayer.addListener(mockListener);
+    verify(mockSessionManager)
+        .addSessionManagerListener(sessionManagerListenerCaptor.capture(), eq(CastSession.class));
+    sessionManagerListener = sessionManagerListenerCaptor.getValue();
     verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
     castListener = castListenerArgumentCaptor.getValue();
     verify(mockRemoteMediaClient)
@@ -2611,6 +2618,41 @@ public class RemoteCastPlayerTest {
     List<Long> trackIds = Longs.asList(trackIdsCaptor.getValue());
     assertThat(trackIds)
         .containsExactly(FAKE_MEDIA_TRACK_AUDIO.getId(), FAKE_MEDIA_TRACK_VIDEO.getId());
+  }
+
+  @Test
+  public void mediaQueueChanged_afterOnSessionEnding_doesNotClearTheTimeline() {
+    List<MediaItem> firstPlaylist = new ArrayList<>();
+    String uri1 = "http://www.google.com/video1";
+    String uri2 = "http://www.google.com/video2";
+    int firstItemId = 33;
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build());
+    firstPlaylist.add(
+        new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    updateTimeLine(
+        firstPlaylist, /* mediaQueueItemIds= */ new int[] {firstItemId, 2}, /* currentItemId= */ 1);
+    mediaQueueCallback.mediaQueueChanged();
+    clearInvocations(mockListener);
+    Timeline initialTimeline = remoteCastPlayer.getCurrentTimeline();
+
+    sessionManagerListener.onSessionEnding(mockCastSession);
+    updateTimeLine(
+        /* mediaItems= */ ImmutableList.of(),
+        /* mediaQueueItemIds= */ new int[] {},
+        /* currentItemId= */ C.INDEX_UNSET,
+        /* streamTypes= */ new int[] {},
+        /* durationsMs= */ new long[] {},
+        /* positionMs= */ 0,
+        /* notifyStatusUpdate= */ true);
+    mediaQueueCallback.mediaQueueChanged();
+
+    Timeline timelineAfterSessionEnd = remoteCastPlayer.getCurrentTimeline();
+    verify(mockListener, never()).onTimelineChanged(any(), anyInt());
+    assertThat(initialTimeline).isEqualTo(timelineAfterSessionEnd);
   }
 
   private int[] createMediaQueueItemIds(int numberOfIds) {
