@@ -449,16 +449,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     compositionPlayer.prepare()
   }
 
-  fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
+  fun addItem(index: Int) {
     _uiState.update { currentState ->
       val itemToAdd = currentState.mediaState.availableItems[index].copy()
       val newSelectedItems = currentState.mediaState.selectedItems + itemToAdd
-      currentState.copy(
-        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
-        snackbarMessage =
-          if (showSnackbarMessage) "Added item: ${itemToAdd.title}"
-          else currentState.snackbarMessage,
-      )
+      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
     }
   }
 
