@@ -30,12 +30,14 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi
@@ -204,5 +206,16 @@ public final class TestUtil {
   public static CompositionPlayer.Builder createTestCompositionPlayerBuilder() {
     return new CompositionPlayer.Builder(getApplicationContext())
         .setClock(new FakeClock(/* isAutoAdvancing= */ true));
+  }
+
+  public static final class FormatCapturingAudioProcessor extends PassthroughAudioProcessor {
+    public final AtomicReference<AudioFormat> inputFormat = new AtomicReference<>();
+
+    @Override
+    protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
+        throws UnhandledAudioFormatException {
+      inputFormat.set(inputAudioFormat);
+      return super.onConfigure(inputAudioFormat);
+    }
   }
 }

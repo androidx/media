@@ -37,6 +37,8 @@ import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_180;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_192KHZ_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_24LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_96KHZ_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WEBP_LARGE;
@@ -2828,6 +2830,45 @@ public class TransformerEndToEndTest {
             .build();
 
     new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+  }
+
+  @Test
+  public void export_withNon16BitPcmAudioItems_convertsInputsTo16Bit() throws Exception {
+    FormatTrackingAudioBufferSink firstFormatSink = new FormatTrackingAudioBufferSink();
+    FormatTrackingAudioBufferSink secondFormatSink = new FormatTrackingAudioBufferSink();
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_32LE_PCM_ASSET.uri))
+            .setEffects(fromProcessors(new TeeAudioProcessor(firstFormatSink)))
+            .build();
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_24LE_PCM_ASSET.uri))
+            .setEffects(fromProcessors(new TeeAudioProcessor(secondFormatSink)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
+            .build();
+
+    Transformer transformer = new Transformer.Builder(context).build();
+
+    ExportTestResult unused =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // Channel mixing happens after user-provided processors, so we can still see the original
+    // sample rate and channel count of each input file.
+    assertThat(firstFormatSink.getFlushedAudioFormats()).hasSize(1);
+    AudioFormat firstFormat = firstFormatSink.getFlushedAudioFormats().get(0);
+    assertThat(firstFormat.encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(firstFormat.sampleRate).isEqualTo(48000);
+    assertThat(firstFormat.channelCount).isEqualTo(2);
+
+    assertThat(secondFormatSink.getFlushedAudioFormats()).hasSize(1);
+    AudioFormat secondFormat = secondFormatSink.getFlushedAudioFormats().get(0);
+    assertThat(secondFormat.encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(secondFormat.sampleRate).isEqualTo(44100);
+    assertThat(secondFormat.channelCount).isEqualTo(1);
   }
 
   @Test

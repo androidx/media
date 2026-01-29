@@ -17,6 +17,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
+import static androidx.media3.test.utils.AssetInfo.WAV_24LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioAndVideoFrom;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
@@ -36,12 +38,14 @@ import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.effect.RgbFilter;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
+import androidx.media3.transformer.TestUtil.FormatCapturingAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -943,7 +947,42 @@ public final class SequenceExportTest {
     assertThat(exportResult.channelCount).isEqualTo(2);
   }
 
-  private Throwable getRootCause(Throwable throwable) {
+  @Test
+  public void export_itemsWithNon16BitPcm_inputIsConvertedTo16BitPcm() throws Exception {
+    FormatCapturingAudioProcessor firstProcessor = new FormatCapturingAudioProcessor();
+    FormatCapturingAudioProcessor secondProcessor = new FormatCapturingAudioProcessor();
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_32LE_PCM_ASSET.uri))
+            .setDurationUs(WAV_32LE_PCM_ASSET.audioDurationUs)
+            .setEffects(createAudioEffects(firstProcessor))
+            .build();
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_24LE_PCM_ASSET.uri))
+            .setDurationUs(WAV_24LE_PCM_ASSET.audioDurationUs)
+            .setEffects(createAudioEffects(secondProcessor))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
+            .build();
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+    transformer.start(composition, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    // Channel mixing happens after user-provided processors, so we can still see the original
+    // sample rate and channel count of each input file.
+    assertThat(firstProcessor.inputFormat.get().encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(firstProcessor.inputFormat.get().sampleRate).isEqualTo(48000);
+    assertThat(firstProcessor.inputFormat.get().channelCount).isEqualTo(2);
+
+    assertThat(secondProcessor.inputFormat.get().encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(secondProcessor.inputFormat.get().sampleRate).isEqualTo(44100);
+    assertThat(secondProcessor.inputFormat.get().channelCount).isEqualTo(1);
+  }
+
+  private static Throwable getRootCause(Throwable throwable) {
     @Nullable Throwable node = throwable;
     @Nullable Throwable nodeCause;
     do {

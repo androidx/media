@@ -1186,26 +1186,45 @@ public final class Transformer {
     return containsSpeedChangingEffects(composition.effects, /* ignoreFirstEffect= */ false);
   }
 
-  private static Composition maybeAddSpeedChangingEffects(Composition composition) {
+  /**
+   * Returns a copy of the provided {@link Composition} with any required pre-processing effects
+   * applied.
+   *
+   * <p>Pre-processing effects help {@link Transformer} normalize input formats or implement speed
+   * changing effects.
+   */
+  private static Composition applyPreProcessingEffects(Composition composition) {
     List<EditedMediaItemSequence> newSequences = new ArrayList<>();
     for (EditedMediaItemSequence sequence : composition.sequences) {
       List<EditedMediaItem> updatedItems = new ArrayList<>();
       for (EditedMediaItem item : sequence.editedMediaItems) {
-        if (item.speedProvider == SpeedProvider.DEFAULT) {
-          updatedItems.add(item);
-        } else {
-          updatedItems.add(addSpeedChangingEffects(item));
-        }
+        item = applyAudioBitDepthNormalization(item);
+        updatedItems.add(maybeAddSpeedChangingEffects(item));
       }
       newSequences.add(sequence.copyWithEditedMediaItems(updatedItems));
     }
     return composition.buildUpon().setSequences(newSequences).build();
   }
 
-  private static EditedMediaItem addSpeedChangingEffects(EditedMediaItem item) {
-    SpeedChangingAudioProcessor processor =
-        new SpeedChangingAudioProcessor(item.speedProvider, /* areInputTimestampsAdjusted= */ true);
-    return item.buildUpon().setPreProcessingAudioProcessors(ImmutableList.of(processor)).build();
+  private static EditedMediaItem applyAudioBitDepthNormalization(EditedMediaItem item) {
+    // This should be the first effect in the preprocessing pipeline.
+    checkState(item.preProcessingAudioProcessors.isEmpty());
+    return item.buildUpon()
+        .setPreProcessingAudioProcessors(ImmutableList.of(new ToInt16PcmAudioProcessor()))
+        .build();
+  }
+
+  private static EditedMediaItem maybeAddSpeedChangingEffects(EditedMediaItem item) {
+    if (item.speedProvider == SpeedProvider.DEFAULT) {
+      return item;
+    }
+    List<AudioProcessor> preProcessors = new ArrayList<>(item.preProcessingAudioProcessors);
+    // SpeedChangingMediaSource already adjusts the stream's timestamps, so
+    // SpeedChangingAudioProcessor does not need to adjust them.
+    preProcessors.add(
+        new SpeedChangingAudioProcessor(
+            item.speedProvider, /* areInputTimestampsAdjusted= */ true));
+    return item.buildUpon().setPreProcessingAudioProcessors(preProcessors).build();
   }
 
   private boolean isSingleAssetTrimming() {
@@ -1267,7 +1286,7 @@ public final class Transformer {
   private void initialize(Composition composition, String outputFilePath) {
     maybeInitializeExportWatchdogTimer();
     this.originalComposition = composition;
-    this.composition = maybeAddSpeedChangingEffects(composition);
+    this.composition = applyPreProcessingEffects(composition);
     this.outputFilePath = outputFilePath;
   }
 

@@ -17,6 +17,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
+import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -219,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public @SinkFormatSupport int getFormatSupport(Format format) {
     if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_RAW)
-        && format.pcmEncoding == C.ENCODING_PCM_16BIT) {
+        && isEncodingLinearPcm(format.pcmEncoding)) {
       return SINK_FORMAT_SUPPORTED_DIRECTLY;
     }
 

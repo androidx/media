@@ -45,6 +45,7 @@ public final class AssetInfo {
     private int videoFrameCount;
     private int audioSampleCount;
     private long videoDurationUs;
+    private long audioDurationUs;
     private @MonotonicNonNull ImmutableList<Long> videoTimestampsUs;
 
     public Builder(String uri) {
@@ -53,6 +54,7 @@ public final class AssetInfo {
       videoFrameCount = C.LENGTH_UNSET;
       audioSampleCount = C.LENGTH_UNSET;
       videoDurationUs = C.TIME_UNSET;
+      audioDurationUs = C.TIME_UNSET;
     }
 
     /** See {@link AssetInfo#trackCount}. */
@@ -92,6 +94,13 @@ public final class AssetInfo {
       return this;
     }
 
+    /** See {@link AssetInfo#audioDurationUs}. */
+    @CanIgnoreReturnValue
+    public Builder setAudioDurationUs(long durationUs) {
+      this.audioDurationUs = durationUs;
+      return this;
+    }
+
     /** See {@link AssetInfo#videoTimestampsUs}. */
     @CanIgnoreReturnValue
     public Builder setVideoTimestampsUs(ImmutableList<Long> videoTimestampsUs) {
@@ -111,6 +120,7 @@ public final class AssetInfo {
           trackCount,
           videoFormat,
           videoDurationUs,
+          audioDurationUs,
           videoFrameCount,
           audioSampleCount,
           videoTimestampsUs);
@@ -1133,6 +1143,18 @@ public final class AssetInfo {
       new AssetInfo.Builder("asset:///media/wav/sample_80KHz_mono_20_repeating_1_samples.wav")
           .build();
 
+  public static final AssetInfo WAV_24LE_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sine_24le.wav")
+          .setAudioSampleCount(44100)
+          .setAudioDurationUs(1_000_000)
+          .build();
+
+  public static final AssetInfo WAV_32LE_PCM_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sine_32le.wav")
+          .setAudioSampleCount(44100)
+          .setAudioDurationUs(1_000_000)
+          .build();
+
   public static final AssetInfo FLAC_STEREO_ASSET =
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
 
@@ -1181,6 +1203,9 @@ public final class AssetInfo {
   /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
   public final long videoDurationUs;
 
+  /** Audio duration in microseconds, or {@link C#TIME_UNSET}. */
+  public final long audioDurationUs;
+
   /** Video frame count, or {@link C#LENGTH_UNSET}. */
   public final int videoFrameCount;
 
@@ -1195,6 +1220,7 @@ public final class AssetInfo {
       int trackCount,
       @Nullable Format videoFormat,
       long videoDurationUs,
+      long audioDurationUs,
       int videoFrameCount,
       int audioSampleCount,
       @Nullable ImmutableList<Long> videoTimestampsUs) {
@@ -1202,6 +1228,7 @@ public final class AssetInfo {
     this.trackCount = trackCount;
     this.videoFormat = videoFormat;
     this.videoDurationUs = videoDurationUs;
+    this.audioDurationUs = audioDurationUs;
     this.videoFrameCount = videoFrameCount;
     this.audioSampleCount = audioSampleCount;
     this.videoTimestampsUs = videoTimestampsUs;

@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.Player.STATE_READY;
+import static androidx.media3.test.utils.AssetInfo.WAV_24LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
@@ -46,6 +48,7 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
+import androidx.media3.transformer.TestUtil.FormatCapturingAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -620,6 +623,41 @@ public final class CompositionPlayerAudioPlaybackTest {
   }
 
   @Test
+  public void play_itemsWithNon16BitPcm_inputIsConvertedTo16BitPcm() throws Exception {
+    FormatCapturingAudioProcessor firstProcessor = new FormatCapturingAudioProcessor();
+    FormatCapturingAudioProcessor secondProcessor = new FormatCapturingAudioProcessor();
+    EditedMediaItem firstItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_32LE_PCM_ASSET.uri))
+            .setDurationUs(WAV_32LE_PCM_ASSET.audioDurationUs)
+            .setEffects(createAudioEffects(firstProcessor))
+            .build();
+    EditedMediaItem secondItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_24LE_PCM_ASSET.uri))
+            .setDurationUs(WAV_24LE_PCM_ASSET.audioDurationUs)
+            .setEffects(createAudioEffects(secondProcessor))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
+            .build();
+    CompositionPlayer player = createTestCompositionPlayer();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(Player.STATE_ENDED);
+
+    // Channel mixing happens after user-provided processors, so we can still see the original
+    // sample rate and channel count of each input file.
+    assertThat(firstProcessor.inputFormat.get().encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(firstProcessor.inputFormat.get().sampleRate).isEqualTo(48000);
+    assertThat(firstProcessor.inputFormat.get().channelCount).isEqualTo(2);
+
+    assertThat(secondProcessor.inputFormat.get().encoding).isEqualTo(C.ENCODING_PCM_16BIT);
+    assertThat(secondProcessor.inputFormat.get().sampleRate).isEqualTo(44100);
+    assertThat(secondProcessor.inputFormat.get().channelCount).isEqualTo(1);
+  }
+
+  @Test
   public void seekTo_singleSequence_outputsCorrectSamples() throws Exception {
     CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
     EditedMediaItem editedMediaItem =
@@ -1008,7 +1046,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     EditedMediaItem item =
         normalSpeedItem
             .buildUpon()
-            .setEffects(fromProcessors(processor, byteCountingAudioProcessor))
+            .setEffects(createAudioEffects(processor, byteCountingAudioProcessor))
             .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS)
             .build();
     Composition composition =
@@ -1052,7 +1090,7 @@ public final class CompositionPlayerAudioPlaybackTest {
                         new ClippingConfiguration.Builder().setStartPositionMs(100).build())
                     .build())
             .setDurationUs(1_000_000)
-            .setEffects(fromProcessors(processor, byteCountingAudioProcessor))
+            .setEffects(createAudioEffects(processor, byteCountingAudioProcessor))
             .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS)
             .build();
     Composition composition =
@@ -1173,10 +1211,6 @@ public final class CompositionPlayerAudioPlaybackTest {
     public void reset() {
       wrappedAudioMixer.reset();
     }
-  }
-
-  private static Effects fromProcessors(AudioProcessor... processors) {
-    return new Effects(ImmutableList.copyOf(processors), ImmutableList.of());
   }
 
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {

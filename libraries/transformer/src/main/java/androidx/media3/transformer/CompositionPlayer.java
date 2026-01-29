@@ -65,6 +65,7 @@ import androidx.media3.common.audio.AudioFocusManager.PlayerCommand;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ExperimentalApi;
@@ -683,7 +684,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         /* presentationTimeUs= */ C.TIME_UNSET,
         composition.toJsonObject());
 
-    composition = transformSpeedChangingEffects(composition);
+    composition = applyPreProcessingEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
       Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
@@ -1062,37 +1063,54 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   /**
-   * Modifies speed changing effects within each {@link EditedMediaItem} to a representation
-   * supported by {@link CompositionPlayer}.
+   * Returns a copy of the provided {@link Composition} with any required pre-processing effects
+   * applied.
    *
-   * <p>If the {@link EditedMediaItem} has a set {@link SpeedProvider}, this method adds a {@link
-   * SpeedChangingAudioProcessor} as the item's first {@link AudioProcessor}. Otherwise, the method
-   * swaps any {@link TimestampAdjustment} instance for {@link InactiveTimestampAdjustment}.
-   *
-   * @return The modified {@link Composition}.
+   * <p>Pre-processing effects help {@link CompositionPlayer} normalize input formats or implement
+   * speed changing effects.
    */
-  private static Composition transformSpeedChangingEffects(Composition composition) {
+  private static Composition applyPreProcessingEffects(Composition composition) {
     List<EditedMediaItemSequence> newSequences = new ArrayList<>();
     for (EditedMediaItemSequence sequence : composition.sequences) {
       List<EditedMediaItem> newEditedMediaItems = new ArrayList<>();
       for (EditedMediaItem item : sequence.editedMediaItems) {
-        if (item.speedProvider != SpeedProvider.DEFAULT) {
-          // SpeedChangingMediaSource already adjusts the stream's timestamps, so
-          // SpeedChangingAudioProcessor does not need to adjust them.
-          newEditedMediaItems.add(
-              item.buildUpon()
-                  .setPreProcessingAudioProcessors(
-                      ImmutableList.of(
-                          new SpeedChangingAudioProcessor(
-                              item.speedProvider, /* areInputTimestampsAdjusted= */ true)))
-                  .build());
-        } else {
-          newEditedMediaItems.add(deactivateSpeedAdjustingVideoEffects(item));
-        }
+        item = applyAudioBitDepthNormalization(item);
+        newEditedMediaItems.add(transformSpeedChangingEffects(item));
       }
       newSequences.add(sequence.copyWithEditedMediaItems(newEditedMediaItems));
     }
     return composition.buildUpon().setSequences(newSequences).build();
+  }
+
+  private static EditedMediaItem applyAudioBitDepthNormalization(EditedMediaItem item) {
+    // This should be the first effect in the preprocessing pipeline.
+    checkState(item.preProcessingAudioProcessors.isEmpty());
+    return item.buildUpon()
+        .setPreProcessingAudioProcessors(ImmutableList.of(new ToInt16PcmAudioProcessor()))
+        .build();
+  }
+
+  /**
+   * Modifies speed changing effects within the {@link EditedMediaItem} to a representation
+   * supported by {@link CompositionPlayer}.
+   *
+   * <p>If the {@link EditedMediaItem} has a set {@link SpeedProvider}, this method adds a {@link
+   * SpeedChangingAudioProcessor} as to the item's pre-processing pipeline. Otherwise, the method
+   * swaps any {@link TimestampAdjustment} instance for {@link InactiveTimestampAdjustment}.
+   *
+   * @return The modified {@link EditedMediaItem}.
+   */
+  private static EditedMediaItem transformSpeedChangingEffects(EditedMediaItem item) {
+    if (item.speedProvider == SpeedProvider.DEFAULT) {
+      return deactivateSpeedAdjustingVideoEffects(item);
+    }
+    List<AudioProcessor> preProcessors = new ArrayList<>(item.preProcessingAudioProcessors);
+    // SpeedChangingMediaSource already adjusts the stream's timestamps, so
+    // SpeedChangingAudioProcessor does not need to adjust them.
+    preProcessors.add(
+        new SpeedChangingAudioProcessor(
+            item.speedProvider, /* areInputTimestampsAdjusted= */ true));
+    return item.buildUpon().setPreProcessingAudioProcessors(preProcessors).build();
   }
 
   /**
