@@ -50,6 +50,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -816,6 +817,72 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
+  public void handleBuffer_audioOutputInitializationError_iterativelyReduceBufferSizeAndRetry()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> outputBufferSizes = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            outputBufferSizes.add(config.bufferSize);
+            if (outputBufferSizes.size() >= 3) {
+              return super.getAudioOutput(config);
+            }
+            throw new InitializationException();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    // Specifies a large buffer size.
+    configureDefaultAudioSink(/* channelCount= */ 8, /* specifiedBufferSize= */ 2_822_400);
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(outputBufferSizes).containsExactly(2_822_400, 1_411_200, 705_600).inOrder();
+  }
+
+  @Test
+  public void
+      handleBuffer_audioOutputInitializationError_iterativelyRetryUntilBufferSizeBelowThreshold()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    ArrayList<Integer> outputBufferSizes = new ArrayList<>();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            outputBufferSizes.add(config.bufferSize);
+            throw new InitializationException();
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    // Specifies a large buffer size.
+    configureDefaultAudioSink(/* channelCount= */ 8, /* specifiedBufferSize= */ 2_822_400);
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isFalse();
+    assertThat(outputBufferSizes).containsExactly(2_822_400, 1_411_200, 705_600).inOrder();
+  }
+
+  @Test
   public void handleBuffer_recoverableWriteError_throwsWriteException() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicBoolean writeShouldFail = new AtomicBoolean();
@@ -914,6 +981,21 @@ public final class DefaultAudioSinkTest {
 
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
+  }
+
+  private void configureDefaultAudioSink(int channelCount, int specifiedBufferSize)
+      throws AudioSink.ConfigurationException {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(channelCount)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setEncoderDelay(0)
+            .setEncoderPadding(0)
+            .build();
+    defaultAudioSink.configure(
+        format, /* specifiedBufferSize= */ specifiedBufferSize, /* outputChannels= */ null);
   }
 
   private void configureDefaultAudioSink(int channelCount, int trimStartFrames, int trimEndFrames)

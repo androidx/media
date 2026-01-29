@@ -126,9 +126,9 @@ public final class DefaultAudioSink implements AudioSink {
 
   /**
    * If an attempt to instantiate an AudioOutput with a buffer size larger than this value fails, a
-   * second attempt is made using this buffer size.
+   * second attempt is made using half of that failed buffer size.
    */
-  private static final int AUDIO_OUTPUT_SMALLER_BUFFER_RETRY_SIZE = 1_000_000;
+  private static final int AUDIO_OUTPUT_RETRY_BUFFER_SIZE_THRESHOLD = 1_000_000;
 
   /** The minimum duration of the skipped silence to be reported as discontinuity. */
   private static final int MINIMUM_REPORT_SKIPPED_SILENCE_DURATION_US = 300_000;
@@ -1049,14 +1049,21 @@ public final class DefaultAudioSink implements AudioSink {
     try {
       return buildAudioOutput(configuration.outputConfig);
     } catch (InitializationException initialFailure) {
-      // Retry with a smaller buffer size.
-      if (configuration.outputConfig.bufferSize > AUDIO_OUTPUT_SMALLER_BUFFER_RETRY_SIZE) {
+      int bufferSize = configuration.outputConfig.bufferSize;
+      while (bufferSize > AUDIO_OUTPUT_RETRY_BUFFER_SIZE_THRESHOLD) {
+        // Retry with a smaller buffer size, which is the half of the original buffer size.
+        bufferSize /= 2;
+        int frameSize =
+            configuration.outputPcmFrameSize != C.LENGTH_UNSET
+                ? configuration.outputPcmFrameSize
+                : 1;
+        int partialFrameSize = bufferSize % frameSize;
+        if (partialFrameSize != 0) {
+          // Increase buffer size to hold an integer number of frames.
+          bufferSize += frameSize - partialFrameSize;
+        }
         OutputConfig retryConfiguration =
-            configuration
-                .outputConfig
-                .buildUpon()
-                .setBufferSize(AUDIO_OUTPUT_SMALLER_BUFFER_RETRY_SIZE)
-                .build();
+            configuration.outputConfig.buildUpon().setBufferSize(bufferSize).build();
         try {
           AudioOutput audioOutput = buildAudioOutput(retryConfiguration);
           configuration = configuration.copyWithOutputConfig(retryConfiguration);

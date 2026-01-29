@@ -49,6 +49,9 @@
     *   Correctly remove support for `AC4Profile22` and other legacy profiles
         when assessing AC-4 decoder support in Automotive scenarios
         ([#2609](https://github.com/androidx/media/pull/2609)).
+    *   Improve the retry logic of `AudioOutput` initialization in
+        `DefaultAudioSink`
+        ([#2905](https://github.com/androidx/media/issues/2905)).
 *   Video:
 *   Text:
     *   VobSub: Use `START` and `STOP` SPU control commands to derive cue
