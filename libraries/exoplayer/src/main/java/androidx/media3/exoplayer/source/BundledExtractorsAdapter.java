@@ -147,4 +147,12 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
   public int read(PositionHolder positionHolder) throws IOException {
     return checkNotNull(extractor).read(checkNotNull(extractorInput), positionHolder);
   }
+
+  @Override
+  @Nullable
+  public String getUnderlyingImplementationName() {
+    return extractor != null
+        ? extractor.getUnderlyingImplementation().getClass().getSimpleName()
+        : null;
+  }
 }

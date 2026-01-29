@@ -35,6 +35,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.exoplayer.source.BundledExtractorsAdapter;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -103,7 +104,9 @@ public final class MediaExtractorCompat {
    */
   public MediaExtractorCompat(
       ExtractorsFactory extractorsFactory, DataSource.Factory dataSourceFactory) {
-    delegate = new MediaExtractorCompatInternal(extractorsFactory, dataSourceFactory);
+    delegate =
+        new MediaExtractorCompatInternal(
+            new BundledExtractorsAdapter(extractorsFactory), dataSourceFactory);
   }
 
   /**

@@ -55,16 +55,15 @@ import androidx.media3.datasource.FileDescriptorDataSource;
 import androidx.media3.datasource.MediaDataSourceAdapter;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
+import androidx.media3.exoplayer.source.ProgressiveMediaExtractor;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
-import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.Extractor.ReadResult;
-import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
@@ -74,10 +73,6 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import java.io.EOFException;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -107,7 +102,7 @@ public class MediaExtractorCompatInternal {
 
   private static final String TAG = "MediaExtractorCompatInt";
 
-  private final ExtractorsFactory extractorsFactory;
+  private final ProgressiveMediaExtractor progressiveMediaExtractor;
   private final DataSource.Factory dataSourceFactory;
   private final PositionHolder positionHolder;
   private final Allocator allocator;
@@ -121,8 +116,6 @@ public class MediaExtractorCompatInternal {
 
   private boolean hasBeenPrepared;
   private long offsetInCurrentFile;
-  @Nullable private Extractor currentExtractor;
-  @Nullable private ExtractorInput currentExtractorInput;
   @Nullable private DataSource currentDataSource;
   @Nullable private SeekPoint pendingSeek;
 
@@ -151,8 +144,8 @@ public class MediaExtractorCompatInternal {
    * depends on the fallthrough logic related to the scheme of the provided URI.
    */
   public MediaExtractorCompatInternal(
-      ExtractorsFactory extractorsFactory, DataSource.Factory dataSourceFactory) {
-    this.extractorsFactory = extractorsFactory;
+      ProgressiveMediaExtractor progressiveMediaExtractor, DataSource.Factory dataSourceFactory) {
+    this.progressiveMediaExtractor = progressiveMediaExtractor;
     this.dataSourceFactory = dataSourceFactory;
     positionHolder = new PositionHolder();
     allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
@@ -334,17 +327,20 @@ public class MediaExtractorCompatInternal {
     currentDataSource = dataSource;
 
     long length = currentDataSource.open(dataSpec);
-    ExtractorInput currentExtractorInput =
-        new DefaultExtractorInput(currentDataSource, /* position= */ 0, length);
-    Extractor currentExtractor = selectExtractor(currentExtractorInput);
-    currentExtractor.init(new ExtractorOutputImpl());
+    progressiveMediaExtractor.init(
+        currentDataSource,
+        checkNotNull(currentDataSource.getUri()),
+        currentDataSource.getResponseHeaders(),
+        /* position= */ 0,
+        length,
+        new ExtractorOutputImpl());
 
     boolean preparing = true;
     Throwable error = null;
     while (preparing) {
       int result;
       try {
-        result = currentExtractor.read(currentExtractorInput, positionHolder);
+        result = progressiveMediaExtractor.read(positionHolder);
       } catch (Exception | OutOfMemoryError e) {
         // This value is ignored but initializes result to avoid static analysis errors.
         result = Extractor.RESULT_END_OF_INPUT;
@@ -360,11 +356,9 @@ public class MediaExtractorCompatInternal {
                 : "Reached end of input before preparation completed.";
         throw ParserException.createForMalformedContainer(message, /* cause= */ error);
       } else if (result == Extractor.RESULT_SEEK) {
-        currentExtractorInput = reopenCurrentDataSource(positionHolder.position);
+        reopenCurrentDataSource(positionHolder.position);
       }
     }
-    this.currentExtractorInput = currentExtractorInput;
-    this.currentExtractor = currentExtractor;
     // At this point, we know how many tracks we have, and their format.
   }
 
@@ -379,11 +373,7 @@ public class MediaExtractorCompatInternal {
       sampleQueues.valueAt(i).release();
     }
     sampleQueues.clear();
-    if (currentExtractor != null) {
-      currentExtractor.release();
-      currentExtractor = null;
-    }
-    currentExtractorInput = null;
+    progressiveMediaExtractor.release();
     pendingSeek = null;
     DataSourceUtil.closeQuietly(currentDataSource);
     currentDataSource = null;
@@ -678,10 +668,9 @@ public class MediaExtractorCompatInternal {
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     PersistableBundle bundle = new PersistableBundle();
-    if (currentExtractor != null) {
-      bundle.putString(
-          MediaExtractor.MetricsConstants.FORMAT,
-          currentExtractor.getUnderlyingImplementation().getClass().getSimpleName());
+    String formatName = progressiveMediaExtractor.getUnderlyingImplementationName();
+    if (formatName != null) {
+      bundle.putString(MediaExtractor.MetricsConstants.FORMAT, formatName);
     }
     if (!tracks.isEmpty()) {
       Format format =
@@ -754,45 +743,6 @@ public class MediaExtractorCompatInternal {
   }
 
   /**
-   * Returns the extractor to use for extracting samples from the given {@code input}.
-   *
-   * @throws IOException If an error occurs while extracting the media.
-   * @throws UnrecognizedInputFormatException If none of the available extractors successfully
-   *     sniffs the input.
-   */
-  private Extractor selectExtractor(ExtractorInput input) throws IOException {
-    Extractor[] extractors = extractorsFactory.createExtractors();
-    Extractor result = null;
-    for (Extractor extractor : extractors) {
-      try {
-        if (extractor.sniff(input)) {
-          result = extractor;
-          break;
-        }
-      } catch (EOFException e) {
-        // We reached the end of input without recognizing the input format. Do nothing to let the
-        // next extractor sniff the content.
-      } finally {
-        input.resetPeekPosition();
-      }
-    }
-    if (result == null) {
-      throw new UnrecognizedInputFormatException(
-          "None of the available extractors ("
-              + Joiner.on(", ")
-                  .join(
-                      Lists.transform(
-                          ImmutableList.copyOf(extractors),
-                          extractor ->
-                              extractor.getUnderlyingImplementation().getClass().getSimpleName()))
-              + ") could read the stream.",
-          checkNotNull(checkNotNull(currentDataSource).getUri()),
-          ImmutableList.of());
-    }
-    return result;
-  }
-
-  /**
    * Advances extraction until there is a queued sample from a selected track, or the end of the
    * input is found.
    *
@@ -825,14 +775,11 @@ public class MediaExtractorCompatInternal {
         // There are no queued samples for the selected tracks, but we can feed more data to the
         // extractor and see if more samples are produced.
         try {
-          @ReadResult
-          int result =
-              checkNotNull(currentExtractor)
-                  .read(checkNotNull(currentExtractorInput), positionHolder);
+          @ReadResult int result = progressiveMediaExtractor.read(positionHolder);
           if (result == Extractor.RESULT_END_OF_INPUT) {
             seenEndOfInput = true;
           } else if (result == Extractor.RESULT_SEEK) {
-            this.currentExtractorInput = reopenCurrentDataSource(positionHolder.position);
+            reopenCurrentDataSource(positionHolder.position);
           }
         } catch (Exception | OutOfMemoryError e) {
           Log.w(TAG, "Treating exception as the end of input.", e);
@@ -854,7 +801,7 @@ public class MediaExtractorCompatInternal {
     }
   }
 
-  private ExtractorInput reopenCurrentDataSource(long newPositionInStream) throws IOException {
+  private void reopenCurrentDataSource(long newPositionInStream) throws IOException {
     DataSource currentDataSource = checkNotNull(this.currentDataSource);
     Uri currentUri = checkNotNull(currentDataSource.getUri());
     DataSourceUtil.closeQuietly(currentDataSource);
@@ -864,7 +811,13 @@ public class MediaExtractorCompatInternal {
     if (length != C.LENGTH_UNSET) {
       length += newPositionInStream;
     }
-    return new DefaultExtractorInput(currentDataSource, newPositionInStream, length);
+    progressiveMediaExtractor.init(
+        currentDataSource,
+        currentUri,
+        currentDataSource.getResponseHeaders(),
+        newPositionInStream,
+        length,
+        new ExtractorOutputImpl());
   }
 
   private void onSampleQueueFormatInitialized(
@@ -894,8 +847,8 @@ public class MediaExtractorCompatInternal {
       return; // Nothing to do.
     }
     SeekPoint pendingSeek = checkNotNull(this.pendingSeek);
-    checkNotNull(currentExtractor).seek(pendingSeek.position, pendingSeek.timeUs);
-    this.currentExtractorInput = reopenCurrentDataSource(pendingSeek.position);
+    progressiveMediaExtractor.seek(pendingSeek.position, pendingSeek.timeUs);
+    reopenCurrentDataSource(pendingSeek.position);
     this.pendingSeek = null;
   }
 
