@@ -148,8 +148,7 @@ public final class MediaItemExportTest {
 
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
-      ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW), /* encoders= */ ImmutableList.of());
+      ShadowMediaCodecConfig.withNoDefaultSupportedCodecs();
 
   @Test
   public void start_gapOnlyExport_outputsSilence() throws Exception {

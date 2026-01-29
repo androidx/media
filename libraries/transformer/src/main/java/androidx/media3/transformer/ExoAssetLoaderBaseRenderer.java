@@ -192,6 +192,15 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   protected abstract boolean feedConsumerFromDecoder() throws ExportException;
 
   /**
+   * Returns whether the renderer can bypass decoding for the given {@code format}.
+   *
+   * @param format The input {@link Format} of the samples.
+   */
+  protected boolean shouldEnableBypass(Format format) {
+    return false;
+  }
+
+  /**
    * Attempts to read the input {@link Format} from the source, if not read.
    *
    * <p>After reading the format, {@link AssetLoader.Listener#onTrackAdded} is notified, and, if
@@ -217,10 +226,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
       inputFormat = overrideInputFormat(checkNotNull(formatHolder.format));
       onInputFormatRead(inputFormat);
-      // TODO: b/332708880 - Bypass MediaCodec for raw audio input.
-      shouldInitDecoder =
+      if (inputFormat == null) {
+        return false;
+      }
+
+      // Always notify listeners regardless of whether bypass is available.
+      boolean shouldOutputDecodedSamples =
           assetLoaderListener.onTrackAdded(
               inputFormat, SUPPORTED_OUTPUT_TYPE_DECODED | SUPPORTED_OUTPUT_TYPE_ENCODED);
+
+      shouldInitDecoder = shouldOutputDecodedSamples && !shouldEnableBypass(inputFormat);
     }
 
     if (shouldInitDecoder) {

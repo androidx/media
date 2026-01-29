@@ -72,8 +72,7 @@ public final class SequenceExportTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+          /* decoders= */ ImmutableList.of(), /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void start_concatenateSameMediaItemWithTransmux_completesSuccessfully() throws Exception {

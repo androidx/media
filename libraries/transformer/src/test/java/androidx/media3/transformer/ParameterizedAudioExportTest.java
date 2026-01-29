@@ -131,8 +131,7 @@ public final class ParameterizedAudioExportTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+          /* decoders= */ ImmutableList.of(), /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Parameter public SequenceConfig sequence;
 

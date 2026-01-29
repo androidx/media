@@ -2609,10 +2609,14 @@ public class TransformerEndToEndTest {
         new TransformerAndroidTestRunner.Builder(context, transformer).build();
     ExportTestResult result = testRunner.run(testId, input);
 
+    // TODO: b/479474095 - Enable this assertion once ExportResult reports the right operation for
+    // single asset exports that bypass the decoder.
+    // assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
+    // Assert that decoder is bypassed for WAV file.
+    assertThat(result.exportResult.processedInputs.get(0).audioDecoderName).isNull();
+
     // When Transformer transmuxes a file, it skips the entire effects pipeline. We should make sure
     // that the file is processed and the speed adjustment is applied.
-    assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
-
     AtomicInteger bytesRead = new AtomicInteger();
     EditedMediaItem speedAdjustedOutput =
         new EditedMediaItem.Builder(MediaItem.fromUri(result.filePath))
@@ -2707,6 +2711,8 @@ public class TransformerEndToEndTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
+
+    assertThat(result.exportResult.processedInputs.get(0).audioDecoderName).isNull();
 
     // The original clip is 1 second long.
     MetadataRetriever metadataRetriever =
@@ -2836,8 +2842,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void composition_withMultipleLoopingSequences_throwsIllegalArgumentException()
-      throws Exception {
+  public void composition_withMultipleLoopingSequences_throwsIllegalArgumentException() {
     EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri)).build();
     EditedMediaItemSequence firstSequence =
         new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))

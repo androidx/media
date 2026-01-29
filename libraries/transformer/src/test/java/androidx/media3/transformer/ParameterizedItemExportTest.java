@@ -29,12 +29,15 @@ import static androidx.media3.transformer.TestUtil.FILE_VIDEO_ONLY;
 import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.MediaItem;
 import androidx.media3.test.utils.DumpFileAsserts;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -70,6 +73,13 @@ public final class ParameterizedItemExportTest {
           FILE_AUDIO_RAW_STEREO_48000KHZ,
           "wav/sample_ima_adpcm.wav",
           FILE_AUDIO_AMR_NB);
+
+  private static final ImmutableSet<String> RAW_AUDIO_ASSETS =
+      ImmutableSet.of(
+          FILE_AUDIO_RAW,
+          FILE_AUDIO_RAW_STEREO_48000KHZ,
+          "wav/sample_ima_adpcm.wav",
+          FILE_AUDIO_RAW_VIDEO);
 
   private static final ImmutableList<String> AUDIO_VIDEO_ASSETS =
       ImmutableList.of(FILE_AUDIO_RAW_VIDEO, FILE_AUDIO_VIDEO);
@@ -110,8 +120,7 @@ public final class ParameterizedItemExportTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+          /* decoders= */ ImmutableList.of(), /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void export() throws Exception {
@@ -213,5 +222,27 @@ public final class ParameterizedItemExportTest {
         ApplicationProvider.getApplicationContext(),
         muxerFactory.getCreatedMuxer(),
         getDumpFileName(assetFile, /* modifications...= */ "silenceFromEffect"));
+  }
+
+  @Test
+  public void export_withRawAudioFiles_bypassesAudioDecoder() throws Exception {
+    assumeTrue(RAW_AUDIO_ASSETS.contains(assetFile));
+
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + assetFile))
+            .setEffects(createAudioEffects(new PassthroughAudioProcessor()))
+            .build();
+
+    transformer.start(item, outputDir.newFile().getPath());
+    ExportResult result = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(result.processedInputs.get(0).audioDecoderName).isNull();
+    // TODO: b/479474095 - Enable this assertion once ExportResult reports the right operation for
+    // single asset exports that bypass the decoder.
+    // assertThat(result.audioConversionProcess).isEqualTo(ExportResult.CONVERSION_PROCESS_TRANSCODED);
   }
 }

@@ -64,8 +64,7 @@ public class CompositionExportTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
-          /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
+          /* decoders= */ ImmutableList.of(), /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
