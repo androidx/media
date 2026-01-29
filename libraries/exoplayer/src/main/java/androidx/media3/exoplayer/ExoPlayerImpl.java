@@ -91,7 +91,6 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.StuckPlayerDetector;
 import androidx.media3.common.util.StuckPlayerException;
@@ -116,10 +115,8 @@ import androidx.media3.exoplayer.source.ShuffleOrder;
 import androidx.media3.exoplayer.source.TimelineWithUpdatedMediaItem;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.text.TextOutput;
-import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelectionArray;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -149,22 +146,12 @@ import java.util.function.IntConsumer;
 
   private static final String TAG = "ExoPlayerImpl";
 
-  /**
-   * This empty track selector result can only be used for {@link PlaybackInfo#trackSelectorResult}
-   * when the player does not have any track selection made (such as when player is reset, or when
-   * player seeks to an unprepared period). It will not be used as result of any {@link
-   * TrackSelector#selectTracks(RendererCapabilities[], TrackGroupArray, MediaPeriodId, Timeline)}
-   * operation.
-   */
-  /* package */ final TrackSelectorResult emptyTrackSelectorResult;
-
   /* package */ final Commands permanentAvailableCommands;
 
   private final ConditionVariable constructorFinished;
   private final Context applicationContext;
   private final Player wrappingPlayer;
-  private final Renderer[] renderers;
-  private final @NullableType Renderer[] secondaryRenderers;
+  private final RenderersCoordinator renderersCoordinator;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
   private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
@@ -279,28 +266,20 @@ import java.util.function.IntConsumer;
       componentListener = new ComponentListener();
       frameMetadataListener = new FrameMetadataListener();
       Handler eventHandler = new Handler(builder.looper);
-      RenderersFactory renderersFactory = builder.renderersFactorySupplier.get();
-      renderers =
-          renderersFactory.createRenderers(
-              eventHandler,
-              componentListener,
-              componentListener,
-              componentListener,
-              componentListener);
-      checkState(renderers.length > 0);
-      secondaryRenderers = new Renderer[renderers.length];
-      for (int i = 0; i < secondaryRenderers.length; i++) {
-        // TODO(b/377671489): Fix DefaultAnalyticsCollector logic to still work with pre-warming.
-        secondaryRenderers[i] =
-            renderersFactory.createSecondaryRenderer(
-                renderers[i],
-                eventHandler,
-                componentListener,
-                componentListener,
-                componentListener,
-                componentListener);
-      }
       this.trackSelector = builder.trackSelectorSupplier.get();
+      final PlayerId playerId = new PlayerId(builder.playerName);
+      RenderersFactory renderersFactory = builder.renderersFactorySupplier.get();
+      renderersCoordinator = new RenderersCoordinator(
+          playerId,
+          eventHandler,
+          trackSelector,
+          builder.clock,
+          builder.renderersFactorySupplier,
+          componentListener,
+          componentListener,
+          componentListener,
+          componentListener
+      );
       this.mediaSourceFactory = builder.mediaSourceFactorySupplier.get();
       this.bandwidthMeter = builder.bandwidthMeterSupplier.get();
       this.useLazyPreparation = builder.useLazyPreparation;
@@ -322,12 +301,6 @@ import java.util.function.IntConsumer;
       mediaSourceHolderSnapshots = new ArrayList<>();
       shuffleOrder = new ShuffleOrder.DefaultShuffleOrder(/* length= */ 0);
       preloadConfiguration = PreloadConfiguration.DEFAULT;
-      emptyTrackSelectorResult =
-          new TrackSelectorResult(
-              new RendererConfiguration[renderers.length],
-              new ExoTrackSelection[renderers.length],
-              Tracks.EMPTY,
-              /* info= */ null);
       period = new Timeline.Period();
       permanentAvailableCommands =
           new Commands.Builder()
@@ -370,16 +343,14 @@ import java.util.function.IntConsumer;
       playbackInfoUpdateListener =
           playbackInfoUpdate ->
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
-      playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
+      playbackInfo = PlaybackInfo.createDummy(renderersCoordinator.emptyTrackSelectorResult);
       analyticsCollector.setPlayer(this.wrappingPlayer, applicationLooper);
-      PlayerId playerId = new PlayerId(builder.playerName);
+
       internalPlayer =
           new ExoPlayerImplInternal(
               applicationContext,
-              renderers,
-              secondaryRenderers,
+              renderersCoordinator,
               trackSelector,
-              emptyTrackSelectorResult,
               builder.loadControlSupplier.get(),
               bandwidthMeter,
               repeatMode,
@@ -1281,26 +1252,26 @@ import java.util.function.IntConsumer;
   @Override
   public int getRendererCount() {
     verifyApplicationThread();
-    return renderers.length;
+    return renderersCoordinator.getRendererCount();
   }
 
   @Override
   public @C.TrackType int getRendererType(int index) {
     verifyApplicationThread();
-    return renderers[index].getTrackType();
+    return renderersCoordinator.getRendererType(index);
   }
 
   @Override
   public Renderer getRenderer(int index) {
     verifyApplicationThread();
-    return renderers[index];
+    return renderersCoordinator.getRenderer(index);
   }
 
   @Override
   @Nullable
   public Renderer getSecondaryRenderer(int index) {
     verifyApplicationThread();
-    return secondaryRenderers[index];
+    return renderersCoordinator.getSecondaryRenderer(index);
   }
 
   @Override
@@ -1457,7 +1428,7 @@ import java.util.function.IntConsumer;
   public void clearVideoSurface() {
     verifyApplicationThread();
     removeSurfaceCallbacks();
-    setVideoOutputInternal(/* videoOutput= */ null);
+    setVideoOutputInternalLocked(/* videoOutput= */ null);
     maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
   }
 
@@ -1473,7 +1444,7 @@ import java.util.function.IntConsumer;
   public void setVideoSurface(@Nullable Surface surface) {
     verifyApplicationThread();
     removeSurfaceCallbacks();
-    setVideoOutputInternal(surface);
+    setVideoOutputInternalLocked(surface);
     int newSurfaceSize = surface == null ? 0 : C.LENGTH_UNSET;
     maybeNotifySurfaceSizeChanged(/* width= */ newSurfaceSize, /* height= */ newSurfaceSize);
   }
@@ -1490,11 +1461,11 @@ import java.util.function.IntConsumer;
       surfaceHolder.addCallback(componentListener);
       Surface surface = surfaceHolder.getSurface();
       if (surface != null && surface.isValid()) {
-        setVideoOutputInternal(surface);
+        setVideoOutputInternalLocked(surface);
         Rect surfaceSize = surfaceHolder.getSurfaceFrame();
         maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
       } else {
-        setVideoOutputInternal(/* videoOutput= */ null);
+        setVideoOutputInternalLocked(/* videoOutput= */ null);
         maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
       }
     }
@@ -1513,7 +1484,7 @@ import java.util.function.IntConsumer;
     verifyApplicationThread();
     if (surfaceView instanceof VideoDecoderOutputBufferRenderer) {
       removeSurfaceCallbacks();
-      setVideoOutputInternal(surfaceView);
+      setVideoOutputInternalLocked(surfaceView);
       setNonVideoOutputSurfaceHolderInternal(surfaceView.getHolder());
     } else if (surfaceView instanceof SphericalGLSurfaceView) {
       removeSurfaceCallbacks();
@@ -1523,7 +1494,7 @@ import java.util.function.IntConsumer;
           .setPayload(sphericalGLSurfaceView)
           .send();
       sphericalGLSurfaceView.addVideoSurfaceListener(componentListener);
-      setVideoOutputInternal(sphericalGLSurfaceView.getVideoSurface());
+      setVideoOutputInternalLocked(sphericalGLSurfaceView.getVideoSurface());
       setNonVideoOutputSurfaceHolderInternal(surfaceView.getHolder());
     } else {
       setVideoSurfaceHolder(surfaceView == null ? null : surfaceView.getHolder());
@@ -1552,7 +1523,7 @@ import java.util.function.IntConsumer;
       SurfaceTexture surfaceTexture =
           textureView.isAvailable() ? textureView.getSurfaceTexture() : null;
       if (surfaceTexture == null) {
-        setVideoOutputInternal(/* videoOutput= */ null);
+        setVideoOutputInternalLocked(/* videoOutput= */ null);
         maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
       } else {
         setSurfaceTextureInternal(surfaceTexture);
@@ -2740,7 +2711,7 @@ import java.util.function.IntConsumer;
               /* discontinuityStartPositionUs= */ positionUs,
               /* totalBufferedDurationUs= */ 0,
               TrackGroupArray.EMPTY,
-              emptyTrackSelectorResult,
+              renderersCoordinator.getEmptyTrackSelectorResult(),
               /* staticMetadata= */ ImmutableList.of());
       playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(dummyMediaPeriodId);
       playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
@@ -2777,7 +2748,9 @@ import java.util.function.IntConsumer;
               /* discontinuityStartPositionUs= */ newContentPositionUs,
               /* totalBufferedDurationUs= */ 0,
               playingPeriodChanged ? TrackGroupArray.EMPTY : playbackInfo.trackGroups,
-              playingPeriodChanged ? emptyTrackSelectorResult : playbackInfo.trackSelectorResult,
+              playingPeriodChanged
+                  ? renderersCoordinator.getEmptyTrackSelectorResult()
+                  : playbackInfo.trackSelectorResult,
               playingPeriodChanged ? ImmutableList.of() : playbackInfo.staticMetadata);
       playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(newPeriodId);
       playbackInfo.bufferedPositionUs = newContentPositionUs;
@@ -2959,8 +2932,18 @@ import java.util.function.IntConsumer;
 
   private void setSurfaceTextureInternal(SurfaceTexture surfaceTexture) {
     Surface surface = new Surface(surfaceTexture);
-    setVideoOutputInternal(surface);
+    setVideoOutputInternalLocked(surface);
     ownedSurface = surface;
+  }
+
+  private void setVideoOutputInternalLocked(@Nullable Object videoOutput) {
+    try {
+      renderersCoordinator.withLock(() -> {
+        setVideoOutputInternal(videoOutput);
+      });
+    } catch (Exception ex) {
+      // Ignore. setVideoOutputInternal doesn't throw any exception.
+    }
   }
 
   private void setVideoOutputInternal(@Nullable Object videoOutput) {
@@ -3116,15 +3099,21 @@ import java.util.function.IntConsumer;
 
   private void sendRendererMessage(
       @C.TrackType int trackType, int messageType, @Nullable Object payload) {
-    for (Renderer renderer : renderers) {
-      if (trackType == -1 || renderer.getTrackType() == trackType) {
-        createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
-      }
-    }
-    for (@Nullable Renderer renderer : secondaryRenderers) {
-      if (renderer != null && (trackType == -1 || renderer.getTrackType() == trackType)) {
-        createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
-      }
+    try {
+      renderersCoordinator.withLock(() -> {
+        for (Renderer renderer : renderersCoordinator.renderers) {
+          if (trackType == -1 || renderer.getTrackType() == trackType) {
+            createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
+          }
+        }
+        for (@Nullable Renderer renderer : renderersCoordinator.secondaryRenderers) {
+          if (renderer != null && (trackType == -1 || renderer.getTrackType() == trackType)) {
+            createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
+          }
+        }
+      });
+    } catch (Exception ex) {
+      // Ignore. There should not be errors in the the block.
     }
   }
 
@@ -3515,7 +3504,7 @@ import java.util.function.IntConsumer;
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
       if (surfaceHolderSurfaceIsVideoOutput) {
-        setVideoOutputInternal(holder.getSurface());
+        setVideoOutputInternalLocked(holder.getSurface());
       }
     }
 
@@ -3527,7 +3516,7 @@ import java.util.function.IntConsumer;
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
       if (surfaceHolderSurfaceIsVideoOutput) {
-        setVideoOutputInternal(/* videoOutput= */ null);
+        setVideoOutputInternalLocked(/* videoOutput= */ null);
       }
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
@@ -3547,7 +3536,7 @@ import java.util.function.IntConsumer;
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
-      setVideoOutputInternal(/* videoOutput= */ null);
+      setVideoOutputInternalLocked(/* videoOutput= */ null);
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
       return true;
     }
@@ -3561,12 +3550,12 @@ import java.util.function.IntConsumer;
 
     @Override
     public void onVideoSurfaceCreated(Surface surface) {
-      setVideoOutputInternal(surface);
+      setVideoOutputInternalLocked(surface);
     }
 
     @Override
     public void onVideoSurfaceDestroyed(Surface surface) {
-      setVideoOutputInternal(/* videoOutput= */ null);
+      setVideoOutputInternalLocked(/* videoOutput= */ null);
     }
 
     // AudioBecomingNoisyManager.EventListener implementation.

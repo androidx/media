@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 
@@ -67,5 +68,31 @@ public interface RenderersFactory {
       TextOutput textRendererOutput,
       MetadataOutput metadataRendererOutput) {
     return null;
+  }
+
+  /**
+   * Allows to reevaluate the number of {@link Renderer} instances to adapt to new track groups.
+   * <p>
+   * WARNING!! Previous renderers cannot be destroyed and must be kept in the same order.
+   * Otherwise the new allocation cannot be accepted.
+   *
+   * @param prevRenderers The previous available renderers.
+   * @param newTrackGroups The new track groups.
+   * @param eventHandler A handler to use when invoking event listeners and outputs.
+   * @param videoRendererEventListener An event listener for video renderers.
+   * @param audioRendererEventListener An event listener for audio renderers.
+   * @param textRendererOutput An output for text renderers.
+   * @param metadataRendererOutput An output for metadata renderers.
+   * @return The {@link Renderer instances}.
+   */
+  default Renderer[] reevaluateRenderers(
+      Renderer[] prevRenderers,
+      TrackGroupArray newTrackGroups,
+      Handler eventHandler,
+      VideoRendererEventListener videoRendererEventListener,
+      AudioRendererEventListener audioRendererEventListener,
+      TextOutput textRendererOutput,
+      MetadataOutput metadataRendererOutput) {
+    return prevRenderers;
   }
 }
