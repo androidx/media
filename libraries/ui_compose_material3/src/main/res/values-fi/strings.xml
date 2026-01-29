@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Satunnaistoisto poistettu käytöstä.</string>
   <string name="mute_button_shown_unmuted">Mykistä</string>
   <string name="mute_button_shown_muted">Poista mykistys</string>
+  <string name="playback_speed_increase">Lisää nopeutta: %.2f</string>
+  <string name="playback_speed_decrease">Vähennä nopeutta: %.2f</string>
 </resources>

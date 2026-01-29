@@ -23,4 +23,6 @@
   <string name="shuffle_button_shuffle_off">מצב ההשמעה האקראית מושבת.</string>
   <string name="mute_button_shown_unmuted">השתקה</string>
   <string name="mute_button_shown_muted">ביטול ההשתקה</string>
+  <string name="playback_speed_increase">הגברת המהירות ב-%.2f</string>
+  <string name="playback_speed_decrease">האטת המהירות ב-%.2f</string>
 </resources>

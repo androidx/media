@@ -23,4 +23,6 @@
   <string name="shuffle_button_shuffle_off">Modul de redare aleatorie este dezactivat.</string>
   <string name="mute_button_shown_unmuted">Dezactivează sunetul</string>
   <string name="mute_button_shown_muted">Activează sunetul</string>
+  <string name="playback_speed_increase">Mărește viteza cu %.2f</string>
+  <string name="playback_speed_decrease">Redu viteza cu %.2f</string>
 </resources>

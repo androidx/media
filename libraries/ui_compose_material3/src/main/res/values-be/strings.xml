@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Рэжым перамешвання выключаны.</string>
   <string name="mute_button_shown_unmuted">Выключыць гук</string>
   <string name="mute_button_shown_muted">Уключыць гук</string>
+  <string name="playback_speed_increase">Павялічыць хуткасць на %.2f</string>
+  <string name="playback_speed_decrease">Паменшыць хуткасць на %.2f</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">โหมดสุ่มเพลงปิดใช้อยู่</string>
   <string name="mute_button_shown_unmuted">ปิดเสียง</string>
   <string name="mute_button_shown_muted">เปิดเสียง</string>
+  <string name="playback_speed_increase">เพิ่มความเร็วขึ้น %.2f</string>
+  <string name="playback_speed_decrease">ลดความเร็วลง %.2f</string>
 </resources>

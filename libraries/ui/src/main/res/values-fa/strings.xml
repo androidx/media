@@ -12,7 +12,7 @@
   <string name="exo_controls_next_description">بعدی</string>
   <string name="exo_controls_pause_description">مکث</string>
   <string name="exo_controls_play_description">پخش</string>
-  <string name="exo_controls_stop_description">توقف</string>
+  <string name="exo_controls_stop_description">ایست</string>
   <string name="exo_controls_rewind_description">عقب بردن</string>
   <plurals name="exo_controls_rewind_by_amount_description">
     <item quantity="one">%d ثانیه به‌عقب بردن</item>

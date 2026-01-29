@@ -9,7 +9,7 @@
   <string name="exo_controls_fullscreen_enter_description">Пређи на цео екран</string>
   <string name="exo_controls_fullscreen_exit_description">Изађи из целог екрана</string>
   <string name="exo_controls_previous_description">Претходна</string>
-  <string name="exo_controls_next_description">Следећа</string>
+  <string name="exo_controls_next_description">Следеће</string>
   <string name="exo_controls_pause_description">Паузирај</string>
   <string name="exo_controls_play_description">Пусти</string>
   <string name="exo_controls_stop_description">Заустави</string>

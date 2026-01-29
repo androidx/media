@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Араластыру режимі өшірілген.</string>
   <string name="mute_button_shown_unmuted">Дыбысты өшіру</string>
   <string name="mute_button_shown_muted">Дыбысты қосу</string>
+  <string name="playback_speed_increase">Жылдамдықты %.2f арттыру</string>
+  <string name="playback_speed_decrease">Жылдамдықты %.2f азайту</string>
 </resources>

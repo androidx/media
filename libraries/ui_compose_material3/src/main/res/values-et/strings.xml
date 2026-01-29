@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Juhuesituse režiim on keelatud.</string>
   <string name="mute_button_shown_unmuted">Vaigista</string>
   <string name="mute_button_shown_muted">Tühista vaigistus</string>
+  <string name="playback_speed_increase">Kiiruse suurendamine %.2f võrra</string>
+  <string name="playback_speed_decrease">Kiiruse vähendamine %.2f võrra</string>
 </resources>

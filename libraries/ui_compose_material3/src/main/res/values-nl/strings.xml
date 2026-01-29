@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Shufflemodus uitgezet.</string>
   <string name="mute_button_shown_unmuted">Geluid uitzetten</string>
   <string name="mute_button_shown_muted">Geluid aanzetten</string>
+  <string name="playback_speed_increase">Snelheid verhogen met %.2f</string>
+  <string name="playback_speed_decrease">Snelheid verlagen met %.2f</string>
 </resources>

@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Tryb odtwarzania losowego wyłączony.</string>
   <string name="mute_button_shown_unmuted">Wycisz</string>
   <string name="mute_button_shown_muted">Wyłącz wyciszenie</string>
+  <string name="playback_speed_increase">Zwiększ szybkość o %.2f</string>
+  <string name="playback_speed_decrease">Zmniejsz szybkość o %.2f</string>
 </resources>

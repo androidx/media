@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Modaliteti i përzierjes është i çaktivizuar.</string>
   <string name="mute_button_shown_unmuted">Çaktivizo audion</string>
   <string name="mute_button_shown_muted">Aktivizo audion</string>
+  <string name="playback_speed_increase">Rrit shpejtësinë me %.2f</string>
+  <string name="playback_speed_decrease">Ul shpejtësinë me %.2f</string>
 </resources>

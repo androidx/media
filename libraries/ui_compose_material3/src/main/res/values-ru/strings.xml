@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Перемешивание отключено.</string>
   <string name="mute_button_shown_unmuted">Отключить звук</string>
   <string name="mute_button_shown_muted">Включить звук</string>
+  <string name="playback_speed_increase">Увеличить скорость воспроизведения на %.2f</string>
+  <string name="playback_speed_decrease">Уменьшить скорость воспроизведения на %.2f</string>
 </resources>

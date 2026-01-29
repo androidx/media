@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Karıştırma modu devre dışı bırakıldı.</string>
   <string name="mute_button_shown_unmuted">Sesi kapat</string>
   <string name="mute_button_shown_muted">Sesi aç</string>
+  <string name="playback_speed_increase">Hızı %.2f artır</string>
+  <string name="playback_speed_decrease">Hızı %.2f azalt</string>
 </resources>

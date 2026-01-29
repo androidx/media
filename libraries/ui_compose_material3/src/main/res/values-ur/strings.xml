@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">شفل وضع غیر فعال ہے۔</string>
   <string name="mute_button_shown_unmuted">خاموش کریں</string>
   <string name="mute_button_shown_muted">آواز چالو کریں</string>
+  <string name="playback_speed_increase">‫%.2f تک رفتار بڑھائیں</string>
+  <string name="playback_speed_decrease">‫%.2f تک رفتار کم کریں</string>
 </resources>

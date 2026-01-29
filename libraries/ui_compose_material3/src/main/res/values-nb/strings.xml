@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Modus for tilfeldig rekkefølge er av.</string>
   <string name="mute_button_shown_unmuted">Kutt lyden</string>
   <string name="mute_button_shown_muted">Slå på lyden</string>
+  <string name="playback_speed_increase">Øk hastigheten med %.2f</string>
+  <string name="playback_speed_decrease">Reduser hastigheten med %.2f</string>
 </resources>

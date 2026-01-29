@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Slökkt á stokkun.</string>
   <string name="mute_button_shown_unmuted">Slökkva á hljóði</string>
   <string name="mute_button_shown_muted">Kveikja á hljóði</string>
+  <string name="playback_speed_increase">Auka hraða um %.2f</string>
+  <string name="playback_speed_decrease">Minnka hraða um %.2f</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Umezima hali ya kuchanganya.</string>
   <string name="mute_button_shown_unmuted">Zima sauti</string>
   <string name="mute_button_shown_muted">Rejesha sauti</string>
+  <string name="playback_speed_increase">Ongeza kasi kwa %.2f</string>
+  <string name="playback_speed_decrease">Punguza kasi kwa %.2f</string>
 </resources>

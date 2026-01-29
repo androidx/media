@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Maišymo režimas išjungtas.</string>
   <string name="mute_button_shown_unmuted">Nutildyti</string>
   <string name="mute_button_shown_muted">Įjungti garsą</string>
+  <string name="playback_speed_increase">Padidinti greitį %.2f</string>
+  <string name="playback_speed_decrease">Sumažinti greitį %.2f</string>
 </resources>

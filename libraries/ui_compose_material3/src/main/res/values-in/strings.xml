@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Mode acak dinonaktifkan.</string>
   <string name="mute_button_shown_unmuted">Bisukan</string>
   <string name="mute_button_shown_muted">Bunyikan</string>
+  <string name="playback_speed_increase">Meningkatkan kecepatan sebesar %.2f</string>
+  <string name="playback_speed_decrease">Mengurangi kecepatan sebesar %.2f</string>
 </resources>

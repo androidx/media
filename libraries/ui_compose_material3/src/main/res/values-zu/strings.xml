@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Imodi yokushova ivaliwe.</string>
   <string name="mute_button_shown_unmuted">Thulisa</string>
   <string name="mute_button_shown_muted">Susa ukuthula</string>
+  <string name="playback_speed_increase">Khulisa isivinini ngo-%.2f</string>
+  <string name="playback_speed_decrease">Yehlisa isivinini ngo-%.2f</string>
 </resources>

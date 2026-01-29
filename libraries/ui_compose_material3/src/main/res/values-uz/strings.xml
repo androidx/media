@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Aralash rejim oʻchirildi.</string>
   <string name="mute_button_shown_unmuted">Ovozsiz</string>
   <string name="mute_button_shown_muted">Ovozni yoqish</string>
+  <string name="playback_speed_increase">Tezlikni %.2f oshirish</string>
+  <string name="playback_speed_decrease">Tezlikni %.2f kamaytirish</string>
 </resources>

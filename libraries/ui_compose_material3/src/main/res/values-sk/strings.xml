@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Režim náhodného prehrávania je vypnutý.</string>
   <string name="mute_button_shown_unmuted">Vypnúť zvuk</string>
   <string name="mute_button_shown_muted">Zapnúť zvuk</string>
+  <string name="playback_speed_increase">Zvýšiť rýchlosť o %.2f</string>
+  <string name="playback_speed_decrease">Znížiť rýchlosť o %.2f</string>
 </resources>

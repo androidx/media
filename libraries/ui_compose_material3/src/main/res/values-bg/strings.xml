@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Режимът за разбъркване е деактивиран.</string>
   <string name="mute_button_shown_unmuted">Спиране на звука</string>
   <string name="mute_button_shown_muted">Включване на звука</string>
+  <string name="playback_speed_increase">Увеличаване на скоростта с(ъс) %.2f</string>
+  <string name="playback_speed_decrease">Намаляване на скоростта с(ъс) %.2f</string>
 </resources>

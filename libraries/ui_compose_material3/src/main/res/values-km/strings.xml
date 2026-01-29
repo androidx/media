@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">បានបិទមុខងារច្របល់។</string>
   <string name="mute_button_shown_unmuted">បិទសំឡេង</string>
   <string name="mute_button_shown_muted">បើក​សំឡេង</string>
+  <string name="playback_speed_increase">បង្កើនល្បឿនត្រឹម %.2f</string>
+  <string name="playback_speed_decrease">បន្ថយល្បឿនត្រឹម %.2f</string>
 </resources>

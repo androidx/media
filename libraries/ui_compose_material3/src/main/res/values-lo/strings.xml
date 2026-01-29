@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">ປິດການນຳໃຊ້ໂໝດສັບແລ້ວ.</string>
   <string name="mute_button_shown_unmuted">ປິດສຽງ</string>
   <string name="mute_button_shown_muted">ເຊົາປິດສຽງ</string>
+  <string name="playback_speed_increase">ເພີ່ມຄວາມໄວຂຶ້ນ %.2f</string>
+  <string name="playback_speed_decrease">ຫຼຸດຄວາມໄວລົງ %.2f</string>
 </resources>

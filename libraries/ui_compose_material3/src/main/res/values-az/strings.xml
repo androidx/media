@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Qarışıq rejim deaktivdir.</string>
   <string name="mute_button_shown_unmuted">Səssiz edin</string>
   <string name="mute_button_shown_muted">Səssiz rejimdən çıxarın</string>
+  <string name="playback_speed_increase">Sürəti %.2f artırın</string>
+  <string name="playback_speed_decrease">Sürəti %.2f azaldın</string>
 </resources>

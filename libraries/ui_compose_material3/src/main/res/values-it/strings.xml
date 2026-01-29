@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Modalità riproduzione casuale disattivata.</string>
   <string name="mute_button_shown_unmuted">Disattiva audio</string>
   <string name="mute_button_shown_muted">Riattiva audio</string>
+  <string name="playback_speed_increase">Aumenta la velocità di %.2f</string>
+  <string name="playback_speed_decrease">Riduci la velocità di %.2f</string>
 </resources>

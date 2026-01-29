@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">শাফেল মোড বন্ধ করা আছে।</string>
   <string name="mute_button_shown_unmuted">মিউট করুন</string>
   <string name="mute_button_shown_muted">আনমিউট করুন</string>
+  <string name="playback_speed_increase">স্পিড %.2f বাড়ান</string>
+  <string name="playback_speed_decrease">স্পিড %.2f কমান</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">सफल मोड अफ गरिएको छ।</string>
   <string name="mute_button_shown_unmuted">म्युट गर्नुहोस्</string>
   <string name="mute_button_shown_muted">अनम्युट गर्नुहोस्</string>
+  <string name="playback_speed_increase">गति %.2f ले बढाउनुहोस्</string>
+  <string name="playback_speed_decrease">गति %.2f ले घटाउनुहोस्</string>
 </resources>

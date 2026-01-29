@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">არეულად დაკვრის რეჟიმი გამორთულია.</string>
   <string name="mute_button_shown_unmuted">დადუმება</string>
   <string name="mute_button_shown_muted">დადუმების მოხსნა</string>
+  <string name="playback_speed_increase">სიჩქარის გაზრდა %.2f-ით</string>
+  <string name="playback_speed_decrease">სიჩქარის შემცირება %.2f-ით</string>
 </resources>

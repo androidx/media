@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">已停用随机播放模式。</string>
   <string name="mute_button_shown_unmuted">静音</string>
   <string name="mute_button_shown_muted">取消静音</string>
+  <string name="playback_speed_increase">将播放速度调高 %.2f</string>
+  <string name="playback_speed_decrease">将播放速度调低 %.2f</string>
 </resources>

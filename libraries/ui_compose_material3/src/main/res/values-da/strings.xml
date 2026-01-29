@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Bland er deaktiveret.</string>
   <string name="mute_button_shown_unmuted">Slå lyden fra</string>
   <string name="mute_button_shown_muted">Slå lyden til</string>
+  <string name="playback_speed_increase">Øg hastigheden med %.2f</string>
+  <string name="playback_speed_decrease">Sænk hastigheden med %.2f</string>
 </resources>

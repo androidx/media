@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Холих горимыг идэвхгүй болгосон.</string>
   <string name="mute_button_shown_unmuted">Дууг хаах</string>
   <string name="mute_button_shown_muted">Дууг нээх</string>
+  <string name="playback_speed_increase">Хурдыг %.2f-р нэмэгдүүлэх</string>
+  <string name="playback_speed_decrease">Хурдыг %.2f-р багасгах</string>
 </resources>

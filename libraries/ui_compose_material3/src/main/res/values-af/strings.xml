@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Skommelmodus is gedeaktiveer.</string>
   <string name="mute_button_shown_unmuted">Demp</string>
   <string name="mute_button_shown_muted">Ontdemp</string>
+  <string name="playback_speed_increase">Verhoog spoed met %.2f</string>
+  <string name="playback_speed_decrease">Verlaag spoed met %.2f</string>
 </resources>

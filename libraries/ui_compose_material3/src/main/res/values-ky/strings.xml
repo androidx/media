@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Аралаштыруу режими өчүрүлдү.</string>
   <string name="mute_button_shown_unmuted">Үнүн басуу</string>
   <string name="mute_button_shown_muted">Үнүн чыгаруу</string>
+  <string name="playback_speed_increase">Ылдамдыкты %.2f көбөйтүү</string>
+  <string name="playback_speed_decrease">Ылдамдыкты %.2f азайтуу</string>
 </resources>

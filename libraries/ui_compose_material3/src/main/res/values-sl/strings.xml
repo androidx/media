@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Način naključnega predvajanja je onemogočen.</string>
   <string name="mute_button_shown_unmuted">Izklopi zvok</string>
   <string name="mute_button_shown_muted">Vklopi zvok</string>
+  <string name="playback_speed_increase">Povečanje hitrosti za %.2f</string>
+  <string name="playback_speed_decrease">Zmanjšanje hitrosti za %.2f</string>
 </resources>

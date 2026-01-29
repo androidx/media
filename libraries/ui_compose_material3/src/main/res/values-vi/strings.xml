@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Đã tắt chế độ trộn bài.</string>
   <string name="mute_button_shown_unmuted">Tắt tiếng</string>
   <string name="mute_button_shown_muted">Bật tiếng</string>
+  <string name="playback_speed_increase">Tăng tốc độ thêm %.2f</string>
+  <string name="playback_speed_decrease">Giảm tốc độ đi %.2f</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">El mode aleatori està desactivat.</string>
   <string name="mute_button_shown_unmuted">Silencia</string>
   <string name="mute_button_shown_muted">Deixa de silenciar</string>
+  <string name="playback_speed_increase">Augmenta la velocitat un %.2f</string>
+  <string name="playback_speed_decrease">Disminueix la velocitat un %.2f</string>
 </resources>

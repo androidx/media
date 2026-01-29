@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Shuffleläget har inaktiverats.</string>
   <string name="mute_button_shown_unmuted">Ljud av</string>
   <string name="mute_button_shown_muted">Ljud på</string>
+  <string name="playback_speed_increase">Öka hastigheten med %.2f</string>
+  <string name="playback_speed_decrease">Sänk hastigheten med %.2f</string>
 </resources>

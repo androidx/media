@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Naka-disable ang shuffle mode.</string>
   <string name="mute_button_shown_unmuted">I-mute</string>
   <string name="mute_button_shown_muted">I-unmute</string>
+  <string name="playback_speed_increase">Pabilisin nang %.2f</string>
+  <string name="playback_speed_decrease">Pabagalin nang %.2f</string>
 </resources>

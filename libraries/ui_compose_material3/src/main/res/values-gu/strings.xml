@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">શફલ મોડ બંધ છે.</string>
   <string name="mute_button_shown_unmuted">મ્યૂટ કરો</string>
   <string name="mute_button_shown_muted">અનમ્યૂટ કરો</string>
+  <string name="playback_speed_increase">સ્પીડ %.2f વધારો</string>
+  <string name="playback_speed_decrease">સ્પીડ %.2f ઘટાડો</string>
 </resources>

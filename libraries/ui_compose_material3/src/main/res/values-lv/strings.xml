@@ -23,4 +23,6 @@
   <string name="shuffle_button_shuffle_off">Atskaņošana jauktā secībā ir atspējota.</string>
   <string name="mute_button_shown_unmuted">Izslēgt skaņu</string>
   <string name="mute_button_shown_muted">Ieslēgt skaņu</string>
+  <string name="playback_speed_increase">Palielināt ātrumu par %.2f</string>
+  <string name="playback_speed_decrease">Samazināt ātrumu par %.2f</string>
 </resources>

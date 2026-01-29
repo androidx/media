@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Desactivouse o modo aleatorio.</string>
   <string name="mute_button_shown_unmuted">Silenciar</string>
   <string name="mute_button_shown_muted">Activar o son</string>
+  <string name="playback_speed_increase">Aumentar a velocidade en %.2f</string>
+  <string name="playback_speed_decrease">Reducir a velocidade en %.2f</string>
 </resources>

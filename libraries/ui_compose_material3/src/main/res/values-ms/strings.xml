@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Mod rombak dilumpuhkan.</string>
   <string name="mute_button_shown_unmuted">Redam</string>
   <string name="mute_button_shown_muted">Nyahredam</string>
+  <string name="playback_speed_increase">Tingkatkan kelajuan sebanyak %.2f</string>
+  <string name="playback_speed_decrease">Kurangkan kelajuan sebanyak %.2f</string>
 </resources>

@@ -23,4 +23,6 @@
   <string name="shuffle_button_shuffle_off">Način rada za nasumičnu reprodukciju je onemogućen.</string>
   <string name="mute_button_shown_unmuted">Isključivanje zvuka</string>
   <string name="mute_button_shown_muted">Uključivanje zvuka</string>
+  <string name="playback_speed_increase">Povećavanje brzine za %.2f</string>
+  <string name="playback_speed_decrease">Smanjivanje brzine za %.2f</string>
 </resources>

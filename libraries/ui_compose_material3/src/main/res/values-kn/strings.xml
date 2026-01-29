@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">ಶಫಲ್ ಮೋಡ್ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.</string>
   <string name="mute_button_shown_unmuted">ಮ್ಯೂಟ್ ಮಾಡಿ</string>
   <string name="mute_button_shown_muted">ಅನ್‌ಮ್ಯೂಟ್ ಮಾಡಿ</string>
+  <string name="playback_speed_increase">ವೇಗವನ್ನು %.2f ರಷ್ಟು ಹೆಚ್ಚಿಸಿ</string>
+  <string name="playback_speed_decrease">ವೇಗವನ್ನು %.2f ರಷ್ಟು ಕಡಿಮೆ ಮಾಡಿ</string>
 </resources>

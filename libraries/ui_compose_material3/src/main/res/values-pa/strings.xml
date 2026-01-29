@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">\'ਬੇਤਰਤੀਬ ਕਰੋ\' ਮੋਡ ਬੰਦ ਹੈ।</string>
   <string name="mute_button_shown_unmuted">ਮਿਊਟ ਕਰੋ</string>
   <string name="mute_button_shown_muted">ਅਣਮਿਊਟ ਕਰੋ</string>
+  <string name="playback_speed_increase">ਸਪੀਡ ਨੂੰ %.2f ਤੱਕ ਵਧਾਓ</string>
+  <string name="playback_speed_decrease">ਸਪੀਡ ਨੂੰ %.2f ਤੱਕ ਘਟਾਓ</string>
 </resources>

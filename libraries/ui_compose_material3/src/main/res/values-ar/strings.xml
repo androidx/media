@@ -29,4 +29,6 @@
   <string name="shuffle_button_shuffle_off">تم إيقاف وضع الترتيب العشوائي.</string>
   <string name="mute_button_shown_unmuted">كتم الصوت</string>
   <string name="mute_button_shown_muted">إعادة الصوت</string>
+  <string name="playback_speed_increase">زيادة السرعة بمقدار %.2f</string>
+  <string name="playback_speed_decrease">خفض السرعة بمقدار %.2f</string>
 </resources>

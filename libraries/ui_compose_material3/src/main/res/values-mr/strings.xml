@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">शफल मोड बंद केला आहे.</string>
   <string name="mute_button_shown_unmuted">म्यूट करा</string>
   <string name="mute_button_shown_muted">अनम्यूट करा</string>
+  <string name="playback_speed_increase">वेग %.2f ने वाढवा</string>
+  <string name="playback_speed_decrease">वेग %.2f ने कमी करा</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">ഷഫിൾ മോഡ് പ്രവർത്തനരഹിതമാക്കി.</string>
   <string name="mute_button_shown_unmuted">മ്യൂട്ട് ചെയ്യുക</string>
   <string name="mute_button_shown_muted">അൺമ്യൂട്ട് ചെയ്യുക</string>
+  <string name="playback_speed_increase">വേഗത %.2f കൂട്ടുക</string>
+  <string name="playback_speed_decrease">വേഗത %.2f കുറയ്ക്കുക</string>
 </resources>

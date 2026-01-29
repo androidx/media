@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Náhodné přehrávání je vypnuté.</string>
   <string name="mute_button_shown_unmuted">Ztlumit</string>
   <string name="mute_button_shown_muted">Zapnout zvuk</string>
+  <string name="playback_speed_increase">Zrychlit o %.2f</string>
+  <string name="playback_speed_decrease">Zpomalit o %.2f</string>
 </resources>

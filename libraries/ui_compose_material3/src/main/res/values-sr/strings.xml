@@ -23,4 +23,6 @@
   <string name="shuffle_button_shuffle_off">Режим Насумично је онемогућен.</string>
   <string name="mute_button_shown_unmuted">Искључи звук</string>
   <string name="mute_button_shown_muted">Укључи звук</string>
+  <string name="playback_speed_increase">Повећај брзину за %.2f</string>
+  <string name="playback_speed_decrease">Смањи брзину за %.2f</string>
 </resources>

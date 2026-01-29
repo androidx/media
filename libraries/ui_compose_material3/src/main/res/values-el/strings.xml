@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Η λειτουργία τυχαίας αναπαραγωγής απενεργοποιήθηκε.</string>
   <string name="mute_button_shown_unmuted">Σίγαση</string>
   <string name="mute_button_shown_muted">Κατάργηση σίγασης</string>
+  <string name="playback_speed_increase">Αύξηση ταχύτητας κατά %.2f</string>
+  <string name="playback_speed_decrease">Μείωση ταχύτητας κατά %.2f</string>
 </resources>

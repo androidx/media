@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">A keverés mód ki van kapcsolva.</string>
   <string name="mute_button_shown_unmuted">Némítás</string>
   <string name="mute_button_shown_muted">Némítás feloldása</string>
+  <string name="playback_speed_increase">Sebesség növelése ennyivel: %.2f</string>
+  <string name="playback_speed_decrease">Sebesség csökkentése ennyivel: %.2f</string>
 </resources>

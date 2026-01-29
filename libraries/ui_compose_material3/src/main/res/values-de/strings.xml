@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Zufallsmix deaktiviert.</string>
   <string name="mute_button_shown_unmuted">Stummschalten</string>
   <string name="mute_button_shown_muted">Stummschaltung aufheben</string>
+  <string name="playback_speed_increase">Geschwindigkeit um %.2f erhöhen</string>
+  <string name="playback_speed_decrease">Geschwindigkeit um %.2f verringern</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">셔플 모드가 사용 중지되었습니다.</string>
   <string name="mute_button_shown_unmuted">음소거</string>
   <string name="mute_button_shown_muted">음소거 해제</string>
+  <string name="playback_speed_increase">속도 %.2f 높이기</string>
+  <string name="playback_speed_decrease">속도 %.2f 낮추기</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">„Режимот на мешање“ е оневозможен.</string>
   <string name="mute_button_shown_unmuted">Исклучи звук</string>
   <string name="mute_button_shown_muted">Вклучи звук</string>
+  <string name="playback_speed_increase">Зголеми ја брзината за %.2f</string>
+  <string name="playback_speed_decrease">Намали ја брзината за %.2f</string>
 </resources>

@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">በውዝ ሁነታ ተሰናክሏል።</string>
   <string name="mute_button_shown_unmuted">ድምፀ-ከል አድርግ</string>
   <string name="mute_button_shown_muted">ድምፀ-ከል አንሳ</string>
+  <string name="playback_speed_increase">ፍጥነትን በ%.2f ጨምር</string>
+  <string name="playback_speed_decrease">ፍጥነትን በ%.2f ቀንስ</string>
 </resources>

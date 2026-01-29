@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">ရောသမမွှေမုဒ် ပိတ်ထားသည်။</string>
   <string name="mute_button_shown_unmuted">အသံပိတ်ရန်</string>
   <string name="mute_button_shown_muted">အသံပြန်ဖွင့်ရန်</string>
+  <string name="playback_speed_increase">မြန်နှုန်းကို %.2f တိုးရန်</string>
+  <string name="playback_speed_decrease">မြန်နှုန်းကို %.2f လျှော့ရန်</string>
 </resources>

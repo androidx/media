@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">கலைத்துப் போடும் மோட் ஆஃப் செய்யப்பட்டுள்ளது.</string>
   <string name="mute_button_shown_unmuted">ஒலியடக்கும்</string>
   <string name="mute_button_shown_muted">ஒலி எழுப்பும்</string>
+  <string name="playback_speed_increase">வேகத்தை %.2f அதிகரிக்கும்</string>
+  <string name="playback_speed_decrease">வேகத்தை %.2f குறைக்கும்</string>
 </resources>

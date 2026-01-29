@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">షఫుల్ మోడ్ డిజేబుల్ అయింది.</string>
   <string name="mute_button_shown_unmuted">మ్యూట్ చేయండి</string>
   <string name="mute_button_shown_muted">అన్‌మ్యూట్ చేయండి</string>
+  <string name="playback_speed_increase">స్పీడ్‌ను %.2f పెంచండి</string>
+  <string name="playback_speed_decrease">స్పీడ్‌ను %.2f తగ్గించండి</string>
 </resources>

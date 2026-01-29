@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">حالت پخش درهم غیرفعال است.</string>
   <string name="mute_button_shown_unmuted">صامت کردن</string>
   <string name="mute_button_shown_muted">صدادار کردن</string>
+  <string name="playback_speed_increase">افزایش سرعت به‌میزان %.2f</string>
+  <string name="playback_speed_decrease">کاهش سرعت به‌میزان %.2f</string>
 </resources>

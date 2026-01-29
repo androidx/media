@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">කලවම් කරන්න ප්‍රකාරය අබල කර ඇත.</string>
   <string name="mute_button_shown_unmuted">නිහඬ කරන්න</string>
   <string name="mute_button_shown_muted">නිහඬ නොකරන්න</string>
+  <string name="playback_speed_increase">වේගය %.2fකින් වැඩි කරන්න</string>
+  <string name="playback_speed_decrease">වේගය %.2fකින් අඩු කරන්න</string>
 </resources>

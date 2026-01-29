@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">シャッフル モードが無効になりました。</string>
   <string name="mute_button_shown_unmuted">ミュート</string>
   <string name="mute_button_shown_muted">ミュートを解除</string>
+  <string name="playback_speed_increase">速度を %.2f 上げる</string>
+  <string name="playback_speed_decrease">速度を %.2f 下げる</string>
 </resources>

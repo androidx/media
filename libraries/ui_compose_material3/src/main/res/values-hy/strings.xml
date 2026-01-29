@@ -21,4 +21,6 @@
   <string name="shuffle_button_shuffle_off">Խառնելու ռեժիմն անջատված է։</string>
   <string name="mute_button_shown_unmuted">Անջատել ձայնը</string>
   <string name="mute_button_shown_muted">Միացնել ձայնը</string>
+  <string name="playback_speed_increase">Արագացնել %.2f-ով</string>
+  <string name="playback_speed_decrease">Դանդաղեցնել %.2f-ով</string>
 </resources>

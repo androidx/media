@@ -25,4 +25,6 @@
   <string name="shuffle_button_shuffle_off">Режим перемішування вимкнено.</string>
   <string name="mute_button_shown_unmuted">Вимкнути звук</string>
   <string name="mute_button_shown_muted">Увімкнути звук</string>
+  <string name="playback_speed_increase">Збільшити швидкість на %.2f</string>
+  <string name="playback_speed_decrease">Зменшити швидкість на %.2f</string>
 </resources>
