@@ -918,6 +918,7 @@ public class MediaExtractorCompatInternal {
       this.compatibilityTrackMimeType = compatibilityTrackMimeType;
     }
 
+    @SuppressWarnings("InlinedApi") // For MediaFormat.KEY_CODECS_STRING
     public MediaFormat createDownstreamMediaFormat(
         FormatHolder scratchFormatHolder, DecoderInputBuffer scratchNoDataDecoderInputBuffer) {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
