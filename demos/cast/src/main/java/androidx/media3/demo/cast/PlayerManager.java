@@ -18,7 +18,7 @@ package androidx.media3.demo.cast;
 import android.content.Context;
 import android.view.KeyEvent;
 import androidx.core.content.res.ResourcesCompat;
-import androidx.media3.cast.CastPlayer;
+import androidx.media3.cast.RemoteCastPlayer;
 import androidx.media3.cast.SessionAvailabilityListener;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -30,7 +30,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.PlayerControlView;
 import androidx.media3.ui.PlayerView;
-import com.google.android.gms.cast.framework.CastContext;
 import java.util.ArrayList;
 
 /** Manages players and an internal media queue for the demo app. */
@@ -53,7 +52,7 @@ import java.util.ArrayList;
   private final Context context;
   private final PlayerView playerView;
   private final Player localPlayer;
-  private final CastPlayer castPlayer;
+  private final RemoteCastPlayer remoteCastPlayer;
   private final ArrayList<MediaItem> mediaQueue;
   private final Listener listener;
 
@@ -67,10 +66,8 @@ import java.util.ArrayList;
    * @param context A {@link Context}.
    * @param listener A {@link Listener} for queue position changes.
    * @param playerView The {@link PlayerView} for playback.
-   * @param castContext The {@link CastContext}.
    */
-  public PlayerManager(
-      Context context, Listener listener, PlayerView playerView, CastContext castContext) {
+  public PlayerManager(Context context, Listener listener, PlayerView playerView) {
     this.context = context;
     this.listener = listener;
     this.playerView = playerView;
@@ -80,11 +77,11 @@ import java.util.ArrayList;
     localPlayer = new ExoPlayer.Builder(context).build();
     localPlayer.addListener(this);
 
-    castPlayer = new CastPlayer(castContext);
-    castPlayer.addListener(this);
-    castPlayer.setSessionAvailabilityListener(this);
+    remoteCastPlayer = new RemoteCastPlayer.Builder(context).build();
+    remoteCastPlayer.addListener(this);
+    remoteCastPlayer.setSessionAvailabilityListener(this);
 
-    setCurrentPlayer(castPlayer.isCastSessionAvailable() ? castPlayer : localPlayer);
+    setCurrentPlayer(remoteCastPlayer.isCastSessionAvailable() ? remoteCastPlayer : localPlayer);
   }
 
   // Queue manipulation methods.
@@ -192,8 +189,8 @@ import java.util.ArrayList;
   public void release() {
     currentItemIndex = C.INDEX_UNSET;
     mediaQueue.clear();
-    castPlayer.setSessionAvailabilityListener(null);
-    castPlayer.release();
+    remoteCastPlayer.setSessionAvailabilityListener(null);
+    remoteCastPlayer.release();
     playerView.setPlayer(null);
     localPlayer.release();
   }
@@ -238,7 +235,7 @@ import java.util.ArrayList;
 
   @Override
   public void onCastSessionAvailable() {
-    setCurrentPlayer(castPlayer);
+    setCurrentPlayer(remoteCastPlayer);
   }
 
   @Override
@@ -263,7 +260,7 @@ import java.util.ArrayList;
 
     playerView.setPlayer(currentPlayer);
     playerView.setControllerHideOnTouch(currentPlayer == localPlayer);
-    if (currentPlayer == castPlayer) {
+    if (currentPlayer == remoteCastPlayer) {
       playerView.setControllerShowTimeoutMs(0);
       playerView.showController();
       playerView.setDefaultArtwork(
