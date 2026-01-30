@@ -1770,7 +1770,10 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // * b/229399008#comment9
     // * https://github.com/androidx/media/issues/2408
     if ((Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_AV1)
-            || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9))
+            || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9)
+            || (Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
+                && Objects.equals(MediaCodecUtil.getDolbyVisionBlMimeType(newFormat),
+                    MimeTypes.VIDEO_AV1)))
         && !newFormat.initializationData.isEmpty()) {
       newFormat = newFormat.buildUpon().setInitializationData(null).build();
     }
