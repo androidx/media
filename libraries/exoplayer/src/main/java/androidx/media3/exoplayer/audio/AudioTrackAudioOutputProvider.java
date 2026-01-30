@@ -83,6 +83,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
     private AudioTrackBufferSizeProvider bufferSizeProvider;
     @Nullable private AudioCapabilities audioCapabilities;
+    private float maxPlaybackSpeed;
 
     @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
     @Nullable
@@ -99,6 +100,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       if (context == null) {
         audioCapabilities = AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES;
       }
+      maxPlaybackSpeed = MAX_PLAYBACK_SPEED;
     }
 
     /**
@@ -152,6 +154,26 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       return this;
     }
 
+    /**
+     * Sets the maximum playback speed that {@link AudioTrackAudioOutput} provided by this instance
+     * are going to be configured for. This is used to allocate buffers that are big enough to not
+     * underrun at the maximum playback speed. This value has no effect if {@code
+     * useAudioOutputPlaybackParams} is disabled.
+     *
+     * <p>The default value is {@link DefaultAudioSink#MAX_PLAYBACK_SPEED}.
+     *
+     * @param maxPlaybackSpeed The maximum playback speed to use. Must be equal to or between {@code
+     *     1f} and {@link DefaultAudioSink#MAX_PLAYBACK_SPEED}.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setMaxPlaybackSpeed(float maxPlaybackSpeed) {
+      checkArgument(maxPlaybackSpeed >= 1f && maxPlaybackSpeed <= MAX_PLAYBACK_SPEED);
+      this.maxPlaybackSpeed = maxPlaybackSpeed;
+      return this;
+    }
+
     /** Sets the static {@link AudioCapabilities} for backwards compatibility. */
     @UnstableApi
     @CanIgnoreReturnValue
@@ -191,6 +213,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
   private final AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
   private final AudioOffloadSupportProvider audioOffloadSupportProvider;
   @Nullable private final CapabilityChangeListener capabilityChangeListener;
+  private final float maxPlaybackSpeed;
 
   private @MonotonicNonNull ListenerSet<Listener> listeners;
   private Clock clock;
@@ -207,6 +230,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     this.audioCapabilities = builder.audioCapabilities;
     this.audioTrackProvider = builder.audioTrackProvider;
     this.capabilityChangeListener = builder.context == null ? null : new CapabilityChangeListener();
+    this.maxPlaybackSpeed = builder.maxPlaybackSpeed;
     this.clock = Clock.DEFAULT;
   }
 
@@ -295,7 +319,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
                 outputPcmFrameSize != C.LENGTH_UNSET ? outputPcmFrameSize : 1,
                 outputSampleRate,
                 bitrate,
-                usePlaybackParameters ? MAX_PLAYBACK_SPEED : DEFAULT_PLAYBACK_SPEED);
+                usePlaybackParameters ? maxPlaybackSpeed : DEFAULT_PLAYBACK_SPEED);
 
     return new OutputConfig.Builder()
         .setSampleRate(outputSampleRate)
