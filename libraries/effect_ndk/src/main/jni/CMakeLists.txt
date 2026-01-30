@@ -29,6 +29,8 @@ find_library(glesv2-lib GLESv2)
 
 add_library(${PROJECT_NAME} SHARED hardware_buffer_jni.cc)
 
+target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,max-page-size=16384")
+
 target_link_libraries(${PROJECT_NAME}
     ${log-lib}
     ${android-lib}
