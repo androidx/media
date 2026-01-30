@@ -44,9 +44,10 @@ public class ToFloatPcmAudioProcessorTest {
    *   <li>{@link C#ENCODING_PCM_24BIT}
    *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_DOUBLE}
    * </ul>
    */
-  @TestParameter({"2", "22", "21", "1610612736", "1342177280"})
+  @TestParameter({"2", "22", "21", "1610612736", "1342177280", "1879048192"})
   private int pcmEncoding;
 
   @Test
@@ -94,6 +95,8 @@ public class ToFloatPcmAudioProcessorTest {
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
         return 1f / 0x800000;
+      case C.ENCODING_PCM_DOUBLE:
+        return 0;
     }
     throw new IllegalArgumentException();
   }
@@ -152,6 +155,8 @@ public class ToFloatPcmAudioProcessorTest {
               0x00,
               0x00
             });
+      case C.ENCODING_PCM_DOUBLE:
+        return createByteBuffer(new double[] {1, -1, 0.5, -0.5});
     }
     throw new IllegalArgumentException();
   }

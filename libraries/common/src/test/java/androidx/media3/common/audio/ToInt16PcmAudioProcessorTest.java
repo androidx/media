@@ -147,6 +147,8 @@ public class ToInt16PcmAudioProcessorTest {
             });
       case C.ENCODING_PCM_FLOAT:
         return createByteBuffer(new float[] {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f});
+      case C.ENCODING_PCM_DOUBLE:
+        return createByteBuffer(new double[] {-1.0, -0.5, 0.0, 0.5, 1.0});
       default:
         throw new IllegalArgumentException();
     }
@@ -156,7 +158,7 @@ public class ToInt16PcmAudioProcessorTest {
     if (pcmEncoding == C.ENCODING_PCM_8BIT) {
       return 256;
     }
-    if (pcmEncoding == C.ENCODING_PCM_FLOAT) {
+    if (pcmEncoding == C.ENCODING_PCM_FLOAT || pcmEncoding == C.ENCODING_PCM_DOUBLE) {
       return 1;
     }
     return 0;
@@ -172,7 +174,8 @@ public class ToInt16PcmAudioProcessorTest {
           value(C.ENCODING_PCM_24BIT_BIG_ENDIAN).withName("ENCODING_PCM_24BIT_BIG_ENDIAN"),
           value(C.ENCODING_PCM_32BIT).withName("ENCODING_PCM_32BIT"),
           value(C.ENCODING_PCM_32BIT_BIG_ENDIAN).withName("ENCODING_PCM_32BIT_BIG_ENDIAN"),
-          value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"));
+          value(C.ENCODING_PCM_FLOAT).withName("ENCODING_PCM_FLOAT"),
+          value(C.ENCODING_PCM_DOUBLE).withName("ENCODING_PCM_DOUBLE"));
     }
   }
 }
