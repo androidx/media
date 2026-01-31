@@ -24,7 +24,9 @@ import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -1359,6 +1361,7 @@ public final class MediaMetadata {
   private static final String FIELD_IS_BROWSABLE = Util.intToStringMaxRadix(32);
   private static final String FIELD_DURATION_MS = Util.intToStringMaxRadix(33);
   private static final String FIELD_SUPPORTED_COMMANDS = Util.intToStringMaxRadix(34);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(35);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1000);
 
   // Use a fairly lenient threshold for sending byte array to legacy processes that don't support
@@ -1503,6 +1506,17 @@ public final class MediaMetadata {
   }
 
   /**
+   * Returns a {@link Bundle} containing the entirety of this {@link #MediaMetadata} object without
+   * bundling it, for use in local process communication only.
+   */
+  @UnstableApi
+  public Bundle toBundleForLocalProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
+    return bundle;
+  }
+
+  /**
    * @deprecated Use {@link #fromBundle(Bundle, int)}.
    */
   @UnstableApi
@@ -1521,6 +1535,10 @@ public final class MediaMetadata {
   @UnstableApi
   @SuppressWarnings("deprecation") // Unbundling deprecated fields.
   public static MediaMetadata fromBundle(Bundle bundle, int interfaceVersion) {
+    IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getMediaMetadata();
+    }
     Builder builder = new Builder();
     builder
         .setTitle(bundle.getCharSequence(FIELD_TITLE))
@@ -1691,6 +1709,12 @@ public final class MediaMetadata {
       case FOLDER_TYPE_NONE:
       default:
         return MEDIA_TYPE_FOLDER_MIXED;
+    }
+  }
+
+  private final class InProcessBinder extends Binder {
+    public MediaMetadata getMediaMetadata() {
+      return MediaMetadata.this;
     }
   }
 }
