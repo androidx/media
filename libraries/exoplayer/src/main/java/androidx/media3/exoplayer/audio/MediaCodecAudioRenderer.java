@@ -669,15 +669,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       }
     }
     try {
-      if (SDK_INT >= 29) {
-        if (isBypassEnabled()
-            && getConfiguration().offloadModePreferred != AudioSink.OFFLOAD_MODE_DISABLED) {
-          // TODO(b/280050553): Investigate potential issue where bypass is enabled for passthrough
-          //  but offload is not supported
-          audioSink.setOffloadMode(getConfiguration().offloadModePreferred);
-        } else {
-          audioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_DISABLED);
-        }
+      if (isBypassEnabled()
+          && getConfiguration().offloadModePreferred != AudioSink.OFFLOAD_MODE_DISABLED) {
+        // TODO(b/280050553): Investigate potential issue where bypass is enabled for passthrough
+        //  but offload is not supported
+        audioSink.setOffloadMode(getConfiguration().offloadModePreferred);
+      } else {
+        audioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_DISABLED);
       }
       audioSink.configure(audioSinkInputFormat, /* specifiedBufferSize= */ 0, channelMap);
     } catch (AudioSink.ConfigurationException e) {
@@ -979,8 +977,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer) {
-    if (SDK_INT >= 29
-        && buffer.format != null
+    if (buffer.format != null
         && Objects.equals(buffer.format.sampleMimeType, MimeTypes.AUDIO_OPUS)
         && isBypassEnabled()) {
       ByteBuffer data = checkNotNull(buffer.supplementalData);
