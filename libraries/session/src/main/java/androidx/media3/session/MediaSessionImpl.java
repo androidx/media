@@ -91,7 +91,6 @@ import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.ref.WeakReference;
@@ -1131,23 +1130,25 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         });
   }
 
-  /* package */ boolean onPlayRequested() {
+  /* package */ ListenableFuture<Boolean> onPlayRequested() {
     if (Looper.myLooper() != Looper.getMainLooper()) {
-      try {
-        return CallbackToFutureAdapter.<Boolean>getFuture(
-                completer -> {
-                  mainHandler.post(() -> completer.set(onPlayRequested()));
-                  return "onPlayRequested";
-                })
-            .get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
+      return CallbackToFutureAdapter.<Boolean>getFuture(
+              completer -> {
+                mainHandler.post(
+                    () -> {
+                      try {
+                        completer.set(onPlayRequested().get());
+                      } catch (ExecutionException | InterruptedException e) {
+                        completer.setException(new IllegalStateException(e));
+                      }
+                    });
+                return "onPlayRequested";
+              });
     }
     if (this.mediaSessionListener != null) {
-      return this.mediaSessionListener.onPlayRequested(instance);
+      return Futures.immediateFuture(this.mediaSessionListener.onPlayRequested(instance));
     }
-    return true;
+    return Futures.immediateFuture(true);
   }
 
   /**
@@ -1158,84 +1159,91 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    *
    * @param controller The controller requesting to play.
    */
-  /* package */ void handleMediaControllerPlayRequest(
+  /* package */ ListenableFuture<SessionResult> handleMediaControllerPlayRequest(
       ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
-    if (!onPlayRequested()) {
-      // Request denied, e.g. due to missing foreground service abilities.
-      return;
-    }
-    boolean hasCurrentMediaItem =
-        playerWrapper.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-            && playerWrapper.getCurrentMediaItem() != null;
-    boolean canAddMediaItems =
-        playerWrapper.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)
-            || playerWrapper.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS);
-    ControllerInfo controllerForRequest = resolveControllerInfoForCallback(controller);
-    Player.Commands playCommand =
-        new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build();
-    if (hasCurrentMediaItem || !canAddMediaItems) {
-      // No playback resumption needed or possible.
-      if (!hasCurrentMediaItem) {
-        Log.w(
-            TAG,
-            "Play requested without current MediaItem, but playback resumption prevented by"
-                + " missing available commands");
-      }
-      Util.handlePlayButtonAction(playerWrapper);
-      if (callOnPlayerInteractionFinished) {
-        onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
-      }
-    } else {
-      @Nullable
-      ListenableFuture<MediaItemsWithStartPosition> future =
-          checkNotNull(
-              callback.onPlaybackResumption(
-                  instance, controllerForRequest, /* isForPlayback= */ true),
-              "Callback.onPlaybackResumption must return a non-null future");
-      Futures.addCallback(
-          future,
-          new FutureCallback<MediaItemsWithStartPosition>() {
-            @Override
-            public void onSuccess(MediaItemsWithStartPosition mediaItemsWithStartPosition) {
-              callWithControllerForCurrentRequestSet(
-                      controllerForRequest,
-                      () -> {
-                        MediaUtils.setMediaItemsWithStartIndexAndPosition(
-                            playerWrapper, mediaItemsWithStartPosition);
-                        Util.handlePlayButtonAction(playerWrapper);
-                        if (callOnPlayerInteractionFinished) {
-                          onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
-                        }
-                      })
-                  .run();
+    return Futures.transformAsync(
+        onPlayRequested(),
+        playRequested -> {
+          if (!playRequested) {
+            // Request denied, e.g. due to missing foreground service abilities.
+            return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_ERROR_UNKNOWN));
+          }
+          boolean hasCurrentMediaItem =
+              playerWrapper.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+                  && playerWrapper.getCurrentMediaItem() != null;
+          boolean canAddMediaItems =
+              playerWrapper.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)
+                  || playerWrapper.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS);
+          ControllerInfo controllerForRequest = resolveControllerInfoForCallback(controller);
+          Player.Commands playCommand =
+              new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build();
+          if (hasCurrentMediaItem || !canAddMediaItems) {
+            // No playback resumption needed or possible.
+            if (!hasCurrentMediaItem) {
+              Log.w(
+                  TAG,
+                  "Play requested without current MediaItem, but playback resumption prevented by"
+                      + " missing available commands");
             }
-
-            @Override
-            public void onFailure(Throwable t) {
-              if (t instanceof UnsupportedOperationException) {
-                Log.w(
-                    TAG,
-                    "UnsupportedOperationException: Make sure to implement"
-                        + " MediaSession.Callback.onPlaybackResumption() if you add a"
-                        + " media button receiver to your manifest or if you implement the recent"
-                        + " media item contract with your MediaLibraryService.",
-                    t);
-              } else {
-                Log.e(
-                    TAG,
-                    "Failure calling MediaSession.Callback.onPlaybackResumption(): "
-                        + t.getMessage(),
-                    t);
-              }
-              // Play as requested even if playback resumption fails.
-              Util.handlePlayButtonAction(playerWrapper);
-              if (callOnPlayerInteractionFinished) {
-                onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
-              }
+            Util.handlePlayButtonAction(playerWrapper);
+            if (callOnPlayerInteractionFinished) {
+              onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
             }
-          },
-          this::postOrRunOnApplicationHandler);
-    }
+            return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+          } else {
+            ListenableFuture<SessionResult> future =
+                Futures.transform(
+                    checkNotNull(
+                      callback.onPlaybackResumption(
+                         instance, controllerForRequest, /* isForPlayback= */ true),
+                      "Callback.onPlaybackResumption must return a non-null future"),
+                    mediaItemsWithStartPosition -> {
+                      callWithControllerForCurrentRequestSet(
+                          controllerForRequest,
+                          () -> {
+                            MediaUtils.setMediaItemsWithStartIndexAndPosition(
+                                playerWrapper, mediaItemsWithStartPosition);
+                            Util.handlePlayButtonAction(playerWrapper);
+                            if (callOnPlayerInteractionFinished) {
+                              onPlayerInteractionFinishedOnHandler(
+                                  controllerForRequest, playCommand);
+                            }
+                          })
+                          .run();
+                      return new SessionResult(SessionResult.RESULT_SUCCESS);
+                    },
+                    this::postOrRunOnApplicationHandler);
+            return Futures.catching(
+                future,
+                Throwable.class,
+                t -> {
+                  if (t instanceof UnsupportedOperationException) {
+                    Log.w(
+                        TAG,
+                        "UnsupportedOperationException: Make sure to implement"
+                            + " MediaSession.Callback.onPlaybackResumption() if you add a media"
+                            + " button receiver to your manifest or if you implement the recent"
+                            + " media item contract with your MediaLibraryService.",
+                        t);
+                  } else {
+                    Log.e(
+                        TAG,
+                        "Failure calling MediaSession.Callback.onPlaybackResumption(): "
+                            + t.getMessage(),
+                        t);
+                  }
+                  // Play as requested even if playback resumption fails.
+                  Util.handlePlayButtonAction(playerWrapper);
+                  if (callOnPlayerInteractionFinished) {
+                    onPlayerInteractionFinishedOnHandler(controllerForRequest, playCommand);
+                  }
+                  return new SessionResult(SessionResult.RESULT_SUCCESS);
+                },
+                this::postOrRunOnApplicationHandler
+            );
+          }
+        },
+        this::postOrRunOnApplicationHandler);
   }
 
   /* package */ void triggerPlayerInfoUpdate() {
