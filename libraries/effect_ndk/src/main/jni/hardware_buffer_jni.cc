@@ -76,7 +76,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferToGlTextureFrameProcessor_nativeCreateEglImageFromHardwareBuffer(
+Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCreateEglImageFromHardwareBuffer(
     JNIEnv* env, jobject /* this */, jlong displayHandle,
     jobject hardwareBufferJava) {
   EGLDisplay display = reinterpret_cast<EGLDisplay>(displayHandle);
@@ -107,7 +107,7 @@ Java_androidx_media3_effect_ndk_HardwareBufferToGlTextureFrameProcessor_nativeCr
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferToGlTextureFrameProcessor_nativeBindEGLImage(
+Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeBindEGLImage(
     JNIEnv* env, jobject clazz, jint target, jlong eglImageHandle) {
   if (eglImageHandle == 0) {
     LOGE("Invalid eglImageHandle (0)");
@@ -128,7 +128,7 @@ Java_androidx_media3_effect_ndk_HardwareBufferToGlTextureFrameProcessor_nativeBi
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_androidx_media3_effect_ndk_HardwareBufferToGlTextureFrameProcessor_nativeDestroyEGLImage(
+Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeDestroyEGLImage(
     JNIEnv* env, jobject clazz, jlong displayHandle, jlong imageHandle) {
   if (imageHandle == 0) {
     LOGE("Invalid eglImageHandle (0)");

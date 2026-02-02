@@ -44,6 +44,9 @@ import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
 import androidx.media3.effect.PacketProcessor
+import androidx.media3.effect.ndk.HardwareBufferJni.nativeBindEGLImage
+import androidx.media3.effect.ndk.HardwareBufferJni.nativeCreateEglImageFromHardwareBuffer
+import androidx.media3.effect.ndk.HardwareBufferJni.nativeDestroyEGLImage
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -65,15 +68,6 @@ class HardwareBufferToGlTextureFrameProcessor(
   private var glShaderProgramPacketProcessor: GlShaderProgramPacketProcessor? = null
   private var eglContext: EGLContext? = null
   private var eglSurface: EGLSurface? = null
-
-  private external fun nativeCreateEglImageFromHardwareBuffer(
-    displayHandle: Long,
-    hardwareBuffer: HardwareBuffer,
-  ): Long
-
-  private external fun nativeBindEGLImage(target: Int, eglImageHandle: Long): Boolean
-
-  private external fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
 
   override fun setOutput(output: PacketConsumer<GlTextureFrame>) {
     this.outputConsumer = output
