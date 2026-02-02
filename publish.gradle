@@ -20,7 +20,16 @@ afterEvaluate {
         publishing {
             repositories {
                 maven {
-                    url = findProperty('mavenRepo') ?: "${buildDir}/repo"
+                    def repoUrl = findProperty('mavenRepo') ?: "${buildDir}/repo"
+                    url = uri(repoUrl)
+                    def repoUser = findProperty('mavenUser') ?: System.getenv('GITHUB_ACTOR')
+                    def repoPassword = findProperty('mavenPassword') ?: System.getenv('GITHUB_TOKEN')
+                    if (repoUser != null && repoPassword != null) {
+                        credentials {
+                            username = repoUser
+                            password = repoPassword
+                        }
+                    }
                 }
             }
             publications {
