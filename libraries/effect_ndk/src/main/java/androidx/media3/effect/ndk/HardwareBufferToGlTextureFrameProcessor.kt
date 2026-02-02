@@ -23,6 +23,7 @@ import android.opengl.EGLContext
 import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
+import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.RequiresApi
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
@@ -184,6 +185,11 @@ class HardwareBufferToGlTextureFrameProcessor(
       if (format.rotationDegrees != 90 && format.rotationDegrees != 270) format.height
       else format.width
 
+    if (SDK_INT >= 33) {
+      // TODO: b/479415385 - Convert SyncFence to EGLSync and wait on GL thread.
+      hardwareBufferFrame.acquireFence?.awaitForever()
+      hardwareBufferFrame.acquireFence?.close()
+    }
     return GlTextureFrame.Builder(
         GlTextureInfo(texture, C.INDEX_UNSET, C.INDEX_UNSET, frameWidth, frameHeight),
         directExecutor(),
