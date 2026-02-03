@@ -37,7 +37,10 @@ afterEvaluate {
                     from components.release
                     groupId = 'androidx.media3'
                     artifactId = findProperty('releaseArtifactId') ?: ''
-                    version = findProperty('releaseVersion') ?: ''
+                    // Prefer an explicit publishVersion override when provided.
+                    version = findProperty('publishVersion')
+                        ?: findProperty('releaseVersion')
+                        ?: ''
                     pom {
                         name =
                             findProperty('releaseName')

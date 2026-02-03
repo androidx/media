@@ -42,4 +42,5 @@ jobs:
         run: |
           set -euo pipefail
           REPO_URL="https://maven.pkg.github.com/${{ github.repository }}"
-          ./gradlew publish -PmavenRepo="${REPO_URL}" -PreleaseVersion="${{ inputs.release_version }}"
+          echo "Publishing version: ${{ inputs.release_version }}"
+          ./gradlew publish -PmavenRepo="${REPO_URL}" -PpublishVersion="${{ inputs.release_version }}"
