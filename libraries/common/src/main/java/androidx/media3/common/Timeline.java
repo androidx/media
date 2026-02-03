@@ -725,6 +725,10 @@ public abstract class Timeline {
       return adPlaybackState.getAdGroup(adGroupIndex).timeUs;
     }
 
+    public MediaItem[] getAdGroupMediaItems(int adGroupIndex) {
+      return adPlaybackState.getAdGroup(adGroupIndex).mediaItems;
+    }
+
     /**
      * Returns the index of the first ad in the specified ad group that should be played, or the
      * number of ads in the ad group if no ads should be played.
