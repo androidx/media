@@ -106,6 +106,9 @@ public final class C {
   /** The {@link Uri#getScheme() URI scheme} used for content with server side ad insertion. */
   @UnstableApi public static final String SSAI_SCHEME = "ssai";
 
+  /** The {@link Uri#getScheme() URI scheme} used for content with client side ad insertion. */
+  @UnstableApi public static final String CSAI_SCHEME = "csai";
+
   /**
    * The suggested maximum size in bytes of data to be transferred for inter-process communication
    * using the {@link IBinder} interface.

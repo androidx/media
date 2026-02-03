@@ -567,14 +567,19 @@ import java.util.Objects;
     }
     adsLoader.addAdsLoadedListener(componentListener);
     AdsRequest request;
-    try {
-      request = ImaUtil.getAdsRequestForAdTagDataSpec(imaFactory, adTagDataSpec);
-    } catch (IOException e) {
-      adPlaybackState = new AdPlaybackState(adsId);
-      updateAdPlaybackState();
-      pendingAdLoadError = AdLoadException.createForAllAds(e);
-      maybeNotifyPendingAdLoadError();
-      return adsLoader;
+    if (Objects.equals(adTagDataSpec.uri.getScheme(), C.CSAI_SCHEME)
+        && Objects.equals(adTagDataSpec.uri.getAuthority(), ImaAdTagUriBuilder.IMA_AUTHORITY)) {
+      request = ImaAdTagUriBuilder.createAdsRequest(imaFactory, adTagDataSpec.uri);
+    } else {
+      try {
+        request = ImaUtil.getAdsRequestForAdTagDataSpec(imaFactory, adTagDataSpec);
+      } catch (IOException e) {
+        adPlaybackState = new AdPlaybackState(adsId);
+        updateAdPlaybackState();
+        pendingAdLoadError = AdLoadException.createForAllAds(e);
+        maybeNotifyPendingAdLoadError();
+        return adsLoader;
+      }
     }
     pendingAdRequestContext = new Object();
     request.setUserRequestContext(pendingAdRequestContext);
