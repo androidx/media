@@ -58,6 +58,7 @@ dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-effect')
+    api project(modulePrefix + 'lib-transformer')
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:" + kotlinxCoroutinesVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     androidTestImplementation 'junit:junit:' + junitVersion

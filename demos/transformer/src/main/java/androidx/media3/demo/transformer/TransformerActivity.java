@@ -63,7 +63,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -81,7 +80,6 @@ import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
-import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -91,11 +89,10 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleColorLut;
-import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
-import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer;
+import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -123,7 +120,6 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -131,7 +127,6 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -369,23 +364,35 @@ public final class TransformerActivity extends AppCompatActivity {
   @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
   private Transformer createTransformer(
       @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
-    Transformer.Builder transformerBuilder =
-        new Transformer.Builder(/* context= */ this)
-            .addListener(
-                new Transformer.Listener() {
-                  @Override
-                  public void onCompleted(Composition composition, ExportResult exportResult) {
-                    TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
-                  }
+    Transformer.Builder transformerBuilder;
 
-                  @Override
-                  public void onError(
-                      Composition composition,
-                      ExportResult exportResult,
-                      ExportException exportException) {
-                    TransformerActivity.this.onError(exportException);
-                  }
-                });
+    if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
+      if (SDK_INT < 34) {
+        throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
+      }
+      transformerBuilder =
+          NdkTransformerBuilder.create(
+                  this,
+                  /* errorHandler= */ e -> {
+                    runOnUiThread(() -> onError(ExportException.createForUnexpected(e)));
+                  })
+              .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
+    } else {
+      transformerBuilder = new Transformer.Builder(/* context= */ this);
+    }
+    transformerBuilder.addListener(
+        new Transformer.Listener() {
+          @Override
+          public void onCompleted(Composition composition, ExportResult exportResult) {
+            TransformerActivity.this.onCompleted(inputUri, filePath, exportResult);
+          }
+
+          @Override
+          public void onError(
+              Composition composition, ExportResult exportResult, ExportException exportException) {
+            TransformerActivity.this.onError(exportException);
+          }
+        });
 
     if (bundle != null) {
       @Nullable String audioMimeType = bundle.getString(ConfigurationActivity.AUDIO_MIME_TYPE);
@@ -415,28 +422,6 @@ public final class TransformerActivity extends AppCompatActivity {
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_MP4_EDIT_LIST_TRIMMING)) {
         transformerBuilder.experimentalSetMp4EditListTrimEnabled(true);
-      }
-
-      if (bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-        if (SDK_INT < 34) {
-          throw new IllegalStateException(
-              "API version 34+ required to export with PacketProcessor");
-        }
-        GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
-        ExecutorService glExecutorService = Util.newSingleThreadExecutor("PacketProcessor:Effect");
-        HardwareBufferSurfaceRenderer surfaceRenderer =
-            HardwareBufferSurfaceRenderer.create(
-                getApplication(),
-                MoreExecutors.listeningDecorator(glExecutorService),
-                singleContextGlObjectsProvider,
-                NO_OP.INSTANCE,
-                /* errorConsumer= */ e -> {
-                  runOnUiThread(() -> onError(ExportException.createForUnexpected(e)));
-                });
-
-        // TODO: b/449957627 - Implement HardwareBuffer compositing.
-        transformerBuilder.setPacketProcessor(
-            new DefaultHardwareBufferEffectsPipeline(), surfaceRenderer);
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {

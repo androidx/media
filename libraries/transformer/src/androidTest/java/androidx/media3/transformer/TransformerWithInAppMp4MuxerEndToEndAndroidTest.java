@@ -24,21 +24,15 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
-import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.effect.SingleContextGlObjectsProvider;
-import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer;
+import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Test;
@@ -88,24 +82,20 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
 
-    Transformer.Builder transformerBuilder =
-        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory());
+    Transformer.Builder transformerBuilder;
     if (usePacketProcessor) {
-      GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
-      ListeningExecutorService glExecutorService =
-          MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("PacketProcessor:Effect"));
-      HardwareBufferSurfaceRenderer renderer =
-          HardwareBufferSurfaceRenderer.create(
-              context,
-              glExecutorService,
-              singleContextGlObjectsProvider,
-              NO_OP.INSTANCE,
-              /* errorConsumer= */ (e) -> {
-                throw new AssertionError(e);
-              });
-      transformerBuilder.setPacketProcessor(new DefaultHardwareBufferEffectsPipeline(), renderer);
+      transformerBuilder =
+          NdkTransformerBuilder.create(
+                  context,
+                  /* errorHandler= */ (e) -> {
+                    throw new AssertionError(e);
+                  })
+              .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
+    } else {
+      transformerBuilder = new Transformer.Builder(context);
     }
-    Transformer transformer = transformerBuilder.build();
+    Transformer transformer =
+        transformerBuilder.setMuxerFactory(new InAppMp4Muxer.Factory()).build();
 
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFile));

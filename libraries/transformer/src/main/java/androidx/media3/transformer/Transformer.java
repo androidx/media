@@ -54,7 +54,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
-import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
@@ -340,33 +339,48 @@ public final class Transformer {
     }
 
     /**
-     * Sets the {@link PacketProcessor} used to process the video frames.
+     * Sets the {@link RenderingPacketConsumer} used to render {@link HardwareBufferFrame}s to the
+     * encoder.
      *
      * <p>This parameter has no effect when transmuxing video, or when processing audio.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
-     * VideoFrameProcessor.Factory}.
+     * <p>If using this method, {@link #setHardwareBufferEffectsPipeline} must also be set. Do not
+     * {@linkplain #setVideoFrameProcessorFactory set} a {@link VideoFrameProcessor.Factory}.
      *
-     * <p>If an encoder could not be created that supports the output of the {@link
-     * PacketProcessor}, the processor's {@linkplain PacketProcessor#setOutput downstream consumer}
-     * will throw an {@link ExportException} when the {@link PacketProcessor} attempts to queue
-     * frames downstream.
-     *
-     * @param packetProcessor The {@link PacketProcessor} to process frames.
      * @param packetRenderer The {@link RenderingPacketConsumer} to render frames output from the
-     *     {@link PacketProcessor} to the encoder's input {@link android.view.Surface}.
+     *     {@linkplain #setHardwareBufferEffectsPipeline effects pipeline} to the encoder's input
+     *     {@link android.view.Surface}.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-    public Builder setPacketProcessor(
-        RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
-            packetProcessor,
+    public Builder setHardwareBufferRenderer(
         RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
-      this.packetProcessor = packetProcessor;
       this.packetRenderer = packetRenderer;
+      return this;
+    }
+
+    /**
+     * Sets the {@link RenderingPacketConsumer} used to process {@link HardwareBufferFrame}s.
+     *
+     * <p>This parameter has no effect when transmuxing video, or when processing audio.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * <p>If using this method, {@link #setHardwareBufferRenderer} must also be set. Do not
+     * {@linkplain #setVideoFrameProcessorFactory set} a {@link VideoFrameProcessor.Factory}.
+     *
+     * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    public Builder setHardwareBufferEffectsPipeline(
+        RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+            packetProcessor) {
+      this.packetProcessor = packetProcessor;
       return this;
     }
 
@@ -677,6 +691,7 @@ public final class Transformer {
           !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
+      checkState((packetRenderer == null) == (packetProcessor == null));
       return new Transformer(
           context,
           transformationRequest,
