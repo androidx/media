@@ -154,7 +154,6 @@ sealed interface PlacementState {
  */
 @OptIn(UnstableApi::class)
 data class OutputSettingsState(
-  val frameConsumerEnabled: Boolean = false,
   val includeBackgroundAudio: Boolean = false,
   val resolutionHeight: String,
   val hdrMode: Int,

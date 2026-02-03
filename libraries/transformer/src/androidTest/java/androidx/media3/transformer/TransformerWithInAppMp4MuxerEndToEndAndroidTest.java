@@ -24,21 +24,12 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.Effect;
-import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
-import androidx.media3.common.util.Util;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
-import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.effect.SingleContextGlObjectsProvider;
-import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.io.File;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Test;
@@ -65,19 +56,10 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
 
   @Test
   public void videoEditing_completesSuccessfully() throws Exception {
-    runVideoEditingTest("videoEditing_completesSuccessfully", /* usePacketProcessor= */ false);
+    runVideoEditingTest("videoEditing_completesSuccessfully");
   }
 
-  // TODO: b/479415308 - Expand API versions below 34 once supported.
-  // TODO: b/475744934 - Add more thorough PacketProcessor tests.
-  @Test
-  @SdkSuppress(minSdkVersion = 34)
-  public void videoEditing_withPacketProcessor_completesSuccessfully() throws Exception {
-    runVideoEditingTest(
-        "videoEditing_withPacketProcessor_completesSuccessfully", /* usePacketProcessor= */ true);
-  }
-
-  private void runVideoEditingTest(String testName, boolean usePacketProcessor) throws Exception {
+  private void runVideoEditingTest(String testName) throws Exception {
     String testId = testName + "_" + inputFile;
     // Use MP4_ASSET_FORMAT for H265_MP4_ASSET_URI_STRING test skipping as well, because emulators
     // signal a lack of support for H265_MP4's actual format, but pass this test when using
@@ -90,21 +72,6 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
 
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory());
-    if (usePacketProcessor) {
-      GlObjectsProvider singleContextGlObjectsProvider = new SingleContextGlObjectsProvider();
-      ListeningExecutorService glExecutorService =
-          MoreExecutors.listeningDecorator(Util.newSingleThreadExecutor("PacketProcessor:Effect"));
-      HardwareBufferSurfaceRenderer renderer =
-          HardwareBufferSurfaceRenderer.create(
-              context,
-              glExecutorService,
-              singleContextGlObjectsProvider,
-              NO_OP.INSTANCE,
-              /* errorConsumer= */ (e) -> {
-                throw new AssertionError(e);
-              });
-      transformerBuilder.setPacketProcessor(new DefaultHardwareBufferEffectsPipeline(), renderer);
-    }
     Transformer transformer = transformerBuilder.build();
 
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());

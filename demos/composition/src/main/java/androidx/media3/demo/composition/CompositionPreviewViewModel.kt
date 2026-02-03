@@ -18,7 +18,6 @@ package androidx.media3.demo.composition
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
 import android.view.SurfaceHolder
 import androidx.annotation.OptIn
@@ -57,11 +56,8 @@ import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.effect.LottieEffectFactory
-import androidx.media3.demo.composition.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
-import androidx.media3.effect.GlTextureFrameRenderer
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
@@ -69,7 +65,6 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.SingleContextGlObjectsProvider
 import androidx.media3.effect.StaticOverlaySettings
-import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -83,7 +78,6 @@ import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
 import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
-import com.google.common.util.concurrent.MoreExecutors
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -110,25 +104,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
-  internal var frameConsumerEnabled: Boolean = false
   internal var holder: SurfaceHolder? = null
-  internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
-    if (SDK_INT >= 26) {
-      ProcessAndRenderToSurfaceConsumer.Factory(
-        getApplication(),
-        glExecutorService,
-        glObjectsProvider,
-        errorListener = { e ->
-          Log.e(TAG, "FrameConsumer error", e)
-          _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
-        },
-      )
-    } else {
-      throw IllegalStateException(
-        "Render with PacketConsumer<HardwareBufferFrame> requires API 26+"
-      )
-    }
-  }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
@@ -231,12 +207,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   fun enableDebugTracing(enable: Boolean) {
     _uiState.update { it.copy(isDebugTracingEnabled = enable) }
     DebugTraceUtil.enableTracing = enable
-  }
-
-  fun onFrameConsumerEnabledChanged(isEnabled: Boolean) {
-    _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled))
-    }
   }
 
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
@@ -528,31 +498,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       }
     }
 
-    if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-      if (SDK_INT < 34) {
-        _uiState.update {
-          it.copy(snackbarMessage = "API 34+ required to export with PacketConsumer")
-        }
-        return
-      }
-      val surfaceRenderer =
-        HardwareBufferSurfaceRenderer.create(
-          getApplication(),
-          MoreExecutors.listeningDecorator(glExecutorService),
-          glObjectsProvider,
-          listener = GlTextureFrameRenderer.Listener.NO_OP,
-          errorConsumer = { e ->
-            Log.e(TAG, "HardwareBufferToGlTextureFrameProcessor error", e)
-            _uiState.update { it.copy(snackbarMessage = "Export error: $e") }
-          },
-        )
-      transformerBuilder.setPacketProcessor(
-        // TODO: b/449957627 - Implement HardwareBuffer compositing.
-        DefaultHardwareBufferEffectsPipeline(),
-        surfaceRenderer,
-      )
-    }
-
     transformer =
       transformerBuilder
         .addListener(
@@ -804,12 +749,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder = CompositionPlayer.Builder(getApplication())
-    frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 26) {
-      packetConsumerFactory.setOutput(holder)
-      playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
-      playerBuilder.setGlThreadExecutorService(glExecutorService)
-    } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
+    if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }
     playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
