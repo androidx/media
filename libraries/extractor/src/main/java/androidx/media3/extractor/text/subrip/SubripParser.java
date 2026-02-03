@@ -60,7 +60,7 @@ public final class SubripParser implements SubtitleParser {
   private static final String TAG = "SubripParser";
 
   // Some SRT files don't include hours or milliseconds in the timecode, so we use optional groups.
-  private static final String SUBRIP_TIMECODE = "(?:(\\d+):)?(\\d+):(\\d+)(?:,(\\d{3}))?";
+  private static final String SUBRIP_TIMECODE = "(?:(\\d+):)?(\\d+):(\\d+)(?:[,.](\\d+))?";
   private static final Pattern SUBRIP_TIMING_LINE =
       Pattern.compile("\\s*(" + SUBRIP_TIMECODE + ")\\s*-->\\s*(" + SUBRIP_TIMECODE + ")\\s*");
 
