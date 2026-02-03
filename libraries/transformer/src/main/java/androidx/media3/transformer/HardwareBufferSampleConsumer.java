@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -115,6 +116,9 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
   @Override
   public @InputResult int queueInputBitmap(
       Bitmap inputBitmap, TimestampIterator timestampIterator) {
+    if (SDK_INT >= 26) {
+      inputBitmap = inputBitmap.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
+    }
     hardwareBufferFrameReader.outputBitmap(inputBitmap, timestampIterator, currentMediaItemIndex);
     return INPUT_RESULT_SUCCESS;
   }

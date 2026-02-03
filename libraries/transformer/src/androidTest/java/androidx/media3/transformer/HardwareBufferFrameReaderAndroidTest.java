@@ -23,6 +23,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.ImageFormat;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -49,11 +50,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests for {@link HardwareBufferFrameReader}. This is an emulator test because producing frames
- * into a Surface seems unsupported on robolectric.
+ * Android tests for {@link HardwareBufferFrameReader}. This is an emulator test because producing
+ * frames into a Surface seems unsupported on robolectric.
  */
 @RunWith(AndroidJUnit4.class)
-public class HardwareBufferFrameReaderTest {
+public class HardwareBufferFrameReaderAndroidTest {
 
   private static final long TEST_TIMEOUT_MS = 100;
   private static final Format TEST_FORMAT =
@@ -119,7 +120,7 @@ public class HardwareBufferFrameReaderTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 28)
-  public void frameReader_releaseOutputFrame_closesTheHardwareBuffer() throws Exception {
+  public void frameReader_releaseSurfaceFrame_closesTheHardwareBuffer() throws Exception {
     hardwareBufferFrameReader.queueFrameViaSurface(
         /* presentationTimeUs= */ 1234, /* indexOfItem= */ 0, TEST_FORMAT);
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
@@ -130,6 +131,25 @@ public class HardwareBufferFrameReaderTest {
     handlerThread.join(TEST_TIMEOUT_MS);
 
     assertThat(hardwareBuffer.isClosed()).isTrue();
+    assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
+  public void frameReader_releaseBitmapFrame_doesNotCloseTheHardwareBuffer() throws Exception {
+    hardwareBufferFrameReader.outputBitmap(
+        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+            .copy(Config.HARDWARE, /* isMutable= */ false),
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 30f),
+        /* indexOfItem= */ 1);
+    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+    HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
+
+    receivedFrame.release();
+    handlerThread.join(TEST_TIMEOUT_MS);
+
+    // Closing the HardwareBuffer is handled by garbage collection.
+    assertThat(hardwareBuffer.isClosed()).isFalse();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
   }
 
@@ -150,12 +170,19 @@ public class HardwareBufferFrameReaderTest {
 
   @Test
   public void produceSurfaceFrame_withPendingBitmap_outputsBitmap() throws Exception {
+    // SRGB ColorTransfer is replaced with SDR.
+    ColorInfo expectedColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .build();
     Format expectedBitmapFormat =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.IMAGE_RAW)
             .setWidth(1)
             .setHeight(1)
-            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setColorInfo(expectedColorInfo)
             .setFrameRate(/* frameRate= */ 30)
             .build();
     hardwareBufferFrameReader.queueFrameViaSurface(

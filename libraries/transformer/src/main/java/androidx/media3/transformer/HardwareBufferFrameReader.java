@@ -345,6 +345,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // AImage_getHardwareBuffer.
     if (SDK_INT >= 28) {
       HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
+      checkState(!hardwareBuffer.isClosed());
       frameBuilder =
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
@@ -379,13 +380,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // TODO: b/449956936 - Copy the Bitmap into a HardwareBuffer using NDK on earlier API levels.
     if (SDK_INT >= 31 && checkNotNull(bitmap).getConfig() == Bitmap.Config.HARDWARE) {
       HardwareBuffer hardwareBuffer = checkNotNull(bitmap).getHardwareBuffer();
+      checkState(!hardwareBuffer.isClosed());
       frameBuilder =
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
               playbackExecutor,
               /* releaseCallback= */ () -> {
                 // TODO: b/475744934 - Wait on a release fence before releasing the frame.
-                releaseFrame(/* image= */ null, hardwareBuffer);
+                // Do not manually release the hardware buffer backing the bitmap, it will be reused
+                // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
+                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null);
               });
     } else {
       frameBuilder =
@@ -406,6 +410,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long presentationTimeUs,
       int itemIndex,
       Format format) {
+    // COLOR_TRANSFER_SRGB may not be supported by the encoder or display, but is equivalent to
+    // COLOR_TRANSFER_SDR on Android which is widely supported.
+    if (format.colorInfo != null && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
+      ColorInfo adjustedColorInfo =
+          format.colorInfo.buildUpon().setColorTransfer(C.COLOR_TRANSFER_SDR).build();
+      format = format.buildUpon().setColorInfo(adjustedColorInfo).build();
+    }
     return frameBuilder
         .setPresentationTimeUs(presentationTimeUs)
         .setMetadata(new CompositionFrameMetadata(composition, sequenceIndex, itemIndex))

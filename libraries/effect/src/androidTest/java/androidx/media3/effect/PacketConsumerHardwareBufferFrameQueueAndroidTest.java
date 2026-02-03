@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assume.assumeTrue;
 
 import android.hardware.HardwareBuffer;
@@ -103,7 +104,7 @@ public final class PacketConsumerHardwareBufferFrameQueueAndroidTest {
     }
 
     PacketConsumerHardwareBufferFrameQueue supplier =
-        new PacketConsumerHardwareBufferFrameQueue(unused -> {});
+        new PacketConsumerHardwareBufferFrameQueue(unused -> {}, directExecutor());
     HardwareBufferFrameQueue.FrameFormat format =
         new HardwareBufferFrameQueue.FrameFormat(
             size.getWidth(), size.getHeight(), pixelFormat, requestedUsage);

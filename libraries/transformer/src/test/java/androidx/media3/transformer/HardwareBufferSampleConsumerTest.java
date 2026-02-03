@@ -103,6 +103,8 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(receivedFrames).hasSize(2);
 
     HardwareBufferFrame frame1 = receivedFrames.get(0);
+    // The frame.hardwareBuffer should also be non null, but in roboelectric HardwareBuffers are not
+    // created properly so this is tested in the AndroidTest.
     assertThat(frame1.presentationTimeUs).isEqualTo(0);
     assertThat(frame1.releaseTimeNs).isEqualTo(0);
     assertThat(((CompositionFrameMetadata) frame1.getMetadata()).itemIndex).isEqualTo(0);

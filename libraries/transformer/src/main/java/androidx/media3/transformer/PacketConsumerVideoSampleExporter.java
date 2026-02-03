@@ -15,8 +15,11 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
+import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -69,6 +72,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final PacketConsumerCaller<List<? extends HardwareBufferFrame>> packetConsumerCaller;
   private final FrameAggregator frameAggregator;
+  private final PacketConsumerHardwareBufferFrameQueue hardwareBufferFrameQueue;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
 
   private final Codec.EncoderFactory encoderFactory;
@@ -86,6 +90,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long lastMuxerInputBufferTimestampUs;
   private boolean hasMuxedTimestampZero;
   private boolean hasProducedFrameWithTimestampZero;
+  private boolean hasSignaledEndOfStream;
   private @MonotonicNonNull VideoEncoderWrapper encoderWrapper;
 
   public PacketConsumerVideoSampleExporter(
@@ -129,6 +134,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* onPayload= */ thisRef::onProcessedFrame,
             /* onEndOfStream= */ thisRef::onEndOfStream);
     encoderWrapperListener.setOutput(packetRenderer);
+
+    // Create the HardwareBufferQueue that will provide buffers for the  effects pipeline to write
+    // into.
+    hardwareBufferFrameQueue =
+        new PacketConsumerHardwareBufferFrameQueue(
+            /* errorConsumer= */ (e) ->
+                errorConsumer.accept(
+                    ExportException.createForVideoFrameProcessingException(
+                        VideoFrameProcessingException.from(e))),
+            /* releaseFrameExecutor= */ handlerWrapper::post);
+    hardwareBufferFrameQueue.setOutput(encoderWrapperListener);
+
+    // Create a Java wrapper to feed frames into the effects pipeline.
     packetConsumerCaller =
         PacketConsumerCaller.create(
             packetProcessor,
@@ -138,33 +156,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     ExportException.createForVideoFrameProcessingException(
                         VideoFrameProcessingException.from(e))));
     packetConsumerCaller.run();
+    packetProcessor.setRenderOutput(hardwareBufferFrameQueue);
 
-    PacketConsumerHardwareBufferFrameQueue queue =
-        new PacketConsumerHardwareBufferFrameQueue(
-            /* errorConsumer= */ (e) ->
-                errorConsumer.accept(
-                    ExportException.createForVideoFrameProcessingException(
-                        VideoFrameProcessingException.from(e))));
+    // Create the FrameAggregator, ignoring audio only sequences.
+    int numVideoSequences = getNumVideoSequences(composition);
+    frameAggregator = new FrameAggregator(numVideoSequences, thisRef::queueAggregatedFrames);
 
-    queue.setOutput(encoderWrapperListener);
-
-    this.packetProcessor.setRenderOutput(queue);
-
-    frameAggregator =
-        new FrameAggregator(composition.sequences.size(), thisRef::queueAggregatedFrames);
-
+    // Create the per sequence consumers that feed buffers from the decoders into the
+    // FrameAggregator.
     ImmutableList.Builder<HardwareBufferSampleConsumer> sampleConsumerBuilder =
         new ImmutableList.Builder<>();
-    for (int i = 0; i < composition.sequences.size(); i++) {
+    for (int i = 0; i < numVideoSequences; i++) {
       int sequenceIndex = i;
       Consumer<HardwareBufferFrame> frameConsumer =
-          (frame) -> {
-            if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
-              checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
-            } else {
-              checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
-            }
-          };
+          // TODO: b/478781219 - Remove the handlerWrapper.post once HardwareBufferSampleConsumer is
+          // only accessed from a single thread.
+          (frame) ->
+              handlerWrapper.post(
+                  () -> {
+                    if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                      checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                    } else {
+                      checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
+                    }
+                  });
       HardwareBufferSampleConsumer sampleConsumer =
           new HardwareBufferSampleConsumer(
               composition,
@@ -189,20 +204,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (encoderWrapper != null) {
       return frame;
     }
-    Format frameFormat = frame.format;
     VideoEncoderWrapper encoderWrapper =
         new VideoEncoderWrapper(
             encoderFactory,
-            frameFormat,
+            frame.format,
             allowedEncodingRotationDegrees,
-            muxerWrapper.getSupportedSampleMimeTypes(C.TRACK_TYPE_VIDEO),
+            muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO),
             /* transformationRequest= */ null,
             fallbackListener,
             logSessionId);
 
     // TODO: b/475744934 - Notify the effects pipeline if the encoder fell back to a format that
     // differs from the input format.
-    SurfaceInfo surfaceInfo = encoderWrapper.getSurfaceInfo(frameFormat.width, frameFormat.height);
+    SurfaceInfo surfaceInfo =
+        encoderWrapper.getSurfaceInfo(frame.format.width, frame.format.height);
     packetRenderer.setRenderOutput(surfaceInfo);
     this.encoderWrapper = encoderWrapper;
     // TODO: b/475744934 - Update this to use the output from the renderer to determine when a frame
@@ -212,8 +227,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void onEndOfStream() {
+    checkState(!hasSignaledEndOfStream);
     if (encoderWrapper != null) {
       try {
+        hasSignaledEndOfStream = true;
         // TODO: b/475744934 - Update this to only end the encoder once the renderer has received
         // the EOS.
         encoderWrapper.signalEndOfInputStream();
@@ -229,7 +246,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // We don't need to apply backpressure here - it's applied implicitly via the texture listener
     // capacity.
     ListenableFuture<Void> queuePacketFuture;
-    if (frames.contains(END_OF_STREAM_FRAME)) {
+    if (frames.get(0) == END_OF_STREAM_FRAME) {
       queuePacketFuture = packetConsumerCaller.queuePacket(EndOfStream.INSTANCE);
     } else {
       queuePacketFuture = packetConsumerCaller.queuePacket(Packet.of(frames));
@@ -255,9 +272,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void release() {
-    if (encoderWrapper != null) {
-      encoderWrapper.release();
-    }
     for (int i = 0; i < sampleConsumers.size(); i++) {
       sampleConsumers.get(i).release();
     }
@@ -267,9 +281,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ListenableFuture<Void> releasePacketProcessorFuture =
         PacketConsumerUtil.release(packetProcessor, newDirectExecutorService());
 
+    hardwareBufferFrameQueue.release();
+
     ListenableFuture<List<Void>> releaseFutures =
         Futures.allAsList(
             ImmutableList.of(releasePacketProcessorFuture, releaseFrameRendererFuture));
+    if (encoderWrapper != null) {
+      encoderWrapper.release();
+    }
 
     @Nullable Exception exception = null;
     try {
@@ -332,5 +351,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   protected boolean isMuxerInputEnded() {
     return encoderWrapper != null && encoderWrapper.isEnded();
+  }
+
+  private static int getNumVideoSequences(Composition composition) {
+    int numVideoSequences = 0;
+    for (int i = 0; i < composition.sequences.size(); i++) {
+      if (composition.sequences.get(i).trackTypes.size() == 1
+          && composition.sequences.get(i).trackTypes.contains(TRACK_TYPE_AUDIO)) {
+        continue;
+      }
+      numVideoSequences++;
+    }
+    return numVideoSequences;
   }
 }

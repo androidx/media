@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -23,6 +24,7 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 
 import android.hardware.HardwareBuffer;
 import android.hardware.SyncFence;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Consumer;
@@ -30,17 +32,15 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.PacketConsumer.Packet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.concurrent.Executor;
 
 /**
  * An implementation of {@link HardwareBufferFrameQueue} that manages a fixed-capacity pool of
  * {@link HardwareBuffer}s, that are forwarded to a downstream {@link PacketConsumer}.
  *
  * <p>This class maintains an internal pool (default capacity of 5) of buffers.
- *
- * <p><b>Thread Safety:</b> This class is <b>not thread-safe</b>.
  */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
@@ -49,23 +49,39 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   /** The maximum number of buffers allowed to exist (pooled + in-flight). */
   private static final int CAPACITY = 5;
 
+  private final Object lock = new Object();
+
   /** The pool of created {@link HardwareBufferFrame} instances that are ready to be dequeued. */
+  @GuardedBy("lock")
   private final Queue<HardwareBufferFrame> pool;
 
+  /** Only accessed on the {@link #releaseFrameExecutor}. */
+  private boolean isReleased;
+
   private final Consumer<Exception> errorConsumer;
+  private final Executor releaseFrameExecutor;
   // TODO: b/479134794 - This being nullable and mutable adds complexity, simplify this.
-  private @Nullable PacketConsumerCaller<HardwareBufferFrame> output;
-  private int capacityInUse;
-  @Nullable private Runnable wakeupListener;
+  @Nullable private volatile PacketConsumerCaller<HardwareBufferFrame> output;
+
+  @GuardedBy("lock")
+  private int allocatedBufferCount;
+
+  @GuardedBy("lock")
+  @Nullable
+  private Runnable wakeupListener;
 
   /**
    * Creates a new instance.
    *
    * @param errorConsumer A consumer for reporting asynchronous errors.
+   * @param releaseFrameExecutor The executor that frames will be used to release frames back to the
+   *     pool.
    */
-  public PacketConsumerHardwareBufferFrameQueue(Consumer<Exception> errorConsumer) {
+  public PacketConsumerHardwareBufferFrameQueue(
+      Consumer<Exception> errorConsumer, Executor releaseFrameExecutor) {
     pool = new ArrayDeque<>(CAPACITY);
     this.errorConsumer = errorConsumer;
+    this.releaseFrameExecutor = releaseFrameExecutor;
   }
 
   /**
@@ -92,13 +108,25 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
    */
   @Override
   public @Nullable HardwareBufferFrame dequeue(FrameFormat format, Runnable wakeupListener) {
-    if (capacityInUse >= CAPACITY) {
-      this.wakeupListener = wakeupListener;
-      return null;
+    synchronized (lock) {
+      @Nullable HardwareBufferFrame frame;
+      while ((frame = pool.poll()) != null) {
+        HardwareBuffer buffer = checkNotNull(frame.hardwareBuffer);
+        if (isCompatible(buffer, format)) {
+          return frame;
+        } else {
+          buffer.close();
+          closeFence(frame.acquireFence);
+          allocatedBufferCount--;
+        }
+      }
+      if (allocatedBufferCount >= CAPACITY) {
+        this.wakeupListener = wakeupListener;
+        return null;
+      }
+      allocatedBufferCount++;
     }
-    HardwareBufferFrame frame = getOrCreateBuffer(format);
-    capacityInUse++;
-    return frame;
+    return createNewBuffer(format);
   }
 
   /**
@@ -114,7 +142,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
     HardwareBufferFrame outputFrame =
         new HardwareBufferFrame.Builder(
                 frame.hardwareBuffer,
-                directExecutor(),
+                releaseFrameExecutor,
                 /* releaseCallback= */ () ->
                     returnHardwareBuffer(checkNotNull(frame.hardwareBuffer)))
             .setPresentationTimeUs(frame.presentationTimeUs)
@@ -136,32 +164,32 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   /**
    * Releases the queue and the downstream caller.
    *
+   * <p>Must be called on the same thread as the {@link #releaseFrameExecutor}.
+   *
    * <p>This should be called when the pipeline is being shut down to ensure all asynchronous
    * resources are cleaned up.
    */
   public void release() {
+    if (isReleased) {
+      return;
+    }
+    isReleased = true;
+    PacketConsumerCaller<HardwareBufferFrame> output = this.output;
     if (output != null) {
       output.release();
     }
-  }
-
-  private HardwareBufferFrame getOrCreateBuffer(FrameFormat format) {
-    while (!pool.isEmpty()) {
-      HardwareBufferFrame frame = pool.remove();
-      HardwareBuffer buffer = checkNotNull(frame.hardwareBuffer);
-      if (!buffer.isClosed()
-          && buffer.getWidth() == format.width
-          && buffer.getHeight() == format.height
-          && buffer.getFormat() == format.pixelFormat
-          && buffer.getUsage() == adjustUsageFlags(format.usageFlags)) {
-        return frame;
-      } else {
+    synchronized (lock) {
+      HardwareBufferFrame frame;
+      while ((frame = pool.poll()) != null) {
+        HardwareBuffer buffer = checkNotNull(frame.hardwareBuffer);
         if (!buffer.isClosed()) {
           buffer.close();
         }
-        closeFence(frame.acquireFence);
       }
     }
+  }
+
+  private HardwareBufferFrame createNewBuffer(FrameFormat format) {
     HardwareBuffer buffer =
         HardwareBuffer.create(
             format.width,
@@ -169,38 +197,42 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
             format.pixelFormat,
             /* layers= */ 1,
             adjustUsageFlags(format.usageFlags));
+    checkState(!buffer.isClosed());
     return new HardwareBufferFrame.Builder(
-            buffer,
-            MoreExecutors.directExecutor(),
-            /* releaseCallback= */ () -> returnHardwareBuffer(buffer))
+            buffer, releaseFrameExecutor, /* releaseCallback= */ () -> returnHardwareBuffer(buffer))
         .build();
   }
 
+  /** Always called on the {@link #releaseFrameExecutor}. */
   private void returnHardwareBuffer(HardwareBuffer buffer) {
-    // Ensure the same buffer is not added to the pool multiple times.
-    if (poolContainsBuffer(buffer)) {
+    checkArgument(!buffer.isClosed());
+    if (isReleased) {
+      if (!buffer.isClosed()) {
+        buffer.close();
+      }
       return;
     }
-    try {
-      if (!buffer.isClosed() && pool.size() < CAPACITY) {
+    Runnable listenerToRun = null;
+    synchronized (lock) {
+      // Ensure the same buffer is not added to the pool multiple times.
+      if (!poolContainsBuffer(buffer)) {
         // TODO: b/475744934 - Set the acquireFence to the previous releaseFence.
         HardwareBufferFrame frame =
             new HardwareBufferFrame.Builder(
                     buffer,
-                    MoreExecutors.directExecutor(),
+                    releaseFrameExecutor,
                     /* releaseCallback= */ () -> returnHardwareBuffer(buffer))
                 .build();
         pool.add(frame);
-      } else if (!buffer.isClosed()) {
-        buffer.close();
+        if (wakeupListener != null) {
+          listenerToRun = wakeupListener;
+          wakeupListener = null;
+        }
       }
-    } finally {
-      checkState(capacityInUse-- >= 0);
-      Runnable listener = wakeupListener;
-      if (capacityInUse < CAPACITY && listener != null) {
-        wakeupListener = null;
-        listener.run();
-      }
+    }
+    // Run listener outside of the synchronized block.
+    if (listenerToRun != null) {
+      listenerToRun.run();
     }
   }
 
@@ -228,6 +260,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
     }
   }
 
+  @GuardedBy("lock")
   private boolean poolContainsBuffer(HardwareBuffer target) {
     for (HardwareBufferFrame frame : pool) {
       if (frame.hardwareBuffer == target) {
@@ -235,6 +268,13 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
       }
     }
     return false;
+  }
+
+  private boolean isCompatible(HardwareBuffer buffer, FrameFormat format) {
+    return buffer.getWidth() == format.width
+        && buffer.getHeight() == format.height
+        && buffer.getFormat() == format.pixelFormat
+        && buffer.getUsage() == adjustUsageFlags(format.usageFlags);
   }
 
   private long adjustUsageFlags(long requestedUsageFlags) {

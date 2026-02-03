@@ -95,6 +95,9 @@ public interface HardwareBufferFrameQueue {
    * returns {@code null}. In this case, the {@code wakeupListener} will be invoked when a buffer is
    * eventually returned to the pool.
    *
+   * <p>If this method is called multiple times without returning a frame, only the most recent
+   * {@code wakeupListener} is guaranteed to be invoked.
+   *
    * @param format The required format for the dequeued buffer.
    * @param wakeupListener A callback to notify the caller when a buffer becomes available.
    * @return A {@link HardwareBufferFrame}, or {@code null} if the queue is currently full.

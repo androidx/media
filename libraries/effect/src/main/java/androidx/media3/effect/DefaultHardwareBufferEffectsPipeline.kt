@@ -27,7 +27,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.effect.PacketConsumer.Packet
 import java.time.Duration
 import java.util.concurrent.Executors
-import kotlin.coroutines.resume
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -48,6 +48,7 @@ class DefaultHardwareBufferEffectsPipeline :
   /** Executor used for all blocking [SyncFence.await] calls. */
   private val internalExecutor = Executors.newSingleThreadExecutor()
   private val internalDispatcher = internalExecutor.asCoroutineDispatcher()
+  private val isReleased = AtomicBoolean(false)
   // TODO: b/479134794 - This being nullable and mutable adds complexity, simplify this.
   private var outputBufferQueue: HardwareBufferFrameQueue? = null
 
@@ -56,6 +57,7 @@ class DefaultHardwareBufferEffectsPipeline :
   }
 
   override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
+    check(!isReleased.get())
     when (packet) {
       is Packet.EndOfStream -> outputBufferQueue!!.signalEndOfStream()
       is Packet.Payload -> {
@@ -70,7 +72,9 @@ class DefaultHardwareBufferEffectsPipeline :
   }
 
   override suspend fun release() {
-    internalExecutor.shutdown()
+    if (!isReleased.getAndSet(true)) {
+      internalExecutor.shutdown()
+    }
   }
 
   private suspend fun processFrame(inputFrame: HardwareBufferFrame) {
@@ -125,16 +129,14 @@ class DefaultHardwareBufferEffectsPipeline :
     val capacityAvailable = CompletableDeferred<Unit>()
     var outputFrame =
       outputBufferQueue!!.dequeue(bufferFormat)
-      /* wakeupListener= */ { ->
+      /* wakeupListener= */ {
         capacityAvailable.complete(Unit)
       }
     if (outputFrame == null) {
       withTimeout(TIMEOUT_MS) { capacityAvailable.await() }
       outputFrame = outputBufferQueue!!.dequeue(bufferFormat) /* wakeupListener= */ {}
       // Throw the second time there is no buffer available.
-      if (outputFrame == null) {
-        throw IllegalStateException("Failed to dequeue valid buffer.")
-      }
+      check(outputFrame != null)
     }
     return outputFrame
   }
@@ -147,31 +149,36 @@ class DefaultHardwareBufferEffectsPipeline :
     outputBuffer: HardwareBuffer,
     outputFence: SyncFence?,
   ): SyncFence {
-    val inputBitmap =
-      Bitmap.wrapHardwareBuffer(inputBuffer, ColorSpace.get(ColorSpace.Named.SRGB))
-        ?: throw IllegalStateException("Failed to wrap input HardwareBuffer in Bitmap")
-
     // TODO: b/479415308 - Replace HardwareBufferRenderer with another method of copying data to
     // support APIs below 34.
-    val renderer = HardwareBufferRenderer(outputBuffer)
-    val renderNode = RenderNode("PlaceholderEffect")
-    renderNode.setPosition(0, 0, inputWidth, inputHeight)
+    return HardwareBufferRenderer(outputBuffer).use { renderer ->
+      // Ensure the input buffer has been fully written to, and is ready to be read.
+      waitOn(inputFence)
+      check(!inputBuffer.isClosed)
+      val inputBitmap =
+        Bitmap.wrapHardwareBuffer(inputBuffer, ColorSpace.get(ColorSpace.Named.SRGB))
+          ?: throw IllegalStateException("Failed to wrap input HardwareBuffer in Bitmap")
 
-    val canvas = renderNode.beginRecording(inputWidth, inputHeight)
+      val renderNode = RenderNode("PlaceholderEffect")
+      renderNode.setPosition(0, 0, inputWidth, inputHeight)
 
-    // Ensure the input buffer has been fully written to, and is ready to be read.
-    waitOn(inputFence)
-    // Ensure the output buffer has been fully read from and is ready for reuse.
-    waitOn(outputFence)
+      // Ensure the output buffer has been fully read from and is ready for reuse.
+      waitOn(outputFence)
+      check(!outputBuffer.isClosed)
 
-    canvas.drawBitmap(inputBitmap, 0f, 0f, null)
-    renderNode.endRecording()
+      val canvas = renderNode.beginRecording(inputWidth, inputHeight)
+      canvas.drawBitmap(inputBitmap, 0f, 0f, null)
+      renderNode.endRecording()
 
-    renderer.setContentRoot(renderNode)
+      renderer.setContentRoot(renderNode)
 
-    return suspendCancellableCoroutine { continuation ->
-      renderer.obtainRenderRequest().draw(internalExecutor) { result ->
-        continuation.resume(result.fence)
+      suspendCancellableCoroutine { continuation ->
+        renderer.obtainRenderRequest().draw(internalExecutor) { result ->
+          val fence = result.fence
+          // Tries to resume; if it fails (because already cancelled), closes the fence.
+          runCatching { continuation.resume(fence) { _, _, _ -> fence.close() } }
+            .onFailure { fence.close() }
+        }
       }
     }
   }
