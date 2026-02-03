@@ -100,6 +100,12 @@ public final class DefaultAudioOffloadSupportProvider
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
 
+    if (SDK_INT >= 33) {
+      return getOffloadedPlaybackSupportV33(
+          audioFormat,
+          audioAttributes.getPlatformAudioAttributes(),
+          isOffloadVariableRateSupported);
+    }
     if (SDK_INT >= 31) {
       return Api31.getOffloadedPlaybackSupport(
           audioFormat,
@@ -171,5 +177,24 @@ public final class DefaultAudioOffloadSupportProvider
           .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
           .build();
     }
+  }
+
+  @RequiresApi(33)
+  private static AudioOffloadSupport getOffloadedPlaybackSupportV33(
+      AudioFormat audioFormat,
+      android.media.AudioAttributes audioAttributes,
+      boolean isOffloadVariableRateSupported) {
+    int directSupport = AudioManager.getDirectPlaybackSupport(audioFormat, audioAttributes);
+    if ((directSupport & AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED) == 0) {
+      return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
+    }
+    boolean isGaplessSupported =
+        (directSupport & AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED)
+            == AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED;
+    return new AudioOffloadSupport.Builder()
+        .setIsFormatSupported(true)
+        .setIsGaplessSupported(isGaplessSupported)
+        .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+        .build();
   }
 }

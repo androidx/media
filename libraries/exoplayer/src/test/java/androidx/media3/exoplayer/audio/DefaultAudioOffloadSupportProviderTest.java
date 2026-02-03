@@ -17,13 +17,17 @@ package androidx.media3.exoplayer.audio;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.media.AudioFormat;
+import android.media.AudioManager;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowAudioSystem;
 
 /** Unit tests for {@link DefaultAudioOffloadSupportProvider}. */
 @RunWith(AndroidJUnit4.class)
@@ -72,5 +76,53 @@ public final class DefaultAudioOffloadSupportProviderTest {
         audioOffloadSupportProvider.getAudioOffloadSupport(formatDtsX, AudioAttributes.DEFAULT);
 
     assertThat(audioOffloadSupport.isFormatSupported).isFalse();
+  }
+
+  @Test
+  @Config(minSdk = 33)
+  public void getAudioOffloadSupport_onApi33_correctlyInterpretsDirectPlaybackBitmask() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_MPEG)
+            .setSampleRate(48_000)
+            .setChannelCount(2)
+            .build();
+    AudioAttributes attributes = AudioAttributes.DEFAULT;
+    AudioFormat expectedAudioFormat =
+        new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_MP3)
+            .setSampleRate(48_000)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build();
+    DefaultAudioOffloadSupportProvider provider =
+        new DefaultAudioOffloadSupportProvider(ApplicationProvider.getApplicationContext());
+
+    // 1. Verify DIRECT_PLAYBACK_NOT_SUPPORTED
+    AudioOffloadSupport audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isFalse();
+
+    // 2. Verify DIRECT_PLAYBACK_OFFLOAD_SUPPORTED
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        expectedAudioFormat,
+        attributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+
+    audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isTrue();
+    assertThat(audioOffloadSupport.isGaplessSupported).isFalse();
+
+    // 3. Verify DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        expectedAudioFormat,
+        attributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED
+            | AudioManager.DIRECT_PLAYBACK_OFFLOAD_GAPLESS_SUPPORTED);
+
+    audioOffloadSupport = provider.getAudioOffloadSupport(format, attributes);
+
+    assertThat(audioOffloadSupport.isFormatSupported).isTrue();
+    assertThat(audioOffloadSupport.isGaplessSupported).isTrue();
   }
 }
