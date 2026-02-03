@@ -3207,6 +3207,23 @@ import java.util.function.IntConsumer;
         .build();
   }
 
+  private CueGroup cleanCueGroup(CueGroup cueGroup) {
+    List<Cue> cleanCues = new ArrayList<>();
+
+    for(Cue cue: cueGroup.cues) {
+      if (cue.text != null) {
+        Cue.Builder cleanCueBuilder = new Cue.Builder();
+        cleanCues.add(
+            cleanCueBuilder
+                .setText(cue.text)
+                .build()
+        );
+      }
+    }
+
+    return new CueGroup(cleanCues, cueGroup.presentationTimeUs);
+  }
+
   private static TrackSelectionParameters addDisabledTrackTypes(
       TrackSelectionParameters parameters, ImmutableSet<@C.TrackType Integer> trackTypesToDisable) {
     TrackSelectionParameters.Builder parametersBuilder = parameters.buildUpon();
@@ -3489,8 +3506,9 @@ import java.util.function.IntConsumer;
 
     @Override
     public void onCues(CueGroup cueGroup) {
-      currentCueGroup = cueGroup;
-      listeners.sendEvent(EVENT_CUES, listener -> listener.onCues(cueGroup));
+      CueGroup cleanCueGroup = cleanCueGroup(cueGroup);
+      currentCueGroup = cleanCueGroup;
+      listeners.sendEvent(EVENT_CUES, listener -> listener.onCues(cleanCueGroup));
     }
 
     // MetadataOutput implementation
