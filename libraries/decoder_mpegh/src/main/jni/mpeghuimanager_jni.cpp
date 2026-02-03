@@ -25,7 +25,7 @@
 
 #define EXCEPTION_PATH "androidx/media3/decoder/mpegh/MpeghDecoderException"
 
-#define XML_BUFFER_SIZE 10240
+#define XML_BUFFER_SIZE 104226
 
 typedef struct UIMANAGER_CONTEXT {
   HANDLE_MPEGH_UI_MANAGER handle;
@@ -78,7 +78,7 @@ UIMANAGER_FUNC(void, init, jobject persistenceBuffer, jint persistenceBufferLeng
     auto inDataLength = (uint16_t) persistenceBufferLength;
     MPEGH_UI_ERROR err = mpegh_UI_SetPersistenceMemory(ctx->handle, inData, inDataLength);
     if (err != MPEGH_UI_OK) {
-      LOGW("Unable to set persistence memory!");
+      LOGW("Unable to set persistence memory with error %d!", err);
     }
   }
 
@@ -130,11 +130,12 @@ UIMANAGER_FUNC(jboolean, command, jstring xmlAction) {
   return true;
 }
 
+
 /*
- * Method:    process
- * will be called to pass the received MHAS frame to the UI manager
+ * Method:    feed
+ * will be called to feed the received MHAS frame to the UI manager
  */
-UIMANAGER_FUNC(jint, process, jobject inData, jint inDataLen, jboolean forceUiUpdate) {
+UIMANAGER_FUNC(jboolean, feed, jobject inData, jint inDataLen) {
   UIMANAGER_CONTEXT *ctx = getContext_UI(env, obj);
 
   // get memory pointer to the buffer of the corresponding JAVA input parameter
@@ -142,40 +143,53 @@ UIMANAGER_FUNC(jint, process, jobject inData, jint inDataLen, jboolean forceUiUp
   auto inDataCapacity = (uint32_t)env->GetDirectBufferCapacity(inData);
   auto inputDataLen = (uint32_t)inDataLen;
 
+  MPEGH_UI_ERROR feedResult = mpegh_UI_FeedMHAS(ctx->handle, inputData, inputDataLen);
+  if (feedResult != MPEGH_UI_OK) {
+    return false;
+  }
+  return true;
+}
+
+/*
+ * Method:    update
+ * will be called to update the MHAS frame by the UI manager
+ */
+UIMANAGER_FUNC(jint, update, jobject inData, jint inDataLen, jboolean forceUiUpdate) {
+  UIMANAGER_CONTEXT *ctx = getContext_UI(env, obj);
+
+  // get memory pointer to the buffer of the corresponding JAVA input parameter
+  auto *inputData = (uint8_t *) env->GetDirectBufferAddress(inData);
+  auto inDataCapacity = (uint32_t) env->GetDirectBufferCapacity(inData);
+  auto inputDataLen = (uint32_t) inDataLen;
+
   uint32_t outLength = inputDataLen;
 
-  MPEGH_UI_ERROR feedResult = mpegh_UI_FeedMHAS(ctx->handle, inputData, inputDataLen);
-  if (feedResult == MPEGH_UI_OK) {
-    // Update the MPEG-H frame
-    MPEGH_UI_ERROR updateResult =
-        mpegh_UI_UpdateMHAS(ctx->handle, inputData, inDataCapacity, &outLength);
-    if (updateResult == MPEGH_UI_OK) {
-      uint32_t flagsOut = 0;
-      while (!(flagsOut & MPEGH_UI_NO_CHANGE)) {
-        char sceneState[XML_BUFFER_SIZE];
-        int flagsIn = 0;
-        if (forceUiUpdate) {
-          flagsIn = MPEGH_UI_FORCE_UPDATE;
-          forceUiUpdate = false;
-        }
-        MPEGH_UI_ERROR stateResult =
-            mpegh_UI_GetXmlSceneState(ctx->handle, sceneState, XML_BUFFER_SIZE, flagsIn, &flagsOut);
-        if (stateResult == MPEGH_UI_OK) {
-          std::string tmp(sceneState);
-          if (!tmp.empty() && tmp.compare(ctx->xmlSceneStateBuf) != 0) {
-            ctx->xmlSceneStateBuf = tmp;
-            ctx->newSceneStateAvailable = true;
-          }
-        } else {
-          LOGW("Failed to get XML scene state with return value = %d", stateResult);
-          break;
-        }
+  MPEGH_UI_ERROR updateResult =
+      mpegh_UI_UpdateMHAS(ctx->handle, inputData, inDataCapacity, &outLength);
+  if (updateResult == MPEGH_UI_OK) {
+    uint32_t flagsOut = 0;
+    while (!(flagsOut & MPEGH_UI_NO_CHANGE)) {
+      char sceneState[XML_BUFFER_SIZE];
+      int flagsIn = 0;
+      if (forceUiUpdate) {
+        flagsIn = MPEGH_UI_FORCE_UPDATE;
+        forceUiUpdate = false;
       }
-    } else {
-      LOGW("Unable to update new data with return value = %d", updateResult);
+      MPEGH_UI_ERROR stateResult =
+          mpegh_UI_GetXmlSceneState(ctx->handle, sceneState, XML_BUFFER_SIZE, flagsIn, &flagsOut);
+      if (stateResult == MPEGH_UI_OK) {
+        std::string tmp(sceneState);
+        if (!tmp.empty() && tmp.compare(ctx->xmlSceneStateBuf) != 0) {
+          ctx->xmlSceneStateBuf = tmp;
+          ctx->newSceneStateAvailable = true;
+        }
+      } else {
+        LOGW("Failed to get XML scene state with return value = %d", stateResult);
+        break;
+      }
     }
   } else {
-    LOGW("Unable to feed new data with return value = %d", feedResult);
+    LOGW("Unable to update new data with return value = %d", updateResult);
   }
   return outLength;
 }

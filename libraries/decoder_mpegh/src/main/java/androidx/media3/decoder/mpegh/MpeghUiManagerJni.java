@@ -35,13 +35,21 @@ public class MpeghUiManagerJni {
   public native boolean command(String xmlAction);
 
   /**
-   * Processes data (access units) inside of the MPEG-H UI Manager.
+   * Feed data (access units) to the MPEG-H UI Manager.
+   * @param inData bytebuffer holding the access units
+   * @param inDataLength length of the bytebuffer
+   * @return flag to signal if feeding the data was successful
+   */
+  public native boolean feed(ByteBuffer inData, int inDataLength);
+
+  /**
+   * Update data (access units) by the MPEG-H UI Manager.
    * @param inData bytebuffer holding the access units
    * @param inDataLength length of the bytebuffer
    * @param forceUiUpdate flag signalizing if a forced UI update should be triggered
    * @return updated length of the access unit
    */
-  public native int process(ByteBuffer inData, int inDataLength, boolean forceUiUpdate);
+  public native int update(ByteBuffer inData, int inDataLength, boolean forceUiUpdate);
 
   /**
    * Checks if a new OSD XML configuration is available.

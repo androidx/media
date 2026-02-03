@@ -148,10 +148,6 @@ public final class MpeghDecoder
     }
 
     if (uiManager != null) {
-      for (String command : uiHelper.getCommands(false)) {
-        uiManager.command(command);
-      }
-
       // check if there is enough space to write additional data to the access unit in the UI
       // manager
       if (inputBuffer.data.remaining() + 1000 > inputBuffer.data.capacity()) {
@@ -169,23 +165,36 @@ public final class MpeghDecoder
       int inputSize = inputData.remaining();
       inputData.limit(inputData.capacity());
 
-      // process the access unit with the UI manager
-      boolean forceUiUpdate = uiHelper.getForceUiUpdate();
-      inputSize = uiManager.process(inputData, inputSize, forceUiUpdate);
-      inputData.limit(inputSize);
-      uiHelper.setForceUiUpdate(false);
+      boolean feedSuccess = uiManager.feed(inputData, inputSize);
+      if (feedSuccess) {
+        for (String command : uiHelper.getCommands(false)) {
+          uiManager.command(command);
+        }
 
-      boolean newOSDavailable = uiManager.newOsdAvailable();
-      if (newOSDavailable) {
-        String osdxml = uiManager.getOsd();
+        // process the access unit with the UI manager
+        boolean forceUiUpdate = uiHelper.getForceUiUpdate();
+        inputSize = uiManager.update(inputData, inputSize, forceUiUpdate);
+        inputData.limit(inputSize);
+        uiHelper.setForceUiUpdate(false);
 
-        Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
-        AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
-        if (subscribedKeys != null && dispatcher != null) {
-          if (subscribedKeys.contains("mpegh-ui-config")) {
-            CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-            codecParametersBuilder.setString("mpegh-ui-config", osdxml);
-            dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+        boolean newOSDavailable = uiManager.newOsdAvailable();
+        if (newOSDavailable) {
+          String osdxml = uiManager.getOsd();
+
+          Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
+          AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
+          if (subscribedKeys != null && dispatcher != null) {
+            if (subscribedKeys.contains("mpegh-ui-config")) {
+              // reset CodecParameter with KEY_MPEGH_UI_CONFIG to null as it is possible that the
+              // last config needs to be resend, because only 'real' changes are propagated
+              // further on by audioCodecParametersChanged
+              CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
+              codecParametersBuilder.setString("mpegh-ui-config", null);
+              dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+              // actually send the current MPEG-H UI config
+              codecParametersBuilder.setString("mpegh-ui-config", osdxml);
+              dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+            }
           }
         }
       }

@@ -86,7 +86,7 @@ public class MpeghUiCommandHelper {
    * The obtained MPEG-H UI commands will also be removed from the stored list of commands.
    * Only MPEG-H UI system settings will be kept.
    *
-   * @param init Boolean value to signal that also MPEG-H UI system settings need to be obtained.
+   * @param init Boolean value to signal that only MPEG-H UI system settings need to be obtained.
    * @return List<String> List of MPEG-H UI commands to be applied in the MPEG-H UI manager.
    */
   public List<String> getCommands(boolean init) {
@@ -98,8 +98,10 @@ public class MpeghUiCommandHelper {
       // remove duplicate entries
       commands.removeIf(tmpList::contains);
 
-      tmpList.addAll(commands);
-      commands.clear();
+      if (!init) {
+        tmpList.addAll(commands);
+        commands.clear();
+      }
     }
     return tmpList;
   }

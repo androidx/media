@@ -39,6 +39,9 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.Dumper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -51,25 +54,37 @@ public class MpeghPlaybackTest {
 
   private static final String BEAR_URI = "mp4/sample_mhm1_prefaudiolang.mp4";
 
+  private static final int MAX_PERSISTENCE_STORAGE = 8096;
+  private @Nullable ByteBuffer persistence_buffer;
+
   @Before
   public void setUp() {
     if (!MpeghLibrary.isAvailable()) {
       fail("Mpegh library not available.");
     }
+    persistence_buffer = ByteBuffer.allocateDirect(MAX_PERSISTENCE_STORAGE);
   }
 
   @Test
   public void testPlayback() throws Exception {
-    playAndAssertAudioSinkInput(BEAR_URI, null);
+    playAndAssertAudioSinkInput(BEAR_URI, null, null, 1);
   }
 
   @Test
   public void testPlaybackWithCommand() throws Exception {
-    String command = "<ActionEvent uuid=\"00000000-0000-0000-0000-000000000000\" version=\"11.0\" actionType=\"70\" paramText=\"eng\" />";
-    playAndAssertAudioSinkInput(BEAR_URI, command);
+    String command = "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\" actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
+    playAndAssertAudioSinkInput(BEAR_URI, command, null, 1);
   }
 
-  private static void playAndAssertAudioSinkInput(String fileName, String command) throws Exception {
+  @Test
+  public void testPlaybackWithCommandAndPersistence() throws Exception {
+    String command = "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\" actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
+    playAndAssertAudioSinkInput(BEAR_URI, command, persistence_buffer, 1);
+
+    playAndAssertAudioSinkInput(BEAR_URI, null, persistence_buffer, 2);
+  }
+
+  private static void playAndAssertAudioSinkInput(String fileName, String command, ByteBuffer persistence_buffer, int run) throws Exception {
     CapturingAudioSink audioSink = CapturingAudioSink.create();
 
     TestPlaybackRunnable testPlaybackRunnable =
@@ -77,7 +92,8 @@ public class MpeghPlaybackTest {
             Uri.parse("asset:///media/" + fileName),
             ApplicationProvider.getApplicationContext(),
             audioSink,
-            command);
+            command,
+            persistence_buffer);
     Thread thread = new Thread(testPlaybackRunnable);
     thread.start();
     thread.join();
@@ -85,20 +101,25 @@ public class MpeghPlaybackTest {
       throw testPlaybackRunnable.playbackException;
     }
 
-    String tmp = ".def";
+    String tmp = "";
     if (command != null) {
-      tmp = ".eng";
+      tmp = ".cmd";
+    }
+
+    String tmp_persist = "";
+    if (persistence_buffer != null) {
+      tmp_persist = ".persist." + run;
     }
 
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         audioSink,
-        "audiosinkdumps/" + fileName + tmp + ".audiosink.dump");
+        "audiosinkdumps/" + fileName + tmp + tmp_persist + ".audiosink.dump");
 
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         testPlaybackRunnable,
-        "audiosinkdumps/" + fileName + tmp + ".asi.dump");
+        "audiosinkdumps/" + fileName + tmp + tmp_persist + ".asi.dump");
   }
 
   private static class TestPlaybackRunnable implements Player.Listener, Runnable, Dumper.Dumpable {
@@ -108,17 +129,19 @@ public class MpeghPlaybackTest {
     private final AudioSink audioSink;
     private final String command;
 
-    private final List<String> interceptedData;
+    private final List<String> interceptedAsi;
+    @Nullable private final ByteBuffer persistence_buffer;
 
     @Nullable private ExoPlayer player;
     @Nullable private PlaybackException playbackException;
 
-    public TestPlaybackRunnable(Uri uri, Context context, AudioSink audioSink, String command) {
+    public TestPlaybackRunnable(Uri uri, Context context, AudioSink audioSink, String command, @Nullable ByteBuffer persistence_buffer) {
       this.uri = uri;
       this.context = context;
       this.audioSink = audioSink;
       this.command = command;
-      this.interceptedData = new ArrayList<>();
+      this.interceptedAsi = new ArrayList<>();
+      this.persistence_buffer = persistence_buffer;
     }
 
     @Override
@@ -147,11 +170,28 @@ public class MpeghPlaybackTest {
         codecParametersBuilder.setString("mpegh-ui-command", command);
         player.setAudioCodecParameters(codecParametersBuilder.build());
       }
+      if (persistence_buffer != null) {
+        persistence_buffer.rewind();
+        CodecParameters.Builder codecParametersBuilderPersistence = new CodecParameters.Builder();
+        codecParametersBuilderPersistence.setByteBuffer("mpegh-ui-persistence-buffer", persistence_buffer);
+        player.setAudioCodecParameters(codecParametersBuilderPersistence.build());
+      }
       ArrayList<String> filterKeys = new ArrayList<>();
       filterKeys.add("mpegh-ui-config");
+      filterKeys.add("mpegh-ui-persistence-buffer");
       player.addAudioCodecParametersChangeListener(codecParameters -> {
         if (codecParameters.get("mpegh-ui-config") != null) {
-          interceptedData.add((String)codecParameters.get("mpegh-ui-config"));
+          interceptedAsi.add((String)codecParameters.get("mpegh-ui-config"));
+        }
+        if (codecParameters.get("mpegh-ui-persistence-buffer") != null) {
+          ByteBuffer tmp = (ByteBuffer)codecParameters.get("mpegh-ui-persistence-buffer");
+          if (tmp != null && persistence_buffer != null && !tmp.equals(persistence_buffer)) {
+            tmp.rewind();
+            persistence_buffer.rewind();
+            persistence_buffer.put(tmp);
+            persistence_buffer.rewind();
+          }
+          Looper.myLooper().quit();
         }
       }, filterKeys);
 
@@ -169,18 +209,27 @@ public class MpeghPlaybackTest {
     public void onPlaybackStateChanged(@Player.State int playbackState) {
       if (playbackState == Player.STATE_ENDED
           || (playbackState == Player.STATE_IDLE && playbackException != null)) {
+
         player.release();
-        Looper.myLooper().quit();
+        if (persistence_buffer == null) {
+          Looper.myLooper().quit();
+        }
       }
     }
 
     @Override
     public void dump(Dumper dumper) {
-      if (interceptedData.isEmpty()) {
-        return;
+
+      if (!interceptedAsi.isEmpty()) {
+        for (int i = 0; i < interceptedAsi.size(); i++) {
+          dumper.add("MPEG-H ASI " + i, interceptedAsi.get(i));
+        }
       }
-      for (int i = 0; i < interceptedData.size(); i++) {
-        dumper.add("MPEG-H ASI " + i, interceptedData.get(i));
+
+      if (persistence_buffer != null) {
+        Charset charset = StandardCharsets.UTF_8;
+        String text = charset.decode(persistence_buffer).toString();
+        dumper.add("MPEG-H persistence buffer ", text);
       }
     }
   }
