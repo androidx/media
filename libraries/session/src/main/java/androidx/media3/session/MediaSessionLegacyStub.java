@@ -2156,7 +2156,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         || Build.MANUFACTURER.equals("motorola")
         || Build.MANUFACTURER.equals("vivo")
         || Build.MANUFACTURER.equals("Sony")
-        || Build.MANUFACTURER.equals("Nothing");
+        || Build.MANUFACTURER.equals("Nothing")
+        || Build.MANUFACTURER.equals("unknown");
   }
 
   /** Describes a legacy error. */
