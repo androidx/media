@@ -84,6 +84,9 @@
         preferred orientation for linear ads. If you wish to join the alpha
         testing group, please reach out to your account partner.
 *   Session:
+    *   Fix issue where system UI button placement workaround negatively affects
+        other UI surface like Android Auto or manufacturers not needing the
+        workaround ([#3041]()).
     *   Fix bug where large arrays in `MediaMetadata.artworkData` can crash the
         app.
     *   Use type int for `@Player.Command` argument in the `ActionFactory`

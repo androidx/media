@@ -135,6 +135,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final MediaSessionManager sessionManager;
   private final ControllerLegacyCbForBroadcast controllerLegacyCbForBroadcast;
   private final ConnectionTimeoutHandler connectionTimeoutHandler;
+  private final boolean mayNeedButtonReservationWorkaroundForSeekbar;
+  @Nullable private final AndroidAutoConnectionStateObserver androidAutoObserver;
   private final MediaSessionCompat sessionCompat;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
   @Nullable private final ComponentName broadcastReceiverComponentName;
@@ -183,6 +185,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     connectionTimeoutHandler =
         new ConnectionTimeoutHandler(
             session.getApplicationHandler().getLooper(), connectedControllersManager);
+    mayNeedButtonReservationWorkaroundForSeekbar =
+        mayNeedButtonReservationWorkaroundForSeekbar(context);
 
     if (!mediaButtonPreferences.isEmpty()) {
       updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
@@ -261,6 +265,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     @Initialized
     MediaSessionLegacyStub thisRef = this;
     sessionCompat.setCallback(thisRef, handler);
+
+    androidAutoObserver =
+        mayNeedButtonReservationWorkaroundForSeekbar
+            ? new AndroidAutoConnectionStateObserver(
+                context, thisRef::onAndroidAutoConnectionStateChanged)
+            : null;
   }
 
   /**
@@ -282,25 +292,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.availablePlayerCommands = playerCommands;
 
     if (!mediaButtonPreferences.isEmpty()) {
-      boolean hadPrevReservation =
-          legacyExtras.getBoolean(
-              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
-      boolean hadNextReservation =
-          legacyExtras.getBoolean(
-              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
-      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
-      boolean extrasChanged =
-          (legacyExtras.getBoolean(
-                      MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
-                      /* defaultValue= */ false)
-                  != hadPrevReservation)
-              || (legacyExtras.getBoolean(
-                      MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
-                      /* defaultValue= */ false)
-                  != hadNextReservation);
-      if (extrasChanged) {
-        getSessionCompat().setExtras(legacyExtras);
-      }
+      updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged();
     }
 
     if (commandGetTimelineChanged) {
@@ -345,25 +337,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public void setPlatformMediaButtonPreferences(
       ImmutableList<CommandButton> mediaButtonPreferences) {
     this.mediaButtonPreferences = mediaButtonPreferences;
-    boolean hadPrevReservation =
-        legacyExtras.getBoolean(
-            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
-    boolean hadNextReservation =
-        legacyExtras.getBoolean(
-            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
-    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
-    boolean extrasChanged =
-        (legacyExtras.getBoolean(
-                    MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
-                    /* defaultValue= */ false)
-                != hadPrevReservation)
-            || (legacyExtras.getBoolean(
-                    MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
-                    /* defaultValue= */ false)
-                != hadNextReservation);
-    if (extrasChanged) {
-      getSessionCompat().setExtras(legacyExtras);
-    }
+    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged();
   }
 
   /**
@@ -485,6 +459,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     if (runtimeBroadcastReceiver != null) {
       sessionImpl.getContext().unregisterReceiver(runtimeBroadcastReceiver);
+    }
+    if (androidAutoObserver != null) {
+      androidAutoObserver.release();
     }
     // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     sessionCompat.release();
@@ -1254,6 +1231,34 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         && playerWrapper.getAvailableCommands().contains(Player.COMMAND_GET_TIMELINE);
   }
 
+  private void onAndroidAutoConnectionStateChanged() {
+    postOrRun(
+        sessionImpl.getApplicationHandler(),
+        this::updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged);
+  }
+
+  private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferencesAndInformExtrasChanged() {
+    boolean hadPrevReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, /* defaultValue= */ false);
+    boolean hadNextReservation =
+        legacyExtras.getBoolean(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, /* defaultValue= */ false);
+    updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
+    boolean extrasChanged =
+        (legacyExtras.getBoolean(
+                    MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
+                    /* defaultValue= */ false)
+                != hadPrevReservation)
+            || (legacyExtras.getBoolean(
+                    MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
+                    /* defaultValue= */ false)
+                != hadNextReservation);
+    if (extrasChanged) {
+      getSessionCompat().setExtras(legacyExtras);
+    }
+  }
+
   private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
     ImmutableList<CommandButton> mediaButtonPreferencesWithUnavailableButtonsDisabled =
         CommandButton.copyWithUnavailableButtonsDisabled(
@@ -1268,16 +1273,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             /* backSlotAllowed= */ true,
             /* forwardSlotAllowed= */ true,
             MediaLibraryInfo.INTERFACE_VERSION);
-    // If no custom back slot button is defined and other custom forward or overflow buttons exist,
-    // we need to reserve the back slot to prevent the other buttons from moving into this slot. The
-    // forward slot should never be reserved to avoid gaps in the output. We explicitly clear the
-    // value to avoid any manually defined extras to interfere with our logic.
-    boolean reserveBackSpaceSlot =
-        !customLayout.isEmpty()
-            && !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
-    legacyExtras.putBoolean(
-        MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, reserveBackSpaceSlot);
-    legacyExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, false);
+    if (needsButtonReservationWorkaroundForSeekbar(androidAutoObserver)) {
+      // When applying the workaround, if no custom back slot button is defined and other custom
+      // forward or overflow buttons exist, we need to reserve the back slot to prevent the other
+      // buttons from moving into this slot. The forward slot should never be reserved to avoid gaps
+      // in the output. We explicitly clear the value to avoid any manually defined extras to
+      // interfere with our logic.
+      boolean reserveBackSpaceSlot =
+          !customLayout.isEmpty()
+              && !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK);
+      legacyExtras.putBoolean(
+          MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV, reserveBackSpaceSlot);
+      legacyExtras.putBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT, false);
+    } else {
+      // Without the workaround, set the reservations to match our actual slot definition.
+      legacyExtras.putBoolean(
+          MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV,
+          !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_BACK));
+      legacyExtras.putBoolean(
+          MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT,
+          !CommandButton.containsButtonForSlot(customLayout, CommandButton.SLOT_FORWARD));
+    }
   }
 
   private static MediaItem createMediaItemForMediaRequest(
@@ -2112,6 +2128,35 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             });
       }
     };
+  }
+
+  private boolean needsButtonReservationWorkaroundForSeekbar(
+      @Nullable AndroidAutoConnectionStateObserver androidAutoObserver) {
+    // Check if the device is generally known to require the workaround. Also disable the workaround
+    // when connected to Android Auto under the assumption that it is the main user interface while
+    // connected. See https://github.com/androidx/media/issues/3041.
+    if (!mayNeedButtonReservationWorkaroundForSeekbar) {
+      return false;
+    }
+    return androidAutoObserver == null || !androidAutoObserver.isConnected();
+  }
+
+  private static boolean mayNeedButtonReservationWorkaroundForSeekbar(Context context) {
+    // The stock system UMO has an issue that when a navigation button is reserved, it doesn't
+    // automatically fill its empty space with an extended seek bar, leaving an unexpected gap.
+    // This affects all manufacturers known to rely on the stock UMO from API 33. See
+    // https://github.com/androidx/media/issues/2976.
+    if (SDK_INT < 33) {
+      return false;
+    }
+    if (Util.isAutomotive(context)) {
+      return false;
+    }
+    return Build.MANUFACTURER.equals("Google")
+        || Build.MANUFACTURER.equals("motorola")
+        || Build.MANUFACTURER.equals("vivo")
+        || Build.MANUFACTURER.equals("Sony")
+        || Build.MANUFACTURER.equals("Nothing");
   }
 
   /** Describes a legacy error. */
