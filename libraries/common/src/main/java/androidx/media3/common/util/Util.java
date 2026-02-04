@@ -3870,10 +3870,21 @@ public final class Util {
   @EnsuresNonNullIf(result = true, expression = "#1")
   @UnstableApi
   public static boolean shouldEnablePlayPauseButton(@Nullable Player player) {
-    return player != null
-        && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
-        && !(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+    if (player == null) {
+      return false;
+    }
+    @Player.State int playbackState = player.getPlaybackState();
+    boolean hasMediaItem =
+        !(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
             && player.getCurrentMediaItem() == null);
+    boolean canPlayPause = player.isCommandAvailable(COMMAND_PLAY_PAUSE);
+    boolean canPrepare =
+        playbackState == Player.STATE_IDLE && player.isCommandAvailable(COMMAND_PREPARE);
+    boolean canSeekToDefault =
+        playbackState == Player.STATE_ENDED
+            && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION);
+
+    return hasMediaItem && (canPlayPause || canPrepare || canSeekToDefault);
   }
 
   /**

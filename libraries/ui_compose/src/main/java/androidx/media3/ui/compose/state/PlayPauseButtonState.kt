@@ -46,7 +46,8 @@ fun rememberPlayPauseButtonState(player: Player?): PlayPauseButtonState {
  * component representing a PlayPause button.
  *
  * @property[isEnabled] true if [player] is not `null`, [Player.COMMAND_PLAY_PAUSE] is available and
- *   we have something in the [Timeline][androidx.media3.common.Timeline] to play.
+ *   we have something in the [Timeline][androidx.media3.common.Timeline] to play. See
+ *   [shouldEnablePlayPauseButton] for more details.
  * @property[showPlay] true if [player] is `null` or [shouldShowPlayButton] is true.
  */
 @UnstableApi
@@ -78,6 +79,8 @@ class PlayPauseButtonState(private val player: Player?) {
    * it can be freely provided into containers that take care of skipping the [onClick] if a
    * particular UI node is not enabled (see Compose Clickable Modifier).
    *
+   * It will have no effect if no suitable player method is available to handle the play request.
+   *
    * @see [androidx.media3.common.util.Util.handlePlayButtonAction]
    * @see [androidx.media3.common.util.Util.handlePauseButtonAction]
    * @see [androidx.media3.common.util.Util.shouldShowPlayButton]
@@ -86,7 +89,7 @@ class PlayPauseButtonState(private val player: Player?) {
    */
   fun onClick() {
     check(isEnabled)
-    player?.let { handlePlayPauseButtonAction(it) }
+    handlePlayPauseButtonAction(player)
   }
 
   /**

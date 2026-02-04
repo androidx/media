@@ -70,6 +70,87 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
+  fun noMediaToPlay_buttonStateIsDisabled() {
+    val player = FakePlayer()
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun noPlayPauseCommand_buttonStateIsDisabled() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun stateEnded_noSeekToDefaultCommand_buttonStateIsEnabled() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_ENDED,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+    // We can't seek, but we can still call player.play()
+    player.removeCommands(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
+  fun stateEnded_noPlayPauseOrPrepareCommand_buttonStateIsEnabled() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_ENDED,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    player.removeCommands(Player.COMMAND_PREPARE)
+
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isTrue() // clicking will player.seekToDefault
+  }
+
+  @Test
+  fun stateIdle_noPrepareCommand_buttonStateIsEnabled() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_IDLE,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+    // We can't prepare, but we can still call player.play()
+    player.removeCommands(Player.COMMAND_PREPARE)
+
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
+  fun stateIdle_noPlayPauseOrSeekToDefaultCommand_buttonStateIsEnabled() {
+    val player =
+      FakePlayer(
+        playbackState = Player.STATE_IDLE,
+        playWhenReady = true,
+        playlist = listOf(MediaItemData.Builder("item").build()),
+      )
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    player.removeCommands(Player.COMMAND_SEEK_TO_DEFAULT_POSITION)
+
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
   fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
