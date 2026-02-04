@@ -1145,10 +1145,10 @@ public final class GlUtil {
     if (!eglSurface.equals(EGL14.EGL_NO_SURFACE)
         && framebuffer == 0
         && getContextMajorVersion() >= 3) {
-        GLES30.glDrawBuffers(1, new int[] {GLES30.GL_BACK}, 0);
-        checkGlError();
-        GLES30.glReadBuffer(GLES30.GL_BACK);
-        checkGlError();
+      GLES30.glDrawBuffers(1, new int[] {GLES30.GL_BACK}, 0);
+      checkGlError();
+      GLES30.glReadBuffer(GLES30.GL_BACK);
+      checkGlError();
     }
   }
 }
