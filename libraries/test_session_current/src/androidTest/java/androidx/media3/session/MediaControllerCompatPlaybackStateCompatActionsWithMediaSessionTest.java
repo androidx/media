@@ -16,6 +16,7 @@
 
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.utils.TestUtil.getEventsAsList;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -2027,11 +2028,20 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 androidx.media.utils.MediaConstants
                     .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_PREV))
         .isTrue();
-    assertThat(
-            extras2.getBoolean(
-                androidx.media.utils.MediaConstants
-                    .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
-        .isFalse();
+    if (SDK_INT >= 33) {
+      // Applies if the workaround to disable to next reservation for SysUI is enabled.
+      assertThat(
+              extras2.getBoolean(
+                  androidx.media.utils.MediaConstants
+                      .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
+          .isFalse();
+    } else {
+      assertThat(
+              extras2.getBoolean(
+                  androidx.media.utils.MediaConstants
+                      .SESSION_EXTRAS_KEY_SLOT_RESERVATION_SKIP_TO_NEXT))
+          .isTrue();
+    }
     assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_NEXT).isNotEqualTo(0);
     assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isNotEqualTo(0);
   }

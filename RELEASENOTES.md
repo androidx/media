@@ -11,6 +11,10 @@ This release includes the following changes since
     *   Fix bug where `ProgressiveMediaSource` propagates out-of-date timeline
         info to player and the queued periods unexpectedly get removed
         ([#3016](https://github.com/androidx/media/issues/3016)).
+*   Session:
+    *   Fix issue where system UI button placement workaround negatively affects
+        other UI surface like Android Auto or manufacturers not needing the
+        workaround ([#3041](https://github.com/androidx/media/issues/3041)).
 *   Cast extension:
     *   Fix bug where transferring from Cast to local playback was broken.
 
