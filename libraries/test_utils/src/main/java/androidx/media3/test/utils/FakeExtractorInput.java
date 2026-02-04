@@ -265,25 +265,26 @@ public final class FakeExtractorInput implements ExtractorInput {
       // If the requested length is non-zero, the end of the input will be read.
       return requestedLength == 0 ? 0 : Integer.MAX_VALUE;
     }
-    int targetPosition = position + requestedLength;
-    boolean[] partiallySatisfiedTargetPositions =
-        isPeek ? partiallySatisfiedTargetPeekPositions : partiallySatisfiedTargetReadPositions;
-    if (targetPosition >= partiallySatisfiedTargetPositions.length) {
-      partiallySatisfiedTargetPositions =
-          Booleans.ensureCapacity(
-              partiallySatisfiedTargetPositions, targetPosition + 1, /* padding= */ 0);
-      if (isPeek) {
-        partiallySatisfiedTargetPeekPositions = partiallySatisfiedTargetPositions;
-      } else {
-        partiallySatisfiedTargetReadPositions = partiallySatisfiedTargetPositions;
+    if (simulatePartialReads) {
+      int targetPosition = position + requestedLength;
+      boolean[] partiallySatisfiedTargetPositions =
+          isPeek ? partiallySatisfiedTargetPeekPositions : partiallySatisfiedTargetReadPositions;
+      if (targetPosition >= partiallySatisfiedTargetPositions.length) {
+        partiallySatisfiedTargetPositions =
+            Booleans.ensureCapacity(
+                partiallySatisfiedTargetPositions, targetPosition + 1, /* padding= */ 0);
+        if (isPeek) {
+          partiallySatisfiedTargetPeekPositions = partiallySatisfiedTargetPositions;
+        } else {
+          partiallySatisfiedTargetReadPositions = partiallySatisfiedTargetPositions;
+        }
+      }
+      if (requestedLength > 1 && !partiallySatisfiedTargetPositions[targetPosition]) {
+        partiallySatisfiedTargetPositions[targetPosition] = true;
+        return 1;
       }
     }
-    if (simulatePartialReads
-        && requestedLength > 1
-        && !partiallySatisfiedTargetPositions[targetPosition]) {
-      partiallySatisfiedTargetPositions[targetPosition] = true;
-      return 1;
-    }
+
     return min(requestedLength, data.length - position);
   }
 
