@@ -1,6 +1,9 @@
 # Release notes
 
-### Unreleased changes
+### 1.10.0-alpha01 (2026-02-06)
+
+This release includes the following changes since
+[1.9.1 release](#191-2026-01-26):
 
 *   Common Library:
     *   Promote `Player.mute()` and `Player.unmute()` from UnstableApi to
@@ -32,8 +35,6 @@
     *   `EditedMediaItem.Builder.setFrameRate()` can now set a maximum output
         frame rate for video, which is particularly helpful when increasing
         media speed with `setSpeed()`.
-*   Track Selection:
-*   Extractors:
 *   Inspector:
     *   Breaking change: Removed `FrameExtractor`. Users should now depend on
         the new `:media3-inspector-frame` module and update imports to
@@ -52,15 +53,10 @@
     *   Improve the retry logic of `AudioOutput` initialization in
         `DefaultAudioSink`
         ([#2905](https://github.com/androidx/media/issues/2905)).
-*   Video:
 *   Text:
     *   VobSub: Use `START` and `STOP` SPU control commands to derive cue
         duration instead of always defaulting to 5s
         ([#2935](https://github.com/androidx/media/issues/2935)).
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
 *   Effect:
     *   Moved `LottieOverlay` to a new `:media3-effect-lottie` module (which
         also involved renaming it from `androidx.media3.effect.LottieOverlay` to
@@ -68,7 +64,6 @@
 *   Effect Lottie:
     *   Introduced a new `:media3-effect-lottie` module which provides
         functionality for applying lottie effects to video frames.
-*   Muxers:
 *   IMA extension:
     *   Update the IMA SDK version to 3.39.0 in order to have access to the
         latest Ad media info API.
@@ -80,7 +75,7 @@
         ad click-through URLs are launched using Custom Tabs.
     *   Add the `ImaAdTagUriBuilder`, a class that offers an alternative way to
         construct an `adTagUri`. It contains the `setPreferredLinearOrientation`
-        API. This is an API in alpha testing that will allow for you to set your
+        API. This is an API in alpha testing that will allow you to set your
         preferred orientation for linear ads. If you wish to join the alpha
         testing group, please reach out to your account partner.
 *   Session:
@@ -119,10 +114,6 @@
         displaying player progress and performing seeks using dragging and
         tapping ([#2288](https://github.com/androidx/media/issues/2288)).
     *   Avoid large offscreen buffer in animating PlayerControlView.
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Support X-PLAYOUT-LIMIT with HLS interstitials
         ([#2484](https://github.com/androidx/media/issues/2484)).
@@ -130,16 +121,9 @@
         ([#1854](https://github.com/androidx/media/issues/1854)).
     *   Optimize HLS playlist parsing by caching regex Matchers
         ([#3008](https://github.com/androidx/media/pull/3008)).
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Add `RemoteCastPlayer.Builder#setTrackSelector` method that enables the
         implementation of track selection for Cast playbacks.
-*   Test Utilities:
 *   Remove deprecated symbols:
     *   Removed `ExperimentalFrameExtractor`. Use
         `androidx.media3.inspector.frame.FrameExtractor` instead.
