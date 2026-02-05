@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 project.ext {
-    releaseVersion = '1.9.1'
-    releaseVersionCode = 1_009_001_3_00
+    releaseVersion = '1.10.0-alpha01'
+    releaseVersionCode = 1_010_000_0_01
     minSdkVersion = 23
     // See https://developer.android.com/training/cars/media/automotive-os#automotive-module
     automotiveMinSdkVersion = 28
