@@ -1138,5 +1138,17 @@ public final class GlUtil {
     EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
     checkEglException("Error making context current");
     focusFramebufferUsingCurrentContext(framebuffer, width, height);
+    // When transitioning from a surfaceless context (EGL_NO_SURFACE) to a context with a valid
+    // surface, the GL_DRAW_BUFFER and GL_READ_BUFFER states may still be GL_NONE (per EGL spec for
+    // surfaceless contexts). Explicitly set them to GL_BACK for the default framebuffer to ensure
+    // rendering goes to the bound surface. See https://github.com/androidx/media/issues/2982.
+    if (!eglSurface.equals(EGL14.EGL_NO_SURFACE)
+        && framebuffer == 0
+        && getContextMajorVersion() >= 3) {
+      GLES30.glDrawBuffers(1, new int[] {GLES30.GL_BACK}, 0);
+      checkGlError();
+      GLES30.glReadBuffer(GLES30.GL_BACK);
+      checkGlError();
+    }
   }
 }
