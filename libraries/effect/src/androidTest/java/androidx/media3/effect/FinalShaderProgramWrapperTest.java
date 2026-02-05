@@ -142,6 +142,11 @@ public final class FinalShaderProgramWrapperTest {
               long presentationTimeUs, boolean isRedrawnFrame) {
             presentationTimesUsAvailableForRendering.add(presentationTimeUs);
           }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            videoFrameProcessingException = exception;
+          }
         };
     inputListener =
         new InputListener() {
@@ -284,6 +289,20 @@ public final class FinalShaderProgramWrapperTest {
     finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, 10003000);
 
     assertThat(endOfCurrentStreamPresentationTimesUs).containsExactly(3000L);
+  }
+
+  @Test
+  public void removeOutputSurface_afterRelease_doesNotThrow() throws Exception {
+    buildFinalShaderProgramWrapper(/* renderFramesAutomatically= */ false);
+
+    finalShaderProgramWrapper.queueInputFrame(glObjectsProvider, inputTextureInfos.get(0), 1000);
+    finalShaderProgramWrapper.renderOutputFrame(glObjectsProvider, 10001000);
+    assertThat(processedTextures).containsExactly(inputTextureInfos.get(0));
+
+    finalShaderProgramWrapper.release();
+    finalShaderProgramWrapper.setOutputSurfaceInfo(null);
+
+    assertThat(videoFrameProcessingException).isNull();
   }
 
   private void buildFinalShaderProgramWrapper(boolean renderFramesAutomatically) throws Exception {

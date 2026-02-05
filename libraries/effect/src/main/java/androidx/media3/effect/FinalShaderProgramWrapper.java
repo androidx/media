@@ -307,6 +307,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlUtil.checkGlError();
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
+    } finally {
+      outputEglSurface = null;
     }
   }
 
