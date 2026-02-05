@@ -27,10 +27,13 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 
 /** Unit test for [SeekBackButtonState]. */
 @RunWith(AndroidJUnit4::class)
@@ -69,25 +72,30 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+  fun onClick_whenCommandNotAvailable_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_BACK)
-    val state = SeekBackButtonState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = SeekBackButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).seekBack()
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
+    composeTestRule.setContent { state = rememberSeekBackButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SEEK_BACK)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).seekBack()
   }
 
   @Test
@@ -95,15 +103,16 @@ class SeekBackButtonStateTest {
     val player = createReadyPlayerWithTwoItems()
     player.playWhenReady = false
     player.setPosition(1000)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
+    composeTestRule.setContent { state = rememberSeekBackButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SEEK_BACK)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.currentPosition).isEqualTo(1000)
+    verify(spyPlayer, never()).seekBack()
   }
 
   @Test
@@ -175,11 +184,11 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = SeekBackButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test

@@ -72,13 +72,12 @@ class PlaybackSpeedState(private val player: Player?) {
   /**
    * Updates the playback speed of the [Player] backing this state.
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled].
+   * This method does nothing if [Player.COMMAND_SET_SPEED_AND_PITCH] is not available.
    *
    * @see [Player.setPlaybackSpeed]
    * @see [Player.COMMAND_SET_SPEED_AND_PITCH]
    */
   fun updatePlaybackSpeed(speed: Float) {
-    check(isEnabled)
     player?.let {
       if (it.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) {
         it.playbackParameters = it.playbackParameters.withSpeed(speed)

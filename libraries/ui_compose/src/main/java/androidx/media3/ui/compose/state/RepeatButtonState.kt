@@ -84,15 +84,12 @@ class RepeatButtonState(
    * Cycles to the next repeat mode in the [toggleModeSequence]. If the current repeat mode from the
    * [Player] is not among the modes in the provided [toggleModeSequence], pick the first one.
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
+   * This method does nothing if [Player.COMMAND_SET_REPEAT_MODE] is not available.
    *
    * @see [Player.setRepeatMode]
    * @see [Player.COMMAND_SET_REPEAT_MODE]
    */
   fun onClick() {
-    check(isEnabled)
     player?.let {
       if (it.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE)) {
         it.repeatMode = getNextRepeatModeInSequence(it)

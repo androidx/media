@@ -25,10 +25,13 @@ import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 
 /** Unit test for [MuteButtonState]. */
 @RunWith(AndroidJUnit4::class)
@@ -69,40 +72,49 @@ class MuteButtonStateTest {
   }
 
   @Test
-  fun onClick_stateIsDisabled_throwsException() {
+  fun onClick_stateIsDisabled_isNoOp() {
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_VOLUME)
-    val state = MuteButtonState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = MuteButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).mute()
+    verify(spyPlayer, never()).unmute()
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = FakePlayer()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: MuteButtonState
-    composeTestRule.setContent { state = rememberMuteButtonState(player) }
+    composeTestRule.setContent { state = rememberMuteButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SET_VOLUME)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).mute()
+    verify(spyPlayer, never()).unmute()
   }
 
   @Test
   fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
     val player = FakePlayer()
     player.volume = 0.7f
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: MuteButtonState
-    composeTestRule.setContent { state = rememberMuteButtonState(player) }
+    composeTestRule.setContent { state = rememberMuteButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SET_VOLUME)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.volume).isEqualTo(0.7f)
+    verify(spyPlayer, never()).mute()
+    verify(spyPlayer, never()).unmute()
   }
 
   @Test
@@ -267,11 +279,11 @@ class MuteButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = MuteButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test

@@ -69,15 +69,12 @@ class SeekBackButtonState(private val player: Player?) {
    * Handles the interaction with the SeekBackButton by seeking back in the current
    * [androidx.media3.common.MediaItem] by [seekBackAmountMs] milliseconds.
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
+   * This method does nothing if [Player.COMMAND_SEEK_BACK] is not available.
    *
    * @see [Player.seekBack]
    * @see [Player.COMMAND_SEEK_BACK]
    */
   fun onClick() {
-    check(isEnabled)
     player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_BACK)) it.seekBack() }
   }
 

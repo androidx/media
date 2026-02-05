@@ -26,10 +26,15 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.anyFloat
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.reset
+import org.mockito.Mockito.verify
 
 /** Unit test for [PlaybackSpeedState]. */
 @RunWith(AndroidJUnit4::class)
@@ -67,41 +72,51 @@ class PlaybackSpeedStateTest {
   }
 
   @Test
-  fun updatePlaybackSpeed_whenCommandNotAvailable_throwsException() {
+  fun updatePlaybackSpeed_whenCommandNotAvailable_isNoOp() {
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
-    val state = PlaybackSpeedState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = PlaybackSpeedState(spyPlayer)
+    check(!state.isEnabled)
+    reset(spyPlayer)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+    state.updatePlaybackSpeed(1.5f)
+
+    verify(spyPlayer, never()).setPlaybackSpeed(anyFloat())
   }
 
   @Test
-  fun updatePlaybackSpeed_stateBecomesDisabled_throwsException() {
+  fun updatePlaybackSpeed_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.setPlaybackSpeed(2f)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlaybackSpeedState
-    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(spyPlayer) }
+    reset(spyPlayer)
 
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
     composeTestRule.waitForIdle()
 
-    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+    state.updatePlaybackSpeed(1.5f)
+
+    verify(spyPlayer, never()).setPlaybackSpeed(anyFloat())
   }
 
   @Test
   fun updatePlaybackSpeed_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.setPlaybackSpeed(2f)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlaybackSpeedState
-    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(spyPlayer) }
+    reset(spyPlayer)
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
     check(state.isEnabled)
     state.updatePlaybackSpeed(1.5f)
 
-    assertThat(player.playbackParameters.speed).isEqualTo(2f)
+    verify(spyPlayer, never()).setPlaybackSpeed(anyFloat())
   }
 
   @Test
@@ -156,11 +171,11 @@ class PlaybackSpeedStateTest {
   }
 
   @Test
-  fun nullPlayer_updatePlaybackSpeed_throwsIllegalStateException() {
+  fun nullPlayer_updatePlaybackSpeed_isNoOp() {
     val state = PlaybackSpeedState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+    state.updatePlaybackSpeed(1.5f)
   }
 
   @Test

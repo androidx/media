@@ -67,15 +67,12 @@ class ShuffleButtonState(private val player: Player?) {
   /**
    * Handles the interaction with the ShuffleButton according to the current state of the [Player].
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
+   * This method does nothing if [Player.COMMAND_SET_SHUFFLE_MODE] is not available
    *
    * @see [Player.setShuffleModeEnabled]
    * @see [Player.COMMAND_SET_SHUFFLE_MODE]
    */
   fun onClick() {
-    check(isEnabled)
     player?.let {
       if (it.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)) {
         it.shuffleModeEnabled = !it.shuffleModeEnabled

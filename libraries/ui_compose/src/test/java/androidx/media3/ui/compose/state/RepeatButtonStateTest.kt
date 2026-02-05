@@ -26,10 +26,14 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.anyInt
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import org.robolectric.shadows.ShadowLooper
 
 /** Unit test for [RepeatButtonState]. */
@@ -65,40 +69,46 @@ class RepeatButtonStateTest {
   }
 
   @Test
-  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+  fun onClick_whenCommandNotAvailable_isNoOp() {
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
-    val state = RepeatButtonState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = RepeatButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).setRepeatMode(anyInt())
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: RepeatButtonState
-    composeTestRule.setContent { state = rememberRepeatButtonState(player) }
+    composeTestRule.setContent { state = rememberRepeatButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).setRepeatMode(anyInt())
   }
 
   @Test
   fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.repeatMode = Player.REPEAT_MODE_ALL
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: RepeatButtonState
-    composeTestRule.setContent { state = rememberRepeatButtonState(player) }
+    composeTestRule.setContent { state = rememberRepeatButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL)
+    verify(spyPlayer, never()).setRepeatMode(anyInt())
   }
 
   @Test
@@ -174,11 +184,11 @@ class RepeatButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = RepeatButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test

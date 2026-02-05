@@ -28,10 +28,13 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 
 /** Unit test for [PlayPauseButtonState]. */
 @RunWith(AndroidJUnit4::class)
@@ -151,39 +154,48 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+  fun onClick_whenCommandNotAvailable_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
-    val state = PlayPauseButtonState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = PlayPauseButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).play()
+    verify(spyPlayer, never()).pause()
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player) }
+    composeTestRule.setContent { state = rememberPlayPauseButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).play()
+    verify(spyPlayer, never()).pause()
   }
 
   @Test
   fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player) }
+    composeTestRule.setContent { state = rememberPlayPauseButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.playWhenReady).isTrue()
+    verify(spyPlayer, never()).play()
+    verify(spyPlayer, never()).pause()
   }
 
   @Test
@@ -280,11 +292,11 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = PlayPauseButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test

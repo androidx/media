@@ -75,10 +75,6 @@ class PlayPauseButtonState(private val player: Player?) {
    * The [Player] update that follows can take a form of [Player.play], [Player.pause],
    * [Player.prepare] or [Player.seekToDefaultPosition].
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
-   *
    * It will have no effect if no suitable player method is available to handle the play request.
    *
    * @see [androidx.media3.common.util.Util.handlePlayButtonAction]
@@ -88,7 +84,6 @@ class PlayPauseButtonState(private val player: Player?) {
    * @see [androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM]
    */
   fun onClick() {
-    check(isEnabled)
     handlePlayPauseButtonAction(player)
   }
 

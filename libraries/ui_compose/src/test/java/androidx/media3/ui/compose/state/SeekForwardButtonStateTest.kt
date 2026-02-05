@@ -27,10 +27,13 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 
 /** Unit test for [SeekForwardButtonState]. */
 @RunWith(AndroidJUnit4::class)
@@ -69,26 +72,30 @@ class SeekForwardButtonStateTest {
   }
 
   @Test
-  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+  fun onClick_whenCommandNotAvailable_isNoOp() {
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
-    lateinit var state: SeekForwardButtonState
-    composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = SeekForwardButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).seekForward()
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekForwardButtonState
-    composeTestRule.setContent { state = rememberSeekForwardButtonState(player) }
+    composeTestRule.setContent { state = rememberSeekForwardButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).seekForward()
   }
 
   @Test
@@ -96,15 +103,16 @@ class SeekForwardButtonStateTest {
     val player = createReadyPlayerWithTwoItems()
     player.playWhenReady = false
     player.setPosition(1000)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekForwardButtonState
-    composeTestRule.setContent { state = rememberSeekForwardButtonState(player) }
+    composeTestRule.setContent { state = rememberSeekForwardButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.currentPosition).isEqualTo(1000)
+    verify(spyPlayer, never()).seekForward()
   }
 
   @Test
@@ -192,11 +200,11 @@ class SeekForwardButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = SeekForwardButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test

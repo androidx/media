@@ -149,12 +149,11 @@ class ProgressStateWithTickCount(
    * Moves the player to a position represented by [progress] which is a value between 0..1,
    * effectively updating [currentPositionProgress].
    *
-   * This method must only be called if [changingProgressEnabled][changing of progress is enabled on
-   * the state]. Throws an `IllegalStateException` otherwise.
+   * This method does nothing if [Player.duration] is unknown or unset or if
+   * [Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM] is not available.
    */
   fun updateCurrentPositionProgress(progress: Float) {
     val player = player ?: return
-    check(changingProgressEnabled)
     val durationMs = getDurationMsOrDefault(player)
     if (
       durationMs != C.TIME_UNSET &&

@@ -61,15 +61,12 @@ class NextButtonState(private val player: Player?) {
    * Handles the interaction with the NextButton by seeking to the next MediaItem, if available, or
    * to later position in the current MediaItem, if live.
    *
-   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
-   * it can be freely provided into containers that take care of skipping the [onClick] if a
-   * particular UI node is not enabled (see Compose Clickable Modifier).
+   * This method does nothing if [Player.COMMAND_SEEK_TO_NEXT] is not available.
    *
    * @see [Player.seekToNext]
    * @see [Player.COMMAND_SEEK_TO_NEXT]
    */
   fun onClick() {
-    check(isEnabled)
     player?.let { if (it.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) it.seekToNext() }
   }
 

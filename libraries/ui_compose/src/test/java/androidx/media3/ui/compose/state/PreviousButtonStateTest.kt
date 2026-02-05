@@ -26,10 +26,13 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 
 /** Unit test for [PreviousButtonState]. */
 @RunWith(AndroidJUnit4::class)
@@ -69,41 +72,47 @@ class PreviousButtonStateTest {
   }
 
   @Test
-  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+  fun onClick_whenCommandNotAvailable_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
-    val state = PreviousButtonState(player)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
+    val state = PreviousButtonState(spyPlayer)
+    check(!state.isEnabled)
 
-    assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
+
+    verify(spyPlayer, never()).seekToPrevious()
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_throwsException() {
+  fun onClick_stateBecomesDisabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.seekToDefaultPosition(1)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PreviousButtonState
-    composeTestRule.setContent { state = rememberPreviousButtonState(player) }
+    composeTestRule.setContent { state = rememberPreviousButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
     composeTestRule.waitForIdle()
+    state.onClick()
 
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    verify(spyPlayer, never()).seekToPrevious()
   }
 
   @Test
   fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
     val player = createReadyPlayerWithTwoItems()
     player.seekToDefaultPosition(1)
+    val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PreviousButtonState
-    composeTestRule.setContent { state = rememberPreviousButtonState(player) }
+    composeTestRule.setContent { state = rememberPreviousButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
     check(state.isEnabled)
     state.onClick()
 
-    assertThat(player.currentMediaItemIndex).isEqualTo(1)
+    verify(spyPlayer, never()).seekToPrevious()
   }
 
   @Test
@@ -144,11 +153,11 @@ class PreviousButtonStateTest {
   }
 
   @Test
-  fun nullPlayer_onClick_throwsIllegalStateException() {
+  fun nullPlayer_onClick_isNoOp() {
     val state = PreviousButtonState(player = null)
 
     assertThat(state.isEnabled).isFalse()
-    assertThrows(IllegalStateException::class.java) { state.onClick() }
+    state.onClick()
   }
 
   @Test
