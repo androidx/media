@@ -11,6 +11,8 @@ This release includes the following changes since
     *   Fix bug where `ProgressiveMediaSource` propagates out-of-date timeline
         info to player and the queued periods unexpectedly get removed
         ([#3016](https://github.com/androidx/media/issues/3016)).
+*   Cast extension:
+    *   Fix bug where transferring from Cast to local playback was broken.
 
 ### 1.9.1 (2026-01-26)
 
