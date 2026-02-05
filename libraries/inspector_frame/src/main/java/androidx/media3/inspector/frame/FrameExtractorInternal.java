@@ -41,7 +41,6 @@ import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -104,24 +103,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * extraction requests and managing the player lifecycle to ensure thread-safety and efficient
  * resource use.
  */
-// TODO(b/442827020): Make this class package-private after ExperimentalFrameExtractor is removed.
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public final class FrameExtractorInternal {
+/* package */ final class FrameExtractorInternal {
 
   /** A plain data object holding all configuration for a frame extraction request. */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public static final class FrameExtractionRequest {
-    public final Context context;
-    public final MediaItem mediaItem;
-    public final List<Effect> effects;
-    public final SeekParameters seekParameters;
-    public final MediaCodecSelector mediaCodecSelector;
-    @Nullable public final GlObjectsProvider glObjectsProvider;
-    @Nullable public final MediaSource.Factory mediaSourceFactory;
-    public final boolean extractHdrFrames;
-    public final long positionMs;
+  /* package */ static final class FrameExtractionRequest {
+    private final Context context;
+    private final MediaItem mediaItem;
+    private final List<Effect> effects;
+    private final SeekParameters seekParameters;
+    private final MediaCodecSelector mediaCodecSelector;
+    @Nullable private final GlObjectsProvider glObjectsProvider;
+    @Nullable private final MediaSource.Factory mediaSourceFactory;
+    private final boolean extractHdrFrames;
+    private final long positionMs;
 
-    public FrameExtractionRequest(
+    /* package */ FrameExtractionRequest(
         Context context,
         MediaItem mediaItem,
         List<Effect> effects,
@@ -143,7 +139,7 @@ public final class FrameExtractorInternal {
     }
 
     /** Creates a copy of this request with a new position. */
-    public FrameExtractionRequest copyWithPositionMs(long positionMs) {
+    /* package */ FrameExtractionRequest copyWithPositionMs(long positionMs) {
       if (this.positionMs == positionMs) {
         return this;
       }
@@ -198,7 +194,7 @@ public final class FrameExtractorInternal {
     thumbnailPresentationTimeMs = C.TIME_UNSET;
   }
 
-  public static FrameExtractorInternal getInstance() {
+  /* package */ static FrameExtractorInternal getInstance() {
     synchronized (LOCK) {
       if (instance == null) {
         instance = new FrameExtractorInternal();
@@ -208,12 +204,12 @@ public final class FrameExtractorInternal {
   }
 
   /** Increments the reference count. */
-  public void addReference() {
+  /* package */ void addReference() {
     referenceCount.incrementAndGet();
   }
 
   /** Decrements the reference count and releases resources if the count reaches zero. */
-  public void releaseReference() {
+  /* package */ void releaseReference() {
     ListenableFuture<Void> unused =
         executionSequencer.submit(
             () -> {
@@ -235,7 +231,7 @@ public final class FrameExtractorInternal {
   }
 
   /** Submits a frame extraction task to the sequential queue. */
-  public ListenableFuture<FrameExtractor.Frame> submitTask(FrameExtractionRequest request) {
+  /* package */ ListenableFuture<FrameExtractor.Frame> submitTask(FrameExtractionRequest request) {
     return executionSequencer.submitAsync(
         () -> {
           boolean needsNewPlayer =
@@ -290,7 +286,7 @@ public final class FrameExtractorInternal {
   }
 
   /** Gets the decoder counters from the player. */
-  public ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
+  /* package */ ListenableFuture<@NullableType DecoderCounters> getDecoderCounters() {
     return CallbackToFutureAdapter.<@NullableType DecoderCounters>getFuture(
         completer -> {
           ListenableFuture<Void> unused =
