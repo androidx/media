@@ -248,14 +248,6 @@ public final class ListenerSet<T extends @NonNull Object> {
   }
 
   /**
-   * Returns whether the current thread is the one expected by most methods of this class (unless
-   * documented otherwise).
-   */
-  public boolean isRunningOnCorrectThread() {
-    return Thread.currentThread() == thread;
-  }
-
-  /**
    * Adds a listener to the set.
    *
    * <p>If a listener is already present, it will not be added again.
@@ -433,7 +425,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     if (!throwsWhenUsingWrongThread) {
       return;
     }
-    checkState(isRunningOnCorrectThread());
+    checkState(Thread.currentThread() == thread);
   }
 
   private static final class ListenerHolder<T extends @NonNull Object> {

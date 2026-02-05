@@ -122,6 +122,8 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     this.config = config;
     this.capabilityChangeListener = capabilityChangeListener;
     listeners = new ListenerSet<>(Thread.currentThread());
+    // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
+    listeners.setThrowsWhenUsingWrongThread(false);
 
     isOutputPcm = Util.isEncodingLinearPcm(config.encoding);
     if (isOutputPcm) {
@@ -413,7 +415,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   }
 
   private void maybeReportUnderrun() {
-    if (listeners.isRunningOnCorrectThread() && hasPendingAudioTrackUnderruns(getWrittenFrames())) {
+    if (hasPendingAudioTrackUnderruns(getWrittenFrames())) {
       listeners.sendEvent(Listener::onUnderrun);
     }
   }
@@ -543,9 +545,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
     @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
-      if (listeners.isRunningOnCorrectThread()) {
-        listeners.sendEvent(listener -> listener.onPositionAdvancing(playoutStartSystemTimeMs));
-      }
+      listeners.sendEvent(listener -> listener.onPositionAdvancing(playoutStartSystemTimeMs));
     }
   }
 

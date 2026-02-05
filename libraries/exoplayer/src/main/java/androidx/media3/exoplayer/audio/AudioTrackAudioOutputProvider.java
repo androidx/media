@@ -380,6 +380,8 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     verifySinglePlaybackLooper();
     if (listeners == null) {
       listeners = new ListenerSet<>(Thread.currentThread());
+      // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
+      listeners.setThrowsWhenUsingWrongThread(false);
     }
     listeners.add(listener);
   }
