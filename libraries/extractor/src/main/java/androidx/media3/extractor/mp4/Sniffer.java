@@ -158,16 +158,19 @@ public final class Sniffer {
       }
       bytesSearched += headerSize;
 
-      if (atomType == Mp4Box.TYPE_moov) {
-        // We have seen the moov atom. We increase the search size to make sure we don't miss an
-        // mvex atom because the moov's size exceeds the search length.
+      if (atomType == Mp4Box.TYPE_moov || atomType == Mp4Box.TYPE_uuid) {
+        // These boxes can both be quite large, so we increase the search size, either to sniff
+        // additional boxes after the uuid box, or to make sure we don't miss an mvex box inside
+        // the moov.
         bytesToSearch += (int) atomSize;
         if (inputLength != C.LENGTH_UNSET && bytesToSearch > inputLength) {
           // Make sure we don't exceed the file size.
           bytesToSearch = (int) inputLength;
         }
-        // Check for an mvex atom inside the moov atom to identify whether the file is fragmented.
-        continue;
+        if (atomType == Mp4Box.TYPE_moov) {
+          // Check for an mvex atom inside the moov atom to identify whether the file is fragmented.
+          continue;
+        }
       }
 
       // Peek inside the boxes that will lead to stbl, so that a very large stbl box can be used to

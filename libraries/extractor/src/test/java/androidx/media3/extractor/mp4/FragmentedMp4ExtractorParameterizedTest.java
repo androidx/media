@@ -280,6 +280,14 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         closedCaptions, "media/mp4/fragmented_captions_h265.mp4", /* peekLimit= */ 3100);
   }
 
+  @Test
+  public void sampleWithUuidBoxBeforeMoov() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_uuid.mp4",
+        /* peekLimit= */ 9276);
+  }
+
   private void assertExtractorBehavior(
       List<Format> closedCaptionFormats, String file, int peekLimit) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =

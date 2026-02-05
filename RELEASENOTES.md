@@ -8,6 +8,8 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   MP4: Support files with large `uuid` boxes before other boxes like
+        `moov` ([#3046](https://github.com/androidx/media/issues/3046)).
 *   Inspector:
 *   Inspector Frame:
 *   Audio:
