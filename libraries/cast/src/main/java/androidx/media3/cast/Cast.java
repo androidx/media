@@ -52,9 +52,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * configurations (such as the receiver application id) and resource initialization.
  *
  * <p>The singleton instance must be initialized for Cast playback to function. The recommended
- * approach is to call {@link #initialize} within {@link Application#onCreate}. If the
- * initialization method is called but an OptionsProvider is configured in the app's manifest,
- * {@link RemoteCastPlayer} and UI elements will trigger initialization automatically .
+ * approach is to call {@link #initialize} within {@link Application#onCreate}. If {@link
+ * #initialize} is not called but an OptionsProvider is configured in the app's manifest, {@link
+ * RemoteCastPlayer} and UI elements will trigger initialization automatically .
  *
  * <p>Must be called on the main process and the main thread.
  */
