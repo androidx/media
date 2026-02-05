@@ -57,7 +57,6 @@ import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.effect.LottieEffectFactory
-import androidx.media3.demo.composition.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
@@ -69,6 +68,7 @@ import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.SingleContextGlObjectsProvider
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.NdkTransformerBuilder
+import androidx.media3.effect.ndk.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -111,21 +111,20 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   internal var frameConsumerEnabled: Boolean = false
   internal var holder: SurfaceHolder? = null
   internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
-    if (SDK_INT >= 26) {
-      ProcessAndRenderToSurfaceConsumer.Factory(
-        getApplication(),
-        glExecutorService,
-        glObjectsProvider,
-        errorListener = { e ->
-          Log.e(TAG, "FrameConsumer error", e)
-          _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
-        },
-      )
-    } else {
+    if (SDK_INT < 34) {
       throw IllegalStateException(
-        "Render with PacketConsumer<HardwareBufferFrame> requires API 26+"
+        "Render with PacketConsumer<HardwareBufferFrame> requires API 34+"
       )
     }
+    ProcessAndRenderToSurfaceConsumer.Factory(
+      getApplication(),
+      glExecutorService,
+      glObjectsProvider,
+      errorHandler = { e ->
+        Log.e(TAG, "FrameConsumer error", e)
+        _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
+      },
+    )
   }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
@@ -799,7 +798,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder = CompositionPlayer.Builder(getApplication())
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 26) {
+    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
       packetConsumerFactory.setOutput(holder)
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
