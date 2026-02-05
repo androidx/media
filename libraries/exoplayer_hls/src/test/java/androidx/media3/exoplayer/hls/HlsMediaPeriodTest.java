@@ -15,15 +15,25 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.common.MimeTypes.APPLICATION_ID3;
+import static androidx.media3.common.MimeTypes.AUDIO_AAC;
+import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
+import android.os.SystemClock;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.TrackGroup;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -34,13 +44,18 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
 import androidx.media3.exoplayer.source.CompositeSequenceableLoaderFactory;
+import androidx.media3.exoplayer.source.LoadEventInfo;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.test.utils.MediaPeriodAsserts;
 import androidx.media3.test.utils.MediaPeriodAsserts.FilterableManifestMediaPeriodFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -109,6 +124,111 @@ public final class HlsMediaPeriodTest {
         mediaPeriodFactory, testMultivariantPlaylist);
   }
 
+  @Test
+  public void onPlaylistError_returnsCorrectResult() {
+    HlsMultivariantPlaylist testMultivariantPlaylist =
+        createMultivariantPlaylist(
+            /* variants= */ Arrays.asList(
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant1"), /* peakBitrate= */ 400000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant2"), /* peakBitrate= */ 600000)),
+            /* audios= */ ImmutableList.of(),
+            /* subtitles= */ ImmutableList.of(),
+            /* muxedAudioFormat= */ createAudioFormat("eng"),
+            /* muxedCaptionFormats= */ ImmutableList.of());
+    HlsExtractorFactory mockHlsExtractorFactory = mock(HlsExtractorFactory.class);
+    when(mockHlsExtractorFactory.getOutputTextFormat(any()))
+        .then(invocation -> invocation.getArguments()[0]);
+    HlsDataSourceFactory mockDataSourceFactory = mock(HlsDataSourceFactory.class);
+    when(mockDataSourceFactory.createDataSource(anyInt())).thenReturn(mock(DataSource.class));
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    when(mockPlaylistTracker.getMultivariantPlaylist()).thenReturn(testMultivariantPlaylist);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    LoadErrorHandlingPolicy mockLoadErrorHandlingPolicy = mock(LoadErrorHandlingPolicy.class);
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
+    HlsMediaPeriod mediaPeriod =
+        new HlsMediaPeriod(
+            mockHlsExtractorFactory,
+            mockPlaylistTracker,
+            mockDataSourceFactory,
+            mock(TransferListener.class),
+            /* cmcdConfiguration= */ null,
+            mock(DrmSessionManager.class),
+            new DrmSessionEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+            mockLoadErrorHandlingPolicy,
+            new MediaSourceEventListener.EventDispatcher()
+                .withParameters(/* windowIndex= */ 0, mediaPeriodId),
+            mock(Allocator.class),
+            mock(CompositeSequenceableLoaderFactory.class),
+            /* allowChunklessPreparation= */ true,
+            HlsMediaSource.METADATA_TYPE_ID3,
+            /* useSessionKeys= */ false,
+            PlayerId.UNSET,
+            /* timestampAdjusterInitializationTimeoutMs= */ 0,
+            /* downloadExecutorSupplier= */ null);
+    TrackGroupArray expectedGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                "main",
+                new Format.Builder()
+                    .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setCodecs("avc1.100.41")
+                    .setSampleMimeType(VIDEO_H264)
+                    .setPeakBitrate(400000)
+                    .build(),
+                new Format.Builder()
+                    .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setCodecs("avc1.100.41")
+                    .setSampleMimeType(VIDEO_H264)
+                    .setPeakBitrate(600000)
+                    .build()),
+            new TrackGroup(
+                "main:audio",
+                new Format.Builder()
+                    .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setCodecs("mp4a.40.2")
+                    .setSampleMimeType(AUDIO_AAC)
+                    .setLanguage("en")
+                    .build()),
+            new TrackGroup(
+                "main:id3",
+                new Format.Builder().setId("ID3").setSampleMimeType(APPLICATION_ID3).build()));
+    MediaPeriodAsserts.assertTrackGroups(mediaPeriod, expectedGroups);
+
+    Uri failedPlaylistUrl = Uri.parse("https://variant1");
+    when(mockLoadErrorHandlingPolicy.getFallbackSelectionFor(any(), any()))
+        .thenReturn(
+            new LoadErrorHandlingPolicy.FallbackSelection(
+                LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK, /* exclusionDurationMs= */ 10_000));
+    assertThat(
+            mediaPeriod.onPlaylistError(
+                failedPlaylistUrl,
+                createFakeLoadErrorInfo(
+                    new DataSpec(failedPlaylistUrl),
+                    /* httpResponseCode= */ 404,
+                    /* errorCount= */ 1),
+                /* forceRetry= */ false))
+        .isTrue();
+
+    // Pass a playlistUrl which has no corresponding chunk source.
+    failedPlaylistUrl = Uri.parse("https://variant3");
+    when(mockLoadErrorHandlingPolicy.getFallbackSelectionFor(any(), any()))
+        .thenReturn(
+            new LoadErrorHandlingPolicy.FallbackSelection(
+                LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK, /* exclusionDurationMs= */ 10_000));
+    assertThat(
+            mediaPeriod.onPlaylistError(
+                failedPlaylistUrl,
+                createFakeLoadErrorInfo(
+                    new DataSpec(failedPlaylistUrl),
+                    /* httpResponseCode= */ 404,
+                    /* errorCount= */ 1),
+                /* forceRetry= */ false))
+        .isFalse();
+  }
+
   private static HlsMultivariantPlaylist createMultivariantPlaylist(
       List<Variant> variants,
       List<Rendition> audios,
@@ -128,6 +248,16 @@ public final class HlsMediaPeriodTest {
         /* hasIndependentSegments= */ true,
         /* variableDefinitions= */ Collections.emptyMap(),
         /* sessionKeyDrmInitData= */ Collections.emptyList());
+  }
+
+  private static Variant createMuxedVideoAudioVariant(Uri url, int peakBitrate) {
+    return createVariant(
+        url,
+        new Format.Builder()
+            .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
+            .setCodecs("avc1.100.41,mp4a.40.2")
+            .setPeakBitrate(peakBitrate)
+            .build());
   }
 
   private static Variant createMuxedVideoAudioVariant(int peakBitrate) {
@@ -157,8 +287,12 @@ public final class HlsMediaPeriodTest {
   }
 
   private static Variant createVariant(Format format) {
+    return createVariant(Uri.parse("https://variant"), format);
+  }
+
+  private static Variant createVariant(Uri url, Format format) {
     return new Variant(
-        Uri.parse("https://variant"),
+        url,
         format,
         /* videoGroupId= */ null,
         /* audioGroupId= */ null,
@@ -188,5 +322,22 @@ public final class HlsMediaPeriodTest {
         .setSampleMimeType(MimeTypes.TEXT_VTT)
         .setLanguage(language)
         .build();
+  }
+
+  private LoadErrorHandlingPolicy.LoadErrorInfo createFakeLoadErrorInfo(
+      DataSpec dataSpec, int httpResponseCode, int errorCount) {
+    LoadEventInfo loadEventInfo =
+        new LoadEventInfo(/* loadTaskId= */ 0, dataSpec, SystemClock.elapsedRealtime());
+    MediaLoadData mediaLoadData = new MediaLoadData(C.DATA_TYPE_MEDIA);
+    HttpDataSource.InvalidResponseCodeException invalidResponseCodeException =
+        new HttpDataSource.InvalidResponseCodeException(
+            httpResponseCode,
+            /* responseMessage= */ null,
+            /* cause= */ null,
+            ImmutableMap.of(),
+            dataSpec,
+            new byte[0]);
+    return new LoadErrorHandlingPolicy.LoadErrorInfo(
+        loadEventInfo, mediaLoadData, invalidResponseCodeException, errorCount);
   }
 }

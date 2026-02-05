@@ -608,7 +608,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   public boolean onPlaylistError(Uri playlistUrl, LoadErrorInfo loadErrorInfo, boolean forceRetry) {
     if (!chunkSource.obtainsChunksForPlaylist(playlistUrl)) {
       // Return early if the chunk source doesn't deliver chunks for the failing playlist.
-      return true;
+      return false;
     }
     long exclusionDurationMs = C.TIME_UNSET;
     if (!forceRetry) {

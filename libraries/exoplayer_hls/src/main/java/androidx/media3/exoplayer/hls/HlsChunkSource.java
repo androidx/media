@@ -727,11 +727,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     if (trackGroupIndex == C.INDEX_UNSET) {
-      return true;
+      return false;
     }
     int trackSelectionIndex = trackSelection.indexOf(trackGroupIndex);
     if (trackSelectionIndex == C.INDEX_UNSET) {
-      return true;
+      return false;
     }
     lastPlaylistErrorUrl = playlistUrl;
     return exclusionDurationMs != C.TIME_UNSET

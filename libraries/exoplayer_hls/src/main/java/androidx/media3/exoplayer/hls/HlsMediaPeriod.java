@@ -481,9 +481,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public boolean onPlaylistError(
       Uri url, LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo, boolean forceRetry) {
-    boolean exclusionSucceeded = true;
+    boolean exclusionSucceeded = false;
     for (HlsSampleStreamWrapper streamWrapper : sampleStreamWrappers) {
-      exclusionSucceeded &= streamWrapper.onPlaylistError(url, loadErrorInfo, forceRetry);
+      exclusionSucceeded |= streamWrapper.onPlaylistError(url, loadErrorInfo, forceRetry);
     }
     mediaPeriodCallback.onContinueLoadingRequested(this);
     return exclusionSucceeded;

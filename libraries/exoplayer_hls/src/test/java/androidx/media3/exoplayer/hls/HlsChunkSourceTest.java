@@ -17,10 +17,14 @@ package androidx.media3.exoplayer.hls;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
@@ -63,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit tests for {@link HlsChunkSource}. */
@@ -990,9 +995,85 @@ public class HlsChunkSourceTest {
     assertThrows(IOException.class, testChunkSource::maybeThrowError);
   }
 
+  @Test
+  public void onPlaylistError_noTrackGroupIndexFoundForPlaylistUrl_doNotExcludeAndReturnsFalse()
+      throws IOException {
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, mockPlaylistTracker);
+    TestTrackSelection trackSelection =
+        new TestTrackSelection(testChunkSource.getTrackGroup(), /* selectedIndex= */ 0);
+    testChunkSource.setTrackSelection(trackSelection);
+
+    assertThat(testChunkSource.onPlaylistError(PLAYLIST_URI_2, /* exclusionDurationMs= */ 10_000))
+        .isFalse();
+    assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isFalse();
+    verify(mockPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
+  }
+
+  @Test
+  public void onPlaylistError_noIndexInTrackGroupFound_doNotExcludeAndReturnsFalse()
+      throws IOException {
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, mockPlaylistTracker);
+    TestTrackSelection trackSelection =
+        new TestTrackSelection(
+            new TrackGroup(ExoPlayerTestRunner.AUDIO_FORMAT), /* selectedIndex= */ 0);
+    testChunkSource.setTrackSelection(trackSelection);
+
+    assertThat(testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ 10_000))
+        .isFalse();
+    assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isFalse();
+    verify(mockPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
+  }
+
+  @Test
+  public void onPlaylistError_withUnsetExclusionDuration_doNotExcludeAndReturnsFalse()
+      throws IOException {
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, mockPlaylistTracker);
+    TestTrackSelection trackSelection =
+        new TestTrackSelection(testChunkSource.getTrackGroup(), /* selectedIndex= */ 0);
+    testChunkSource.setTrackSelection(trackSelection);
+
+    assertThat(
+            testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ C.TIME_UNSET))
+        .isFalse();
+    assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isFalse();
+    verify(mockPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
+  }
+
+  @Test
+  public void onPlaylistError_withConcreteExclusionDuration_excludeSuccessfullyAndReturnsTrue()
+      throws IOException {
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, mockPlaylistTracker);
+    TestTrackSelection trackSelection =
+        new TestTrackSelection(testChunkSource.getTrackGroup(), /* selectedIndex= */ 0);
+    testChunkSource.setTrackSelection(trackSelection);
+
+    assertThat(testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ 10_000))
+        .isTrue();
+    assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isTrue();
+    verify(mockPlaylistTracker).excludeMediaPlaylist(any(), anyLong());
+  }
+
   private static HlsChunkSource createHlsChunkSource(String playlistPath) throws IOException {
     return createHlsChunkSource(
         ImmutableMap.of(PLAYLIST_URI, playlistPath),
+        /* cmcdConfiguration= */ null,
+        /* playlistLoadException= */ null);
+  }
+
+  private static HlsChunkSource createHlsChunkSource(
+      String playlistPath, @Mock HlsPlaylistTracker mockPlaylistTracker) throws IOException {
+    return createHlsChunkSource(
+        ImmutableMap.of(PLAYLIST_URI, playlistPath),
+        mockPlaylistTracker,
         /* cmcdConfiguration= */ null,
         /* playlistLoadException= */ null);
   }
@@ -1025,6 +1106,16 @@ public class HlsChunkSourceTest {
       @Nullable IOException playlistLoadException)
       throws IOException {
     HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    return createHlsChunkSource(
+        playlistUrisToPaths, mockPlaylistTracker, cmcdConfiguration, playlistLoadException);
+  }
+
+  private static HlsChunkSource createHlsChunkSource(
+      Map<Uri, String> playlistUrisToPaths,
+      @Mock HlsPlaylistTracker mockPlaylistTracker,
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable IOException playlistLoadException)
+      throws IOException {
     long playlistStartTimeUs = 0;
     Format[] playlistFormats = new Format[playlistUrisToPaths.size() + 1];
     Uri[] playlistUris = new Uri[playlistUrisToPaths.size() + 1];
@@ -1148,5 +1239,26 @@ public class HlsChunkSourceTest {
 
   private static long periodTimeToPlaylistTimeUs(long periodTimeUs) {
     return periodTimeUs - PLAYLIST_START_PERIOD_OFFSET_US;
+  }
+
+  private static final class TestTrackSelection extends FakeTrackSelection {
+
+    private final long[] excludeUntilMs;
+
+    private TestTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
+      super(rendererTrackGroup, selectedIndex);
+      excludeUntilMs = new long[rendererTrackGroup.length];
+    }
+
+    @Override
+    public boolean excludeTrack(int index, long exclusionDurationMs) {
+      excludeUntilMs[index] = exclusionDurationMs;
+      return true;
+    }
+
+    @Override
+    public boolean isTrackExcluded(int index, long nowMs) {
+      return nowMs <= excludeUntilMs[index];
+    }
   }
 }
