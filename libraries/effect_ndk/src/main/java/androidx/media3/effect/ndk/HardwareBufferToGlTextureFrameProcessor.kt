@@ -30,12 +30,12 @@ import androidx.media3.common.ColorInfo
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.VideoFrameProcessingException
+import androidx.media3.common.VideoFrameProcessor
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
 import androidx.media3.effect.DefaultShaderProgram
 import androidx.media3.effect.DefaultVideoFrameProcessor
-import androidx.media3.effect.ExternalShaderProgram
 import androidx.media3.effect.GlShaderProgramPacketProcessor
 import androidx.media3.effect.GlTextureFrame
 import androidx.media3.effect.HardwareBufferFrame
@@ -68,6 +68,7 @@ class HardwareBufferToGlTextureFrameProcessor(
   private var glShaderProgramPacketProcessor: GlShaderProgramPacketProcessor? = null
   private var eglContext: EGLContext? = null
   private var eglSurface: EGLSurface? = null
+  private var isRgba8888Shader = false
 
   override fun setOutput(output: PacketConsumer<GlTextureFrame>) {
     this.outputConsumer = output
@@ -81,15 +82,25 @@ class HardwareBufferToGlTextureFrameProcessor(
             maybeSetupGlResources()
             val hardwareBufferFrame = packet.payload
             val hardwareBuffer = checkNotNull(hardwareBufferFrame.hardwareBuffer)
+            val isRgba8888 = hardwareBuffer.format == RGBA_8888
 
-            if (hardwareBuffer.format == RGBA_8888) {
-              // Map RGBA_8888 buffers directly to OpenGL RGBA_8888 textures.
-              val (eglImage, texture) = sampleToGlTexture(hardwareBuffer, GLES20.GL_TEXTURE_2D)
-              val glFrame = createGlTextureFrame(texture, hardwareBufferFrame, eglImage)
-              outputConsumer?.queuePacket(Packet.of(glFrame))
-            } else {
-              sampleOpaqueHardwareBufferQueueDownstream(hardwareBufferFrame)
+            val (eglImage, texture) =
+              sampleToGlTexture(
+                hardwareBuffer,
+                if (isRgba8888) GLES20.GL_TEXTURE_2D else GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+              )
+
+            if (glShaderProgramPacketProcessor != null && isRgba8888Shader != isRgba8888) {
+              glShaderProgramPacketProcessor?.release()
+              glShaderProgramPacketProcessor = null
             }
+
+            val glShaderProgramPacketProcessor =
+              glShaderProgramPacketProcessor
+                ?: createGlShaderProgramPacketProcessor(hardwareBufferFrame, !isRgba8888)
+            glShaderProgramPacketProcessor.queuePacket(
+              Packet.of(createGlTextureFrame(texture, hardwareBufferFrame, eglImage))
+            )
           } catch (e: GlUtil.GlException) {
             errorConsumer.accept(e)
           }
@@ -123,36 +134,29 @@ class HardwareBufferToGlTextureFrameProcessor(
     return eglImageHandle to texture
   }
 
-  private suspend fun sampleOpaqueHardwareBufferQueueDownstream(
-    hardwareBufferFrame: HardwareBufferFrame
-  ) {
-    // Opaque HardwareBuffers needs to be sampled by an external sampler
-    val (eglImage, texture) =
-      sampleToGlTexture(
-        checkNotNull(hardwareBufferFrame.hardwareBuffer),
-        GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-      )
-
-    val glShaderProgramPacketProcessor =
-      this.glShaderProgramPacketProcessor
-        ?: createGlShaderProgramPacketProcessor(hardwareBufferFrame)
-    glShaderProgramPacketProcessor.queuePacket(
-      Packet.of(createGlTextureFrame(texture, hardwareBufferFrame, eglImage))
-    )
-  }
-
   private suspend fun createGlShaderProgramPacketProcessor(
-    hardwareBufferFrame: HardwareBufferFrame
+    hardwareBufferFrame: HardwareBufferFrame,
+    useExternalSampler: Boolean,
   ): GlShaderProgramPacketProcessor {
     // TODO: b/474075198 - Add HDR support.
     val glShaderProgram =
-      DefaultShaderProgram.createWithExternalSampler(
-        context,
-        ColorInfo.SDR_BT709_LIMITED,
-        ColorInfo.SDR_BT709_LIMITED,
-        DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
-        true,
-      ) as ExternalShaderProgram
+      if (useExternalSampler) {
+        DefaultShaderProgram.createWithExternalSampler(
+          context,
+          ColorInfo.SDR_BT709_LIMITED,
+          ColorInfo.SDR_BT709_LIMITED,
+          DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
+          /* sampleWithNearest= */ true,
+        )
+      } else {
+        DefaultShaderProgram.createWithInternalSampler(
+          context,
+          ColorInfo.SDR_BT709_LIMITED,
+          ColorInfo.SDR_BT709_LIMITED,
+          DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_DEFAULT,
+          VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID,
+        )
+      }
     glShaderProgram.setTextureTransformMatrix(constructTransformationMatrix(hardwareBufferFrame))
     val glShaderProgramPacketProcessor =
       GlShaderProgramPacketProcessor.create(
@@ -163,6 +167,7 @@ class HardwareBufferToGlTextureFrameProcessor(
       )
     glShaderProgramPacketProcessor.setOutput(checkNotNull(outputConsumer))
     this.glShaderProgramPacketProcessor = glShaderProgramPacketProcessor
+    this.isRgba8888Shader = !useExternalSampler
     return glShaderProgramPacketProcessor
   }
 
@@ -226,6 +231,8 @@ class HardwareBufferToGlTextureFrameProcessor(
   override suspend fun release() {
     if (eglContext != null) {
       try {
+        glShaderProgramPacketProcessor?.release()
+        glShaderProgramPacketProcessor = null
         GlUtil.destroyEglSurface(GlUtil.getDefaultEglDisplay(), eglSurface)
         // eglContext is released by GlObjectsProvider
       } catch (e: GlUtil.GlException) {
