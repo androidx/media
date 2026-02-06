@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ଚଲାନ୍ତୁ</string>
+  <string name="playpause_button_pause">ବିରତ କରନ୍ତୁ</string>
+  <string name="next_button">ପରବର୍ତ୍ତୀ</string>
+  <string name="previous_button">ପୂର୍ବବର୍ତ୍ତୀ</string>
+  <string name="seek_back_button">ରିୱାଇଣ୍ଡ କରନ୍ତୁ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d ସେକେଣ୍ଡ ପଛକୁ ଯାଆନ୍ତୁ</item>
+    <item quantity="other">%d ସେକେଣ୍ଡ ପଛକୁ ଯାଆନ୍ତୁ</item>
+  </plurals>
+  <string name="seek_forward_button">ଆଗକୁ ଯାଆନ୍ତୁ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d ସେକେଣ୍ଡ ଆଗକୁ ଯାଆନ୍ତୁ</item>
+    <item quantity="other">%d ସେକେଣ୍ଡ ଆଗକୁ ଯାଆନ୍ତୁ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">ବର୍ତ୍ତମାନର ମୋଡ: କିଛି ବି ରିପିଟ କରନ୍ତୁ ନାହିଁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="repeat_button_repeat_one">ବର୍ତ୍ତମାନର ମୋଡ: ଗୋଟିଏ ରିପିଟ କରନ୍ତୁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="repeat_button_repeat_all">ବର୍ତ୍ତମାନର ମୋଡ: ସବୁ ରିପିଟ କରନ୍ତୁ। ରିପିଟ ମୋଡକୁ ଟୋଗଲ କରନ୍ତୁ।</string>
+  <string name="shuffle_button_shuffle_on">ସଫଲ ମୋଡକୁ ସକ୍ଷମ କରାଯାଇଛି।</string>
+  <string name="shuffle_button_shuffle_off">ସଫଲ ମୋଡକୁ ଅକ୍ଷମ କରାଯାଇଛି।</string>
+  <string name="mute_button_shown_unmuted">ମ୍ୟୁଟ କରନ୍ତୁ</string>
+  <string name="mute_button_shown_muted">ଅନମ୍ୟୁଟ କରନ୍ତୁ</string>
+  <string name="playback_speed_increase">ସ୍ପିଡକୁ %.2f ବଢ଼ାନ୍ତୁ</string>
+  <string name="playback_speed_decrease">ସ୍ପିଡକୁ %.2f କମାନ୍ତୁ</string>
+</resources>

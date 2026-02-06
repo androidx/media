@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">প্লে’ কৰক</string>
+  <string name="playpause_button_pause">পজ কৰক</string>
+  <string name="next_button">পৰৱৰ্তী</string>
+  <string name="previous_button">পূৰ্বৱৰ্তী</string>
+  <string name="seek_back_button">ৰিৱাইণ্ড</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d ছেকেণ্ড পিছলৈ যাওক</item>
+    <item quantity="other">%d ছেকেণ্ড পিছলৈ যাওক</item>
+  </plurals>
+  <string name="seek_forward_button">এৰি আগলৈ যাওক</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d ছেকেণ্ড আগলৈ যাওক</item>
+    <item quantity="other">%d ছেকেণ্ড আগলৈ যাওক</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">বৰ্তমানৰ ম’ড: একো পুনৰাবৃত্তি নকৰিব। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="repeat_button_repeat_one">বৰ্তমানৰ ম’ড: এটা পুনৰাবৃত্তি কৰক। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="repeat_button_repeat_all">বৰ্তমানৰ ম’ড: আটাইবোৰ পুনৰাবৃত্তি কৰক। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="shuffle_button_shuffle_on">শ্বাফল ম’ড সক্ষম কৰা হৈছে।</string>
+  <string name="shuffle_button_shuffle_off">শ্বাফল ম’ড অক্ষম কৰা হৈছে।</string>
+  <string name="mute_button_shown_unmuted">মিউট কৰক</string>
+  <string name="mute_button_shown_muted">আনমিউট কৰক</string>
+  <string name="playback_speed_increase">গতিবেগ %.2f বৃদ্ধি কৰক</string>
+  <string name="playback_speed_decrease">গতিবেগ %.2f হ্ৰাস কৰক</string>
+</resources>

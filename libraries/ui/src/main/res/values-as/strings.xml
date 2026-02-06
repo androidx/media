@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+  <string name="exo_controls_show">প্লে’য়াৰৰ নিয়ন্ত্ৰণসমূহ দেখুৱাওক</string>
+  <string name="exo_controls_hide">প্লে’য়াৰৰ নিয়ন্ত্ৰণসমূহ লুকুৱাওক</string>
+  <string name="exo_controls_seek_bar_description">প্লে’বেকৰ অগ্ৰগতি</string>
+  <string name="exo_controls_settings_description">ছেটিং</string>
+  <string name="exo_controls_overflow_hide_description">অতিৰিক্ত ছেটিং লুকুৱাওক</string>
+  <string name="exo_controls_overflow_show_description">অতিৰিক্ত ছেটিং দেখুৱাওক</string>
+  <string name="exo_controls_fullscreen_enter_description">পূৰ্ণ স্ক্ৰীনলৈ যাওক</string>
+  <string name="exo_controls_fullscreen_exit_description">পূৰ্ণ স্ক্ৰীনৰ পৰা বাহিৰ হওক</string>
+  <string name="exo_controls_previous_description">পূৰ্বৱৰ্তী</string>
+  <string name="exo_controls_next_description">পৰৱৰ্তী</string>
+  <string name="exo_controls_pause_description">পজ কৰক</string>
+  <string name="exo_controls_play_description">প্লে’ কৰক</string>
+  <string name="exo_controls_stop_description">বন্ধ কৰক</string>
+  <string name="exo_controls_rewind_description">ৰিৱাইণ্ড</string>
+  <plurals name="exo_controls_rewind_by_amount_description">
+    <item quantity="one">%d ছেকেণ্ড ৰিৱাইণ্ড কৰক</item>
+    <item quantity="other">%d ছেকেণ্ড ৰিৱাইণ্ড কৰক</item>
+  </plurals>
+  <string name="exo_controls_fastforward_description">ফাষ্ট ফৰৱাৰ্ড</string>
+  <plurals name="exo_controls_fastforward_by_amount_description">
+    <item quantity="one">%d ছেকেণ্ড ফাষ্ট ফৰৱাৰ্ড কৰক</item>
+    <item quantity="other">%d ছেকেণ্ড ফাষ্ট ফৰৱাৰ্ড কৰক</item>
+  </plurals>
+  <string name="exo_controls_repeat_off_description">বৰ্তমানৰ ম’ড: একো পুনৰাবৃত্তি নকৰিব। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="exo_controls_repeat_one_description">বৰ্তমানৰ ম’ড: এটা পুনৰাবৃত্তি কৰক। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="exo_controls_repeat_all_description">বৰ্তমানৰ ম’ড: আটাইবোৰ পুনৰাবৃত্তি কৰক। ৰিপিট ম’ড ট’গল কৰক।</string>
+  <string name="exo_controls_shuffle_on_description">শ্বাফল ম’ড অক্ষম কৰক</string>
+  <string name="exo_controls_shuffle_off_description">শ্বাফল ম’ড সক্ষম কৰক</string>
+  <string name="exo_controls_vr_description">ভিআৰ ম’ড</string>
+  <string name="exo_controls_cc_enabled_description">ছাবটাইটেল অক্ষম কৰক</string>
+  <string name="exo_controls_cc_disabled_description">ছাবটাইটেল সক্ষম কৰক</string>
+  <string name="exo_controls_playback_speed">গতিবেগ</string>
+  <string-array name="exo_controls_playback_speeds">
+    <item>০.২৫ গুণ</item>
+    <item>০.৫ গুণ</item>
+    <item>০.৭৫ গুণ</item>
+    <item>সাধাৰণ</item>
+    <item>১.২৫ গুণ</item>
+    <item>১.৫ গুণ</item>
+    <item>২ গুণ</item>
+  </string-array>
+  <string name="exo_track_selection_title_audio">অডিঅ’</string>
+  <string name="exo_track_selection_none">নাই</string>
+  <string name="exo_track_selection_auto">স্বয়ংক্ৰিয়</string>
+  <string name="exo_track_unknown">অজ্ঞাত</string>
+  <string name="exo_track_unknown_name">অজ্ঞাত (%1$s)</string>
+  <string name="exo_track_resolution">%1$d × %2$d</string>
+  <string name="exo_track_mono">ম’ন’</string>
+  <string name="exo_track_stereo">ষ্টেৰিঅ’</string>
+  <string name="exo_track_surround">ছাৰাউণ্ড ছাউণ্ড</string>
+  <string name="exo_track_surround_5_point_1">5.1 ছাৰাউণ্ড ছাউণ্ড</string>
+  <string name="exo_track_surround_7_point_1">7.1 ছাৰাউণ্ড ছাউণ্ড</string>
+  <string name="exo_track_role_alternate">বিকল্প</string>
+  <string name="exo_track_role_supplementary">পৰিপূৰক</string>
+  <string name="exo_track_role_commentary">ধাৰাভাষ্য</string>
+  <string name="exo_track_role_closed_captions">CC</string>
+  <string name="exo_track_bitrate">%1$.2f Mbps</string>
+  <string name="exo_item_list">%1$s, %2$s</string>
+</resources>

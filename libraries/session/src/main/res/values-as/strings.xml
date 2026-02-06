@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="default_notification_channel_name">এতিয়া প্লে’ হৈ আছে</string>
+  <string name="media3_controls_play_description">প্লে’ কৰক</string>
+  <string name="media3_controls_pause_description">পজ কৰক</string>
+  <string name="media3_controls_seek_to_previous_description">পূৰ্বৱৰ্তী বস্তুটোলৈ যাওক</string>
+  <string name="media3_controls_seek_to_next_description">পৰৱৰ্তী বস্তুটোলৈ যাওক</string>
+  <string name="media3_controls_seek_back_description">পিছলৈ যাওক</string>
+  <string name="media3_controls_seek_forward_description">আগলৈ যাওক</string>
+  <string name="error_message_fallback">কিবা ভুল হ’ল। পাছত চেষ্টা কৰক।</string>
+  <string name="error_message_info_cancelled">সম্পূৰ্ণ কৰিব পৰা নগ’ল। পুনৰ চেষ্টা কৰক।</string>
+  <string name="error_message_invalid_state">সেইটো এই মুহূৰ্তত কৰিব নোৱাৰি</string>
+  <string name="error_message_authentication_expired">এই এপ্‌টো ব্যৱহাৰ কৰিবলৈ ছাইন ইন কৰক</string>
+  <string name="error_message_content_already_playing">সেই সমলটো ইতিমধ্যে প্লে’ হৈ আছে</string>
+  <string name="error_message_end_of_playlist">শাৰীত অন্য একো নাই</string>
+  <string name="error_message_concurrent_stream_limit">বহুকেইটা ডিভাইচত শুনি আছে</string>
+  <string name="error_message_not_available_in_region">সেই সমলটো ইয়াত পাব নোৱাৰি</string>
+  <string name="error_message_not_supported">এই এপ্‌টোৱে সেয়া কৰিব নোৱাৰে</string>
+  <string name="error_message_parental_control_restricted">সেই সমলটো অৱৰোধ কৰা আছে</string>
+  <string name="error_message_premium_account_required">প্ৰিমিয়াম এক্সেছৰ প্ৰয়োজন</string>
+  <string name="error_message_skip_limit_reached">আৰু কোনো ট্ৰেক এৰি যাব নোৱাৰি</string>
+  <string name="error_message_bad_value">ভুল ইনপুট ডেটা</string>
+  <string name="error_message_io">ইনপুট/আউটপুটৰ আসোঁৱাহ</string>
+  <string name="error_message_permission_denied">এক্সেছ অস্বীকাৰ কৰা হৈছে</string>
+  <string name="error_message_disconnected">মিডিয়া এপৰ পৰা সংযোগ বিচ্ছিন্ন কৰা হৈছে</string>
+  <string name="error_message_setup_required">ছেটআপ কৰাৰ প্ৰয়োজন</string>
+</resources>
