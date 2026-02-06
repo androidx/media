@@ -17,10 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.percentInt;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MAX_BUFFER_MS;
-import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_MIN_BUFFER_MS;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_UNSPECIFIED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
@@ -218,17 +214,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       }
       @Nullable LoadControl loadControl = this.loadControl;
       if (loadControl == null) {
-        // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
-        // exporters (rebuffers are less problematic for the export use case).
-        loadControl =
-            new DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    DEFAULT_MIN_BUFFER_MS,
-                    DEFAULT_MAX_BUFFER_MS,
-                    DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
-                    DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
-                .setPrioritizeTimeOverSizeThresholds(false)
-                .build();
+        loadControl = new DefaultLoadControl.Builder().build();
       }
       return new ExoPlayerAssetLoader(
           context,
