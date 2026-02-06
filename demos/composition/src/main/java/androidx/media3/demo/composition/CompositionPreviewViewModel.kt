@@ -637,7 +637,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           .setEffects(
             Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
           )
-          // For image inputs. Automatically ignored if input is audio/video.
+          // Required for image inputs. For video inputs, it sets the target FPS.
           .setFrameRate(DEFAULT_FRAME_RATE_FPS)
           // Setting duration explicitly is only required for preview with CompositionPlayer, and
           // is not needed for export with Transformer.

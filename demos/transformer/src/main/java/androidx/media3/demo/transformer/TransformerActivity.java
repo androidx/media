@@ -470,7 +470,7 @@ public final class TransformerActivity extends AppCompatActivity {
 
   private Composition createComposition(MediaItem mediaItem, @Nullable Bundle bundle) {
     EditedMediaItem.Builder editedMediaItemBuilder = new EditedMediaItem.Builder(mediaItem);
-    // For image inputs.
+    // Required for image inputs. For video inputs, it sets the target FPS.
     editedMediaItemBuilder.setFrameRate(DEFAULT_FRAME_RATE_FPS);
     if (bundle != null) {
       ImmutableList<AudioProcessor> audioProcessors = createAudioProcessorsFromBundle(bundle);
