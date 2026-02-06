@@ -192,6 +192,7 @@ public final class MpeghDecoder
               codecParametersBuilder.setString("mpegh-ui-config", null);
               dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
               // actually send the current MPEG-H UI config
+              codecParametersBuilder = new CodecParameters.Builder();
               codecParametersBuilder.setString("mpegh-ui-config", osdxml);
               dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
             }
