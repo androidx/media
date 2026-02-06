@@ -118,6 +118,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.logSessionId = logSessionId;
     this.packetProcessor = packetProcessor;
     this.packetRenderer = packetRenderer;
+    packetProcessor.setErrorConsumer(
+        (e) ->
+            errorConsumer.accept(
+                ExportException.createForVideoFrameProcessingException(
+                    VideoFrameProcessingException.from(e))));
+    packetRenderer.setErrorConsumer(
+        (e) ->
+            errorConsumer.accept(
+                ExportException.createForVideoFrameProcessingException(
+                    VideoFrameProcessingException.from(e))));
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
     encoderOutputBuffer =

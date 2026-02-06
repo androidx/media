@@ -371,11 +371,7 @@ public final class TransformerActivity extends AppCompatActivity {
         throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
       }
       transformerBuilder =
-          NdkTransformerBuilder.create(
-                  this,
-                  /* errorHandler= */ e -> {
-                    runOnUiThread(() -> onError(ExportException.createForUnexpected(e)));
-                  })
+          NdkTransformerBuilder.create(this)
               .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
     } else {
       transformerBuilder = new Transformer.Builder(/* context= */ this);

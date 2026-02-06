@@ -22,6 +22,7 @@ import android.graphics.RenderNode
 import android.hardware.HardwareBuffer
 import android.hardware.SyncFence
 import androidx.annotation.RequiresApi
+import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.effect.PacketConsumer.Packet
@@ -55,6 +56,8 @@ class DefaultHardwareBufferEffectsPipeline :
   override fun setRenderOutput(output: HardwareBufferFrameQueue?) {
     this.outputBufferQueue = output
   }
+
+  override fun setErrorConsumer(errorConsumer: Consumer<Exception>) {}
 
   override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
     check(!isReleased.get())

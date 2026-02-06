@@ -15,12 +15,16 @@
  */
 package androidx.media3.effect
 
+import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 
 /** A [PacketConsumer] that renders input [Packet]s to an output [O]. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 interface RenderingPacketConsumer<I, O> : PacketConsumer<I> {
 
-  /** Sets the the target for where input frames are rendered to. */
+  /** Sets the target for where input frames are rendered to. */
   fun setRenderOutput(output: O?)
+
+  /** Sets a [Consumer] to handle any [Exception]s that occur during rendering. */
+  fun setErrorConsumer(errorConsumer: Consumer<Exception>)
 }

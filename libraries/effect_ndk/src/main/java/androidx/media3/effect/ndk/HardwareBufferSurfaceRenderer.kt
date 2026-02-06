@@ -41,10 +41,17 @@ class HardwareBufferSurfaceRenderer
 private constructor(
   private val converter: HardwareBufferToGlTextureFrameProcessor,
   private val renderer: GlTextureFrameRenderer,
+  private var errorConsumer: Consumer<Exception>,
 ) : RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> {
 
   override fun setRenderOutput(output: SurfaceInfo?) {
     renderer.setRenderOutput(output)
+  }
+
+  override fun setErrorConsumer(errorConsumer: Consumer<Exception>) {
+    converter.setErrorConsumer(errorConsumer)
+    renderer.setErrorConsumer(errorConsumer)
+    this.errorConsumer = errorConsumer
   }
 
   override suspend fun queuePacket(packet: Packet<HardwareBufferFrame>) {
@@ -57,7 +64,6 @@ private constructor(
   }
 
   companion object {
-
     /**
      * Creates a [HardwareBufferSurfaceRenderer] instance, that uses OpenGL to render
      * [HardwareBufferFrame] to an output [android.view.Surface].
@@ -108,7 +114,7 @@ private constructor(
           listener,
         )
       converter.setOutput(renderer)
-      return HardwareBufferSurfaceRenderer(converter, renderer)
+      return HardwareBufferSurfaceRenderer(converter, renderer, errorConsumer)
     }
   }
 }

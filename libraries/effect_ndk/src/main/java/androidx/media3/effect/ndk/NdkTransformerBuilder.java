@@ -17,7 +17,6 @@ package androidx.media3.effect.ndk;
 
 import android.content.Context;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
 import androidx.media3.effect.RenderingPacketConsumer;
@@ -40,13 +39,11 @@ public class NdkTransformerBuilder {
    * on the returned builder before using it, in order to inject the effects processing pipeline.
    *
    * @param context The {@link Context}.
-   * @param errorHandler A consumer to handle any {@link Exception}s that occur when writing to the
-   *     encoder.
    * @return A {@link androidx.media3.transformer.Transformer.Builder} that can be built upon.
    */
-  public static Transformer.Builder create(Context context, Consumer<Exception> errorHandler) {
+  public static Transformer.Builder create(Context context) {
     HardwareBufferSurfaceRenderer hardwareBufferRenderer =
-        HardwareBufferSurfaceRenderer.create(context, NO_OP.INSTANCE, errorHandler);
+        HardwareBufferSurfaceRenderer.create(context, NO_OP.INSTANCE, /* errorConsumer= */ e -> {});
     return new Transformer.Builder(context).setHardwareBufferRenderer(hardwareBufferRenderer);
   }
 

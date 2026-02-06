@@ -50,7 +50,7 @@ private constructor(
   private val glExecutorService: ExecutorService,
   private val glObjectsProvider: GlObjectsProvider,
   private val videoFrameProcessingTaskExecutor: VideoFrameProcessingTaskExecutor,
-  private val errorHandler: Consumer<VideoFrameProcessingException>,
+  private var errorHandler: Consumer<VideoFrameProcessingException>,
   private var listener: Listener,
 ) :
   RenderingPacketConsumer<GlTextureFrame, SurfaceInfo>,
@@ -71,6 +71,10 @@ private constructor(
     fun onEnded() {}
 
     object NO_OP : Listener
+  }
+
+  override fun setErrorConsumer(errorConsumer: Consumer<Exception>) {
+    errorHandler = Consumer<VideoFrameProcessingException> { t -> errorConsumer.accept(t) }
   }
 
   private val glDispatcher = glExecutorService.asCoroutineDispatcher()

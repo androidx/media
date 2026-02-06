@@ -512,13 +512,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           }
           return
         }
-        NdkTransformerBuilder.create(
-            getApplication(),
-            /* errorHandler= */ { e ->
-              Log.e(TAG, "HardwareBufferToGlTextureFrameProcessor error", e)
-              _uiState.update { it.copy(snackbarMessage = "Export error: $e") }
-            },
-          )
+        NdkTransformerBuilder.create(getApplication())
           .setHardwareBufferEffectsPipeline(
             // TODO: b/449957627 - Implement HardwareBuffer compositing.
             DefaultHardwareBufferEffectsPipeline()

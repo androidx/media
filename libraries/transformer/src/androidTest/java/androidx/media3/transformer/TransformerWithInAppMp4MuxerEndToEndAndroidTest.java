@@ -85,11 +85,7 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
     Transformer.Builder transformerBuilder;
     if (usePacketProcessor) {
       transformerBuilder =
-          NdkTransformerBuilder.create(
-                  context,
-                  /* errorHandler= */ (e) -> {
-                    throw new AssertionError(e);
-                  })
+          NdkTransformerBuilder.create(context)
               .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
     } else {
       transformerBuilder = new Transformer.Builder(context);

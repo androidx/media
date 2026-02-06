@@ -59,7 +59,7 @@ class HardwareBufferToGlTextureFrameProcessor(
   private val context: Context,
   private val glExecutorService: ExecutorService,
   private val glObjectsProvider: GlObjectsProvider,
-  private val errorConsumer: Consumer<Exception>,
+  private var errorConsumer: Consumer<Exception>,
 ) : PacketProcessor<HardwareBufferFrame, GlTextureFrame> {
 
   private val glDispatcher = glExecutorService.asCoroutineDispatcher()
@@ -110,6 +110,10 @@ class HardwareBufferToGlTextureFrameProcessor(
         outputConsumer?.queuePacket(packet)
       }
     }
+  }
+
+  fun setErrorConsumer(errorConsumer: Consumer<Exception>) {
+    this.errorConsumer = errorConsumer
   }
 
   /**
