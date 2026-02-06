@@ -99,6 +99,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   @Nullable private BaseMediaChunk canceledMediaChunk;
   private boolean canReportInitialDiscontinuity;
   private boolean hasInitialDiscontinuity;
+  private boolean suppressRead;
 
   /* package */ boolean loadingFinished;
 
@@ -394,7 +395,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   @Override
   public int readData(
       FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
-    if (isPendingReset()) {
+    if (isPendingReset() || hasInitialDiscontinuity || suppressRead) {
       return C.RESULT_NOTHING_READ;
     }
     if (canceledMediaChunk != null
@@ -411,7 +412,7 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   @Override
   public int skipData(long positionUs) {
-    if (isPendingReset()) {
+    if (isPendingReset() || hasInitialDiscontinuity || suppressRead) {
       return 0;
     }
     int skipCount = primarySampleQueue.getSkipCount(positionUs, loadingFinished);
@@ -711,6 +712,14 @@ public class ChunkSampleStream<T extends ChunkSource>
   }
 
   /**
+   * Returns whether there is a pending initial discontinuity that needs to be consumed by {@link
+   * #consumeInitialDiscontinuity()}.
+   */
+  public boolean hasInitialDiscontinuity() {
+    return hasInitialDiscontinuity;
+  }
+
+  /**
    * Consumes a pending initial discontinuity.
    *
    * @return Whether the stream had an initial discontinuity.
@@ -721,6 +730,15 @@ public class ChunkSampleStream<T extends ChunkSource>
     } finally {
       hasInitialDiscontinuity = false;
     }
+  }
+
+  /**
+   * Sets whether to suppress any read operation from the stream.
+   *
+   * @param suppressRead Whether to suppress reads.
+   */
+  public void setSuppressRead(boolean suppressRead) {
+    this.suppressRead = suppressRead;
   }
 
   /**

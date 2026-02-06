@@ -341,7 +341,11 @@ import java.util.regex.Pattern;
 
   @Override
   public boolean continueLoading(LoadingInfo loadingInfo) {
-    return compositeSequenceableLoader.continueLoading(loadingInfo);
+    boolean result = compositeSequenceableLoader.continueLoading(loadingInfo);
+    if (hasAnyStreamWithPendingInitialDiscontinuity()) {
+      setSuppressReadOnAllStreams(true);
+    }
+    return result;
   }
 
   @Override
@@ -358,6 +362,9 @@ import java.util.regex.Pattern;
   public long readDiscontinuity() {
     for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
       if (sampleStream.consumeInitialDiscontinuity()) {
+        if (!hasAnyStreamWithPendingInitialDiscontinuity()) {
+          setSuppressReadOnAllStreams(false);
+        }
         return initialStartTimeUs;
       }
     }
@@ -398,6 +405,21 @@ import java.util.regex.Pattern;
   }
 
   // Internal methods.
+
+  private boolean hasAnyStreamWithPendingInitialDiscontinuity() {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (sampleStream.hasInitialDiscontinuity()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private void setSuppressReadOnAllStreams(boolean suppressRead) {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      sampleStream.setSuppressRead(suppressRead);
+    }
+  }
 
   private int[] getStreamIndexToTrackGroupIndex(ExoTrackSelection[] selections) {
     int[] streamIndexToTrackGroupIndex = new int[selections.length];
