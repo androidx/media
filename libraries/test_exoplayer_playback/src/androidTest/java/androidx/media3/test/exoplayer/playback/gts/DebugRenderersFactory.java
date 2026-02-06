@@ -19,10 +19,8 @@ import static java.lang.Math.max;
 
 import android.content.Context;
 import android.media.MediaCrypto;
-import android.media.MediaFormat;
 import android.os.Handler;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
@@ -36,7 +34,6 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 
 /**
@@ -82,8 +79,6 @@ import java.util.ArrayList;
     private static final int ARRAY_SIZE = 1000;
 
     private final long[] timestampsList;
-    private final ArrayDeque<Long> inputFormatChangeTimesUs;
-    private final boolean shouldMediaFormatChangeTimesBeChecked;
 
     private boolean skipToPositionBeforeRenderingFirstFrame;
 
@@ -91,10 +86,6 @@ import java.util.ArrayList;
     private int queueSize;
     private int bufferCount;
     private int minimumInsertIndex;
-    private boolean inputFormatChanged;
-    private boolean outputMediaFormatChanged;
-
-    @Nullable private MediaFormat currentMediaFormat;
 
     public DebugMediaCodecVideoRenderer(
         Context context,
@@ -111,17 +102,6 @@ import java.util.ArrayList;
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify));
       timestampsList = new long[ARRAY_SIZE];
-      inputFormatChangeTimesUs = new ArrayDeque<>();
-
-      /*
-      // Output MediaFormat changes are known to occur too early until API 30 (see [internal:
-      // b/149818050, b/149751672]).
-      shouldMediaFormatChangeTimesBeChecked = Util.SDK_INT > 30;
-      */
-
-      // [Internal ref: b/149751672] Seeking currently causes an unexpected MediaFormat change, so
-      // this check is disabled until that is deemed fixed.
-      shouldMediaFormatChangeTimesBeChecked = false;
     }
 
     @Override
@@ -139,11 +119,6 @@ import java.util.ArrayList;
     protected void resetCodecStateForFlush() {
       super.resetCodecStateForFlush();
       clearTimestamps();
-      // Check if there is a format change on the input side still pending propagation to the
-      // output.
-      inputFormatChanged = !inputFormatChangeTimesUs.isEmpty();
-      inputFormatChangeTimesUs.clear();
-      outputMediaFormatChanged = false;
     }
 
     @Override
@@ -176,7 +151,6 @@ import java.util.ArrayList;
       // Ensure timestamps of buffers queued after this format change are never inserted into the
       // queue of expected output timestamps before those of buffers that have already been queued.
       minimumInsertIndex = startIndex + queueSize;
-      inputFormatChanged = true;
       return evaluation;
     }
 
@@ -185,21 +159,6 @@ import java.util.ArrayList;
       super.onQueueInputBuffer(buffer);
       insertTimestamp(buffer.timeUs);
       maybeShiftTimestampsList();
-      if (inputFormatChanged) {
-        inputFormatChangeTimesUs.add(buffer.timeUs);
-        inputFormatChanged = false;
-      }
-    }
-
-    @Override
-    protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
-      super.onOutputFormatChanged(format, mediaFormat);
-      if (mediaFormat != null && !mediaFormat.equals(currentMediaFormat)) {
-        outputMediaFormatChanged = true;
-        currentMediaFormat = mediaFormat;
-      } else {
-        inputFormatChangeTimesUs.remove();
-      }
     }
 
     @Override
@@ -264,22 +223,6 @@ import java.util.ArrayList;
                 + " (Processed buffers since last flush: "
                 + bufferCount
                 + ").");
-      }
-
-      if (outputMediaFormatChanged) {
-        long inputFormatChangeTimeUs =
-            inputFormatChangeTimesUs.isEmpty() ? C.TIME_UNSET : inputFormatChangeTimesUs.remove();
-        outputMediaFormatChanged = false;
-
-        if (shouldMediaFormatChangeTimesBeChecked
-            && presentationTimeUs != inputFormatChangeTimeUs) {
-          throw new IllegalStateException(
-              "Expected output MediaFormat change timestamp ("
-                  + presentationTimeUs
-                  + " us) to match input Format change timestamp ("
-                  + inputFormatChangeTimeUs
-                  + " us).");
-        }
       }
     }
 
