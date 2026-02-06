@@ -20,6 +20,7 @@ import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DI
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
@@ -55,6 +56,7 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -977,6 +979,101 @@ public final class DefaultAudioSinkTest {
                 /* encodedAccessUnitCount= */ 1))
         .isTrue();
     assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(400_000_000L);
+  }
+
+  @Test
+  public void setEnableAudioOutputPlaybackParameters_customOutputProvider_allowsHighSpeeds()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicReference<PlaybackParameters> configuredPlaybackParameters =
+        new AtomicReference<>(PlaybackParameters.DEFAULT);
+    AudioTrackAudioOutputProvider defaultProvider =
+        new AudioTrackAudioOutputProvider.Builder(context).build();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(defaultProvider) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(defaultProvider.getAudioOutput(config)) {
+              @Override
+              public PlaybackParameters getPlaybackParameters() {
+                return configuredPlaybackParameters.get();
+              }
+
+              @Override
+              public void setPlaybackParameters(PlaybackParameters playbackParams) {
+                configuredPlaybackParameters.set(playbackParams);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    PlaybackParameters highSpeedParameters = new PlaybackParameters(/* speed= */ 100f);
+
+    defaultAudioSink.setPlaybackParameters(highSpeedParameters);
+    checkState(
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
+
+    assertThat(defaultAudioSink.getPlaybackParameters()).isEqualTo(highSpeedParameters);
+    assertThat(configuredPlaybackParameters.get()).isEqualTo(highSpeedParameters);
+  }
+
+  @Test
+  public void
+      setEnableAudioOutputPlaybackParameters_customMaxSpeedInDefaultProvider_clampsToProvidedMaxSpeed()
+          throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicReference<PlaybackParameters> configuredPlaybackParameters =
+        new AtomicReference<>(PlaybackParameters.DEFAULT);
+    AtomicReference<PlaybackParameters> actualPlaybackParameters =
+        new AtomicReference<>(PlaybackParameters.DEFAULT);
+    AudioTrackAudioOutputProvider defaultProvider =
+        new AudioTrackAudioOutputProvider.Builder(context).setMaxPlaybackSpeed(12f).build();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(defaultProvider) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(defaultProvider.getAudioOutput(config)) {
+              @Override
+              public PlaybackParameters getPlaybackParameters() {
+                actualPlaybackParameters.set(super.getPlaybackParameters());
+                return actualPlaybackParameters.get();
+              }
+
+              @Override
+              public void setPlaybackParameters(PlaybackParameters playbackParams) {
+                configuredPlaybackParameters.set(playbackParams);
+                super.setPlaybackParameters(playbackParams);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(audioOutputProvider)
+            .setEnableAudioOutputPlaybackParameters(true)
+            .build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    PlaybackParameters highSpeedParameters = new PlaybackParameters(/* speed= */ 100f);
+    PlaybackParameters expectedMaxSpeedParameters = new PlaybackParameters(/* speed= */ 12f);
+
+    defaultAudioSink.setPlaybackParameters(highSpeedParameters);
+    checkState(
+        defaultAudioSink.handleBuffer(
+            create1Sec44100HzSilenceBuffer(),
+            /* presentationTimeUs= */ 0,
+            /* encodedAccessUnitCount= */ 1));
+
+    assertThat(defaultAudioSink.getPlaybackParameters()).isEqualTo(expectedMaxSpeedParameters);
+    assertThat(configuredPlaybackParameters.get()).isEqualTo(highSpeedParameters);
+    assertThat(actualPlaybackParameters.get()).isEqualTo(expectedMaxSpeedParameters);
   }
 
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {

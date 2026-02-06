@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PLAYBACK_SPEED;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.AudioFormat;
@@ -117,6 +118,7 @@ public final class AudioTrackAudioOutputTest {
                         .build())
                 .build(),
             listener,
+            MAX_PLAYBACK_SPEED,
             /* clock= */ clock);
   }
 

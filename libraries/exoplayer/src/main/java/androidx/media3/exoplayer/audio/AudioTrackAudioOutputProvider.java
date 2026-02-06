@@ -155,21 +155,20 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
 
     /**
-     * Sets the maximum playback speed that {@link AudioTrackAudioOutput} provided by this instance
-     * are going to be configured for. This is used to allocate buffers that are big enough to not
-     * underrun at the maximum playback speed. This value has no effect if {@code
+     * Sets the maximum playback speed that an {@link AudioTrackAudioOutput} provided by this
+     * instance is going to be configured for. This is also used to allocate buffers that are big
+     * enough to not underrun at the maximum playback speed. This value has no effect if {@code
      * useAudioOutputPlaybackParams} is disabled.
      *
      * <p>The default value is {@link DefaultAudioSink#MAX_PLAYBACK_SPEED}.
      *
-     * @param maxPlaybackSpeed The maximum playback speed to use. Must be equal to or between {@code
-     *     1f} and {@link DefaultAudioSink#MAX_PLAYBACK_SPEED}.
+     * @param maxPlaybackSpeed The maximum playback speed to use. Must be at least {@code 1f}.
      * @return This builder.
      */
     @UnstableApi
     @CanIgnoreReturnValue
     public Builder setMaxPlaybackSpeed(float maxPlaybackSpeed) {
-      checkArgument(maxPlaybackSpeed >= 1f && maxPlaybackSpeed <= MAX_PLAYBACK_SPEED);
+      checkArgument(maxPlaybackSpeed >= 1f);
       this.maxPlaybackSpeed = maxPlaybackSpeed;
       return this;
     }
@@ -396,7 +395,8 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       }
       throw new InitializationException();
     }
-    return new AudioTrackAudioOutput(audioTrack, config, capabilityChangeListener, clock);
+    return new AudioTrackAudioOutput(
+        audioTrack, config, capabilityChangeListener, maxPlaybackSpeed, clock);
   }
 
   @Override
