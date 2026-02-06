@@ -98,6 +98,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
 import androidx.media3.effect.FrameDropEffect;
@@ -107,6 +108,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
+import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -2310,6 +2312,42 @@ public class TransformerEndToEndTest {
         .build()
         .run(testId, audioEditedMediaItem);
     assertThat(audioBytesSeen.get()).isEqualTo(101_760);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34)
+  public void transcode_withOutputVideoMimeTypeAv1_andPacketConsumer_completesSuccessfully()
+      throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ASSET
+            .videoFormat
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs(null)
+            .build());
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET.uri));
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Transformer transformer =
+        NdkTransformerBuilder.create(context)
+            .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
+            .setVideoMimeType(MimeTypes.VIDEO_AV1)
+            .build();
+
+    ExportTestResult exportTestResult =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+    ExportResult exportResult = exportTestResult.exportResult;
+
+    String actualMimeType =
+        retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO).sampleMimeType;
+    assertThat(actualMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
+    assertThat(exportResult.exportException).isNull();
+    assertThat(exportResult.approximateDurationMs).isGreaterThan(0);
+    assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
   @Test

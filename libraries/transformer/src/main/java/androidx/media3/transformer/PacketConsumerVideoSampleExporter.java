@@ -79,6 +79,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final MuxerWrapper muxerWrapper;
   private final FallbackListener fallbackListener;
+  private final TransformationRequest transformationRequest;
   @Nullable private final LogSessionId logSessionId;
 
   /**
@@ -96,6 +97,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public PacketConsumerVideoSampleExporter(
       Composition composition,
       Format firstInputFormat,
+      TransformationRequest transformationRequest,
       RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
           packetProcessor,
       RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
@@ -110,6 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // TODO: b/278259383 - Consider delaying configuration of VideoSampleExporter to use the decoder
     //  output format instead of the extractor output format, to match AudioSampleExporter behavior.
     super(firstInputFormat, muxerWrapper);
+    this.transformationRequest = transformationRequest;
     this.errorConsumer = errorConsumer;
     this.encoderFactory = encoderFactory;
     this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
@@ -220,7 +223,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             frame.format,
             allowedEncodingRotationDegrees,
             muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO),
-            /* transformationRequest= */ null,
+            transformationRequest,
             fallbackListener,
             logSessionId);
 

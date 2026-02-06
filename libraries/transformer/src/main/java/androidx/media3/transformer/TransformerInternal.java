@@ -798,6 +798,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               new PacketConsumerVideoSampleExporter(
                   composition,
                   firstFormat,
+                  transformationRequest,
                   checkNotNull(packetProcessor),
                   checkNotNull(packetRenderer),
                   encoderFactory,
