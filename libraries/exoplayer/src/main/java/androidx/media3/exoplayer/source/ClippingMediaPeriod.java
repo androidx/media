@@ -49,6 +49,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   @Nullable private MediaPeriod.Callback callback;
   private @NullableType ClippingSampleStream[] sampleStreams;
   private long pendingInitialDiscontinuityPositionUs;
+  private long lastReportedDiscontinuityUs;
   /* package */ long startUs;
   /* package */ long endUs;
   @Nullable private IllegalClippingException clippingError;
@@ -72,6 +73,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     this.mediaPeriod = mediaPeriod;
     sampleStreams = new ClippingSampleStream[0];
     pendingInitialDiscontinuityPositionUs = enableInitialDiscontinuity ? startUs : C.TIME_UNSET;
+    lastReportedDiscontinuityUs = C.TIME_UNSET;
     this.startUs = startUs;
     this.endUs = endUs;
   }
@@ -171,6 +173,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     if (isPendingInitialDiscontinuity()) {
       long initialDiscontinuityUs = pendingInitialDiscontinuityPositionUs;
       pendingInitialDiscontinuityPositionUs = C.TIME_UNSET;
+      lastReportedDiscontinuityUs = initialDiscontinuityUs;
       // Always read an initial discontinuity from the child, and use it if set.
       long childDiscontinuityUs = readDiscontinuity();
       return childDiscontinuityUs != C.TIME_UNSET ? childDiscontinuityUs : initialDiscontinuityUs;
@@ -179,7 +182,13 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     if (discontinuityUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
     }
-    return enforceClippingRange(discontinuityUs, startUs, endUs);
+    discontinuityUs = enforceClippingRange(discontinuityUs, startUs, endUs);
+    if (discontinuityUs == lastReportedDiscontinuityUs) {
+      // Already reported, don't force reset rendering pipeline again.
+      return C.TIME_UNSET;
+    }
+    lastReportedDiscontinuityUs = discontinuityUs;
+    return discontinuityUs;
   }
 
   @Override
@@ -346,6 +355,11 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       }
       long bufferedPositionUs = getBufferedPositionUs();
       @ReadDataResult int result = childStream.readData(formatHolder, buffer, readFlags);
+      if (lastReportedDiscontinuityUs != C.TIME_UNSET && result != C.RESULT_NOTHING_READ) {
+        // We read something, so don't suppress further discontinuities even if they are to the same
+        // position as the last one.
+        lastReportedDiscontinuityUs = C.TIME_UNSET;
+      }
       if (result == C.RESULT_FORMAT_READ) {
         Format format = checkNotNull(formatHolder.format);
         if (format.encoderDelay != 0 || format.encoderPadding != 0) {
