@@ -89,7 +89,7 @@ private constructor(
   override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
     withContext(glThreadDispatcher) {
       if (isReleased.get()) {
-        if (packet is Packet.Payload) packet.payload.release()
+        if (packet is Packet.Payload) packet.payload.release(/* releaseFence= */ null)
         return@withContext
       }
 
@@ -119,12 +119,13 @@ private constructor(
         inputFrame.presentationTimeUs,
       )
       outputFrame = deferred.await()
-      outputConsumer?.queuePacket(Packet.of(outputFrame)) ?: outputFrame.release()
+      outputConsumer?.queuePacket(Packet.of(outputFrame))
+        ?: outputFrame.release(/* releaseFence= */ null)
     } catch (e: Exception) {
-      outputFrame?.release()
+      outputFrame?.release(/* releaseFence= */ null)
       throw e
     } finally {
-      inputFrame.release()
+      inputFrame.release(/* releaseFence= */ null)
       currentInputFrame = null
       currentInputMetadata = null
       outputFrameDeferred = null
@@ -140,7 +141,7 @@ private constructor(
     withContext(glThreadDispatcher) {
       outputFrameDeferred?.cancel("Processor released")
       outputFrameDeferred = null
-      currentInputFrame?.release()
+      currentInputFrame?.release(/* releaseFence= */ null)
       currentInputFrame = null
       currentInputMetadata = null
       shaderProgram.release()

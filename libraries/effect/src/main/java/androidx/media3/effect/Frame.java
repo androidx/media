@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.util.UnstableApi;
@@ -38,6 +39,11 @@ public interface Frame {
   /** Returns the {@link Metadata} associated with this frame. */
   Frame.Metadata getMetadata();
 
-  /** Releases the frame and its underlying resources. */
-  void release();
+  /**
+   * Releases the frame and its underlying resources.
+   *
+   * @param releaseFence A {@link SyncFenceCompat} that must signal before the underlying resources
+   *     can be fully released, or {@code null} if the resources can be released immediately.
+   */
+  void release(@Nullable SyncFenceCompat releaseFence);
 }

@@ -184,7 +184,7 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(((CompositionFrameMetadata) frame1.getMetadata()).itemIndex).isEqualTo(0);
 
     for (HardwareBufferFrame frame : receivedFrames) {
-      frame.release();
+      frame.release(/* releaseFence= */ null);
     }
     shadowOf(handlerThread.getLooper()).idle();
     receivedFrames.clear();
@@ -210,7 +210,7 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(((CompositionFrameMetadata) frame2.getMetadata()).itemIndex).isEqualTo(1);
 
     for (HardwareBufferFrame frame : receivedFrames) {
-      frame.release();
+      frame.release(/* releaseFence= */ null);
     }
     shadowOf(handlerThread.getLooper()).idle();
     receivedFrames.clear();

@@ -196,7 +196,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void releaseInternal() {
     @Nullable BitmapFrame nextFrame = processedFrames.poll();
     while (nextFrame != null) {
-      nextFrame.release();
+      nextFrame.release(/* releaseFence= */ null);
       nextFrame = processedFrames.poll();
     }
   }
@@ -208,7 +208,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height);
       bitmap = useHdr ? generateHdrBitmap(inputTexture) : generateSdrBitmap(inputTexture);
     } catch (Exception e) {
-      inputFrame.release();
+      inputFrame.release(/* releaseFence= */ null);
       onError(new VideoFrameProcessingException(e));
       return;
     }
@@ -218,7 +218,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new BitmapFrame.Metadata(inputFrame.presentationTimeUs, inputFrame.format);
     BitmapFrame outputFrame = new BitmapFrame(bitmap, outputFrameMetadata);
     processedFrames.add(outputFrame);
-    inputFrame.release();
+    inputFrame.release(/* releaseFence= */ null);
     canAcceptInput.set(true);
     inputConsumer.notifyCapacityListener();
     maybeDrainProcessedFrames();

@@ -123,7 +123,7 @@ public final class PacketConsumerHardwareBufferFrameQueueAndroidTest {
       assertThat(buffer.getUsage()).isEqualTo(expectedUsage);
 
     } finally {
-      frame.release();
+      frame.release(/* releaseFence= */ null);
     }
   }
 }

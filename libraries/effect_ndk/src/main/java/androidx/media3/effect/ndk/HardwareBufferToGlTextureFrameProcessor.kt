@@ -23,7 +23,6 @@ import android.opengl.EGLContext
 import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
-import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.RequiresApi
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
@@ -34,6 +33,7 @@ import androidx.media3.common.VideoFrameProcessor
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
+import androidx.media3.common.util.Log
 import androidx.media3.effect.DefaultShaderProgram
 import androidx.media3.effect.DefaultVideoFrameProcessor
 import androidx.media3.effect.GlShaderProgramPacketProcessor
@@ -188,10 +188,13 @@ class HardwareBufferToGlTextureFrameProcessor(
       if (format.rotationDegrees != 90 && format.rotationDegrees != 270) format.height
       else format.width
 
-    if (SDK_INT >= 33) {
-      // TODO: b/479415385 - Convert SyncFence to EGLSync and wait on GL thread.
-      hardwareBufferFrame.acquireFence?.awaitForever()
-      hardwareBufferFrame.acquireFence?.close()
+    // TODO: b/479415385 - Convert SyncFence to EGLSync and wait on GL thread.
+    hardwareBufferFrame.acquireFence?.let { fence ->
+      val signaled = fence.await(500)
+      if (!signaled) {
+        Log.w(TAG, "Timed out waiting for acquire fence.")
+      }
+      fence.close()
     }
     return GlTextureFrame.Builder(
         GlTextureInfo(texture, C.INDEX_UNSET, C.INDEX_UNSET, frameWidth, frameHeight),
@@ -208,7 +211,7 @@ class HardwareBufferToGlTextureFrameProcessor(
               )
             )
           }
-          hardwareBufferFrame.release()
+          hardwareBufferFrame.release(/* releaseFence= */ null)
         },
       )
       .setPresentationTimeUs(hardwareBufferFrame.presentationTimeUs)
@@ -249,6 +252,8 @@ class HardwareBufferToGlTextureFrameProcessor(
     init {
       System.loadLibrary("hardwareBufferJNI")
     }
+
+    private const val TAG = "HBToGlTexture"
 
     fun constructTransformationMatrix(hardwareBufferFrame: HardwareBufferFrame): FloatArray {
       // TODO: b/327467890 - This should work on most devices, but it's better to get the matrix

@@ -194,7 +194,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     packetConsumer.setOnQueue(
         (frames) -> {
           for (HardwareBufferFrame frame : frames) {
-            frame.release();
+            frame.release(/* releaseFence= */ null);
           }
           return null;
         });

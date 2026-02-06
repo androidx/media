@@ -169,7 +169,7 @@ import java.util.concurrent.ExecutorService;
   }
 
   /**
-   * {@linkplain HardwareBufferFrame#release() Releases} all frames that have not been sent
+   * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
    * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control.
    */
   public void reset() {
@@ -213,7 +213,7 @@ import java.util.concurrent.ExecutorService;
 
   private void releasePacket(ImmutableList<HardwareBufferFrame> packet) {
     for (int i = 0; i < packet.size(); i++) {
-      packet.get(i).release();
+      packet.get(i).release(/* releaseFence= */ null);
     }
   }
 

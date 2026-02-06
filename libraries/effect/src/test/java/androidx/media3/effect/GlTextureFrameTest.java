@@ -51,7 +51,7 @@ public class GlTextureFrameTest {
         new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
             .build();
 
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThat(isReleased.get()).isTrue();
   }
@@ -64,7 +64,7 @@ public class GlTextureFrameTest {
             .build();
 
     frame.retain();
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThat(isReleased.get()).isFalse();
   }
@@ -78,9 +78,9 @@ public class GlTextureFrameTest {
 
     frame.retain();
     frame.retain();
-    frame.release();
-    frame.release();
-    frame.release();
+    frame.release(/* releaseFence= */ null);
+    frame.release(/* releaseFence= */ null);
+    frame.release(/* releaseFence= */ null);
 
     assertThat(isReleased.get()).isTrue();
   }
@@ -93,11 +93,11 @@ public class GlTextureFrameTest {
                 TEXTURE_INFO, directExecutor(), (u) -> releaseCount.incrementAndGet())
             .build();
 
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThat(releaseCount.get()).isEqualTo(1);
 
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThat(releaseCount.get()).isEqualTo(1);
   }
@@ -108,7 +108,7 @@ public class GlTextureFrameTest {
     GlTextureFrame frame =
         new GlTextureFrame.Builder(TEXTURE_INFO, directExecutor(), (u) -> isReleased.set(true))
             .build();
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThrows(IllegalStateException.class, frame::retain);
   }
@@ -136,7 +136,7 @@ public class GlTextureFrameTest {
               () -> {
                 try {
                   startLatch.await();
-                  frame.release();
+                  frame.release(/* releaseFence= */ null);
                 } catch (Exception e) {
                   synchronized (exceptions) {
                     exceptions.add(e);

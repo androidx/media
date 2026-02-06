@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayDeque;
@@ -90,7 +89,8 @@ import java.util.Queue;
   }
 
   /**
-   * {@linkplain GlTextureFrame#release() Releases } all frames that have not been sent downstream.
+   * {@linkplain HardwareBufferFrame#release Releases } all frames that have not been sent
+   * downstream.
    */
   // TODO: b/449956936 - Ensure this does not throw away frames in the case where a new decoded
   //   frame is not forwarded from the renderer on a discontinuity.
@@ -98,7 +98,7 @@ import java.util.Queue;
     for (int i = 0; i < inputFrameQueues.size(); i++) {
       @Nullable HardwareBufferFrame nextFrame;
       while ((nextFrame = inputFrameQueues.get(i).frames.poll()) != null) {
-        nextFrame.release();
+        nextFrame.release(/* releaseFence= */ null);
       }
     }
   }
@@ -115,7 +115,7 @@ import java.util.Queue;
     checkArgument(sequenceIndex < numSequences);
     @Nullable HardwareBufferFrame nextFrame;
     while ((nextFrame = inputFrameQueues.get(sequenceIndex).frames.poll()) != null) {
-      nextFrame.release();
+      nextFrame.release(/* releaseFence= */ null);
     }
     if (sequenceIndex == 0) {
       isEnded = false;
@@ -150,7 +150,7 @@ import java.util.Queue;
         // Release all frames from the secondary sequence that arrived before the primary sequence
         // frame.
         if (nextFrame.presentationTimeUs < nextPrimaryFrame.presentationTimeUs) {
-          nextFrame.release();
+          nextFrame.release(/* releaseFence= */ null);
           frameQueue.frames.poll();
           nextFrame = frameQueue.frames.peek();
         } else {

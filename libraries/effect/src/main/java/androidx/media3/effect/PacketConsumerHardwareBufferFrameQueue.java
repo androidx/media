@@ -23,7 +23,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import android.hardware.HardwareBuffer;
-import android.hardware.SyncFence;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -32,6 +31,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.PacketConsumer.Packet;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -132,7 +132,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   /**
    * {@inheritDoc}
    *
-   * <p>Overrides the callback called in {@link HardwareBufferFrame#release()} to return the queued
+   * <p>Overrides the callback called in {@link HardwareBufferFrame#release} to return the queued
    * frame to the internal {@link #pool}.
    *
    * @param frame The frame to be queued.
@@ -143,8 +143,8 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
         new HardwareBufferFrame.Builder(
                 frame.hardwareBuffer,
                 releaseFrameExecutor,
-                /* releaseCallback= */ () ->
-                    returnHardwareBuffer(checkNotNull(frame.hardwareBuffer)))
+                /* releaseCallback= */ (releaseFence) ->
+                    returnHardwareBuffer(checkNotNull(frame.hardwareBuffer), releaseFence))
             .setPresentationTimeUs(frame.presentationTimeUs)
             .setReleaseTimeNs(frame.releaseTimeNs)
             .setAcquireFence(frame.acquireFence)
@@ -199,13 +199,17 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
             adjustUsageFlags(format.usageFlags));
     checkState(!buffer.isClosed());
     return new HardwareBufferFrame.Builder(
-            buffer, releaseFrameExecutor, /* releaseCallback= */ () -> returnHardwareBuffer(buffer))
+            buffer,
+            releaseFrameExecutor,
+            /* releaseCallback= */ (releaseFence) -> returnHardwareBuffer(buffer, releaseFence))
         .build();
   }
 
   /** Always called on the {@link #releaseFrameExecutor}. */
-  private void returnHardwareBuffer(HardwareBuffer buffer) {
+  private void returnHardwareBuffer(HardwareBuffer buffer, @Nullable SyncFenceCompat releaseFence) {
     checkArgument(!buffer.isClosed());
+    // TODO: b/479415385 - Use the releaseFence as acquireFence when reusing this buffer.
+    closeFence(releaseFence);
     if (isReleased) {
       if (!buffer.isClosed()) {
         buffer.close();
@@ -221,7 +225,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
             new HardwareBufferFrame.Builder(
                     buffer,
                     releaseFrameExecutor,
-                    /* releaseCallback= */ () -> returnHardwareBuffer(buffer))
+                    /* releaseCallback= */ (fence) -> returnHardwareBuffer(buffer, fence))
                 .build();
         pool.add(frame);
         if (wakeupListener != null) {
@@ -252,10 +256,14 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
         directExecutor());
   }
 
-  private void closeFence(@Nullable SyncFence fence) {
+  private void closeFence(@Nullable SyncFenceCompat fence) {
     if (SDK_INT >= 33) {
-      if (fence != null && fence.isValid()) {
-        fence.close();
+      if (fence != null) {
+        try {
+          fence.close();
+        } catch (IOException e) {
+          errorConsumer.accept(e);
+        }
       }
     }
   }

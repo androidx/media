@@ -385,7 +385,7 @@ public class FrameAggregatorTest {
     return new HardwareBufferFrame.Builder(
             /* hardwareBuffer= */ null,
             directExecutor(),
-            () -> releasedFrameTimestamps.add(presentationTimeUs))
+            (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
         .setPresentationTimeUs(presentationTimeUs)
         .setInternalFrame(this)
         .build();

@@ -17,6 +17,7 @@ package androidx.media3.effect;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
@@ -70,7 +71,7 @@ public class GlTextureFrame implements Frame {
    * ensure the contents have been fully written to.
    *
    * <p>Callers must *not* {@linkplain GlUtil#deleteSyncObject delete} this fence, as it may be
-   * reused up until this frame is {@linkplain #release() released}.
+   * reused up until this frame is {@linkplain #release(SyncFenceCompat) released}.
    *
    * <p>The value is {@link GlUtil#GL_FENCE_SYNC_UNSET} if no fence has been created for this
    * texture, as it is only expected to be produced and consumed within the same GL command stream.
@@ -203,7 +204,7 @@ public class GlTextureFrame implements Frame {
    * will strictly release the underlying resources only when the count transitions from 1 to 0.
    */
   @Override
-  public void release() {
+  public void release(@Nullable SyncFenceCompat releaseFence) {
     while (true) {
       int currentCount = referenceCount.get();
       if (currentCount == 0) {

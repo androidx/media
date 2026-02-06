@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.hardware.HardwareBuffer;
-import android.hardware.SyncFence;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -40,8 +39,22 @@ import java.util.concurrent.Executor;
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public class HardwareBufferFrame implements Frame {
+
+  /** A callback to be invoked when the {@link HardwareBufferFrame} is released. */
+  public interface ReleaseCallback {
+    /**
+     * Releases the underlying resources of the {@link HardwareBufferFrame}.
+     *
+     * @param releaseFence A {@link SyncFenceCompat} that must signal before the underlying
+     *     resources can be fully released, or {@code null} if the resources can be released
+     *     immediately.
+     */
+    void release(@Nullable SyncFenceCompat releaseFence);
+  }
+
   public static final HardwareBufferFrame END_OF_STREAM_FRAME =
-      new HardwareBufferFrame.Builder(/* hardwareBuffer= */ null, directExecutor(), () -> {})
+      new HardwareBufferFrame.Builder(
+              /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
           .setInternalFrame(new Object())
           .build();
 
@@ -63,7 +76,7 @@ public class HardwareBufferFrame implements Frame {
   private final Metadata metadata;
 
   /**
-   * An acquire {@link SyncFence} for the {@linkplain #hardwareBuffer HardwareBuffer}.
+   * An acquire {@link SyncFenceCompat} for the {@linkplain #hardwareBuffer HardwareBuffer}.
    *
    * <p>Callers should ensure that the acquire fence has signaled before accessing {@linkplain
    * #hardwareBuffer HardwareBuffer}.
@@ -71,7 +84,7 @@ public class HardwareBufferFrame implements Frame {
    * <p>If the acquire fence is {@code null}, it's safe to access {@linkplain #hardwareBuffer
    * HardwareBuffer}.
    */
-  @Nullable public final SyncFence acquireFence;
+  @Nullable public final SyncFenceCompat acquireFence;
 
   /** An optional internal frame type that is used when {@link #hardwareBuffer} is not supported. */
   @Nullable public final Object internalFrame;
@@ -80,19 +93,19 @@ public class HardwareBufferFrame implements Frame {
   private final Executor releaseExecutor;
 
   /** The {@link Runnable} to call to release the frame. */
-  private final Runnable releaseCallback;
+  private final ReleaseCallback releaseCallback;
 
   /** A builder for {@link HardwareBufferFrame} instances. */
   public static final class Builder {
     @Nullable private final HardwareBuffer hardwareBuffer;
     private final Executor releaseExecutor;
-    private final Runnable releaseCallback;
+    private final ReleaseCallback releaseCallback;
 
     private long presentationTimeUs;
     private Format format;
     private long releaseTimeNs;
     private Metadata metadata;
-    @Nullable private SyncFence acquireFence;
+    @Nullable private SyncFenceCompat acquireFence;
     @Nullable private Object internalFrame;
 
     /**
@@ -106,7 +119,7 @@ public class HardwareBufferFrame implements Frame {
     public Builder(
         @Nullable HardwareBuffer hardwareBuffer,
         Executor releaseExecutor,
-        Runnable releaseCallback) {
+        ReleaseCallback releaseCallback) {
       this.hardwareBuffer = hardwareBuffer;
       this.releaseExecutor = releaseExecutor;
       this.releaseCallback = releaseCallback;
@@ -160,7 +173,7 @@ public class HardwareBufferFrame implements Frame {
      * <p>The default value is {@code null}.
      */
     @CanIgnoreReturnValue
-    public Builder setAcquireFence(@Nullable SyncFence acquireFence) {
+    public Builder setAcquireFence(@Nullable SyncFenceCompat acquireFence) {
       this.acquireFence = acquireFence;
       return this;
     }
@@ -208,7 +221,7 @@ public class HardwareBufferFrame implements Frame {
   }
 
   @Override
-  public void release() {
-    releaseExecutor.execute(releaseCallback);
+  public void release(@Nullable SyncFenceCompat releaseFence) {
+    releaseExecutor.execute(() -> releaseCallback.release(releaseFence));
   }
 }

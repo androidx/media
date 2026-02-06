@@ -370,7 +370,7 @@ class GlTextureFrameCompositorTest {
       override suspend fun queuePacket(packet: Packet<GlTextureFrame>) {
         val frame = getPacketPayloadOrException(packet)
         if (releaseInputFrames) {
-          frame.release()
+          frame.release(/* releaseFence= */ null)
         }
         deferredIterator.next().complete(frame)
       }

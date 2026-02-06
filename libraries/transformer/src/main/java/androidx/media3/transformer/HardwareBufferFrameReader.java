@@ -25,6 +25,7 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
+import android.system.ErrnoException;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -34,8 +35,11 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.SyncFenceCompat;
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -350,12 +354,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
               playbackExecutor,
-              /* releaseCallback= */ () -> {
+              /* releaseCallback= */ (releaseFence) -> {
                 // TODO: b/449956936 - Notify the video renderer's WakeupListener that new capacity
                 // is freed up, and run another render loop.
-                // TODO: b/475744934 - Wait on a release fence, or set the fence on the image before
-                // releasing the frame.
-                releaseFrame(image, hardwareBuffer);
+                releaseFrame(image, hardwareBuffer, releaseFence);
               });
     } else {
       // TODO: b/449956936 - Support earlier API levels via HardwareBufferFrame.internalFrame.
@@ -363,10 +365,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
               playbackExecutor,
-              /* releaseCallback= */ () -> {
-                // TODO: b/475744934 - Wait on a release fence, or set the fence on the image before
-                // releasing the frame.
-                releaseFrame(image, /* hardwareBuffer= */ null);
+              /* releaseCallback= */ (releaseFence) -> {
+                releaseFrame(image, /* hardwareBuffer= */ null, releaseFence);
               });
     }
     // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
@@ -385,20 +385,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new HardwareBufferFrame.Builder(
               hardwareBuffer,
               playbackExecutor,
-              /* releaseCallback= */ () -> {
-                // TODO: b/475744934 - Wait on a release fence before releasing the frame.
+              /* releaseCallback= */ (releaseFence) -> {
                 // Do not manually release the hardware buffer backing the bitmap, it will be reused
                 // when the bitmap is repeated, and cleaned up when the bitmap is garbage collected.
-                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null);
+                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
               });
     } else {
       frameBuilder =
           new HardwareBufferFrame.Builder(
               /* hardwareBuffer= */ null,
               playbackExecutor,
-              /* releaseCallback= */ () -> {
-                // TODO: b/475744934 - Wait on a release fence before releasing the frame.
-                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null);
+              /* releaseCallback= */ (releaseFence) -> {
+                releaseFrame(/* image= */ null, /* hardwareBuffer= */ null, releaseFence);
               });
     }
     frameBuilder.setInternalFrame(bitmap);
@@ -424,9 +422,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .build();
   }
 
-  private void releaseFrame(@Nullable Image image, @Nullable HardwareBuffer hardwareBuffer) {
+  private void releaseFrame(
+      @Nullable Image image,
+      @Nullable HardwareBuffer hardwareBuffer,
+      @Nullable SyncFenceCompat releaseFence) {
     synchronized (this) {
       framesInUse--;
+      if (releaseFence != null) {
+        try {
+          // TODO: b/475744934 - Use the NDK to set the fence on the Image.
+          boolean signaled = releaseFence.await(/* timeoutMs= */ 500);
+          if (!signaled) {
+            Log.w(TAG, "releaseFence timed out.");
+          }
+          releaseFence.close();
+        } catch (ErrnoException | IOException e) {
+          listener.onError(e);
+        }
+      }
       if (SDK_INT >= 26 && hardwareBuffer != null) {
         hardwareBuffer.close();
       }

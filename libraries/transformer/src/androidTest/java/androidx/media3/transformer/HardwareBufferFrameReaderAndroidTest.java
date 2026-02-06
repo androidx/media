@@ -127,7 +127,7 @@ public class HardwareBufferFrameReaderAndroidTest {
     HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
 
-    receivedFrame.release();
+    receivedFrame.release(/* releaseFence= */ null);
     handlerThread.join(TEST_TIMEOUT_MS);
 
     assertThat(hardwareBuffer.isClosed()).isTrue();
@@ -145,7 +145,7 @@ public class HardwareBufferFrameReaderAndroidTest {
     HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     HardwareBuffer hardwareBuffer = checkNotNull(receivedFrame.hardwareBuffer);
 
-    receivedFrame.release();
+    receivedFrame.release(/* releaseFence= */ null);
     handlerThread.join(TEST_TIMEOUT_MS);
 
     // Closing the HardwareBuffer is handled by garbage collection.
@@ -161,7 +161,7 @@ public class HardwareBufferFrameReaderAndroidTest {
     produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
     HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
 
-    receivedFrame.release();
+    receivedFrame.release(/* releaseFence= */ null);
     handlerThread.join(TEST_TIMEOUT_MS);
 
     assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
@@ -275,14 +275,14 @@ public class HardwareBufferFrameReaderAndroidTest {
     assertThat(recFrame1).isNotNull();
     assertThat(recFrame1.presentationTimeUs).isEqualTo(frameTimeUs1);
     assertThat(recFrame1.format).isEqualTo(format1);
-    recFrame1.release();
+    recFrame1.release(/* releaseFence= */ null);
 
     produceFrameToFrameReaderSurface(frameTimeUs2);
     HardwareBufferFrame recFrame2 = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recFrame2).isNotNull();
     assertThat(recFrame2.presentationTimeUs).isEqualTo(frameTimeUs2);
     assertThat(recFrame2.format).isEqualTo(format2);
-    recFrame2.release();
+    recFrame2.release(/* releaseFence= */ null);
 
     HardwareBufferFrame recEos = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(recEos).isEqualTo(HardwareBufferFrame.END_OF_STREAM_FRAME);
@@ -292,7 +292,7 @@ public class HardwareBufferFrameReaderAndroidTest {
     assertThat(recFrame3).isNotNull();
     assertThat(recFrame3.presentationTimeUs).isEqualTo(frameTimeUs3);
     assertThat(recFrame3.format).isEqualTo(format3);
-    recFrame3.release();
+    recFrame3.release(/* releaseFence= */ null);
 
     assertThat(receivedFrames).isEmpty();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();

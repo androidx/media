@@ -26,7 +26,6 @@ import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.effect.PacketConsumer.Packet
-import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
@@ -65,7 +64,7 @@ class DefaultHardwareBufferEffectsPipeline :
       is Packet.EndOfStream -> outputBufferQueue!!.signalEndOfStream()
       is Packet.Payload -> {
         for (i in 1..packet.payload.lastIndex) {
-          packet.payload[i].release()
+          packet.payload[i].release(/* releaseFence= */ null)
         }
         if (packet.payload.isNotEmpty()) {
           processFrame(packet.payload[0])
@@ -81,6 +80,7 @@ class DefaultHardwareBufferEffectsPipeline :
   }
 
   private suspend fun processFrame(inputFrame: HardwareBufferFrame) {
+    var releaseFenceForInputFrame: SyncFenceCompat? = null
     try {
       if (inputFrame.hardwareBuffer == null) {
         throw IllegalArgumentException("Input frame missing HardwareBuffer")
@@ -90,7 +90,7 @@ class DefaultHardwareBufferEffectsPipeline :
       check(outputFrame.hardwareBuffer != null)
 
       // Draw the input buffer contents into the output buffer.
-      val acquireFence =
+      val renderCompletionFence =
         renderToOutputBuffer(
           inputFrame.hardwareBuffer,
           inputFrame.acquireFence,
@@ -99,6 +99,7 @@ class DefaultHardwareBufferEffectsPipeline :
           outputFrame.hardwareBuffer,
           outputFrame.acquireFence,
         )
+      releaseFenceForInputFrame = SyncFenceCompat.duplicate(renderCompletionFence)
 
       // Send the output buffer downstream.
       val outputFrameWithMetadata =
@@ -108,11 +109,12 @@ class DefaultHardwareBufferEffectsPipeline :
           .setReleaseTimeNs(inputFrame.releaseTimeNs)
           .setFormat(inputFrame.format)
           .setMetadata(inputFrame.metadata)
-          .setAcquireFence(acquireFence)
+          .setAcquireFence(SyncFenceCompat.duplicate(renderCompletionFence))
           .build()
       outputBufferQueue!!.queue(outputFrameWithMetadata)
+      renderCompletionFence.close()
     } finally {
-      inputFrame.release()
+      inputFrame.release(releaseFenceForInputFrame)
     }
   }
 
@@ -146,11 +148,11 @@ class DefaultHardwareBufferEffectsPipeline :
 
   private suspend fun renderToOutputBuffer(
     inputBuffer: HardwareBuffer,
-    inputFence: SyncFence?,
+    inputFence: SyncFenceCompat?,
     inputWidth: Int,
     inputHeight: Int,
     outputBuffer: HardwareBuffer,
-    outputFence: SyncFence?,
+    outputFence: SyncFenceCompat?,
   ): SyncFence {
     // TODO: b/479415308 - Replace HardwareBufferRenderer with another method of copying data to
     // support APIs below 34.
@@ -187,13 +189,14 @@ class DefaultHardwareBufferEffectsPipeline :
   }
 
   /** Helper function to suspend, switch to an internal thread and wait on the given [SyncFence]. */
-  private suspend fun waitOn(fence: SyncFence?) {
+  private suspend fun waitOn(fence: SyncFenceCompat?) {
     fence?.let {
       // Switch to the internal dispatcher for the blocking call.
-      val signaled = withContext(internalDispatcher) { fence.await(Duration.ofMillis(500)) }
+      val signaled = withContext(internalDispatcher) { fence.await(500) }
       if (!signaled) {
         Log.w(TAG, "Timed out waiting for fence.")
       }
+      fence.close()
     }
   }
 

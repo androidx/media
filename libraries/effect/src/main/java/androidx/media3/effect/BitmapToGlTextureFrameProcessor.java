@@ -183,7 +183,7 @@ import java.util.concurrent.atomic.AtomicReference;
   public void onCurrentOutputStreamEnded() {
     @Nullable BitmapFrame currentInputFrame = this.currentInputFrame.getAndSet(null);
     if (currentInputFrame != null) {
-      currentInputFrame.release();
+      currentInputFrame.release(/* releaseFence= */ null);
     }
     inputConsumer.notifyCapacityListener();
   }
@@ -226,11 +226,11 @@ import java.util.concurrent.atomic.AtomicReference;
   private void releaseInternal() throws VideoFrameProcessingException {
     @Nullable BitmapFrame currentFrame = currentInputFrame.get();
     if (currentFrame != null) {
-      currentFrame.release();
+      currentFrame.release(/* releaseFence= */ null);
     }
     @Nullable GlTextureFrame currentProcessedFrame = processedFrames.poll();
     while (currentProcessedFrame != null) {
-      currentProcessedFrame.release();
+      currentProcessedFrame.release(/* releaseFence= */ null);
       currentProcessedFrame = processedFrames.poll();
     }
     textureManager.release();

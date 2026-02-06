@@ -322,7 +322,7 @@ public class CompositionVideoPacketReleaseControlTest {
         new HardwareBufferFrame.Builder(
                 /* hardwareBuffer= */ null,
                 directExecutor(),
-                () -> releasedFrameTimestamps.add(presentationTimeUs))
+                (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
             .setInternalFrame(presentationTimeUs)
             .build();

@@ -117,7 +117,7 @@ private constructor(
             // We can safely ignore it and return, allowing the queuePacket method to exit.
             return@withContext
           }
-          frame.release()
+          frame.release(/* releaseFence= */ null)
         }
 
         is Packet.EndOfStream -> {

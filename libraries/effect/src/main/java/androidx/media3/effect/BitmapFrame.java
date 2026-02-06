@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import android.graphics.Bitmap;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 
 /** A {@link Frame} implementation that wraps a {@link Bitmap}. */
@@ -54,7 +55,7 @@ import androidx.media3.common.Format;
   }
 
   @Override
-  public void release() {
+  public void release(@Nullable SyncFenceCompat releaseFence) {
     bitmap.recycle();
   }
 

@@ -1228,7 +1228,7 @@ public class CompositionPlayerTest {
     packetConsumer.setOnQueue(
         (frames) -> {
           for (HardwareBufferFrame frame : frames) {
-            frame.release();
+            frame.release(/* releaseFence= */ null);
           }
           if (packetConsumer.getQueuedPackets().size() == 30) {
             allExpectedPacketsQueued.countDown();
@@ -1270,7 +1270,7 @@ public class CompositionPlayerTest {
     packetConsumer.setOnQueue(
         (frames) -> {
           for (HardwareBufferFrame frame : frames) {
-            frame.release();
+            frame.release(/* releaseFence= */ null);
           }
           if (packetConsumer.getQueuedPackets().size() == 15) {
             allExpectedPacketsQueued.countDown();

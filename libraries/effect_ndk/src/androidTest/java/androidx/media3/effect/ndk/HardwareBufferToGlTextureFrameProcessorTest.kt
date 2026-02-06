@@ -147,7 +147,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
       )
       .isLessThan(MAX_AVG_PIXEL_DIFFERENCE)
 
-    argb8888HardwareBufferFrame.release()
+    argb8888HardwareBufferFrame.release(/* releaseFence= */ null)
   }
 
   @SdkSuppress(minSdkVersion = 28)

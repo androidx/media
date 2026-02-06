@@ -78,12 +78,12 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
-    frame1.release();
+    frame1.release(/* releaseFence= */ null);
 
     HardwareBufferFrame frame2 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
 
     assertThat(frame2.hardwareBuffer).isSameInstanceAs(buffer1);
-    frame2.release();
+    frame2.release(/* releaseFence= */ null);
   }
 
   @Test
@@ -96,13 +96,13 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
-    frame1.release();
+    frame1.release(/* releaseFence= */ null);
 
     // Mismatched dimensions should trigger a new allocation and close the old buffer
     HardwareBufferFrame frame2 = frameQueue.dequeue(format2, () -> {});
     assertThat(frame2.hardwareBuffer).isNotSameInstanceAs(buffer1);
     assertThat(buffer1.isClosed()).isTrue();
-    frame2.release();
+    frame2.release(/* releaseFence= */ null);
   }
 
   @Test
@@ -117,13 +117,13 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
     HardwareBufferFrame frame2 = frameQueue.dequeue(formatB, () -> {});
     HardwareBuffer buffer2 = frame2.hardwareBuffer;
 
-    frame1.release();
-    frame2.release();
+    frame1.release(/* releaseFence= */ null);
+    frame2.release(/* releaseFence= */ null);
 
     HardwareBufferFrame resultFrame = frameQueue.dequeue(formatB, () -> {});
     assertThat(resultFrame.hardwareBuffer).isSameInstanceAs(buffer2);
     assertThat(buffer1.isClosed()).isTrue();
-    resultFrame.release();
+    resultFrame.release(/* releaseFence= */ null);
   }
 
   @Test
@@ -150,7 +150,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
     assertThat(frameQueue.dequeue(DEFAULT_FORMAT, () -> wakeupCalled.set(true))).isNull();
     assertThat(wakeupCalled.get()).isFalse();
 
-    frames[0].release();
+    frames[0].release(/* releaseFence= */ null);
     assertThat(wakeupCalled.get()).isTrue();
   }
 
@@ -160,8 +160,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
 
-    frame.release();
-    frame.release();
+    frame.release(/* releaseFence= */ null);
+    frame.release(/* releaseFence= */ null);
 
     for (int i = 0; i < CAPACITY; i++) {
       assertThat(frameQueue.dequeue(DEFAULT_FORMAT, () -> {})).isNotNull();
@@ -177,7 +177,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
 
     frame.hardwareBuffer.close();
 
-    assertThrows(IllegalArgumentException.class, frame::release);
+    assertThrows(IllegalArgumentException.class, () -> frame.release(/* releaseFence= */ null));
   }
 
   @Test
@@ -248,7 +248,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         new HardwareBufferFrame.Builder(
                 checkNotNull(frame1).hardwareBuffer,
                 /* releaseExecutor= */ directExecutor(),
-                /* releaseCallback= */ () -> {
+                /* releaseCallback= */ (releaseFence) -> {
                   throw new AssertionError();
                 })
             .build();
@@ -259,7 +259,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
     assertThat(recordingConsumer.getQueuedPayloads()).hasSize(1);
 
     HardwareBufferFrame forwardedFrame = recordingConsumer.getQueuedPayloads().get(0);
-    forwardedFrame.release();
+    forwardedFrame.release(/* releaseFence= */ null);
     HardwareBufferFrame frame2 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
 
     assertThat(frame2).isNotNull();
@@ -301,11 +301,11 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
     // Fill the pool with released buffers
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
-    frame1.release();
+    frame1.release(/* releaseFence= */ null);
 
     HardwareBufferFrame frame2 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer2 = frame2.hardwareBuffer;
-    frame2.release();
+    frame2.release(/* releaseFence= */ null);
 
     // Release the queue
     frameQueue.release();
@@ -324,7 +324,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
     frameQueue.release();
 
     // Returning a buffer after the frameQueue is released should close it
-    frame.release();
+    frame.release(/* releaseFence= */ null);
 
     assertThat(buffer.isClosed()).isTrue();
   }
@@ -348,7 +348,7 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         for (HardwareBufferFrame frame : frames) {
           testExecutor.execute(
               () -> {
-                frame.release();
+                frame.release(/* releaseFence= */ null);
                 releaseLatch.countDown();
               });
         }

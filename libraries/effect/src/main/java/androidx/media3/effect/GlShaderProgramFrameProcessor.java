@@ -165,7 +165,7 @@ public final class GlShaderProgramFrameProcessor
     // Internal GlShaderProgram is expected to have a capacity of 1.
     checkState(canAcceptInput.compareAndSet(false, true));
     if (currentInputFrame != null) {
-      currentInputFrame.release();
+      currentInputFrame.release(/* releaseFence= */ null);
       currentInputFrame = null;
     }
     inputConsumer.notifyCapacityListener();
@@ -174,7 +174,7 @@ public final class GlShaderProgramFrameProcessor
   @Override
   public void onOutputFrameAvailable(GlTextureInfo outputTexture, long presentationTimeUs) {
     if (currentProcessedFrame != null) {
-      currentProcessedFrame.release();
+      currentProcessedFrame.release(/* releaseFence= */ null);
       shaderProgram.releaseOutputFrame(outputTexture);
       onError(
           new VideoFrameProcessingException(
@@ -222,11 +222,11 @@ public final class GlShaderProgramFrameProcessor
 
   private void releaseInternal() throws VideoFrameProcessingException {
     if (currentInputFrame != null) {
-      currentInputFrame.release();
+      currentInputFrame.release(/* releaseFence= */ null);
       currentInputFrame = null;
     }
     if (currentProcessedFrame != null) {
-      currentProcessedFrame.release();
+      currentProcessedFrame.release(/* releaseFence= */ null);
       currentProcessedFrame = null;
     }
     shaderProgram.release();

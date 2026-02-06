@@ -71,11 +71,11 @@ class GlTextureFrameCompositor(
               frameComposited.await()
             }
           } catch (e: Exception) {
-            compositedFrame?.release()
+            compositedFrame?.release(/* releaseFence= */ null)
             throw e
           } finally {
             for (frame in frames) {
-              frame.release()
+              frame.release(/* releaseFence= */ null)
             }
           }
         }

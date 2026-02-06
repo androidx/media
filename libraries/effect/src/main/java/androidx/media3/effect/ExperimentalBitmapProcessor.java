@@ -414,7 +414,7 @@ public final class ExperimentalBitmapProcessor {
       AtomicBoolean cancelled = new AtomicBoolean(false);
       completer.addCancellationListener(() -> cancelled.set(true), directExecutor());
       if (cancelled.get()) {
-        frame.release();
+        frame.release(/* releaseFence= */ null);
         return;
       }
       completer.set(frame.getBitmap());
@@ -423,7 +423,7 @@ public final class ExperimentalBitmapProcessor {
       // still managed to be processed. In an ideal case we would return the correctly processed
       // frame but as there is currently no way to match this frame to it's completer, release it
       // and accept that it has failed.
-      frame.release();
+      frame.release(/* releaseFence= */ null);
     }
   }
 

@@ -152,7 +152,7 @@ public class HardwareBufferFrameReaderTest {
     // Trying to output 30 frames. Stop outputting when the output capacity is reached.
     assertThat(receivedFrames).hasSize(2);
 
-    receivedFrames.get(0).release();
+    receivedFrames.get(0).release(/* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     // Once a frame is released, more output can be generated.
@@ -234,7 +234,7 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(0).presentationTimeUs).isEqualTo(0);
     assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(33_333);
 
-    receivedFrames.remove(0).release();
+    receivedFrames.remove(0).release(/* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(receivedFrames).hasSize(2);
@@ -242,7 +242,7 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(1).presentationTimeUs).isEqualTo(66_667);
     assertThat(threeFrames.hasNext()).isFalse();
 
-    receivedFrames.remove(0).release();
+    receivedFrames.remove(0).release(/* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     assertThat(receivedFrames).hasSize(2);
@@ -266,7 +266,7 @@ public class HardwareBufferFrameReaderTest {
 
     hardwareBufferFrameReader.flush();
 
-    receivedFrames.get(0).release();
+    receivedFrames.get(0).release(/* releaseFence= */ null);
     shadowOf(handlerThread.getLooper()).idle();
 
     // Once a frame is released, more output can be accepted downstream. But calling flush()
