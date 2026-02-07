@@ -471,6 +471,9 @@ public final class MediaCodecInfo {
           && !oldFormat.initializationDataEquals(newFormat)) {
         discardReasons |= DISCARD_REASON_WORKAROUND;
       }
+      if (needsReconfigureDueAspectRatioChangesWorkaround(name, oldFormat, newFormat)) {
+        discardReasons |= DISCARD_REASON_WORKAROUND;
+      }
 
       if (oldFormat.decodedWidth != Format.NO_VALUE
           && oldFormat.decodedHeight != Format.NO_VALUE
@@ -971,6 +974,31 @@ public final class MediaCodecInfo {
    */
   private static boolean needsAdaptationReconfigureWorkaround(String name) {
     return Build.MODEL.startsWith("SM-T230") && "OMX.MARVELL.VIDEO.HW.CODA7542DECODER".equals(name);
+  }
+
+  /**
+   * Returns whether the decoder is known to behave incorrectly if reused
+   * when the new format has a different aspect ratio.
+   *
+   * @param name The name of the decoder.
+   * @param oldFormat The format being decoded.
+   * @param newFormat The new format.
+   * @return Whether the decoder is known to behave incorrectly if reused when the new format has
+   * a different aspect ratio.
+   */
+  private static boolean needsReconfigureDueAspectRatioChangesWorkaround(
+      String name,
+      Format oldFormat,
+      Format newFormat
+  ) {
+    // See https://github.com/androidx/media/issues/2003
+    if ("c2.exynos.h264.decoder".equals(name) || "c2.android.avc.decoder".equals(name)) {
+      float oldAspectRatio = (float) oldFormat.width / oldFormat.height;
+      float newAspectRatio = (float) newFormat.width / newFormat.height;
+      return oldAspectRatio != newAspectRatio;
+    }
+
+    return false;
   }
 
   /**
