@@ -23,6 +23,7 @@ import android.view.View
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.demo.shortform.lazycolumn.LazyColumnActivity
 import androidx.media3.demo.shortform.viewpager.ViewPagerActivity
 import java.lang.Integer.max
 import java.lang.Integer.min
@@ -54,6 +55,12 @@ class MainActivity : AppCompatActivity() {
     findViewById<View>(R.id.view_pager_button).setOnClickListener {
       startActivity(
         Intent(this, ViewPagerActivity::class.java).putExtra(NUM_PLAYERS_EXTRA, numberOfPlayers)
+      )
+    }
+
+    findViewById<View>(R.id.lazy_column_button).setOnClickListener {
+      startActivity(
+        Intent(this, LazyColumnActivity::class.java).putExtra(NUM_PLAYERS_EXTRA, numberOfPlayers)
       )
     }
   }

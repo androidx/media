@@ -39,4 +39,6 @@ class MediaItemDatabase {
       .setCustomCacheKey(index.toString())
       .build()
   }
+
+    fun size(): Int = mediaUris.size
 }
