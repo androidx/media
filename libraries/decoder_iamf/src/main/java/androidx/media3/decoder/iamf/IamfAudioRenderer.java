@@ -46,6 +46,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     @Nullable private Handler eventHandler;
     @Nullable private AudioRendererEventListener eventListener;
     private @IamfUtil.OutputLayout int requestedOutputLayout;
+    private Long requestedMixPresentationId;
     private @IamfDecoder.OutputSampleType int outputSampleType;
     private @IamfDecoder.ChannelOrdering int channelOrdering;
     private boolean enableIntegratedBinaural;
@@ -60,6 +61,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
       this.context = context;
       this.audioSink = audioSink;
       this.requestedOutputLayout = IamfUtil.OUTPUT_LAYOUT_UNSET;
+      this.requestedMixPresentationId = IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET;
       this.outputSampleType = IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN;
       this.channelOrdering = IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING;
       this.enableIntegratedBinaural = true;
@@ -109,6 +111,21 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     }
 
     /**
+     * Sets a requested Mix Presentation ID for the decoder.
+     *
+     * <p>If not set or invalid, the decoder will select a Mix Presentation ID based on the default
+     * logic, including considering the requested {@link IamfUtil.OutputLayout}, if provided.
+     *
+     * <p>To get the actual Mix Presentation ID used by the decoder, use {@link
+     * IamfDecoder#getSelectedMixPresentationId()}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setRequestedMixPresentationId(long requestedMixPresentationId) {
+      this.requestedMixPresentationId = requestedMixPresentationId;
+      return this;
+    }
+
+    /**
      * Enables or disables binaural rendering within the IAMF decoder. Default {@code true}.
      *
      * <p>This setting controls the behaviour when we believe the user is using headphones. If
@@ -142,6 +159,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   private final @IamfDecoder.ChannelOrdering int channelOrdering;
   private final @IamfUtil.OutputLayout int requestedOutputLayout;
   private final @IamfUtil.OutputLayout int currentOutputLayout;
+  private final long requestedMixPresentationId;
 
   private IamfAudioRenderer(Builder builder) {
     super(builder.eventHandler, builder.eventListener, builder.audioSink);
@@ -149,6 +167,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     this.outputSampleType = builder.outputSampleType;
     this.channelOrdering = builder.channelOrdering;
     this.requestedOutputLayout = builder.requestedOutputLayout;
+    this.requestedMixPresentationId = builder.requestedMixPresentationId;
     this.currentOutputLayout =
         determineOutputLayout(context, requestedOutputLayout, builder.enableIntegratedBinaural);
   }
@@ -169,7 +188,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
         new IamfDecoder(
             format.initializationData,
             currentOutputLayout,
-            IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET,
+            requestedMixPresentationId,
             outputSampleType,
             channelOrdering);
     TraceUtil.endSection();

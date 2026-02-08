@@ -144,6 +144,25 @@ public final class IamfDecoderTest {
   }
 
   @Test
+  public void decoderCreate_ignoresInvalidMixPresentationId() throws Exception {
+    long expectedMixPresentationId = 42; // The one and only ID in the test iacbObus.
+    long invalidMixPresentationId = 1;
+
+    IamfDecoder decoder =
+        new IamfDecoder(
+            ImmutableList.of(iacbObus),
+            IamfUtil.OUTPUT_LAYOUT_BINAURAL,
+            invalidMixPresentationId,
+            IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN,
+            IamfDecoder.CHANNEL_ORDERING_ANDROID_ORDERING);
+
+    assertThat(decoder.isDescriptorProcessingComplete()).isTrue();
+    assertThat(decoder.getSelectedMixPresentationId()).isEqualTo(expectedMixPresentationId);
+
+    decoder.release();
+  }
+
+  @Test
   public void decoderDecode_succeeds() throws Exception {
     IamfDecoder decoder =
         new IamfDecoder(
