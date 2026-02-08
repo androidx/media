@@ -2779,6 +2779,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         case "machuca":
         case "once":
         case "oneday":
+        case "sberbox":
           return true;
         default:
           break; // Do nothing.
@@ -2800,6 +2801,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case "AFTJMST12":
       case "AFTKMST12":
       case "AFTSO001":
+      case "SberBox":
         return true;
       default:
         break; // Do nothing.
