@@ -27,6 +27,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
 import androidx.media3.ui.compose.material3.buttons.SeekBackButton
 import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
+import androidx.media3.ui.compose.material3.indicator.DurationText
+import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.material3.indicator.PositionText
+import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 
 @OptIn(UnstableApi::class)
 class ComposeMaterial3Snippets {
@@ -42,6 +46,27 @@ class ComposeMaterial3Snippets {
     }
     // [END android_compose_material3_player_controls]
   }
+
+  // [START android_compose_material3_player_progress_controls]
+  // You can rearrange the composables into a layout that suits your needs
+  @Composable
+  fun PlayerProgressControlsLeftAligned(player: Player) {
+    Row {
+      PositionAndDurationText(player)
+      ProgressSlider(player)
+    }
+  }
+
+  @Composable
+  fun PlayerProgressControlsCenterAligned(player: Player) {
+    Row {
+      PositionText(player)
+      ProgressSlider(player)
+      DurationText(player)
+    }
+  }
+
+  // [END android_compose_material3_player_progress_controls]
 
   @Composable
   fun ThemedPlayerControls(player: Player) {
