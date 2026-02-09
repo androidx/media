@@ -418,24 +418,21 @@ public final class NalUnitUtilTest {
   @Test
   public void isNalUnitSei_h264() {
     Format h264Format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
-    assertThat(isNalUnitSei(h264Format, UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI | 0xE0)))
-        .isTrue();
-    assertThat(
-            isNalUnitSei(
-                h264Format, UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI | 0xE0)))
-        .isFalse();
+    byte[] data = new byte[] {UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI | 0xE0)};
+
+    assertThat(isNalUnitSei(h264Format, data, /* offset= */ 0)).isTrue();
+    data = new byte[] {UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI | 0xE0)};
+    assertThat(isNalUnitSei(h264Format, data, /* offset= */ 0)).isFalse();
   }
 
   @Test
   public void isNalUnitSei_h265() {
-    Format h264Format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build();
-    assertThat(
-            isNalUnitSei(
-                h264Format, UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI << 1 | 0x81)))
-        .isTrue();
-    assertThat(
-            isNalUnitSei(h264Format, UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI << 1 | 0x81)))
-        .isFalse();
+    Format h265Format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H265).build();
+    byte[] data = new byte[] {UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI << 1 | 0x81)};
+
+    assertThat(isNalUnitSei(h265Format, data, /* offset= */ 0)).isTrue();
+    data = new byte[] {UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI << 1 | 0x81)};
+    assertThat(isNalUnitSei(h265Format, data, /* offset= */ 0)).isFalse();
   }
 
   @Test
@@ -445,11 +442,9 @@ public final class NalUnitUtilTest {
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dvav.09")
             .build();
-    assertThat(
-            isNalUnitSei(
-                dolbyVisionWithH264NalUnits,
-                UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI | 0xE0)))
-        .isTrue();
+    byte[] data = new byte[] {UnsignedBytes.checkedCast(H264_NAL_UNIT_TYPE_SEI | 0xE0)};
+
+    assertThat(isNalUnitSei(dolbyVisionWithH264NalUnits, data, /* offset= */ 0)).isTrue();
   }
 
   @Test
@@ -459,11 +454,9 @@ public final class NalUnitUtilTest {
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dvhe.05.01")
             .build();
-    assertThat(
-            isNalUnitSei(
-                dolbyVisionWithH265NalUnits,
-                UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI << 1 | 0x81)))
-        .isTrue();
+    byte[] data = new byte[] {UnsignedBytes.checkedCast(H265_NAL_UNIT_TYPE_PREFIX_SEI << 1 | 0x81)};
+
+    assertThat(isNalUnitSei(dolbyVisionWithH265NalUnits, data, /* offset= */ 0)).isTrue();
   }
 
   @Test
@@ -565,6 +558,20 @@ public final class NalUnitUtilTest {
     Format vp8Video = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP8).build();
 
     assertThat(isDependedOn(new byte[0], /* offset= */ 0, /* length= */ 0, vp8Video)).isTrue();
+  }
+
+  @Test
+  public void isNalUnitSei_vvc() {
+    Format vvcFormat = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H266).build();
+
+    // Prefix SEI (Type 23): Byte 1 = 0x00, Byte 2 = (23 << 3) | 0x07 = 0xB8 | 0x07 = 0xBF
+    byte[] prefixSei = new byte[] {0x00, (byte) 0xBF};
+    assertThat(isNalUnitSei(vvcFormat, prefixSei, /* offset= */ 0)).isTrue();
+
+    // Suffix SEI (Type 24): Byte 1 = 0x00, Byte 2 = (24 << 3) = 0xC0
+    byte[] suffixSei = new byte[] {0x00, (byte) 0xC0};
+    // Only Prefix SEI supported
+    assertThat(isNalUnitSei(vvcFormat, suffixSei, /* offset= */ 0)).isFalse();
   }
 
   private static byte[] buildTestData() {

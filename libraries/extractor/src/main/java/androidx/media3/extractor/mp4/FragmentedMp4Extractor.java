@@ -1747,7 +1747,7 @@ public class FragmentedMp4Extractor implements Extractor {
           processSeiNalUnitPayload =
               ceaTrackOutputs.length > 0
                   && numberOfNalUnitHeaderBytesToRead > 0
-                  && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData[4]);
+                  && NalUnitUtil.isNalUnitSei(track.format, nalPrefixData, /* offset= */ 4);
           // Write the extra NAL unit bytes to the output.
           output.sampleData(nalPrefix, numberOfNalUnitHeaderBytesToRead);
           sampleBytesWritten += numberOfNalUnitHeaderBytesToRead;
