@@ -55,6 +55,7 @@ import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.VorbisUtil;
+import androidx.media3.extractor.VvcConfig;
 import androidx.media3.extractor.text.vobsub.VobsubParser;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -1218,6 +1219,8 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_mp4v
           || childAtomType == Mp4Box.TYPE_hvc1
           || childAtomType == Mp4Box.TYPE_hev1
+          || childAtomType == Mp4Box.TYPE_vvc1
+          || childAtomType == Mp4Box.TYPE_vvi1
           || childAtomType == Mp4Box.TYPE_s263
           || childAtomType == Mp4Box.TYPE_H263
           || childAtomType == Mp4Box.TYPE_h263
@@ -1569,6 +1572,20 @@ public final class BoxParser {
               false, "initializationData must be already set from hvcC atom");
         }
         codecs = lhevcConfig.codecs;
+      } else if (childAtomType == Mp4Box.TYPE_vvcC) {
+        ExtractorUtil.checkContainerInput(mimeType == null, /* message= */ null);
+        mimeType = MimeTypes.VIDEO_H266;
+        parent.setPosition(childStartPosition + Mp4Box.HEADER_SIZE);
+        VvcConfig vvcConfig = VvcConfig.parse(parent);
+        initializationData = vvcConfig.initializationData;
+        out.nalUnitLengthFieldLength = vvcConfig.nalUnitLengthFieldLength;
+        codecs = vvcConfig.codecs;
+        bitdepthLuma = vvcConfig.bitdepthLuma;
+        bitdepthChroma = vvcConfig.bitdepthLuma;
+        // The VVC specification (ITU-T H.266, Annex A) allows a maximum of 16 pictures for
+        // reordering in the decoded picture buffer. Using 16 as a safe default avoids the need to
+        // parse the SPS bitstream for the exact value.
+        maxNumReorderSamples = 16;
       } else if (childAtomType == Mp4Box.TYPE_vexu) {
         VexuData vexuData = parseVideoExtendedUsageBox(parent, childStartPosition, childAtomSize);
         if (vexuData != null && vexuData.eyesData != null) {

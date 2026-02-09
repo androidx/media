@@ -72,6 +72,15 @@ public abstract class Mp4Box {
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_lhvC = 0x6C687643;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_vvc1 = 0x76766331;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_vvi1 = 0x76766931;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_vvcC = 0x76766343;
+
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_vexu = 0x76657875;
 

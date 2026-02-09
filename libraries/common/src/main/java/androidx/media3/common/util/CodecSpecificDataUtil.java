@@ -64,6 +64,9 @@ public final class CodecSpecificDataUtil {
   // HEVC.
   private static final String CODEC_ID_HEV1 = "hev1";
   private static final String CODEC_ID_HVC1 = "hvc1";
+  // VVC.
+  private static final String CODEC_ID_VVC1 = "vvc1";
+  private static final String CODEC_ID_VVI1 = "vvi1";
   // AV1.
   private static final String CODEC_ID_AV01 = "av01";
   // APV.
@@ -74,6 +77,37 @@ public final class CodecSpecificDataUtil {
   private static final String CODEC_ID_AC4 = "ac-4";
   // IAMF
   private static final String CODEC_ID_IAMF = "iamf";
+
+  // TODO(b/482032815): Replace VVC literal constants with MediaCodecInfo.CodecProfileLevel
+  // constants when compile SDK is updated to 37.
+  private static final int VVC_PROFILE_MAIN_8 = 0x01;
+  private static final int VVC_PROFILE_MAIN_10 = 0x02;
+  private static final int VVC_PROFILE_MAIN_10_STILL = 0x04;
+  private static final int VVC_PROFILE_MAIN_10_HDR10 = 0x1000;
+
+  private static final int VVC_MAIN_TIER_LEVEL_1_0 = 0x01;
+  private static final int VVC_MAIN_TIER_LEVEL_2_0 = 0x02;
+  private static final int VVC_MAIN_TIER_LEVEL_2_1 = 0x04;
+  private static final int VVC_MAIN_TIER_LEVEL_3_0 = 0x08;
+  private static final int VVC_MAIN_TIER_LEVEL_3_1 = 0x10;
+  private static final int VVC_MAIN_TIER_LEVEL_4_0 = 0x20;
+  private static final int VVC_HIGH_TIER_LEVEL_4_0 = 0x40;
+  private static final int VVC_MAIN_TIER_LEVEL_4_1 = 0x80;
+  private static final int VVC_HIGH_TIER_LEVEL_4_1 = 0x100;
+  private static final int VVC_MAIN_TIER_LEVEL_5_0 = 0x200;
+  private static final int VVC_HIGH_TIER_LEVEL_5_0 = 0x400;
+  private static final int VVC_MAIN_TIER_LEVEL_5_1 = 0x800;
+  private static final int VVC_HIGH_TIER_LEVEL_5_1 = 0x1000;
+  private static final int VVC_MAIN_TIER_LEVEL_5_2 = 0x2000;
+  private static final int VVC_HIGH_TIER_LEVEL_5_2 = 0x4000;
+  private static final int VVC_MAIN_TIER_LEVEL_6_0 = 0x8000;
+  private static final int VVC_HIGH_TIER_LEVEL_6_0 = 0x10000;
+  private static final int VVC_MAIN_TIER_LEVEL_6_1 = 0x20000;
+  private static final int VVC_HIGH_TIER_LEVEL_6_1 = 0x40000;
+  private static final int VVC_MAIN_TIER_LEVEL_6_2 = 0x80000;
+  private static final int VVC_HIGH_TIER_LEVEL_6_2 = 0x100000;
+  private static final int VVC_MAIN_TIER_LEVEL_6_3 = 0x200000;
+  private static final int VVC_HIGH_TIER_LEVEL_6_3 = 0x400000;
 
   private static final Pattern PROFILE_PATTERN = Pattern.compile("^\\D?(\\d+)$");
 
@@ -585,6 +619,9 @@ public final class CodecSpecificDataUtil {
       case CODEC_ID_HEV1:
       case CODEC_ID_HVC1:
         return getHevcProfileAndLevel(format.codecs, parts, format.colorInfo);
+      case CODEC_ID_VVC1:
+      case CODEC_ID_VVI1:
+        return getVvcProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_AV01:
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_APV1:
@@ -595,6 +632,125 @@ public final class CodecSpecificDataUtil {
         return getAc4CodecProfileAndLevel(format.codecs, parts);
       case CODEC_ID_IAMF:
         return getIamfCodecProfileAndLevel(format.codecs, parts);
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Returns VVC profile and level corresponding to the codec description string (as defined by
+   * ISO/IEC 14496-15:2021, Annex E.3) and its {@link ColorInfo}.
+   *
+   * @param codec The codec description string.
+   * @param parts The codec string split by ".".
+   * @param colorInfo The {@link ColorInfo}.
+   * @return A pair (profile constant, level constant) if profile and level are recognized, or
+   *     {@code null} otherwise.
+   */
+  @Nullable
+  private static Pair<Integer, Integer> getVvcProfileAndLevel(
+      String codec, String[] parts, @Nullable ColorInfo colorInfo) {
+    if (parts.length < 3) {
+      Log.w(TAG, "Ignoring malformed VVC codec string: " + codec);
+      return null;
+    }
+
+    int profileIdc;
+    try {
+      profileIdc = Integer.parseInt(parts[1]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed VVC codec string: " + codec);
+      return null;
+    }
+
+    int profile;
+    if (profileIdc == 1) {
+      if (colorInfo != null && colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084) {
+        profile = VVC_PROFILE_MAIN_10_HDR10;
+      } else if (colorInfo != null && colorInfo.lumaBitdepth == 8) {
+        profile = VVC_PROFILE_MAIN_8;
+      } else {
+        profile = VVC_PROFILE_MAIN_10;
+      }
+    } else if (profileIdc == 65) {
+      profile = VVC_PROFILE_MAIN_10_STILL;
+    } else {
+      Log.w(TAG, "Unknown VVC profile IDC: " + parts[1]);
+      return null;
+    }
+
+    @Nullable String levelString = parts[2];
+    @Nullable Integer level = vvcCodecStringToProfileLevel(levelString);
+    if (level == null) {
+      Log.w(TAG, "Unknown VVC level string: " + levelString);
+      return null;
+    }
+    return new Pair<>(profile, level);
+  }
+
+  /**
+   * Returns the VVC level constant corresponding to the tier and level string (as defined by
+   * ISO/IEC 14496-15:2021, Annex E.3).
+   *
+   * <p>The string consists of a tier indicator ('L' for Main, 'H' for High) followed by the
+   * general_level_idc.
+   *
+   * @param codecString The VVC tier and level string (e.g., "L16" or "H64").
+   * @return The VVC level constant, or {@code null} if the level is not recognized.
+   * @see <a href="https://www.itu.int/rec/T-REC-H.266">ITU-T Rec. H.266, Annex A</a>
+   */
+  @Nullable
+  private static Integer vvcCodecStringToProfileLevel(@Nullable String codecString) {
+    if (codecString == null) {
+      return null;
+    }
+    switch (codecString) {
+      case "L16":
+        return VVC_MAIN_TIER_LEVEL_1_0;
+      case "L32":
+        return VVC_MAIN_TIER_LEVEL_2_0;
+      case "L35":
+        return VVC_MAIN_TIER_LEVEL_2_1;
+      case "L48":
+        return VVC_MAIN_TIER_LEVEL_3_0;
+      case "L51":
+        return VVC_MAIN_TIER_LEVEL_3_1;
+      case "L64":
+        return VVC_MAIN_TIER_LEVEL_4_0;
+      case "H64":
+        return VVC_HIGH_TIER_LEVEL_4_0;
+      case "L67":
+        return VVC_MAIN_TIER_LEVEL_4_1;
+      case "H67":
+        return VVC_HIGH_TIER_LEVEL_4_1;
+      case "L80":
+        return VVC_MAIN_TIER_LEVEL_5_0;
+      case "H80":
+        return VVC_HIGH_TIER_LEVEL_5_0;
+      case "L83":
+        return VVC_MAIN_TIER_LEVEL_5_1;
+      case "H83":
+        return VVC_HIGH_TIER_LEVEL_5_1;
+      case "L86":
+        return VVC_MAIN_TIER_LEVEL_5_2;
+      case "H86":
+        return VVC_HIGH_TIER_LEVEL_5_2;
+      case "L96":
+        return VVC_MAIN_TIER_LEVEL_6_0;
+      case "H96":
+        return VVC_HIGH_TIER_LEVEL_6_0;
+      case "L112":
+        return VVC_MAIN_TIER_LEVEL_6_1;
+      case "H112":
+        return VVC_HIGH_TIER_LEVEL_6_1;
+      case "L128":
+        return VVC_MAIN_TIER_LEVEL_6_2;
+      case "H128":
+        return VVC_HIGH_TIER_LEVEL_6_2;
+      case "L144":
+        return VVC_MAIN_TIER_LEVEL_6_3;
+      case "H144":
+        return VVC_HIGH_TIER_LEVEL_6_3;
       default:
         return null;
     }

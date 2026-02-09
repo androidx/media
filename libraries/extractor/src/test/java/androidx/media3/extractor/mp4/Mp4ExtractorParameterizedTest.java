@@ -325,6 +325,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sowt_pcm_variable_sample_size.mp4", /* peekLimit= */ 2300);
   }
 
+  @Test
+  public void mp4SampleWithVvc() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_vvc.mp4", /* peekLimit= */ 44);
+  }
+
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();

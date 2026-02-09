@@ -10,6 +10,8 @@
 *   Extractors:
     *   MP4: Support files with large `uuid` boxes before other boxes like
         `moov` ([#3046](https://github.com/androidx/media/issues/3046)).
+    *   MP4: Add support for Versatile Video Coding (VVC) tracks in MP4
+        containers.
 *   Inspector:
 *   Inspector Frame:
 *   Audio:

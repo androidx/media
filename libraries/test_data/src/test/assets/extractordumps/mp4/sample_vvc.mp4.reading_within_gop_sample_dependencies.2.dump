@@ -1,0 +1,320 @@
+seekMap:
+  isSeekable = true
+  duration = 5000000
+  getPosition(0) = [[timeUs=958333, position=44]]
+  getPosition(1) = [[timeUs=958333, position=44]]
+  getPosition(2500000) = [[timeUs=1958333, position=9220], [timeUs=2958333, position=53955]]
+  getPosition(5000000) = [[timeUs=4958333, position=146587]]
+numberOfTracks = 1
+track 0:
+  total output bytes = 173100
+  sample count = 72
+  track duration = 5000000
+  format 0:
+    averageBitrate = 348689
+    peakBitrate = 600000
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = video/vvc
+    codecs = vvc1.1.L32
+    maxInputSize = 16546
+    maxNumReorderSamples = 16
+    width = 320
+    height = 180
+    frameRate = 23.04
+    colorInfo:
+      lumaBitdepth = 10
+      chromaBitdepth = 10
+    language = und
+    metadata = entries=[TIT2: description=null: values=[Big Buck Bunny], TPE1: description=null: values=[Blender Foundation], TCOM: description=null: values=[Blender Foundation], TDRC: description=null: values=[2008], TSSE: description=null: values=[Lavf62.6.101], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=4958333]
+    initializationData:
+      data = length 185, hash D461B74C
+  sample 0:
+    time = 2958333
+    flags = 1
+    data = length 11262, hash 759D185D
+  sample 1:
+    time = 2625000
+    flags = 0
+    data = length 5080, hash F0A5E0C8
+  sample 2:
+    time = 2291666
+    flags = 0
+    data = length 5108, hash C2DD780
+  sample 3:
+    time = 2125000
+    flags = 0
+    data = length 2728, hash DAB9861
+  sample 4:
+    time = 2041666
+    flags = 0
+    data = length 3518, hash 3902EB5F
+  sample 5:
+    time = 2000000
+    flags = 0
+    data = length 3003, hash 19C8855F
+  sample 6:
+    time = 2083333
+    flags = 0
+    data = length 2409, hash 66F96E34
+  sample 7:
+    time = 2208333
+    flags = 0
+    data = length 601, hash 2360112C
+  sample 8:
+    time = 2166666
+    flags = 0
+    data = length 631, hash A4A0DFA9
+  sample 9:
+    time = 2250000
+    flags = 0
+    data = length 494, hash D3EB75E7
+  sample 10:
+    time = 2458333
+    flags = 0
+    data = length 1874, hash 72784E4D
+  sample 11:
+    time = 2375000
+    flags = 0
+    data = length 728, hash 196B5964
+  sample 12:
+    time = 2333333
+    flags = 0
+    data = length 539, hash 4E98A0D2
+  sample 13:
+    time = 2416666
+    flags = 0
+    data = length 625, hash B5139E37
+  sample 14:
+    time = 2541666
+    flags = 0
+    data = length 1120, hash 8E714365
+  sample 15:
+    time = 2500000
+    flags = 0
+    data = length 780, hash 771F4BB0
+  sample 16:
+    time = 2583333
+    flags = 0
+    data = length 544, hash 2B61DD76
+  sample 17:
+    time = 2791666
+    flags = 0
+    data = length 1478, hash 16C8D81F
+  sample 18:
+    time = 2708333
+    flags = 0
+    data = length 1149, hash 9532C67C
+  sample 19:
+    time = 2666666
+    flags = 0
+    data = length 471, hash 37A0B557
+  sample 20:
+    time = 2750000
+    flags = 0
+    data = length 557, hash FEEB3C10
+  sample 21:
+    time = 2875000
+    flags = 0
+    data = length 1172, hash 2252D8B6
+  sample 22:
+    time = 2833333
+    flags = 0
+    data = length 586, hash ACB84AA5
+  sample 23:
+    time = 2916666
+    flags = 0
+    data = length 540, hash 454A10BC
+  sample 24:
+    time = 3958333
+    flags = 1
+    data = length 13043, hash 9B0CAC85
+  sample 25:
+    time = 3625000
+    flags = 0
+    data = length 6232, hash 75795CF
+  sample 26:
+    time = 3291666
+    flags = 0
+    data = length 5935, hash 2A8CA019
+  sample 27:
+    time = 3125000
+    flags = 0
+    data = length 2725, hash 815B40DD
+  sample 28:
+    time = 3041666
+    flags = 0
+    data = length 1270, hash 2799D1E1
+  sample 29:
+    time = 3000000
+    flags = 0
+    data = length 848, hash 26621F4
+  sample 30:
+    time = 3083333
+    flags = 0
+    data = length 455, hash D5446B32
+  sample 31:
+    time = 3208333
+    flags = 0
+    data = length 843, hash 126E3FA5
+  sample 32:
+    time = 3166666
+    flags = 0
+    data = length 501, hash 36B4DDCF
+  sample 33:
+    time = 3250000
+    flags = 0
+    data = length 512, hash 5F867988
+  sample 34:
+    time = 3458333
+    flags = 0
+    data = length 2040, hash B4844BD5
+  sample 35:
+    time = 3375000
+    flags = 0
+    data = length 1039, hash A84729
+  sample 36:
+    time = 3333333
+    flags = 0
+    data = length 555, hash C21EED43
+  sample 37:
+    time = 3416666
+    flags = 0
+    data = length 610, hash C13AD31D
+  sample 38:
+    time = 3541666
+    flags = 0
+    data = length 1149, hash AB3F5906
+  sample 39:
+    time = 3500000
+    flags = 0
+    data = length 875, hash 225ED384
+  sample 40:
+    time = 3583333
+    flags = 0
+    data = length 541, hash 5CD8BE2C
+  sample 41:
+    time = 3791666
+    flags = 0
+    data = length 2035, hash 1638FD68
+  sample 42:
+    time = 3708333
+    flags = 0
+    data = length 993, hash 8F1DD89
+  sample 43:
+    time = 3666666
+    flags = 0
+    data = length 528, hash 5B074718
+  sample 44:
+    time = 3750000
+    flags = 0
+    data = length 568, hash FC83A31D
+  sample 45:
+    time = 3875000
+    flags = 0
+    data = length 986, hash BEF9E9C2
+  sample 46:
+    time = 3833333
+    flags = 0
+    data = length 691, hash 79F106C8
+  sample 47:
+    time = 3916666
+    flags = 0
+    data = length 661, hash 13121DBF
+  sample 48:
+    time = 4958333
+    flags = 1
+    data = length 16516, hash BA1C422B
+  sample 49:
+    time = 4625000
+    flags = 0
+    data = length 9838, hash 3531ED89
+  sample 50:
+    time = 4291666
+    flags = 0
+    data = length 8027, hash CF317FE8
+  sample 51:
+    time = 4125000
+    flags = 0
+    data = length 4333, hash 4C36FF1F
+  sample 52:
+    time = 4041666
+    flags = 0
+    data = length 3104, hash 8B907839
+  sample 53:
+    time = 4000000
+    flags = 0
+    data = length 2461, hash AA6376B5
+  sample 54:
+    time = 4083333
+    flags = 0
+    data = length 1125, hash FC33088A
+  sample 55:
+    time = 4208333
+    flags = 0
+    data = length 2717, hash 9E0259D3
+  sample 56:
+    time = 4166666
+    flags = 0
+    data = length 1049, hash FC1B1D43
+  sample 57:
+    time = 4250000
+    flags = 0
+    data = length 1139, hash 20D1B36C
+  sample 58:
+    time = 4458333
+    flags = 0
+    data = length 4341, hash FB09F37A
+  sample 59:
+    time = 4375000
+    flags = 0
+    data = length 2789, hash 24D27462
+  sample 60:
+    time = 4333333
+    flags = 0
+    data = length 976, hash 3D64D617
+  sample 61:
+    time = 4416666
+    flags = 0
+    data = length 1148, hash 5BB4061C
+  sample 62:
+    time = 4541666
+    flags = 0
+    data = length 2627, hash FFF06004
+  sample 63:
+    time = 4500000
+    flags = 0
+    data = length 2502, hash 23BA4A62
+  sample 64:
+    time = 4583333
+    flags = 0
+    data = length 1130, hash A23B3C81
+  sample 65:
+    time = 4791666
+    flags = 0
+    data = length 4589, hash B6E5DEB3
+  sample 66:
+    time = 4708333
+    flags = 0
+    data = length 2539, hash 6E2CC130
+  sample 67:
+    time = 4666666
+    flags = 0
+    data = length 1308, hash 3A7352D2
+  sample 68:
+    time = 4750000
+    flags = 0
+    data = length 1338, hash 557CACBD
+  sample 69:
+    time = 4875000
+    flags = 0
+    data = length 2305, hash 19348723
+  sample 70:
+    time = 4833333
+    flags = 0
+    data = length 1422, hash 4641FAD9
+  sample 71:
+    time = 4916666
+    flags = 536870912
+    data = length 1145, hash BFE8F765
+tracksEnded = true

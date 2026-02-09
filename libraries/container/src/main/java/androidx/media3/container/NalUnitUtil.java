@@ -138,6 +138,15 @@ public final class NalUnitUtil {
   /** H.265 unspecified NAL unit. */
   public static final int H265_NAL_UNIT_TYPE_UNSPECIFIED = 48;
 
+  // VVC NAL unit types.
+  // See ITU-T Rec. H.266 (09/2023) Table 5 – NAL unit type codes and NAL unit type classes.
+
+  /** VVC operating point information (OPI_NUT). */
+  public static final int VVC_NAL_UNIT_TYPE_OPI = 12;
+
+  /** VVC decoding capability information (DCI_NUT). */
+  public static final int VVC_NAL_UNIT_TYPE_DCI = 13;
+
   /** Holds data parsed from a H.264 sequence parameter set NAL unit. */
   public static final class SpsData {
 
