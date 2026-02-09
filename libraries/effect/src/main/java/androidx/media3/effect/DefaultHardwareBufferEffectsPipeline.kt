@@ -202,8 +202,8 @@ class DefaultHardwareBufferEffectsPipeline :
 
   companion object {
     private const val TAG = "DefaultHBEffects"
-    // It can sometimes take ~1 second for the encoder to be configured and the first frame to be
+    // It can take multiple seconds for the encoder to be configured and the first frame to be
     // encoded.
-    private const val TIMEOUT_MS = 1_500L
+    private const val TIMEOUT_MS = 10_000L
   }
 }
