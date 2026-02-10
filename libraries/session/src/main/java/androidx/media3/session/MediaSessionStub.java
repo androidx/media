@@ -550,7 +550,7 @@ import java.util.concurrent.ExecutionException;
                       createPlayerCommandsForCustomErrorState(
                           connectionResult.availablePlayerCommands));
             }
-            playerInfo = generateAndCacheUniqueTrackGroupIds(playerInfo);
+            playerInfo = updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
             Token platformToken = sessionImpl.getPlatformToken();
             ConnectionState state =
                 new ConnectionState(
@@ -2209,22 +2209,23 @@ import java.util.concurrent.ExecutionException;
                 librarySessionImpl.onUnsubscribeOnHandler(controller, parentId)));
   }
 
-  /* package */ PlayerInfo generateAndCacheUniqueTrackGroupIds(PlayerInfo playerInfo) {
+  /* package */ PlayerInfo updatePlayerInfoWithUniqueTrackGroupIds(PlayerInfo playerInfo) {
     ImmutableList<Tracks.Group> trackGroups = playerInfo.currentTracks.getGroups();
+
+    // Update unique IDs first
+    generateAndCacheUniqueTrackGroupIds(trackGroups);
+
+    // Update track groups with the new ID mapping
     ImmutableList.Builder<Tracks.Group> updatedTrackGroups = ImmutableList.builder();
-    ImmutableBiMap.Builder<TrackGroup, String> updatedTrackGroupIdMap = ImmutableBiMap.builder();
     for (int i = 0; i < trackGroups.size(); i++) {
       Tracks.Group trackGroup = trackGroups.get(i);
       TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
-      @Nullable String uniqueId = trackGroupIdMap.get(mediaTrackGroup);
-      if (uniqueId == null) {
-        uniqueId = generateUniqueTrackGroupId(mediaTrackGroup);
-      }
-      updatedTrackGroupIdMap.put(mediaTrackGroup, uniqueId);
+      String uniqueId = checkNotNull(trackGroupIdMap.get(mediaTrackGroup));
       updatedTrackGroups.add(trackGroup.copyWithId(uniqueId));
     }
-    trackGroupIdMap = updatedTrackGroupIdMap.buildOrThrow();
     playerInfo = playerInfo.copyWithCurrentTracks(new Tracks(updatedTrackGroups.build()));
+
+    // Update track group in track selection parameter overrides with new ID mapping
     if (playerInfo.trackSelectionParameters.overrides.isEmpty()) {
       return playerInfo;
     }
@@ -2241,6 +2242,20 @@ import java.util.concurrent.ExecutionException;
       }
     }
     return playerInfo.copyWithTrackSelectionParameters(updatedTrackSelectionParameters.build());
+  }
+
+  private void generateAndCacheUniqueTrackGroupIds(ImmutableList<Tracks.Group> trackGroups) {
+    ImmutableBiMap.Builder<TrackGroup, String> updatedTrackGroupIdMap = ImmutableBiMap.builder();
+    for (int i = 0; i < trackGroups.size(); i++) {
+      Tracks.Group trackGroup = trackGroups.get(i);
+      TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
+      @Nullable String uniqueId = trackGroupIdMap.get(mediaTrackGroup);
+      if (uniqueId == null) {
+        uniqueId = generateUniqueTrackGroupId(mediaTrackGroup);
+      }
+      updatedTrackGroupIdMap.put(mediaTrackGroup, uniqueId);
+    }
+    trackGroupIdMap = updatedTrackGroupIdMap.buildOrThrow();
   }
 
   private TrackSelectionParameters updateOverridesUsingUniqueTrackGroupIds(
