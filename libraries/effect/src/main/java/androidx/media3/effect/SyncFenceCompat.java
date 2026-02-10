@@ -45,7 +45,22 @@ public class SyncFenceCompat implements AutoCloseable {
     return new SyncFenceCompat(readFileDescriptor(syncFence));
   }
 
-  @RequiresApi(33)
+  /**
+   * Take ownership of a raw native fence file descriptor into a new SyncFenceCompat.
+   *
+   * <p>The returned instance now owns the given file descriptor, and will be responsible for
+   * closing it.
+   *
+   * <p>Graphics APIs such as <a
+   * href="https://docs.vulkan.org/refpages/latest/refpages/source/VK_KHR_external_fence_fd.html">Vulkan</a>
+   * are a common source of a native fence file descriptors.
+   *
+   * @param fileDescriptor The raw native fence file descriptor.
+   */
+  public static SyncFenceCompat adoptFenceFileDescriptor(int fileDescriptor) {
+    return new SyncFenceCompat(ParcelFileDescriptor.adoptFd(fileDescriptor));
+  }
+
   private SyncFenceCompat(ParcelFileDescriptor parcelFileDescriptor) {
     this.parcelFileDescriptor = parcelFileDescriptor;
   }
