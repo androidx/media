@@ -515,16 +515,28 @@ public final class DefaultAudioSink implements AudioSink {
   /** The default playback speed. */
   public static final float DEFAULT_PLAYBACK_SPEED = 1f;
 
-  /** The minimum allowed playback speed. Lower values will be constrained to fall in range. */
+  /**
+   * The minimum allowed playback speed. Lower values will be constrained to fall in range unless
+   * the {@link AudioOutput} supports other values.
+   */
   public static final float MIN_PLAYBACK_SPEED = 0.1f;
 
-  /** The maximum allowed playback speed. Higher values will be constrained to fall in range. */
+  /**
+   * The maximum allowed playback speed. Higher values will be constrained to fall in range unless
+   * the {@link AudioOutput} supports other values.
+   */
   public static final float MAX_PLAYBACK_SPEED = 8f;
 
-  /** The minimum allowed pitch factor. Lower values will be constrained to fall in range. */
+  /**
+   * The minimum allowed pitch factor. Lower values will be constrained to fall in range unless the
+   * {@link AudioOutput} supports other values.
+   */
   public static final float MIN_PITCH = 0.1f;
 
-  /** The maximum allowed pitch factor. Higher values will be constrained to fall in range. */
+  /**
+   * The maximum allowed pitch factor. Higher values will be constrained to fall in range unless the
+   * {@link AudioOutput} supports other values.
+   */
   public static final float MAX_PITCH = 8f;
 
   /** The default skip silence flag. */
@@ -1292,14 +1304,15 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void setPlaybackParameters(PlaybackParameters playbackParameters) {
-    this.playbackParameters =
-        new PlaybackParameters(
-            constrainValue(playbackParameters.speed, MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED),
-            constrainValue(playbackParameters.pitch, MIN_PITCH, MAX_PITCH));
     if (useAudioOutputPlaybackParams()) {
+      this.playbackParameters = playbackParameters;
       setAudioOutputPlaybackParameters();
     } else {
-      setAudioProcessorPlaybackParameters(playbackParameters);
+      this.playbackParameters =
+          new PlaybackParameters(
+              constrainValue(playbackParameters.speed, MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED),
+              constrainValue(playbackParameters.pitch, MIN_PITCH, MAX_PITCH));
+      setAudioProcessorPlaybackParameters(this.playbackParameters);
     }
   }
 

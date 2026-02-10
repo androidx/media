@@ -16,6 +16,11 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.Util.constrainValue;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PITCH;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MAX_PLAYBACK_SPEED;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MIN_PITCH;
+import static androidx.media3.exoplayer.audio.DefaultAudioSink.MIN_PLAYBACK_SPEED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -85,6 +90,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   private final AudioTrack audioTrack;
   private final OutputConfig config;
+  private final float maxPlaybackSpeed;
   @Nullable private final CapabilityChangeListener capabilityChangeListener;
   @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
@@ -104,11 +110,28 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private boolean hasData;
 
   /**
+   * @deprecated Use {@link
+   *     #AudioTrackAudioOutput(AudioTrack,OutputConfig,CapabilityChangeListener,float,Clock)}
+   *     instead.
+   */
+  @UnstableApi
+  @Deprecated
+  public AudioTrackAudioOutput(
+      AudioTrack audioTrack,
+      OutputConfig config,
+      @Nullable CapabilityChangeListener capabilityChangeListener,
+      Clock clock) {
+    this(audioTrack, config, capabilityChangeListener, MAX_PLAYBACK_SPEED, clock);
+  }
+
+  /**
    * Creates a new instance.
    *
    * @param audioTrack The audio track to wrap.
    * @param config The output configuration.
    * @param capabilityChangeListener The {@link CapabilityChangeListener}.
+   * @param maxPlaybackSpeed The maximum playback speed set on the track if {@link
+   *     OutputConfig#usePlaybackParameters} is enabled.
    * @param clock The {@link Clock}.
    */
   @UnstableApi
@@ -117,9 +140,11 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       AudioTrack audioTrack,
       OutputConfig config,
       @Nullable CapabilityChangeListener capabilityChangeListener,
+      float maxPlaybackSpeed,
       Clock clock) {
     this.audioTrack = audioTrack;
     this.config = config;
+    this.maxPlaybackSpeed = maxPlaybackSpeed;
     this.capabilityChangeListener = capabilityChangeListener;
     listeners = new ListenerSet<>(Thread.currentThread());
     // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
@@ -305,8 +330,9 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     PlaybackParams playbackParams =
         new PlaybackParams()
             .allowDefaults()
-            .setSpeed(playbackParameters.speed)
-            .setPitch(playbackParameters.pitch)
+            .setSpeed(
+                constrainValue(playbackParameters.speed, MIN_PLAYBACK_SPEED, maxPlaybackSpeed))
+            .setPitch(constrainValue(playbackParameters.pitch, MIN_PITCH, MAX_PITCH))
             .setAudioFallbackMode(PlaybackParams.AUDIO_FALLBACK_MODE_FAIL);
     try {
       audioTrack.setPlaybackParams(playbackParams);
