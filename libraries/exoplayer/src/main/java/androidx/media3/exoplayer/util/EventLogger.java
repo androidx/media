@@ -807,6 +807,8 @@ public class EventLogger implements AnalyticsListener {
         return "dts-hd";
       case C.ENCODING_DTS_UHD_P2:
         return "dts-uhd-p2";
+      case C.ENCODING_DSD:
+        return "dsd";
       case C.ENCODING_E_AC3:
         return "eac3";
       case C.ENCODING_E_AC3_JOC:
@@ -829,6 +831,8 @@ public class EventLogger implements AnalyticsListener {
         return "pcm-32";
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
         return "pcm-32be";
+      case C.ENCODING_PCM_DOUBLE:
+        return "pcm-double";
       case C.ENCODING_PCM_FLOAT:
         return "pcm-float";
       case C.ENCODING_INVALID:
