@@ -4,6 +4,8 @@
 
 *   Common library:
 *   ExoPlayer:
+    *   Fix issue where ExoPlayer would not request delayed audio focus when
+        playback is requested during phone calls.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:

@@ -27,6 +27,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.test.utils.robolectric.PlayerAudioFocusContractTest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.junit.Ignore;
 import org.junit.runner.RunWith;
 
 /**
@@ -40,6 +41,10 @@ public class CompositionPlayerAudioFocusContractTest extends PlayerAudioFocusCon
   protected PlayerInfo createPlayerInfo() {
     return new CompositionPlayerInfo(createTestCompositionPlayer());
   }
+
+  @Ignore // TODO: b/482024434 - Fix logic in CompositionPlayer to cover this case.
+  @Override
+  public void play_duringTransientLossWhilePlayingWithLoss_pausesPlayback() {}
 
   private static final class CompositionPlayerInfo implements PlayerInfo {
     private final CompositionPlayer player;

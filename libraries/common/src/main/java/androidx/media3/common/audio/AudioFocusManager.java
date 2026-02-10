@@ -233,7 +233,8 @@ public final class AudioFocusManager {
       return PLAYER_COMMAND_PLAY_WHEN_READY;
     }
     int requestResult = requestAudioFocusInternal();
-    if (requestResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+    if (requestResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        || requestResult == AudioManager.AUDIOFOCUS_REQUEST_DELAYED) {
       setAudioFocusState(AUDIO_FOCUS_STATE_HAVE_FOCUS);
       return PLAYER_COMMAND_PLAY_WHEN_READY;
     } else {
@@ -264,6 +265,7 @@ public final class AudioFocusManager {
           builder
               .setAudioAttributes(checkNotNull(audioAttributes))
               .setWillPauseWhenDucked(willPauseWhenDucked)
+              .setAcceptsDelayedFocusGain(true)
               .setOnAudioFocusChangeListener(this::handlePlatformAudioFocusChange, eventHandler)
               .build();
 
