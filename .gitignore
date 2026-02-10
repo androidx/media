@@ -61,7 +61,8 @@ libraries/decoder_vp9/src/main/jni/libyuv
 
 # AV1 decoder extension
 libraries/decoder_av1/src/main/jni/cpu_features
-libraries/decoder_av1/src/main/jni/libgav1
+libraries/decoder_av1/src/main/jni/dav1d
+libraries/decoder_av1/src/main/jni/nativelib
 
 # Opus decoder extension
 libraries/decoder_opus/src/main/jni/libopus
@@ -83,7 +84,8 @@ libraries/datasource_cronet/libs/*
 libraries/decoder_midi/lib
 
 # IAMF decoder extension
-libraries/decoder_iamf/src/main/jni/libiamf
+libraries/decoder_iamf/src/main/jni/iamf_tools
+libraries/decoder_iamf/src/main/jni/nativelib
 
 # MPEG-H decoder extension
 libraries/decoder_mpegh/src/main/jni/libmpegh
