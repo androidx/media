@@ -243,6 +243,14 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mkaSample_withFpcm64le() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-pcm-f64le.mka",
+        simulationConfig);
+  }
+
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
