@@ -240,6 +240,14 @@ public class TestUtil {
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(double[] data) {
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(data.length * Double.SIZE / 8).order(ByteOrder.nativeOrder());
+    buffer.asDoubleBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(int[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 4).order(ByteOrder.nativeOrder());
     buffer.asIntBuffer().put(data);
