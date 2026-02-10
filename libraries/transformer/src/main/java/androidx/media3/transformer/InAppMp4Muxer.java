@@ -62,6 +62,7 @@ public final class InAppMp4Muxer implements Muxer {
     @Nullable private final MetadataProvider metadataProvider;
 
     private long videoDurationUs;
+    private int freeSpaceAfterFileTypeBoxBytes;
 
     /** Creates an instance with default values. */
     public Factory() {
@@ -99,6 +100,20 @@ public final class InAppMp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets the amount of free space (in bytes) to be reserved after the File Type box in the MP4
+     * file. The amount of free space that gets reserved is handled by {@link
+     * Mp4Muxer.Builder#experimentalSetFreeSpaceAfterFileTypeBox(int)}.
+     *
+     * @param freeSpaceAfterFileTypeBoxBytes The free space after file type box in the output.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    public Factory setFreeSpaceAfterFileTypeBoxBytes(int freeSpaceAfterFileTypeBoxBytes) {
+      this.freeSpaceAfterFileTypeBoxBytes = freeSpaceAfterFileTypeBoxBytes;
+      return this;
+    }
+
     @Override
     public InAppMp4Muxer create(String path) throws MuxerException {
       FileOutputStream outputStream;
@@ -109,6 +124,9 @@ public final class InAppMp4Muxer implements Muxer {
       }
 
       Mp4Muxer.Builder builder = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputStream));
+      if (freeSpaceAfterFileTypeBoxBytes > 0) {
+        builder.experimentalSetFreeSpaceAfterFileTypeBox(freeSpaceAfterFileTypeBoxBytes);
+      }
       Mp4Muxer muxer = builder.build();
 
       return new InAppMp4Muxer(muxer, metadataProvider, videoDurationUs);
