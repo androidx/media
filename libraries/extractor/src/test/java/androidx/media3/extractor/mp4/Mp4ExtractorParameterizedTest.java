@@ -309,6 +309,11 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithAlac20Bit() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_alac_20bit.mp4", /* peekLimit= */ 4096);
+  }
+
+  @Test
   public void mp4SampleWithFixedRechunkAndNoElst() throws Exception {
     assertExtractorBehavior("media/mp4/sample_fixed_rechunk_no_elst.mp4", /* peekLimit= */ 44);
   }

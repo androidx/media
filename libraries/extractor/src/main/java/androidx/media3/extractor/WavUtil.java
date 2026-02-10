@@ -72,6 +72,7 @@ public final class WavUtil {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
       case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_20BIT:
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_32BIT:
         return TYPE_PCM;
@@ -79,6 +80,7 @@ public final class WavUtil {
         return TYPE_FLOAT;
       // TYPE_PCM is little endian so big endian formats don't match.
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_20BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_INVALID:
