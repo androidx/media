@@ -1540,7 +1540,41 @@ public interface Player {
   /**
    * Events that can be reported via {@link Listener#onEvents(Player, Events)}.
    *
-   * <p>One of the {@link Player}{@code .EVENT_*} values.
+   * <p>One of:
+   *
+   * <ul>
+   *   <li>{@link #EVENT_TIMELINE_CHANGED}
+   *   <li>{@link #EVENT_MEDIA_ITEM_TRANSITION}
+   *   <li>{@link #EVENT_TRACKS_CHANGED}
+   *   <li>{@link #EVENT_IS_LOADING_CHANGED}
+   *   <li>{@link #EVENT_PLAYBACK_STATE_CHANGED}
+   *   <li>{@link #EVENT_PLAY_WHEN_READY_CHANGED}
+   *   <li>{@link #EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED}
+   *   <li>{@link #EVENT_IS_PLAYING_CHANGED}
+   *   <li>{@link #EVENT_REPEAT_MODE_CHANGED}
+   *   <li>{@link #EVENT_SHUFFLE_MODE_ENABLED_CHANGED}
+   *   <li>{@link #EVENT_PLAYER_ERROR}
+   *   <li>{@link #EVENT_POSITION_DISCONTINUITY}
+   *   <li>{@link #EVENT_PLAYBACK_PARAMETERS_CHANGED}
+   *   <li>{@link #EVENT_AVAILABLE_COMMANDS_CHANGED}
+   *   <li>{@link #EVENT_MEDIA_METADATA_CHANGED}
+   *   <li>{@link #EVENT_PLAYLIST_METADATA_CHANGED}
+   *   <li>{@link #EVENT_SEEK_BACK_INCREMENT_CHANGED}
+   *   <li>{@link #EVENT_SEEK_FORWARD_INCREMENT_CHANGED}
+   *   <li>{@link #EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED}
+   *   <li>{@link #EVENT_TRACK_SELECTION_PARAMETERS_CHANGED}
+   *   <li>{@link #EVENT_AUDIO_ATTRIBUTES_CHANGED}
+   *   <li>{@link #EVENT_AUDIO_SESSION_ID}
+   *   <li>{@link #EVENT_VOLUME_CHANGED}
+   *   <li>{@link #EVENT_SKIP_SILENCE_ENABLED_CHANGED}
+   *   <li>{@link #EVENT_SURFACE_SIZE_CHANGED}
+   *   <li>{@link #EVENT_VIDEO_SIZE_CHANGED}
+   *   <li>{@link #EVENT_RENDERED_FIRST_FRAME}
+   *   <li>{@link #EVENT_CUES}
+   *   <li>{@link #EVENT_METADATA}
+   *   <li>{@link #EVENT_DEVICE_INFO_CHANGED}
+   *   <li>{@link #EVENT_DEVICE_VOLUME_CHANGED}
+   * </ul>
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
