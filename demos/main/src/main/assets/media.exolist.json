@@ -781,10 +781,6 @@
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/frame-counter-one-hour.mp4"
       },
       {
-        "name": "Immersive Audio Format Sample (MP4, IAMF)",
-        "uri": "https://github.com/AOMediaCodec/libiamf/raw/main/tests/test_000036_s.mp4"
-      },
-      {
         "name": "MPEG-H HD (MP4, H265)",
         "uri": "https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4"
       }
@@ -830,6 +826,27 @@
       {
         "name": "HEIC motion photo (motion)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic"
+      }
+    ]
+  },
+  {
+    "name": "IAMF (extension)",
+    "samples": [
+      {
+        "name": "7.1.4 AAC",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_AAC.mp4"
+      },
+      {
+        "name": "7.1.4 FLAC",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_FLAC.mp4"
+      },
+      {
+        "name": "7.1.4 Opus",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_Opus.mp4"
+      },
+      {
+        "name": "7.1.4 PCM",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/iamf/7_1_4_PCM16_48000.mp4"
       }
     ]
   }
