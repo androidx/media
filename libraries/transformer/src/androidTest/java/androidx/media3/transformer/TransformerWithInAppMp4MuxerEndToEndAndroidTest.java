@@ -27,11 +27,8 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
-import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.RgbFilter;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -59,20 +56,7 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
 
   @Test
   public void videoEditing_completesSuccessfully() throws Exception {
-    runVideoEditingTest("videoEditing_completesSuccessfully", /* usePacketProcessor= */ false);
-  }
-
-  // TODO: b/479415308 - Expand API versions below 34 once supported.
-  // TODO: b/475744934 - Add more thorough PacketProcessor tests.
-  @Test
-  @SdkSuppress(minSdkVersion = 34)
-  public void videoEditing_withPacketProcessor_completesSuccessfully() throws Exception {
-    runVideoEditingTest(
-        "videoEditing_withPacketProcessor_completesSuccessfully", /* usePacketProcessor= */ true);
-  }
-
-  private void runVideoEditingTest(String testName, boolean usePacketProcessor) throws Exception {
-    String testId = testName + "_" + inputFile;
+    String testId = "videoEditing_completesSuccessfully_" + inputFile;
     // Use MP4_ASSET_FORMAT for H265_MP4_ASSET_URI_STRING test skipping as well, because emulators
     // signal a lack of support for H265_MP4's actual format, but pass this test when using
     // MP4_ASSET_FORMAT for skipping.
@@ -81,18 +65,8 @@ public class TransformerWithInAppMp4MuxerEndToEndAndroidTest {
         testId,
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
-
-    Transformer.Builder transformerBuilder;
-    if (usePacketProcessor) {
-      transformerBuilder =
-          NdkTransformerBuilder.create(context)
-              .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
-    } else {
-      transformerBuilder = new Transformer.Builder(context);
-    }
     Transformer transformer =
-        transformerBuilder.setMuxerFactory(new InAppMp4Muxer.Factory()).build();
-
+        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFile));
     EditedMediaItem editedMediaItem =

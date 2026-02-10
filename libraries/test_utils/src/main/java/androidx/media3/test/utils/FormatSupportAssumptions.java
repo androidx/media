@@ -49,6 +49,25 @@ public class FormatSupportAssumptions {
 
   /**
    * {@linkplain AssumptionViolatedException Assumes} that the device supports decoding the input
+   * formats, and encoding/muxing the output format if needed.
+   *
+   * @param context The {@link Context context}.
+   * @param testId The test ID.
+   * @param inputFormats The {@link Format formats} to decode.
+   * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
+   *     be encoded or muxed.
+   * @throws AssumptionViolatedException If the device does not support the formats. In this case,
+   *     the reason for skipping the test is logged.
+   */
+  public static void assumeAllFormatsSupported(
+      Context context, String testId, List<Format> inputFormats, @Nullable Format outputFormat)
+      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    assumeFormatsSupported(
+        context, testId, inputFormats, outputFormat, /* isPortraitEncodingEnabled= */ false);
+  }
+
+  /**
+   * {@linkplain AssumptionViolatedException Assumes} that the device supports decoding the input
    * format, and encoding/muxing the output format if needed.
    *
    * <p>This is equivalent to calling {@link #assumeFormatsSupported(Context, String, Format,
@@ -82,17 +101,40 @@ public class FormatSupportAssumptions {
       @Nullable Format outputFormat,
       boolean isPortraitEncodingEnabled)
       throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    boolean canDecode = inputFormat == null || canDecode(context, inputFormat);
+    assumeFormatsSupported(
+        context,
+        testId,
+        inputFormat == null ? ImmutableList.of() : ImmutableList.of(inputFormat),
+        outputFormat,
+        isPortraitEncodingEnabled);
+  }
+
+  private static void assumeFormatsSupported(
+      Context context,
+      String testId,
+      List<Format> inputFormats,
+      @Nullable Format outputFormat,
+      boolean isPortraitEncodingEnabled)
+      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
+    @Nullable Format unsupportedInputFormat = null;
+    for (int i = 0; i < inputFormats.size(); i++) {
+      Format inputFormat = inputFormats.get(i);
+      if (!canDecode(context, inputFormat)) {
+        unsupportedInputFormat = inputFormat;
+        break;
+      }
+    }
 
     boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
     boolean canMux = outputFormat == null || canMux(outputFormat);
-    if (canDecode && canEncode && canMux) {
+
+    if (unsupportedInputFormat == null && canEncode && canMux) {
       return;
     }
 
     StringBuilder skipReasonBuilder = new StringBuilder();
-    if (!canDecode) {
-      skipReasonBuilder.append("Cannot decode ").append(inputFormat).append('\n');
+    if (unsupportedInputFormat != null) {
+      skipReasonBuilder.append("Cannot decode ").append(unsupportedInputFormat).append('\n');
     }
     if (!canEncode) {
       skipReasonBuilder.append("Cannot encode ").append(outputFormat).append('\n');
@@ -100,7 +142,7 @@ public class FormatSupportAssumptions {
     if (!canMux) {
       skipReasonBuilder.append("Cannot mux ").append(outputFormat);
     }
-    String skipReason = skipReasonBuilder.toString();
+    String skipReason = skipReasonBuilder.toString().trim();
     recordTestSkipped(context, testId, skipReason);
     throw new AssumptionViolatedException(skipReason);
   }
@@ -171,7 +213,8 @@ public class FormatSupportAssumptions {
       width = format.height;
       height = format.width;
     }
-    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
+    boolean sizeSupported =
+        EncoderUtil.getSupportedResolution(encoder, mimeType, width, height) != null;
     boolean bitrateSupported =
         format.averageBitrate == Format.NO_VALUE
             || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
