@@ -20,6 +20,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
@@ -28,24 +29,46 @@ import android.net.Uri;
 import android.os.Build;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Checks transcoding quality. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(Parameterized.class)
 public final class TranscodeQualityTest {
+  private static final String TAG = "TranscodeQualityTest";
+
   @Rule public final TestName testName = new TestName();
+
+  @Parameters(name = "{0}")
+  public static ImmutableList<Boolean> params() {
+    if (SDK_INT >= 34) {
+      return ImmutableList.of(false, true);
+    }
+    return ImmutableList.of(false);
+  }
+
+  @Parameter public boolean usePacketConsumer;
 
   private String testId;
 
@@ -70,8 +93,12 @@ public final class TranscodeQualityTest {
     assumeFalse(
         (SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
             || (SDK_INT == 33 && Build.MODEL.equals("LE2121")));
-    Transformer transformer =
-        new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H265).build();
+    Transformer.Builder builder =
+        usePacketConsumer
+            ? NdkTransformerBuilder.create(context)
+                .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
+            : new Transformer.Builder(context);
+    Transformer transformer = builder.setVideoMimeType(MimeTypes.VIDEO_H265).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
@@ -82,6 +109,7 @@ public final class TranscodeQualityTest {
             .build()
             .run(testId, editedMediaItem);
 
+    maybeSaveResultFile(result);
     if (result.ssim != ExportTestResult.SSIM_UNSET) {
       assertThat(result.ssim).isGreaterThan(0.90);
     }
@@ -95,8 +123,13 @@ public final class TranscodeQualityTest {
     // requirements on all supported API versions, except for wearable devices.
     assumeFalse(Util.isWear(context));
 
+    Transformer.Builder builder =
+        usePacketConsumer
+            ? NdkTransformerBuilder.create(context)
+                .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
+            : new Transformer.Builder(context);
     Transformer transformer =
-        new Transformer.Builder(context)
+        builder
             .setVideoMimeType(MimeTypes.VIDEO_H264)
             .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
             .build();
@@ -111,8 +144,27 @@ public final class TranscodeQualityTest {
             .build()
             .run(testId, editedMediaItem);
 
+    maybeSaveResultFile(result);
     if (result.ssim != ExportTestResult.SSIM_UNSET) {
       assertThat(result.ssim).isGreaterThan(0.90);
+    }
+  }
+
+  private void maybeSaveResultFile(ExportTestResult exportTestResult) {
+    String fileName = testId + ".mp4";
+    try {
+      // Use reflection here as this is an experimental API that may not work for all users
+      Class<?> testStorageClass = Class.forName("androidx.test.services.storage.TestStorage");
+      Method method = testStorageClass.getMethod("openOutputFile", String.class);
+      Object testStorage = testStorageClass.getDeclaredConstructor().newInstance();
+      try (OutputStream outputStream =
+          checkNotNull((OutputStream) method.invoke(testStorage, fileName))) {
+        Files.copy(Paths.get(exportTestResult.filePath), outputStream);
+      }
+    } catch (ClassNotFoundException e) {
+      // Do nothing
+    } catch (Exception e) {
+      Log.e(TAG, "Could not write file to test storage: " + fileName, e);
     }
   }
 }
