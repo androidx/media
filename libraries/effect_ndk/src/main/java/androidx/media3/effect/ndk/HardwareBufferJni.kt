@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect.ndk
 
+import android.graphics.Bitmap
 import android.hardware.HardwareBuffer
 import androidx.annotation.RequiresApi
 import androidx.media3.common.util.ExperimentalApi
@@ -40,4 +41,7 @@ object HardwareBufferJni {
 
   /** Destroys an EGLImage. Retutns whether the deletion is successful. */
   external fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
+
+  /** Copies a bitmap to a HardwareBuffer. Returns whether the copy is successful. */
+  external fun nativeCopyBitmapToHardwareBuffer(bitmap: Bitmap, hb: HardwareBuffer): Boolean
 }
