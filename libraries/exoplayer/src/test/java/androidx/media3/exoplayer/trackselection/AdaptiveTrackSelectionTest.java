@@ -122,6 +122,42 @@ public final class AdaptiveTrackSelectionTest {
   }
 
   @Test
+  public void initial_updateSelectedTrack_withCustomFormatPriorityOrder_selectsFirstEligible() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(5000L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareTrackSelection(
+            new AdaptiveTrackSelection(
+                trackGroup,
+                selectedAllTracksInGroup(trackGroup),
+                TrackSelection.TYPE_UNSET,
+                mockBandwidthMeter,
+                AdaptiveTrackSelection.DEFAULT_MIN_DURATION_FOR_QUALITY_INCREASE_MS,
+                AdaptiveTrackSelection.DEFAULT_MAX_DURATION_FOR_QUALITY_DECREASE_MS,
+                AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
+                AdaptiveTrackSelection.DEFAULT_MAX_WIDTH_TO_DISCARD,
+                AdaptiveTrackSelection.DEFAULT_MAX_HEIGHT_TO_DISCARD,
+                /* bandwidthFraction= */ 1.0f,
+                AdaptiveTrackSelection.DEFAULT_BUFFERED_FRACTION_TO_LIVE_EDGE_FOR_QUALITY_INCREASE,
+                /* adaptationCheckpoints= */ ImmutableList.of(),
+                fakeClock) {
+              @Override
+              protected int[] getFormatPriorityOrder(
+                  long nowMs, long chunkDurationUs, long effectiveBitrate) {
+                // Provide explicit priority order: lowest bitrate first.
+                return new int[] {2, 1, 0};
+              }
+            });
+
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
+  }
+
+  @Test
   public void updateSelectedTrackDoNotSwitchUpIfNotBufferedEnough() {
     Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
     Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);

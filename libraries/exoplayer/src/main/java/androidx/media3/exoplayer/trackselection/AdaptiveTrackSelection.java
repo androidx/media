@@ -565,6 +565,40 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   }
 
   /**
+   * Returns the preferred format evaluation order.
+   *
+   * @return An array with one format index per priority position, or null to use {@link
+   *     #getFormatIndexForPriorityPosition(int, long, long, long)}. If non-null, indices must be
+   *     unique and in range {@code [0, length())}.
+   *
+   * @param nowMs The current time in the timebase of {@link Clock#elapsedRealtime()}, or {@link
+   *     Long#MIN_VALUE} to ignore track exclusion.
+   * @param chunkDurationUs The duration of a media chunk in microseconds, or {@link C#TIME_UNSET}
+   *     if unknown.
+   * @param effectiveBitrate The bitrate available to this selection.
+   */
+  @Nullable
+  protected int[] getFormatPriorityOrder(long nowMs, long chunkDurationUs, long effectiveBitrate) {
+    return null;
+  }
+
+  /**
+   * Returns the format index to evaluate at a given priority position. The default implementation
+   * evaluates formats in order of decreasing bitrate.
+   *
+   * @param priorityPosition The zero-based position within the format evaluation priority.
+   * @param nowMs The current time in the timebase of {@link Clock#elapsedRealtime()}, or {@link
+   *     Long#MIN_VALUE} to ignore track exclusion.
+   * @param chunkDurationUs The duration of a media chunk in microseconds, or {@link C#TIME_UNSET}
+   *     if unknown.
+   * @param effectiveBitrate The bitrate available to this selection.
+   */
+  protected int getFormatIndexForPriorityPosition(
+      int priorityPosition, long nowMs, long chunkDurationUs, long effectiveBitrate) {
+    return priorityPosition;
+  }
+
+  /**
    * Called from {@link #evaluateQueueSize(long, List)} to determine whether an evaluation should be
    * performed.
    *
@@ -599,17 +633,48 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private int determineIdealSelectedIndex(long nowMs, long chunkDurationUs) {
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
     int lowestBitrateAllowedIndex = 0;
+    @Nullable
+    int[] formatPriorityOrder = getFormatPriorityOrder(nowMs, chunkDurationUs, effectiveBitrate);
+    if (formatPriorityOrder != null && !isValidFormatPriorityOrder(formatPriorityOrder)) {
+      Log.w(TAG, "Ignoring invalid format priority order");
+      formatPriorityOrder = null;
+    }
     for (int i = 0; i < length; i++) {
-      if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
-        Format format = getFormat(i);
+      int formatIndex =
+          formatPriorityOrder == null
+              ? getFormatIndexForPriorityPosition(i, nowMs, chunkDurationUs, effectiveBitrate)
+              : formatPriorityOrder[i];
+      if (formatIndex < 0 || formatIndex >= length) {
+        Log.w(TAG, "Ignoring out of bounds format index in priority order: " + formatIndex);
+        formatIndex = i;
+      }
+      if (nowMs == Long.MIN_VALUE || !isTrackExcluded(formatIndex, nowMs)) {
+        Format format = getFormat(formatIndex);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
-          return i;
+          return formatIndex;
         } else {
-          lowestBitrateAllowedIndex = i;
+          lowestBitrateAllowedIndex = formatIndex;
         }
       }
     }
     return lowestBitrateAllowedIndex;
+  }
+
+  private boolean isValidFormatPriorityOrder(int[] formatPriorityOrder) {
+    if (formatPriorityOrder.length != length) {
+      return false;
+    }
+    boolean[] seen = new boolean[length];
+    for (int formatIndex : formatPriorityOrder) {
+      if (formatIndex < 0 || formatIndex >= length) {
+        return false;
+      }
+      if (seen[formatIndex]) {
+        return false;
+      }
+      seen[formatIndex] = true;
+    }
+    return true;
   }
 
   private long minDurationForQualityIncreaseUs(long availableDurationUs, long chunkDurationUs) {
