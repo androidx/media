@@ -467,6 +467,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
+
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
     contents.put(mimeBytes); // content_encoding
     contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
