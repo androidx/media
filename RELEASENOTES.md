@@ -33,6 +33,8 @@
     *   Fix issue where system UI button placement workaround negatively affects
         other UI surface like Android Auto or manufacturers not needing the
         workaround ([#3041](https://github.com/androidx/media/issues/3041)).
+    *   Fix issue where access to subscriptions was not synchronized
+        ([#3056](https://github.com/androidx/media/issues/3056)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:
