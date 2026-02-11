@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Provides a collection of helper functionality for MPEG-H UI handling.
- * It differentiates between MPEG-H UI system settings and MPEG-H UI commands and caches them
- * locally.
- * Furthermore, it provides an interface for the parameter communication between the Player and
- * the MpeghDecoder (i.e. for MPEG-H UI Manager).
- * */
+/**
+ * Provides a collection of helper functionality for MPEG-H UI handling. It differentiates between
+ * MPEG-H UI system settings and MPEG-H UI commands and caches them locally. Furthermore, it
+ * provides an interface for the parameter communication between the Player and the MpeghDecoder
+ * (i.e. for MPEG-H UI Manager).
+ */
 public class MpeghUiCommandHelper {
 
   private final Object syncObj;
@@ -28,22 +28,21 @@ public class MpeghUiCommandHelper {
   @Nullable private ByteBuffer persistenceStorage;
   private boolean forceUiUpdate;
 
-  private final List<Integer> systemActionTypes = new ArrayList<Integer>() {
-    {
-      add(10); // DRC_SELECTED
-      add(11); // DRC_BOOST
-      add(12); // DRC_COMPRESS
-      add(20); // TARGET_LOUDNESS
-      add(21); // ALBUM_MODE
-      add(31); // ACCESSIBILITY_PREFERENCE
-      add(70); // AUDIO_LANGUAGE_SELECTED
-      add(71); // INTERFACE_LANGUAGE_SELECTED
-    }
-  };
+  private final List<Integer> systemActionTypes =
+      new ArrayList<Integer>() {
+        {
+          add(10); // DRC_SELECTED
+          add(11); // DRC_BOOST
+          add(12); // DRC_COMPRESS
+          add(20); // TARGET_LOUDNESS
+          add(21); // ALBUM_MODE
+          add(31); // ACCESSIBILITY_PREFERENCE
+          add(70); // AUDIO_LANGUAGE_SELECTED
+          add(71); // INTERFACE_LANGUAGE_SELECTED
+        }
+      };
 
-  /**
-   * Creates an MPEG-H UI command helper.
-   */
+  /** Creates an MPEG-H UI command helper. */
   public MpeghUiCommandHelper() {
     persistenceStorage = null;
     forceUiUpdate = false;
@@ -54,8 +53,8 @@ public class MpeghUiCommandHelper {
 
   /**
    * Adds an MPEG-H UI command to the list of commands to be applied in the MPEG-H UI manager.
-   * MPEG-H UI system settings will also be added to a separate hashmap to be able to apply them
-   * if the decoder instance gets reset.
+   * MPEG-H UI system settings will also be added to a separate hashmap to be able to apply them if
+   * the decoder instance gets reset.
    *
    * @param command The MPEG-H UI command to be stored.
    */
@@ -82,9 +81,9 @@ public class MpeghUiCommandHelper {
   }
 
   /**
-   * Obtains a list of MPEG-H UI commands to be applied in the MPEG-H UI manager.
-   * The obtained MPEG-H UI commands will also be removed from the stored list of commands.
-   * Only MPEG-H UI system settings will be kept.
+   * Obtains a list of MPEG-H UI commands to be applied in the MPEG-H UI manager. The obtained
+   * MPEG-H UI commands will also be removed from the stored list of commands. Only MPEG-H UI system
+   * settings will be kept.
    *
    * @param init Boolean value to signal that only MPEG-H UI system settings need to be obtained.
    * @return List<String> List of MPEG-H UI commands to be applied in the MPEG-H UI manager.
@@ -180,7 +179,8 @@ public class MpeghUiCommandHelper {
   /**
    * Gets a flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced.
    *
-   * @return Boolean flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced
+   * @return Boolean flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be
+   *     forced
    */
   public boolean getForceUiUpdate() {
     boolean force;

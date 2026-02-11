@@ -72,19 +72,24 @@ public class MpeghPlaybackTest {
 
   @Test
   public void testPlaybackWithCommand() throws Exception {
-    String command = "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\" actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
+    String command =
+        "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\""
+            + " actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
     playAndAssertAudioSinkInput(BEAR_URI, command, null, 1);
   }
 
   @Test
   public void testPlaybackWithCommandAndPersistence() throws Exception {
-    String command = "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\" actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
+    String command =
+        "<ActionEvent uuid=\"BB0C0000-0000-0000-0000-000083610318\" version=\"11.0\""
+            + " actionType=\"60\" paramInt=\"0\" paramFloat=\"20\" />";
     playAndAssertAudioSinkInput(BEAR_URI, command, persistence_buffer, 1);
 
     playAndAssertAudioSinkInput(BEAR_URI, null, persistence_buffer, 2);
   }
 
-  private static void playAndAssertAudioSinkInput(String fileName, String command, ByteBuffer persistence_buffer, int run) throws Exception {
+  private static void playAndAssertAudioSinkInput(
+      String fileName, String command, ByteBuffer persistence_buffer, int run) throws Exception {
     CapturingAudioSink audioSink = CapturingAudioSink.create();
 
     TestPlaybackRunnable testPlaybackRunnable =
@@ -135,7 +140,12 @@ public class MpeghPlaybackTest {
     @Nullable private ExoPlayer player;
     @Nullable private PlaybackException playbackException;
 
-    public TestPlaybackRunnable(Uri uri, Context context, AudioSink audioSink, String command, @Nullable ByteBuffer persistence_buffer) {
+    public TestPlaybackRunnable(
+        Uri uri,
+        Context context,
+        AudioSink audioSink,
+        String command,
+        @Nullable ByteBuffer persistence_buffer) {
       this.uri = uri;
       this.context = context;
       this.audioSink = audioSink;
@@ -173,27 +183,30 @@ public class MpeghPlaybackTest {
       if (persistence_buffer != null) {
         persistence_buffer.rewind();
         CodecParameters.Builder codecParametersBuilderPersistence = new CodecParameters.Builder();
-        codecParametersBuilderPersistence.setByteBuffer("mpegh-ui-persistence-buffer", persistence_buffer);
+        codecParametersBuilderPersistence.setByteBuffer(
+            "mpegh-ui-persistence-buffer", persistence_buffer);
         player.setAudioCodecParameters(codecParametersBuilderPersistence.build());
       }
       ArrayList<String> filterKeys = new ArrayList<>();
       filterKeys.add("mpegh-ui-config");
       filterKeys.add("mpegh-ui-persistence-buffer");
-      player.addAudioCodecParametersChangeListener(codecParameters -> {
-        if (codecParameters.get("mpegh-ui-config") != null) {
-          interceptedAsi.add((String)codecParameters.get("mpegh-ui-config"));
-        }
-        if (codecParameters.get("mpegh-ui-persistence-buffer") != null) {
-          ByteBuffer tmp = (ByteBuffer)codecParameters.get("mpegh-ui-persistence-buffer");
-          if (tmp != null && persistence_buffer != null && !tmp.equals(persistence_buffer)) {
-            tmp.rewind();
-            persistence_buffer.rewind();
-            persistence_buffer.put(tmp);
-            persistence_buffer.rewind();
-          }
-          Looper.myLooper().quit();
-        }
-      }, filterKeys);
+      player.addAudioCodecParametersChangeListener(
+          codecParameters -> {
+            if (codecParameters.get("mpegh-ui-config") != null) {
+              interceptedAsi.add((String) codecParameters.get("mpegh-ui-config"));
+            }
+            if (codecParameters.get("mpegh-ui-persistence-buffer") != null) {
+              ByteBuffer tmp = (ByteBuffer) codecParameters.get("mpegh-ui-persistence-buffer");
+              if (tmp != null && persistence_buffer != null && !tmp.equals(persistence_buffer)) {
+                tmp.rewind();
+                persistence_buffer.rewind();
+                persistence_buffer.put(tmp);
+                persistence_buffer.rewind();
+              }
+              Looper.myLooper().quit();
+            }
+          },
+          filterKeys);
 
       player.prepare();
       player.play();

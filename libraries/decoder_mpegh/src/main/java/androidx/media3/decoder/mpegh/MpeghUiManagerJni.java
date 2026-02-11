@@ -12,6 +12,7 @@ public class MpeghUiManagerJni {
 
   /**
    * Initializes the native MPEG-H UI manager.
+   *
    * @param persistenceBuffer bytebuffer holding the persistence cache
    * @param persistenceBufferLength length of the bytebuffer
    * @throws MpeghDecoderException in case initialization fails
@@ -21,6 +22,7 @@ public class MpeghUiManagerJni {
 
   /**
    * Destroys the native MPEG-H UI manager.
+   *
    * @param persistenceBuffer bytebuffer to write the persistence cache to
    * @param persistenceBufferLength capacity of the bytebuffer
    * @return number of bytes written to persistenceBuffer
@@ -29,6 +31,7 @@ public class MpeghUiManagerJni {
 
   /**
    * Sends an XML action command to the MPEG-H UI Manager.
+   *
    * @param xmlAction XML action command string
    * @return boolean value to signal if the command could be applied
    */
@@ -36,6 +39,7 @@ public class MpeghUiManagerJni {
 
   /**
    * Feed data (access units) to the MPEG-H UI Manager.
+   *
    * @param inData bytebuffer holding the access units
    * @param inDataLength length of the bytebuffer
    * @return flag to signal if feeding the data was successful
@@ -44,6 +48,7 @@ public class MpeghUiManagerJni {
 
   /**
    * Update data (access units) by the MPEG-H UI Manager.
+   *
    * @param inData bytebuffer holding the access units
    * @param inDataLength length of the bytebuffer
    * @param forceUiUpdate flag signalizing if a forced UI update should be triggered
@@ -53,12 +58,14 @@ public class MpeghUiManagerJni {
 
   /**
    * Checks if a new OSD XML configuration is available.
+   *
    * @return boolean value to signal if a new OSD XML configuration is available
    */
   public native boolean newOsdAvailable();
 
   /**
    * Gets the latest OSD XML configuration from the MPEG-H UI manager.
+   *
    * @return latest OSD XML configuration string
    */
   public native String getOsd();

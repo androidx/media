@@ -48,7 +48,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSchemeDataSource;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.exoplayer.CodecParameters;
-import androidx.media3.exoplayer.CodecParametersChangeListener;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
@@ -309,36 +308,40 @@ public class PlayerActivity extends AppCompatActivity
       ArrayList<String> filterKeys = new ArrayList<>();
       filterKeys.add("mpegh-ui-config");
       filterKeys.add("mpegh-ui-persistence-buffer");
-      player.addAudioCodecParametersChangeListener(codecParameters -> {
-        for (String s : codecParameters.keySet()) {
-          Log.w("PlayerActivity", "key = " + s);
-        }
-        if (codecParameters.get("mpegh-ui-config") != null) {
-          Log.e("PlayerActivity", "MPEG-H UI ASI = " + codecParameters.get("mpegh-ui-config"));
-        }
-        if (codecParameters.get("mpegh-ui-persistence-buffer") != null) {
-          ByteBuffer tmp = (ByteBuffer)codecParameters.get("mpegh-ui-persistence-buffer");
-          if (tmp != null && persistence_buffer != null && !tmp.equals(persistence_buffer)) {
-            tmp.rewind();
-            persistence_buffer.rewind();
-            persistence_buffer.put(tmp);
-          }
-          if (persistence_buffer != null && persistence_storage_path != null) {
-            try {
-              RandomAccessFile persistence_dump = new RandomAccessFile(persistence_storage_path, "rw");
-              persistence_buffer.rewind();
-              FileChannel channel = persistence_dump.getChannel();
-              int bytesWritten = channel.write(persistence_buffer);
-              channel.close();
-              persistence_dump.close();
-            } catch (IOException e) {
-              Log.w("PlayerActivity",
-                  "unable to write persistence storage to " + persistence_storage_path);
-              e.printStackTrace();
+      player.addAudioCodecParametersChangeListener(
+          codecParameters -> {
+            for (String s : codecParameters.keySet()) {
+              Log.w("PlayerActivity", "key = " + s);
             }
-          }
-        }
-      }, filterKeys);
+            if (codecParameters.get("mpegh-ui-config") != null) {
+              Log.e("PlayerActivity", "MPEG-H UI ASI = " + codecParameters.get("mpegh-ui-config"));
+            }
+            if (codecParameters.get("mpegh-ui-persistence-buffer") != null) {
+              ByteBuffer tmp = (ByteBuffer) codecParameters.get("mpegh-ui-persistence-buffer");
+              if (tmp != null && persistence_buffer != null && !tmp.equals(persistence_buffer)) {
+                tmp.rewind();
+                persistence_buffer.rewind();
+                persistence_buffer.put(tmp);
+              }
+              if (persistence_buffer != null && persistence_storage_path != null) {
+                try {
+                  RandomAccessFile persistence_dump =
+                      new RandomAccessFile(persistence_storage_path, "rw");
+                  persistence_buffer.rewind();
+                  FileChannel channel = persistence_dump.getChannel();
+                  int bytesWritten = channel.write(persistence_buffer);
+                  channel.close();
+                  persistence_dump.close();
+                } catch (IOException e) {
+                  Log.w(
+                      "PlayerActivity",
+                      "unable to write persistence storage to " + persistence_storage_path);
+                  e.printStackTrace();
+                }
+              }
+            }
+          },
+          filterKeys);
     }
     boolean haveStartPosition = startItemIndex != C.INDEX_UNSET;
     if (haveStartPosition) {
@@ -355,7 +358,7 @@ public class PlayerActivity extends AppCompatActivity
     // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
     // The following MPEG-H UI ActionEvent commands are only useful for the media item
     // https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4
-    if (persistence_buffer != null && persistence_storage_path != null ) {
+    if (persistence_buffer != null && persistence_storage_path != null) {
       if (new File(persistence_storage_path).exists()) {
         try {
           RandomAccessFile persistence_dump = new RandomAccessFile(persistence_storage_path, "r");
@@ -371,47 +374,61 @@ public class PlayerActivity extends AppCompatActivity
       }
 
       CodecParameters.Builder codecParametersBuilderPersistence = new CodecParameters.Builder();
-      codecParametersBuilderPersistence.setByteBuffer("mpegh-ui-persistence-buffer", persistence_buffer);
+      codecParametersBuilderPersistence.setByteBuffer(
+          "mpegh-ui-persistence-buffer", persistence_buffer);
       player.setAudioCodecParameters(codecParametersBuilderPersistence.build());
     }
 
-
     // Simulate sleep so the MPEG-D DRC can change during runtime
     Handler test = new Handler(Looper.getMainLooper());
-    test.postDelayed(() -> {
-      CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-      String command = "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\" actionType=\"30\" paramInt=\"10\" />";
-      codecParametersBuilder.setString("mpegh-ui-command", command);
-      if (player != null) {
-        player.setAudioCodecParameters(codecParametersBuilder.build());
-      }
-    }, 5000);
+    test.postDelayed(
+        () -> {
+          CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
+          String command =
+              "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\""
+                  + " actionType=\"30\" paramInt=\"10\" />";
+          codecParametersBuilder.setString("mpegh-ui-command", command);
+          if (player != null) {
+            player.setAudioCodecParameters(codecParametersBuilder.build());
+          }
+        },
+        5000);
 
-    test.postDelayed(() -> {
-      CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-      String command = "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\" actionType=\"30\" paramInt=\"20\" />";
-      codecParametersBuilder.setString("mpegh-ui-command", command);
-      if (player != null) {
-        player.setAudioCodecParameters(codecParametersBuilder.build());
-      }
-    }, 10000);
+    test.postDelayed(
+        () -> {
+          CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
+          String command =
+              "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\""
+                  + " actionType=\"30\" paramInt=\"20\" />";
+          codecParametersBuilder.setString("mpegh-ui-command", command);
+          if (player != null) {
+            player.setAudioCodecParameters(codecParametersBuilder.build());
+          }
+        },
+        10000);
 
-    test.postDelayed(() -> {
-      CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-      String command = "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\" actionType=\"30\" paramInt=\"0\" />";
-      codecParametersBuilder.setString("mpegh-ui-command", command);
-      if (player != null) {
-        player.setAudioCodecParameters(codecParametersBuilder.build());
-      }
-    }, 15000);
+    test.postDelayed(
+        () -> {
+          CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
+          String command =
+              "<ActionEvent uuid=\"7D130000-0000-0000-0000-0000DD78AA1B\" version=\"11.0\""
+                  + " actionType=\"30\" paramInt=\"0\" />";
+          codecParametersBuilder.setString("mpegh-ui-command", command);
+          if (player != null) {
+            player.setAudioCodecParameters(codecParametersBuilder.build());
+          }
+        },
+        15000);
 
-    test.postDelayed(() -> {
-      CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-      codecParametersBuilder.setInteger("mpegh-ui-force-update", 1);
-      if (player != null) {
-        player.setAudioCodecParameters(codecParametersBuilder.build());
-      }
-    }, 20000);
+    test.postDelayed(
+        () -> {
+          CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
+          codecParametersBuilder.setInteger("mpegh-ui-force-update", 1);
+          if (player != null) {
+            player.setAudioCodecParameters(codecParametersBuilder.build());
+          }
+        },
+        20000);
     // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
     return true;
   }

@@ -45,7 +45,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   /** The number of input and output buffers. */
   private static final int NUM_BUFFERS = 16;
 
-  /** A helper to make needed variables, etc. also available to MpeghDecoder. **/
+  /** A helper to make needed variables, etc. also available to MpeghDecoder. * */
   private final MpeghUiCommandHelper uiHelper;
 
   /*  Creates a new instance. */
@@ -67,7 +67,8 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
       AudioProcessor... audioProcessors) {
     super(eventHandler, eventListener, audioProcessors);
     uiHelper = new MpeghUiCommandHelper();
-    uiHelper.setEventDispatcher(new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
+    uiHelper.setEventDispatcher(
+        new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   /**
@@ -82,7 +83,8 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
       Handler eventHandler, AudioRendererEventListener eventListener, AudioSink audioSink) {
     super(eventHandler, eventListener, audioSink);
     uiHelper = new MpeghUiCommandHelper();
-    uiHelper.setEventDispatcher(new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
+    uiHelper.setEventDispatcher(
+        new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   @Override
@@ -144,16 +146,16 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
       throws ExoPlaybackException {
     switch (messageType) {
       case MSG_SET_CODEC_PARAMETERS:
-        CodecParameters params = (CodecParameters)message;
+        CodecParameters params = (CodecParameters) message;
         if (params != null) {
           if (params.get("mpegh-ui-command") != null) {
-            uiHelper.addCommand((String)params.get("mpegh-ui-command"));
+            uiHelper.addCommand((String) params.get("mpegh-ui-command"));
           }
           if (params.get("mpegh-ui-force-update") != null) {
             uiHelper.setForceUiUpdate(true);
           }
           if (params.get("mpegh-ui-persistence-buffer") != null) {
-            ByteBuffer persistence_buffer = (ByteBuffer)params.get("mpegh-ui-persistence-buffer");
+            ByteBuffer persistence_buffer = (ByteBuffer) params.get("mpegh-ui-persistence-buffer");
             uiHelper.setPersistenceStorage(persistence_buffer);
           }
         }

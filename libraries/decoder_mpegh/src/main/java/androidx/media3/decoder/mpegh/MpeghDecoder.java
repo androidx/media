@@ -57,11 +57,12 @@ public final class MpeghDecoder
    * @param format The input {@link Format}.
    * @param numInputBuffers The number of input buffers.
    * @param numOutputBuffers The number of output buffers.
-   * @param helper A helper class to hold variables/commands which are obtained in the MpeghAudioRender
-   *               and are needed to perform the UI handling
+   * @param helper A helper class to hold variables/commands which are obtained in the
+   *     MpeghAudioRender and are needed to perform the UI handling
    * @throws MpeghDecoderException If an exception occurs when initializing the decoder.
    */
-  public MpeghDecoder(Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper helper)
+  public MpeghDecoder(
+      Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper helper)
       throws MpeghDecoderException {
     super(new DecoderInputBuffer[numInputBuffers], new SimpleDecoderOutputBuffer[numOutputBuffers]);
     if (!MpeghLibrary.isAvailable()) {
