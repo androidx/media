@@ -6,6 +6,9 @@
 *   ExoPlayer:
     *   Fix issue where ExoPlayer would not request delayed audio focus when
         playback is requested during phone calls.
+    *   Fix bug where transitions from on-demand to live content may cause
+        re-buffers at the end of the on-demand content
+        ([#3052](https://github.com/androidx/media/issues/3052)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:

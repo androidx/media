@@ -1782,7 +1782,8 @@ import java.util.Objects;
       boolean hasResetToKeyFrame = true;
       if (!newPlayingPeriodHolder.prepared) {
         newPlayingPeriodHolder.info =
-            newPlayingPeriodHolder.info.copyWithStartPositionUs(periodPositionUs);
+            newPlayingPeriodHolder.info.copyWithStartPositionUs(
+                periodPositionUs, /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET);
       } else if (newPlayingPeriodHolder.hasEnabledTracks) {
         if (scrubbingModeEnabled
             && scrubbingModeParameters.allowSkippingKeyFrameReset

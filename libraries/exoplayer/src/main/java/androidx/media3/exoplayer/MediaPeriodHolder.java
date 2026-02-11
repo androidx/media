@@ -225,7 +225,8 @@ import java.io.IOException;
         applyTrackSelection(
             selectorResult, requestedStartPositionUs, /* forceRecreateStreams= */ false);
     rendererPositionOffsetUs += info.startPositionUs - newStartPositionUs;
-    info = info.copyWithStartPositionUs(newStartPositionUs);
+    info =
+        info.copyWithStartPositionUs(newStartPositionUs, info.liveStreamStartPositionProjectionUs);
   }
 
   /**

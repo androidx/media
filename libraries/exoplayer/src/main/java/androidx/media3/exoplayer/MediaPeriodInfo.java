@@ -33,6 +33,12 @@ import java.util.Objects;
   public final long startPositionUs;
 
   /**
+   * The applied forward projection of the start position when preloading live streams in
+   * microseconds, or {@link C#TIME_UNSET} if no projection was applied.
+   */
+  public final long liveStreamStartPositionProjectionUs;
+
+  /**
    * The requested next start position for the current timeline period, in microseconds, or {@link
    * C#TIME_UNSET} if the period was requested to start at its default position.
    *
@@ -88,6 +94,7 @@ import java.util.Objects;
   MediaPeriodInfo(
       MediaPeriodId id,
       long startPositionUs,
+      long liveStreamStartPositionProjectionUs,
       long requestedContentPositionUs,
       long endPositionUs,
       long durationUs,
@@ -103,6 +110,7 @@ import java.util.Objects;
             || (!isLastInTimelinePeriod && !isLastInTimelineWindow && !isFinal));
     this.id = id;
     this.startPositionUs = startPositionUs;
+    this.liveStreamStartPositionProjectionUs = liveStreamStartPositionProjectionUs;
     this.requestedContentPositionUs = requestedContentPositionUs;
     this.endPositionUs = endPositionUs;
     this.durationUs = durationUs;
@@ -114,15 +122,18 @@ import java.util.Objects;
   }
 
   /**
-   * Returns a copy of this instance with the start position set to the specified value. May return
-   * the same instance if nothing changed.
+   * Returns a copy of this instance with the start position and its projection set to the specified
+   * value. May return the same instance if nothing changed.
    */
-  public MediaPeriodInfo copyWithStartPositionUs(long startPositionUs) {
+  public MediaPeriodInfo copyWithStartPositionUs(
+      long startPositionUs, long liveStreamStartPositionProjectionUs) {
     return startPositionUs == this.startPositionUs
+            && liveStreamStartPositionProjectionUs == this.liveStreamStartPositionProjectionUs
         ? this
         : new MediaPeriodInfo(
             id,
             startPositionUs,
+            liveStreamStartPositionProjectionUs,
             requestedContentPositionUs,
             endPositionUs,
             durationUs,
@@ -143,6 +154,7 @@ import java.util.Objects;
         : new MediaPeriodInfo(
             id,
             startPositionUs,
+            liveStreamStartPositionProjectionUs,
             requestedContentPositionUs,
             endPositionUs,
             durationUs,

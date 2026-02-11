@@ -163,6 +163,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.ShuffleOrder;
+import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.WrappingMediaSource;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
@@ -16400,6 +16401,90 @@ public final class ExoPlayerTest {
 
     assertThat(stateAfterRemoval).isEqualTo(Player.STATE_READY);
     assertThat(stateAfterFullyHandled).isEqualTo(Player.STATE_READY);
+  }
+
+  @Test
+  public void transitionIntoLiveStream_withUpdatedTimeline_doesNotCauseBuffering()
+      throws Exception {
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    MediaSource vodSource = new FakeMediaSource();
+    // Create live source that keeps updating its Timeline continuously.
+    AtomicReference<FakeMediaSource> liveSourceRef = new AtomicReference<>();
+    FakeMediaSource liveSource =
+        new FakeMediaSource(
+            new SinglePeriodTimeline(
+                /* periodDurationUs= */ C.TIME_UNSET,
+                /* windowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+                /* windowPositionInPeriodUs= */ 100 * C.MICROS_PER_SECOND,
+                /* windowDefaultStartPositionUs= */ 6 * C.MICROS_PER_SECOND,
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* useLiveConfiguration= */ true,
+                /* manifest= */ null,
+                MediaItem.EMPTY),
+            ExoPlayerTestRunner.VIDEO_FORMAT) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                /* singleSampleTimeUs= */ 0,
+                mediaSourceEventDispatcher) {
+              long previouslyReportedOffsetUs = 0;
+              long startTimeMs = C.TIME_UNSET;
+
+              @Override
+              public void reevaluateBuffer(long positionUs) {
+                // Simulate live window updates by moving the offset snapped to the nearest full
+                // second.
+                if (startTimeMs == C.TIME_UNSET) {
+                  startTimeMs = clock.currentTimeMillis();
+                }
+                long reportedOffsetUs =
+                    100 * C.MICROS_PER_SECOND
+                        + (clock.currentTimeMillis() - startTimeMs) / 1000 * C.MICROS_PER_SECOND;
+                if (previouslyReportedOffsetUs != reportedOffsetUs) {
+                  liveSourceRef
+                      .get()
+                      .setNewSourceInfo(
+                          new SinglePeriodTimeline(
+                              /* periodDurationUs= */ C.TIME_UNSET,
+                              /* windowDurationUs= */ 10 * C.MICROS_PER_SECOND,
+                              /* windowPositionInPeriodUs= */ reportedOffsetUs,
+                              /* windowDefaultStartPositionUs= */ 6 * C.MICROS_PER_SECOND,
+                              /* isSeekable= */ true,
+                              /* isDynamic= */ true,
+                              /* useLiveConfiguration= */ true,
+                              /* manifest= */ null,
+                              MediaItem.EMPTY));
+                  previouslyReportedOffsetUs = reportedOffsetUs;
+                }
+                super.reevaluateBuffer(positionUs);
+              }
+            };
+          }
+        };
+    liveSourceRef.set(liveSource);
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context).setClock(clock)).build();
+    player.addMediaSources(ImmutableList.of(vodSource, liveSource));
+    player.prepare();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.play();
+    advance(player).untilMediaItemIndex(1);
+    player.release();
+
+    verify(listener, never()).onPlaybackStateChanged(Player.STATE_BUFFERING);
   }
 
   // Internal methods.

@@ -160,6 +160,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -186,6 +187,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -203,6 +205,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
@@ -232,6 +235,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
         /* endPositionUs= */ SECOND_AD_START_TIME_US,
         /* durationUs= */ SECOND_AD_START_TIME_US,
@@ -254,6 +258,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ SECOND_AD_START_TIME_US,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ SECOND_AD_START_TIME_US,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -271,6 +276,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
@@ -293,6 +299,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
         /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -315,6 +322,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -354,6 +362,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 2000,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
@@ -376,6 +385,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ FIRST_AD_START_TIME_US + 3000,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
         /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -398,6 +408,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -437,6 +448,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
@@ -459,6 +471,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
         /* endPositionUs= */ SECOND_AD_START_TIME_US,
         /* durationUs= */ SECOND_AD_START_TIME_US,
@@ -481,6 +494,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ SECOND_AD_START_TIME_US,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ SECOND_AD_START_TIME_US,
         /* endPositionUs= */ CONTENT_DURATION_US,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -513,6 +527,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ C.TIME_UNSET,
@@ -546,6 +561,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
@@ -559,6 +575,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-4[a]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
@@ -572,6 +589,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-5[a]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
@@ -585,6 +603,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-6[c]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // last period in live timeline
@@ -620,6 +639,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
@@ -633,6 +653,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-4[a]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
@@ -646,6 +667,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-5[a]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
@@ -659,6 +681,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-6[c]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // last period in live timeline
@@ -693,6 +716,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
@@ -715,6 +739,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-4[a]"),
         /* startPositionUs= */ adPeriodDurationUs,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ adPeriodDurationUs,
         /* durationUs= */ adPeriodDurationUs,
@@ -737,6 +762,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-5[a]"),
         /* startPositionUs= */ adPeriodDurationUs,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ adPeriodDurationUs,
         /* durationUs= */ adPeriodDurationUs,
@@ -750,6 +776,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-6[c]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // Last period in stream.
@@ -783,6 +810,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
@@ -796,6 +824,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         new Pair<Object, Object>(((Pair<Object, Object>) firstPeriodUid).first, "uid-6[c]"),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // Last period in stream.
@@ -815,6 +844,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -829,6 +859,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -858,6 +889,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
@@ -872,6 +904,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -886,6 +919,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ firstPeriodUid,
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -898,19 +932,86 @@ public final class MediaPeriodQueueTest {
   }
 
   @Test
+  public void getNextMediaPeriodInfo_ofLiveWindowWithUnsetDuration_setsStartPositionProjection() {
+    TimelineWindowDefinition vodWindow =
+        new TimelineWindowDefinition.Builder()
+            .setUid(0)
+            .setDurationUs(10_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    TimelineWindowDefinition liveWindow =
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setDefaultPositionUs(5_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    setupTimelines(new FakeTimeline(vodWindow), new FakeTimeline(liveWindow));
+    enqueueNext(); // Enqueue period 0.
+
+    MediaPeriodInfo nextMediaPeriodInfo =
+        mediaPeriodQueue.getNextMediaPeriodInfo(
+            /* rendererPositionUs= */ 1_000_000_000_000L, playbackInfo);
+
+    assertThat(nextMediaPeriodInfo.id.periodUid).isEqualTo(playbackInfo.timeline.getUidOfPeriod(1));
+    assertThat(nextMediaPeriodInfo.liveStreamStartPositionProjectionUs).isEqualTo(10_000_000L);
+  }
+
+  @Test
+  public void
+      getNextMediaPeriodInfo_afterPrerollToLiveContentWithUnsetDuration_setsStartPositionProjection() {
+    adPlaybackState =
+        new AdPlaybackState(/* adsId= */ new Object(), /* adGroupTimesUs...= */ 0)
+            .withContentDurationUs(C.TIME_UNSET);
+    FakeTimeline liveContentTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setUid(1)
+                .setDynamic(true)
+                .setLive(true)
+                .setDurationUs(C.TIME_UNSET)
+                .setDefaultPositionUs(0)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    setupTimelines(new SinglePeriodAdTimeline(liveContentTimeline, adPlaybackState));
+    long[][] newDurations = new long[adPlaybackState.adGroupCount][];
+    newDurations[0] = new long[] {AD_DURATION_US};
+    adPlaybackState =
+        adPlaybackState
+            .withAdCount(0, /* adCount= */ 1)
+            .withAvailableAdMediaItem(0, /* adIndexInAdGroup= */ 0, AD_MEDIA_ITEM)
+            .withAdDurationsUs(newDurations);
+    fakeMediaSources
+        .get(0)
+        .setNewSourceInfo(new SinglePeriodAdTimeline(liveContentTimeline, adPlaybackState));
+    shadowOf(Looper.getMainLooper()).idle();
+    playbackInfo = playbackInfo.copyWithTimeline(mediaSourceList.createTimeline());
+    enqueueNext(); // Enqueue preroll ad.
+
+    MediaPeriodInfo nextMediaPeriodInfo =
+        mediaPeriodQueue.getNextMediaPeriodInfo(
+            /* rendererPositionUs= */ 1_000_000_000_000L, playbackInfo);
+
+    assertThat(nextMediaPeriodInfo.id.isAd()).isFalse();
+    assertThat(nextMediaPeriodInfo.liveStreamStartPositionProjectionUs).isEqualTo(AD_DURATION_US);
+  }
+
+  @Test
   public void getNextMediaPeriodInfo_inMultiPeriodWindow_returnsCorrectMediaPeriodInfos() {
     setupTimelines(
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 2,
-                /* id= */ new Object(),
-                /* isSeekable= */ false,
-                /* isDynamic= */ false,
-                /* durationUs= */ 2 * CONTENT_DURATION_US)));
+            new TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(new Object())
+                .setDurationUs(2 * CONTENT_DURATION_US)
+                .build()));
 
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ playbackInfo.timeline.getUidOfPeriod(/* periodIndex= */ 0),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US + DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
@@ -924,6 +1025,7 @@ public final class MediaPeriodQueueTest {
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
         /* periodUid= */ playbackInfo.timeline.getUidOfPeriod(/* periodIndex= */ 1),
         /* startPositionUs= */ 0,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
         /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
@@ -1228,6 +1330,98 @@ public final class MediaPeriodQueueTest {
 
     assertThat(updateQueuedPeriodsResult).isEqualTo(UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD);
     assertThat(getQueueLength()).isEqualTo(3);
+  }
+
+  @Test
+  public void updateQueuedPeriods_withLivePeriodWithSmallStartPositionShift_keepsPeriod() {
+    TimelineWindowDefinition liveWindow =
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setDefaultPositionUs(5_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    setupTimelines(new FakeTimeline(), new FakeTimeline(liveWindow));
+    enqueueNext(); // Enqueue period 0.
+    enqueueNext(); // Enqueue period 1 (live).
+    assertThat(getQueueLength()).isEqualTo(2);
+    MediaPeriodHolder livePeriodHolder = mediaPeriodQueue.getLoadingPeriod();
+    assertThat(livePeriodHolder.info.liveStreamStartPositionProjectionUs)
+        .isNotEqualTo(C.TIME_UNSET);
+
+    // Update timeline with slightly different start position for live period.
+    TimelineWindowDefinition liveWindow2 =
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setDefaultPositionUs(5_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    fakeMediaSources.get(1).setNewSourceInfo(new FakeTimeline(liveWindow2));
+    shadowOf(Looper.getMainLooper()).idle();
+    playbackInfo = playbackInfo.copyWithTimeline(mediaSourceList.createTimeline());
+
+    @MediaPeriodQueue.UpdatePeriodQueueResult
+    int updateQueuedPeriodsResult =
+        mediaPeriodQueue.updateQueuedPeriods(
+            playbackInfo.timeline,
+            /* rendererPositionUs= */ 0,
+            /* maxRendererReadPositionUs= */ 0,
+            /* maxRendererPrewarmingPositionUs= */ 0);
+
+    assertThat(updateQueuedPeriodsResult).isEqualTo(0);
+    assertThat(getQueueLength()).isEqualTo(2);
+    assertThat(mediaPeriodQueue.getLoadingPeriod()).isEqualTo(livePeriodHolder);
+  }
+
+  @Test
+  public void updateQueuedPeriods_withLivePeriodWithLargeStartPositionShift_removesPeriod() {
+    TimelineWindowDefinition liveWindow =
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setDefaultPositionUs(5_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    setupTimelines(new FakeTimeline(), new FakeTimeline(liveWindow));
+    enqueueNext(); // Enqueue period 0.
+    enqueueNext(); // Enqueue period 1 (live).
+    assertThat(getQueueLength()).isEqualTo(2);
+    MediaPeriodHolder livePeriodHolder = mediaPeriodQueue.getLoadingPeriod();
+    assertThat(livePeriodHolder.info.liveStreamStartPositionProjectionUs)
+        .isNotEqualTo(C.TIME_UNSET);
+
+    // Update timeline with largely different start position for live period.
+    TimelineWindowDefinition liveWindow2 =
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDurationUs(C.TIME_UNSET)
+            .setDefaultPositionUs(15_000_000L)
+            .setWindowPositionInFirstPeriodUs(0)
+            .build();
+    fakeMediaSources.get(1).setNewSourceInfo(new FakeTimeline(liveWindow2));
+    shadowOf(Looper.getMainLooper()).idle();
+    playbackInfo = playbackInfo.copyWithTimeline(mediaSourceList.createTimeline());
+
+    @MediaPeriodQueue.UpdatePeriodQueueResult
+    int updateQueuedPeriodsResult =
+        mediaPeriodQueue.updateQueuedPeriods(
+            playbackInfo.timeline,
+            /* rendererPositionUs= */ 0,
+            /* maxRendererReadPositionUs= */ 0,
+            /* maxRendererPrewarmingPositionUs= */ 0);
+
+    assertThat(updateQueuedPeriodsResult).isEqualTo(0);
+    assertThat(getQueueLength()).isEqualTo(1);
+    assertThat(mediaPeriodQueue.getLoadingPeriod()).isNotEqualTo(livePeriodHolder);
   }
 
   @Test
@@ -1745,18 +1939,12 @@ public final class MediaPeriodQueueTest {
   public void
       invalidatePreloadPool_secondWindowIsLivePreloadEnabled_preloadHolderForLiveNotCreated() {
     TimelineWindowDefinition liveWindow =
-        new TimelineWindowDefinition(
-            /* periodCount= */ 1,
-            /* id= */ 1234,
-            /* isSeekable= */ false,
-            /* isDynamic= */ true,
-            /* isLive= */ true,
-            /* isPlaceholder= */ false,
-            /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-            /* defaultPositionUs= */ 0,
-            /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-            /* adPlaybackStates= */ ImmutableList.of(AdPlaybackState.NONE),
-            MediaItem.EMPTY);
+        new TimelineWindowDefinition.Builder()
+            .setUid(1)
+            .setDynamic(true)
+            .setLive(true)
+            .setDefaultPositionUs(0)
+            .build();
     setupTimelines(new FakeTimeline(), new FakeTimeline(liveWindow));
     mediaPeriodQueue.updatePreloadConfiguration(
         playbackInfo.timeline, new PreloadConfiguration(/* targetPreloadDurationUs= */ 5_000_000L));
@@ -2148,6 +2336,7 @@ public final class MediaPeriodQueueTest {
   private void assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
       Object periodUid,
       long startPositionUs,
+      long liveStreamStartPositionProjectionUs,
       long requestedContentPositionUs,
       long endPositionUs,
       long durationUs,
@@ -2162,6 +2351,7 @@ public final class MediaPeriodQueueTest {
             new MediaPeriodInfo(
                 new MediaPeriodId(periodUid, /* windowSequenceNumber= */ 0, nextAdGroupIndex),
                 startPositionUs,
+                liveStreamStartPositionProjectionUs,
                 requestedContentPositionUs,
                 endPositionUs,
                 durationUs,
@@ -2188,6 +2378,7 @@ public final class MediaPeriodQueueTest {
                     /* adIndexInAdGroup= */ 0,
                     /* windowSequenceNumber= */ 0),
                 /* startPositionUs= */ 0,
+                /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
                 /* requestedContentPositionUs= */ contentPositionUs,
                 /* endPositionUs= */ C.TIME_UNSET,
                 adDurationUs,
