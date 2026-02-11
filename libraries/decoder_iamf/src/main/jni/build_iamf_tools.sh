@@ -44,7 +44,16 @@ CONFIG_TO_ABI_MAP["android_x86_32"]="x86"
 CONFIG_TO_ABI_MAP["android_x86_64"]="x86_64"
 
 for config in android_armv7 android_arm64 android_x86_32 android_x86_64; do
-  bazelisk build --experimental_cc_static_library --copt=-femulated-tls --config=$config -c opt //iamf/include/iamf_tools:iamf_decoder_static
+  bazelisk build \
+    --experimental_cc_static_library \
+    --copt=-femulated-tls \
+    --config=$config \
+    --compilation_mode=opt \
+    --copt=-fvisibility=hidden \
+    --copt=-fno-exceptions \
+    --copt=-fno-rtti \
+    --features=thin_lto \
+    //iamf/include/iamf_tools:iamf_decoder_static
   ABI="${CONFIG_TO_ABI_MAP[$config]}"
   OUTPUT_DIR="${IAMF_MODULE_PATH}/jni/nativelib/${ABI}"
   mkdir -p "$OUTPUT_DIR"
