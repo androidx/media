@@ -213,8 +213,9 @@ public class FormatSupportAssumptions {
       width = format.height;
       height = format.width;
     }
-    boolean sizeSupported =
-        EncoderUtil.getSupportedResolution(encoder, mimeType, width, height) != null;
+    // Intentionally do not check fallback sizes so if this is true, DefaultEncoderFactory will be
+    // able to encode with fallback disabled.
+    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
     boolean bitrateSupported =
         format.averageBitrate == Format.NO_VALUE
             || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
