@@ -448,36 +448,12 @@ public final class AudioCapabilities {
         currentDevice == null
             ? checkNotNull(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             : new AudioDeviceInfo[] {currentDevice};
-    ImmutableSet<Integer> allBluetoothDeviceTypesSet = getAllBluetoothDeviceTypes();
     for (AudioDeviceInfo audioDeviceInfo : audioDeviceInfos) {
-      if (allBluetoothDeviceTypesSet.contains(audioDeviceInfo.getType())) {
+      if (DeviceTypeUtil.isBluetoothDevice(audioDeviceInfo.getType())) {
         return true;
       }
     }
     return false;
-  }
-
-  /**
-   * Returns all the possible bluetooth device types that can be returned by {@link
-   * AudioDeviceInfo#getType()}.
-   *
-   * <p>The types {@link AudioDeviceInfo#TYPE_BLUETOOTH_A2DP} and {@link
-   * AudioDeviceInfo#TYPE_BLUETOOTH_SCO} are included by default. And the types {@link
-   * AudioDeviceInfo#TYPE_BLE_HEADSET} and {@link AudioDeviceInfo#TYPE_BLE_SPEAKER} are added from
-   * API 31. And the type {@link AudioDeviceInfo#TYPE_BLE_BROADCAST} is added from API 33.
-   */
-  private static ImmutableSet<Integer> getAllBluetoothDeviceTypes() {
-    ImmutableSet.Builder<Integer> allBluetoothDeviceTypes =
-        new ImmutableSet.Builder<Integer>()
-            .add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO);
-    if (SDK_INT >= 31) {
-      allBluetoothDeviceTypes.add(
-          AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER);
-    }
-    if (SDK_INT >= 33) {
-      allBluetoothDeviceTypes.add(AudioDeviceInfo.TYPE_BLE_BROADCAST);
-    }
-    return allBluetoothDeviceTypes.build();
   }
 
   private static final class AudioProfile {
