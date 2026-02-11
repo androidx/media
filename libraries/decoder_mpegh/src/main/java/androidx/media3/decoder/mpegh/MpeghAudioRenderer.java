@@ -42,10 +42,23 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
 
   private static final String TAG = "MpeghAudioRenderer";
 
+  /** Codec parameter key for the MPEG-H UI configuration (ASI). */
+  public static final String CODEC_PARAM_MPEGH_UI_CONFIG = "mpegh-ui-config";
+
+  /** Codec parameter key for the MPEG-H UI command string. */
+  public static final String CODEC_PARAM_MPEGH_UI_COMMAND = "mpegh-ui-command";
+
+  /** Codec parameter key for forcing an MPEG-H UI update. */
+  public static final String CODEC_PARAM_MPEGH_UI_FORCE_UPDATE = "mpegh-ui-force-update";
+
+  /** Codec parameter key for the MPEG-H UI persistence buffer. */
+  public static final String CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER =
+      "mpegh-ui-persistence-buffer";
+
   /** The number of input and output buffers. */
   private static final int NUM_BUFFERS = 16;
 
-  /** A helper to make needed variables, etc. also available to MpeghDecoder. * */
+  /** Helper for handling MPEG-H UI commands and system settings. */
   private final MpeghUiCommandHelper uiHelper;
 
   /*  Creates a new instance. */
@@ -142,26 +155,24 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void handleMessage(@MessageType int messageType, @Nullable Object message)
       throws ExoPlaybackException {
     switch (messageType) {
       case MSG_SET_CODEC_PARAMETERS:
         CodecParameters params = (CodecParameters) message;
-        if (params != null) {
-          if (params.get("mpegh-ui-command") != null) {
-            uiHelper.addCommand((String) params.get("mpegh-ui-command"));
-          }
-          if (params.get("mpegh-ui-force-update") != null) {
-            uiHelper.setForceUiUpdate(true);
-          }
-          if (params.get("mpegh-ui-persistence-buffer") != null) {
-            ByteBuffer persistence_buffer = (ByteBuffer) params.get("mpegh-ui-persistence-buffer");
-            uiHelper.setPersistenceStorage(persistence_buffer);
-          }
+        if (params.get(CODEC_PARAM_MPEGH_UI_COMMAND) != null) {
+          uiHelper.addCommand((String) params.get(CODEC_PARAM_MPEGH_UI_COMMAND));
         }
-        super.handleMessage(messageType, message);
+        if (params.get(CODEC_PARAM_MPEGH_UI_FORCE_UPDATE) != null) {
+          uiHelper.setForceUiUpdate(true);
+        }
+        if (params.get(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER) != null) {
+          ByteBuffer persistenceBuffer =
+              (ByteBuffer) params.get(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER);
+          uiHelper.setPersistenceStorage(persistenceBuffer);
+        }
         break;
-
       case MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS:
         uiHelper.setSubscribedCodecParameterKeys((Set<String>) checkNotNull(message));
         break;

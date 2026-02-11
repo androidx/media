@@ -1,192 +1,242 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package androidx.media3.decoder.mpegh;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Provides a collection of helper functionality for MPEG-H UI handling. It differentiates between
- * MPEG-H UI system settings and MPEG-H UI commands and caches them locally. Furthermore, it
- * provides an interface for the parameter communication between the Player and the MpeghDecoder
- * (i.e. for MPEG-H UI Manager).
+ * Helper class for MPEG-H UI handling.
+ *
+ * <p>It differentiates between MPEG-H UI system settings and MPEG-H UI commands and caches them
+ * locally. Furthermore, it provides an interface for the parameter communication between the Player
+ * and the {@link MpeghDecoder} (i.e. for MPEG-H UI Manager).
  */
-public class MpeghUiCommandHelper {
+@UnstableApi
+public final class MpeghUiCommandHelper {
 
-  private final Object syncObj;
+  private static final int ACTION_TYPE_DRC_SELECTED = 10;
+  private static final int ACTION_TYPE_DRC_BOOST = 11;
+  private static final int ACTION_TYPE_DRC_COMPRESS = 12;
+  private static final int ACTION_TYPE_TARGET_LOUDNESS = 20;
+  private static final int ACTION_TYPE_ALBUM_MODE = 21;
+  private static final int ACTION_TYPE_ACCESSIBILITY_PREFERENCE = 31;
+  private static final int ACTION_TYPE_AUDIO_LANGUAGE_SELECTED = 70;
+  private static final int ACTION_TYPE_INTERFACE_LANGUAGE_SELECTED = 71;
 
+  private static final List<Integer> SYSTEM_ACTION_TYPES =
+      ImmutableList.of(
+          ACTION_TYPE_DRC_SELECTED,
+          ACTION_TYPE_DRC_BOOST,
+          ACTION_TYPE_DRC_COMPRESS,
+          ACTION_TYPE_TARGET_LOUDNESS,
+          ACTION_TYPE_ALBUM_MODE,
+          ACTION_TYPE_ACCESSIBILITY_PREFERENCE,
+          ACTION_TYPE_AUDIO_LANGUAGE_SELECTED,
+          ACTION_TYPE_INTERFACE_LANGUAGE_SELECTED);
+
+  private static final Pattern ACTION_TYPE_PATTERN =
+      Pattern.compile("actionType\\s*=\\s*[\"'](\\d+)[\"']");
+
+  private final Object lock;
   private final List<String> commands;
   private final Map<Integer, String> systemCommands;
 
   @Nullable private Set<String> subscribedCodecParameterKeys;
-
   @Nullable private AudioRendererEventListener.EventDispatcher eventDispatcher;
   @Nullable private ByteBuffer persistenceStorage;
   private boolean forceUiUpdate;
 
-  private final List<Integer> systemActionTypes =
-      new ArrayList<Integer>() {
-        {
-          add(10); // DRC_SELECTED
-          add(11); // DRC_BOOST
-          add(12); // DRC_COMPRESS
-          add(20); // TARGET_LOUDNESS
-          add(21); // ALBUM_MODE
-          add(31); // ACCESSIBILITY_PREFERENCE
-          add(70); // AUDIO_LANGUAGE_SELECTED
-          add(71); // INTERFACE_LANGUAGE_SELECTED
-        }
-      };
-
-  /** Creates an MPEG-H UI command helper. */
+  /** Creates a new instance. */
   public MpeghUiCommandHelper() {
     persistenceStorage = null;
     forceUiUpdate = false;
-    syncObj = new Object();
+    lock = new Object();
     commands = new ArrayList<>();
     systemCommands = new HashMap<>();
   }
 
   /**
    * Adds an MPEG-H UI command to the list of commands to be applied in the MPEG-H UI manager.
-   * MPEG-H UI system settings will also be added to a separate hashmap to be able to apply them if
+   *
+   * <p>MPEG-H UI system settings will also be added to a separate map to be able to apply them if
    * the decoder instance gets reset.
    *
    * @param command The MPEG-H UI command to be stored.
    */
   public void addCommand(String command) {
-    synchronized (syncObj) {
-
-      // keep MPEG-H system settings commands
-      for (int type : systemActionTypes) {
-        boolean addToCommands = false;
-        if (command.contains("actionType=\"" + type + "\"")) {
-          if (systemCommands.containsKey(type)) {
-            addToCommands = true;
+    synchronized (lock) {
+      Matcher matcher = ACTION_TYPE_PATTERN.matcher(command);
+      if (matcher.find()) {
+        try {
+          int actionType = Integer.parseInt(checkNotNull(matcher.group(1)));
+          if (SYSTEM_ACTION_TYPES.contains(actionType)) {
+            systemCommands.put(actionType, command);
+            // System commands are also added to the immediate command list if valid.
+            if (!commands.contains(command)) {
+              commands.add(command);
+            }
+            return;
           }
-          systemCommands.put(type, command);
-          if (addToCommands) {
-            commands.add(command);
-          }
-          return;
+        } catch (NumberFormatException e) {
+          // Ignore malformed action types and treat as a regular command.
         }
       }
-
       commands.add(command);
     }
   }
 
   /**
-   * Obtains a list of MPEG-H UI commands to be applied in the MPEG-H UI manager. The obtained
-   * MPEG-H UI commands will also be removed from the stored list of commands. Only MPEG-H UI system
-   * settings will be kept.
+   * Returns a list of MPEG-H UI commands to be applied in the MPEG-H UI manager.
    *
-   * @param init Boolean value to signal that only MPEG-H UI system settings need to be obtained.
-   * @return List<String> List of MPEG-H UI commands to be applied in the MPEG-H UI manager.
+   * <p>The obtained MPEG-H UI commands will also be removed from the stored list of commands. Only
+   * MPEG-H UI system settings will be kept.
+   *
+   * @param init Whether to include MPEG-H UI system settings in the returned list.
+   * @return The list of MPEG-H UI commands to be applied.
    */
   public List<String> getCommands(boolean init) {
-    List<String> tmpList = new ArrayList<>();
-    synchronized (syncObj) {
+    List<String> result = new ArrayList<>();
+    synchronized (lock) {
       if (init) {
-        tmpList.addAll(systemCommands.values());
+        result.addAll(systemCommands.values());
       }
-      // remove duplicate entries
-      commands.removeIf(tmpList::contains);
+      // Remove duplicate entries that are already in the system commands list.
+      Iterator<String> iterator = commands.iterator();
+      while (iterator.hasNext()) {
+        if (result.contains(iterator.next())) {
+          iterator.remove();
+        }
+      }
 
       if (!init) {
-        tmpList.addAll(commands);
+        result.addAll(commands);
         commands.clear();
       }
     }
-    return tmpList;
+    return result;
   }
 
   /**
-   * Sets the subscribed codec parameter keys
+   * Sets the subscribed codec parameter keys.
    *
-   * @param keys Set<String>
+   * @param keys The {@link Set} of subscribed codec parameter keys.
    */
   public void setSubscribedCodecParameterKeys(@Nullable Set<String> keys) {
-    subscribedCodecParameterKeys = keys;
+    synchronized (lock) {
+      subscribedCodecParameterKeys = keys;
+    }
   }
 
   /**
-   * Gets the subscribed codec parameter keys
+   * Returns the subscribed codec parameter keys.
    *
-   * @return Set<String>
+   * @return The {@link Set} of subscribed codec parameter keys, or {@code null} if not set.
    */
-  public @Nullable Set<String> getSubscribedCodecParameterKeys() {
-    return subscribedCodecParameterKeys;
+  @Nullable
+  public Set<String> getSubscribedCodecParameterKeys() {
+    synchronized (lock) {
+      return subscribedCodecParameterKeys;
+    }
   }
 
   /**
-   * Sets the EventDispatcher
+   * Sets the event dispatcher.
    *
-   * @param dispatcher AudioRendererEventListener.EventDispatcher
+   * @param dispatcher The {@link AudioRendererEventListener.EventDispatcher}.
    */
   public void setEventDispatcher(@Nullable AudioRendererEventListener.EventDispatcher dispatcher) {
-    eventDispatcher = dispatcher;
+    synchronized (lock) {
+      eventDispatcher = dispatcher;
+    }
   }
 
   /**
-   * Gets the EventDispatcher
+   * Returns the event dispatcher.
    *
-   * @return AudioRendererEventListener.EventDispatcher
+   * @return The {@link AudioRendererEventListener.EventDispatcher}, or {@code null} if not set.
    */
-  public @Nullable AudioRendererEventListener.EventDispatcher getEventDispatcher() {
-    return eventDispatcher;
+  @Nullable
+  public AudioRendererEventListener.EventDispatcher getEventDispatcher() {
+    synchronized (lock) {
+      return eventDispatcher;
+    }
   }
 
   /**
-   * Sets a ByteBuffer holding the MPEG-H UI persistence data.
+   * Sets a {@link ByteBuffer} holding the MPEG-H UI persistence data.
    *
-   * @param buffer ByteBuffer containing the MPEG-H UI persistence data
+   * @param buffer The {@link ByteBuffer} containing the persistence data.
    */
   public void setPersistenceStorage(@Nullable ByteBuffer buffer) {
-    if (buffer == null) {
-      return;
+    synchronized (lock) {
+      if (buffer == null) {
+        return;
+      }
+      ByteBuffer clone = ByteBuffer.allocateDirect(buffer.remaining());
+      clone.put(buffer.duplicate());
+      clone.flip();
+      persistenceStorage = clone;
     }
-    ByteBuffer clone = ByteBuffer.allocateDirect(buffer.remaining());
-    clone.put(buffer.duplicate());
-    clone.flip();
-    persistenceStorage = clone;
   }
 
   /**
-   * Gets a ByteBuffer holding the MPEG-H UI persistence data.
+   * Returns the {@link ByteBuffer} holding the MPEG-H UI persistence data.
    *
-   * @return ByteBuffer containing the MPEG-H UI persistence data
+   * @return The {@link ByteBuffer} containing the persistence data, or {@code null} if not set.
    */
-  public @Nullable ByteBuffer getPersistenceStorage() {
-    return persistenceStorage;
+  @Nullable
+  public ByteBuffer getPersistenceStorage() {
+    synchronized (lock) {
+      return persistenceStorage;
+    }
   }
 
   /**
    * Sets a flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced.
    *
-   * @param force flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced
+   * @param force Whether to force an MPEG-H UI update.
    */
   public void setForceUiUpdate(boolean force) {
-    synchronized (syncObj) {
+    synchronized (lock) {
       forceUiUpdate = force;
     }
   }
 
   /**
-   * Gets a flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced.
+   * Returns a flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be forced.
    *
-   * @return Boolean flag to signal to the MPEG-H UI manager that an MPEG-H UI update should be
-   *     forced
+   * @return Whether an MPEG-H UI update should be forced.
    */
   public boolean getForceUiUpdate() {
-    boolean force;
-    synchronized (syncObj) {
-      force = forceUiUpdate;
+    synchronized (lock) {
+      return forceUiUpdate;
     }
-    return force;
   }
 }

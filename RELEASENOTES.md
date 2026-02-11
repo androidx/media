@@ -45,6 +45,8 @@
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Add MPEG-H UI manager support to the MPEG-H decoder extension
+        ([#3066](https://github.com/androidx/media/pull/3066)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
