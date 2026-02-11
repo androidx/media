@@ -633,6 +633,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private int determineIdealSelectedIndex(long nowMs, long chunkDurationUs) {
     long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
     int lowestBitrateAllowedIndex = 0;
+    for (int i = 0; i < length; i++) {
+      if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
+        lowestBitrateAllowedIndex = i;
+      }
+    }
     @Nullable
     int[] formatPriorityOrder = getFormatPriorityOrder(nowMs, chunkDurationUs, effectiveBitrate);
     if (formatPriorityOrder != null && !isValidFormatPriorityOrder(formatPriorityOrder)) {
@@ -644,16 +649,10 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           formatPriorityOrder == null
               ? getFormatIndexForPriorityPosition(i, nowMs, chunkDurationUs, effectiveBitrate)
               : formatPriorityOrder[i];
-      if (formatIndex < 0 || formatIndex >= length) {
-        Log.w(TAG, "Ignoring out of bounds format index in priority order: " + formatIndex);
-        formatIndex = i;
-      }
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(formatIndex, nowMs)) {
         Format format = getFormat(formatIndex);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
           return formatIndex;
-        } else {
-          lowestBitrateAllowedIndex = formatIndex;
         }
       }
     }
@@ -663,6 +662,20 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
   private boolean isValidFormatPriorityOrder(int[] formatPriorityOrder) {
     if (formatPriorityOrder.length != length) {
       return false;
+    }
+    if (length <= Long.SIZE) {
+      long seenMask = 0L;
+      for (int formatIndex : formatPriorityOrder) {
+        if (formatIndex < 0 || formatIndex >= length) {
+          return false;
+        }
+        long bit = 1L << formatIndex;
+        if ((seenMask & bit) != 0L) {
+          return false;
+        }
+        seenMask |= bit;
+      }
+      return true;
     }
     boolean[] seen = new boolean[length];
     for (int formatIndex : formatPriorityOrder) {
