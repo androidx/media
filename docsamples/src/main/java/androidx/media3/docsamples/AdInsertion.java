@@ -15,9 +15,22 @@
  */
 package androidx.media3.docsamples;
 
+import android.net.Uri;
+import androidx.media3.common.MediaItem;
+
 /** Snippets for the ad insertion developer guide. */
 @SuppressWarnings({"unused"})
 public final class AdInsertion {
 
   private AdInsertion() {}
+
+  public static void createMediaItem(Uri videoUri, Uri adTagUri) {
+    // [START create_media_item]
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(videoUri)
+            .setAdsConfiguration(new MediaItem.AdsConfiguration.Builder(adTagUri).build())
+            .build();
+    // [END create_media_item]
+  }
 }

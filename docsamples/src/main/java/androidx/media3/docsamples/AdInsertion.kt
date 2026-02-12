@@ -15,4 +15,17 @@
  */
 package androidx.media3.docsamples
 
+import android.net.Uri
+import androidx.media3.common.MediaItem
+
 // Snippets for the ad insertion developer guide.
+
+fun createMediaItem(videoUri: Uri, adTagUri: Uri) {
+  // [START create_media_item]
+  val mediaItem =
+    MediaItem.Builder()
+      .setUri(videoUri)
+      .setAdsConfiguration(MediaItem.AdsConfiguration.Builder(adTagUri).build())
+      .build()
+  // [END create_media_item]
+}
