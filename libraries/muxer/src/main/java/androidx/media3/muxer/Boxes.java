@@ -222,7 +222,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           handlerType = "meta";
           handlerName = "MetaHandle";
           mhdBox = nmhd();
-          sampleEntryBox = textMetaDataSampleEntry(format);
+          sampleEntryBox = getMetadataSampleEntry(format);
           stsdBox = stsd(sampleEntryBox);
           stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
@@ -457,13 +457,36 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("nmhd", contents);
   }
 
+  /** Returns the metadata sample entry box. */
+  public static ByteBuffer getMetadataSampleEntry(Format format) {
+    return MimeTypes.APPLICATION_ITUT_T35.equals(format.sampleMimeType)
+        ? t35MetadataSampleEntry(format)
+        : textMetadataSampleEntry(format);
+  }
+
+  private static ByteBuffer t35MetadataSampleEntry(Format format) {
+    checkArgument(format.initializationData.size() == 1);
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    // SampleEntry fields
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
+    // it35 specific fields
+    contents.put((byte) 0x0); // description
+    contents.put(format.initializationData.get(0)); // itu_t_t35_data_prefix
+    contents.flip();
+    return BoxUtils.wrapIntoBox("it35", contents);
+  }
+
   /**
    * Returns a text metadata sample entry box as per ISO/IEC 14496-12: 8.5.2.2.
    *
    * <p>This contains the sample entry (to be placed within the sample description box) for the text
    * metadata tracks.
    */
-  public static ByteBuffer textMetaDataSampleEntry(Format format) {
+  private static ByteBuffer textMetadataSampleEntry(Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);

@@ -154,6 +154,9 @@ public final class MimeTypes {
   @UnstableApi public static final String APPLICATION_META = BASE_TYPE_APPLICATION + "/meta";
 
   @UnstableApi
+  public static final String APPLICATION_ITUT_T35 = BASE_TYPE_APPLICATION + "/x-itut-t35";
+
+  @UnstableApi
   public static final String APPLICATION_DEPTH_METADATA =
       BASE_TYPE_APPLICATION + "/x-depth-metadata";
 
@@ -654,7 +657,8 @@ public final class MimeTypes {
         || APPLICATION_SCTE35.equals(mimeType)
         || APPLICATION_ICY.equals(mimeType)
         || APPLICATION_AIT.equals(mimeType)
-        || APPLICATION_META.equals(mimeType)) {
+        || APPLICATION_META.equals(mimeType)
+        || APPLICATION_ITUT_T35.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;

@@ -29,6 +29,8 @@ import static org.junit.Assert.assertThrows;
 import android.content.Context;
 import android.util.Pair;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
@@ -43,6 +45,7 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
@@ -921,6 +924,90 @@ public class Mp4MuxerEndToEndTest {
 
     assertThat(audioSampleInfo.first.remaining()).isEqualTo(0);
     assertThat(videoSampleInfo.first.remaining()).isEqualTo(0);
+  }
+
+  @Test
+  public void writeMp4File_withT35MetadataTrack_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // ITU-T T.35 prefix: country code, provider code, etc.
+    byte[] t35Prefix = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04};
+    // Fake metadata payload
+    byte[] t35SampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format t35Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(t35Prefix))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the T.35 metadata track.
+      int t35TrackId = muxer.addTrack(t35Format);
+      // Feed primary video/audio tracks from an existing asset.
+      feedInputDataToMuxer(context, muxer, MP4_FILE_ASSET_DIRECTORY + AV1_MP4);
+      // Write fake T.35 metadata samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            t35TrackId,
+            ByteBuffer.wrap(t35SampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ t35SampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    // Dump file should have T.35 metadata track once extractor starts extracting.
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_t35_metadata.mp4"));
+  }
+
+  @Test
+  public void writeMp4File_withT35MetadataTrack_matchesExpectedBoxStructure() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // ITU-T T.35 prefix: country code, provider code, etc.
+    byte[] t35Prefix = new byte[] {0x00, 0x01, 0x02, 0x03, 0x04};
+    // Fake metadata payload
+    byte[] t35SampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format t35Format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+            .setInitializationData(ImmutableList.of(t35Prefix))
+            .build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the T.35 metadata track.
+      int t35TrackId = muxer.addTrack(t35Format);
+      // Feed primary video/audio tracks from an existing asset.
+      feedInputDataToMuxer(context, muxer, MP4_FILE_ASSET_DIRECTORY + AV1_MP4);
+      // Write fake T.35 metadata samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            t35TrackId,
+            ByteBuffer.wrap(t35SampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ t35SampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("mp4_with_t35_metadata.box"));
   }
 
   private static void writeFakeSamples(Mp4Muxer muxer, int trackId, int sampleCount)
