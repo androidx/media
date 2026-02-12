@@ -38,6 +38,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -213,6 +214,104 @@ public final class AdaptiveTrackSelectionTest {
         createMediaChunkIterators(trackGroup, /* chunkDurationUs= */ 2_000_000));
 
     assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format3);
+  }
+
+  @Test
+  public void initial_updateSelectedTrack_usesFactoryProvidedTrackFormatComparatorOrder() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    AdaptiveTrackSelection.Factory factory =
+        new AdaptiveTrackSelection.Factory(
+                /* minDurationForQualityIncreaseMs= */ 10_000,
+                /* maxDurationForQualityDecreaseMs= */ 25_000,
+                /* minDurationToRetainAfterDiscardMs= */ 25_000,
+                /* bandwidthFraction= */ 1f)
+            .setTrackFormatComparator(
+                formatComparatorInOrder(ImmutableList.of(format2, format3, format1)));
+
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        factory.createAdaptiveTrackSelection(
+            trackGroup,
+            /* tracks= */ new int[] {0, 1, 2},
+            /* type= */ TrackSelection.TYPE_UNSET,
+            mockBandwidthMeter,
+            /* adaptationCheckpoints= */ ImmutableList.of());
+    adaptiveTrackSelection = prepareTrackSelection(adaptiveTrackSelection);
+
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
+  }
+
+  @Test
+  public void initial_updateSelectedTrack_withNoSelectableFormat_fallsBackToLowestBitrate() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(499L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithFormatComparator(
+            trackGroup, formatComparatorInOrder(ImmutableList.of(format2, format1, format3)));
+
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
+  }
+
+  @Test
+  public void initial_updateSelectedTrack_withInvalidComparator_fallsBackToDefaultOrdering() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    Comparator<Format> throwingComparator =
+        (firstFormat, secondFormat) -> {
+          throw new RuntimeException("Comparator failure");
+        };
+
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(1000L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithFormatComparator(trackGroup, throwingComparator);
+
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
+  }
+
+  @Test
+  public void
+      updateSelectedTrack_withInvalidComparator_preservesDefaultDownSwitchDeferralWhenBufferedEnough() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    Comparator<Format> throwingComparator =
+        (firstFormat, secondFormat) -> {
+          throw new RuntimeException("Comparator failure");
+        };
+
+    // The second measurement onward returns 500L, which prompts the track selection to switch down
+    // if necessary.
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(1000L, 500L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
+            trackGroup,
+            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_FOR_QUALITY_INCREASE_MS,
+            /* maxDurationForQualityDecreaseMs= */ 25_000,
+            throwingComparator);
+
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 25_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ Collections.emptyList(),
+        createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
+
+    // Invalid comparators fall back to the default ordering and preserve the default behavior.
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
   }
 
   @Test
@@ -485,6 +584,67 @@ public final class AdaptiveTrackSelectionTest {
         createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
 
     assertThat(adaptiveTrackSelection.getSelectedFormat()).isAnyOf(format1, format2);
+  }
+
+  @Test
+  public void updateSelectedTrack_withCustomFormatOrder_usesCustomOrderForSwitchDirection() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    Comparator<Format> formatComparator =
+        formatComparatorInOrder(ImmutableList.of(format1, format2, format3));
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(2000L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
+            trackGroup,
+            /* minDurationForQualityIncreaseMs= */ 10_000,
+            /* maxDurationForQualityDecreaseMs= */ 25_000,
+            formatComparator);
+
+    FakeMediaChunk chunk =
+        new FakeMediaChunk(
+            format2, /* startTimeUs= */ 0, /* endTimeUs= */ 2_000_000, C.SELECTION_REASON_INITIAL);
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 4_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ ImmutableList.of(chunk),
+        createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
+
+    // format1 is higher priority than format2 according to the custom order, so switching from
+    // format2 to format1 is treated as a switch-up and deferred when not buffered enough.
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
+  }
+
+  @Test
+  public void
+      updateSelectedTrack_withCustomFormatOrder_switchesDownIfCurrentTrackExceedsBandwidth() {
+    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
+    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
+    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
+    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
+    Comparator<Format> formatComparator =
+        formatComparatorInOrder(ImmutableList.of(format2, format1, format3));
+
+    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(1000L, 500L);
+    AdaptiveTrackSelection adaptiveTrackSelection =
+        prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
+            trackGroup,
+            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_FOR_QUALITY_INCREASE_MS,
+            /* maxDurationForQualityDecreaseMs= */ 25_000,
+            formatComparator);
+
+    adaptiveTrackSelection.updateSelectedTrack(
+        /* playbackPositionUs= */ 0,
+        /* bufferedDurationUs= */ 25_000_000,
+        /* availableDurationUs= */ C.TIME_UNSET,
+        /* queue= */ Collections.emptyList(),
+        createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
+
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_ADAPTIVE);
   }
 
   @Test
@@ -824,6 +984,38 @@ public final class AdaptiveTrackSelectionTest {
             fakeClock));
   }
 
+  private AdaptiveTrackSelection prepareAdaptiveTrackSelectionWithFormatComparator(
+      TrackGroup trackGroup, Comparator<Format> trackFormatComparator) {
+    return prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
+        trackGroup,
+        AdaptiveTrackSelection.DEFAULT_MIN_DURATION_FOR_QUALITY_INCREASE_MS,
+        AdaptiveTrackSelection.DEFAULT_MAX_DURATION_FOR_QUALITY_DECREASE_MS,
+        trackFormatComparator);
+  }
+
+  private AdaptiveTrackSelection prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
+      TrackGroup trackGroup,
+      long minDurationForQualityIncreaseMs,
+      long maxDurationForQualityDecreaseMs,
+      Comparator<Format> trackFormatComparator) {
+    return prepareTrackSelection(
+        new AdaptiveTrackSelection(
+            trackGroup,
+            selectedAllTracksInGroup(trackGroup),
+            TrackSelection.TYPE_UNSET,
+            mockBandwidthMeter,
+            minDurationForQualityIncreaseMs,
+            maxDurationForQualityDecreaseMs,
+            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
+            AdaptiveTrackSelection.DEFAULT_MAX_WIDTH_TO_DISCARD,
+            AdaptiveTrackSelection.DEFAULT_MAX_HEIGHT_TO_DISCARD,
+            /* bandwidthFraction= */ 1.0f,
+            AdaptiveTrackSelection.DEFAULT_BUFFERED_FRACTION_TO_LIVE_EDGE_FOR_QUALITY_INCREASE,
+            /* adaptationCheckpoints= */ ImmutableList.of(),
+            fakeClock,
+            trackFormatComparator));
+  }
+
   private AdaptiveTrackSelection prepareTrackSelection(
       AdaptiveTrackSelection adaptiveTrackSelection) {
     adaptiveTrackSelection.enable();
@@ -876,5 +1068,17 @@ public final class AdaptiveTrackSelectionTest {
         .setWidth(width)
         .setHeight(height)
         .build();
+  }
+
+  private static Comparator<Format> formatComparatorInOrder(List<Format> orderedFormats) {
+    return (firstFormat, secondFormat) ->
+        Integer.compare(
+            getFormatOrderIndex(orderedFormats, firstFormat),
+            getFormatOrderIndex(orderedFormats, secondFormat));
+  }
+
+  private static int getFormatOrderIndex(List<Format> orderedFormats, Format format) {
+    int index = orderedFormats.indexOf(format);
+    return index == C.INDEX_UNSET ? Integer.MAX_VALUE : index;
   }
 }
