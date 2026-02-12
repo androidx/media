@@ -1231,7 +1231,8 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_dva1
           || childAtomType == Mp4Box.TYPE_dvhe
           || childAtomType == Mp4Box.TYPE_dvh1
-          || childAtomType == Mp4Box.TYPE_apv1) {
+          || childAtomType == Mp4Box.TYPE_apv1
+          || childAtomType == Mp4Box.TYPE_dav1) {
         parseVideoSampleEntry(
             stsd,
             childAtomType,

@@ -29,6 +29,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
@@ -404,6 +405,47 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     return c;
   }
 
+  private static ColorInfo getColorInfoForFormat(
+      @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles) {
+
+    @C.ColorSpace int colorSpace = Format.NO_VALUE;
+    @C.ColorRange int colorRange = Format.NO_VALUE;
+    @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
+
+    if (MimeTypes.isDolbyVisionCodec(codecs, supplementalCodecs)) {
+      if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1") || codecs.startsWith("dav1")) {
+        // profiles 5, 10.0 and 20.0
+        colorSpace = C.COLOR_SPACE_BT2020;
+        colorTransfer = C.COLOR_TRANSFER_ST2084;
+        colorRange = C.COLOR_RANGE_FULL;
+      } else if (supplementalProfiles != null) {
+        if (supplementalProfiles.equals("db1p")) {
+          //BL signal cross-compatibility ID = 1 (e.g profile 8.1)
+          colorSpace = C.COLOR_SPACE_BT2020;
+          colorTransfer = C.COLOR_TRANSFER_ST2084;
+          colorRange = C.COLOR_RANGE_LIMITED;
+        } else if (supplementalProfiles.startsWith("db4")) { // db4g or db4h
+          //BL signal cross-compatibility ID = 4 (e.g profile 8.4)
+          colorSpace = C.COLOR_SPACE_BT2020;
+          colorTransfer = C.COLOR_TRANSFER_HLG;
+          colorRange = C.COLOR_RANGE_LIMITED;
+        }
+      }
+    }
+
+    if (colorSpace == Format.NO_VALUE) {
+      return null;
+    }
+
+    return new ColorInfo.Builder()
+        .setColorSpace(colorSpace)
+        .setColorRange(colorRange)
+        .setColorTransfer(colorTransfer)
+        .build();
+  }
+
   private static boolean isDolbyVisionFormat(
       @Nullable String videoRange,
       @Nullable String codecs,
@@ -516,6 +558,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             supplementalProfiles = codecsAndProfiles[1];
           }
         }
+
+        ColorInfo colorInfo =
+            getColorInfoForFormat(codecs, supplementalCodecs, supplementalProfiles);
+
         String videoCodecs = Util.getCodecsOfType(codecs, C.TRACK_TYPE_VIDEO);
         if (isDolbyVisionFormat(
             videoRange, videoCodecs, supplementalCodecs, supplementalProfiles)) {
@@ -587,6 +633,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setHeight(height)
                 .setFrameRate(frameRate)
                 .setRoleFlags(roleFlags)
+                .setColorInfo(colorInfo)
                 .build();
         Variant variant =
             new Variant(
