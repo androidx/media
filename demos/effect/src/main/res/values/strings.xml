@@ -25,6 +25,7 @@
   <string name="permission_not_granted_error">"Permission was not granted."</string>
   <string name="contrast">Contrast</string>
   <string name="confetti_overlay">Confetti Overlay</string>
+  <string name="clock_overlay">Clock Overlay</string>
   <string name="custom_text_overlay">Custom Text Overlay</string>
   <string name="text">Text</string>
   <string name="text_color">Text color</string>

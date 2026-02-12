@@ -753,12 +753,6 @@ public final class TransformerActivity extends AppCompatActivity {
       TextOverlay textOverlay = TextOverlay.createStaticTextOverlay(overlayText, overlaySettings);
       overlaysBuilder.add(textOverlay);
     }
-    if (selectedEffects[ConfigurationActivity.CLOCK_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ClockOverlay());
-    }
-    if (selectedEffects[ConfigurationActivity.CONFETTI_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ConfettiOverlay());
-    }
     if (selectedEffects[ConfigurationActivity.ANIMATING_LOGO_OVERLAY]) {
       overlaysBuilder.add(new AnimatedLogoOverlay(this.getApplicationContext()));
     }

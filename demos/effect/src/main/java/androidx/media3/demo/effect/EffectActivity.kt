@@ -308,6 +308,9 @@ class EffectActivity : ComponentActivity() {
         if (effectControlsState.confettiOverlayChecked) {
           overlaysBuilder.add(ConfettiOverlay())
         }
+        if (effectControlsState.clockOverlayChecked) {
+          overlaysBuilder.add(ClockOverlay())
+        }
         val textOverlayText = effectControlsState.textOverlayText
         if (effectControlsState.textOverlayChecked && textOverlayText != null) {
           val spannableOverlayText = SpannableString(textOverlayText)
@@ -386,6 +389,17 @@ class EffectActivity : ComponentActivity() {
           onCheckedChange = { checked ->
             onEffectControlsStateChange(
               effectControlsState.copy(effectsChanged = true, confettiOverlayChecked = checked)
+            )
+          },
+        )
+      }
+      item {
+        EffectItem(
+          name = stringResource(R.string.clock_overlay),
+          enabled = enabled,
+          onCheckedChange = { checked ->
+            onEffectControlsStateChange(
+              effectControlsState.copy(effectsChanged = true, clockOverlayChecked = checked)
             )
           },
         )
@@ -550,6 +564,7 @@ class EffectActivity : ComponentActivity() {
     val contrastValue: Float = 0f,
     val confettiOverlayChecked: Boolean = false,
     val textOverlayChecked: Boolean = false,
+    val clockOverlayChecked: Boolean = false,
     val textOverlayText: String? = null,
     val textOverlayColor: Color = COLORS[0],
     val textOverlayAlpha: Float = 1f,
