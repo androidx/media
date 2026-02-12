@@ -957,6 +957,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         .setFrameRate(variantFormat.frameRate)
         .setSelectionFlags(variantFormat.selectionFlags)
         .setRoleFlags(variantFormat.roleFlags)
+        .setColorInfo(variantFormat.colorInfo)
         .build();
   }
 

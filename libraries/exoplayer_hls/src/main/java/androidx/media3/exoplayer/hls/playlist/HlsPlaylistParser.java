@@ -29,6 +29,7 @@ import android.text.TextUtils;
 import android.util.Base64;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
@@ -516,9 +517,13 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             supplementalProfiles = codecsAndProfiles[1];
           }
         }
+        @Nullable ColorInfo colorInfo = null;
         String videoCodecs = Util.getCodecsOfType(codecs, C.TRACK_TYPE_VIDEO);
         if (isDolbyVisionFormat(
             videoRange, videoCodecs, supplementalCodecs, supplementalProfiles)) {
+          colorInfo =
+              Util.getColorInfoForDolbyVision(codecs, supplementalCodecs, supplementalProfiles);
+
           videoCodecs = supplementalCodecs != null ? supplementalCodecs : videoCodecs;
           String nonVideoCodecs = Util.getCodecsWithoutType(codecs, C.TRACK_TYPE_VIDEO);
           codecs = nonVideoCodecs != null ? videoCodecs + "," + nonVideoCodecs : videoCodecs;
@@ -587,6 +592,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setHeight(height)
                 .setFrameRate(frameRate)
                 .setRoleFlags(roleFlags)
+                .setColorInfo(colorInfo)
                 .build();
         Variant variant =
             new Variant(

@@ -32,6 +32,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -394,6 +395,11 @@ public final class MediaCodecUtil {
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          if (format.colorInfo != null
+              && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+              && format.colorInfo.colorRange == C.COLOR_RANGE_FULL) {
+            return null;
+          }
           return MimeTypes.VIDEO_AV1;
         }
       }

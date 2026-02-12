@@ -462,7 +462,8 @@ public final class MimeTypes {
     } else if (codec.startsWith("dvav")
         || codec.startsWith("dva1")
         || codec.startsWith("dvhe")
-        || codec.startsWith("dvh1")) {
+        || codec.startsWith("dvh1")
+        || codec.startsWith("dav1")) {
       return MimeTypes.VIDEO_DOLBY_VISION;
     } else if (codec.startsWith("av01")) {
       return MimeTypes.VIDEO_AV1;
@@ -617,8 +618,8 @@ public final class MimeTypes {
     if (codecs == null) {
       return false;
     }
-    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
-      // profile 5
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1") || codecs.startsWith("dav1")) {
+      // profiles 5, 10.0 and 20.0
       return true;
     }
     if (supplementalCodecs == null) {

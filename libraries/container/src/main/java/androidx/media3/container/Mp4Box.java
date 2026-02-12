@@ -124,6 +124,9 @@ public abstract class Mp4Box {
   public static final int TYPE_dvcC = 0x64766343;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_dav1 = 0x64617631;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_dvvC = 0x64767643;
 
   @SuppressWarnings("ConstantCaseForConstants")

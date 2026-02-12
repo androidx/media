@@ -76,6 +76,13 @@ public class HlsMultivariantPlaylistParserTest {
           + "CODECS=\"mp4a.40.2 , avc1.66.30 \"\n"
           + "http://example.com/spaces_in_codecs.m3u8\n";
 
+  private static final String PLAYLIST_WITH_DOLBY_VISION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=8500000,AVERAGE-BANDWIDTH=6000000,"
+          + "CODECS=\"dvh1.10.05\",RESOLUTION=1920x1080,VIDEO-RANGE=PQ\n"
+          + "http://example.com/high_hdr.m3u8\n";
+
   private static final String PLAYLIST_WITH_PATHWAY_ID_AND_STABLE_VARIANT_ID =
       " #EXTM3U \n"
           + "\n"
@@ -364,6 +371,19 @@ public class HlsMultivariantPlaylistParserTest {
 
     assertThat(variants.get(0).format.bitrate).isEqualTo(1280000);
     assertThat(variants.get(1).format.bitrate).isEqualTo(1280000);
+  }
+
+  @Test
+  public void parseMultivariantPlaylist_withDolbyVisionProfile10_success() throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_URI, PLAYLIST_WITH_DOLBY_VISION);
+
+    List<HlsMultivariantPlaylist.Variant> variants = multivariantPlaylist.variants;
+
+    assertThat(variants.get(0).format.colorInfo).isNotNull();
+    assertThat(variants.get(0).format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(variants.get(0).format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(variants.get(0).format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
   }
 
   @Test

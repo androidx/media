@@ -94,6 +94,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ContentType;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -2245,6 +2246,70 @@ public final class Util {
       }
     }
     return builder.length() > 0 ? builder.toString() : null;
+  }
+
+  /**
+   * Returns the {@link ColorInfo} for specific Dolby Vision codecs and profiles.
+   *
+   * <p>This method only supports providing {@link ColorInfo} for the following Dolby Vision codecs
+   * and profiles:
+   *
+   * <ul>
+   *   <li>Dolby Vision profiles 5, 10.0, and 20.0
+   *   <li>Dolby Vision profiles 8.1 and 8.4 when providing supplemental profile values
+   * </ul>
+   *
+   * @param codecs A codec sequence string, as defined in RFC 6381.
+   * @param supplementalCodecs An optional RFC 6381 codecs string for supplemental codecs.
+   * @param supplementalProfiles Optional supplemental profile info.
+   * @return The {@link ColorInfo} for specific Dolby Vision codecs and profiles and otherwise null.
+   */
+  @UnstableApi
+  @Nullable
+  public static ColorInfo getColorInfoForDolbyVision(
+      @Nullable String codecs,
+      @Nullable String supplementalCodecs,
+      @Nullable String supplementalProfiles) {
+    if (codecs == null) {
+      return null;
+    }
+
+    @C.ColorSpace int colorSpace = Format.NO_VALUE;
+    @C.ColorRange int colorRange = Format.NO_VALUE;
+    @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
+
+    if (!MimeTypes.isDolbyVisionCodec(codecs, supplementalCodecs)) {
+      return null;
+    }
+
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1") || codecs.startsWith("dav1")) {
+      // profiles 5, 10.0 and 20.0
+      colorSpace = C.COLOR_SPACE_BT2020;
+      colorTransfer = C.COLOR_TRANSFER_ST2084;
+      colorRange = C.COLOR_RANGE_FULL;
+    } else if (supplementalProfiles != null) {
+      if (supplementalProfiles.equals("db1p")) {
+        // BL signal cross-compatibility ID = 1 (e.g profile 8.1)
+        colorSpace = C.COLOR_SPACE_BT2020;
+        colorTransfer = C.COLOR_TRANSFER_ST2084;
+        colorRange = C.COLOR_RANGE_LIMITED;
+      } else if (supplementalProfiles.startsWith("db4")) { // db4g or db4h
+        // BL signal cross-compatibility ID = 4 (e.g profile 8.4)
+        colorSpace = C.COLOR_SPACE_BT2020;
+        colorTransfer = C.COLOR_TRANSFER_HLG;
+        colorRange = C.COLOR_RANGE_LIMITED;
+      }
+    }
+
+    if (colorSpace == Format.NO_VALUE) {
+      return null;
+    }
+
+    return new ColorInfo.Builder()
+        .setColorSpace(colorSpace)
+        .setColorRange(colorRange)
+        .setColorTransfer(colorTransfer)
+        .build();
   }
 
   /**

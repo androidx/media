@@ -12,6 +12,8 @@
     *   Fix bug where transitions from on-demand to live content may cause
         re-buffers at the end of the on-demand content
         ([#3052](https://github.com/androidx/media/issues/3052)).
+    *   Add support for Dolby Vision Profile 10
+        ([#2830](https://github.com/androidx/media/pull/2830)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
