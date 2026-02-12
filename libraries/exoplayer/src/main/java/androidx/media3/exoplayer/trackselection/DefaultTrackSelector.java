@@ -74,6 +74,7 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -2830,12 +2831,15 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
     }
 
+    selectMetadataTracks(definitions, mappedTrackInfo, rendererFormatSupports, params);
+
     for (int i = 0; i < rendererCount; i++) {
       int trackType = mappedTrackInfo.getRendererType(i);
       if (trackType != C.TRACK_TYPE_VIDEO
           && trackType != C.TRACK_TYPE_AUDIO
           && trackType != C.TRACK_TYPE_TEXT
           && trackType != C.TRACK_TYPE_IMAGE
+          && trackType != C.TRACK_TYPE_METADATA
           && definitions[i] == null) {
         definitions[i] =
             selectOtherTrack(
@@ -3056,6 +3060,81 @@ public class DefaultTrackSelector extends MappingTrackSelector
         ImageTrackInfo::compareSelections);
   }
 
+  // Metadata track selection implementation.
+
+  /**
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection.Definition} instances for metadata
+   * track selections.
+   *
+   * @param definitions The full list of selected tracks and output array to mark metadata track
+   *     selections.
+   * @param mappedTrackInfo Mapped track information.
+   * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
+   *     renderer, track group and track (in that order).
+   * @param params The selector's current constraint parameters.
+   * @throws ExoPlaybackException If an error occurs while selecting the tracks.
+   */
+  protected void selectMetadataTracks(
+      ExoTrackSelection.@NullableType Definition[] definitions,
+      MappedTrackInfo mappedTrackInfo,
+      @Capabilities int[][][] rendererFormatSupports,
+      Parameters params)
+      throws ExoPlaybackException {
+    if (params.audioOffloadPreferences.audioOffloadMode == AUDIO_OFFLOAD_MODE_REQUIRED) {
+      return;
+    }
+    ImmutableSet<String> primaryTrackGroupIds =
+        getSelectedPrimaryTrackGroupIds(definitions, params);
+    // Merge all metadata tracks together to support multiple metadata renderers.
+    ArrayList<TrackGroup> metadataGroupsList = new ArrayList<>();
+    ArrayList<@Capabilities int[]> metadataGroupSupportList = new ArrayList<>();
+    for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+      int trackType = mappedTrackInfo.getRendererType(i);
+      if (trackType != C.TRACK_TYPE_METADATA) {
+        continue;
+      }
+      TrackGroupArray metadataTracksForRenderer = mappedTrackInfo.getTrackGroups(i);
+      for (int j = 0; j < metadataTracksForRenderer.length; j++) {
+        TrackGroup trackGroup = metadataTracksForRenderer.get(j);
+        metadataGroupsList.add(trackGroup);
+        @Capabilities int[] groupSupport = rendererFormatSupports[i][j].clone();
+        for (int k = 0; k < groupSupport.length; k++) {
+          Format format = trackGroup.getFormat(k);
+          if (format.primaryTrackGroupId != null
+              && !primaryTrackGroupIds.contains(format.primaryTrackGroupId)) {
+            // Mark track as unsupported if it's muxed and the matching primary group is not active.
+            groupSupport[k] = RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+          }
+        }
+        metadataGroupSupportList.add(groupSupport);
+      }
+    }
+    TrackGroup[] metadataGroupsArray = new TrackGroup[metadataGroupsList.size()];
+    Util.nullSafeListToArray(metadataGroupsList, metadataGroupsArray);
+    TrackGroupArray metadataGroups = new TrackGroupArray(metadataGroupsArray);
+    @Capabilities int[][] metadataGroupSupport = new int[metadataGroupSupportList.size()][];
+    Util.nullSafeListToArray(metadataGroupSupportList, metadataGroupSupport);
+    // Find the best metadata track per renderer, remove support for the selected track from the
+    // list and continue until all metadata renderers have a track or no new track is selected.
+    for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+      int trackType = mappedTrackInfo.getRendererType(i);
+      if (trackType != C.TRACK_TYPE_METADATA) {
+        continue;
+      }
+      definitions[i] =
+          selectOtherTrack(C.TRACK_TYPE_METADATA, metadataGroups, metadataGroupSupport, params);
+      if (definitions[i] != null) {
+        int groupIndex = metadataGroups.indexOf(definitions[i].group);
+        Arrays.fill(
+            metadataGroupSupport[groupIndex],
+            RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE));
+      } else {
+        break;
+      }
+    }
+  }
+
   // Generic track selection methods.
 
   /**
@@ -3100,6 +3179,26 @@ public class DefaultTrackSelector extends MappingTrackSelector
     return selectedGroup == null
         ? null
         : new ExoTrackSelection.Definition(selectedGroup, selectedTrackIndex);
+  }
+
+  private static ImmutableSet<String> getSelectedPrimaryTrackGroupIds(
+      ExoTrackSelection.@NullableType Definition[] definitions, Parameters parameters) {
+    ImmutableSet.Builder<String> primaryTrackGroupIds = ImmutableSet.builder();
+    for (int i = 0; i < definitions.length; i++) {
+      ExoTrackSelection.@NullableType Definition definition = definitions[i];
+      if (definition != null
+          && !parameters.getRendererDisabled(i)
+          && !parameters.disabledTrackTypes.contains(definition.group.type)) {
+        primaryTrackGroupIds.add(definition.group.id);
+        for (int j = 0; j < definition.tracks.length; j++) {
+          Format format = definition.group.getFormat(definition.tracks[j]);
+          if (format.primaryTrackGroupId != null) {
+            primaryTrackGroupIds.add(format.primaryTrackGroupId);
+          }
+        }
+      }
+    }
+    return primaryTrackGroupIds.build();
   }
 
   @Nullable

@@ -168,7 +168,6 @@ public final class TrackSelectionUtil {
         rendererIndex < mappedTrackInfo.getRendererCount();
         rendererIndex++) {
       TrackGroupArray trackGroupArray = mappedTrackInfo.getTrackGroups(rendererIndex);
-      List<? extends TrackSelection> rendererTrackSelections = selections[rendererIndex];
       for (int groupIndex = 0; groupIndex < trackGroupArray.length; groupIndex++) {
         TrackGroup trackGroup = trackGroupArray.get(groupIndex);
         boolean adaptiveSupported =
@@ -181,12 +180,14 @@ public final class TrackSelectionUtil {
           trackSupport[trackIndex] =
               mappedTrackInfo.getTrackSupport(rendererIndex, groupIndex, trackIndex);
           boolean isTrackSelected = false;
-          for (int i = 0; i < rendererTrackSelections.size(); i++) {
-            TrackSelection trackSelection = rendererTrackSelections.get(i);
-            if (trackSelection.getTrackGroup().equals(trackGroup)
-                && trackSelection.indexOf(trackIndex) != C.INDEX_UNSET) {
-              isTrackSelected = true;
-              break;
+          for (List<? extends TrackSelection> selection : selections) {
+            for (int j = 0; j < selection.size(); j++) {
+              TrackSelection trackSelection = selection.get(j);
+              if (trackSelection.getTrackGroup().equals(trackGroup)
+                  && trackSelection.indexOf(trackIndex) != C.INDEX_UNSET) {
+                isTrackSelected = true;
+                break;
+              }
             }
           }
           selected[trackIndex] = isTrackSelected;
