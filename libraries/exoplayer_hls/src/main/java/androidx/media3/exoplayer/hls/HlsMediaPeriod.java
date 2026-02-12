@@ -675,20 +675,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         if (numberOfAudioCodecs > 0
             && (multivariantPlaylist.muxedAudioFormat != null
                 || multivariantPlaylist.audios.isEmpty())) {
-          muxedTrackGroups.add(
-              new TrackGroup(
-                  /* id= */ sampleStreamWrapperUid + ":audio",
-                  deriveAudioFormat(
+          Format muxedAudioFormat =
+              deriveAudioFormat(
                       selectedPlaylistFormats[0],
                       multivariantPlaylist.muxedAudioFormat,
-                      /* isPrimaryTrackInVariant= */ false)));
+                      /* isPrimaryTrackInVariant= */ false)
+                  .buildUpon()
+                  .setPrimaryTrackGroupId(sampleStreamWrapperUid)
+                  .build();
+          muxedTrackGroups.add(
+              new TrackGroup(/* id= */ sampleStreamWrapperUid + ":audio", muxedAudioFormat));
         }
         List<Format> ccFormats = multivariantPlaylist.muxedCaptionFormats;
         if (ccFormats != null) {
           for (int i = 0; i < ccFormats.size(); i++) {
             String ccId = sampleStreamWrapperUid + ":cc:" + i;
-            muxedTrackGroups.add(
-                new TrackGroup(ccId, extractorFactory.getOutputTextFormat(ccFormats.get(i))));
+            Format muxedCcFormat =
+                extractorFactory
+                    .getOutputTextFormat(ccFormats.get(i))
+                    .buildUpon()
+                    .setPrimaryTrackGroupId(sampleStreamWrapperUid)
+                    .build();
+            muxedTrackGroups.add(new TrackGroup(ccId, muxedCcFormat));
           }
         }
       } else /* numberOfAudioCodecs > 0 */ {
@@ -710,6 +718,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               new Format.Builder()
                   .setId("ID3")
                   .setSampleMimeType(MimeTypes.APPLICATION_ID3)
+                  .setPrimaryTrackGroupId(sampleStreamWrapperUid)
                   .build());
       muxedTrackGroups.add(id3TrackGroup);
 

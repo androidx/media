@@ -191,10 +191,15 @@ public final class HlsMediaPeriodTest {
                     .setCodecs("mp4a.40.2")
                     .setSampleMimeType(AUDIO_AAC)
                     .setLanguage("en")
+                    .setPrimaryTrackGroupId("main")
                     .build()),
             new TrackGroup(
                 "main:id3",
-                new Format.Builder().setId("ID3").setSampleMimeType(APPLICATION_ID3).build()));
+                new Format.Builder()
+                    .setId("ID3")
+                    .setSampleMimeType(APPLICATION_ID3)
+                    .setPrimaryTrackGroupId("main")
+                    .build()));
     MediaPeriodAsserts.assertTrackGroups(mediaPeriod, expectedGroups);
 
     Uri failedPlaylistUrl = Uri.parse("https://variant1");

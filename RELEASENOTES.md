@@ -3,6 +3,9 @@
 ### Unreleased changes
 
 *   Common library:
+    *   Add `Format.primaryTrackGroupId` to identify the primary group of
+        embedded `Format` instances
+        ([#294](https://github.com/androidx/media/issues/294)).
 *   ExoPlayer:
     *   Fix issue where ExoPlayer would not request delayed audio focus when
         playback is requested during phone calls.

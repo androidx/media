@@ -214,11 +214,13 @@ public final class DashMediaPeriodTest {
                     .setId("123:cea608:1")
                     .setLanguage("eng")
                     .setAccessibilityChannel(1)
+                    .setPrimaryTrackGroupId("123")
                     .build(),
                 cea608FormatBuilder
                     .setId("123:cea608:3")
                     .setLanguage("deu")
                     .setAccessibilityChannel(3)
+                    .setPrimaryTrackGroupId("123")
                     .build()));
 
     MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
@@ -246,12 +248,39 @@ public final class DashMediaPeriodTest {
                     .setId("123:cea708:1")
                     .setLanguage("eng")
                     .setAccessibilityChannel(1)
+                    .setPrimaryTrackGroupId("123")
                     .build(),
                 cea608FormatBuilder
                     .setId("123:cea708:2")
                     .setLanguage("deu")
                     .setAccessibilityChannel(2)
+                    .setPrimaryTrackGroupId("123")
                     .build()));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
+  public void inbandEventStream_createsEmsgTrackGroups() throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_inband_event_stream");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, /* periodIndex= */ 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+    // We expect 4 sets: 2 video sets, and 2 embedded EMSG tracks (one for each video set).
+    Format.Builder emsgFormatBuilder =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_EMSG);
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                /* id= */ "100",
+                adaptationSets.get(0).representations.get(0).format,
+                adaptationSets.get(0).representations.get(1).format),
+            new TrackGroup(
+                /* id= */ "100:emsg",
+                emsgFormatBuilder.setId("100:emsg").setPrimaryTrackGroupId("100").build()),
+            new TrackGroup(/* id= */ "101", adaptationSets.get(1).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "101:emsg",
+                emsgFormatBuilder.setId("101:emsg").setPrimaryTrackGroupId("101").build()));
 
     MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
   }

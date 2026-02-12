@@ -795,6 +795,7 @@ import java.util.regex.Pattern;
             new Format.Builder()
                 .setId(eventMessageTrackGroupId)
                 .setSampleMimeType(MimeTypes.APPLICATION_EMSG)
+                .setPrimaryTrackGroupId(trackGroupId)
                 .build();
         trackGroups[eventMessageTrackGroupIndex] = new TrackGroup(eventMessageTrackGroupId, format);
         trackGroupInfos[eventMessageTrackGroupIndex] =
@@ -809,6 +810,13 @@ import java.util.regex.Pattern;
                 ImmutableList.copyOf(primaryGroupClosedCaptionTrackFormats[i]));
         maybeUpdateFormatsForParsedText(
             chunkSourceFactory, primaryGroupClosedCaptionTrackFormats[i]);
+        for (int j = 0; j < primaryGroupClosedCaptionTrackFormats[i].length; j++) {
+          primaryGroupClosedCaptionTrackFormats[i][j] =
+              primaryGroupClosedCaptionTrackFormats[i][j]
+                  .buildUpon()
+                  .setPrimaryTrackGroupId(trackGroupId)
+                  .build();
+        }
         trackGroups[closedCaptionTrackGroupIndex] =
             new TrackGroup(closedCaptionTrackGroupId, primaryGroupClosedCaptionTrackFormats[i]);
       }

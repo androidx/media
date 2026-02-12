@@ -1570,10 +1570,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                 ? muxedAudioFormat
                 : null;
         String muxedTrackGroupId = uid + ":muxed:" + (i < primaryExtractorTrackIndex ? i : i - 1);
-        trackGroups[i] =
-            new TrackGroup(
-                muxedTrackGroupId,
-                deriveFormat(playlistFormat, sampleFormat, /* propagateBitrates= */ false));
+        Format muxedFormat =
+            deriveFormat(playlistFormat, sampleFormat, /* propagateBitrates= */ false)
+                .buildUpon()
+                .setPrimaryTrackGroupId(uid)
+                .build();
+        trackGroups[i] = new TrackGroup(muxedTrackGroupId, muxedFormat);
       }
     }
     this.trackGroups = createTrackGroupArrayWithDrmInfo(trackGroups);

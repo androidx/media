@@ -148,6 +148,7 @@ public final class FormatTest {
         .setCodecs("codec")
         .setMetadata(metadata)
         .setCustomData(new TestCustomData("CustomData", 100))
+        .setPrimaryTrackGroupId("primary-id")
         .setContainerMimeType(VIDEO_MP4)
         .setSampleMimeType(MimeTypes.VIDEO_H264)
         .setMaxInputSize(5000)

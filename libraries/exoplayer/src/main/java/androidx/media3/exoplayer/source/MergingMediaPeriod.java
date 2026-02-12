@@ -290,11 +290,13 @@ import java.util.IdentityHashMap;
         Format[] mergedFormats = new Format[childTrackGroup.length];
         for (int k = 0; k < childTrackGroup.length; k++) {
           Format originalFormat = childTrackGroup.getFormat(k);
-          mergedFormats[k] =
-              originalFormat
-                  .buildUpon()
-                  .setId(i + ":" + (originalFormat.id == null ? "" : originalFormat.id))
-                  .build();
+          Format.Builder mergedFormatBuilder = originalFormat.buildUpon();
+          mergedFormatBuilder.setId(i + ":" + (originalFormat.id == null ? "" : originalFormat.id));
+          if (originalFormat.primaryTrackGroupId != null) {
+            mergedFormatBuilder.setPrimaryTrackGroupId(
+                i + ":" + originalFormat.primaryTrackGroupId);
+          }
+          mergedFormats[k] = mergedFormatBuilder.build();
         }
         TrackGroup mergedTrackGroup =
             new TrackGroup(/* id= */ i + ":" + childTrackGroup.id, mergedFormats);

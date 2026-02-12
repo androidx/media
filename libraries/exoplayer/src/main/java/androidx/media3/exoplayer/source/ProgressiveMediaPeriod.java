@@ -912,6 +912,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     loadCondition.close();
     int trackCount = sampleQueues.length;
+    int primaryTrackIndex = 0;
+    @C.TrackType int primaryTrackIndexType = C.TRACK_TYPE_UNKNOWN;
+    for (int i = 0; i < trackCount; i++) {
+      @C.TrackType
+      int trackType =
+          MimeTypes.getTrackType(checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType);
+      if (getTrackTypePriority(trackType) > getTrackTypePriority(primaryTrackIndexType)) {
+        primaryTrackIndex = i;
+        primaryTrackIndexType = trackType;
+      }
+    }
     TrackGroup[] trackArray = new TrackGroup[trackCount];
     boolean[] trackIsAudioVideoFlags = new boolean[trackCount];
     for (int i = 0; i < trackCount; i++) {
@@ -944,6 +955,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
       trackFormat = trackFormat.copyWithCryptoType(drmSessionManager.getCryptoType(trackFormat));
+      if (i != primaryTrackIndex) {
+        trackFormat =
+            trackFormat
+                .buildUpon()
+                .setPrimaryTrackGroupId(Integer.toString(primaryTrackIndex))
+                .build();
+      }
       trackArray[i] = new TrackGroup(/* id= */ Integer.toString(i), trackFormat);
       pendingInitialDiscontinuity |= trackFormat.hasPrerollSamples;
       sampleQueues[i].setReadEndTimeUs(endPositionUs);
@@ -1339,6 +1357,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         IcyHeaders.REQUEST_HEADER_ENABLE_METADATA_NAME,
         IcyHeaders.REQUEST_HEADER_ENABLE_METADATA_VALUE);
     return Collections.unmodifiableMap(headers);
+  }
+
+  private static int getTrackTypePriority(@C.TrackType int trackType) {
+    switch (trackType) {
+      case C.TRACK_TYPE_VIDEO:
+        return 4;
+      case C.TRACK_TYPE_AUDIO:
+        return 3;
+      case C.TRACK_TYPE_IMAGE:
+        return 2;
+      case C.TRACK_TYPE_TEXT:
+        return 1;
+      default:
+        return 0;
+    }
   }
 
   /** A track output that can discard samples when not selected. */

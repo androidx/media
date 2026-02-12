@@ -3068,6 +3068,7 @@ public class MediaControllerTest {
   @Test
   public void getCurrentTracks_hasEqualTrackGroupsForEqualGroupsInPlayer() throws Exception {
     // Include metadata in Format to ensure the track group can't be fully bundled.
+    // Also include primary track group id to verify they are mapped correctly.
     Tracks initialPlayerTracks =
         new Tracks(
             ImmutableList.of(
@@ -3079,7 +3080,18 @@ public class MediaControllerTest {
                     /* trackSelected= */ new boolean[1]),
                 new Tracks.Group(
                     new TrackGroup(
-                        new Format.Builder().setMetadata(new Metadata()).setId("2").build()),
+                        new Format.Builder()
+                            .setMetadata(new Metadata())
+                            .setId("2")
+                            .setPrimaryTrackGroupId("main")
+                            .build()),
+                    /* adaptiveSupported= */ false,
+                    /* trackSupport= */ new int[1],
+                    /* trackSelected= */ new boolean[1]),
+                new Tracks.Group(
+                    new TrackGroup(
+                        /* id= */ "main",
+                        new Format.Builder().setMetadata(new Metadata()).setId("2main").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
                     /* trackSelected= */ new boolean[1])));
@@ -3088,13 +3100,24 @@ public class MediaControllerTest {
             ImmutableList.of(
                 new Tracks.Group(
                     new TrackGroup(
-                        new Format.Builder().setMetadata(new Metadata()).setId("2").build()),
+                        new Format.Builder()
+                            .setMetadata(new Metadata())
+                            .setId("2")
+                            .setPrimaryTrackGroupId("main")
+                            .build()),
                     /* adaptiveSupported= */ true,
                     /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
                     /* trackSelected= */ new boolean[] {true}),
                 new Tracks.Group(
                     new TrackGroup(
                         new Format.Builder().setMetadata(new Metadata()).setId("3").build()),
+                    /* adaptiveSupported= */ false,
+                    /* trackSupport= */ new int[1],
+                    /* trackSelected= */ new boolean[1]),
+                new Tracks.Group(
+                    new TrackGroup(
+                        /* id= */ "main",
+                        new Format.Builder().setMetadata(new Metadata()).setId("2main").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
                     /* trackSelected= */ new boolean[1])));
@@ -3126,23 +3149,32 @@ public class MediaControllerTest {
     Tracks updatedControllerTracks =
         threadTestRule.getHandler().postAndSync(controller::getCurrentTracks);
 
-    assertThat(initialControllerTracks.getGroups()).hasSize(2);
-    assertThat(updatedControllerTracks.getGroups()).hasSize(2);
+    assertThat(initialControllerTracks.getGroups()).hasSize(3);
+    assertThat(updatedControllerTracks.getGroups()).hasSize(3);
     assertThat(initialControllerTracks.getGroups().get(1).getMediaTrackGroup())
         .isEqualTo(updatedControllerTracks.getGroups().get(0).getMediaTrackGroup());
+    assertThat(initialControllerTracks.getGroups().get(1).getTrackFormat(0).primaryTrackGroupId)
+        .isEqualTo(initialControllerTracks.getGroups().get(2).getMediaTrackGroup().id);
   }
 
   @Test
   public void getCurrentTracksAndTrackOverrides_haveEqualTrackGroupsForEqualGroupsInPlayer()
       throws Exception {
     // Include metadata in Format to ensure the track group can't be fully bundled.
+    // Also include primary track group id to verify they are mapped correctly.
     TrackGroup playerTrackGroupForOverride =
-        new TrackGroup(new Format.Builder().setMetadata(new Metadata()).setId("2").build());
+        new TrackGroup(
+            new Format.Builder()
+                .setMetadata(new Metadata())
+                .setId("2")
+                .setPrimaryTrackGroupId("main")
+                .build());
     Tracks playerTracks =
         new Tracks(
             ImmutableList.of(
                 new Tracks.Group(
                     new TrackGroup(
+                        /* id= */ "main",
                         new Format.Builder().setMetadata(new Metadata()).setId("1").build()),
                     /* adaptiveSupported= */ false,
                     /* trackSupport= */ new int[1],
