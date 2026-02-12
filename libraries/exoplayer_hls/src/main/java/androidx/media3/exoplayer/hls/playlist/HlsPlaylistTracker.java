@@ -26,6 +26,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Tracks playlists associated to an HLS stream and provides snapshots.
@@ -173,6 +174,16 @@ public interface HlsPlaylistTracker {
   HlsMultivariantPlaylist getMultivariantPlaylist();
 
   /**
+   * Returns the {@link HlsRedundantGroup} list corresponding to the {@code type}.
+   *
+   * @param type The type of the requested {@link HlsRedundantGroup}.
+   * @return The list of requested {@link HlsRedundantGroup}. Null if the initial playlist has yet
+   *     to be loaded.
+   */
+  @Nullable
+  List<HlsRedundantGroup> getRedundantGroups(@HlsRedundantGroup.Type int type);
+
+  /**
    * Returns the most recent snapshot available of the playlist referenced by the provided {@link
    * Uri}.
    *
@@ -214,7 +225,7 @@ public interface HlsPlaylistTracker {
    * this method throws the underlying error.
    *
    * @param url The {@link Uri}.
-   * @throws IOException The underyling error.
+   * @throws IOException The underlying error.
    */
   void maybeThrowPlaylistRefreshError(Uri url) throws IOException;
 
@@ -252,4 +263,12 @@ public interface HlsPlaylistTracker {
    * @param url The {@link Uri} of the playlist to deactivate for playback.
    */
   default void deactivatePlaylistForPlayback(Uri url) {}
+
+  /**
+   * Returns the {@link HlsRedundantGroup} where the {@code playlistUrl} belongs.
+   *
+   * @param playlistUrl The URL of the media playlist.
+   */
+  @Nullable
+  HlsRedundantGroup getRedundantGroup(Uri playlistUrl);
 }

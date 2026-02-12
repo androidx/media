@@ -758,21 +758,17 @@ public class HlsMediaSourceTest {
             groups.stream()
                 .filter(group -> group.type != C.TRACK_TYPE_METADATA)
                 .mapToInt(group -> group.length))
-        .containsExactly(2, 2, 2, 2, 2);
+        .containsExactly(2, 1, 1, 1, 1);
     assertThat(
             groups.stream()
                 .filter(group -> group.type == C.TRACK_TYPE_AUDIO)
-                .map(
-                    group ->
-                        ImmutableList.of(group.getFormat(0).language, group.getFormat(1).language)))
-        .containsExactly(ImmutableList.of("en", "en"), ImmutableList.of("fr", "fr"));
+                .map(group -> group.getFormat(0).language))
+        .containsExactly("en", "fr");
     assertThat(
             groups.stream()
                 .filter(group -> group.type == C.TRACK_TYPE_TEXT)
-                .map(
-                    group ->
-                        ImmutableList.of(group.getFormat(0).language, group.getFormat(1).language)))
-        .containsExactly(ImmutableList.of("de", "de"), ImmutableList.of("zh", "zh"));
+                .map(group -> group.getFormat(0).language))
+        .containsExactly("de", "zh");
   }
 
   @Test

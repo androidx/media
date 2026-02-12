@@ -44,6 +44,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
+import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
@@ -99,6 +100,7 @@ public class HlsChunkSourceTest {
           .setHeight(720)
           .setRoleFlags(C.ROLE_FLAG_TRICK_PLAY)
           .build();
+  private static final String DEFAULT_PATHWAY_ID = ".";
 
   @Test
   public void getAdjustedSeekPositionUs_previousSync() throws Exception {
@@ -1117,10 +1119,14 @@ public class HlsChunkSourceTest {
       @Nullable IOException playlistLoadException)
       throws IOException {
     long playlistStartTimeUs = 0;
-    Format[] playlistFormats = new Format[playlistUrisToPaths.size() + 1];
-    Uri[] playlistUris = new Uri[playlistUrisToPaths.size() + 1];
-    playlistFormats[0] = IFRAME_FORMAT;
-    playlistUris[0] = IFRAME_URI;
+    Format[] redundantGroupFormats = new Format[playlistUrisToPaths.size() + 1];
+    HlsRedundantGroup[] redundantGroups = new HlsRedundantGroup[playlistUrisToPaths.size() + 1];
+    redundantGroupFormats[0] = IFRAME_FORMAT;
+    redundantGroups[0] =
+        new HlsRedundantGroup(
+            new HlsRedundantGroup.GroupKey(IFRAME_FORMAT, /* stableId= */ null),
+            DEFAULT_PATHWAY_ID,
+            IFRAME_URI);
     int playlistArrayIndex = 1;
     for (Map.Entry<Uri, String> playlistUriAndPath : playlistUrisToPaths.entrySet()) {
       Uri playlistUri = playlistUriAndPath.getKey();
@@ -1139,9 +1145,16 @@ public class HlsChunkSourceTest {
             .maybeThrowPlaylistRefreshError(playlistUri);
       }
       playlistStartTimeUs = playlist.startTimeUs;
-      playlistFormats[playlistArrayIndex] =
+      redundantGroupFormats[playlistArrayIndex] =
           ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId(playlistArrayIndex).build();
-      playlistUris[playlistArrayIndex] = playlistUri;
+      redundantGroups[playlistArrayIndex] =
+          new HlsRedundantGroup(
+              new HlsRedundantGroup.GroupKey(
+                  redundantGroupFormats[playlistArrayIndex], /* stableId= */ null),
+              DEFAULT_PATHWAY_ID,
+              playlistUri);
+      when(mockPlaylistTracker.getRedundantGroup(playlistUri))
+          .thenReturn(redundantGroups[playlistArrayIndex]);
       playlistArrayIndex++;
     }
     // Mock that segments totalling PLAYLIST_START_PERIOD_OFFSET_US in duration have been removed
@@ -1152,8 +1165,8 @@ public class HlsChunkSourceTest {
         new HlsChunkSource(
             createPlaceholderExtractorFactory(),
             mockPlaylistTracker,
-            playlistUris,
-            playlistFormats,
+            redundantGroups,
+            redundantGroupFormats,
             new DefaultHlsDataSourceFactory(
                 new FakeDataSource.Factory()
                     .setFakeDataSet(
