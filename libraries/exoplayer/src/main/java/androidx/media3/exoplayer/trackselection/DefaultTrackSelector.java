@@ -2676,25 +2676,29 @@ public class DefaultTrackSelector extends MappingTrackSelector
       spatializer =
           new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this, deviceIsTV);
     }
+
     int rendererCount = mappedTrackInfo.getRendererCount();
     ExoTrackSelection.@NullableType Definition[] definitions =
-        selectAllTracks(
-            mappedTrackInfo,
-            rendererFormatSupports,
-            rendererMixedMimeTypeAdaptationSupport,
-            parameters);
+        new ExoTrackSelection.Definition[rendererCount];
 
+    // Apply overrides once so that selectAllTracks is aware of the overridden tracks.
     applyTrackSelectionOverrides(mappedTrackInfo, parameters, definitions);
     applyLegacyRendererOverrides(mappedTrackInfo, parameters, definitions);
+    applyRendererDisableOverrides(mappedTrackInfo, parameters, definitions);
 
-    // Disable renderers if needed.
-    for (int i = 0; i < rendererCount; i++) {
-      @C.TrackType int rendererType = mappedTrackInfo.getRendererType(i);
-      if (parameters.getRendererDisabled(i)
-          || parameters.disabledTrackTypes.contains(rendererType)) {
-        definitions[i] = null;
-      }
-    }
+    // Select remaining tracks based on parameters.
+    selectAllTracks(
+        definitions,
+        mappedTrackInfo,
+        rendererFormatSupports,
+        rendererMixedMimeTypeAdaptationSupport,
+        parameters);
+
+    // Re-apply overrides to enforce them in case selectAllTracks changed them or added additional
+    // tracks that shouldn't be enabled according to the overrides.
+    applyTrackSelectionOverrides(mappedTrackInfo, parameters, definitions);
+    applyLegacyRendererOverrides(mappedTrackInfo, parameters, definitions);
+    applyRendererDisableOverrides(mappedTrackInfo, parameters, definitions);
 
     @NullableType
     ExoTrackSelection[] rendererTrackSelections =
@@ -2750,35 +2754,39 @@ public class DefaultTrackSelector extends MappingTrackSelector
    * AudioOffloadPreferences#AUDIO_OFFLOAD_MODE_REQUIRED} then only audio tracks will be selected.
    * If no audio track is supported in offload, then no track will be selected.
    *
+   * @param definitions The {@link ExoTrackSelection.Definition}s for the renderers to be filled in.
+   *     A null entry indicates no selection was made. The array may contain existing prepopulated
+   *     entries from overrides.
    * @param mappedTrackInfo Mapped track information.
    * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
    *     renderer, track group and track (in that order).
    * @param rendererMixedMimeTypeAdaptationSupports The {@link AdaptiveSupport} for mixed MIME type
    *     adaptation for the renderer.
    * @param params The parameters to use for the track selection.
-   * @return The {@link ExoTrackSelection.Definition}s for the renderers. A null entry indicates no
-   *     selection was made.
    * @throws ExoPlaybackException If an error occurs while selecting the tracks.
    */
-  protected ExoTrackSelection.@NullableType Definition[] selectAllTracks(
+  protected void selectAllTracks(
+      ExoTrackSelection.@NullableType Definition[] definitions,
       MappedTrackInfo mappedTrackInfo,
       @Capabilities int[][][] rendererFormatSupports,
       @AdaptiveSupport int[] rendererMixedMimeTypeAdaptationSupports,
       Parameters params)
       throws ExoPlaybackException {
     int rendererCount = mappedTrackInfo.getRendererCount();
-    ExoTrackSelection.@NullableType Definition[] definitions =
-        new ExoTrackSelection.Definition[rendererCount];
 
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedAudio =
-        selectAudioTrack(
-            mappedTrackInfo,
-            rendererFormatSupports,
-            rendererMixedMimeTypeAdaptationSupports,
-            params);
-    if (selectedAudio != null) {
-      definitions[selectedAudio.second] = selectedAudio.first;
+        findDefinitionForType(definitions, C.TRACK_TYPE_AUDIO);
+    if (selectedAudio == null) {
+      selectedAudio =
+          selectAudioTrack(
+              mappedTrackInfo,
+              rendererFormatSupports,
+              rendererMixedMimeTypeAdaptationSupports,
+              params);
+      if (selectedAudio != null) {
+        definitions[selectedAudio.second] = selectedAudio.first;
+      }
     }
     @Nullable
     String selectedAudioLanguage =
@@ -2788,30 +2796,38 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedVideo =
-        selectVideoTrack(
-            mappedTrackInfo,
-            rendererFormatSupports,
-            rendererMixedMimeTypeAdaptationSupports,
-            params,
-            selectedAudioLanguage);
-
+        findDefinitionForType(definitions, C.TRACK_TYPE_VIDEO);
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedImage =
-        params.isPrioritizeImageOverVideoEnabled || selectedVideo == null
-            ? selectImageTrack(mappedTrackInfo, rendererFormatSupports, params)
-            : null;
-
-    if (selectedImage != null) {
-      definitions[selectedImage.second] = selectedImage.first;
-    } else if (selectedVideo != null) {
-      definitions[selectedVideo.second] = selectedVideo.first;
+        findDefinitionForType(definitions, C.TRACK_TYPE_IMAGE);
+    if (selectedVideo == null && selectedImage == null) {
+      selectedVideo =
+          selectVideoTrack(
+              mappedTrackInfo,
+              rendererFormatSupports,
+              rendererMixedMimeTypeAdaptationSupports,
+              params,
+              selectedAudioLanguage);
+      selectedImage =
+          params.isPrioritizeImageOverVideoEnabled || selectedVideo == null
+              ? selectImageTrack(mappedTrackInfo, rendererFormatSupports, params)
+              : null;
+      if (selectedImage != null) {
+        definitions[selectedImage.second] = selectedImage.first;
+      } else if (selectedVideo != null) {
+        definitions[selectedVideo.second] = selectedVideo.first;
+      }
     }
 
     @Nullable
     Pair<ExoTrackSelection.Definition, Integer> selectedText =
-        selectTextTrack(mappedTrackInfo, rendererFormatSupports, params, selectedAudioLanguage);
-    if (selectedText != null) {
-      definitions[selectedText.second] = selectedText.first;
+        findDefinitionForType(definitions, C.TRACK_TYPE_TEXT);
+    if (selectedText == null) {
+      selectedText =
+          selectTextTrack(mappedTrackInfo, rendererFormatSupports, params, selectedAudioLanguage);
+      if (selectedText != null) {
+        definitions[selectedText.second] = selectedText.first;
+      }
     }
 
     for (int i = 0; i < rendererCount; i++) {
@@ -2819,20 +2835,21 @@ public class DefaultTrackSelector extends MappingTrackSelector
       if (trackType != C.TRACK_TYPE_VIDEO
           && trackType != C.TRACK_TYPE_AUDIO
           && trackType != C.TRACK_TYPE_TEXT
-          && trackType != C.TRACK_TYPE_IMAGE) {
+          && trackType != C.TRACK_TYPE_IMAGE
+          && definitions[i] == null) {
         definitions[i] =
             selectOtherTrack(
                 trackType, mappedTrackInfo.getTrackGroups(i), rendererFormatSupports[i], params);
       }
     }
-    return definitions;
   }
 
   // Video track selection implementation.
 
   /**
-   * Called by {@link #selectAllTracks(MappedTrackInfo, int[][][], int[], Parameters)} to create a
-   * {@link ExoTrackSelection.Definition} for a video track selection.
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection.Definition} for a video track
+   * selection.
    *
    * @param mappedTrackInfo Mapped track information.
    * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
@@ -2881,8 +2898,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
   // Audio track selection implementation.
 
   /**
-   * Called by {@link #selectAllTracks(MappedTrackInfo, int[][][], int[], Parameters)} to create a
-   * {@link ExoTrackSelection.Definition} for an audio track selection.
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection.Definition} for an audio track
+   * selection.
    *
    * @param mappedTrackInfo Mapped track information.
    * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
@@ -2961,8 +2979,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
   // Text track selection implementation.
 
   /**
-   * Called by {@link #selectAllTracks(MappedTrackInfo, int[][][], int[], Parameters)} to create a
-   * {@link ExoTrackSelection.Definition} for a text track selection.
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection.Definition} for a text track
+   * selection.
    *
    * @param mappedTrackInfo Mapped track information.
    * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
@@ -3007,8 +3026,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
   // Image track selection implementation.
 
   /**
-   * Called by {@link #selectAllTracks(MappedTrackInfo, int[][][], int[], Parameters)} to create a
-   * {@link ExoTrackSelection.Definition} for an image track selection.
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection.Definition} for an image track
+   * selection.
    *
    * @param mappedTrackInfo Mapped track information.
    * @param rendererFormatSupports The {@link Capabilities} for each mapped track, indexed by
@@ -3039,8 +3059,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
   // Generic track selection methods.
 
   /**
-   * Called by {@link #selectAllTracks(MappedTrackInfo, int[][][], int[], Parameters)} to create a
-   * {@link ExoTrackSelection} for a renderer whose type is neither video, audio or text.
+   * Called by {@link #selectAllTracks(ExoTrackSelection.Definition[], MappedTrackInfo, int[][][],
+   * int[], Parameters)} to create a {@link ExoTrackSelection} for a renderer whose type is neither
+   * video, audio or text.
    *
    * @param trackType The type of the renderer.
    * @param groups The {@link TrackGroupArray} mapped to the renderer.
@@ -3250,6 +3271,19 @@ public class DefaultTrackSelector extends MappingTrackSelector
         selection = null;
       }
       outDefinitions[rendererIndex] = selection;
+    }
+  }
+
+  private static void applyRendererDisableOverrides(
+      MappedTrackInfo mappedTrackInfo,
+      Parameters parameters,
+      ExoTrackSelection.@NullableType Definition[] definitions) {
+    for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+      @C.TrackType int rendererType = mappedTrackInfo.getRendererType(i);
+      if (parameters.getRendererDisabled(i)
+          || parameters.disabledTrackTypes.contains(rendererType)) {
+        definitions[i] = null;
+      }
     }
   }
 
@@ -3598,6 +3632,17 @@ public class DefaultTrackSelector extends MappingTrackSelector
       return null;
     }
     return Util.getLocaleLanguageTag(preferredLocale);
+  }
+
+  @Nullable
+  private static Pair<ExoTrackSelection.Definition, Integer> findDefinitionForType(
+      ExoTrackSelection.@NullableType Definition[] definitions, @C.TrackType int trackType) {
+    for (int i = 0; i < definitions.length; i++) {
+      if (definitions[i] != null && definitions[i].group.type == trackType) {
+        return Pair.create(definitions[i], i);
+      }
+    }
+    return null;
   }
 
   /** Base class for track selection information of a {@link Format}. */

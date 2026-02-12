@@ -15,6 +15,8 @@
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
+    *   Change signature of `DefaultTrackSelector.selectAllTracks` to include
+        the output array as a parameter, pre-populated with track overrides.
 *   Extractors:
     *   MP4: Support files with large `uuid` boxes before other boxes like
         `moov` ([#3046](https://github.com/androidx/media/issues/3046)).

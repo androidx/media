@@ -1434,6 +1434,51 @@ public final class DefaultTrackSelectorTest {
     assertFixedSelection(result.selections[1], trackGroups, defaultEnglish);
   }
 
+  @Test
+  public void selectTracks_withAudioTrackOverride_choosesVideoAndTextTracksWithMatchingLanguage()
+      throws ExoPlaybackException {
+    Format.Builder textBuilder =
+        TEXT_FORMAT.buildUpon().setSelectionFlags(C.SELECTION_FLAG_DEFAULT);
+    Format textEnglish = textBuilder.setLanguage("en").build();
+    Format textGerman = textBuilder.setLanguage("de").build();
+    Format audioEnglish = AUDIO_FORMAT.buildUpon().setLanguage("en").build();
+    Format audioGerman = AUDIO_FORMAT.buildUpon().setLanguage("de").build();
+    Format videoEnglish = VIDEO_FORMAT.buildUpon().setLanguage("en").build();
+    Format videoGerman = VIDEO_FORMAT.buildUpon().setLanguage("de").build();
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {
+          ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES,
+          ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES,
+          ALL_VIDEO_FORMAT_EXCEEDED_RENDERER_CAPABILITIES
+        };
+    TrackGroupArray trackGroups =
+        wrapFormats(audioEnglish, audioGerman, textEnglish, textGerman, videoEnglish, videoGerman);
+
+    // Specify override for English audio to assert English text and video is selected and override
+    // for German audio to assert German text and video is selected.
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setOverrideForType(new TrackSelectionOverride(trackGroups.get(0), /* trackIndex= */ 0))
+            .build());
+    TrackSelectorResult resultEnglish =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setOverrideForType(new TrackSelectionOverride(trackGroups.get(1), /* trackIndex= */ 0))
+            .build());
+    TrackSelectorResult resultGerman =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(resultEnglish.selections[0], trackGroups, audioEnglish);
+    assertFixedSelection(resultEnglish.selections[1], trackGroups, textEnglish);
+    assertFixedSelection(resultEnglish.selections[2], trackGroups, videoEnglish);
+    assertFixedSelection(resultGerman.selections[0], trackGroups, audioGerman);
+    assertFixedSelection(resultGerman.selections[1], trackGroups, textGerman);
+    assertFixedSelection(resultGerman.selections[2], trackGroups, videoGerman);
+  }
+
   /**
    * Tests that the default track selector will select a text track with undetermined language if no
    * text track with the preferred language is available but {@link
