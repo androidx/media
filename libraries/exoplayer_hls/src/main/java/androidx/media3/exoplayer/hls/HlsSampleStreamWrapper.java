@@ -339,8 +339,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     assertIsPrepared();
     checkNotNull(trackGroupToSampleQueueIndex);
     int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
-    checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
-    sampleQueuesEnabledStates[sampleQueueIndex] = false;
+    if (sampleQueueIndex >= 0) {
+      checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
+      sampleQueuesEnabledStates[sampleQueueIndex] = false;
+    }
   }
 
   /**
@@ -408,8 +410,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         if (trackGroupToSampleQueueIndex != null) {
           ((HlsSampleStream) streams[i]).bindSampleQueue();
           // If there's still a chance of avoiding a seek, try and seek within the sample queue.
-          if (!seekRequired) {
-            SampleQueue sampleQueue = sampleQueues[trackGroupToSampleQueueIndex[trackGroupIndex]];
+          int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
+          if (!seekRequired && sampleQueueIndex >= 0) {
+            SampleQueue sampleQueue = sampleQueues[sampleQueueIndex];
             // A seek can be avoided if we haven't read any samples yet (e.g. for the first track
             // selection) or we are able to seek to the current playback position in the sample
             // queue. In all other cases a seek is required.
