@@ -47,7 +47,7 @@ public class CompositionVideoPacketReleaseControlTest {
   private VideoFrameReleaseControl videoFrameReleaseControl;
   private FakeFrameTimingEvaluator fakeFrameTimingEvaluator;
   private FakeClock fakeClock;
-  private RecordingPacketConsumer<List<HardwareBufferFrame>> outputConsumer;
+  private RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> outputConsumer;
   private Set<Long> releasedFrameTimestamps;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
@@ -332,7 +332,7 @@ public class CompositionVideoPacketReleaseControlTest {
   @SafeVarargs
   private final void assertOutputPackets(
       boolean ignoreReleaseTime, List<HardwareBufferFrame>... expectedPackets) {
-    List<List<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPayloads();
+    List<ImmutableList<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPayloads();
     assertThat(outputPackets).hasSize(expectedPackets.length);
     for (int i = 0; i < expectedPackets.length; i++) {
       List<HardwareBufferFrame> receivedFrames = outputPackets.get(i);

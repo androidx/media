@@ -56,7 +56,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** An {@link ExportOperation} implementation for resumed exports. */
@@ -140,7 +139,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -175,7 +174,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable
-          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       @Nullable LogSessionId logSessionId,

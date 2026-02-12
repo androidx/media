@@ -127,7 +127,7 @@ public final class Transformer {
         metricsReporterFactory;
 
     @Nullable
-    private RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+    private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor;
 
     @Nullable private RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -378,7 +378,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setHardwareBufferEffectsPipeline(
-        RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+        RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
             packetProcessor) {
       this.packetProcessor = packetProcessor;
       return this;
@@ -843,7 +843,7 @@ public final class Transformer {
 
   @Nullable
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -882,7 +882,7 @@ public final class Transformer {
       Clock clock,
       @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory,
       @Nullable
-          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");

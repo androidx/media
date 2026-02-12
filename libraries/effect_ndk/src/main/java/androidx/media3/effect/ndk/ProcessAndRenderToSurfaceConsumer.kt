@@ -29,6 +29,7 @@ import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue
 import androidx.media3.effect.ndk.HardwareBufferSurfaceRenderer.Companion.create
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.MoreExecutors
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
@@ -46,7 +47,7 @@ private constructor(
   private val frameQueue: PacketConsumerHardwareBufferFrameQueue,
   private val hardwareBufferRenderer: HardwareBufferSurfaceRenderer,
   private val rendererExecutor: Executor,
-) : PacketConsumer<List<HardwareBufferFrame>>, SurfaceHolder.Callback {
+) : PacketConsumer<ImmutableList<HardwareBufferFrame>>, SurfaceHolder.Callback {
 
   /** [PacketConsumer.Factory] for creating [ProcessAndRenderToSurfaceConsumer] instances. */
   class Factory(
@@ -54,10 +55,10 @@ private constructor(
     private val glExecutorService: ExecutorService,
     private val glObjectsProvider: GlObjectsProvider,
     private val errorHandler: Consumer<Exception>,
-  ) : PacketConsumer.Factory<List<HardwareBufferFrame>> {
+  ) : PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> {
     private var surfaceHolder: SurfaceHolder? = null
 
-    override fun create(): PacketConsumer<List<HardwareBufferFrame>> {
+    override fun create(): PacketConsumer<ImmutableList<HardwareBufferFrame>> {
       val hardwareBufferRenderer =
         create(
           context,
@@ -98,7 +99,7 @@ private constructor(
     }
   }
 
-  override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
+  override suspend fun queuePacket(packet: Packet<ImmutableList<HardwareBufferFrame>>) {
     effectsPipeline.queuePacket(packet)
   }
 

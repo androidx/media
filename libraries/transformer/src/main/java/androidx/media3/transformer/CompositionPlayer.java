@@ -162,7 +162,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-    private PacketConsumer.@MonotonicNonNull Factory<List<HardwareBufferFrame>>
+    private PacketConsumer.@MonotonicNonNull Factory<ImmutableList<HardwareBufferFrame>>
         packetConsumerFactory;
 
     private boolean videoPrewarmingEnabled;
@@ -454,7 +454,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     @CanIgnoreReturnValue
     public Builder setPacketConsumerFactory(
-        PacketConsumer.Factory<List<HardwareBufferFrame>> packetConsumerFactory) {
+        PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
       this.packetConsumerFactory = packetConsumerFactory;
       return this;
@@ -537,7 +537,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final boolean shouldShutdownExecutorService;
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
-  @Nullable private final PacketConsumer<List<HardwareBufferFrame>> packetConsumer;
+  @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;

@@ -35,7 +35,7 @@ import java.util.Queue;
  * ImmutableList<HardwareBufferFrame>}.
  */
 /* package */ class FrameAggregator {
-  private final Consumer<List<HardwareBufferFrame>> downstreamConsumer;
+  private final Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
   private boolean isEnded;
@@ -46,7 +46,8 @@ import java.util.Queue;
    * @param downstreamConsumer Receives the aggregated {@linkplain
    *     ImmutableList<HardwareBufferFrame> frames}.
    */
-  public FrameAggregator(int numSequences, Consumer<List<HardwareBufferFrame>> downstreamConsumer) {
+  public FrameAggregator(
+      int numSequences, Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer) {
     this.numSequences = numSequences;
     this.downstreamConsumer = downstreamConsumer;
     inputFrameQueues = new ArrayList<>();

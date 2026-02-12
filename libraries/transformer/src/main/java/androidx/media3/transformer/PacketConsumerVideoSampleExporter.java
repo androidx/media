@@ -66,11 +66,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Consumer<ExportException> errorConsumer;
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
   private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
-  private final PacketConsumerCaller<List<? extends HardwareBufferFrame>> packetConsumerCaller;
+  private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> packetConsumerCaller;
   private final FrameAggregator frameAggregator;
   private final PacketConsumerHardwareBufferFrameQueue hardwareBufferFrameQueue;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
@@ -98,7 +98,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Composition composition,
       Format firstInputFormat,
       TransformationRequest transformationRequest,
-      RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+      RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
           packetProcessor,
       RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       EncoderFactory encoderFactory,
@@ -255,7 +255,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @SuppressWarnings("unchecked")
-  private void queueAggregatedFrames(List<HardwareBufferFrame> frames) {
+  private void queueAggregatedFrames(ImmutableList<HardwareBufferFrame> frames) {
     // We don't need to apply backpressure here - it's applied implicitly via the texture listener
     // capacity.
     ListenableFuture<Void> queuePacketFuture;

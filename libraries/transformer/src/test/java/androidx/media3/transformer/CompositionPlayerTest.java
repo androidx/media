@@ -1223,7 +1223,7 @@ public class CompositionPlayerTest {
   @Test
   public void packetConsumer_imagePlayback_completesWithExpectedNumberOfFrames() throws Exception {
     CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
-    RecordingPacketConsumer<List<HardwareBufferFrame>> packetConsumer =
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
         new RecordingPacketConsumer<>();
     packetConsumer.setOnQueue(
         (frames) -> {
@@ -1265,7 +1265,7 @@ public class CompositionPlayerTest {
   public void packetConsumer_imagePlayback_seekToMiddle_completesWithExpectedNumberOfFrames()
       throws Exception {
     CountDownLatch allExpectedPacketsQueued = new CountDownLatch(1);
-    RecordingPacketConsumer<List<HardwareBufferFrame>> packetConsumer =
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
         new RecordingPacketConsumer<>();
     packetConsumer.setOnQueue(
         (frames) -> {

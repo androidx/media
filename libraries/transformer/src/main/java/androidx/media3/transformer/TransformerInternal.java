@@ -136,7 +136,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Nullable
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -218,7 +218,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable
-          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       long videoSampleTimestampOffsetUs,

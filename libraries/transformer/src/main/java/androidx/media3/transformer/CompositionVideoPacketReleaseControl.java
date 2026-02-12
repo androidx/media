@@ -44,7 +44,7 @@ import java.util.concurrent.ExecutorService;
 /* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final PacketConsumerCaller<List<HardwareBufferFrame>> downstreamConsumer;
+  private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private boolean isEnded;
@@ -58,7 +58,7 @@ import java.util.concurrent.ExecutorService;
    */
   public CompositionVideoPacketReleaseControl(
       VideoFrameReleaseControl videoFrameReleaseControl,
-      PacketConsumer<List<HardwareBufferFrame>> downstreamConsumer,
+      PacketConsumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
       ExecutorService glExecutorService,
       Consumer<Exception> exceptionConsumer) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);

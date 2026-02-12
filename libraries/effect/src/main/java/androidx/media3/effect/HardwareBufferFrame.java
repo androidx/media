@@ -38,7 +38,7 @@ import java.util.concurrent.Executor;
  * party apps.
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-public class HardwareBufferFrame implements Frame {
+public final class HardwareBufferFrame implements Frame {
 
   /** A callback to be invoked when the {@link HardwareBufferFrame} is released. */
   public interface ReleaseCallback {

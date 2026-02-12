@@ -46,6 +46,7 @@ import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
+import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.util.concurrent.Executors
@@ -269,11 +270,11 @@ class HardwareBufferToGlTextureFrameProcessorTest {
 
   private class PassthroughPacketConsumer(
     private val hardwareBufferToGlTextureFrameProcessor: HardwareBufferToGlTextureFrameProcessor
-  ) : PacketConsumer<List<HardwareBufferFrame>> {
-    override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
+  ) : PacketConsumer<ImmutableList<HardwareBufferFrame>> {
+    override suspend fun queuePacket(packet: Packet<ImmutableList<HardwareBufferFrame>>) {
       when (packet) {
         is Packet.EndOfStream -> hardwareBufferToGlTextureFrameProcessor.queuePacket(packet)
-        is Packet.Payload<List<HardwareBufferFrame>> ->
+        is Packet.Payload<ImmutableList<HardwareBufferFrame>> ->
           hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(packet.payload[0]))
       }
     }

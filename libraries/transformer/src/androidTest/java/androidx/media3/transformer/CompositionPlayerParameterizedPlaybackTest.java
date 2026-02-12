@@ -189,7 +189,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    RecordingPacketConsumer<List<HardwareBufferFrame>> packetConsumer =
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
         new RecordingPacketConsumer<>();
     packetConsumer.setOnQueue(
         (frames) -> {
@@ -204,7 +204,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     Composition composition = compositionAssetInfo.getComposition();
     runCompositionPlayer(composition, /* packetConsumerFactory= */ () -> packetConsumer);
 
-    List<List<HardwareBufferFrame>> queuedPackets = packetConsumer.getQueuedPayloads();
+    List<ImmutableList<HardwareBufferFrame>> queuedPackets = packetConsumer.getQueuedPayloads();
     // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
     assertThat(queuedPackets.size()).isAtLeast(expectedVideoTimestampsUs.size() - 2);
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
@@ -251,7 +251,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private void runCompositionPlayer(
       Composition composition,
-      PacketConsumer.Factory<List<HardwareBufferFrame>> packetConsumerFactory)
+      PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
