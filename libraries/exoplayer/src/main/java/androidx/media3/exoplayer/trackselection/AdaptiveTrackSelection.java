@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -39,11 +40,12 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 /**
  * A bandwidth based adaptive {@link ExoTrackSelection}, whose selected track is updated to be the
- * one of highest quality given the current network conditions and the state of the buffer.
+ * highest priority track given the current network conditions and the state of the buffer.
  */
 @UnstableApi
 public class AdaptiveTrackSelection extends BaseTrackSelection {
@@ -61,6 +63,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     private final float bandwidthFraction;
     private final float bufferedFractionToLiveEdgeForQualityIncrease;
     private final Clock clock;
+    private Comparator<Format> trackFormatComparator;
 
     /** Creates an adaptive track selection factory with default parameters. */
     public Factory() {
@@ -227,6 +230,19 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       this.bufferedFractionToLiveEdgeForQualityIncrease =
           bufferedFractionToLiveEdgeForQualityIncrease;
       this.clock = clock;
+      this.trackFormatComparator = BaseTrackSelection.DEFAULT_FORMAT_COMPARATOR;
+    }
+
+    /**
+     * Sets the comparator used to order formats in adaptive track selections.
+     * The comparator order controls which formats are considered first during adaptation.
+     *
+     * @param trackFormatComparator Comparator used to order selected formats.
+     * @return This factory, for convenience.
+     */
+    public Factory setTrackFormatComparator(Comparator<Format> trackFormatComparator) {
+      this.trackFormatComparator = checkNotNull(trackFormatComparator);
+      return this;
     }
 
     @Override
@@ -289,7 +305,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           bandwidthFraction,
           bufferedFractionToLiveEdgeForQualityIncrease,
           adaptationCheckpoints,
-          clock);
+          clock,
+          trackFormatComparator);
     }
   }
 
@@ -389,7 +406,71 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       float bufferedFractionToLiveEdgeForQualityIncrease,
       List<AdaptationCheckpoint> adaptationCheckpoints,
       Clock clock) {
-    super(group, tracks, type);
+    this(
+        group,
+        tracks,
+        type,
+        bandwidthMeter,
+        minDurationForQualityIncreaseMs,
+        maxDurationForQualityDecreaseMs,
+        minDurationToRetainAfterDiscardMs,
+        maxWidthToDiscard,
+        maxHeightToDiscard,
+        bandwidthFraction,
+        bufferedFractionToLiveEdgeForQualityIncrease,
+        adaptationCheckpoints,
+        clock,
+        BaseTrackSelection.DEFAULT_FORMAT_COMPARATOR);
+  }
+
+  /**
+   * @param group The {@link TrackGroup}.
+   * @param tracks The indices of the selected tracks within the {@link TrackGroup}. Must not be
+   *     empty. May be in any order.
+   * @param type The type that will be returned from {@link TrackSelection#getType()}.
+   * @param bandwidthMeter Provides an estimate of the currently available bandwidth.
+   * @param minDurationForQualityIncreaseMs The minimum duration of buffered data required for the
+   *     selected track to switch to one of higher quality.
+   * @param maxDurationForQualityDecreaseMs The maximum duration of buffered data required for the
+   *     selected track to switch to one of lower quality.
+   * @param minDurationToRetainAfterDiscardMs When switching to a video track of higher quality, the
+   *     selection may indicate that media already buffered at the lower quality can be discarded to
+   *     speed up the switch. This is the minimum duration of media that must be retained at the
+   *     lower quality. It must be at least {@code minDurationForQualityIncreaseMs}.
+   * @param maxWidthToDiscard The maximum video width that the selector may discard from the buffer
+   *     to speed up switching to a higher quality.
+   * @param maxHeightToDiscard The maximum video height that the selector may discard from the
+   *     buffer to speed up switching to a higher quality.
+   * @param bandwidthFraction The fraction of the available bandwidth that the selection should
+   *     consider available for use. Setting to a value less than 1 is recommended to account for
+   *     inaccuracies in the bandwidth estimator.
+   * @param bufferedFractionToLiveEdgeForQualityIncrease For live streaming, the fraction of the
+   *     duration from current playback position to the live edge that has to be buffered before the
+   *     selected track can be switched to one of higher quality. This parameter is only applied
+   *     when the playback position is closer to the live edge than {@code
+   *     minDurationForQualityIncreaseMs}, which would otherwise prevent switching to a higher
+   *     quality from happening.
+   * @param adaptationCheckpoints The {@link AdaptationCheckpoint checkpoints} that can be used to
+   *     calculate available bandwidth for this selection.
+   * @param clock The {@link Clock}.
+   * @param trackFormatComparator Comparator used to order selected formats.
+   */
+  protected AdaptiveTrackSelection(
+      TrackGroup group,
+      int[] tracks,
+      @Type int type,
+      BandwidthMeter bandwidthMeter,
+      long minDurationForQualityIncreaseMs,
+      long maxDurationForQualityDecreaseMs,
+      long minDurationToRetainAfterDiscardMs,
+      int maxWidthToDiscard,
+      int maxHeightToDiscard,
+      float bandwidthFraction,
+      float bufferedFractionToLiveEdgeForQualityIncrease,
+      List<AdaptationCheckpoint> adaptationCheckpoints,
+      Clock clock,
+      Comparator<Format> trackFormatComparator) {
+    super(group, tracks, type, trackFormatComparator);
     if (minDurationToRetainAfterDiscardMs < minDurationForQualityIncreaseMs) {
       Log.w(
           TAG,
@@ -442,11 +523,12 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       MediaChunkIterator[] mediaChunkIterators) {
     long nowMs = clock.elapsedRealtime();
     long chunkDurationUs = getNextChunkDurationUs(mediaChunkIterators, queue);
+    long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
 
     // Make initial selection
     if (reason == C.SELECTION_REASON_UNKNOWN) {
       reason = C.SELECTION_REASON_INITIAL;
-      selectedIndex = determineIdealSelectedIndex(nowMs, chunkDurationUs);
+      selectedIndex = determineIdealSelectedIndexForEffectiveBitrate(nowMs, effectiveBitrate);
       return;
     }
 
@@ -458,23 +540,24 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       previousSelectedIndex = formatIndexOfPreviousChunk;
       previousReason = Iterables.getLast(queue).trackSelectionReason;
     }
-    int newSelectedIndex = determineIdealSelectedIndex(nowMs, chunkDurationUs);
+    int newSelectedIndex = determineIdealSelectedIndexForEffectiveBitrate(nowMs, effectiveBitrate);
     if (newSelectedIndex != previousSelectedIndex
         && !isTrackExcluded(previousSelectedIndex, nowMs)) {
-      // Revert back to the previous selection if conditions are not suitable for switching.
-      Format currentFormat = getFormat(previousSelectedIndex);
-      Format selectedFormat = getFormat(newSelectedIndex);
+      // Revert back to the previous selection if conditions are not suitable for switching. Do not
+      // defer a switch when the previous format no longer fits into available bandwidth.
       long minDurationForQualityIncreaseUs =
           minDurationForQualityIncreaseUs(availableDurationUs, chunkDurationUs);
-      if (selectedFormat.bitrate > currentFormat.bitrate
+      if (newSelectedIndex < previousSelectedIndex
           && bufferedDurationUs < minDurationForQualityIncreaseUs) {
-        // The selected track is a higher quality, but we have insufficient buffer to safely switch
+        // The selected track is higher priority, but we have insufficient buffer to safely switch
         // up. Defer switching up for now.
         newSelectedIndex = previousSelectedIndex;
-      } else if (selectedFormat.bitrate < currentFormat.bitrate
+      } else if (newSelectedIndex > previousSelectedIndex
+          && (isUsingDefaultFormatComparator()
+              || isTrackSelectable(previousSelectedIndex, effectiveBitrate))
           && bufferedDurationUs >= maxDurationForQualityDecreaseUs) {
-        // The selected track is a lower quality, but we have sufficient buffer to defer switching
-        // down for now.
+        // The selected track is lower priority, but we have sufficient buffer to defer switching
+        // down while preserving existing behavior for default ordering.
         newSelectedIndex = previousSelectedIndex;
       }
     }
@@ -597,19 +680,33 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    *     if unknown.
    */
   private int determineIdealSelectedIndex(long nowMs, long chunkDurationUs) {
-    long effectiveBitrate = getAllocatedBandwidth(chunkDurationUs);
-    int lowestBitrateAllowedIndex = 0;
+    return determineIdealSelectedIndexForEffectiveBitrate(nowMs, getAllocatedBandwidth(chunkDurationUs));
+  }
+
+  private int determineIdealSelectedIndexForEffectiveBitrate(long nowMs, long effectiveBitrate) {
+    int lowestBitrateAllowedIndex = C.INDEX_UNSET;
+    int lowestBitrate = Integer.MAX_VALUE;
     for (int i = 0; i < length; i++) {
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
         Format format = getFormat(i);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
           return i;
-        } else {
+        }
+        int formatBitrate = format.bitrate == Format.NO_VALUE ? 0 : format.bitrate;
+        if (formatBitrate <= lowestBitrate) {
+          // fallback semantics by selecting the lowest bitrate non-excluded track when no track
+          // is selectable within available bandwidth.
           lowestBitrateAllowedIndex = i;
+          lowestBitrate = formatBitrate;
         }
       }
     }
-    return lowestBitrateAllowedIndex;
+    return lowestBitrateAllowedIndex == C.INDEX_UNSET ? 0 : lowestBitrateAllowedIndex;
+  }
+
+  private boolean isTrackSelectable(int index, long effectiveBitrate) {
+    Format format = getFormat(index);
+    return canSelectFormat(format, format.bitrate, effectiveBitrate);
   }
 
   private long minDurationForQualityIncreaseUs(long availableDurationUs, long chunkDurationUs) {
