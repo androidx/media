@@ -38,11 +38,11 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link AacMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public class AacMuxerEndToEndParameterizedTest {
-  private static final String AAC_M4A = "bbb_1ch_8kHz_aac_lc.m4a";
-  private static final String AAC_MP4 = "bbb_1ch_16kHz_aac.mp4";
-  private static final String RAW_AAC = "bbb_1ch_8kHz_aac_lc.aac";
+  private static final String AAC_M4A = "mp4/bbb_1ch_8kHz_aac_lc.m4a";
+  private static final String AAC_MP4 = "mp4/bbb_1ch_16kHz_aac.mp4";
+  private static final String RAW_AAC = "aac/bbb_1ch_8kHz_aac_lc.aac";
 
-  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+  public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -59,12 +59,15 @@ public class AacMuxerEndToEndParameterizedTest {
     String outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
 
     try (AacMuxer muxer = new AacMuxer(new FileOutputStream(outputPath))) {
-      feedInputDataToMuxer(context, muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
+      feedInputDataToMuxer(context, muxer, checkNotNull(MEDIA_FILE_ASSET_DIRECTORY + inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(new AdtsExtractor(), checkNotNull(outputPath));
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(inputFile));
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            MuxerTestUtil.getSubstitutedPath(checkNotNull(inputFile), "aac")));
   }
 }

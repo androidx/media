@@ -39,7 +39,7 @@ public class WebmMuxerEndToEndTest {
 
   private enum TestFile {
     VP8_WEBM("asset:///media/mkv/", "bbb_960x540_60fps_vp8.webm"),
-    VP9_WEBM("asset:///media/mp4/", "bbb_642x642_768kbps_30fps_vp9.webm"),
+    VP9_WEBM("asset:///media/mkv/", "bbb_642x642_768kbps_30fps_vp9.webm"),
     OPUS_WEBM("asset:///media/mkv/", "bbb_1ch_48kHz_q10_opus.webm"),
     VORBIS_WEBM("asset:///media/mkv/", "bbb_1ch_12kHz_q10_vorbis.webm"),
     VP9_MP4("asset:///media/mp4/", "bbb_800x640_768kbps_30fps_vp9.mp4");

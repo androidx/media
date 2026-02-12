@@ -96,7 +96,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_samples_and_metadata.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_samples_and_metadata.mp4"));
   }
 
   @Test
@@ -138,7 +138,7 @@ public class Mp4MuxerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
     DumpFileAsserts.assertOutput(
-        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4));
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedMp4DumpFilePath(AV1_MP4));
   }
 
   @Test
@@ -164,7 +164,7 @@ public class Mp4MuxerEndToEndTest {
       DumpFileAsserts.assertOutput(
           context,
           fakeExtractorOutput,
-          MuxerTestUtil.getExpectedDumpFilePath("partial_" + H265_HDR10_MP4));
+          MuxerTestUtil.getExpectedMp4DumpFilePath("partial_" + H265_HDR10_MP4));
     }
   }
 
@@ -205,7 +205,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_same_tracks_offset.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_same_tracks_offset.mp4"));
   }
 
   @Test
@@ -242,7 +242,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_different_tracks_offset.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_different_tracks_offset.mp4"));
   }
 
   @Test
@@ -276,7 +276,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_negative_tracks_offset.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_negative_tracks_offset.mp4"));
   }
 
   @Test
@@ -309,7 +309,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_b_frame.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_b_frame.mp4"));
   }
 
   @Test
@@ -356,7 +356,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_b_frame_large_pts.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_b_frame_large_pts.mp4"));
   }
 
   @Test
@@ -385,7 +385,9 @@ public class Mp4MuxerEndToEndTest {
         new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
     // Output contains only one trak box.
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("mp4_without_empty_track.mp4"));
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_without_empty_track.mp4"));
   }
 
   @Test
@@ -411,7 +413,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath(
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
             "mp4_with_moov_at_the_end_and_free_box_at_start.mp4"));
   }
 
@@ -441,7 +443,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_moov_at_the_end_and_no_free_box.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_moov_at_the_end_and_no_free_box.mp4"));
   }
 
   @Test
@@ -502,7 +504,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_in_axte.box"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_auxiliary_tracks_in_axte.box"));
   }
 
   @Test
@@ -541,7 +543,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_without_axte.box"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_auxiliary_tracks_without_axte.box"));
   }
 
   @Test
@@ -589,7 +591,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         primaryTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_primary_tracks.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_primary_tracks.mp4"));
   }
 
   @Test
@@ -638,7 +640,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         auxiliaryTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_auxiliary_tracks.mp4"));
   }
 
   @Test
@@ -684,7 +686,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         primaryTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath(
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
             "mp4_with_primary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
@@ -732,7 +734,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         auxiliaryTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath(
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
             "mp4_with_auxiliary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
@@ -842,7 +844,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
   }
 
   @Test
@@ -869,7 +871,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath(
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
             "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
   }
 
@@ -899,7 +901,7 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
   }
 
   @Test
