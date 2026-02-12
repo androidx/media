@@ -43,17 +43,20 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** End-to-end tests for the behavior of clipping with HLS media. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingHlsPlaybackTest {
 
   private static final String TEST_HLS_URI = "asset:///media/cmaf/multi-segment/playlist.m3u8";
+
+  @TestParameter private boolean enableMediaPeriodClipping;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -144,6 +147,7 @@ public final class ClippingHlsPlaybackTest {
                     return new ClippingMediaSource.Builder(hlsSource)
                         .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
                         .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+                        .setEnableClippingInMediaPeriod(enableMediaPeriodClipping)
                         .build();
                   }
                 })

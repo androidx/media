@@ -21,6 +21,7 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.os.Looper;
 import androidx.annotation.CallSuper;
@@ -93,8 +94,10 @@ public class SampleQueue implements TrackOutput {
   private int readPosition;
 
   private long startTimeUs;
+  private long readEndTimeUs;
   private long largestDiscardedTimestampUs;
   private long largestQueuedTimestampUs;
+  private int readEndTimeAbsoluteIndex;
   private boolean isLastSampleQueued;
   private boolean upstreamKeyframeRequired;
   private boolean upstreamFormatRequired;
@@ -177,6 +180,8 @@ public class SampleQueue implements TrackOutput {
     upstreamFormatRequired = true;
     upstreamKeyframeRequired = true;
     allSamplesAreSyncSamples = true;
+    readEndTimeUs = C.TIME_END_OF_SOURCE;
+    readEndTimeAbsoluteIndex = C.INDEX_UNSET;
   }
 
   // Called by the consuming thread when there is no loading thread.
@@ -208,6 +213,7 @@ public class SampleQueue implements TrackOutput {
     absoluteFirstIndex = 0;
     relativeFirstIndex = 0;
     readPosition = 0;
+    readEndTimeAbsoluteIndex = C.INDEX_UNSET;
     upstreamKeyframeRequired = true;
     startTimeUs = Long.MIN_VALUE;
     largestDiscardedTimestampUs = Long.MIN_VALUE;
@@ -231,6 +237,39 @@ public class SampleQueue implements TrackOutput {
    */
   public final void setStartTimeUs(long startTimeUs) {
     this.startTimeUs = startTimeUs;
+  }
+
+  /**
+   * Sets the time at which reading the stream should stop.
+   *
+   * <p>The queue may offer samples beyond this time if they are out of order and required for
+   * decoding.
+   *
+   * <p>This setting does not influence the upstream write side of the queue.
+   *
+   * @param readEndTimeUs The desired read end time in microseconds, or {@link C#TIME_END_OF_SOURCE}
+   *     to not specify a read limit.
+   */
+  public final synchronized void setReadEndTimeUs(long readEndTimeUs) {
+    if (readEndTimeUs == this.readEndTimeUs) {
+      return;
+    }
+    if (readEndTimeUs == C.TIME_END_OF_SOURCE) {
+      readEndTimeAbsoluteIndex = C.INDEX_UNSET;
+      return;
+    }
+    // Check if we already have a suitable read end time sample index.
+    int readEndTimeRelativeIndex = -1;
+    if (readEndTimeUs <= largestQueuedTimestampUs) {
+      readEndTimeRelativeIndex =
+          findSampleAfter(
+              relativeFirstIndex, length, readEndTimeUs, /* allowTimeBeyondBuffer= */ false);
+    }
+    this.readEndTimeAbsoluteIndex =
+        readEndTimeRelativeIndex == -1
+            ? C.INDEX_UNSET
+            : absoluteFirstIndex + readEndTimeRelativeIndex;
+    this.readEndTimeUs = readEndTimeUs;
   }
 
   /**
@@ -342,6 +381,14 @@ public class SampleQueue implements TrackOutput {
   }
 
   /**
+   * Returns whether all required samples to read up to the configured {@linkplain
+   * #setReadEndTimeUs(long) end time} have been queued.
+   */
+  public final synchronized boolean hasQueuedTimestampsUpToReadEndTimeUs() {
+    return readEndTimeAbsoluteIndex != C.INDEX_UNSET;
+  }
+
+  /**
    * Returns the largest sample timestamp that has been read since the last {@link #reset}.
    *
    * @return The largest sample timestamp that has been read, or {@link Long#MIN_VALUE} if no
@@ -383,12 +430,16 @@ public class SampleQueue implements TrackOutput {
   @SuppressWarnings("ReferenceEquality") // See comments in setUpstreamFormat
   @CallSuper
   public synchronized boolean isReady(boolean loadingFinished) {
+    int readIndex = getReadIndex();
+    if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex) {
+      return true;
+    }
     if (!hasNextSample()) {
       return loadingFinished
           || isLastSampleQueued
           || (upstreamFormat != null && upstreamFormat != downstreamFormat);
     }
-    if (sharedSampleMetadata.get(getReadIndex()).format != downstreamFormat) {
+    if (sharedSampleMetadata.get(readIndex).format != downstreamFormat) {
       // A format can be read.
       return true;
     }
@@ -453,6 +504,9 @@ public class SampleQueue implements TrackOutput {
     if (sampleIndex < absoluteFirstIndex || sampleIndex > absoluteFirstIndex + length) {
       return false;
     }
+    if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && sampleIndex >= readEndTimeAbsoluteIndex) {
+      return false;
+    }
     startTimeUs = Long.MIN_VALUE;
     readPosition = sampleIndex - absoluteFirstIndex;
     return true;
@@ -472,9 +526,13 @@ public class SampleQueue implements TrackOutput {
   public final synchronized boolean seekTo(long timeUs, boolean allowTimeBeyondBuffer) {
     rewind();
     int relativeReadIndex = getRelativeIndex(readPosition);
+    long maxPossibleSeekTimeUs =
+        readEndTimeUs != C.TIME_END_OF_SOURCE
+            ? min(largestQueuedTimestampUs, readEndTimeUs)
+            : largestQueuedTimestampUs;
     if (!hasNextSample()
         || timeUs < timesUs[relativeReadIndex]
-        || (timeUs > largestQueuedTimestampUs && !allowTimeBeyondBuffer)) {
+        || (timeUs > maxPossibleSeekTimeUs && !allowTimeBeyondBuffer)) {
       return false;
     }
     int offset =
@@ -696,8 +754,11 @@ public class SampleQueue implements TrackOutput {
       boolean loadingFinished,
       SampleExtrasHolder extrasHolder) {
     buffer.waitingForKeys = false;
-    if (!hasNextSample()) {
-      if (loadingFinished || isLastSampleQueued) {
+    int readIndex = getReadIndex();
+    boolean readEndTimeReached =
+        readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex;
+    if (!hasNextSample() || readEndTimeReached) {
+      if (loadingFinished || isLastSampleQueued || readEndTimeReached) {
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
         buffer.timeUs = C.TIME_END_OF_SOURCE;
         return C.RESULT_BUFFER_READ;
@@ -709,7 +770,7 @@ public class SampleQueue implements TrackOutput {
       }
     }
 
-    Format format = sharedSampleMetadata.get(getReadIndex()).format;
+    Format format = sharedSampleMetadata.get(readIndex).format;
     if (formatRequired || format != downstreamFormat) {
       onFormatResult(format, formatHolder);
       return C.RESULT_FORMAT_READ;
@@ -809,6 +870,11 @@ public class SampleQueue implements TrackOutput {
 
     isLastSampleQueued = (sampleFlags & C.BUFFER_FLAG_LAST_SAMPLE) != 0;
     largestQueuedTimestampUs = max(largestQueuedTimestampUs, timeUs);
+    if (readEndTimeUs != C.TIME_END_OF_SOURCE
+        && readEndTimeAbsoluteIndex == C.INDEX_UNSET
+        && timeUs >= readEndTimeUs) {
+      readEndTimeAbsoluteIndex = absoluteFirstIndex + length;
+    }
 
     int relativeEndIndex = getRelativeIndex(length);
     timesUs[relativeEndIndex] = timeUs;
@@ -890,6 +956,9 @@ public class SampleQueue implements TrackOutput {
     length -= discardCount;
     largestQueuedTimestampUs = max(largestDiscardedTimestampUs, getLargestTimestamp(length));
     isLastSampleQueued = discardCount == 0 && isLastSampleQueued;
+    if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && discardFromIndex < readEndTimeAbsoluteIndex) {
+      readEndTimeAbsoluteIndex = C.INDEX_UNSET;
+    }
     sharedSampleMetadata.discardFrom(discardFromIndex);
     if (length != 0) {
       int relativeLastWriteIndex = getRelativeIndex(length - 1);

@@ -104,6 +104,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int[][] manifestUrlIndicesPerWrapper;
   private int audioVideoSampleStreamWrapperCount;
   private SequenceableLoader compositeSequenceableLoader;
+  private long endPositionUs;
 
   /**
    * Creates an HLS media period.
@@ -176,6 +177,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleStreamWrappers = new HlsSampleStreamWrapper[0];
     enabledSampleStreamWrappers = new HlsSampleStreamWrapper[0];
     manifestUrlIndicesPerWrapper = new int[0][];
+    endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
   public void release() {
@@ -464,6 +466,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     return seekTargetUs;
+  }
+
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    for (HlsSampleStreamWrapper wrapper : sampleStreamWrappers) {
+      wrapper.setEndPositionUs(endPositionUs);
+    }
+    return endPositionUs;
   }
 
   // HlsSampleStreamWrapper.Callback implementation.
@@ -852,21 +863,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             muxedCaptionFormats,
             playerId,
             cmcdConfiguration);
-    return new HlsSampleStreamWrapper(
-        uid,
-        trackType,
-        /* callback= */ sampleStreamWrapperCallback,
-        defaultChunkSource,
-        overridingDrmInitData,
-        allocator,
-        positionUs,
-        muxedAudioFormat,
-        drmSessionManager,
-        drmEventDispatcher,
-        loadErrorHandlingPolicy,
-        eventDispatcher,
-        metadataType,
-        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
+    HlsSampleStreamWrapper wrapper =
+        new HlsSampleStreamWrapper(
+            uid,
+            trackType,
+            /* callback= */ sampleStreamWrapperCallback,
+            defaultChunkSource,
+            overridingDrmInitData,
+            allocator,
+            positionUs,
+            muxedAudioFormat,
+            drmSessionManager,
+            drmEventDispatcher,
+            loadErrorHandlingPolicy,
+            eventDispatcher,
+            metadataType,
+            downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
+    wrapper.setEndPositionUs(endPositionUs);
+    return wrapper;
   }
 
   private static Map<String, DrmInitData> deriveOverridingDrmInitData(

@@ -120,6 +120,7 @@ import java.util.regex.Pattern;
   private List<EventStream> eventStreams;
   private boolean canReportInitialDiscontinuity;
   private long initialStartTimeUs;
+  private long endPositionUs;
 
   public DashMediaPeriod(
       int id,
@@ -170,6 +171,7 @@ import java.util.regex.Pattern;
             drmSessionManager, chunkSourceFactory, period.adaptationSets, eventStreams);
     trackGroups = result.first;
     trackGroupInfos = result.second;
+    endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
   /**
@@ -395,6 +397,15 @@ import java.util.regex.Pattern;
       }
     }
     return positionUs;
+  }
+
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      sampleStream.setEndPositionUs(endPositionUs);
+    }
+    return endPositionUs;
   }
 
   // SequenceableLoader.Callback implementation.
@@ -892,6 +903,7 @@ import java.util.regex.Pattern;
             mediaSourceEventDispatcher,
             canReportInitialDiscontinuity,
             downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
+    stream.setEndPositionUs(endPositionUs);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);

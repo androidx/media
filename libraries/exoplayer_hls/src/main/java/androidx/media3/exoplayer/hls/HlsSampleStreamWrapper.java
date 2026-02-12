@@ -189,6 +189,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private boolean pendingResetUpstreamFormats;
   private boolean seenFirstTrackSelection;
   private boolean loadingFinished;
+  private long endPositionUs;
 
   // Accessed only by the loading thread.
   private boolean tracksEnded;
@@ -269,6 +270,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     handler = Util.createHandlerForCurrentLooper();
     lastSeekPositionUs = positionUs;
     pendingResetPositionUs = positionUs;
+    endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
   public void continuePreparing() {
@@ -735,6 +737,26 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     return skipCount;
   }
 
+  /**
+   * Sets the end position at which the period stops loading and providing samples.
+   *
+   * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is set, the implementation will stop
+   * returning samples from the created {@link SampleStream} instances beyond the specified end
+   * position and mark further reads with {@link C#BUFFER_FLAG_END_OF_STREAM}. The stream may return
+   * additional out of order samples required for decoding.
+   *
+   * @param endPositionUs The requested end position, in microseconds, or {@link
+   *     C#TIME_END_OF_SOURCE} to not set an end position.
+   */
+  public void setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    if (sampleQueuesBuilt) {
+      for (HlsSampleQueue sampleQueue : sampleQueues) {
+        sampleQueue.setReadEndTimeUs(endPositionUs);
+      }
+    }
+  }
+
   // SequenceableLoader implementation
 
   @Override
@@ -901,6 +923,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int preferredQueueSize = chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks);
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
+    }
+
+    if (haveSampleQueuesReachedEndTimeUs()) {
+      loadingFinished = true;
     }
   }
 
@@ -1117,6 +1143,21 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         sampleQueue.splice();
       }
     }
+  }
+
+  private boolean haveSampleQueuesReachedEndTimeUs() {
+    if (!sampleQueuesBuilt || endPositionUs == C.TIME_END_OF_SOURCE) {
+      return false;
+    }
+    boolean endPositionReached = true;
+    for (int i = 0; i < sampleQueues.length; i++) {
+      // Ignore non-AV tracks, which may be sparse or poorly interleaved.
+      if (sampleQueuesEnabledStates[i]
+          && (sampleQueueIsAudioVideoFlags[i] || !haveAudioVideoSampleQueues)) {
+        endPositionReached &= sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs();
+      }
+    }
+    return endPositionReached;
   }
 
   private void discardUpstream(int preferredQueueSize) {
@@ -1380,6 +1421,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   private void onTracksEnded() {
+    for (SampleQueue sampleQueue : sampleQueues) {
+      sampleQueue.setReadEndTimeUs(endPositionUs);
+    }
     sampleQueuesBuilt = true;
     maybeFinishPrepare();
   }

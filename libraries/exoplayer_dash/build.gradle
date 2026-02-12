@@ -40,6 +40,7 @@ dependencies {
     testImplementation project(modulePrefix + 'lib-inspector')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
 

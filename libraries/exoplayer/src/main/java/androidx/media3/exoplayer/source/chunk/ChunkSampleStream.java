@@ -336,6 +336,24 @@ public class ChunkSampleStream<T extends ChunkSource>
   }
 
   /**
+   * Sets the end position at which the period stops loading and providing samples.
+   *
+   * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is set, the implementation will stop
+   * returning samples from the created {@link SampleStream} instances beyond the specified end
+   * position and mark further reads with {@link C#BUFFER_FLAG_END_OF_STREAM}. The stream may return
+   * additional out of order samples required for decoding.
+   *
+   * @param endPositionUs The requested end position, in microseconds, or {@link
+   *     C#TIME_END_OF_SOURCE} to not set an end position.
+   */
+  public void setEndPositionUs(long endPositionUs) {
+    primarySampleQueue.setReadEndTimeUs(endPositionUs);
+    for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
+      embeddedSampleQueue.setReadEndTimeUs(endPositionUs);
+    }
+  }
+
+  /**
    * Releases the stream.
    *
    * <p>This method should be called when the stream is no longer required. Either this method or
@@ -708,6 +726,10 @@ public class ChunkSampleStream<T extends ChunkSource>
     int preferredQueueSize = chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks);
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
+    }
+
+    if (primarySampleQueue.hasQueuedTimestampsUpToReadEndTimeUs()) {
+      loadingFinished = true;
     }
   }
 

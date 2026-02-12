@@ -40,6 +40,7 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
