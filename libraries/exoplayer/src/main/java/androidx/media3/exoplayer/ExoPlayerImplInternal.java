@@ -3721,6 +3721,11 @@ import java.util.Objects;
       }
     }
 
+    long periodPositionDeltaUs = checkPlayingPeriodPositionChanged(timeline, playbackInfo, period.windowIndex);
+    if (periodPositionDeltaUs > 0) {
+      periodPositionUs = periodPositionUs - periodPositionDeltaUs;
+    }
+
     return new PositionUpdateForPlaylistChange(
         newPeriodId,
         periodPositionUs,
@@ -3728,6 +3733,26 @@ import java.util.Objects;
         forceBufferingState,
         endPlayback,
         setTargetLiveOffset);
+  }
+
+  private static long checkPlayingPeriodPositionChanged(Timeline timeline, PlaybackInfo playbackInfo, int currentWindowIndex) {
+    long periodPositionDeltaUs = C.TIME_UNSET;
+    if (!playbackInfo.timeline.isEmpty()
+        && !timeline.isEmpty()
+        && !playbackInfo.periodId.isAd()
+        && playbackInfo.timeline.getWindowCount() == timeline.getWindowCount()
+        && currentWindowIndex < playbackInfo.timeline.getWindowCount()) {
+      Timeline.Window newWindow = timeline.getWindow(currentWindowIndex, new Timeline.Window());
+      Timeline.Window oldWindow = playbackInfo.timeline.getWindow(currentWindowIndex, new Timeline.Window());
+      if (oldWindow.isDynamic && ! newWindow.isDynamic) {
+        Timeline.Period newPeriod = timeline.getPeriodByUid(playbackInfo.periodId.periodUid, new Timeline.Period());
+        int windowIndex = newPeriod.windowIndex;
+        Pair<Object, Long> oldPositionZero = playbackInfo.timeline.getPeriodPosition(oldWindow, new Timeline.Period(), windowIndex, 0);
+        Pair<Object, Long> newPositionZero = timeline.getPeriodPosition(newWindow, new Timeline.Period(), windowIndex, 0);
+        periodPositionDeltaUs = oldPositionZero.second - newPositionZero.second;
+      }
+    }
+    return periodPositionDeltaUs;
   }
 
   private static boolean isIgnorableServerSideAdInsertionPeriodChange(
