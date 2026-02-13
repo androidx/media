@@ -491,7 +491,8 @@ import java.util.concurrent.TimeoutException;
           Player.EVENT_PLAYBACK_STATE_CHANGED,
           Player.EVENT_PLAY_WHEN_READY_CHANGED,
           Player.EVENT_MEDIA_METADATA_CHANGED,
-          Player.EVENT_TIMELINE_CHANGED)) {
+          Player.EVENT_TIMELINE_CHANGED,
+          Player.EVENT_DEVICE_INFO_CHANGED)) {
         mediaSessionService.onUpdateNotificationInternal(
             session, /* startInForegroundWhenPaused= */ false);
       }
