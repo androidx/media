@@ -914,10 +914,11 @@ public final class DefaultAudioSink implements AudioSink {
       if (!drainToEndOfStream()) {
         // There's still pending data in audio processors to write to the output.
         return false;
-      } else if (!audioOutput.canReuseAudioOutput(
-          configuration.outputConfig,
-          getFormatConfig(pendingConfiguration.afterProcessingInputFormat),
-          pendingConfiguration.outputConfig)) {
+      } else if (audioOutput != null
+          && !audioOutput.canReuseAudioOutput(
+              configuration.outputConfig,
+              getFormatConfig(pendingConfiguration.afterProcessingInputFormat),
+              pendingConfiguration.outputConfig)) {
         playPendingData();
         if (hasPendingData()) {
           // We're waiting for playout on the current audio output to finish.
