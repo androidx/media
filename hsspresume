@@ -1,0 +1,55 @@
+Resume the HSSP playback.
+
+Depending on the pickUp parameter, resume will either continue from the paused position (pickUp = false) or jump to the current 'live' position/time of the script (pickUp = true).
+
+See the request body schema definition for details.
+
+See Handy Streaming Protocol (HSP) for additional information about the HSP protocol and code samples.
+
+Parameters
+Try it out
+Name	Description
+X-Connection-Key *
+string
+(header)
+minLength: 5
+maxLength: 64
+pattern: ^[a-zA-Z0-9]{5,64}$
+Device connection key.
+
+vUeRWzcy
+Request body
+
+application/json
+HSSP resume
+
+Example Value
+Schema
+{
+  "pickUp": true
+}
+Responses
+Code	Description	Links
+200	
+HSSP state.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "play_state": 0,
+  "points": 100,
+  "max_points": 100,
+  "current_point": 100,
+  "current_time": 100,
+  "loop": false,
+  "playback_rate": 1,
+  "stream_id": 154545601,
+  "first_point_time": 100,
+  "last_point_time": 12345,
+  "tail_point_stream_index": 100,
+  "tail_point_stream_index_threshold": 100
+}
