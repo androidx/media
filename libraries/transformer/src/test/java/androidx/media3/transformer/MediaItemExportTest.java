@@ -899,9 +899,11 @@ public final class MediaItemExportTest {
   @Test
   public void start_withSlowOutputSampleRate_completesWithError() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    // TODO: b/484325763 - Investigate refactoring `WatchdogTimer` to use `Clock` interface for
+    //  deterministic testing.
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(
-            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 10));
+            context, new SlowExtractorsFactory(/* delayBetweenReadsMs= */ 100));
     Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     AssetLoader.Factory assetLoaderFactory =
         new ExoPlayerAssetLoader.Factory(
@@ -912,7 +914,7 @@ public final class MediaItemExportTest {
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
-            .setMaxDelayBetweenMuxerSamplesMs(1)
+            .setMaxDelayBetweenMuxerSamplesMs(10)
             .setAssetLoaderFactory(assetLoaderFactory)
             .build();
     MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
