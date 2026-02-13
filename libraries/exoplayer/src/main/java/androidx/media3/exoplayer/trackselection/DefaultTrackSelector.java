@@ -31,12 +31,8 @@ import static java.util.Collections.max;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Point;
-import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.Spatializer;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.util.SparseArray;
@@ -45,7 +41,6 @@ import android.view.accessibility.CaptioningManager;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.C.RoleFlags;
@@ -56,7 +51,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
-import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -71,6 +65,7 @@ import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.util.SpatializerWrapper;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
@@ -2469,7 +2464,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
   @Nullable
   private Thread playbackThread;
 
-  @Nullable private SpatializerWrapperV32 spatializer;
+  @Nullable private SpatializerWrapper spatializer;
   private AudioAttributes audioAttributes;
   private @MonotonicNonNull Boolean deviceIsTV;
 
@@ -2675,7 +2670,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
         && SDK_INT >= 32
         && spatializer == null) {
       spatializer =
-          new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this, deviceIsTV);
+          new SpatializerWrapper(
+              context, this::maybeInvalidateForAudioChannelCountConstraints, deviceIsTV);
     }
 
     int rendererCount = mappedTrackInfo.getRendererCount();
@@ -4508,109 +4504,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
           .compareFalseFirst(this.isWithinRendererCapabilities, other.isWithinRendererCapabilities)
           .compareFalseFirst(this.isDefault, other.isDefault)
           .result();
-    }
-  }
-
-  /**
-   * Wraps the {@link Spatializer} in order to encapsulate its APIs within an inner class, to avoid
-   * runtime linking on devices with {@code API < 32}.
-   */
-  @RequiresApi(32)
-  private static class SpatializerWrapperV32 {
-
-    @Nullable private final Spatializer spatializer;
-    private final boolean spatializationSupported;
-    @Nullable private final Handler handler;
-    @Nullable private final Spatializer.OnSpatializerStateChangedListener listener;
-
-    public SpatializerWrapperV32(
-        @Nullable Context context,
-        DefaultTrackSelector defaultTrackSelector,
-        @Nullable Boolean deviceIsTv) {
-      @Nullable
-      AudioManager audioManager =
-          context == null ? null : AudioManagerCompat.getAudioManager(context);
-      if (audioManager == null || (deviceIsTv != null && deviceIsTv)) {
-        spatializer = null;
-        spatializationSupported = false;
-        handler = null;
-        listener = null;
-        return;
-      }
-      this.spatializer = audioManager.getSpatializer();
-      this.spatializationSupported =
-          spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE;
-      this.listener =
-          new Spatializer.OnSpatializerStateChangedListener() {
-            @Override
-            public void onSpatializerEnabledChanged(Spatializer spatializer, boolean enabled) {
-              defaultTrackSelector.maybeInvalidateForAudioChannelCountConstraints();
-            }
-
-            @Override
-            public void onSpatializerAvailableChanged(Spatializer spatializer, boolean available) {
-              defaultTrackSelector.maybeInvalidateForAudioChannelCountConstraints();
-            }
-          };
-      this.handler = new Handler(checkNotNull(Looper.myLooper()));
-      spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
-    }
-
-    public boolean isSpatializationSupported() {
-      return spatializationSupported;
-    }
-
-    public boolean isAvailable() {
-      return checkNotNull(spatializer).isAvailable();
-    }
-
-    public boolean isEnabled() {
-      return checkNotNull(spatializer).isEnabled();
-    }
-
-    public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
-      int linearChannelCount;
-      if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)) {
-        // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
-        // linear channels and the rest are used for objects. See
-        // https://github.com/google/ExoPlayer/pull/10322#discussion_r895265881
-        linearChannelCount = format.channelCount == 16 ? 12 : format.channelCount;
-      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)) {
-        // IAMF with no channel count specified, assume 5.1 channels. This depends on
-        // IamfDecoder.SPATIALIZED_OUTPUT_LAYOUT being set to AudioFormat.CHANNEL_OUT_5POINT1. Any
-        // changes to that constant will require updates to this logic.
-        linearChannelCount = format.channelCount == Format.NO_VALUE ? 6 : format.channelCount;
-      } else if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_AC4)) {
-        // For AC-4 level 3 or level 4, the format may be object based. When the channel count is
-        // 18 (level 3 17.1 OBI) or 21 (level 4 20.1 OBI), it is mapped to 24 linear channels (some
-        // channels are used for metadata transfer).
-        linearChannelCount =
-            (format.channelCount == 18 || format.channelCount == 21) ? 24 : format.channelCount;
-      } else {
-        linearChannelCount = format.channelCount;
-      }
-
-      int channelConfig = Util.getAudioTrackChannelConfig(linearChannelCount);
-      if (channelConfig == AudioFormat.CHANNEL_INVALID) {
-        return false;
-      }
-      AudioFormat.Builder builder =
-          new AudioFormat.Builder()
-              .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-              .setChannelMask(channelConfig);
-      if (format.sampleRate != Format.NO_VALUE) {
-        builder.setSampleRate(format.sampleRate);
-      }
-      return checkNotNull(spatializer)
-          .canBeSpatialized(audioAttributes.getPlatformAudioAttributes(), builder.build());
-    }
-
-    public void release() {
-      if (spatializer == null || listener == null || handler == null) {
-        return;
-      }
-      spatializer.removeOnSpatializerStateChangedListener(listener);
-      handler.removeCallbacksAndMessages(/* token= */ null);
     }
   }
 }
