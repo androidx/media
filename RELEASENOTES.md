@@ -35,6 +35,9 @@
 *   Video:
 *   Text:
 *   Metadata:
+    *   Increase default count of metadata renderers to four to cover all
+        potential metadata tracks published by HLS variants and renditions
+        ([#3043](https://github.com/androidx/media/issues/3043)).
 *   Image:
 *   DataSource:
 *   DRM:

@@ -106,6 +106,12 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   public static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
+  /**
+   * Number of metadata renderers created by default. Chosen to cover at least one metadata track
+   * per video, audio and text track and an additional side-loaded metadata track.
+   */
+  private static final int METADATA_RENDERER_COUNT = 4;
+
   private static final String TAG = "DefaultRenderersFactory";
 
   private final Context context;
@@ -821,8 +827,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Looper outputLooper,
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
-    out.add(new MetadataRenderer(output, outputLooper));
-    out.add(new MetadataRenderer(output, outputLooper));
+    for (int i = 0; i < METADATA_RENDERER_COUNT; i++) {
+      out.add(new MetadataRenderer(output, outputLooper));
+    }
   }
 
   /**
