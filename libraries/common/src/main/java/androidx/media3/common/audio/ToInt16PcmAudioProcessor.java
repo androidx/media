@@ -44,15 +44,7 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
     @C.PcmEncoding int encoding = inputAudioFormat.encoding;
-    if (encoding != C.ENCODING_PCM_8BIT
-        && encoding != C.ENCODING_PCM_16BIT
-        && encoding != C.ENCODING_PCM_16BIT_BIG_ENDIAN
-        && encoding != C.ENCODING_PCM_24BIT
-        && encoding != C.ENCODING_PCM_24BIT_BIG_ENDIAN
-        && encoding != C.ENCODING_PCM_32BIT
-        && encoding != C.ENCODING_PCM_32BIT_BIG_ENDIAN
-        && encoding != C.ENCODING_PCM_FLOAT
-        && encoding != C.ENCODING_PCM_DOUBLE) {
+    if (!Util.isEncodingLinearPcm(encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     return encoding != C.ENCODING_PCM_16BIT

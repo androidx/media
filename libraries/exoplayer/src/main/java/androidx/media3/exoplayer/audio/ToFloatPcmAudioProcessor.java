@@ -28,7 +28,9 @@ import java.nio.ByteBuffer;
  * encodings are supported as input:
  *
  * <ul>
+ *   <li>{@link C#ENCODING_PCM_8BIT}
  *   <li>{@link C#ENCODING_PCM_16BIT}
+ *   <li>{@link C#ENCODING_PCM_16BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_24BIT}
  *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_32BIT}
@@ -47,7 +49,7 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
     @C.PcmEncoding int encoding = inputAudioFormat.encoding;
-    if (!Util.isEncodingHighResolutionPcm(encoding) && encoding != C.ENCODING_PCM_16BIT) {
+    if (!Util.isEncodingLinearPcm(encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     return encoding != C.ENCODING_PCM_FLOAT
@@ -64,11 +66,26 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
 
     ByteBuffer buffer;
     switch (inputAudioFormat.encoding) {
+      case C.ENCODING_PCM_8BIT:
+        buffer = replaceOutputBuffer(size * 4);
+        for (int i = position; i < limit; i += 2) {
+          int pcm32BitInteger = ((inputBuffer.get(i) & 0xFF) << 24);
+          writePcm32BitFloat(pcm32BitInteger, buffer);
+        }
+        break;
       case C.ENCODING_PCM_16BIT:
         buffer = replaceOutputBuffer(size * 2);
         for (int i = position; i < limit; i += 2) {
           int pcm32BitInteger =
               ((inputBuffer.get(i) & 0xFF) << 16) | ((inputBuffer.get(i + 1) & 0xFF) << 24);
+          writePcm32BitFloat(pcm32BitInteger, buffer);
+        }
+        break;
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+        buffer = replaceOutputBuffer(size * 2);
+        for (int i = position; i < limit; i += 2) {
+          int pcm32BitInteger =
+              ((inputBuffer.get(i + 1) & 0xFF) << 16) | ((inputBuffer.get(i) & 0xFF) << 24);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
@@ -120,8 +137,6 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
           buffer.putFloat((float) inputBuffer.getDouble(i));
         }
         break;
-      case C.ENCODING_PCM_8BIT:
-      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
