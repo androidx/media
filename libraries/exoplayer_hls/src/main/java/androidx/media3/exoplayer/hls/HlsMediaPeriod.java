@@ -800,10 +800,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       sampleStreamWrappers.add(sampleStreamWrapper);
 
       if (allowChunklessPreparation && codecStringsAllowChunklessPreparation) {
+        TrackGroup id3TrackGroup =
+            new TrackGroup(
+                /* id= */ sampleStreamWrapperUid + ":id3",
+                new Format.Builder()
+                    .setId("ID3")
+                    .setSampleMimeType(MimeTypes.APPLICATION_ID3)
+                    .setPrimaryTrackGroupId(sampleStreamWrapperUid)
+                    .build());
         Format[] renditionFormats = scratchRedundantGroupFormats.toArray(new Format[0]);
         sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
-            new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, renditionFormats)},
-            /* primaryTrackGroupIndex= */ 0);
+            new TrackGroup[] {
+              new TrackGroup(sampleStreamWrapperUid, renditionFormats), id3TrackGroup
+            },
+            /* primaryTrackGroupIndex= */ 0,
+            /* optionalTrackGroupsIndices...= */ 1);
       }
     }
   }

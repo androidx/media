@@ -54,6 +54,8 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Expose ID3 (EMSG) metadata track in audio renditions
+        ([#3043](https://github.com/androidx/media/issues/3043)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

@@ -125,7 +125,10 @@ public final class HlsMediaPeriodTest {
         };
 
     MediaPeriodAsserts.assertGetStreamKeysAndManifestFilterIntegration(
-        mediaPeriodFactory, testMultivariantPlaylist);
+        mediaPeriodFactory,
+        testMultivariantPlaylist,
+        /* periodIndex= */ 0,
+        /* ignoredMimeType= */ APPLICATION_ID3);
   }
 
   @Test
