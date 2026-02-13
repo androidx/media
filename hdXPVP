@@ -1,0 +1,72 @@
+Sets the next percent position (xp) of the device, and the percent velocity (vp) the device should use to reach the position.
+
+See the request schema definition for more information
+
+See Notion for additional information and code samples.
+
+Parameters
+Try it out
+Name	Description
+timeout
+integer
+(query)
+minimum: 5000
+maximum: 60000
+The timeout in milliseconds for the operation. If the device does not respond within the set timeout, a device timeout error response is returned. If not specified, a default value of 5000 milliseconds is used. The default value should be more then long enough under normal circumstances. If a device has a very high RTD (round trip delay) or is under heavy load, the timeout value may need to be increased. If you experience timeouts, you can try to increase the timeout value.
+
+Default value : 5000
+
+5000
+X-Connection-Key *
+string
+(header)
+minLength: 5
+maxLength: 64
+pattern: ^[a-zA-Z0-9]{5,64}$
+Device connection key.
+
+vUeRWzcy
+Request body
+
+application/json
+XPVP message
+
+Example Value
+Schema
+{
+  "xp": 100,
+  "va": 100,
+  "stop_on_target": true,
+  "immediate_rsp": true
+}
+Responses
+Code	Description	Links
+200	
+Command response. In case of a device error, the response will contain an ErrorResponse object.
+
+Media type
+
+application/json
+Controls Accept header.
+Examples
+
+Ok
+Example Value
+Schema
+{
+  "result": "ok"
+}
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
