@@ -1,0 +1,243 @@
+/auth/token/issue
+
+This endpoint generates a client-token for API authentication. The endpoint can only be accessed with an ApplicationKey.
+
+A client-token authenticates a client with the device API endpoints that requires authentication. Use it by including the token as a Bearer token in the Authorization header.
+
+It can be used in client applications, including web browsers and mobile apps. It's an alternativ to the ApplicationID that should be harder to abuse outside your application's browser environment.
+
+A token is valid for a limited time, after which it expires. The default lifetime for a token is 1 hour. You can adjust this lifespan up to a maximum of 24 hours using the ttl parameter.
+
+A token can be configured with the following optional restrictions:
+
+Device connection key
+Client IP
+Client Origin
+Client Referer
+Client User-Agent
+Client Accept-Language
+Client Accept-Encoding
+Client Cache-Control
+Specifying a device connection key ensures that the token can only be used with a specific device.
+
+The client values forms a lightweight client fingerprint that makes it harder to abuse the token outside the client environment.
+
+NOTE: Issuing a client-token for a specific device does not eliminate the need to include the connection key when sending device commands.
+
+The X-Connection-Key header is still required for device-specific operations, even if the client-token was issued for that device.
+
+Token Renewal
+Alongside the token, you receive a renew URL. Use this URL to extend your token's validity, ensuring uninterrupted service for long-running applications.
+
+The renew URL remains valid as long as the token is valid. Remember to renew before the token expires; post-expiration, both the token and renew URL become invalid, necessitating a new token issue.
+
+The renew operation only extends the token's lifespan. It does not alter initial restrictions (device connection key or other client values) set during token issuance.
+
+Parameters
+
+Name	Description
+ttl
+integer
+(query)
+minimum: 60
+maximum: 86400
+The time-to-live (ttl) of the token in seconds. This defines how long the token remains valid. If not specified, a default value is used. Default is 1 hour (3600 seconds). Minimum is 60 seconds, maximum is 24 hours (86400 seconds).
+
+Default value : 3600
+
+3600
+to
+string
+(query)
+The device connection key for which the token is to be issued. Specifying this parameter restricts the use of the token to the specific device.
+
+to
+ip
+string
+(query)
+The client IP address for which the token is to be issued. Specifying this parameter restricts the use of the token to requests originating from the specific IP address.
+
+ip
+origin
+string
+(query)
+The client Origin header value prefix for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific Origin header value prefix.
+
+Example : https://sweettecheu.s3.eu-central-1.amazonaws.com/scripts/admin/dataset.csv
+
+https://sweettecheu.s3.eu-central-1.amazonaws.com/scripts/admin/dataset.csv
+r
+string
+(query)
+The client Referer header value prefix for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific Referer header value prefix.
+
+Example : https://sweettecheu.s3.eu-central-1.amazonaws.com/scripts/admin/dataset.csv
+
+https://sweettecheu.s3.eu-central-1.amazonaws.com/scripts/admin/dataset.csv
+ua
+string
+(query)
+The client User-Agent header value prefix for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific User-Agent header value prefix.
+
+Example : Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36
+
+Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36
+al
+string
+(query)
+The client Accept-Language header value for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific Accept-Language header value.
+
+Example : en-US
+
+en-US
+ae
+string
+(query)
+The client Accept-Encoding header value for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific Accept-Encoding header value.
+
+Example : gzip, deflate, br
+
+gzip, deflate, br
+cc
+string
+(query)
+The client Cache-Control header value for which the token is to be issued. Specifying this parameter restricts the use of the token to requests with the specific Cache-Control header value.
+
+cc
+Responses
+Curl
+
+curl -X 'GET' \
+  'https://www.handyfeeling.com/api/handy-rest/v3/auth/token/issue?ttl=3600&origin=https%3A%2F%2Fsweettecheu.s3.eu-central-1.amazonaws.com%2Fscripts%2Fadmin%2Fdataset.csv&r=https%3A%2F%2Fsweettecheu.s3.eu-central-1.amazonaws.com%2Fscripts%2Fadmin%2Fdataset.csv&ua=Mozilla%2F5.0%20%28X11%3B%20Linux%20x86_64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F127.0.0.0%20Safari%2F537.36&al=en-US&ae=gzip%2C%20deflate%2C%20br' \
+  -H 'accept: application/json'
+Request URL
+https://www.handyfeeling.com/api/handy-rest/v3/auth/token/issue?ttl=3600&origin=https%3A%2F%2Fsweettecheu.s3.eu-central-1.amazonaws.com%2Fscripts%2Fadmin%2Fdataset.csv&r=https%3A%2F%2Fsweettecheu.s3.eu-central-1.amazonaws.com%2Fscripts%2Fadmin%2Fdataset.csv&ua=Mozilla%2F5.0%20%28X11%3B%20Linux%20x86_64%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Chrome%2F127.0.0.0%20Safari%2F537.36&al=en-US&ae=gzip%2C%20deflate%2C%20br
+Server response
+Code	Details
+401	
+Error: response status is 401
+
+Response body
+Download
+Unauthenticated
+Response headers
+ content-length: 16 
+ content-type: text/plain; charset=utf-8 
+ date: Fri,13 Feb 2026 16:29:23 GMT 
+ strict-transport-security: max-age=15724800; includeSubDomains 
+ vary: Origin, 
+ x-content-type-options: nosniff 
+Responses
+Code	Description	Links
+200	
+The issued token.
+
+Media type
+
+application/json
+Controls Accept header.
+Example Value
+Schema
+{
+  "result": {
+    "token_ref": "01JEKW7H7111JBETJPEVGT10HN",
+    "created_at": "2021-04-22T12:32:35.381Z",
+    "expires_at": "2021-04-22T12:32:35.381Z",
+    "token": "MDFISjNHRUFDN05aTlFTTlpQR0c4UkdZMU4uQTJ6NkM5WVpwRGhLMkZUQUlTYThJUTdnaDNmZWFLT1ZIRWVOYzZtNGp1QnhPeTZNOFRocG13b1Vud3Rkb25pN3FjbG00aDBIUU96cm1QSjBsUWpBVHh4UFFsRXRBUERBT0pCeWhlT3JvUmplN0w4djlqRUZtV0QwdXZyOWhvMFB3WVVab213R2lTMFRuejZnQXN2SXlmMzhxSjNtOWdSUEFmSlRhOVdadEVF",
+    "renew": "https://www.handyfeeling.com/api/handy-rest/v3/auth/token/renew?a=aes-128-cbc&d=sNXKI7FC3UUHuEwiTvpos%2Bg99VN6dN3V%2BdkXGK8gOM3vUm%2BIhylz4msZLH40w%2BsbKyUmZihu3Lp1I1djSUrjzYCOc0iZpEZp2wmihYj2K1ifnh6GdKIhnFthGyIhO%2BLS&iv=cE-s2nsh717WGoj-6Kt3Cg&k=01HJ3GEAC7NZNQSNZPGG8RGY1N&s=PgOpBDhi2sDlkbKm2VDjYyvksa7eqfGc1HpQOHyQ7hs&uexp=1703089372707"
+  },
+  "error": {
+    "name": "string",
+    "message": "string",
+    "code": 0,
+    "data": {}
+  }
+}
+No links
+400	
+Bad request.
+
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
+No links
+401	
+Unauthorized
+
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
+No links
+403	
+Forbidden
+
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
+No links
+408	
+Request timeout.
+
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
+No links
+500	
+Internal server error.
+
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
