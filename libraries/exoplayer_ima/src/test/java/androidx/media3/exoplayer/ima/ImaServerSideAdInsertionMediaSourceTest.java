@@ -160,6 +160,7 @@ public class ImaServerSideAdInsertionMediaSourceTest {
 
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
+    Thread.sleep(100);
 
     verify(mockAdsRenderingSettings).setEnableCustomTabs(false);
   }
@@ -184,6 +185,7 @@ public class ImaServerSideAdInsertionMediaSourceTest {
 
     player.prepare();
     advance(player).untilPendingCommandsAreFullyHandled();
+    Thread.sleep(100);
 
     verify(mockAdsRenderingSettings).setEnableCustomTabs(true);
   }
