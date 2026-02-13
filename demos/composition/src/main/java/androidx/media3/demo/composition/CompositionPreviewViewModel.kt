@@ -20,7 +20,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
-import android.view.SurfaceHolder
+import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +34,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Effect
-import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
@@ -64,11 +63,10 @@ import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.RgbFilter
-import androidx.media3.effect.SingleContextGlObjectsProvider
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.NdkTransformerBuilder
-import androidx.media3.effect.ndk.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -109,27 +107,18 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   internal var frameConsumerEnabled: Boolean = false
-  internal var holder: SurfaceHolder? = null
+  internal var surfaceView: SurfaceView? = null
   internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
     if (SDK_INT < 34) {
       throw IllegalStateException(
         "Render with PacketConsumer<HardwareBufferFrame> requires API 34+"
       )
     }
-    ProcessAndRenderToSurfaceConsumer.Factory(
-      getApplication(),
-      glExecutorService,
-      glObjectsProvider,
-      errorHandler = { e ->
-        Log.e(TAG, "FrameConsumer error", e)
-        _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
-      },
-    )
+    ProcessAndRenderToSurfaceConsumer.Factory()
   }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
-  private val glObjectsProvider: GlObjectsProvider by lazy { SingleContextGlObjectsProvider() }
   private var transformer: Transformer? = null
   private var outputFile: File? = null
   private var exportStopwatch: Stopwatch =
@@ -793,7 +782,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder = CompositionPlayer.Builder(getApplication())
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
-      packetConsumerFactory.setOutput(holder)
+      surfaceView?.let { packetConsumerFactory.setOutput(it.holder, it::post) }
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
     } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {

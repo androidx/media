@@ -19,13 +19,10 @@ import android.Manifest
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.Color
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
 import android.view.SurfaceView
-import android.view.View.INVISIBLE
-import android.view.View.VISIBLE
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -266,21 +263,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
             playerView.setTimeBarScrubbingEnabled(!isOverlayPlacementActive)
             playerView.setUseController(!isOverlayPlacementActive)
             // TODO: b/449957627 - Remove once internal pipeline is migrated to FrameConsumer.
-            viewModel.holder = (playerView.videoSurfaceView as SurfaceView).holder
-            if (viewModel.frameConsumerEnabled) {
-              playerView.setShutterBackgroundColor(Color.TRANSPARENT)
-              // Workaround to ensure the Surface is recreated when switching from CPU to GPU
-              // rendering.
-              if (SDK_INT >= 34) {
-                (playerView.videoSurfaceView as SurfaceView).setSurfaceLifecycle(
-                  SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_VISIBILITY
-                )
-              }
-            } else {
-              playerView.setShutterBackgroundColor(Color.BLACK)
-            }
-            playerView.videoSurfaceView?.visibility = INVISIBLE
-            playerView.videoSurfaceView?.visibility = VISIBLE
+            viewModel.surfaceView = playerView.videoSurfaceView as SurfaceView
           },
           modifier = Modifier.fillMaxSize(),
         )

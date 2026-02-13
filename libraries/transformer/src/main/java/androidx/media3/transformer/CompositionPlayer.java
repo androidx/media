@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITION_PLAYER;
@@ -29,6 +30,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -80,7 +82,9 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
+import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.effect.SurfaceHolderHardwareBufferFrameQueue;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -561,6 +565,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private @RepeatMode int repeatMode;
   private float volume;
   private boolean renderedFirstFrame;
+  @Nullable private VideoSize videoSize;
   @Nullable private Object videoOutput;
   @Nullable private PlaybackException playbackException;
   private @Player.State int playbackState;
@@ -618,6 +623,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               ? builder.glExecutorService
               : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
       shouldShutdownExecutorService = builder.glExecutorService == null;
+      // TODO: b/483976838 - Switch to PacketProcessor and create the
+      // SurfaceHolderHardwareBufferFrameQueue inside CompositionPlayer.
+      if (SDK_INT >= 34
+          && builder.packetConsumerFactory instanceof ProcessAndRenderToSurfaceConsumer.Factory) {
+        ((ProcessAndRenderToSurfaceConsumer.Factory) builder.packetConsumerFactory)
+            .setListener(internalListener, directExecutor());
+      }
       packetConsumer = builder.packetConsumerFactory.create();
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
@@ -833,6 +845,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .setTotalBufferedDurationMs(totalBufferedDurationSupplier)
             .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset())
             .setPlaybackSuppressionReason(playbackSuppressionReason);
+    if (packetConsumer != null && videoSize != null) {
+      state.setVideoSize(videoSize);
+    }
     if (repeatingCompositionSeekInProgress) {
       state.setPositionDiscontinuity(DISCONTINUITY_REASON_AUTO_TRANSITION, C.TIME_UNSET);
       repeatingCompositionSeekInProgress = false;
@@ -1026,7 +1041,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (playerHolders.isEmpty()) {
       return;
     }
-    playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    if (packetConsumer == null) {
+      playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    }
   }
 
   // Internal methods
@@ -1401,7 +1418,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       player.setMediaSource(
           createPrimarySequenceMediaSource(sequence, mediaSourceFactory, shouldGenerateBlankFrames),
           startPositionMs);
-      if (videoFrameMetadataListener != null) {
+      if (videoFrameMetadataListener != null && packetConsumer == null) {
         player.setVideoFrameMetadataListener(videoFrameMetadataListener);
       }
     } else {
@@ -2188,7 +2205,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       implements AudioFocusManager.PlayerControl,
           CompositionPlayerInternal.Listener,
           SurfaceHolder.Callback,
-          PlaybackVideoGraphWrapper.Listener {
+          PlaybackVideoGraphWrapper.Listener,
+          SurfaceHolderHardwareBufferFrameQueue.Listener {
 
     // AudioFocusManager.PlayerControl methods. Called on the application thread.
 
@@ -2259,6 +2277,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Override
     public void onVideoSizeChanged(VideoSize videoSize) {
       // TODO: b/328219481 - Report video size change to app.
+    }
+
+    @Override
+    public void onFrameAboutToBeRendered(
+        long presentationTimeUs, long releaseTimeNs, Format format) {
+      if (packetConsumer != null) {
+        VideoSize videoSizeToBeRendered = new VideoSize(format.width, format.height);
+        applicationHandler.post(
+            () -> {
+              if (!Objects.equals(videoSize, videoSizeToBeRendered)) {
+                if (videoSize == null) {
+                  renderedFirstFrame = true;
+                }
+                videoSize = videoSizeToBeRendered;
+                invalidateState();
+              }
+            });
+        if (videoFrameMetadataListener != null) {
+          videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+              presentationTimeUs, releaseTimeNs, format, /* mediaFormat= */ null);
+        }
+      }
     }
 
     @Override
