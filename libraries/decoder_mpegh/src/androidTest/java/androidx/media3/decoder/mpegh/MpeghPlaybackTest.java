@@ -176,16 +176,15 @@ public final class MpeghPlaybackTest {
       player.setMediaSource(mediaSource);
 
       if (command != null) {
-        CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-        codecParametersBuilder.setString(CODEC_PARAM_MPEGH_UI_COMMAND, command);
-        player.setAudioCodecParameters(codecParametersBuilder.build());
+        player.setAudioCodecParameters(
+            new CodecParameters.Builder().setString(CODEC_PARAM_MPEGH_UI_COMMAND, command).build());
       }
       if (persistenceBuffer != null) {
         persistenceBuffer.rewind();
-        CodecParameters.Builder codecParametersBuilderPersistence = new CodecParameters.Builder();
-        codecParametersBuilderPersistence.setByteBuffer(
-            CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER, persistenceBuffer);
-        player.setAudioCodecParameters(codecParametersBuilderPersistence.build());
+        player.setAudioCodecParameters(
+            new CodecParameters.Builder()
+                .setByteBuffer(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER, persistenceBuffer)
+                .build());
       }
 
       List<String> filterKeys =

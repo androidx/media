@@ -49,13 +49,12 @@ public final class MpeghDecoder
   private static final int TARGET_LAYOUT_CICP = 2;
 
   private final ByteBuffer tmpOutputBuffer;
+  private final MpeghUiCommandHelper uiHelper;
 
   private MpeghDecoderJni decoder;
   private long outPtsUs;
   private int outChannels;
   private int outSampleRate;
-
-  private final MpeghUiCommandHelper uiHelper;
   private @Nullable MpeghUiManagerJni uiManager;
 
   /**
@@ -65,7 +64,7 @@ public final class MpeghDecoder
    * @param numInputBuffers The number of input buffers.
    * @param numOutputBuffers The number of output buffers.
    * @param uiHelper A helper class to hold variables/commands which are obtained in the {@link
-   *     MpeghAudioRenderer} and are needed to perform the UI handling
+   *     MpeghAudioRenderer} and are needed to perform the UI handling.
    * @throws MpeghDecoderException If an exception occurs when initializing the decoder.
    */
   public MpeghDecoder(
@@ -151,7 +150,7 @@ public final class MpeghDecoder
       }
 
       // apply MPEG-H system settings
-      for (String command : uiHelper.getCommands(true)) {
+      for (String command : uiHelper.getCommands(/* includeSystemSettings= */ true)) {
         uiManager.command(command);
       }
     }
@@ -166,7 +165,7 @@ public final class MpeghDecoder
 
       boolean feedSuccess = uiManager.feed(inputData, inputSize);
       if (feedSuccess) {
-        for (String command : uiHelper.getCommands(false)) {
+        for (String command : uiHelper.getCommands(/* includeSystemSettings= */ false)) {
           uiManager.command(command);
         }
 
@@ -180,20 +179,23 @@ public final class MpeghDecoder
         if (newOsdAvailable) {
           String osdXml = uiManager.getOsd();
 
-          Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
+          @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
+          @Nullable
           AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
           if (subscribedKeys != null && dispatcher != null) {
             if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_CONFIG)) {
               // reset CodecParameter with KEY_MPEGH_UI_CONFIG to null as it is possible that the
-              // last config needs to be resend, because only 'real' changes are propagated
+              // last config needs to be resent, because only 'real' changes are propagated
               // further on by audioCodecParametersChanged
-              CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-              codecParametersBuilder.setString(CODEC_PARAM_MPEGH_UI_CONFIG, null);
-              dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+              dispatcher.audioCodecParametersChanged(
+                  new CodecParameters.Builder()
+                      .setString(CODEC_PARAM_MPEGH_UI_CONFIG, null)
+                      .build());
               // actually send the current MPEG-H UI config
-              codecParametersBuilder = new CodecParameters.Builder();
-              codecParametersBuilder.setString(CODEC_PARAM_MPEGH_UI_CONFIG, osdXml);
-              dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+              dispatcher.audioCodecParametersChanged(
+                  new CodecParameters.Builder()
+                      .setString(CODEC_PARAM_MPEGH_UI_CONFIG, osdXml)
+                      .build());
             }
           }
         }
@@ -262,14 +264,15 @@ public final class MpeghDecoder
       if (persistenceBuffer != null) {
         persistenceBuffer.rewind();
         int unused = uiManager.destroy(persistenceBuffer, persistenceBuffer.capacity());
-        Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
+        @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
+        @Nullable
         AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
         if (subscribedKeys != null && dispatcher != null) {
           if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER)) {
-            CodecParameters.Builder codecParametersBuilder = new CodecParameters.Builder();
-            codecParametersBuilder.setByteBuffer(
-                CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER, persistenceBuffer);
-            dispatcher.audioCodecParametersChanged(codecParametersBuilder.build());
+            dispatcher.audioCodecParametersChanged(
+                new CodecParameters.Builder()
+                    .setByteBuffer(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER, persistenceBuffer)
+                    .build());
           }
         }
       }

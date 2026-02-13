@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -75,8 +76,6 @@ public final class MpeghUiCommandHelper {
 
   /** Creates a new instance. */
   public MpeghUiCommandHelper() {
-    persistenceStorage = null;
-    forceUiUpdate = false;
     lock = new Object();
     commands = new ArrayList<>();
     systemCommands = new HashMap<>();
@@ -108,7 +107,9 @@ public final class MpeghUiCommandHelper {
           // Ignore malformed action types and treat as a regular command.
         }
       }
-      commands.add(command);
+      if (!commands.contains(command)) {
+        commands.add(command);
+      }
     }
   }
 
@@ -118,13 +119,13 @@ public final class MpeghUiCommandHelper {
    * <p>The obtained MPEG-H UI commands will also be removed from the stored list of commands. Only
    * MPEG-H UI system settings will be kept.
    *
-   * @param init Whether to include MPEG-H UI system settings in the returned list.
+   * @param includeSystemSettings Whether to include MPEG-H UI system settings in the returned list.
    * @return The list of MPEG-H UI commands to be applied.
    */
-  public List<String> getCommands(boolean init) {
+  public List<String> getCommands(boolean includeSystemSettings) {
     List<String> result = new ArrayList<>();
     synchronized (lock) {
-      if (init) {
+      if (includeSystemSettings) {
         result.addAll(systemCommands.values());
       }
       // Remove duplicate entries that are already in the system commands list.
@@ -135,7 +136,7 @@ public final class MpeghUiCommandHelper {
         }
       }
 
-      if (!init) {
+      if (!includeSystemSettings) {
         result.addAll(commands);
         commands.clear();
       }
@@ -162,7 +163,9 @@ public final class MpeghUiCommandHelper {
   @Nullable
   public Set<String> getSubscribedCodecParameterKeys() {
     synchronized (lock) {
-      return subscribedCodecParameterKeys;
+      return subscribedCodecParameterKeys == null
+          ? null
+          : ImmutableSet.copyOf(subscribedCodecParameterKeys);
     }
   }
 

@@ -165,7 +165,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
           uiHelper.addCommand((String) params.get(CODEC_PARAM_MPEGH_UI_COMMAND));
         }
         if (params.get(CODEC_PARAM_MPEGH_UI_FORCE_UPDATE) != null) {
-          uiHelper.setForceUiUpdate(true);
+          uiHelper.setForceUiUpdate((Integer) params.get(CODEC_PARAM_MPEGH_UI_FORCE_UPDATE) != 0);
         }
         if (params.get(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER) != null) {
           ByteBuffer persistenceBuffer =
