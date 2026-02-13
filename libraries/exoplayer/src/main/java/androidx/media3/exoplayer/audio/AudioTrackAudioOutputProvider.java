@@ -431,6 +431,13 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
   }
 
+  /** Returns the {@link AudioCapabilities}. */
+  @UnstableApi
+  @Nullable
+  public AudioCapabilities getAudioCapabilities() {
+    return audioCapabilities;
+  }
+
   private android.media.AudioAttributes getAudioTrackAttributes(
       AudioAttributes audioAttributes, boolean tunneling) {
     if (tunneling) {

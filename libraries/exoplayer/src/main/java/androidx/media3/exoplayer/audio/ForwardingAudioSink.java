@@ -142,6 +142,12 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
+  @Nullable
+  public AudioCapabilities getAudioCapabilities() {
+    return sink.getAudioCapabilities();
+  }
+
+  @Override
   public void setAudioSessionId(int audioSessionId) {
     sink.setAudioSessionId(audioSessionId);
   }

@@ -591,6 +591,12 @@ public interface AudioSink {
   @Nullable
   AudioAttributes getAudioAttributes();
 
+  /** Returns the AudioCapabilities of the sink, if supported by the sink implementation. */
+  @Nullable
+  default AudioCapabilities getAudioCapabilities() {
+    return null;
+  }
+
   /** Sets the audio session id. */
   void setAudioSessionId(int audioSessionId);
 
