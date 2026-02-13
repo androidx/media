@@ -100,7 +100,6 @@ class GlShaderProgramPacketProcessorTest {
           fakeGlShaderProgram,
           glDispatcher,
           mockGlObjectsProvider,
-          recordingErrorConsumer,
         )
       processor.setOutput(recordingOutputConsumer)
     }
@@ -123,7 +122,6 @@ class GlShaderProgramPacketProcessorTest {
         fakeGlShaderProgram,
         glThreadExecutor,
         mockGlObjectsProvider,
-        recordingErrorConsumer,
       )
 
     val processor = processorFuture.get()
@@ -147,12 +145,18 @@ class GlShaderProgramPacketProcessorTest {
     fakeGlShaderProgram.onQueue = { frameInfo ->
       // Executed on the glDispatcher thread.
       when (frameInfo.presentationTimeUs) {
-        1000L ->
+        1000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture1, outputPtsUs1)
-        2000L ->
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
+        2000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture2, outputPtsUs2)
-        3000L ->
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
+        3000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture3, outputPtsUs3)
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
         else ->
           throw IllegalStateException("Unexpected frame timestamp: ${frameInfo.presentationTimeUs}")
       }
@@ -316,12 +320,18 @@ class GlShaderProgramPacketProcessorTest {
     val outputPtsUs3 = 3003L
     fakeGlShaderProgram.onQueue = { frameInfo ->
       when (frameInfo.presentationTimeUs) {
-        1000L ->
+        1000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture1, outputPtsUs1)
-        2000L ->
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
+        2000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture2, outputPtsUs2)
-        3000L ->
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
+        3000L -> {
           fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture3, outputPtsUs3)
+          fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+        }
       }
     }
 
@@ -365,6 +375,80 @@ class GlShaderProgramPacketProcessorTest {
   }
 
   @Test
+  fun queuePacket_multipleReadySignals_buffersCapacity() = doBlocking {
+    val inputFrame1 = createTestFrame(id = 1, timestampUs = 1000L)
+    val inputFrame2 = createTestFrame(id = 2, timestampUs = 2000L)
+
+    // fakeGlShaderProgram increments capacity in setInputListener. Increment it again so the
+    // capacity becomes 2.
+    fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+
+    fakeGlShaderProgram.onQueue = { frameInfo ->
+      fakeGlShaderProgram.outputListener.onOutputFrameAvailable(
+        createTexture(texId = 101),
+        frameInfo.presentationTimeUs + 1,
+      )
+    }
+    processor.queuePacket(Packet.of(inputFrame1))
+
+    fakeGlShaderProgram.onQueue = { frameInfo ->
+      fakeGlShaderProgram.outputListener.onOutputFrameAvailable(
+        createTexture(texId = 102),
+        frameInfo.presentationTimeUs + 1,
+      )
+    }
+    processor.queuePacket(Packet.of(inputFrame2))
+
+    assertThat(recordingOutputConsumer.queuedPackets).hasSize(2)
+  }
+
+  @Test
+  fun queuePacket_shaderError_throwsException() = doBlocking {
+    val inputFrame = createTestFrame(id = 1, timestampUs = 1000L)
+    val shaderException = VideoFrameProcessingException("Shader error")
+    fakeGlShaderProgram.onQueue = { _ ->
+      fakeGlShaderProgram.errorListener?.onError(shaderException)
+    }
+
+    val thrownException =
+      assertThrows(VideoFrameProcessingException::class.java) {
+        runBlocking { processor.queuePacket(Packet.of(inputFrame)) }
+      }
+
+    assertThat(thrownException).isSameInstanceAs(shaderException)
+  }
+
+  @Test
+  fun queuePacket_afterException_processesPacket() = doBlocking {
+    val inputFrame = createTestFrame(id = 1, timestampUs = 1000L)
+    val outputTexture = createTexture(texId = 102)
+    val shaderException = VideoFrameProcessingException("Shader error")
+    // Trigger a failure.
+    fakeGlShaderProgram.onQueue = { _ ->
+      fakeGlShaderProgram.errorListener?.onError(shaderException)
+    }
+    assertThrows(VideoFrameProcessingException::class.java) {
+      runBlocking { processor.queuePacket(Packet.of(inputFrame)) }
+    }
+
+    // Ensure there is capacity, and that the next packet won't throw.
+    fakeGlShaderProgram.onQueue = { _ ->
+      fakeGlShaderProgram.outputListener.onOutputFrameAvailable(
+        outputTexture,
+        inputFrame.presentationTimeUs + 1,
+      )
+    }
+    fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+
+    processor.queuePacket(Packet.of(inputFrame))
+
+    assertThat(recordingOutputConsumer.queuedPackets).hasSize(1)
+    val outFrame =
+      (recordingOutputConsumer.queuedPackets[0] as Packet.Payload<GlTextureFrame>).payload
+    assertThat(outFrame.glTextureInfo).isEqualTo(outputTexture)
+  }
+
+  @Test
   fun queuePacket_concurrentCalls_throwsException() = doBlocking {
     val inputFrame1 = createTestFrame(id = 1, timestampUs = 1000L)
     val inputFrame2 = createTestFrame(id = 2, timestampUs = 2000L)
@@ -394,13 +478,72 @@ class GlShaderProgramPacketProcessorTest {
 
     val queueJob = launch(glDispatcher) { processor.queuePacket(Packet.of(inputFrame)) }
     shaderStarted.await()
-    withContext(glDispatcher) { processor.release() }
+    processor.release()
     queueJob.join()
 
     assertThat(queueJob.isCancelled).isTrue()
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
     assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
+  }
+
+  @Test
+  fun release_whileQueuePacketSuspended_releasesOutputFrame() = doBlocking {
+    val inputFrame = createTestFrame(id = 1, timestampUs = 1000L)
+    val outputTexture1 = createTexture(texId = 101)
+    val outputPtsUs1 = 1001L
+    val shaderStarted = CompletableDeferred<Unit>()
+    fakeGlShaderProgram.onQueue = { _ ->
+      shaderStarted.complete(Unit)
+      // Do not forward output to cause processing to hang.
+    }
+
+    val queueJob = launch(glDispatcher) { processor.queuePacket(Packet.of(inputFrame)) }
+    shaderStarted.await()
+    processor.release()
+    queueJob.join()
+
+    assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
+    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat(recordingErrorConsumer.exceptions).isEmpty()
+
+    // Simulate the underlying shader program producing output after the processor was released.
+    withContext(glDispatcher) {
+      fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture1, outputPtsUs1)
+      fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame()
+    }
+
+    // The output texture should be immediately released.
+    assertThat(fakeGlShaderProgram.releasedFrames).containsExactly(outputTexture1)
+  }
+
+  @Test
+  fun queuePacket_cancelledBeforeOutputProduced_releasesOutputFrame() = doBlocking {
+    val inputFrame = createTestFrame(id = 1, timestampUs = 1000L)
+    val outputTexture1 = createTexture(texId = 101)
+    val outputPtsUs1 = 1001L
+    val shaderStarted = CompletableDeferred<Unit>()
+    fakeGlShaderProgram.onQueue = { _ ->
+      shaderStarted.complete(Unit)
+      // Do not forward output to cause processing to hang.
+    }
+
+    val queueJob = launch(glDispatcher) { processor.queuePacket(Packet.of(inputFrame)) }
+    shaderStarted.await()
+    queueJob.cancelAndJoin()
+
+    assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
+    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat(recordingErrorConsumer.exceptions).isEmpty()
+
+    // Simulate the underlying shader program producing output after the queuePacket coroutine was
+    // cancelled.
+    withContext(glDispatcher) {
+      fakeGlShaderProgram.outputListener.onOutputFrameAvailable(outputTexture1, outputPtsUs1)
+    }
+
+    // The output texture should be immediately released.
+    assertThat(fakeGlShaderProgram.releasedFrames).containsExactly(outputTexture1)
   }
 
   @Test
@@ -429,7 +572,7 @@ class GlShaderProgramPacketProcessorTest {
       val metadata = TestMetadata()
       val format = Format.Builder().build() // Minimal format
       return GlTextureFrame.Builder(
-          createTexture(id),
+          createTexture(texId = id),
           directExecutor(),
           { _ -> metadata.released.set(true) },
         )
@@ -464,6 +607,7 @@ class GlShaderProgramPacketProcessorTest {
     class QueuedFrameInfo(val textureInfo: GlTextureInfo?, val presentationTimeUs: Long)
 
     val queuedFrames: MutableList<QueuedFrameInfo?> = ArrayList<QueuedFrameInfo?>()
+    val releasedFrames: MutableList<GlTextureInfo> = ArrayList<GlTextureInfo>()
     var onQueue: (QueuedFrameInfo) -> Unit = {}
     var inputListener: InputListener = object : InputListener {}
       private set
@@ -501,7 +645,9 @@ class GlShaderProgramPacketProcessorTest {
       onQueue(queuedFrameInfo)
     }
 
-    override fun releaseOutputFrame(outputTexture: GlTextureInfo) {}
+    override fun releaseOutputFrame(outputTexture: GlTextureInfo) {
+      releasedFrames.add(outputTexture)
+    }
 
     override fun signalEndOfCurrentInputStream() {
       outputListener.onCurrentOutputStreamEnded()

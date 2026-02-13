@@ -163,12 +163,7 @@ class HardwareBufferToGlTextureFrameProcessor(
       }
     glShaderProgram.setTextureTransformMatrix(constructTransformationMatrix(hardwareBufferFrame))
     val glShaderProgramPacketProcessor =
-      GlShaderProgramPacketProcessor.create(
-        glShaderProgram,
-        glDispatcher,
-        glObjectsProvider,
-        { e -> errorConsumer.accept(e) },
-      )
+      GlShaderProgramPacketProcessor.create(glShaderProgram, glDispatcher, glObjectsProvider)
     glShaderProgramPacketProcessor.setOutput(checkNotNull(outputConsumer))
     this.glShaderProgramPacketProcessor = glShaderProgramPacketProcessor
     this.isRgba8888Shader = !useExternalSampler
