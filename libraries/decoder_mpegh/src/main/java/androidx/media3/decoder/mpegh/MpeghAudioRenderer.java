@@ -15,7 +15,10 @@
  */
 package androidx.media3.decoder.mpegh;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Handler;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -23,11 +26,15 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
+import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.Set;
 
 /** Decodes and renders audio using the native MPEG-H decoder. */
 @UnstableApi
@@ -35,8 +42,24 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
 
   private static final String TAG = "MpeghAudioRenderer";
 
+  /** Codec parameter key for the MPEG-H UI configuration (ASI). */
+  public static final String CODEC_PARAM_MPEGH_UI_CONFIG = "mpegh-ui-config";
+
+  /** Codec parameter key for the MPEG-H UI command string. */
+  public static final String CODEC_PARAM_MPEGH_UI_COMMAND = "mpegh-ui-command";
+
+  /** Codec parameter key for forcing an MPEG-H UI update. */
+  public static final String CODEC_PARAM_MPEGH_UI_FORCE_UPDATE = "mpegh-ui-force-update";
+
+  /** Codec parameter key for the MPEG-H UI persistence buffer. */
+  public static final String CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER =
+      "mpegh-ui-persistence-buffer";
+
   /** The number of input and output buffers. */
   private static final int NUM_BUFFERS = 16;
+
+  /** Helper for handling MPEG-H UI commands and system settings. */
+  private final MpeghUiCommandHelper uiHelper;
 
   /*  Creates a new instance. */
   public MpeghAudioRenderer() {
@@ -56,6 +79,9 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
       AudioRendererEventListener eventListener,
       AudioProcessor... audioProcessors) {
     super(eventHandler, eventListener, audioProcessors);
+    uiHelper = new MpeghUiCommandHelper();
+    uiHelper.setEventDispatcher(
+        new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   /**
@@ -69,6 +95,9 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   public MpeghAudioRenderer(
       Handler eventHandler, AudioRendererEventListener eventListener, AudioSink audioSink) {
     super(eventHandler, eventListener, audioSink);
+    uiHelper = new MpeghUiCommandHelper();
+    uiHelper.setEventDispatcher(
+        new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   @Override
@@ -110,7 +139,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   protected MpeghDecoder createDecoder(Format format, CryptoConfig cryptoConfig)
       throws MpeghDecoderException {
     TraceUtil.beginSection("createMpeghDecoder");
-    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS);
+    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS, uiHelper);
     TraceUtil.endSection();
     return decoder;
   }
@@ -123,5 +152,33 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
         .setSampleMimeType(MimeTypes.AUDIO_RAW)
         .setPcmEncoding(C.ENCODING_PCM_16BIT)
         .build();
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    switch (messageType) {
+      case MSG_SET_CODEC_PARAMETERS:
+        CodecParameters params = (CodecParameters) message;
+        if (params.get(CODEC_PARAM_MPEGH_UI_COMMAND) != null) {
+          uiHelper.addCommand((String) params.get(CODEC_PARAM_MPEGH_UI_COMMAND));
+        }
+        if (params.get(CODEC_PARAM_MPEGH_UI_FORCE_UPDATE) != null) {
+          uiHelper.setForceUiUpdate((Integer) params.get(CODEC_PARAM_MPEGH_UI_FORCE_UPDATE) != 0);
+        }
+        if (params.get(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER) != null) {
+          ByteBuffer persistenceBuffer =
+              (ByteBuffer) params.get(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER);
+          uiHelper.setPersistenceStorage(persistenceBuffer);
+        }
+        break;
+      case MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS:
+        uiHelper.setSubscribedCodecParameterKeys((Set<String>) checkNotNull(message));
+        break;
+      default:
+        super.handleMessage(messageType, message);
+        break;
+    }
   }
 }

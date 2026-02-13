@@ -32,7 +32,7 @@ MPEGH_MODULE_PATH="$(pwd)/libraries/decoder_mpegh/src/main"
 
 ```
 cd "${MPEGH_MODULE_PATH}/jni" && \
-git clone https://github.com/Fraunhofer-IIS/mpeghdec.git --branch r2.0.0 libmpegh
+git clone https://github.com/Fraunhofer-IIS/mpeghdec.git --branch r3.0.2 libmpegh
 ```
 
 *   [Install CMake][].
