@@ -96,6 +96,9 @@ public final class TrackSelectorResult {
 
   /** Returns whether the renderer at the specified index is enabled. */
   public boolean isRendererEnabled(int index) {
+    if (index >= rendererConfigurations.length) {
+      return false;
+    }
     return rendererConfigurations[index] != null;
   }
 
@@ -131,6 +134,12 @@ public final class TrackSelectorResult {
    */
   public boolean isEquivalent(@Nullable TrackSelectorResult other, int index) {
     if (other == null) {
+      return false;
+    }
+    if (index >= rendererConfigurations.length || index >= other.rendererConfigurations.length) {
+      return false;
+    }
+    if (index >= selections.length || index >= other.selections.length) {
       return false;
     }
     return Objects.equals(rendererConfigurations[index], other.rendererConfigurations[index])
