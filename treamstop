@@ -1,0 +1,71 @@
+Stop the stream playback.
+
+See the request body schema definition for details.
+
+See Stream Protocol (STREAM) for additional information about the STREAM protocol and code samples.
+
+Parameters
+Try it out
+Name	Description
+timeout
+integer
+(query)
+minimum: 5000
+maximum: 60000
+The timeout in milliseconds for the operation. If the device does not respond within the set timeout, a device timeout error response is returned. If not specified, a default value of 5000 milliseconds is used. The default value should be more then long enough under normal circumstances. If a device has a very high RTD (round trip delay) or is under heavy load, the timeout value may need to be increased. If you experience timeouts, you can try to increase the timeout value.
+
+Default value : 5000
+
+5000
+X-Connection-Key *
+(header)
+A device connection key or a channel reference.
+
+Example : chref:d89dsa9idsadsad
+
+chref:d89dsa9idsadsad
+Responses
+Code	Description	Links
+200	
+Stream state.
+
+Media type
+
+application/json
+Controls Accept header.
+Examples
+
+Ok
+Example Value
+Schema
+{
+  "result": {
+    "play_state": 0,
+    "pause_on_starving": false,
+    "points": 100,
+    "max_points": 100,
+    "current_point": 100,
+    "current_time": 100,
+    "loop": false,
+    "playback_rate": 1,
+    "first_point_time": 100,
+    "last_point_time": 12345,
+    "stream_id": 154545601,
+    "tail_point_stream_index": 100,
+    "tail_point_stream_index_threshold": 100
+  }
+}
+Headers:
+Name	Description	Type
+X-RateLimit-Limit	
+Request limit per minute window.
+
+integer
+X-RateLimit-Remaining	
+The number of requests left in the current window.
+
+integer
+X-RateLimit-Reset	
+Seconds until next window reset.
+
+integer
