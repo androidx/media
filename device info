@@ -1,0 +1,22 @@
+Get the device information.
+
+Parameters
+Try it out
+Name	Description
+timeout
+integer
+(query)
+minimum: 5000
+maximum: 60000
+The timeout in milliseconds for the operation. If the device does not respond within the set timeout, a device timeout error response is returned. If not specified, a default value of 5000 milliseconds is used. The default value should be more then long enough under normal circumstances. If a device has a very high RTD (round trip delay) or is under heavy load, the timeout value may need to be increased. If you experience timeouts, you can try to increase the timeout value.
+
+Default value : 5000
+
+5000
+X-Connection-Key *
+(header)
+A device connection key or a channel reference.
+
+Example : chref:d89dsa9idsadsad
+
+chref:d89dsa9idsadsad
