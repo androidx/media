@@ -1,0 +1,41 @@
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+
+apply plugin: 'kotlin-android'
+
+android {
+    namespace 'androidx.media3.datasource.ktor'
+
+    defaultConfig.minSdkVersion project.ext.minSdkVersion
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    api project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-datasource')
+    implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
+    compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
+    compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:' + kotlinxCoroutinesVersion
+    testImplementation project(modulePrefix + 'test-utils')
+    testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
+    testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation 'io.ktor:ktor-client-okhttp:' + ktorVersion
+    api 'io.ktor:ktor-client-core:' + ktorVersion
+}
+
+ext {
+    releaseArtifactId = 'media3-datasource-ktor'
+    releaseName = 'Media3 Ktor DataSource module'
+
+}
+apply from: '../../publish.gradle'

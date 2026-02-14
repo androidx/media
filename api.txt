@@ -1414,6 +1414,19 @@ package androidx.media3.datasource.okhttp {
 
 }
 
+package androidx.media3.datasource.ktor {
+
+  public class KtorDataSource implements androidx.media3.datasource.DataSource androidx.media3.datasource.HttpDataSource {
+  }
+
+  public static final class KtorDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
+    ctor public KtorDataSource.Factory(io.ktor.client.HttpClient);
+    ctor public KtorDataSource.Factory(io.ktor.client.HttpClient, kotlinx.coroutines.CoroutineScope);
+    method public androidx.media3.datasource.ktor.KtorDataSource.Factory setUserAgent(@Nullable String);
+  }
+
+}
+
 package androidx.media3.exoplayer {
 
   public final class ExoPlaybackException extends androidx.media3.common.PlaybackException {
