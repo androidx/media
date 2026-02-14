@@ -1,0 +1,11 @@
+# Proguard rules specific to the Ktor extension.
+
+# Options for Ktor and Okio
+-dontwarn io.ktor.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
+
+# Keep Ktor client classes
+-keep class io.ktor.** { *; }
+-keep class kotlinx.coroutines.** { *; }

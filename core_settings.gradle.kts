@@ -95,6 +95,10 @@ include("${modulePrefix}lib-datasource-cronet")
 
 project("${modulePrefix}lib-datasource-cronet").projectDir = file("libraries/datasource_cronet")
 
+include("${modulePrefix}lib-datasource-ktor")
+
+project("${modulePrefix}lib-datasource-ktor").projectDir = file("libraries/datasource_ktor")
+
 include("${modulePrefix}lib-datasource-rtmp")
 
 project("${modulePrefix}lib-datasource-rtmp").projectDir = file("libraries/datasource_rtmp")
