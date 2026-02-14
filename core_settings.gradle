@@ -68,6 +68,8 @@ include modulePrefix + 'lib-datasource-rtmp'
 project(modulePrefix + 'lib-datasource-rtmp').projectDir = new File(rootDir, 'libraries/datasource_rtmp')
 include modulePrefix + 'lib-datasource-okhttp'
 project(modulePrefix + 'lib-datasource-okhttp').projectDir = new File(rootDir, 'libraries/datasource_okhttp')
+include modulePrefix + 'lib-datasource-ktor'
+project(modulePrefix + 'lib-datasource-ktor').projectDir = new File(rootDir, 'libraries/datasource_ktor')
 
 include modulePrefix + 'lib-decoder'
 project(modulePrefix + 'lib-decoder').projectDir = new File(rootDir, 'libraries/decoder')
