@@ -174,7 +174,12 @@ made to this branch.
 
 The `release` branch holds the most recent stable release.
 
+
+
 #### Using Android Studio
 
 To develop AndroidX Media using Android Studio, simply open the project in the
 root directory of this repository.
+implementation("androidx.media3:media3-exoplayer:1.X.X")
+implementation("androidx.media3:media3-exoplayer-dash:1.X.X")
+implementation("androidx.media3:media3-ui:1.X.X")
