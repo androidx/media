@@ -51,6 +51,30 @@ class FakePacketConsumer<T> : PacketConsumer<T> {
   override suspend fun release() {}
 }
 
+/** A fake [RenderingPacketConsumer] implementation in Kotlin for testing from Java. */
+class FakeRenderingPacketConsumer<I, O> : RenderingPacketConsumer<I, O> {
+  var onQueue: (I) -> Unit = {}
+
+  var onRenderOutput: (O?) -> Unit = {}
+
+  val queuedPayloads: MutableList<I> = ArrayList()
+
+  override fun setRenderOutput(output: O?) {
+    onRenderOutput(output)
+  }
+
+  override fun setErrorConsumer(errorConsumer: androidx.media3.common.util.Consumer<Exception>) {}
+
+  override suspend fun queuePacket(packet: Packet<I>) {
+    if (packet is Packet.Payload) {
+      queuedPayloads.add(packet.payload)
+      onQueue(packet.payload)
+    }
+  }
+
+  override suspend fun release() {}
+}
+
 class ThrowingPacketConsumer<T> : PacketConsumer<T> {
   @JvmField val packetReceived: CompletableFuture<Packet<T>> = CompletableFuture()
 
