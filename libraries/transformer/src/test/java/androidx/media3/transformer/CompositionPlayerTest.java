@@ -33,7 +33,9 @@ import static androidx.media3.transformer.TestUtil.FILE_PNG;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -80,11 +82,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -1235,17 +1239,9 @@ public class CompositionPlayerTest {
           }
           return null;
         });
-    EditedMediaItem item =
-        new EditedMediaItem.Builder(
-                new MediaItem.Builder()
-                    .setUri(ASSET_URI_PREFIX + FILE_PNG)
-                    .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
-                    .build())
-            .setDurationUs(1_000_000L)
-            .setFrameRate(30)
-            .build();
     Composition composition =
-        new Composition.Builder(EditedMediaItemSequence.withVideoFrom(ImmutableList.of(item)))
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
         createTestCompositionPlayerBuilder()
@@ -1277,18 +1273,9 @@ public class CompositionPlayerTest {
           }
           return null;
         });
-
-    EditedMediaItem item =
-        new EditedMediaItem.Builder(
-                new MediaItem.Builder()
-                    .setUri(ASSET_URI_PREFIX + FILE_PNG)
-                    .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
-                    .build())
-            .setDurationUs(1_000_000L)
-            .setFrameRate(30)
-            .build();
     Composition composition =
-        new Composition.Builder(EditedMediaItemSequence.withVideoFrom(ImmutableList.of(item)))
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
         createTestCompositionPlayerBuilder()
@@ -1304,6 +1291,115 @@ public class CompositionPlayerTest {
     play(player).untilState(STATE_ENDED);
 
     assertThat(allExpectedPacketsQueued.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void hardwareBufferPostProcessor_processesAllFrames() throws Exception {
+    int frameCount = 30;
+    CountDownLatch frameProcessedLatch = new CountDownLatch(frameCount);
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (unused) -> {
+          frameProcessedLatch.countDown();
+          return null;
+        });
+    // Create the frames that will be output by the post processor.
+    ImmutableList<HardwareBufferFrame> expectedFrames =
+        IntStream.range(0, frameCount)
+            .mapToObj(
+                i ->
+                    new HardwareBufferFrame.Builder(null, directExecutor(), u -> {})
+                        .setInternalFrame(new Object())
+                        .setPresentationTimeUs(i)
+                        .build())
+            .collect(toImmutableList());
+    Iterator<HardwareBufferFrame> iterator = expectedFrames.iterator();
+    HardwareBufferFrameProcessor postProcessor =
+        new HardwareBufferFrameProcessor() {
+          @Override
+          public HardwareBufferFrame process(HardwareBufferFrame inputFrame) {
+            inputFrame.release(null);
+            return iterator.next();
+          }
+
+          @Override
+          public void close() {}
+        };
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .setHardwareBufferPostProcessor(postProcessor)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build());
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+    assertThat(frameProcessedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    ImmutableList<Long> actualTimestamps =
+        packetConsumer.getQueuedPayloads().stream()
+            .flatMap(List::stream)
+            .map(f -> f.presentationTimeUs)
+            .collect(toImmutableList());
+    ImmutableList<Long> expectedTimestamps =
+        expectedFrames.stream().map(f -> f.presentationTimeUs).collect(toImmutableList());
+    assertThat(actualTimestamps).containsExactlyElementsIn(expectedTimestamps).inOrder();
+  }
+
+  @Test
+  public void hardwareBufferPostProcessor_closedWhenPlayerReleased() throws Exception {
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        frames -> {
+          frames.get(0).release(null);
+          return null;
+        });
+    CountDownLatch processorClosed = new CountDownLatch(1);
+    HardwareBufferFrameProcessor postProcessor =
+        new HardwareBufferFrameProcessor() {
+          @Override
+          public HardwareBufferFrame process(HardwareBufferFrame inputFrame) {
+            return inputFrame;
+          }
+
+          @Override
+          public void close() {
+            processorClosed.countDown();
+          }
+        };
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .setHardwareBufferPostProcessor(postProcessor)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build());
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    player.release();
+
+    assertThat(processorClosed.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  private static EditedMediaItem getImageItem() {
+    return new EditedMediaItem.Builder(
+            new MediaItem.Builder()
+                .setUri(ASSET_URI_PREFIX + FILE_PNG)
+                .setImageDurationMs(usToMs(/* timeUs= */ 1_000_000L))
+                .build())
+        .setDurationUs(1_000_000L)
+        .setFrameRate(30)
+        .build();
   }
 
   private static Composition buildComposition() {

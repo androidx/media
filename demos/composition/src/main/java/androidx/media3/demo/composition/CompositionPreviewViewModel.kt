@@ -66,6 +66,7 @@ import androidx.media3.effect.Presentation
 import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
 import androidx.media3.effect.ndk.NdkTransformerBuilder
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
@@ -779,14 +780,18 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   private fun createCompositionPlayer(): CompositionPlayer {
-    val playerBuilder = CompositionPlayer.Builder(getApplication())
+    val playerBuilder: CompositionPlayer.Builder
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
+      playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
       surfaceView?.let { packetConsumerFactory.setOutput(it.holder, it::post) }
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
-    } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
-      playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+    } else {
+      playerBuilder = CompositionPlayer.Builder(getApplication())
+      if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
+        playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+      }
     }
     playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
     val player = playerBuilder.build()

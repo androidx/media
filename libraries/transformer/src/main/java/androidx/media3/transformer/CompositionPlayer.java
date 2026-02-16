@@ -47,6 +47,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -168,6 +170,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
     private PacketConsumer.@MonotonicNonNull Factory<ImmutableList<HardwareBufferFrame>>
         packetConsumerFactory;
+    @Nullable private HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -465,6 +468,24 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
+     * Sets optional processing on all {@link HardwareBufferFrame}s before entering the {@linkplain
+     * #setPacketConsumerFactory effects pipeline}.
+     *
+     * <p>This should only be used to improve backwards compatibility with older API versions, and
+     * is not intended for application use.
+     *
+     * <p>Only used if {@link #setPacketConsumerFactory} is set.
+     *
+     * <p>The default value is {@code null}.
+     */
+    @RestrictTo(Scope.LIBRARY_GROUP)
+    @CanIgnoreReturnValue
+    public Builder setHardwareBufferPostProcessor(HardwareBufferFrameProcessor processor) {
+      this.hardwareBufferPostProcessor = processor;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -542,6 +563,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
   @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
+  @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -618,6 +640,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     if (builder.packetConsumerFactory != null) {
+      hardwareBufferPostProcessor = builder.hardwareBufferPostProcessor;
       executorService =
           builder.glExecutorService != null
               ? builder.glExecutorService
@@ -648,6 +671,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               executorService,
               e -> internalListener.onError(VideoFrameProcessingException.from(e)));
     } else {
+      hardwareBufferPostProcessor = null;
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;
       packetConsumer = null;
@@ -929,6 +953,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       releaseFuture = PacketConsumerUtil.release(packetConsumer, checkNotNull(executorService));
     } else {
       releaseFuture = immediateVoidFuture();
+    }
+    if (hardwareBufferPostProcessor != null) {
+      try {
+        hardwareBufferPostProcessor.close();
+      } catch (Exception e) {
+        // Ignore exceptions during release.
+        Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
+      }
     }
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
@@ -1455,6 +1487,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* frameConsumer= */ hardwareBufferFrame -> {
                 if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                   checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                } else if (hardwareBufferPostProcessor != null) {
+                  HardwareBufferFrame processedFrame =
+                      hardwareBufferPostProcessor.process(hardwareBufferFrame);
+                  checkNotNull(frameAggregator).queueFrame(processedFrame, sequenceIndex);
                 } else {
                   checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex);
                 }
