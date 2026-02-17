@@ -73,6 +73,8 @@
 *   Cast extension:
 *   Test utilities:
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.extractor.metadata.flac.VorbisComment`. Use
+        `androidx.media3.extractor.metadata.vorbis.VorbisComment` instead.
 
 ## 1.10
 
