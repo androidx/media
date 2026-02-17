@@ -152,4 +152,13 @@ public class ForwardingAudioOutput implements AudioOutput {
   public void setPreferredDevice(@Nullable AudioDeviceInfo preferredDevice) {
     audioOutput.setPreferredDevice(preferredDevice);
   }
+
+  @UnstableApi
+  @Override
+  public boolean canReuseAudioOutput(
+      AudioOutputProvider.OutputConfig currentConfig,
+      AudioOutputProvider.FormatConfig newFormat,
+      AudioOutputProvider.OutputConfig newConfig) {
+    return audioOutput.canReuseAudioOutput(currentConfig, newFormat, newConfig);
+  }
 }
