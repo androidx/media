@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.compose
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,12 +23,19 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.media3.demo.compose.layout.MainScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
 import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
@@ -47,25 +55,39 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemoViewModel) {
-  val navController = rememberNavController()
-  NavHost(
-    navController = navController,
-    startDestination = ROUTE_SAMPLE_CHOOSER,
-    enterTransition = { EnterTransition.None },
-    exitTransition = { ExitTransition.None },
-  ) {
-    composable(ROUTE_SAMPLE_CHOOSER) {
-      SampleChooserScreen(
-        onPlaylistClick = { selectedMedia ->
-          viewModel.selectMediaItems(selectedMedia)
-          navController.navigate(ROUTE_PLAYER)
-        },
-        modifier = modifier.statusBarsPadding(),
-      )
+  val context = LocalContext.current
+  val isDarkTheme = isSystemInDarkTheme()
+  val supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+  val colorScheme =
+    when {
+      supportsDynamicColor && isDarkTheme -> dynamicDarkColorScheme(context)
+      supportsDynamicColor && !isDarkTheme -> dynamicLightColorScheme(context)
+      isDarkTheme -> darkColorScheme()
+      else -> lightColorScheme()
     }
-    composable(ROUTE_PLAYER) {
-      val mediaItems by viewModel.mediaItems.collectAsState()
-      MainScreen(mediaItems)
+
+  MaterialTheme(colorScheme) {
+    val navController = rememberNavController()
+    NavHost(
+      navController = navController,
+      startDestination = ROUTE_SAMPLE_CHOOSER,
+      enterTransition = { EnterTransition.None },
+      exitTransition = { ExitTransition.None },
+    ) {
+      composable(ROUTE_SAMPLE_CHOOSER) {
+        SampleChooserScreen(
+          onPlaylistClick = { selectedMedia ->
+            viewModel.selectMediaItems(selectedMedia)
+            navController.navigate(ROUTE_PLAYER)
+          },
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_PLAYER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
+        MainScreen(mediaItems)
+      }
     }
   }
 }
