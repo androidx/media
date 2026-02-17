@@ -64,6 +64,7 @@ def addMissingAarTypeToXml(xml) {
         "com.google.android.material:material",
         "com.google.testparameterinjector:test-parameter-injector",
         "io.antmedia:rtmp-client",
+        "org.chromium.net:cronet-api",
         // go/keep-sorted end
     ]
     xml.asNode().children().stream()

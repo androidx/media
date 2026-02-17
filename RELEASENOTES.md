@@ -55,6 +55,8 @@
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
+    *   Depend on `org.chromium.net:cronet-api` directly instead of relying on
+        `com.google.android.gms:play-services-cronet` for the Cronet API classes.
 *   RTMP extension:
 *   HLS extension:
     *   Expose ID3 (EMSG) metadata track in audio renditions
