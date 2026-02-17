@@ -18,6 +18,8 @@ package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -32,10 +34,11 @@ internal fun ClickableIconButton(
   enabled: Boolean,
   icon: Painter,
   contentDescription: String,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: () -> Unit,
 ) {
-  IconButton(onClick, modifier, enabled) {
+  IconButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors) {
     Icon(
       painter = icon,
       contentDescription = contentDescription,
@@ -50,10 +53,11 @@ internal fun ClickableIconButton(
   enabled: Boolean,
   icon: ImageVector,
   contentDescription: String,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: () -> Unit,
 ) {
-  IconButton(onClick, modifier, enabled) {
+  IconButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors) {
     Icon(
       imageVector = icon,
       contentDescription = contentDescription,

@@ -16,6 +16,8 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,6 +47,8 @@ import androidx.media3.ui.compose.state.RepeatButtonState
  *   composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
  * @param contentDescription The content description for accessibility purposes.
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -68,6 +72,7 @@ fun RepeatButton(
   painter: @Composable RepeatButtonState.() -> Painter = defaultRepeatModePainterIcon,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: RepeatButtonState.() -> Unit = RepeatButtonState::onClick,
 ) {
@@ -81,6 +86,7 @@ fun RepeatButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )
@@ -103,6 +109,8 @@ fun RepeatButton(
  *   is a composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
  * @param contentDescription The content description for accessibility purposes.
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -127,6 +135,7 @@ fun RepeatButton(
   imageVector: RepeatButtonState.() -> ImageVector,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: RepeatButtonState.() -> Unit = RepeatButtonState::onClick,
 ) {
@@ -140,6 +149,7 @@ fun RepeatButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )

@@ -16,6 +16,8 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +45,8 @@ import androidx.media3.ui.compose.state.PreviousButtonState
  *   [R.drawable.media3_icon_previous].
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -67,6 +71,7 @@ fun PreviousButton(
   contentDescription: @Composable PreviousButtonState.() -> String = {
     stringResource(R.string.previous_button)
   },
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: PreviousButtonState.() -> Unit = PreviousButtonState::onClick,
 ) {
@@ -80,6 +85,7 @@ fun PreviousButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )
@@ -99,6 +105,8 @@ fun PreviousButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
+ * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
+ *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -122,6 +130,7 @@ fun PreviousButton(
   contentDescription: @Composable PreviousButtonState.() -> String = {
     stringResource(R.string.previous_button)
   },
+  colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
   onClick: PreviousButtonState.() -> Unit = PreviousButtonState::onClick,
 ) {
@@ -135,6 +144,7 @@ fun PreviousButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      colors = colors,
       tint = tint,
       onClick = { customOnClick() },
     )
