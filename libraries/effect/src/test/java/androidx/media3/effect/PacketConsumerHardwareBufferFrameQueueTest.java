@@ -61,8 +61,12 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         public void onError(VideoFrameProcessingException e) {}
       };
   private static final HardwareBufferFrameQueue.FrameFormat DEFAULT_FORMAT =
-      new HardwareBufferFrameQueue.FrameFormat(
-          100, 100, HardwareBuffer.RGBA_8888, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+      new HardwareBufferFrameQueue.FrameFormat.Builder()
+          .setWidth(100)
+          .setHeight(100)
+          .setPixelFormat(HardwareBuffer.RGBA_8888)
+          .setUsageFlags(HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)
+          .build();
 
   @Test
   public void dequeue_upToCapacity_createsNewFrames() {
@@ -107,8 +111,12 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         new PacketConsumerHardwareBufferFrameQueue(
             directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrameQueue.FrameFormat format2 =
-        new HardwareBufferFrameQueue.FrameFormat(
-            200, 200, HardwareBuffer.RGBA_8888, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        new HardwareBufferFrameQueue.FrameFormat.Builder()
+            .setWidth(200)
+            .setHeight(200)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .setUsageFlags(HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)
+            .build();
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
@@ -127,7 +135,12 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
         new PacketConsumerHardwareBufferFrameQueue(
             directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrameQueue.FrameFormat formatB =
-        new HardwareBufferFrameQueue.FrameFormat(200, 200, HardwareBuffer.RGBA_8888, 0);
+        new HardwareBufferFrameQueue.FrameFormat.Builder()
+            .setWidth(200)
+            .setHeight(200)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .setUsageFlags(0)
+            .build();
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;

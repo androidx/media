@@ -26,7 +26,6 @@ import android.media.ImageWriter;
 import android.system.ErrnoException;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.SurfaceInfo;
@@ -73,7 +72,7 @@ public class EncoderWriterHardwareBufferQueue implements HardwareBufferFrameQueu
                 new Format.Builder()
                     .setWidth(format.width)
                     .setHeight(format.height)
-                    .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+                    .setColorInfo(format.colorInfo)
                     .setSampleMimeType(MimeTypes.VIDEO_H264)
                     .build());
       } catch (VideoFrameProcessingException e) {

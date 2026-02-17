@@ -22,6 +22,8 @@ import android.graphics.RenderNode
 import android.hardware.HardwareBuffer
 import android.hardware.SyncFence
 import androidx.annotation.RequiresApi
+import androidx.media3.common.ColorInfo
+import androidx.media3.common.ColorInfo.SDR_BT709_LIMITED
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
@@ -123,12 +125,18 @@ class DefaultHardwareBufferEffectsPipeline :
     val width = inputFrame.format.width
     val height = inputFrame.format.height
     val bufferFormat =
-      HardwareBufferFrameQueue.FrameFormat(
-        width,
-        height,
-        HardwareBuffer.RGBA_8888,
-        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
-      )
+      HardwareBufferFrameQueue.FrameFormat.Builder()
+        .setWidth(width)
+        .setHeight(height)
+        .setPixelFormat(
+          if (ColorInfo.isTransferHdr(inputFrame.format.colorInfo)) HardwareBuffer.RGBA_1010102
+          else HardwareBuffer.RGBA_8888
+        )
+        .setUsageFlags(
+          HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
+        )
+        .setColorInfo(inputFrame.format.colorInfo ?: SDR_BT709_LIMITED)
+        .build()
 
     // Try and get an output buffer from the queue. If not immediately available, suspend until
     // notified and retry.

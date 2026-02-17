@@ -17,28 +17,39 @@
 package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
+import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
+import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.ndk.NdkTransformerBuilder;
+import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
@@ -57,6 +68,9 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public final class TranscodeQualityTest {
   private static final String TAG = "TranscodeQualityTest";
+
+  private static final String ORIGINAL_HLG10_PNG_ASSET_PATH =
+      "test-generated-goldens/FrameExtractorTest/hlg10-color-test_0.000.png";
 
   private static final String LEGACY = "legacy";
   private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
@@ -143,6 +157,46 @@ public final class TranscodeQualityTest {
     maybeSaveResultFile(result);
     if (result.ssim != ExportTestResult.SSIM_UNSET) {
       assertThat(result.ssim).isGreaterThan(0.90);
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34) // HDR Bitmap extraction requires API 34+.
+  public void transcode_hlg10_outputsHlg() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    assumeFalse(mode.equals(PACKET_CONSUMER_NDK));
+    assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat,
+        /* outputFormat= */ MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+
+    Transformer.Builder builder = createBuilder(context, mode);
+    Transformer transformer =
+        builder.setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context)).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri));
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    maybeSaveResultFile(result);
+    int actualColorTransfer =
+        retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO).colorInfo.colorTransfer;
+    assertThat(actualColorTransfer).isEqualTo(C.COLOR_TRANSFER_HLG);
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(result.filePath))
+            .setExtractHdrFrames(true)
+            .build()) {
+      Bitmap actualFirstFrame =
+          frameExtractor.getFrame(/* positionMs= */ 0).get(/* timeout= */ 10, SECONDS).bitmap;
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualFirstFrame, /* path= */ null);
+      Bitmap expectedBitmap = readBitmap(ORIGINAL_HLG10_PNG_ASSET_PATH);
+      assertBitmapsAreSimilar(expectedBitmap, actualFirstFrame, 25f);
     }
   }
 
