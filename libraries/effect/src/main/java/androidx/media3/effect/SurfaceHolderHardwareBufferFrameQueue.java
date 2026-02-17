@@ -62,6 +62,9 @@ public final class SurfaceHolderHardwareBufferFrameQueue
      * @param videoFrameProcessingException The error.
      */
     void onError(VideoFrameProcessingException videoFrameProcessingException);
+
+    /** Called when video output ends. */
+    void onEnded();
   }
 
   private final Object lock;
@@ -187,7 +190,9 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   }
 
   @Override
-  public void signalEndOfStream() {}
+  public void signalEndOfStream() {
+    listenerExecutor.execute(listener::onEnded);
+  }
 
   /**
    * Releases the queue.

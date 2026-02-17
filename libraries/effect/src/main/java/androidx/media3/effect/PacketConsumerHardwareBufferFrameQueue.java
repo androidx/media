@@ -19,7 +19,6 @@ import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -32,8 +31,6 @@ import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.PacketConsumer.Packet;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -289,18 +286,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   }
 
   private void sendDownstream(Packet<HardwareBufferFrame> packet) {
-    Futures.addCallback(
-        output.queuePacket(packet),
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            listener.onError(new VideoFrameProcessingException(t));
-          }
-        },
-        directExecutor());
+    checkNotNull(output).queuePacket(packet);
   }
 
   private void closeFence(@Nullable SyncFenceCompat fence) {

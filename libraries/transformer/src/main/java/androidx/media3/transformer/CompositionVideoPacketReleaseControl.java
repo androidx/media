@@ -119,7 +119,7 @@ import java.util.concurrent.ExecutorService;
       if (packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
         if (packetQueue.peek() == null) {
           isEnded = true;
-          // TODO: b/449956776 - Propagate EOS signal.
+          downstreamConsumer.queueEndOfStream();
           return;
         }
         // Ignore EOS frames if there are more frames to be rendered.

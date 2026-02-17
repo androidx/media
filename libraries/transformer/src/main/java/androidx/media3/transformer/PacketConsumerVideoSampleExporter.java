@@ -21,7 +21,6 @@ import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -41,15 +40,12 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer.Packet;
-import androidx.media3.effect.PacketConsumer.Packet.EndOfStream;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -192,28 +188,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleConsumers = sampleConsumerBuilder.build();
   }
 
-  @SuppressWarnings("unchecked")
   private void queueAggregatedFrames(ImmutableList<HardwareBufferFrame> frames) {
     // We don't need to apply backpressure here - it's applied implicitly via the texture listener
     // capacity.
-    ListenableFuture<Void> queuePacketFuture;
     if (frames.get(0) == END_OF_STREAM_FRAME) {
-      queuePacketFuture = packetConsumerCaller.queuePacket(EndOfStream.INSTANCE);
+      packetConsumerCaller.queueEndOfStream();
     } else {
-      queuePacketFuture = packetConsumerCaller.queuePacket(Packet.of(frames));
+      packetConsumerCaller.queuePacket(Packet.of(frames));
     }
-    Futures.addCallback(
-        queuePacketFuture,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            errorConsumer.accept(ExportException.createForUnexpected(t));
-          }
-        },
-        directExecutor());
   }
 
   @Override

@@ -563,6 +563,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
   @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
+  // Applications can choose to render frames to screen themselves, or use media3 components.
+  // CompositionPlayer only receives events when frames are rendered on screen when media3
+  // components are used.
+  private final boolean packetConsumerReportsRenderingEvents;
   @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
@@ -587,6 +591,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private @RepeatMode int repeatMode;
   private float volume;
   private boolean renderedFirstFrame;
+  private boolean packetConsumerEnded;
   @Nullable private VideoSize videoSize;
   @Nullable private Object videoOutput;
   @Nullable private PlaybackException playbackException;
@@ -652,6 +657,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           && builder.packetConsumerFactory instanceof ProcessAndRenderToSurfaceConsumer.Factory) {
         ((ProcessAndRenderToSurfaceConsumer.Factory) builder.packetConsumerFactory)
             .setListener(internalListener, directExecutor());
+        packetConsumerReportsRenderingEvents = true;
+      } else {
+        packetConsumerReportsRenderingEvents = false;
       }
       packetConsumer = builder.packetConsumerFactory.create();
       VideoFrameReleaseControl videoFrameReleaseControl =
@@ -675,6 +683,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;
       packetConsumer = null;
+      packetConsumerReportsRenderingEvents = false;
       frameAggregator = null;
       videoPacketReleaseControl = null;
     }
@@ -1226,7 +1235,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         setPlayWhenReadyInternal(
             /* playWhenReady= */ false, /* shouldUpdateInternalPlayers= */ true);
       }
-    } else if (endedCount == playerHolders.size()) {
+    } else if (endedCount == playerHolders.size()
+        && (!packetConsumerReportsRenderingEvents || packetConsumerEnded)) {
       playbackState = STATE_ENDED;
       checkNotNull(compositionPlayerInternal).stopRendering();
     } else {
@@ -2315,6 +2325,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // TODO: b/328219481 - Report video size change to app.
     }
 
+    // SurfaceHolderHardwareBufferFrameQueue.Listener methods. Called on the effects thread.
+
     @Override
     public void onFrameAboutToBeRendered(
         long presentationTimeUs, long releaseTimeNs, Format format) {
@@ -2334,6 +2346,19 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
               presentationTimeUs, releaseTimeNs, format, /* mediaFormat= */ null);
         }
+      }
+    }
+
+    @Override
+    public void onEnded() {
+      if (packetConsumer != null) {
+        applicationHandler.post(
+            () -> {
+              // TODO: b/484336225 - reset packetConsumerEnded on replay.
+              packetConsumerEnded = true;
+              updatePlaybackState();
+              invalidateState();
+            });
       }
     }
 

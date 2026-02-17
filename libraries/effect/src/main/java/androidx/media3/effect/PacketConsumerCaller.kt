@@ -18,7 +18,11 @@ package androidx.media3.effect
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.effect.PacketConsumer.Packet
+import com.google.common.util.concurrent.FutureCallback
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors.directExecutor
+import com.google.errorprone.annotations.CanIgnoreReturnValue
 import java.lang.Exception
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.CoroutineScope
@@ -89,12 +93,55 @@ private constructor(
    *
    * The ownership of the [packet] is transferred to the wrapped [PacketConsumer] and the caller
    * must not modify the [packet].
+   *
+   * Reports errors via [errorConsumer].
    */
-  fun queuePacket(packet: Packet<T>): ListenableFuture<Void?> =
-    scope.future {
-      packetChannel.send(packet)
-      null
-    }
+  @CanIgnoreReturnValue
+  fun queuePacket(packet: Packet<T>): ListenableFuture<Nothing?> {
+    val future =
+      scope.future {
+        packetChannel.send(packet)
+        null
+      }
+    Futures.addCallback(
+      future,
+      object : FutureCallback<Nothing?> {
+        override fun onSuccess(result: Nothing?) {}
+
+        override fun onFailure(t: Throwable) {
+          errorConsumer.accept(Exception(t))
+        }
+      },
+      directExecutor(),
+    )
+    return future
+  }
+
+  /**
+   * Queues end of stream.
+   *
+   * Reports errors via [errorConsumer].
+   */
+  @CanIgnoreReturnValue
+  fun queueEndOfStream(): ListenableFuture<Nothing?> {
+    val future =
+      scope.future {
+        packetChannel.send(Packet.EndOfStream)
+        null
+      }
+    Futures.addCallback(
+      future,
+      object : FutureCallback<Nothing?> {
+        override fun onSuccess(result: Nothing?) {}
+
+        override fun onFailure(t: Throwable) {
+          errorConsumer.accept(Exception(t))
+        }
+      },
+      directExecutor(),
+    )
+    return future
+  }
 
   /**
    * Releases the internal [Channel] and cancels coroutine to queue [Packet] to the wrapped
