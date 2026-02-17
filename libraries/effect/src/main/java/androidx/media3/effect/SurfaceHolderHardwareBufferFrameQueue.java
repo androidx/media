@@ -195,6 +195,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
    * <p>This method should be called when the queue is no longer needed to unregister callbacks and
    * release resources.
    */
+  @Override
   public void release() {
     synchronized (lock) {
       if (imageWriter != null) {

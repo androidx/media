@@ -123,4 +123,7 @@ public interface HardwareBufferFrameQueue {
    * <p>This propagates an end-of-stream signal to the downstream consumer.
    */
   void signalEndOfStream();
+
+  /** Releases all resources associated with this instance. */
+  void release();
 }

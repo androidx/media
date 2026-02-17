@@ -204,6 +204,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
    * <p>This should be called when the pipeline is being shut down to ensure all asynchronous
    * resources are cleaned up.
    */
+  @Override
   public void release() {
     if (isReleased) {
       return;

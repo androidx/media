@@ -58,17 +58,21 @@ import org.junit.runners.Parameterized.Parameters;
 public final class TranscodeQualityTest {
   private static final String TAG = "TranscodeQualityTest";
 
+  private static final String LEGACY = "legacy";
+  private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
+  private static final String PACKET_CONSUMER = "packet_consumer";
+
   @Rule public final TestName testName = new TestName();
 
   @Parameters(name = "{0}")
-  public static ImmutableList<Boolean> params() {
+  public static ImmutableList<String> params() {
     if (SDK_INT >= 34) {
-      return ImmutableList.of(false, true);
+      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK, PACKET_CONSUMER);
     }
-    return ImmutableList.of(false);
+    return ImmutableList.of(LEGACY);
   }
 
-  @Parameter public boolean usePacketConsumer;
+  @Parameter public String mode;
 
   private String testId;
 
@@ -93,11 +97,7 @@ public final class TranscodeQualityTest {
     assumeFalse(
         (SDK_INT < 33 && (Build.MODEL.equals("SM-F711U1") || Build.MODEL.equals("SM-F926U1")))
             || (SDK_INT == 33 && Build.MODEL.equals("LE2121")));
-    Transformer.Builder builder =
-        usePacketConsumer
-            ? NdkTransformerBuilder.create(context)
-                .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
-            : new Transformer.Builder(context);
+    Transformer.Builder builder = createBuilder(context, mode);
     Transformer transformer = builder.setVideoMimeType(MimeTypes.VIDEO_H265).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
     EditedMediaItem editedMediaItem =
@@ -123,11 +123,7 @@ public final class TranscodeQualityTest {
     // requirements on all supported API versions, except for wearable devices.
     assumeFalse(Util.isWear(context));
 
-    Transformer.Builder builder =
-        usePacketConsumer
-            ? NdkTransformerBuilder.create(context)
-                .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
-            : new Transformer.Builder(context);
+    Transformer.Builder builder = createBuilder(context, mode);
     Transformer transformer =
         builder
             .setVideoMimeType(MimeTypes.VIDEO_H264)
@@ -148,6 +144,18 @@ public final class TranscodeQualityTest {
     if (result.ssim != ExportTestResult.SSIM_UNSET) {
       assertThat(result.ssim).isGreaterThan(0.90);
     }
+  }
+
+  private static Transformer.Builder createBuilder(Context context, String mode) {
+    if (mode.equals(PACKET_CONSUMER_NDK)) {
+      return NdkTransformerBuilder.create(context)
+          .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
+    }
+    if (mode.equals(PACKET_CONSUMER)) {
+      return new Transformer.Builder(context)
+          .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
+    }
+    return new Transformer.Builder(context);
   }
 
   private void maybeSaveResultFile(ExportTestResult exportTestResult) {

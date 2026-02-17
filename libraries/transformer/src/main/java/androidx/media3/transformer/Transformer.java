@@ -691,7 +691,9 @@ public final class Transformer {
           !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
-      checkState((packetRenderer == null) == (packetProcessor == null));
+      if (packetProcessor != null) {
+        checkState(packetRenderer != null || SDK_INT >= 33);
+      }
       return new Transformer(
           context,
           transformationRequest,

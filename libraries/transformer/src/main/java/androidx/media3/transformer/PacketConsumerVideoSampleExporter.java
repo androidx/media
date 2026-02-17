@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
@@ -68,7 +69,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> packetConsumerCaller;
   private final FrameAggregator frameAggregator;
-  private final PacketConsumerHardwareBufferFrameQueue hardwareBufferFrameQueue;
+  private final HardwareBufferFrameQueue hardwareBufferFrameQueue;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
   private final ComponentListener componentListener;
 
@@ -97,7 +98,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       TransformationRequest transformationRequest,
       RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
           packetProcessor,
-      RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
@@ -133,11 +134,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     componentListener = new ComponentListener();
 
-    // Create the HardwareBufferQueue that will provide buffers for the effects pipeline to write
-    // into.
-    hardwareBufferFrameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(
-            /* releaseFrameExecutor= */ handlerWrapper::post, packetRenderer, componentListener);
+    // TODO: b/484926720 - add executor to the Listener callbacks.
+    if (packetRenderer != null) {
+      hardwareBufferFrameQueue =
+          new PacketConsumerHardwareBufferFrameQueue(
+              /* releaseFrameExecutor= */ handlerWrapper::post, packetRenderer, componentListener);
+    } else if (SDK_INT >= 33) {
+      hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
+    } else {
+      throw new UnsupportedOperationException();
+    }
 
     // Create a Java wrapper to feed frames into the effects pipeline.
     packetConsumerCaller =

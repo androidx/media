@@ -800,7 +800,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   firstFormat,
                   transformationRequest,
                   checkNotNull(packetProcessor),
-                  checkNotNull(packetRenderer),
+                  packetRenderer,
                   encoderFactory,
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,
