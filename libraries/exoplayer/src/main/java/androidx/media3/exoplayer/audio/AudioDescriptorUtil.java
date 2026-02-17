@@ -21,9 +21,12 @@ import android.media.AudioDescriptor;
 import android.media.AudioFormat;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.TreeSet;
 
 /** Helper utils for working with {@link android.media.AudioDescriptor}s. */
 final class AudioDescriptorUtil {
@@ -34,17 +37,26 @@ final class AudioDescriptorUtil {
   private AudioDescriptorUtil() {}
 
   /**
-   * Returns the max channel count found in LPCM encodings in Short Audio Descriptors.
+   * Returns channel masks based on channel counts found in LPCM encodings in Short Audio
+   * Descriptors.
+   *
+   * <p>Returns sorted by the number of channels, in descending order. Will return empty if none are
+   * found.
    *
    * <p>For more information on Short Audio Descriptors, see:
    * https://en.wikipedia.org/wiki/Extended_Display_Identification_Data#Audio_Data_Blocks
    */
-  public static int getMaxLpcmChannelCountFromPcmSads(List<AudioDescriptor> audioDescriptors) {
-    if (SDK_INT < 31) {
+  public static ImmutableList<Integer> getAllLpcmChannelMasksFromPcmSads(
+      List<AudioDescriptor> audioDescriptors) {
+    // TODO(b/415108693): Create tests for SADs and SADB fallback logic for ARC/eARC when
+    // AudioDeviceInfoBuilder has support for setting AudioDescriptors.  The null check can be
+    // removed when that is done.
+    if (SDK_INT < 31 || audioDescriptors == null) {
       // AudioDescriptor.STANDARD_EDID requires API 31.
-      return 0;
+      return ImmutableList.of();
     }
-    int maxChannelCount = 0;
+    TreeSet<Integer> channelMasks =
+        new TreeSet<>(Comparator.comparing(Integer::bitCount).reversed());
     for (AudioDescriptor audioDescriptor : audioDescriptors) {
       if (audioDescriptor.getStandard() == AudioDescriptor.STANDARD_EDID) {
         byte[] data = audioDescriptor.getDescriptor();
@@ -59,11 +71,11 @@ final class AudioDescriptorUtil {
         // Bits 3–6 are audio format type.  We only care about LPCM (0b0001).
         int audioFormat = (firstByte >> 3) & 0b1111;
         if (audioFormat == 1) {
-          maxChannelCount = Math.max(maxChannelCount, numChannels);
+          channelMasks.add(Util.getAudioTrackChannelConfig(numChannels));
         }
       }
     }
-    return maxChannelCount;
+    return ImmutableList.copyOf(channelMasks);
   }
 
   /**
@@ -81,7 +93,10 @@ final class AudioDescriptorUtil {
    */
   public static ImmutableList<Integer> getAllChannelMasksFromSadbs(
       List<AudioDescriptor> audioDescriptors) {
-    if (SDK_INT < 34) {
+    // TODO(b/415108693): Create tests for SADs and SADB fallback logic for ARC/eARC when
+    // AudioDeviceInfoBuilder has support for setting AudioDescriptors.  The null check can be
+    // removed when that is done.
+    if (SDK_INT < 34 || audioDescriptors == null) {
       // AudioDescriptor.STANDARD_SADB requires API 34.
       return ImmutableList.of();
     }

@@ -161,46 +161,45 @@ public final class AudioDescriptorUtilTest {
 
   @Test
   @Config(minSdk = 31)
-  public void getMaxLpcmChannelCountFromPcmSads_returnsMaxChannelCount() {
+  public void getAllLpcmChannelMasksFromPcmSads_returnsAllFoundChannelMasks() {
     AudioDescriptor twoChannelPcmSad =
         createAudioDescriptor(AudioDescriptor.STANDARD_EDID, 0, createSadBytes(PCM_ENCODING, 2));
     AudioDescriptor sixChannelPcmSad =
         createAudioDescriptor(AudioDescriptor.STANDARD_EDID, 0, createSadBytes(PCM_ENCODING, 6));
-    int expectedChannelCount = 6;
+    ImmutableList<Integer> expectedChannelMasks =
+        ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1, AudioFormat.CHANNEL_OUT_STEREO);
     assertThat(
-            AudioDescriptorUtil.getMaxLpcmChannelCountFromPcmSads(
+            AudioDescriptorUtil.getAllLpcmChannelMasksFromPcmSads(
                 ImmutableList.of(twoChannelPcmSad, sixChannelPcmSad)))
-        .isEqualTo(expectedChannelCount);
+        .isEqualTo(expectedChannelMasks);
   }
 
   @Test
   @Config(minSdk = 31)
-  public void getMaxLpcmChannelCountFromPcmSads_returnsZeroForNonPcmSads() {
+  public void getAllLpcmChannelMasksFromPcmSads_returnsZeroForNonPcmSads() {
     AudioDescriptor nonPcmSad1 =
         createAudioDescriptor(
             AudioDescriptor.STANDARD_EDID, 0, createSadBytes(PCM_ENCODING + 1, 2));
     AudioDescriptor nonPcmSad2 =
         createAudioDescriptor(
             AudioDescriptor.STANDARD_EDID, 0, createSadBytes(PCM_ENCODING + 3, 6));
-    int expectedChannelCount = 0;
     assertThat(
-            AudioDescriptorUtil.getMaxLpcmChannelCountFromPcmSads(
+            AudioDescriptorUtil.getAllLpcmChannelMasksFromPcmSads(
                 ImmutableList.of(nonPcmSad1, nonPcmSad2)))
-        .isEqualTo(expectedChannelCount);
+        .isEmpty();
   }
 
   @Test
   @Config(minSdk = 31)
-  public void getMaxLpcmChannelCountFromPcmSads_returnsZeroForNonEdidSads() {
+  public void getAllLpcmChannelMasksFromPcmSads_returnsZeroForNonEdidSads() {
     AudioDescriptor nonPcmSad1 =
         createAudioDescriptor(AudioDescriptor.STANDARD_SADB, 0, createSadBytes(PCM_ENCODING, 2));
     AudioDescriptor nonPcmSad2 =
         createAudioDescriptor(AudioDescriptor.STANDARD_NONE, 0, createSadBytes(PCM_ENCODING, 2));
-    int expectedChannelCount = 0;
     assertThat(
-            AudioDescriptorUtil.getMaxLpcmChannelCountFromPcmSads(
+            AudioDescriptorUtil.getAllLpcmChannelMasksFromPcmSads(
                 ImmutableList.of(nonPcmSad1, nonPcmSad2)))
-        .isEqualTo(expectedChannelCount);
+        .isEmpty();
   }
 
   @Test
