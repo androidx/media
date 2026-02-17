@@ -53,6 +53,24 @@ class ProgressStateWithTickCountTest {
   val composeTestRule = createComposeRule(testDispatcher)
 
   @Test
+  fun rememberProgressStateWithTickCount_withNullPlayer_returnsDefaultValues() =
+    runTest(testDispatcher) {
+      lateinit var state: ProgressStateWithTickCount
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickCount(
+            player = null,
+            totalTickCount = 10,
+            scope = rememberCoroutineScopeWithBackgroundCancellation(),
+          )
+      }
+
+      assertThat(state.currentPositionProgress).isEqualTo(0f)
+      assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+      assertThat(state.changingProgressEnabled).isFalse()
+    }
+
+  @Test
   fun progressUpdatingTenTimes_positionChangesByOneTick() =
     runTest(testDispatcher) {
       val player = createReadyPlayerWithSingleItem()
@@ -245,15 +263,21 @@ class ProgressStateWithTickCountTest {
       }
       val durationUnknownUpdate = FALLBACK_UPDATE_INTERVAL_MS
       assertThat(state.currentPositionProgress).isEqualTo(0f)
+      assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+      assertThat(state.changingProgressEnabled).isFalse()
       assertThat(player.duration).isEqualTo(C.TIME_UNSET)
 
       advanceTimeByInclusive((durationUnknownUpdate - 100).milliseconds)
 
       assertThat(state.currentPositionProgress).isEqualTo(0f)
+      assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+      assertThat(state.changingProgressEnabled).isFalse()
       assertThat(player.currentPosition).isEqualTo(durationUnknownUpdate - 100)
 
       advanceTimeByInclusive(100.milliseconds)
       assertThat(state.currentPositionProgress).isEqualTo(0f)
+      assertThat(state.bufferedPositionProgress).isEqualTo(0f)
+      assertThat(state.changingProgressEnabled).isFalse()
       assertThat(player.currentPosition).isEqualTo(durationUnknownUpdate)
     }
 
@@ -443,5 +467,64 @@ class ProgressStateWithTickCountTest {
 
       assertThat(player.currentPosition).isAtLeast(2000)
       assertThat(state.currentPositionProgress).isEqualTo(0.1f)
+    }
+
+  @Test
+  fun progressToPosition_returnsCorrectPosition() =
+    runTest(testDispatcher) {
+      val player = createReadyPlayerWithSingleItem() // duration is 10_000ms
+      lateinit var state: ProgressStateWithTickCount
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickCount(
+            player,
+            totalTickCount = 10,
+            scope = rememberCoroutineScopeWithBackgroundCancellation(),
+          )
+      }
+
+      assertThat(state.progressToPosition(0f)).isEqualTo(0L)
+      assertThat(state.progressToPosition(0.25f)).isEqualTo(2500L)
+      assertThat(state.progressToPosition(0.5f)).isEqualTo(5000L)
+      assertThat(state.progressToPosition(1f)).isEqualTo(10000L)
+    }
+
+  @Test
+  fun progressToPosition_withNullPlayer_returnsZero() =
+    runTest(testDispatcher) {
+      lateinit var state: ProgressStateWithTickCount
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickCount(
+            player = null,
+            totalTickCount = 10,
+            scope = rememberCoroutineScopeWithBackgroundCancellation(),
+          )
+      }
+
+      assertThat(state.progressToPosition(0.5f)).isEqualTo(0L)
+    }
+
+  @Test
+  fun progressToPosition_withDurationUnset_returnsZero() =
+    runTest(testDispatcher) {
+      val player =
+        FakePlayer(
+          playbackState = STATE_READY,
+          playWhenReady = true,
+          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        )
+      lateinit var state: ProgressStateWithTickCount
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickCount(
+            player,
+            totalTickCount = 10,
+            scope = rememberCoroutineScopeWithBackgroundCancellation(),
+          )
+      }
+
+      assertThat(player.duration).isEqualTo(C.TIME_UNSET)
+      assertThat(state.progressToPosition(0.5f)).isEqualTo(0L)
     }
 }

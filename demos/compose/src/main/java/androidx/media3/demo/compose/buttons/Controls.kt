@@ -17,6 +17,7 @@
 package androidx.media3.demo.compose.buttons
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -28,7 +29,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,7 +47,6 @@ import androidx.media3.ui.compose.material3.buttons.SeekBackButton
 import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
-import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 
 @Composable
 private fun RowControls(
@@ -111,12 +113,17 @@ private fun DefaultCenterControls(
   RowControls(modifier.fillMaxWidth(), buttons)
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DefaultBottomBar(
   player: Player?,
   modifier: Modifier = Modifier,
   progressSlider: @Composable (Player?) -> Unit = {
-    ProgressSlider(player = it, Modifier.padding(horizontal = 15.dp))
+    LabeledProgressSlider(
+      player = it,
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+      interactionSource = remember { MutableInteractionSource() },
+    )
   },
   bottomRow: @Composable (Player?) -> Unit = {
     DefaultBottomRow(
