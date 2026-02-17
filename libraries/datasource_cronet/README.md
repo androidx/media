@@ -1,7 +1,6 @@
 # Cronet DataSource module
 
-This module provides an [HttpDataSource][] implementation that uses [Cronet][]
-loaded from Google Play Services.
+This module provides an [HttpDataSource][] implementation that uses [Cronet][].
 
 Cronet is the Chromium network stack made available to Android apps as a
 library. It takes advantage of multiple technologies that reduce the latency and
@@ -46,24 +45,56 @@ new DefaultDataSource.Factory(
     /* baseDataSourceFactory= */ new CronetDataSource.Factory(...) );
 ```
 
-## Google Play Services Cronet
+## Cronet implementations
 
-This module depends on `com.google.android.gms:play-services-cronet`, which
-loads an implementation of Cronet from Google Play Services. When Google Play
-Services is available, this approach is beneficial because:
+To instantiate a `CronetDataSource.Factory` you'll need a `CronetEngine`. A
+`CronetEngine` can be obtained from one of a number of Cronet implementations.
+It's recommended that an application should only have a single `CronetEngine`
+instance.
+
+### Available implementations
+
+#### Google Play Services
+
+By default, this module depends on
+`com.google.android.gms:play-services-cronet`, which loads an implementation of
+Cronet from Google Play Services. When Google Play Services is available, this
+approach is beneficial because:
 
 * The increase in application size is negligible.
 * The implementation is updated automatically by Google Play Services.
 
 The disadvantage of this approach is that the implementation is not usable on
-devices that do not have Google Play Services. Your application code should
-handle this by falling back to use `DefaultHttpDataSource` instead.
+devices that do not have Google Play Services. Unless your application also
+includes one of the alternative Cronet implementations described below, you will
+not be able to instantiate a `CronetEngine` in this case. Your application code
+should handle this by falling back to use `DefaultHttpDataSource` instead.
 
-If you need Cronet on devices without Google Play Services, consider using the
-[Cronet DataSource Embedded][] module instead, which bundles Cronet directly
-into your application.
+#### Cronet Embedded
 
-[Cronet DataSource Embedded]: ../datasource_cronet_embedded
+Cronet Embedded bundles a full Cronet implementation directly into your
+application. To use it, add an additional dependency on
+`org.chromium.net:cronet-embedded`. Cronet Embedded adds approximately 8MB to
+your application, and so we do not recommend it for most use cases. That said,
+use of Cronet Embedded may be appropriate if:
+
+* A large percentage of your users are in markets where Google Play Services is
+  not widely available.
+* You want to control the exact version of the Cronet implementation being used.
+
+#### Cronet Fallback
+
+There's also a fallback implementation of Cronet, which uses Android's default
+network stack under the hood. It can be used by adding a dependency on
+`org.chromium.net:cronet-fallback`. This implementation should *not* be used
+with `CronetDataSource`, since it's more efficient to use
+`DefaultHttpDataSource` directly in this case.
+
+When using Cronet Fallback for other networking in your application, use the
+more advanced approach to instantiating a `CronetEngine` described below so that
+you know when your application's `CronetEngine` has been obtained from the
+fallback implementation. In this case, avoid `CronetDataSource` and use
+`DefaultHttpDataSource` instead.
 
 ### CronetEngine instantiation
 
@@ -82,11 +113,10 @@ available implementations. Providers can be identified by name:
 This makes it possible to iterate through the providers in your own order of
 preference, trying to build a `CronetEngine` from each in turn using
 `CronetProvider.createBuilder()` until one has been successfully created. This
-approach also allows you to determine when the `CronetEngine` has been
-obtained from Cronet Fallback, in which case you should use
-`DefaultHttpDataSource` instead of `CronetDataSource`, since the fallback
-implementation uses Android's default network stack under the hood and offers no
-benefit over `DefaultHttpDataSource`.
+approach also allows you to determine when the `CronetEngine` has been obtained
+from Cronet Fallback, in which case you can avoid using `CronetDataSource`
+whilst still using Cronet Fallback for other networking performed by your
+application.
 
 [Send a simple request]: https://developer.android.com/guide/topics/connectivity/cronet/start
 

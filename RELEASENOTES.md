@@ -55,9 +55,6 @@
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
-    *   Split the module into `media3-datasource-cronet` (Google Play Services),
-        `media3-datasource-cronet-embedded` (bundled), and
-        `media3-datasource-cronet-shared` (shared implementation).
 *   RTMP extension:
 *   HLS extension:
     *   Expose ID3 (EMSG) metadata track in audio renditions
