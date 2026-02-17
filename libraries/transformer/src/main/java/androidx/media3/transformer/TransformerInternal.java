@@ -488,6 +488,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } catch (MuxerException e) {
         if (releaseExportException == null) {
           releaseExportException = ExportException.createForMuxer(e, ERROR_CODE_MUXING_FAILED);
+          cancelException = new RuntimeException(e);
         }
       } catch (RuntimeException e) {
         if (releaseExportException == null) {
