@@ -22,6 +22,9 @@
     *   Fix issue where embedded metadata tracks are selected irrespective of
         whether the corresponding primary track is selected
         ([#294](https://github.com/androidx/media/issues/294)).
+    *   Stabilize `TrackSelectionParameters` options for
+        `preferredVideoLanguages`, `preferredVideoLabels`,
+        `preferredAudioLabels`, `preferredTextLabels` and `selectTextByDefault`.
 *   Extractors:
     *   MP4: Support files with large `uuid` boxes before other boxes like
         `moov` ([#3046](https://github.com/androidx/media/issues/3046)).

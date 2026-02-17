@@ -548,7 +548,6 @@ public class TrackSelectionParameters {
      *     {@code null} to express no language preference for video track selection.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setPreferredVideoLanguage(@Nullable String preferredVideoLanguage) {
       return preferredVideoLanguage == null
@@ -564,7 +563,6 @@ public class TrackSelectionParameters {
      *     selection.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setPreferredVideoLanguages(String... preferredVideoLanguages) {
       this.preferredVideoLanguages = normalizeLanguageCodes(preferredVideoLanguages);
@@ -578,7 +576,6 @@ public class TrackSelectionParameters {
      *     to express no label preference for video track selection.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setPreferredVideoLabels(String... preferredVideoLabels) {
       this.preferredVideoLabels = ImmutableList.copyOf(preferredVideoLabels);
@@ -645,7 +642,6 @@ public class TrackSelectionParameters {
      *     to express no label preference for audio track selection.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setPreferredAudioLabels(String... preferredAudioLabels) {
       this.preferredAudioLabels = ImmutableList.copyOf(preferredAudioLabels);
@@ -723,7 +719,6 @@ public class TrackSelectionParameters {
      * @param selectTextByDefault Whether to prefer to select any text track by default.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setSelectTextByDefault(boolean selectTextByDefault) {
       this.selectTextByDefault = selectTextByDefault;
@@ -804,7 +799,6 @@ public class TrackSelectionParameters {
      *     express no label preference for text track selection.
      * @return This builder.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setPreferredTextLabels(String... preferredTextLabels) {
       this.preferredTextLabels = ImmutableList.copyOf(preferredTextLabels);
@@ -1266,12 +1260,12 @@ public class TrackSelectionParameters {
    * The preferred labels for video tracks in order of preference, or an empty list for no
    * preference. The default is an empty list.
    */
-  @UnstableApi public final ImmutableList<String> preferredVideoLabels;
+  public final ImmutableList<String> preferredVideoLabels;
 
   /**
    * The preferred languages for video tracks as IETF BCP 47 conformant tags in order of preference.
    */
-  @UnstableApi public final ImmutableList<String> preferredVideoLanguages;
+  public final ImmutableList<String> preferredVideoLanguages;
 
   /**
    * The preferred {@link C.RoleFlags} for video tracks. {@code 0} selects the default track if
@@ -1291,7 +1285,7 @@ public class TrackSelectionParameters {
    * The preferred labels for audio tracks in order of preference, or an empty list for no
    * preference. The default is an empty list.
    */
-  @UnstableApi public final ImmutableList<String> preferredAudioLabels;
+  public final ImmutableList<String> preferredAudioLabels;
 
   /**
    * The preferred {@link C.RoleFlags} for audio tracks. {@code 0} selects the default track if
@@ -1332,7 +1326,7 @@ public class TrackSelectionParameters {
    *
    * <p>The default value is {@code false}.
    */
-  @UnstableApi public final boolean selectTextByDefault;
+  public final boolean selectTextByDefault;
 
   /**
    * The preferred languages for text tracks as IETF BCP 47 conformant tags in order of preference.
@@ -1345,7 +1339,7 @@ public class TrackSelectionParameters {
    * The preferred labels for text tracks in order of preference, or an empty list for no
    * preference. The default is an empty list.
    */
-  @UnstableApi public final ImmutableList<String> preferredTextLabels;
+  public final ImmutableList<String> preferredTextLabels;
 
   /**
    * The preferred {@link C.RoleFlags} for text tracks. {@code 0} selects the default track if there
