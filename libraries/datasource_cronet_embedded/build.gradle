@@ -14,7 +14,7 @@
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 
 android {
-    namespace 'androidx.media3.datasource.cronet.playservices'
+    namespace 'androidx.media3.datasource.cronet.embedded'
 
     publishing {
         singleVariant('release') {
@@ -25,11 +25,11 @@ android {
 
 dependencies {
     api project(modulePrefix + 'lib-datasource-cronet-shared')
-    api "com.google.android.gms:play-services-cronet:18.1.1"
+    api 'org.chromium.net:cronet-embedded:143.7445.0'
 }
 
 ext {
-    releaseArtifactId = 'media3-datasource-cronet'
-    releaseName = 'Media3 Cronet DataSource module'
+    releaseArtifactId = 'media3-datasource-cronet-embedded'
+    releaseName = 'Media3 Cronet DataSource embedded module'
 }
 apply from: '../../publish.gradle'

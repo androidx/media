@@ -1,7 +1,7 @@
-# Cronet DataSource module
+# Cronet DataSource Embedded module
 
 This module provides an [HttpDataSource][] implementation that uses [Cronet][]
-loaded from Google Play Services.
+bundled directly into your application.
 
 Cronet is the Chromium network stack made available to Android apps as a
 library. It takes advantage of multiple technologies that reduce the latency and
@@ -18,7 +18,7 @@ and is our recommended network stack for most use cases.
 The easiest way to get the module is to add it as a gradle dependency:
 
 ```groovy
-implementation 'androidx.media3:media3-datasource-cronet:1.X.X'
+implementation 'androidx.media3:media3-datasource-cronet-embedded:1.X.X'
 ```
 
 where `1.X.X` is the version, which must match the version of the other media
@@ -46,47 +46,32 @@ new DefaultDataSource.Factory(
     /* baseDataSourceFactory= */ new CronetDataSource.Factory(...) );
 ```
 
-## Google Play Services Cronet
+## Cronet Embedded
 
-This module depends on `com.google.android.gms:play-services-cronet`, which
-loads an implementation of Cronet from Google Play Services. When Google Play
-Services is available, this approach is beneficial because:
+This module bundles a full Cronet implementation directly into your application.
+Cronet Embedded adds approximately 4MB to your application for each architecture, and so we do not
+recommend it for most use cases. That said, use of Cronet Embedded may be
+appropriate if:
 
-* The increase in application size is negligible.
-* The implementation is updated automatically by Google Play Services.
+* A large percentage of your users are in markets where Google Play Services is
+  not widely available.
+* You want to control the exact version of the Cronet implementation being used.
 
-The disadvantage of this approach is that the implementation is not usable on
-devices that do not have Google Play Services. Your application code should
-handle this by falling back to use `DefaultHttpDataSource` instead.
+If application size is a concern and your users have Google Play Services
+available, consider using the [Cronet DataSource][] module instead, which loads
+Cronet from Google Play Services with negligible size impact.
 
-If you need Cronet on devices without Google Play Services, consider using the
-[Cronet DataSource Embedded][] module instead, which bundles Cronet directly
-into your application.
-
-[Cronet DataSource Embedded]: ../datasource_cronet_embedded
+[Cronet DataSource]: ../datasource_cronet
 
 ### CronetEngine instantiation
 
 Cronet's [Send a simple request][] page documents the simplest way of building a
-`CronetEngine`, which is suitable if your application is only using the
-Google Play Services implementation of Cronet.
+`CronetEngine`. Since this module bundles Cronet directly, you can build a
+`CronetEngine` without needing Google Play Services:
 
-For cases where your application also includes one of the other Cronet
-implementations, you can use `CronetProvider.getAllProviders` to list the
-available implementations. Providers can be identified by name:
-
-* `CronetProviderInstaller.PROVIDER_NAME`: Google Play Services implementation.
-* `CronetProvider.PROVIDER_NAME_APP_PACKAGED`: Embedded implementation.
-* `CronetProvider.PROVIDER_NAME_FALLBACK`: Fallback implementation.
-
-This makes it possible to iterate through the providers in your own order of
-preference, trying to build a `CronetEngine` from each in turn using
-`CronetProvider.createBuilder()` until one has been successfully created. This
-approach also allows you to determine when the `CronetEngine` has been
-obtained from Cronet Fallback, in which case you should use
-`DefaultHttpDataSource` instead of `CronetDataSource`, since the fallback
-implementation uses Android's default network stack under the hood and offers no
-benefit over `DefaultHttpDataSource`.
+```
+CronetEngine cronetEngine = new CronetEngine.Builder(context).build();
+```
 
 [Send a simple request]: https://developer.android.com/guide/topics/connectivity/cronet/start
 

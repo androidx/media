@@ -64,6 +64,10 @@ include modulePrefix + 'lib-datasource'
 project(modulePrefix + 'lib-datasource').projectDir = new File(rootDir, 'libraries/datasource')
 include modulePrefix + 'lib-datasource-cronet'
 project(modulePrefix + 'lib-datasource-cronet').projectDir = new File(rootDir, 'libraries/datasource_cronet')
+include modulePrefix + 'lib-datasource-cronet-embedded'
+project(modulePrefix + 'lib-datasource-cronet-embedded').projectDir = new File(rootDir, 'libraries/datasource_cronet_embedded')
+include modulePrefix + 'lib-datasource-cronet-shared'
+project(modulePrefix + 'lib-datasource-cronet-shared').projectDir = new File(rootDir, 'libraries/datasource_cronet_shared')
 include modulePrefix + 'lib-datasource-rtmp'
 project(modulePrefix + 'lib-datasource-rtmp').projectDir = new File(rootDir, 'libraries/datasource_rtmp')
 include modulePrefix + 'lib-datasource-okhttp'
