@@ -1095,6 +1095,58 @@ public final class DashPlaybackTest {
         /* dumpFile= */ "playbackdumps/dash/scrubbing-skipKeyFrameReset-sameSyncNextGoP.dump");
   }
 
+  @Test
+  public void play_multiSegmentWithEmsgVersion0_outputsExpectedSamples() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-segment-with-emsg0/manifest.mpd"));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/multi-segment-with-emsg0.dump");
+  }
+
+  @Test
+  public void play_multiSegmentWithEmsgVersion1_outputsExpectedSamples() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-segment-with-emsg1/manifest.mpd"));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/multi-segment-with-emsg1.dump");
+  }
+
   private static ImmutableList<WebServerDispatcher.Resource>
       mockWebServerResourcesFromAssetsDirectory(String assetDirectory) throws IOException {
     Context context = ApplicationProvider.getApplicationContext();
