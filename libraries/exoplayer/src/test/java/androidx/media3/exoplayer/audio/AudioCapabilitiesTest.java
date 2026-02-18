@@ -228,6 +228,7 @@ public class AudioCapabilitiesTest {
 
     AudioDeviceInfo[] audioDeviceInfos =
         shadowOf(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             ApplicationProvider.getApplicationContext(),
@@ -252,7 +253,8 @@ public class AudioCapabilitiesTest {
                 /* maxChannelCount= */ 6,
                 expectedDevice != null
                     ? SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(expectedDevice)
-                    : ImmutableList.of(AudioFormat.CHANNEL_OUT_STEREO)));
+                    : ImmutableList.of(AudioFormat.CHANNEL_OUT_STEREO),
+                spatializerChannelMasks));
   }
 
   @Config(maxSdk = 32) // Fallback test for APIs before 33
@@ -332,9 +334,13 @@ public class AudioCapabilitiesTest {
         routedDevice = deviceInfo;
       }
     }
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
-            ApplicationProvider.getApplicationContext(), AudioAttributes.DEFAULT, routedDevice);
+            ApplicationProvider.getApplicationContext(),
+            AudioAttributes.DEFAULT,
+            routedDevice,
+            spatializerChannelMasks);
 
     assertThat(routedDevice).isNotNull();
     assertThat(getDeviceTypes(audioDeviceInfos))
@@ -349,7 +355,8 @@ public class AudioCapabilitiesTest {
                   AudioFormat.ENCODING_E_AC3_JOC
                 },
                 /* maxChannelCount= */ 10,
-                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(routedDevice)));
+                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(routedDevice),
+                spatializerChannelMasks));
   }
 
   @Test
@@ -366,11 +373,13 @@ public class AudioCapabilitiesTest {
 
     AudioDeviceInfo[] audioDeviceInfos =
         shadowOf(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             ApplicationProvider.getApplicationContext(),
             AudioAttributes.DEFAULT,
-            /* routedDevice= */ null);
+            /* routedDevice= */ null,
+            spatializerChannelMasks);
 
     assertThat(getDeviceTypes(audioDeviceInfos))
         .containsAtLeast(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
@@ -392,7 +401,8 @@ public class AudioCapabilitiesTest {
                   AudioFormat.ENCODING_E_AC3_JOC
                 },
                 /* maxChannelCount= */ 10,
-                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(expectedDevice)));
+                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(expectedDevice),
+                spatializerChannelMasks));
   }
 
   @Test
@@ -404,6 +414,20 @@ public class AudioCapabilitiesTest {
             /* routedDevice= */ null);
 
     assertThat(audioCapabilities).isEqualTo(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+  }
+
+  @Test
+  public void getCapabilities_usesSpatializerChannelMasks() {
+    ImmutableList<Integer> spatializerChannelMasks =
+        ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1);
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            ApplicationProvider.getApplicationContext(),
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            spatializerChannelMasks);
+
+    assertThat(audioCapabilities.getSpatializerChannelMasks()).isEqualTo(spatializerChannelMasks);
   }
 
   @Config(minSdk = 29)

@@ -68,11 +68,15 @@ public final class AudioCapabilities {
   private static final ImmutableList<Integer> DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS =
       ImmutableList.of(CHANNEL_OUT_STEREO);
 
+  private static final ImmutableList<Integer> DEFAULT_EMPTY_SPATIALIZER_CHANNEL_MASKS =
+      ImmutableList.of();
+
   /** The minimum audio capabilities supported by all devices. */
   public static final AudioCapabilities DEFAULT_AUDIO_CAPABILITIES =
       new AudioCapabilities(
           ImmutableList.of(AudioProfile.DEFAULT_AUDIO_PROFILE),
-          DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS);
+          DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS,
+          DEFAULT_EMPTY_SPATIALIZER_CHANNEL_MASKS);
 
   /** Encodings supported when the device specifies external surround sound. */
   @SuppressLint("InlinedApi") // Compile-time access to integer constants defined in API 21.
@@ -116,27 +120,48 @@ public final class AudioCapabilities {
   }
 
   /**
+   * @deprecated Use {@link #getCapabilities(Context, AudioAttributes, AudioDeviceInfo,
+   *     List<Integer>)} instead.
+   */
+  @Deprecated
+  public static AudioCapabilities getCapabilities(
+      Context context, AudioAttributes audioAttributes, @Nullable AudioDeviceInfo routedDevice) {
+    return getCapabilities(
+        context, audioAttributes, routedDevice, DEFAULT_EMPTY_SPATIALIZER_CHANNEL_MASKS);
+  }
+
+  /**
    * Returns the current audio capabilities.
    *
    * @param context A context for obtaining the current audio capabilities.
    * @param audioAttributes The {@link AudioAttributes} to obtain capabilities for.
    * @param routedDevice The {@link AudioDeviceInfo} audio will be routed to if known, or null to
    *     assume the default route.
+   * @param spatializerChannelMasks The channel masks supported by the {@link
+   *     android.media.Spatializer}, if enabled/available.
    * @return The current audio capabilities for the device.
    */
   public static AudioCapabilities getCapabilities(
-      Context context, AudioAttributes audioAttributes, @Nullable AudioDeviceInfo routedDevice) {
-    return getCapabilitiesInternal(context, audioAttributes, routedDevice);
+      Context context,
+      AudioAttributes audioAttributes,
+      @Nullable AudioDeviceInfo routedDevice,
+      List<Integer> spatializerChannelMasks) {
+    return getCapabilitiesInternal(context, audioAttributes, routedDevice, spatializerChannelMasks);
   }
 
   @SuppressWarnings("InlinedApi")
   @SuppressLint("UnprotectedReceiver") // ACTION_HDMI_AUDIO_PLUG is protected since API 16
   /* package */ static AudioCapabilities getCapabilitiesInternal(
-      Context context, AudioAttributes audioAttributes, @Nullable AudioDeviceInfo routedDevice) {
+      Context context,
+      AudioAttributes audioAttributes,
+      @Nullable AudioDeviceInfo routedDevice,
+      List<Integer> spatializerChannelMasks) {
     Intent intent =
         context.registerReceiver(
             /* receiver= */ null, new IntentFilter(AudioManager.ACTION_HDMI_AUDIO_PLUG));
-    return getCapabilitiesInternal(context, intent, audioAttributes, routedDevice);
+
+    return getCapabilitiesInternal(
+        context, intent, audioAttributes, routedDevice, spatializerChannelMasks);
   }
 
   @SuppressLint("InlinedApi")
@@ -144,7 +169,8 @@ public final class AudioCapabilities {
       Context context,
       @Nullable Intent intent,
       AudioAttributes audioAttributes,
-      @Nullable AudioDeviceInfo routedDevice) {
+      @Nullable AudioDeviceInfo routedDevice,
+      List<Integer> spatializerChannelMasks) {
     AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
     AudioDeviceInfo currentDevice =
         routedDevice != null
@@ -163,14 +189,16 @@ public final class AudioCapabilities {
       // so the encodings we get from AudioManager.getDirectProfilesForAttributes should include
       // the PCM encodings and surround encodings for passthrough mode.
       return Api33.getCapabilitiesInternalForDirectPlayback(
-          audioManager, audioAttributes, speakerLayoutChannelMasks);
+          audioManager, audioAttributes, speakerLayoutChannelMasks, spatializerChannelMasks);
     }
 
     // If a connection to Bluetooth device is detected, we only return the minimum capabilities that
     // is supported by all the devices.
     if (isBluetoothConnected(audioManager, currentDevice)) {
       return new AudioCapabilities(
-          ImmutableList.of(AudioProfile.DEFAULT_AUDIO_PROFILE), speakerLayoutChannelMasks);
+          ImmutableList.of(AudioProfile.DEFAULT_AUDIO_PROFILE),
+          speakerLayoutChannelMasks,
+          spatializerChannelMasks);
     }
 
     ImmutableSet.Builder<Integer> supportedEncodings = new ImmutableSet.Builder<>();
@@ -184,7 +212,8 @@ public final class AudioCapabilities {
       supportedEncodings.addAll(Api29.getDirectPlaybackSupportedEncodings(audioAttributes));
       return new AudioCapabilities(
           getAudioProfiles(Ints.toArray(supportedEncodings.build()), DEFAULT_MAX_CHANNEL_COUNT),
-          speakerLayoutChannelMasks);
+          speakerLayoutChannelMasks,
+          spatializerChannelMasks);
     }
 
     ContentResolver contentResolver = context.getContentResolver();
@@ -208,14 +237,16 @@ public final class AudioCapabilities {
               intent.getIntExtra(
                   AudioManager.EXTRA_MAX_CHANNEL_COUNT,
                   /* defaultValue= */ DEFAULT_MAX_CHANNEL_COUNT)),
-          speakerLayoutChannelMasks);
+          speakerLayoutChannelMasks,
+          spatializerChannelMasks);
     }
 
     return new AudioCapabilities(
         getAudioProfiles(
             Ints.toArray(supportedEncodings.build()),
             /* maxChannelCount= */ DEFAULT_MAX_CHANNEL_COUNT),
-        speakerLayoutChannelMasks);
+        speakerLayoutChannelMasks,
+        spatializerChannelMasks);
   }
 
   /**
@@ -232,6 +263,7 @@ public final class AudioCapabilities {
   private final SparseArray<AudioProfile> encodingToAudioProfile;
   private final int maxChannelCount;
   private final ImmutableList<Integer> speakerLayoutChannelMasks;
+  private final ImmutableList<Integer> spatializerChannelMasks;
 
   /**
    * @deprecated Use {@link #getCapabilities(Context, AudioAttributes, AudioDeviceInfo)} instead.
@@ -240,20 +272,27 @@ public final class AudioCapabilities {
   public AudioCapabilities(@Nullable int[] supportedEncodings, int maxChannelCount) {
     this(
         getAudioProfiles(supportedEncodings, maxChannelCount),
-        DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS);
+        DEFAULT_SPEAKER_LAYOUT_CHANNEL_MASKS,
+        DEFAULT_EMPTY_SPATIALIZER_CHANNEL_MASKS);
   }
 
-  /** Simple constructor for assertions in {@link AudioCapabilitiesTest}. */
+  /** Simple constructor for assertions in tests. */
   @VisibleForTesting
   /* package */ AudioCapabilities(
       @Nullable int[] supportedEncodings,
       int maxChannelCount,
-      List<Integer> speakerLayoutChannelMasks) {
-    this(getAudioProfiles(supportedEncodings, maxChannelCount), speakerLayoutChannelMasks);
+      List<Integer> speakerLayoutChannelMasks,
+      List<Integer> spatializerChannelMasks) {
+    this(
+        getAudioProfiles(supportedEncodings, maxChannelCount),
+        speakerLayoutChannelMasks,
+        spatializerChannelMasks);
   }
 
   private AudioCapabilities(
-      List<AudioProfile> audioProfiles, List<Integer> speakerLayoutChannelMasks) {
+      List<AudioProfile> audioProfiles,
+      List<Integer> speakerLayoutChannelMasks,
+      List<Integer> spatializerChannelMasks) {
     encodingToAudioProfile = new SparseArray<>();
     for (int i = 0; i < audioProfiles.size(); i++) {
       AudioProfile audioProfile = audioProfiles.get(i);
@@ -265,6 +304,7 @@ public final class AudioCapabilities {
     }
     this.maxChannelCount = maxChannelCount;
     this.speakerLayoutChannelMasks = ImmutableList.copyOf(speakerLayoutChannelMasks);
+    this.spatializerChannelMasks = ImmutableList.copyOf(spatializerChannelMasks);
   }
 
   /**
@@ -294,6 +334,16 @@ public final class AudioCapabilities {
    */
   public ImmutableList<Integer> getSpeakerLayoutChannelMasks() {
     return speakerLayoutChannelMasks;
+  }
+
+  /**
+   * Returns the channel masks supported by the {@link android.media.Spatializer}, if
+   * enabled/available.
+   *
+   * <p>This is only non-empty if the Spatialize is ready for use.
+   */
+  public ImmutableList<Integer> getSpatializerChannelMasks() {
+    return spatializerChannelMasks;
   }
 
   /**
@@ -393,7 +443,8 @@ public final class AudioCapabilities {
     AudioCapabilities audioCapabilities = (AudioCapabilities) other;
     return Util.contentEquals(encodingToAudioProfile, audioCapabilities.encodingToAudioProfile)
         && maxChannelCount == audioCapabilities.maxChannelCount
-        && Objects.equals(speakerLayoutChannelMasks, audioCapabilities.speakerLayoutChannelMasks);
+        && Objects.equals(speakerLayoutChannelMasks, audioCapabilities.speakerLayoutChannelMasks)
+        && Objects.equals(spatializerChannelMasks, audioCapabilities.spatializerChannelMasks);
   }
 
   @Override
@@ -401,6 +452,7 @@ public final class AudioCapabilities {
     int result = maxChannelCount;
     result = 31 * result + Util.contentHashCode(encodingToAudioProfile);
     result = 31 * result + Objects.hashCode(speakerLayoutChannelMasks);
+    result = 31 * result + Objects.hashCode(spatializerChannelMasks);
     return result;
   }
 
@@ -412,6 +464,8 @@ public final class AudioCapabilities {
         + encodingToAudioProfile
         + ", speakerLayoutChannelMasks="
         + speakerLayoutChannelMasks
+        + ", spatializerChannelMasks="
+        + spatializerChannelMasks
         + "]";
   }
 
@@ -665,11 +719,14 @@ public final class AudioCapabilities {
     public static AudioCapabilities getCapabilitiesInternalForDirectPlayback(
         AudioManager audioManager,
         AudioAttributes audioAttributes,
-        List<Integer> speakerLayoutChannelMasks) {
+        List<Integer> speakerLayoutChannelMasks,
+        List<Integer> spatializerChannelMasks) {
       List<android.media.AudioProfile> directAudioProfiles =
           audioManager.getDirectProfilesForAttributes(audioAttributes.getPlatformAudioAttributes());
       return new AudioCapabilities(
-          getAudioProfiles(directAudioProfiles), speakerLayoutChannelMasks);
+          getAudioProfiles(directAudioProfiles),
+          speakerLayoutChannelMasks,
+          spatializerChannelMasks);
     }
 
     @Nullable
