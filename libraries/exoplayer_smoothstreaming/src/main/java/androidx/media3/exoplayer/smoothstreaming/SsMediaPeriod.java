@@ -282,7 +282,8 @@ import java.util.List;
             drmEventDispatcher,
             loadErrorHandlingPolicy,
             mediaSourceEventDispatcher,
-            /* canReportInitialDiscontinuity= */ false,
+            /* handleInitialDiscontinuity= */ false,
+            /* firstChunkStartTimeUs= */ C.TIME_UNSET,
             downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
     stream.setEndPositionUs(endPositionUs);
     return stream;

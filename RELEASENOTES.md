@@ -63,6 +63,9 @@
     *   Expose ID3 (EMSG) metadata track in audio renditions
         ([#3043](https://github.com/androidx/media/issues/3043)).
 *   DASH extension:
+    *   Fix issue where tracks with unaligned segment start times cause delays
+        or missed samples at the beginning of playback
+        ([#3057](https://github.com/androidx/media/issues/3057)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
