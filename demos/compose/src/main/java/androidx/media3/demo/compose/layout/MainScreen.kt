@@ -18,11 +18,23 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,11 +46,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.material3.Player
+import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedToggleButton
+import androidx.media3.ui.compose.material3.buttons.RepeatButton
+import androidx.media3.ui.compose.material3.buttons.ShuffleButton
+import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
 
 @Composable
 fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
@@ -81,11 +100,18 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
 
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
-    AutoHidingPlayerBox(
+    Player(
       player = player,
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
       controlsTimeoutMs = CONTROLS_VISIBILITY_TIMEOUT_MS,
+      bottomControls = { player, showControls ->
+        BottomControlsWithLabeledProgress(
+          player,
+          showControls,
+          Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+        )
+      },
     )
     ContentScaleButton(
       currentContentScaleIndex,
@@ -94,7 +120,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
     )
     ShutterToggleButton(
       keepContentOnReset,
-      Modifier.align(Alignment.TopEnd),
+      Modifier.align(Alignment.TopStart),
       onClick = { keepContentOnReset = !keepContentOnReset },
     )
   }
@@ -117,6 +143,42 @@ private fun ContentScaleButton(
 ) {
   Button(onClick, modifier) {
     Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
+  }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BottomControlsWithLabeledProgress(
+  player: Player?,
+  showControls: Boolean,
+  modifier: Modifier = Modifier,
+) {
+  AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
+    Column(modifier) {
+      LabeledProgressSlider(player)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        PositionAndDurationText(player, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.weight(1f))
+        PlaybackSpeedToggleButton(
+          player,
+          colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+        )
+        ShuffleButton(
+          player,
+          colors =
+            IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+        )
+        RepeatButton(
+          player,
+          colors =
+            IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+        )
+      }
+    }
   }
 }
 

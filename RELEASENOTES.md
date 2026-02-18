@@ -55,6 +55,9 @@
     *   Fix issue where access to subscriptions was not synchronized
         ([#3056](https://github.com/androidx/media/issues/3056)).
 *   UI:
+    *   Add `Player` Composable to `media3-ui-compose-material3` which combines
+        a `ContentFrame` with customizable controls aligned to top, center, and
+        bottom.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
