@@ -62,7 +62,7 @@ public class SpatializerWrapper {
    */
   public SpatializerWrapper(
       @Nullable Context context,
-      Runnable spatializerChangedCallback,
+      @Nullable Runnable spatializerChangedCallback,
       @Nullable Boolean deviceIsTv) {
     @Nullable
     AudioManager audioManager =
@@ -77,20 +77,32 @@ public class SpatializerWrapper {
     this.spatializer = audioManager.getSpatializer();
     this.spatializationSupported =
         spatializer.getImmersiveAudioLevel() != Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE;
-    this.listener =
-        new Spatializer.OnSpatializerStateChangedListener() {
-          @Override
-          public void onSpatializerEnabledChanged(Spatializer spatializer, boolean enabled) {
-            spatializerChangedCallback.run();
-          }
+    if (spatializerChangedCallback == null) {
+      handler = null;
+      listener = null;
+    } else {
+      this.handler = new Handler(checkNotNull(Looper.myLooper()));
+      this.listener =
+          new Spatializer.OnSpatializerStateChangedListener() {
+            @Override
+            public void onSpatializerEnabledChanged(Spatializer spatializer, boolean enabled) {
+              spatializerChangedCallback.run();
+            }
 
-          @Override
-          public void onSpatializerAvailableChanged(Spatializer spatializer, boolean available) {
-            spatializerChangedCallback.run();
-          }
-        };
-    this.handler = new Handler(checkNotNull(Looper.myLooper()));
-    spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
+            @Override
+            public void onSpatializerAvailableChanged(Spatializer spatializer, boolean available) {
+              spatializerChangedCallback.run();
+            }
+          };
+      spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
+    }
+  }
+
+  /**
+   * A convenience method for the combined checks to see if spatialization is actually available.
+   */
+  public boolean isSupportedAvailableAndEnabled() {
+    return spatializer != null && spatializationSupported && isAvailable() && isEnabled();
   }
 
   /**
@@ -107,7 +119,7 @@ public class SpatializerWrapper {
    * <p>This is delegated to {@link Spatializer#isAvailable()}.
    */
   public boolean isAvailable() {
-    return checkNotNull(spatializer).isAvailable();
+    return spatializer != null && spatializer.isAvailable();
   }
 
   /**
@@ -116,7 +128,7 @@ public class SpatializerWrapper {
    * <p>This is delegated to {@link Spatializer#isEnabled()}.
    */
   public boolean isEnabled() {
-    return checkNotNull(spatializer).isEnabled();
+    return spatializer != null && spatializer.isEnabled();
   }
 
   /**
@@ -125,6 +137,9 @@ public class SpatializerWrapper {
    * <p>Includes special logic for immersive audio formats.
    */
   public boolean canBeSpatialized(AudioAttributes audioAttributes, Format format) {
+    if (!isSupportedAvailableAndEnabled()) {
+      return false;
+    }
     int linearChannelCount;
     if (Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_E_AC3_JOC)) {
       // For E-AC3 JOC, the format is object based. When the channel count is 16, this maps to 12
@@ -167,7 +182,10 @@ public class SpatializerWrapper {
    * <p>On API 36+, this is delegated to the {@link Spatializer#getSpatializedChannelMasks()}. On
    * API 32-35, the default channel mask is 5.1.
    */
-  List<Integer> getSpatializedChannelMasks() {
+  public List<Integer> getSpatializedChannelMasks() {
+    if (!isSupportedAvailableAndEnabled()) {
+      return ImmutableList.of();
+    }
     if (SDK_INT >= 36) {
       return checkNotNull(spatializer).getSpatializedChannelMasks();
     }
