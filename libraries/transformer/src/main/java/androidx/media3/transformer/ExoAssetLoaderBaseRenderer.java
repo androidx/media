@@ -221,7 +221,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @ReadDataResult
       int result =
           readSource(formatHolder, decoderInputBuffer, /* readFlags= */ FLAG_REQUIRE_FORMAT);
-      if (result != C.RESULT_FORMAT_READ) {
+      if (result == C.RESULT_BUFFER_READ && decoderInputBuffer.isEndOfStream()) {
+        formatHolder.format = getStreamFormats()[0];
+      } else if (result != C.RESULT_FORMAT_READ) {
         return false;
       }
       inputFormat = overrideInputFormat(checkNotNull(formatHolder.format));

@@ -74,6 +74,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
+import androidx.media3.common.util.Clock;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -90,11 +91,11 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -111,6 +112,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowMediaCodec;
 
@@ -120,7 +122,7 @@ import org.robolectric.shadows.ShadowMediaCodec;
  *
  * <p>See {@link ParameterizedItemExportTest} for parameterized cases.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class MediaItemExportTest {
 
   private static final long TEST_TIMEOUT_SECONDS = 10;
@@ -246,10 +248,23 @@ public final class MediaItemExportTest {
   }
 
   @Test
-  public void start_withClippingStartAndEndEqual_completesSuccessfully() throws Exception {
+  public void start_withClippingStartAndEndEqual_completesSuccessfully(
+      @TestParameter boolean enableClippingInMediaPeriod) throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    Codec.DecoderFactory decoderFactory = new DefaultDecoderFactory.Builder(context).build();
     Transformer transformer =
-        new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
+        new TestTransformerBuilder(context)
+            .setMuxerFactory(muxerFactory)
+            .setAssetLoaderFactory(
+                new ExoPlayerAssetLoader.Factory(
+                    context,
+                    decoderFactory,
+                    clock,
+                    new DefaultMediaSourceFactory(context)
+                        .setEnableClippingInMediaPeriod(enableClippingInMediaPeriod)))
+            .setClock(clock)
+            .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S)
