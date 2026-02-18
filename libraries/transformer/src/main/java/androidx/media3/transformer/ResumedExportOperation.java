@@ -215,6 +215,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
+    if (state == STATE_PROCESS_FULL_INPUT) {
+      return getNextAccumulatedProgress(
+          /* progressSoFar= */ 0, /* nextProgressWeight= */ 1, progressHolder);
+    }
+
     float remuxProcessedVideoProgressWeight = 0.15f;
     float processRemainingVideoProgressWeight = 0.40f;
     float processAudioProgressWeight = 0.30f;

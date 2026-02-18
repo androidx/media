@@ -554,6 +554,80 @@ public class TransformerPauseResumeTest {
         .containsExactly(PROGRESS_STATE_WAITING_FOR_AVAILABILITY, PROGRESS_STATE_AVAILABLE);
   }
 
+  @Test
+  public void resumeAndGetProgress_afterImmediateCancellation_startsFromLowPercentage()
+      throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 1);
+    // Immediate cancellation to produce a partial file that triggers the fallback export.
+    Transformer initialTransformer = new Transformer.Builder(context).build();
+    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              initialTransformer.start(composition, firstOutputPath);
+              initialTransformer.cancel();
+            });
+
+    SettableFuture<@NullableType Exception> transformerExceptionFuture = SettableFuture.create();
+    Transformer.Listener transformerListener =
+        new Transformer.Listener() {
+          @Override
+          public void onCompleted(Composition composition, ExportResult exportResult) {
+            transformerExceptionFuture.set(null);
+          }
+
+          @Override
+          public void onError(
+              Composition composition, ExportResult exportResult, ExportException exportException) {
+            transformerExceptionFuture.set(exportException);
+          }
+        };
+    Queue<Integer> progresses = new ConcurrentLinkedDeque<>();
+    TransformerHolder transformerHolder = new TransformerHolder();
+    Runnable getProgressRunnable =
+        () ->
+            InstrumentationRegistry.getInstrumentation()
+                .runOnMainSync(
+                    () -> {
+                      Transformer transformer = transformerHolder.getTransformer();
+                      ProgressHolder progressHolder = new ProgressHolder();
+                      if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
+                          && (progresses.isEmpty()
+                              || Iterables.getLast(progresses) != progressHolder.progress)) {
+                        progresses.add(progressHolder.progress);
+                      }
+                    });
+    BatchProgressReportingMuxer.Factory muxerFactory =
+        new BatchProgressReportingMuxer.Factory(
+            /* sampleBatchSize= */ 100, getProgressRunnable::run);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setMuxerFactory(muxerFactory)
+            .addListener(transformerListener)
+            .build();
+    transformerHolder.setTransformer(transformer);
+    String secondOutputPath = temporaryFolder.newFile("SecondOutput.mp4").getAbsolutePath();
+
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> transformer.resume(composition, secondOutputPath, firstOutputPath));
+
+    assertThat(transformerExceptionFuture.get()).isNull();
+    assertThat(progresses).isNotEmpty();
+    // The very first progress value in the fallback state should not be 85.
+    assertThat(Iterables.getFirst(progresses, /* defaultValue= */ -1)).isLessThan(85);
+  }
+
   private static Composition buildSingleSequenceComposition(
       long clippingStartPositionMs, long clippingEndPositionMs, int mediaItemsInSequence) {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
