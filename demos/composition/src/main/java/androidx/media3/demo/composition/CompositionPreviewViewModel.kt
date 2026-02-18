@@ -208,12 +208,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     DebugTraceUtil.enableTracing = enable
   }
 
-  fun onFrameConsumerEnabledChanged(isEnabled: Boolean) {
-    _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled))
-    }
-  }
-
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
     _uiState.update {
       it.copy(outputSettingsState = it.outputSettingsState.copy(includeBackgroundAudio = isEnabled))
