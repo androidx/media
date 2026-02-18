@@ -7,8 +7,8 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    channel[0] = -1146365702
-    channel[1] = -1146365702
+    channel[0] = 282783674
+    channel[1] = 282783674
   buffer #1:
     time = 1000000021333
     channel[0] = -1443166734
@@ -115,8 +115,8 @@ AudioSink:
     channel[1] = 640973283
   buffer #27:
     time = 1000000576000
-    channel[0] = 1648316275
-    channel[1] = 1648316275
+    channel[0] = 667927860
+    channel[1] = 667927860
   buffer #28:
     time = 1000000597333
     channel[0] = -1400252340
@@ -127,12 +127,12 @@ AudioSink:
     channel[1] = -109250957
   buffer #30:
     time = 1000000640000
-    channel[0] = -438551578
-    channel[1] = -438551578
+    channel[0] = -1213175193
+    channel[1] = -1213175193
   buffer #31:
     time = 1000000661333
-    channel[0] = 260576761
-    channel[1] = 260576761
+    channel[0] = 130930266
+    channel[1] = 130930266
   buffer #32:
     time = 1000000682666
     channel[0] = 635431592
@@ -147,20 +147,20 @@ AudioSink:
     channel[1] = 1712210053
   buffer #35:
     time = 1000000746666
-    channel[0] = 1604220979
-    channel[1] = 1604220979
+    channel[0] = -1176226604
+    channel[1] = -1176226604
   buffer #36:
     time = 1000000768000
     channel[0] = 960464384
     channel[1] = 960464384
   buffer #37:
     time = 1000000789333
-    channel[0] = 1846787942
-    channel[1] = 1846787942
+    channel[0] = -712964186
+    channel[1] = -712964186
   buffer #38:
     time = 1000000810666
-    channel[0] = -9325471
-    channel[1] = -9325471
+    channel[0] = -1435730719
+    channel[1] = -1435730719
   buffer #39:
     time = 1000000832000
     channel[0] = -1658363839
