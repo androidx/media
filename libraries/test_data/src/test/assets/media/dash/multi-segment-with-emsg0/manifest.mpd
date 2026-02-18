@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT1.500S" type="static" mediaPresentationDuration="PT0H0M1.000S" maxSegmentDuration="PT0H0M0.500S" profiles="urn:mpeg:dash:profile:isoff-live:2011">
+ <Period duration="PT0H0M1.000S">
+  <AdaptationSet segmentAlignment="true" maxWidth="640" maxHeight="360" maxFrameRate="30" par="16:9" mimeType="video/mp4" startWithSAP="1">
+   <InbandEventStream schemeIdUri="urn:example:event" value="1"/>
+   <SegmentTemplate media="segment_$Number$.m4s" initialization="segment_init.mp4" timescale="15360" startNumber="1" duration="7680"/>
+   <Representation id="1" codecs="avc1.F4001E" width="640" height="360" frameRate="30" sar="1:1" bandwidth="104336">
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>

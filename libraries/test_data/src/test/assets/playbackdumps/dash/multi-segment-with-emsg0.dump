@@ -1,0 +1,226 @@
+MediaCodecAdapter (media3.video.avc):
+  inputBuffers:
+    count = 31
+    input buffer #0:
+      timeUs = 1000000000000
+      contents = length 4408, hash C5611A85
+    input buffer #1:
+      timeUs = 1000000133333
+      contents = length 565, hash A46533DA
+    input buffer #2:
+      timeUs = 1000000066666
+      contents = length 83, hash B02DDC9F
+    input buffer #3:
+      timeUs = 1000000033333
+      contents = length 61, hash 293AD9BD
+    input buffer #4:
+      timeUs = 1000000100000
+      contents = length 33, hash EA06170F
+    input buffer #5:
+      timeUs = 1000000266666
+      contents = length 538, hash 3FB5D480
+    input buffer #6:
+      timeUs = 1000000200000
+      contents = length 71, hash CB618159
+    input buffer #7:
+      timeUs = 1000000166666
+      contents = length 54, hash B0C09666
+    input buffer #8:
+      timeUs = 1000000233333
+      contents = length 42, hash D16EB023
+    input buffer #9:
+      timeUs = 1000000400000
+      contents = length 537, hash 4940F62A
+    input buffer #10:
+      timeUs = 1000000333333
+      contents = length 65, hash C96E100
+    input buffer #11:
+      timeUs = 1000000300000
+      contents = length 41, hash E89E97DA
+    input buffer #12:
+      timeUs = 1000000366666
+      contents = length 29, hash 5C33A589
+    input buffer #13:
+      timeUs = 1000000466666
+      contents = length 279, hash 8E00D894
+    input buffer #14:
+      timeUs = 1000000433333
+      contents = length 42, hash 32D9815A
+    input buffer #15:
+      timeUs = 1000000500000
+      contents = length 4135, hash FF5D2AE1
+    input buffer #16:
+      timeUs = 1000000633333
+      contents = length 443, hash E7EE8CC2
+    input buffer #17:
+      timeUs = 1000000566666
+      contents = length 67, hash 628D0096
+    input buffer #18:
+      timeUs = 1000000533333
+      contents = length 38, hash 752D1ED3
+    input buffer #19:
+      timeUs = 1000000600000
+      contents = length 49, hash 2280616C
+    input buffer #20:
+      timeUs = 1000000766666
+      contents = length 391, hash E0ADE2EF
+    input buffer #21:
+      timeUs = 1000000700000
+      contents = length 84, hash BF295395
+    input buffer #22:
+      timeUs = 1000000666666
+      contents = length 37, hash A2360933
+    input buffer #23:
+      timeUs = 1000000733333
+      contents = length 44, hash B9B84A5A
+    input buffer #24:
+      timeUs = 1000000900000
+      contents = length 420, hash E6E749C4
+    input buffer #25:
+      timeUs = 1000000833333
+      contents = length 80, hash CC538CDF
+    input buffer #26:
+      timeUs = 1000000800000
+      contents = length 38, hash A457FE9F
+    input buffer #27:
+      timeUs = 1000000866666
+      contents = length 45, hash 25E9FC21
+    input buffer #28:
+      timeUs = 1000000966666
+      contents = length 277, hash 931BCD44
+    input buffer #29:
+      timeUs = 1000000933333
+      contents = length 46, hash 1FCA3C4
+    input buffer #30:
+      timeUs = 0
+      flags = 4
+      contents = length 0, hash 1
+  outputBuffers:
+    count = 30
+    output buffer #0:
+      timeUs = 1000000000000
+      size = 4408
+      rendered = true
+    output buffer #1:
+      timeUs = 1000000133333
+      size = 565
+      rendered = true
+    output buffer #2:
+      timeUs = 1000000066666
+      size = 83
+      rendered = true
+    output buffer #3:
+      timeUs = 1000000033333
+      size = 61
+      rendered = true
+    output buffer #4:
+      timeUs = 1000000100000
+      size = 33
+      rendered = true
+    output buffer #5:
+      timeUs = 1000000266666
+      size = 538
+      rendered = true
+    output buffer #6:
+      timeUs = 1000000200000
+      size = 71
+      rendered = true
+    output buffer #7:
+      timeUs = 1000000166666
+      size = 54
+      rendered = true
+    output buffer #8:
+      timeUs = 1000000233333
+      size = 42
+      rendered = true
+    output buffer #9:
+      timeUs = 1000000400000
+      size = 537
+      rendered = true
+    output buffer #10:
+      timeUs = 1000000333333
+      size = 65
+      rendered = true
+    output buffer #11:
+      timeUs = 1000000300000
+      size = 41
+      rendered = true
+    output buffer #12:
+      timeUs = 1000000366666
+      size = 29
+      rendered = true
+    output buffer #13:
+      timeUs = 1000000466666
+      size = 279
+      rendered = true
+    output buffer #14:
+      timeUs = 1000000433333
+      size = 42
+      rendered = true
+    output buffer #15:
+      timeUs = 1000000500000
+      size = 4135
+      rendered = true
+    output buffer #16:
+      timeUs = 1000000633333
+      size = 443
+      rendered = true
+    output buffer #17:
+      timeUs = 1000000566666
+      size = 67
+      rendered = true
+    output buffer #18:
+      timeUs = 1000000533333
+      size = 38
+      rendered = true
+    output buffer #19:
+      timeUs = 1000000600000
+      size = 49
+      rendered = true
+    output buffer #20:
+      timeUs = 1000000766666
+      size = 391
+      rendered = true
+    output buffer #21:
+      timeUs = 1000000700000
+      size = 84
+      rendered = true
+    output buffer #22:
+      timeUs = 1000000666666
+      size = 37
+      rendered = true
+    output buffer #23:
+      timeUs = 1000000733333
+      size = 44
+      rendered = true
+    output buffer #24:
+      timeUs = 1000000900000
+      size = 420
+      rendered = true
+    output buffer #25:
+      timeUs = 1000000833333
+      size = 80
+      rendered = true
+    output buffer #26:
+      timeUs = 1000000800000
+      size = 38
+      rendered = true
+    output buffer #27:
+      timeUs = 1000000866666
+      size = 45
+      rendered = true
+    output buffer #28:
+      timeUs = 1000000966666
+      size = 277
+      rendered = true
+    output buffer #29:
+      timeUs = 1000000933333
+      size = 46
+      rendered = true
+MetadataOutput:
+  Metadata[0]:
+    presentationTimeUs = 0
+    entry[0] = EMSG: scheme=urn:example:event, id=1, durationMs=0, value=1
+  Metadata[1]:
+    presentationTimeUs = 500000
+    entry[0] = EMSG: scheme=urn:example:event, id=1, durationMs=0, value=1
