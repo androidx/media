@@ -105,7 +105,7 @@ public class SampleQueue implements TrackOutput {
   @Nullable private Format unadjustedUpstreamFormat;
   @Nullable private Format upstreamFormat;
   private long upstreamSourceId;
-  private boolean allSamplesAreSyncSamples;
+  private boolean discardAllSamplesToStartTime;
   private boolean loggedUnexpectedNonSyncSample;
 
   private long sampleOffsetUs;
@@ -179,7 +179,7 @@ public class SampleQueue implements TrackOutput {
     largestQueuedTimestampUs = Long.MIN_VALUE;
     upstreamFormatRequired = true;
     upstreamKeyframeRequired = true;
-    allSamplesAreSyncSamples = true;
+    discardAllSamplesToStartTime = true;
     readEndTimeUs = C.TIME_END_OF_SOURCE;
     readEndTimeAbsoluteIndex = C.INDEX_UNSET;
   }
@@ -224,14 +224,14 @@ public class SampleQueue implements TrackOutput {
       unadjustedUpstreamFormat = null;
       upstreamFormat = null;
       upstreamFormatRequired = true;
-      allSamplesAreSyncSamples = true;
+      discardAllSamplesToStartTime = true;
     }
   }
 
   /**
-   * Sets the start time for the queue. Samples with earlier timestamps will be discarded if
-   * {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync samples} in the given input
-   * format.
+   * Sets the start time for the queue. Samples with earlier timestamps will be discarded for audio
+   * formats if {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync samples} in the
+   * given input format.
    *
    * @param startTimeUs The start time, in microseconds.
    */
@@ -515,7 +515,7 @@ public class SampleQueue implements TrackOutput {
   /**
    * Attempts to seek the read position to the keyframe before or at the specified time.
    *
-   * <p>For formats where {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync
+   * <p>For audio formats where {@linkplain MimeTypes#allSamplesAreSyncSamples all samples are sync
    * samples}, it seeks the read position to the first sample at or after the specified time.
    *
    * @param timeUs The time to seek to.
@@ -536,7 +536,7 @@ public class SampleQueue implements TrackOutput {
       return false;
     }
     int offset =
-        allSamplesAreSyncSamples
+        discardAllSamplesToStartTime
             ? findSampleAfter(
                 relativeReadIndex, length - readPosition, timeUs, allowTimeBeyondBuffer)
             : findSampleBefore(
@@ -681,10 +681,8 @@ public class SampleQueue implements TrackOutput {
     }
 
     timeUs += sampleOffsetUs;
-    if (allSamplesAreSyncSamples) {
+    if (discardAllSamplesToStartTime) {
       if (timeUs < startTimeUs) {
-        // If we know that all samples are sync samples, we can discard those that come before the
-        // start time on the write side of the queue.
         return;
       }
       if ((flags & C.BUFFER_FLAG_KEY_FRAME) == 0) {
@@ -812,8 +810,8 @@ public class SampleQueue implements TrackOutput {
     } else {
       upstreamFormat = format;
     }
-    allSamplesAreSyncSamples &=
-        MimeTypes.allSamplesAreSyncSamples(upstreamFormat.sampleMimeType, upstreamFormat.codecs);
+    discardAllSamplesToStartTime &=
+        canDiscardAllSamplesToStartTime(upstreamFormat.sampleMimeType, upstreamFormat.codecs);
     loggedUnexpectedNonSyncSample = false;
     return true;
   }
@@ -1170,6 +1168,16 @@ public class SampleQueue implements TrackOutput {
   private int getRelativeIndex(int offset) {
     int relativeIndex = relativeFirstIndex + offset;
     return relativeIndex < capacity ? relativeIndex : relativeIndex - capacity;
+  }
+
+  private static boolean canDiscardAllSamplesToStartTime(
+      @Nullable String mimeType, @Nullable String codec) {
+    // We can only discard up to the start time immediately if the samples are guaranteed to be all
+    // sync samples. This optimization is also only possible for audio tracks where the inherent
+    // duration of a sample is negligible, and it doesn't affect playback if a partial sample is
+    // dropped.
+    @C.TrackType int trackType = MimeTypes.getTrackType(mimeType);
+    return trackType == C.TRACK_TYPE_AUDIO && MimeTypes.allSamplesAreSyncSamples(mimeType, codec);
   }
 
   /** A holder for sample metadata not held by {@link DecoderInputBuffer}. */
