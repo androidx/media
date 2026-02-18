@@ -365,13 +365,6 @@ public final class TransformerActivity extends AppCompatActivity {
       @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
     Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
 
-    if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-      if (SDK_INT < 34) {
-        throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
-      }
-      transformerBuilder.setHardwareBufferEffectsPipeline(
-          new DefaultHardwareBufferEffectsPipeline());
-    }
     transformerBuilder.addListener(
         new Transformer.Listener() {
           @Override

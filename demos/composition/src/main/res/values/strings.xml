@@ -27,7 +27,6 @@
   <string name="export_completed" translatable="false">Export completed in %.3f seconds.\nOutput: %s</string>
   <string name="export_error" translatable="false">Export error</string>
   <string name="export_started" translatable="false">Export started</string>
-  <string name="frame_consumer_enabled" translatable="false">Use FrameConsumer</string>
   <string name="add_background_audio" translatable="false">Add background audio</string>
   <string name="output_video_resolution" translatable="false">Output video resolution</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>

@@ -63,11 +63,8 @@ import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
-import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
-import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
-import androidx.media3.effect.ndk.NdkTransformerBuilder
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -107,16 +104,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
-  internal var frameConsumerEnabled: Boolean = false
   internal var surfaceView: SurfaceView? = null
-  internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
-    if (SDK_INT < 34) {
-      throw IllegalStateException(
-        "Render with PacketConsumer<HardwareBufferFrame> requires API 34+"
-      )
-    }
-    ProcessAndRenderToSurfaceConsumer.Factory()
-  }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
@@ -494,23 +482,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
     val filePath = outputFile!!.absolutePath
 
-    val transformerBuilder =
-      if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-        if (SDK_INT < 34) {
-          _uiState.update {
-            it.copy(snackbarMessage = "API 34+ required to export with PacketConsumer")
-          }
-          return
-        }
-        NdkTransformerBuilder.create(getApplication())
-          .setHardwareBufferEffectsPipeline(
-            // TODO: b/449957627 - Implement HardwareBuffer compositing.
-            DefaultHardwareBufferEffectsPipeline()
-          )
-      } else {
-        Transformer.Builder(/* context= */ getApplication())
-      }
-
+    val transformerBuilder = Transformer.Builder(/* context= */ getApplication())
     if (SAME_AS_INPUT_OPTION != settings.audioMimeType) {
       transformerBuilder.setAudioMimeType(settings.audioMimeType)
     }
@@ -780,18 +752,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   private fun createCompositionPlayer(): CompositionPlayer {
-    val playerBuilder: CompositionPlayer.Builder
-    frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
-      playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
-      surfaceView?.let { packetConsumerFactory.setOutput(it.holder, it::post) }
-      playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
-      playerBuilder.setGlThreadExecutorService(glExecutorService)
-    } else {
-      playerBuilder = CompositionPlayer.Builder(getApplication())
-      if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
-        playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
-      }
+    val playerBuilder = CompositionPlayer.Builder(getApplication())
+    if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
+      playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }
     playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
     val player = playerBuilder.build()

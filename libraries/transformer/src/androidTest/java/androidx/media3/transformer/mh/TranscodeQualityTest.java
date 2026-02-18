@@ -41,7 +41,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EditedMediaItem;
@@ -73,7 +72,6 @@ public final class TranscodeQualityTest {
       "test-generated-goldens/FrameExtractorTest/hlg10-color-test_0.000.png";
 
   private static final String LEGACY = "legacy";
-  private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
   private static final String PACKET_CONSUMER = "packet_consumer";
 
   @Rule public final TestName testName = new TestName();
@@ -81,7 +79,7 @@ public final class TranscodeQualityTest {
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
     if (SDK_INT >= 34) {
-      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK, PACKET_CONSUMER);
+      return ImmutableList.of(LEGACY, PACKET_CONSUMER);
     }
     return ImmutableList.of(LEGACY);
   }
@@ -164,7 +162,6 @@ public final class TranscodeQualityTest {
   @SdkSuppress(minSdkVersion = 34) // HDR Bitmap extraction requires API 34+.
   public void transcode_hlg10_outputsHlg() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    assumeFalse(mode.equals(PACKET_CONSUMER_NDK));
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
@@ -201,10 +198,6 @@ public final class TranscodeQualityTest {
   }
 
   private static Transformer.Builder createBuilder(Context context, String mode) {
-    if (mode.equals(PACKET_CONSUMER_NDK)) {
-      return NdkTransformerBuilder.create(context)
-          .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
-    }
     if (mode.equals(PACKET_CONSUMER)) {
       return new Transformer.Builder(context)
           .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());

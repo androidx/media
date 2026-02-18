@@ -342,21 +342,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
           modifier = Modifier.fillMaxWidth(),
         ) {
           Text(
-            text = stringResource(R.string.frame_consumer_enabled),
-            modifier = Modifier.textPadding(),
-          )
-          Switch(
-            checked = uiState.outputSettingsState.frameConsumerEnabled,
-            onCheckedChange = { isEnabled -> viewModel.onFrameConsumerEnabledChanged(isEnabled) },
-          )
-        }
-
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-          modifier = Modifier.fillMaxWidth(),
-        ) {
-          Text(
             text = stringResource(R.string.add_background_audio),
             modifier = Modifier.textPadding(),
           )

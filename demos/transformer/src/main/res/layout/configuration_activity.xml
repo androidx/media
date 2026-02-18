@@ -260,15 +260,6 @@
           android:layout_weight="1">
         <TextView
             android:layout_gravity="center_vertical"
-            android:text="@string/enable_packet_processor" />
-        <CheckBox
-            android:id="@+id/enable_packet_processor"
-            android:layout_gravity="end"/>
-      </TableRow>
-      <TableRow
-          android:layout_weight="1">
-        <TextView
-            android:layout_gravity="center_vertical"
             android:text="@string/enable_mp4_edit_list_trimming" />
         <CheckBox
             android:id="@+id/enable_mp4_edit_list_trimming"
