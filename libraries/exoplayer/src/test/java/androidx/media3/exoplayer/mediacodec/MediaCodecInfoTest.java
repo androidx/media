@@ -498,7 +498,7 @@ public final class MediaCodecInfoTest {
     Format formatAc4Profile21 =
         new Format.Builder()
             .setSampleMimeType(AUDIO_AC4)
-            .setCodecs("ac-4.21.01.01") // AC4Profile21
+            .setCodecs("ac-4.2.01.01") // AC4Profile21
             .setChannelCount(2)
             .setSampleRate(48000)
             .build();
