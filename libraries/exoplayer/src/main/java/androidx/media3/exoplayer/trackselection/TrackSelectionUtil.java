@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.trackselection;
 
 import android.graphics.Point;
-import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
@@ -28,7 +27,6 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection.Definition;
-import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
@@ -103,31 +101,6 @@ public final class TrackSelectionUtil {
       builder.setSelectionOverride(rendererIndex, trackGroupArray, override);
     }
     return builder.build();
-  }
-
-  /**
-   * Returns the {@link LoadErrorHandlingPolicy.FallbackOptions} with the tracks of the given {@link
-   * ExoTrackSelection} and with a single location option indicating that there are no alternative
-   * locations available.
-   *
-   * @param trackSelection The track selection to get the number of total and excluded tracks.
-   * @return The {@link LoadErrorHandlingPolicy.FallbackOptions} for the given track selection.
-   */
-  public static LoadErrorHandlingPolicy.FallbackOptions createFallbackOptions(
-      ExoTrackSelection trackSelection) {
-    long nowMs = SystemClock.elapsedRealtime();
-    int numberOfTracks = trackSelection.length();
-    int numberOfExcludedTracks = 0;
-    for (int i = 0; i < numberOfTracks; i++) {
-      if (trackSelection.isTrackExcluded(i, nowMs)) {
-        numberOfExcludedTracks++;
-      }
-    }
-    return new LoadErrorHandlingPolicy.FallbackOptions(
-        /* numberOfLocations= */ 1,
-        /* numberOfExcludedLocations= */ 0,
-        numberOfTracks,
-        numberOfExcludedTracks);
   }
 
   /**

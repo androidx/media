@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.hls;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PRELOAD;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
-import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -615,20 +614,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // Return early if the chunk source doesn't deliver chunks for the failing playlist.
       return false;
     }
-    long exclusionDurationMs = C.TIME_UNSET;
+    @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection = null;
     if (!forceRetry) {
-      @Nullable
-      LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
-          loadErrorHandlingPolicy.getFallbackSelectionFor(
-              createFallbackOptions(chunkSource.getTrackSelection()), loadErrorInfo);
-      if (fallbackSelection != null
-          && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
-        exclusionDurationMs = fallbackSelection.exclusionDurationMs;
-      }
+      LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
+          chunkSource.createFallbackOptions(playlistUrl);
+      fallbackSelection =
+          loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     }
     // We must call ChunkSource.onPlaylistError in any case to give the chunk source the chance to
     // mark the playlist as failing.
-    return chunkSource.onPlaylistError(playlistUrl, exclusionDurationMs);
+    return chunkSource.onPlaylistError(playlistUrl, fallbackSelection);
   }
 
   /** Returns whether the primary sample stream is {@link C#TRACK_TYPE_VIDEO}. */
@@ -1044,7 +1039,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
     }
     long bytesLoaded = loadable.bytesLoaded();
-    boolean exclusionSucceeded = false;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo(
             loadable.loadTaskId,
@@ -1066,15 +1060,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadErrorInfo loadErrorInfo =
         new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount);
     LoadErrorAction loadErrorAction;
+    LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
+        chunkSource.createFallbackOptions(loadable);
     @Nullable
     LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
-        loadErrorHandlingPolicy.getFallbackSelectionFor(
-            createFallbackOptions(chunkSource.getTrackSelection()), loadErrorInfo);
-    if (fallbackSelection != null
-        && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
-      exclusionSucceeded =
-          chunkSource.maybeExcludeTrack(loadable, fallbackSelection.exclusionDurationMs);
-    }
+        loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+    boolean exclusionSucceeded = chunkSource.onChunkError(loadable, fallbackSelection);
 
     if (exclusionSucceeded) {
       if (isMediaChunk && bytesLoaded == 0) {

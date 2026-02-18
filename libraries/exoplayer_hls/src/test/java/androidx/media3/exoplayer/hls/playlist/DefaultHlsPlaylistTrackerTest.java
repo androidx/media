@@ -104,6 +104,9 @@ public class DefaultHlsPlaylistTrackerTest {
       "media/m3u8/live_low_latency_media_can_skip_until_and_block_reload_next";
   private static final String SAMPLE_M3U8_LIVE_MEDIA_CAN_SKIP_UNTIL_AND_BLOCK_RELOAD_NEXT_SKIPPED =
       "media/m3u8/live_low_latency_media_can_skip_until_and_block_reload_next_skipped";
+  private static final String SAMPLE_M3U8_MULTIVARIANT_WITH_REDUNDANT_VARIANTS_AND_RENDITIONS =
+      "media/m3u8/multivariant_with_redundant_variants_and_renditions";
+  private static final String SAMPLE_M3U8_MEDIA_PLAYLIST = "media/m3u8/media_playlist";
 
   private MockWebServer mockWebServer;
   private int enqueueCounter;
@@ -648,6 +651,49 @@ public class DefaultHlsPlaylistTrackerTest {
     assertThat(mediaPlaylists.get(0).mediaSequence).isEqualTo(10);
     assertThat(mediaPlaylists.get(1).mediaSequence).isEqualTo(11);
     assertThat(mediaPlaylists.get(2).mediaSequence).isEqualTo(12);
+  }
+
+  @Test
+  public void
+      start_withRedundantVariantsAndRenditions_fallbackToRedundantStreamWhenFirstPrimaryPlaylistFailedToLoad()
+          throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/multivariant.m3u8", "/media/high.m3u8", "/media-b/high.m3u8"},
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_REDUNDANT_VARIANTS_AND_RENDITIONS),
+            new MockResponse().setResponseCode(404),
+            getMockResponse(SAMPLE_M3U8_MEDIA_PLAYLIST));
+
+    List<HlsMediaPlaylist> unusedMediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 1);
+
+    assertRequestUrlsCalled(httpUrls);
+  }
+
+  @Test
+  public void
+      start_withRedundantVariantsAndRenditions_fallbackToAnotherTrackWhenLocationFallbackIsImpossible()
+          throws Exception {
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8", "/media/high.m3u8", "/media-b/high.m3u8", "/media/low.m3u8"
+            },
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_REDUNDANT_VARIANTS_AND_RENDITIONS),
+            new MockResponse().setResponseCode(404),
+            new MockResponse().setResponseCode(404),
+            getMockResponse(SAMPLE_M3U8_MEDIA_PLAYLIST));
+
+    List<HlsMediaPlaylist> unusedMediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 1);
+
+    assertRequestUrlsCalled(httpUrls);
   }
 
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {

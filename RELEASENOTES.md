@@ -65,6 +65,9 @@
 *   HLS extension:
     *   Expose ID3 (EMSG) metadata track in audio renditions
         ([#3043](https://github.com/androidx/media/issues/3043)).
+    *   Allow location fallback upon encountering load errors, if redundant
+        streams from different locations are available
+        ([#1988](https://github.com/androidx/media/issues/1988)).
 *   DASH extension:
     *   Fix issue where tracks with unaligned segment start times cause delays
         or missed samples at the beginning of playback

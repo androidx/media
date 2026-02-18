@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.hls.playlist;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
@@ -263,6 +264,23 @@ public interface HlsPlaylistTracker {
    * @param url The {@link Uri} of the playlist to deactivate for playback.
    */
   default void deactivatePlaylistForPlayback(Uri url) {}
+
+  /**
+   * Returns whether the {@code playlistUrl} is excluded at the given {@code nowMs} time.
+   *
+   * @param playlistUrl The URL of the media playlist.
+   * @param nowMs The current value of {@link SystemClock#elapsedRealtime()}.
+   */
+  boolean isExcluded(Uri playlistUrl, long nowMs);
+
+  /**
+   * Returns whether all playlist URLs in the {@link HlsRedundantGroup} are {@linkplain
+   * #isExcluded(Uri, long) excluded} at the given {@code nowMs} time.
+   *
+   * @param redundantGroup The {@link HlsRedundantGroup}.
+   * @param nowMs The current value of {@link SystemClock#elapsedRealtime()}.
+   */
+  boolean isExcluded(HlsRedundantGroup redundantGroup, long nowMs);
 
   /**
    * Returns the {@link HlsRedundantGroup} where the {@code playlistUrl} belongs.

@@ -302,6 +302,25 @@ public final class DefaultHlsPlaylistTracker
   }
 
   @Override
+  public boolean isExcluded(Uri playlistUrl, long nowMs) {
+    @Nullable RedundantGroupBundle bundle = redundantGroupBundles.get(playlistUrl);
+    if (bundle != null) {
+      return bundle.isExcluded(playlistUrl, nowMs);
+    }
+    return false;
+  }
+
+  @Override
+  public boolean isExcluded(HlsRedundantGroup redundantGroup, long nowMs) {
+    @Nullable
+    RedundantGroupBundle bundle = redundantGroupBundles.get(redundantGroup.getCurrentPlaylistUrl());
+    if (bundle != null) {
+      return bundle.isExcluded(nowMs);
+    }
+    return false;
+  }
+
+  @Override
   public void deactivatePlaylistForPlayback(Uri url) {
     @Nullable RedundantGroupBundle bundle = redundantGroupBundles.get(url);
     if (bundle != null) {
@@ -664,15 +683,6 @@ public final class DefaultHlsPlaylistTracker
     return mediaSequenceOffset < oldSegments.size() ? oldSegments.get(mediaSequenceOffset) : null;
   }
 
-  private boolean isExcluded(HlsRedundantGroup redundantGroup, long untilMs) {
-    @Nullable
-    RedundantGroupBundle bundle = redundantGroupBundles.get(redundantGroup.getCurrentPlaylistUrl());
-    if (bundle != null) {
-      return bundle.isExcluded(untilMs);
-    }
-    return false;
-  }
-
   /** Holds all information related to a {@link HlsRedundantGroup}. */
   private final class RedundantGroupBundle {
 
@@ -745,16 +755,16 @@ public final class DefaultHlsPlaylistTracker
       playlistBundle.setActiveForPlayback(activeForPlayback);
     }
 
-    private boolean isExcluded(Uri playlistUrl, long untilMs) {
+    private boolean isExcluded(Uri playlistUrl, long nowMs) {
       checkState(playlistBundles.containsKey(playlistUrl));
       MediaPlaylistBundle playlistBundle = checkNotNull(playlistBundles.get(playlistUrl));
-      return untilMs <= playlistBundle.excludeUntilMs;
+      return nowMs <= playlistBundle.excludeUntilMs;
     }
 
-    private boolean isExcluded(long untilMs) {
+    private boolean isExcluded(long nowMs) {
       boolean isExcluded = true;
       for (MediaPlaylistBundle mediaPlaylistBundle : playlistBundles.values()) {
-        isExcluded &= (untilMs <= mediaPlaylistBundle.excludeUntilMs);
+        isExcluded &= (nowMs <= mediaPlaylistBundle.excludeUntilMs);
       }
       return isExcluded;
     }
@@ -1170,24 +1180,11 @@ public final class DefaultHlsPlaylistTracker
     @Override
     public boolean onPlaylistError(Uri url, LoadErrorInfo loadErrorInfo, boolean forceRetry) {
       if (primaryMediaPlaylistSnapshot == null) {
-        long nowMs = SystemClock.elapsedRealtime();
-        int variantExclusionCounter = 0;
-        for (HlsRedundantGroup variantRedundantGroup : variantRedundantGroups) {
-          if (isExcluded(variantRedundantGroup, nowMs)) {
-            variantExclusionCounter++;
-          }
-        }
-        LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
-            new LoadErrorHandlingPolicy.FallbackOptions(
-                /* numberOfLocations= */ 1,
-                /* numberOfExcludedLocations= */ 0,
-                /* numberOfTracks= */ variantRedundantGroups.size(),
-                /* numberOfExcludedTracks= */ variantExclusionCounter);
+        LoadErrorHandlingPolicy.FallbackOptions fallbackOptions = createFallbackOptions(url);
         @Nullable
         LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
             loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
-        if (fallbackSelection != null
-            && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
+        if (fallbackSelection != null) {
           @Nullable RedundantGroupBundle redundantGroupBundle = redundantGroupBundles.get(url);
           if (redundantGroupBundle != null) {
             return redundantGroupBundle.excludePlaylist(url, fallbackSelection.exclusionDurationMs);
@@ -1195,6 +1192,37 @@ public final class DefaultHlsPlaylistTracker
         }
       }
       return false;
+    }
+
+    // Create FallbackOptions for primary media playlist.
+    private LoadErrorHandlingPolicy.FallbackOptions createFallbackOptions(Uri playlistUrl) {
+      long nowMs = SystemClock.elapsedRealtime();
+      RedundantGroupBundle redundantGroupBundle =
+          checkNotNull(redundantGroupBundles.get(playlistUrl));
+      HlsRedundantGroup currentVariantRedundantGroup = redundantGroupBundle.redundantGroup;
+      // The numberOfLocations is the number of pathways (urls) in the current variant redundant
+      // group.
+      int numberOfLocations = currentVariantRedundantGroup.size();
+      int numberOfExcludedLocations = 0;
+      for (Uri url : currentVariantRedundantGroup.getAllPlaylistUrls()) {
+        if (isExcluded(url, nowMs)) {
+          // The numberOfExcludedLocations is the number of pathways (urls) that are excluded in the
+          // current variant redundant group.
+          numberOfExcludedLocations++;
+        }
+      }
+      // The numberOfTracks is the number of variant redundant groups.
+      int numberOfTracks = variantRedundantGroups.size();
+      int numberOfExcludedTracks = 0;
+      for (HlsRedundantGroup variantRedundantGroup : variantRedundantGroups) {
+        if (isExcluded(variantRedundantGroup, nowMs)) {
+          // The numberOfExcludedTracks is the number of variant redundant groups that the urls from
+          // all locations are excluded.
+          numberOfExcludedTracks++;
+        }
+      }
+      return new LoadErrorHandlingPolicy.FallbackOptions(
+          numberOfLocations, numberOfExcludedLocations, numberOfTracks, numberOfExcludedTracks);
     }
   }
 }
