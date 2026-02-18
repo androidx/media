@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
@@ -52,6 +53,11 @@ public final class MergingMediaPeriodTest {
   private static final Format childFormat12 = new Format.Builder().setId("1_2").build();
   private static final Format childFormat21 = new Format.Builder().setId("2_1").build();
   private static final Format childFormat22 = new Format.Builder().setId("2_2").build();
+
+  @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, MergingMediaPeriod.class);
+  }
 
   @Test
   public void getTrackGroups_returnsAllChildTrackGroupsWithUniqueIds() throws Exception {

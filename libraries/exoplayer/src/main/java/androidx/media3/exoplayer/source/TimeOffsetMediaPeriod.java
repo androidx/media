@@ -176,6 +176,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    long correctedEndPositionUs =
+        endPositionUs == C.TIME_END_OF_SOURCE ? C.TIME_END_OF_SOURCE : endPositionUs - timeOffsetUs;
+    long actualEndPositionUs = mediaPeriod.setEndPositionUs(correctedEndPositionUs);
+    return actualEndPositionUs == C.TIME_END_OF_SOURCE
+        ? C.TIME_END_OF_SOURCE
+        : actualEndPositionUs + timeOffsetUs;
+  }
+
   private static final class TimeOffsetSampleStream implements SampleStream {
 
     private final SampleStream sampleStream;

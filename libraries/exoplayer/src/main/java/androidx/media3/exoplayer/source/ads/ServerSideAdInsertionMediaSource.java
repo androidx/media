@@ -29,6 +29,7 @@ import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -1118,7 +1119,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     }
   }
 
-  private static final class MediaPeriodImpl implements MediaPeriod {
+  @VisibleForTesting
+  static final class MediaPeriodImpl implements MediaPeriod {
 
     public final SharedMediaPeriod sharedPeriod;
     public final MediaPeriodId mediaPeriodId;
@@ -1234,6 +1236,12 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     @Override
     public void reevaluateBuffer(long positionUs) {
       sharedPeriod.reevaluateBuffer(/* mediaPeriod= */ this, positionUs);
+    }
+
+    @Override
+    public long setEndPositionUs(long endPositionUs) {
+      // TODO: b/474538573 - Implement logic to handle clipping in shared period.
+      return C.TIME_END_OF_SOURCE;
     }
   }
 

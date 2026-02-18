@@ -19,6 +19,7 @@ import static androidx.media3.common.C.DATA_TYPE_MEDIA;
 import static androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
@@ -106,6 +107,12 @@ public final class ServerSideAdInsertionMediaSourceTest {
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   private static final String TEST_ASSET = "asset:///media/mp4/sample.mp4";
+
+  @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(
+        MediaPeriod.class, ServerSideAdInsertionMediaSource.MediaPeriodImpl.class);
+  }
 
   @Test
   public void timeline_vodSinglePeriod_containsAdsDefinedInAdPlaybackState() throws Exception {

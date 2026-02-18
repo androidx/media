@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
@@ -28,6 +29,7 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 
 /** A {@link MediaPeriod} that has data preloaded before playback. */
@@ -92,6 +94,11 @@ import java.util.Objects;
   @Override
   public void maybeThrowPrepareError() throws IOException {
     mediaPeriod.maybeThrowPrepareError();
+  }
+
+  @Override
+  public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
+    return mediaPeriod.getStreamKeys(trackSelections);
   }
 
   @Override
@@ -160,6 +167,11 @@ import java.util.Objects;
         preloadStreamResetFlags, 0, streamResetFlags, 0, preloadStreamResetFlags.length);
     preloadTrackSelectionHolder = null;
     return trackSelectionPositionUs;
+  }
+
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    return mediaPeriod.setEndPositionUs(endPositionUs);
   }
 
   private static boolean maybeUpdatePreloadTrackSelectionHolderForReselection(

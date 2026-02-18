@@ -21,18 +21,21 @@ import static com.google.common.base.Preconditions.checkState;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.ForwardingTrackSelection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 
 /** Merges multiple {@link MediaPeriod}s. */
 /* package */ final class MergingMediaPeriod implements MediaPeriod, MediaPeriod.Callback {
@@ -94,6 +97,12 @@ import java.util.IdentityHashMap;
     for (MediaPeriod period : periods) {
       period.maybeThrowPrepareError();
     }
+  }
+
+  @Override
+  public ImmutableList<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
+    // Not supported due to the ambiguity of the stream keys across periods.
+    return ImmutableList.of();
   }
 
   @Override
@@ -266,6 +275,16 @@ import java.util.IdentityHashMap;
   public long getAdjustedSeekPositionUs(long positionUs, SeekParameters seekParameters) {
     MediaPeriod queryPeriod = enabledPeriods.length > 0 ? enabledPeriods[0] : periods[0];
     return queryPeriod.getAdjustedSeekPositionUs(positionUs, seekParameters);
+  }
+
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    boolean supported = true;
+    for (MediaPeriod period : periods) {
+      long actualEndPositionUs = period.setEndPositionUs(endPositionUs);
+      supported &= actualEndPositionUs == endPositionUs;
+    }
+    return supported ? endPositionUs : C.TIME_END_OF_SOURCE;
   }
 
   // MediaPeriod.Callback implementation

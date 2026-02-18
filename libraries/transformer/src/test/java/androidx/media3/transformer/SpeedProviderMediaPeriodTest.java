@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static org.junit.Assert.assertThrows;
@@ -79,6 +80,11 @@ public final class SpeedProviderMediaPeriodTest {
   private long clipStartUs;
 
   @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, SpeedProviderMediaPeriod.class);
+  }
+
+  @Test
   public void selectTracks_createsSampleStreamAdjustingTimes() throws Exception {
     FakeMediaPeriod fakeMediaPeriod =
         createFakeMediaPeriod(
@@ -106,6 +112,23 @@ public final class SpeedProviderMediaPeriodTest {
         .containsExactly(C.RESULT_FORMAT_READ, C.RESULT_BUFFER_READ, C.RESULT_BUFFER_READ);
     assertThat(readBufferTimeUs).isEqualTo(1_000_000 + clipStartUs);
     assertThat(readEndOfStreamBuffer).isTrue();
+  }
+
+  @Test
+  public void setEndPositionUs_isForwardedWithTimeOffset() throws Exception {
+    FakeMediaPeriod fakeMediaPeriod =
+        createFakeMediaPeriod(
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    MediaPeriod spyPeriod = spy(fakeMediaPeriod);
+    SpeedProviderMediaPeriod speedProviderMediaPeriod =
+        new SpeedProviderMediaPeriod(
+            spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
+    prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
+
+    assertThat(speedProviderMediaPeriod.setEndPositionUs(250_000 + clipStartUs))
+        .isEqualTo(250_000 + clipStartUs);
+    verify(spyPeriod).setEndPositionUs(125_000L + clipStartUs);
   }
 
   @Test
@@ -485,7 +508,12 @@ public final class SpeedProviderMediaPeriodTest {
         eventDispatcher,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
-        /* deferOnPrepared= */ false);
+        /* deferOnPrepared= */ false) {
+      @Override
+      public long setEndPositionUs(long endPositionUs) {
+        return endPositionUs;
+      }
+    };
   }
 
   private static void prepareMediaPeriodSync(MediaPeriod mediaPeriod, long positionUs)
