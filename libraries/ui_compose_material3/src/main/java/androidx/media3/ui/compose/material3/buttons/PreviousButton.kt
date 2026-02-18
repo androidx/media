@@ -124,7 +124,7 @@ fun PreviousButton(
 @Composable
 @JvmName("PreviousButtonWithImageVector")
 fun PreviousButton(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   imageVector: @Composable PreviousButtonState.() -> ImageVector,
   contentDescription: @Composable PreviousButtonState.() -> String = {
