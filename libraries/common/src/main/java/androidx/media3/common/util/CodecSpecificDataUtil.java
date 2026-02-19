@@ -1158,7 +1158,7 @@ public final class CodecSpecificDataUtil {
       return null;
     }
 
-    int profile = 0;
+    int profile;
     if (profileInteger == 33) {
       profile = MediaCodecInfo.CodecProfileLevel.APVProfile422_10;
     } else if (profileInteger == 44) {
@@ -1167,13 +1167,217 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Ignoring invalid APV profile: " + profileInteger);
       return null;
     }
-    int levelNum = (levelInteger / 30) * 2;
-    if (levelInteger % 30 == 0) {
-      levelNum -= 1;
+    int level = apvLevelAndBandNumberToConst(levelInteger, bandInteger);
+    if (level == -1) {
+      return null;
     }
-    int level = ((0x100 << (levelNum - 1)) | (1 << bandInteger));
-
     return new Pair<>(profile, level);
+  }
+
+  private static int apvLevelAndBandNumberToConst(int levelNumber, int bandNumber) {
+    // levelInteger is 30x larger than the decimal level value, as defined by
+    // https://www.ietf.org/archive/id/draft-lim-apv-02.html#_table-levels
+    switch (levelNumber) {
+      case 30:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel1Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel1Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel1Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel1Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 33:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel11Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel11Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel11Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel11Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 60:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel2Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel2Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel2Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel2Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 63:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel21Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel21Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel21Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel21Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 90:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel3Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel3Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel3Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel3Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 93:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel31Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel31Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel31Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel31Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 120:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel4Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel4Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel4Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel4Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 123:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel41Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel41Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel41Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel41Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 150:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel5Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel5Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel5Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel5Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 153:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel51Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel51Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel51Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel51Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 180:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel6Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel6Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel6Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel6Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 183:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel61Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel61Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel61Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel61Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 210:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel7Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel7Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel7Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel7Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      case 213:
+        switch (bandNumber) {
+          case 0:
+            return CodecProfileLevel.APVLevel71Band0;
+          case 1:
+            return CodecProfileLevel.APVLevel71Band1;
+          case 2:
+            return CodecProfileLevel.APVLevel71Band2;
+          case 3:
+            return CodecProfileLevel.APVLevel71Band3;
+          default:
+            Log.w(TAG, "Unrecognized APV band: " + bandNumber);
+            return -1;
+        }
+      default:
+        Log.w(TAG, "Unrecognized APV level index: " + levelNumber);
+        return -1;
+    }
   }
 
   @Nullable
