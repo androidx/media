@@ -52,7 +52,6 @@ for config in android_armv7 android_arm64 android_x86_32 android_x86_64; do
     --copt=-fvisibility=hidden \
     --copt=-fno-exceptions \
     --copt=-fno-rtti \
-    --features=thin_lto \
     //iamf/include/iamf_tools:iamf_decoder_static
   ABI="${CONFIG_TO_ABI_MAP[$config]}"
   OUTPUT_DIR="${IAMF_MODULE_PATH}/jni/nativelib/${ABI}"
