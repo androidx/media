@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -1242,39 +1243,74 @@ public final class CodecSpecificDataUtil {
       return null;
     }
 
-    int primaryProfileValue;
+    int profileNumber;
     try {
-      primaryProfileValue = Integer.parseInt(parts[1]);
+      profileNumber = Integer.parseInt(parts[1]);
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed primary profile in IAMF codec string: " + parts[1], e);
       return null;
     }
-
-    int profileBitmask = 0x1 << (16 + primaryProfileValue);
-    int versionBitmask = 0x1 << 24;
-    int auxiliaryProfileValue = 0;
-    switch (parts[3]) {
-      case "Opus":
-        auxiliaryProfileValue = 0x1; // Bit 0
-        break;
-      case "mp4a":
-        auxiliaryProfileValue = 0x1 << 1; // Bit 1
-        break;
-      case "fLaC":
-        auxiliaryProfileValue = 0x1 << 2; // Bit 2
-        break;
-      case "ipcm":
-        auxiliaryProfileValue = 0x1 << 3; // Bit 3
-        break;
-      default:
-        Log.w(TAG, "Ignoring unknown codec identifier for IAMF auxiliary profile: " + parts[3]);
-        return null;
+    int profile = iamfProfileNumberToConst(/* codec= */ parts[3], profileNumber);
+    if (profile == -1) {
+      return null;
     }
-    // IAMF profiles are defined as the combination of (listed from LSB to MSB):
-    //  - audio codec (2 bytes)
-    //  - profile (1 byte, offset 16)
-    //  - specification version (1 byte, offset 24)
-    return new Pair<>(versionBitmask | profileBitmask | auxiliaryProfileValue, /* level= */ 0);
+    return new Pair<>(profile, /* level= */ 0);
+  }
+
+  private static int iamfProfileNumberToConst(String codec, int profileNumber) {
+    switch (codec) {
+      case "Opus":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleOpus;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseOpus;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedOpus;
+          default:
+            Log.w(TAG, "Unrecognized IAMF Opus profile: " + profileNumber);
+            return -1;
+        }
+      case "mp4a":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleAac;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseAac;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedAac;
+          default:
+            Log.w(TAG, "Unrecognized IAMF AAC profile: " + profileNumber);
+            return -1;
+        }
+      case "fLaC":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimpleFlac;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBaseFlac;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedFlac;
+          default:
+            Log.w(TAG, "Unrecognized IAMF FLAC profile: " + profileNumber);
+            return -1;
+        }
+      case "ipcm":
+        switch (profileNumber) {
+          case 0:
+            return CodecProfileLevel.IAMFProfileSimplePcm;
+          case 1:
+            return CodecProfileLevel.IAMFProfileBasePcm;
+          case 2:
+            return CodecProfileLevel.IAMFProfileBaseEnhancedPcm;
+          default:
+            Log.w(TAG, "Unrecognized IAMF PCM profile: " + profileNumber);
+            return -1;
+        }
+      default:
+        Log.w(TAG, "Unrecognized codec identifier for IAMF auxiliary profile: " + codec);
+        return -1;
+    }
   }
 
   private static int avcProfileNumberToConst(int profileNumber) {
