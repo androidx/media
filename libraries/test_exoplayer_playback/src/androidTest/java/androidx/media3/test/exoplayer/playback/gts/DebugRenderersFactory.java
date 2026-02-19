@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.exoplayer.playback.gts;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.Math.max;
 
 import android.content.Context;
@@ -28,6 +29,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -44,9 +46,17 @@ import java.util.ArrayList;
 // TODO: Move this class to `testutils` and add basic tests.
 /* package */ final class DebugRenderersFactory extends DefaultRenderersFactory {
 
+  private final DefaultMediaCodecAdapterFactory codecAdapterFactory;
+
   public DebugRenderersFactory(Context context) {
     super(context);
     setAllowedVideoJoiningTimeMs(0);
+    codecAdapterFactory = new DefaultMediaCodecAdapterFactory(context);
+    if (SDK_INT == 36) {
+      // Flag disabled for the test due to b/482020055. The impact on playback is minor and can
+      // stay enabled for API 36 devices.
+      codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(false);
+    }
   }
 
   @Override
@@ -66,7 +76,13 @@ import java.util.ArrayList;
             allowedVideoJoiningTimeMs,
             eventHandler,
             eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY));
+            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+            codecAdapterFactory));
+  }
+
+  @Override
+  protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+    return codecAdapterFactory;
   }
 
   /**
@@ -93,14 +109,16 @@ import java.util.ArrayList;
         long allowedJoiningTimeMs,
         Handler eventHandler,
         VideoRendererEventListener eventListener,
-        int maxDroppedFrameCountToNotify) {
+        int maxDroppedFrameCountToNotify,
+        MediaCodecAdapter.Factory codecAdapterFactory) {
       super(
           new Builder(context)
               .setMediaCodecSelector(mediaCodecSelector)
               .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
-              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify));
+              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
+              .setCodecAdapterFactory(codecAdapterFactory));
       timestampsList = new long[ARRAY_SIZE];
     }
 
