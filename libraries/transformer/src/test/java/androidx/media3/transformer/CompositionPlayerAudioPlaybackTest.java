@@ -1146,6 +1146,23 @@ public final class CompositionPlayerAudioPlaybackTest {
     assertThat(processor.positionOffsetsUs).containsExactly(0L, 100_000L, 0L).inOrder();
   }
 
+  @Test
+  public void playUntilEnd_finalSinkIsEnded() throws Exception {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    assertThat(capturingAudioSink.isEnded()).isTrue();
+  }
+
   private static class ForwardingAudioMixer implements AudioMixer {
 
     private final AudioMixer wrappedAudioMixer;
