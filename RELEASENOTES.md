@@ -14,6 +14,12 @@
         ([#3052](https://github.com/androidx/media/issues/3052)).
     *   Add support for Dolby Vision Profile 10
         ([#2830](https://github.com/androidx/media/pull/2830)).
+    *   Mark tracks with a well-formed but unrecognized codec profile or level
+        as `supported=NO_EXCEEDS_CAPABILITIES` instead of `supported=YES` (which
+        is how tracks with missing or malformed profile or level info are
+        marked). This ensures these tracks (which are unlikely to be supported
+        by the device) are not selected when there are better-supported
+        alternatives.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:

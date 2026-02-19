@@ -51,6 +51,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -316,8 +317,8 @@ public final class MediaCodecInfo {
 
   private boolean isCodecProfileAndLevelSupported(
       Context context, Format format, boolean checkPerformanceCapabilities) {
-    Pair<Integer, Integer> codecProfileAndLevel =
-        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+    MediaCodecProfileAndLevel codecProfileAndLevel =
+        CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
     if (format.sampleMimeType != null && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
       String normalizedCodecMimeType = MimeTypes.normalizeMimeType(codecMimeType);
       if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
@@ -335,8 +336,11 @@ public final class MediaCodecInfo {
       // If we don't know any better, we assume that the profile and level are supported.
       return true;
     }
-    int profile = codecProfileAndLevel.first;
-    int level = codecProfileAndLevel.second;
+    if (!codecProfileAndLevel.isSupportableByMediaCodec()) {
+      return false;
+    }
+    int profile = codecProfileAndLevel.getProfile();
+    int level = codecProfileAndLevel.getLevel();
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // If this codec is H.264, H.265 or AV1, we only support the Dolby Vision base layer and need
       // to map the Dolby Vision profile to the corresponding base layer profile. Also assume all
@@ -430,8 +434,11 @@ public final class MediaCodecInfo {
     if (isVideo) {
       return adaptive;
     } else {
-      Pair<Integer, Integer> profileLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-      return profileLevel != null && profileLevel.first == CodecProfileLevel.AACObjectXHE;
+      MediaCodecProfileAndLevel profileLevel =
+          CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
+      return profileLevel != null
+          && profileLevel.isSupportableByMediaCodec()
+          && profileLevel.getProfile() == CodecProfileLevel.AACObjectXHE;
     }
   }
 
