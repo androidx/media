@@ -18,11 +18,11 @@ package androidx.media3.exoplayer.audio;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import android.content.Context;
 import android.media.AudioFormat;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.collect.ImmutableList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -99,28 +99,128 @@ public final class IamfUtilTest {
   }
 
   @Test
-  public void getOutputLayoutForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
-    Context context = ApplicationProvider.getApplicationContext();
-    boolean useIntegratedBinauralRenderer = true; // Does not matter, no Spatializer.
-
-    assertThat(
-            IamfUtil.getOutputLayoutForCurrentConfiguration(context, useIntegratedBinauralRenderer))
-        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
-  }
-
-  @Test
-  public void getOutputChannelMaskForCurrentConfiguration_returnsDefaultWithoutSpatializer() {
-    Context context = ApplicationProvider.getApplicationContext();
-
-    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(context))
-        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
-  }
-
-  @Test
   public void iamfSupportedLayouts_allAreConvertableToLayout() {
     for (int channelMask : IamfUtil.IAMF_SUPPORTED_CHANNEL_MASKS) {
       assertThat(IamfUtil.getOutputLayoutForChannelMask(channelMask))
           .isNotEqualTo(IamfUtil.OUTPUT_LAYOUT_UNSET);
     }
+  }
+
+  @Test
+  public void getOutputLayoutForCurrentConfiguration_defaultWhenNoInformation() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(),
+            /* spatializerChannelMasks= */ ImmutableList.of());
+    boolean useIntegratedBinauralRenderer = true; // Does not matter, no Spatializer.
+
+    assertThat(
+            IamfUtil.getOutputLayoutForCurrentConfiguration(
+                audioCapabilities, useIntegratedBinauralRenderer))
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0);
+  }
+
+  @Test
+  public void getOutputLayoutForCurrentConfiguration_picksFirstCompatibleSpeakerLayout() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_QUAD, // Not an IAMF layout.
+                AudioFormat.CHANNEL_OUT_5POINT1, // Chosen.
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND // Never reached.
+                ),
+            /* spatializerChannelMasks= */ ImmutableList.of());
+    boolean useIntegratedBinauralRenderer = true; // Does not matter, no Spatializer.
+
+    assertThat(
+            IamfUtil.getOutputLayoutForCurrentConfiguration(
+                audioCapabilities, useIntegratedBinauralRenderer))
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_B_0_5_0);
+  }
+
+  @Test
+  public void getOutputLayoutForCurrentConfiguration_prefersSpatializerOverSpeakerLayout() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_5POINT1 // Not chosen.
+                ),
+            /* spatializerChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND // Chosen.
+                ));
+    // We won't use decoder built-in binaural, and we'll expect the Spatializer layout.
+    boolean useIntegratedBinauralRenderer = false;
+
+    assertThat(
+            IamfUtil.getOutputLayoutForCurrentConfiguration(
+                audioCapabilities, useIntegratedBinauralRenderer))
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_I_0_7_0);
+  }
+
+  @Test
+  public void getOutputLayoutForCurrentConfiguration_usesIntegratedBinauralRenderer() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1),
+            /* spatializerChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND));
+    // Spatializer is enabled and available, so we use decoder built-in binaural.
+    boolean useIntegratedBinauralRenderer = true;
+
+    assertThat(
+            IamfUtil.getOutputLayoutForCurrentConfiguration(
+                audioCapabilities, useIntegratedBinauralRenderer))
+        .isEqualTo(IamfUtil.OUTPUT_LAYOUT_BINAURAL);
+  }
+
+  @Test
+  public void getOutputChannelMaskForCurrentConfiguration_defaultWhenNoInformation() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(),
+            /* spatializerChannelMasks= */ ImmutableList.of());
+
+    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(audioCapabilities))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
+  }
+
+  @Test
+  public void getOutputChannelMaskForCurrentConfiguration_picksFirstCompatibleSpeakerLayout() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_QUAD, // Not an IAMF layout.
+                AudioFormat.CHANNEL_OUT_5POINT1, // Chosen.
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND // Never reached.
+                ),
+            /* spatializerChannelMasks= */ ImmutableList.of());
+
+    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(audioCapabilities))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
+  }
+
+  @Test
+  public void getOutputChannelMaskForCurrentConfiguration_prefersSpatializerOverSpeakerLayout() {
+    AudioCapabilities audioCapabilities =
+        createAudioCapabilities(
+            /* speakerLayoutChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_5POINT1 // Not chosen.
+                ),
+            /* spatializerChannelMasks= */ ImmutableList.of(
+                AudioFormat.CHANNEL_OUT_7POINT1_SURROUND // Chosen.
+                ));
+
+    assertThat(IamfUtil.getOutputChannelMaskForCurrentConfiguration(audioCapabilities))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND);
+  }
+
+  /** Helper method to create an {@link AudioCapabilities} instance with the given channel masks. */
+  private AudioCapabilities createAudioCapabilities(
+      List<Integer> speakerLayoutChannelMasks, List<Integer> spatializerChannelMasks) {
+    return new AudioCapabilities(
+        /* supportedEncodings= */ null, // Doesn't matter for these tests.
+        /* maxChannelCount= */ 99, // Doesn't matter for these tests.
+        speakerLayoutChannelMasks,
+        spatializerChannelMasks);
   }
 }
