@@ -748,9 +748,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Full class names used for media3 constructor args so the LINT rule triggers if any move.
       @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> builderConstructor =
-          builderClass.getConstructor(
-              Context.class, androidx.media3.exoplayer.audio.AudioSink.class);
-      Object builder = builderConstructor.newInstance(context, audioSink);
+          builderClass.getConstructor(androidx.media3.exoplayer.audio.AudioSink.class);
+      Object builder = builderConstructor.newInstance(audioSink);
       // Full class names used for media3 constructor args so the LINT rule triggers if any move.
       @SuppressWarnings("UnnecessarilyFullyQualified")
       Class<?> audioRenderEventListenerClass =

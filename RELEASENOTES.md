@@ -35,6 +35,10 @@
     *   Improve the retry logic of `AudioOutput` initialization in
         `DefaultAudioSink`
         ([#2905](https://github.com/androidx/media/issues/2905)).
+    *   Attempt to match the output layout of the speakers (or Spatializer if
+        applicable) when decoding IAMF, both with the IAMF extension and media
+        codec decoders, supported by new fields and logic in AudioCapabilities
+        and AudioCapabilitiesReceiver.
 *   Video:
 *   Text:
 *   Metadata:

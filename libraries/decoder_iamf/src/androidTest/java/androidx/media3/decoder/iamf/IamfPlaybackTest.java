@@ -127,7 +127,7 @@ public class IamfPlaybackTest {
               textRendererOutput,
               metadataRendererOutput) ->
               new Renderer[] {
-                new IamfAudioRenderer.Builder(context, audioSink)
+                new IamfAudioRenderer.Builder(audioSink)
                     .setEventHandlerAndListener(eventHandler, audioRendererEventListener)
                     .setRequestedOutputLayout(IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0)
                     .build()
