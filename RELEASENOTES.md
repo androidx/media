@@ -93,6 +93,9 @@
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.extractor.metadata.flac.VorbisComment`. Use
         `androidx.media3.extractor.metadata.vorbis.VorbisComment` instead.
+    *   Remove `MediaSource.prepareSource(MediaSourceCaller, TransferListener)`.
+        Use `MediaSource.prepareSource(MediaSourceCaller, TransferListener,
+        PlayerId)` instead.
 
 ## 1.10
 

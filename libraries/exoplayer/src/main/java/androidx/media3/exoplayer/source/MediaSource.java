@@ -493,17 +493,6 @@ public interface MediaSource {
   default void updateMediaItem(MediaItem mediaItem) {}
 
   /**
-   * @deprecated Implement {@link #prepareSource(MediaSourceCaller, TransferListener, PlayerId)}
-   *     instead.
-   */
-  @UnstableApi
-  @Deprecated
-  default void prepareSource(
-      MediaSourceCaller caller, @Nullable TransferListener mediaTransferListener) {
-    prepareSource(caller, mediaTransferListener, PlayerId.UNSET);
-  }
-
-  /**
    * Registers a {@link MediaSourceCaller}. Starts source preparation if needed and enables the
    * source for the creation of {@link MediaPeriod MediaPerods}.
    *
