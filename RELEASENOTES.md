@@ -20,6 +20,12 @@
         marked). This ensures these tracks (which are unlikely to be supported
         by the device) are not selected when there are better-supported
         alternatives.
+    *   Add `DefaultPreloadManager.SimpleRankingDataComparator`, which is a
+        `RankingDataComparator` that compares the ranks of the media items based
+        on their distances to the index of the current playing media item. Apps
+        can override its `compare(Integer, Integer)` method if a more fine-tuned
+        comparison logic is needed. The custom `SimpleRankingDataComparator` can
+        be injected via a new constructor of `DefaultPreloadManager.Builder`.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
