@@ -55,7 +55,7 @@ import java.util.ArrayList;
     if (SDK_INT == 36) {
       // Flag disabled for the test due to b/482020055. The impact on playback is minor and can
       // stay enabled for API 36 devices.
-      codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(false);
+      codecAdapterFactory.setAsyncCryptoFlagEnabled(false);
     }
   }
 
