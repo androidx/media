@@ -47,7 +47,6 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
-    compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
