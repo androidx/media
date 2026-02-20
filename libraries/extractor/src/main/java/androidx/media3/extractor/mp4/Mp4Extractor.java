@@ -1125,7 +1125,9 @@ public final class Mp4Extractor implements Extractor {
     if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
       return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
     }
-    return false;
+    // Do not flag gate APV sample dependency parsing - prior experiments with H.264 and H.265
+    // were positive, and the defaults have been updated.
+    return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_APV);
   }
 
   /**
