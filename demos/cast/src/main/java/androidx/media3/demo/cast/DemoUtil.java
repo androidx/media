@@ -58,16 +58,6 @@ import java.util.List;
                     .build())
             .setMimeType(MIME_TYPE_HLS)
             .build());
-    samples.add(
-        new MediaItem.Builder()
-            .setUri(
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/CastVideos/hls/DesigningForGoogleCast.m3u8")
-            .setMediaMetadata(
-                new MediaMetadata.Builder()
-                    .setTitle("HLS (1280x720): Designing For Google Cast (TS/h264/aac)")
-                    .build())
-            .setMimeType(MIME_TYPE_HLS)
-            .build());
     // DASH streams
     samples.add(
         new MediaItem.Builder()
@@ -88,13 +78,6 @@ import java.util.List;
             .setMimeType(MIME_TYPE_DASH)
             .build());
     // Progressive video streams
-    samples.add(
-        new MediaItem.Builder()
-            .setUri("https://html5demos.com/assets/dizzy.mp4")
-            .setMediaMetadata(
-                new MediaMetadata.Builder().setTitle("MP4 (480x360): Dizzy (H264/aac)").build())
-            .setMimeType(MIME_TYPE_VIDEO_MP4)
-            .build());
     samples.add(
         new MediaItem.Builder()
             .setUri(
