@@ -57,9 +57,6 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   /** Selected track exclusion timestamps, in selection order. */
   private final long[] excludeUntilTimes;
 
-  /** Whether selected formats are ordered with the default bitrate comparator. */
-  private final boolean isUsingDefaultFormatComparator;
-
   // Lazily initialized hashcode.
   private int hashCode;
 
@@ -103,21 +100,13 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
     for (int i = 0; i < tracks.length; i++) {
       formats[i] = group.getFormat(tracks[i]);
     }
-    Comparator<Format> safeFormatComparator = checkNotNull(formatComparator);
-    boolean isUsingDefaultFormatComparator = safeFormatComparator == DEFAULT_FORMAT_COMPARATOR;
-    try {
-      Arrays.sort(formats, safeFormatComparator);
-    } catch (Throwable throwable) {
-      Arrays.sort(formats, DEFAULT_FORMAT_COMPARATOR);
-      isUsingDefaultFormatComparator = true;
-    }
+    Arrays.sort(formats, checkNotNull(formatComparator));
     // Set the format indices in the same order.
     this.tracks = new int[length];
     for (int i = 0; i < length; i++) {
       this.tracks[i] = group.indexOf(formats[i]);
     }
     excludeUntilTimes = new long[length];
-    this.isUsingDefaultFormatComparator = isUsingDefaultFormatComparator;
     playWhenReady = false;
   }
 
@@ -232,11 +221,6 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   /** Returns whether the playback using this track selection will proceed when ready. */
   protected final boolean getPlayWhenReady() {
     return playWhenReady;
-  }
-
-  /** Returns whether formats are ordered with the default bitrate comparator. */
-  protected final boolean isUsingDefaultFormatComparator() {
-    return isUsingDefaultFormatComparator;
   }
 
   // Object overrides.

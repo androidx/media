@@ -528,7 +528,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     // Make initial selection
     if (reason == C.SELECTION_REASON_UNKNOWN) {
       reason = C.SELECTION_REASON_INITIAL;
-      selectedIndex = determineIdealSelectedIndexForEffectiveBitrate(nowMs, effectiveBitrate);
+      selectedIndex = determineIdealSelectedIndex(nowMs, effectiveBitrate);
       return;
     }
 
@@ -540,11 +540,10 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       previousSelectedIndex = formatIndexOfPreviousChunk;
       previousReason = Iterables.getLast(queue).trackSelectionReason;
     }
-    int newSelectedIndex = determineIdealSelectedIndexForEffectiveBitrate(nowMs, effectiveBitrate);
+    int newSelectedIndex = determineIdealSelectedIndex(nowMs, effectiveBitrate);
     if (newSelectedIndex != previousSelectedIndex
         && !isTrackExcluded(previousSelectedIndex, nowMs)) {
-      // Revert back to the previous selection if conditions are not suitable for switching. Do not
-      // defer a switch when the previous format no longer fits into available bandwidth.
+      // Revert back to the previous selection if conditions are not suitable for switching.
       long minDurationForQualityIncreaseUs =
           minDurationForQualityIncreaseUs(availableDurationUs, chunkDurationUs);
       if (newSelectedIndex < previousSelectedIndex
@@ -553,11 +552,9 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
         // up. Defer switching up for now.
         newSelectedIndex = previousSelectedIndex;
       } else if (newSelectedIndex > previousSelectedIndex
-          && (isUsingDefaultFormatComparator()
-              || isTrackSelectable(previousSelectedIndex, effectiveBitrate))
           && bufferedDurationUs >= maxDurationForQualityDecreaseUs) {
         // The selected track is lower priority, but we have sufficient buffer to defer switching
-        // down while preserving existing behavior for default ordering.
+        // down for now.
         newSelectedIndex = previousSelectedIndex;
       }
     }
@@ -604,7 +601,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     if (playoutBufferedDurationBeforeLastChunkUs < minDurationToRetainAfterDiscardUs) {
       return queueSize;
     }
-    int idealSelectedIndex = determineIdealSelectedIndex(nowMs, getLastChunkDurationUs(queue));
+    int idealSelectedIndex =
+        determineIdealSelectedIndex(nowMs, getAllocatedBandwidth(getLastChunkDurationUs(queue)));
     Format idealFormat = getFormat(idealSelectedIndex);
     // If chunks contain video, discard from the first chunk after minDurationToRetainAfterDiscardUs
     // whose resolution and bitrate are both lower than the ideal track, and whose width and height
@@ -676,37 +674,21 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
    *
    * @param nowMs The current time in the timebase of {@link Clock#elapsedRealtime()}, or {@link
    *     Long#MIN_VALUE} to ignore track exclusion.
-   * @param chunkDurationUs The duration of a media chunk in microseconds, or {@link C#TIME_UNSET}
-   *     if unknown.
+   * @param effectiveBitrate The bitrate available to this selection.
    */
-  private int determineIdealSelectedIndex(long nowMs, long chunkDurationUs) {
-    return determineIdealSelectedIndexForEffectiveBitrate(nowMs, getAllocatedBandwidth(chunkDurationUs));
-  }
-
-  private int determineIdealSelectedIndexForEffectiveBitrate(long nowMs, long effectiveBitrate) {
-    int lowestBitrateAllowedIndex = C.INDEX_UNSET;
-    int lowestBitrate = Integer.MAX_VALUE;
+  private int determineIdealSelectedIndex(long nowMs, long effectiveBitrate) {
+    int lowestBitrateAllowedIndex = 0;
     for (int i = 0; i < length; i++) {
       if (nowMs == Long.MIN_VALUE || !isTrackExcluded(i, nowMs)) {
         Format format = getFormat(i);
         if (canSelectFormat(format, format.bitrate, effectiveBitrate)) {
           return i;
-        }
-        int formatBitrate = format.bitrate == Format.NO_VALUE ? 0 : format.bitrate;
-        if (formatBitrate <= lowestBitrate) {
-          // fallback semantics by selecting the lowest bitrate non-excluded track when no track
-          // is selectable within available bandwidth.
+        } else {
           lowestBitrateAllowedIndex = i;
-          lowestBitrate = formatBitrate;
         }
       }
     }
-    return lowestBitrateAllowedIndex == C.INDEX_UNSET ? 0 : lowestBitrateAllowedIndex;
-  }
-
-  private boolean isTrackSelectable(int index, long effectiveBitrate) {
-    Format format = getFormat(index);
-    return canSelectFormat(format, format.bitrate, effectiveBitrate);
+    return lowestBitrateAllowedIndex;
   }
 
   private long minDurationForQualityIncreaseUs(long availableDurationUs, long chunkDurationUs) {

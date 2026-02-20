@@ -246,7 +246,7 @@ public final class AdaptiveTrackSelectionTest {
   }
 
   @Test
-  public void initial_updateSelectedTrack_withNoSelectableFormat_fallsBackToLowestBitrate() {
+  public void initial_updateSelectedTrack_withNoSelectableFormat_fallsBackToLowestPriorityFormat() {
     Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
     Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
     Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
@@ -257,60 +257,7 @@ public final class AdaptiveTrackSelectionTest {
         prepareAdaptiveTrackSelectionWithFormatComparator(
             trackGroup, formatComparatorInOrder(ImmutableList.of(format2, format1, format3)));
 
-    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
-    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
-  }
-
-  @Test
-  public void initial_updateSelectedTrack_withInvalidComparator_fallsBackToDefaultOrdering() {
-    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
-    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
-    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
-    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
-    Comparator<Format> throwingComparator =
-        (firstFormat, secondFormat) -> {
-          throw new RuntimeException("Comparator failure");
-        };
-
-    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(1000L);
-    AdaptiveTrackSelection adaptiveTrackSelection =
-        prepareAdaptiveTrackSelectionWithFormatComparator(trackGroup, throwingComparator);
-
-    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
-    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
-  }
-
-  @Test
-  public void
-      updateSelectedTrack_withInvalidComparator_preservesDefaultDownSwitchDeferralWhenBufferedEnough() {
-    Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
-    Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
-    Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
-    TrackGroup trackGroup = new TrackGroup(format1, format2, format3);
-    Comparator<Format> throwingComparator =
-        (firstFormat, secondFormat) -> {
-          throw new RuntimeException("Comparator failure");
-        };
-
-    // The second measurement onward returns 500L, which prompts the track selection to switch down
-    // if necessary.
-    when(mockBandwidthMeter.getBitrateEstimate()).thenReturn(1000L, 500L);
-    AdaptiveTrackSelection adaptiveTrackSelection =
-        prepareAdaptiveTrackSelectionWithFormatComparatorAndDurations(
-            trackGroup,
-            AdaptiveTrackSelection.DEFAULT_MIN_DURATION_FOR_QUALITY_INCREASE_MS,
-            /* maxDurationForQualityDecreaseMs= */ 25_000,
-            throwingComparator);
-
-    adaptiveTrackSelection.updateSelectedTrack(
-        /* playbackPositionUs= */ 0,
-        /* bufferedDurationUs= */ 25_000_000,
-        /* availableDurationUs= */ C.TIME_UNSET,
-        /* queue= */ Collections.emptyList(),
-        createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
-
-    // Invalid comparators fall back to the default ordering and preserve the default behavior.
-    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format3);
     assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
   }
 
@@ -620,7 +567,7 @@ public final class AdaptiveTrackSelectionTest {
 
   @Test
   public void
-      updateSelectedTrack_withCustomFormatOrder_switchesDownIfCurrentTrackExceedsBandwidth() {
+      updateSelectedTrack_withCustomFormatOrder_defersSwitchDownWhenBufferedEnough() {
     Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
     Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
     Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);
@@ -643,8 +590,10 @@ public final class AdaptiveTrackSelectionTest {
         /* queue= */ Collections.emptyList(),
         createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
 
-    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format1);
-    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_ADAPTIVE);
+    // With sufficient buffer (bufferedDurationUs >= maxDurationForQualityDecreaseUs), the
+    // down-switch is deferred regardless of which comparator is in use.
+    assertThat(adaptiveTrackSelection.getSelectedFormat()).isEqualTo(format2);
+    assertThat(adaptiveTrackSelection.getSelectionReason()).isEqualTo(C.SELECTION_REASON_INITIAL);
   }
 
   @Test
