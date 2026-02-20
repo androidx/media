@@ -436,6 +436,139 @@ public class ExoPlayerAdTest {
   }
 
   @Test
+  public void play_adSkippedByTimelineRefresh_reportsSkipDiscontinuity()
+      throws PlaybackException, TimeoutException {
+    Timeline primaryContentTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0L)
+                .setDurationUs(60_000_000L)
+                .build());
+    AdPlaybackState initialAdPlaybackState =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, 10_000_000L)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 2_000_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/ad_0_0"));
+    AdPlaybackState populatedAdPlaybackState =
+        initialAdPlaybackState.withSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            new FakeMediaSource(primaryContentTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new DataSpec(Uri.EMPTY),
+            "adsId",
+            /* adMediaSourceFactory= */ new FakeMediaSourceFactory(
+                new TimelineWindowDefinition.Builder()),
+            fakeAdsLoader,
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ false,
+            /* useAdMediaSourceClipping= */ true);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            (Supplier<Boolean>) () -> fakeAdsLoader.eventListeners.get("adsId") != null);
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(initialAdPlaybackState);
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(populatedAdPlaybackState);
+
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    ArgumentCaptor<PositionInfo> oldPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    ArgumentCaptor<PositionInfo> newPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    ArgumentCaptor<Integer> reasonsCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(mockListener)
+        .onPositionDiscontinuity(
+            oldPositionsCaptor.capture(), newPositionsCaptor.capture(), reasonsCaptor.capture());
+    assertThat(reasonsCaptor.getAllValues())
+        .containsExactly(DISCONTINUITY_REASON_SKIP); // preroll skipped;
+    List<PositionInfo> oldPositions = oldPositionsCaptor.getAllValues();
+    List<PositionInfo> newPositions = newPositionsCaptor.getAllValues();
+    assertThat(oldPositions.get(0).adGroupIndex).isEqualTo(0); // from preroll
+    assertThat(oldPositions.get(0).adIndexInAdGroup).isEqualTo(0);
+    assertThat(newPositions.get(0).adGroupIndex).isEqualTo(C.INDEX_UNSET); // to content
+  }
+
+  @Test
+  public void play_adInsertedByTimelineRefresh_reportsAutoTransitionDiscontinuity()
+      throws PlaybackException, TimeoutException {
+    Timeline primaryContentTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(0L)
+                .setDurationUs(60_000_000L)
+                .build());
+    AdPlaybackState initialAdPlaybackState = new AdPlaybackState("adsId");
+    AdPlaybackState populatedAdPlaybackState =
+        initialAdPlaybackState
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 500L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, 10_000_000L)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 2_000_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("http://example.com/ad_0_0"));
+    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            new FakeMediaSource(primaryContentTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new DataSpec(Uri.EMPTY),
+            "adsId",
+            /* adMediaSourceFactory= */ new FakeMediaSourceFactory(
+                new TimelineWindowDefinition.Builder()),
+            fakeAdsLoader,
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ false,
+            /* useAdMediaSourceClipping= */ true);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            (Supplier<Boolean>) () -> fakeAdsLoader.eventListeners.get("adsId") != null);
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(initialAdPlaybackState);
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1_000L);
+
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(populatedAdPlaybackState);
+
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    ArgumentCaptor<PositionInfo> oldPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    ArgumentCaptor<PositionInfo> newPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    ArgumentCaptor<Integer> reasonsCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(mockListener, times(2))
+        .onPositionDiscontinuity(
+            oldPositionsCaptor.capture(), newPositionsCaptor.capture(), reasonsCaptor.capture());
+    assertThat(reasonsCaptor.getAllValues())
+        .containsExactly(
+            DISCONTINUITY_REASON_AUTO_TRANSITION, // content to midroll as an AUTO transition
+            DISCONTINUITY_REASON_AUTO_TRANSITION); // midroll to content;
+    List<PositionInfo> oldPositions = oldPositionsCaptor.getAllValues();
+    List<PositionInfo> newPositions = newPositionsCaptor.getAllValues();
+    assertThat(oldPositions.get(0).adGroupIndex).isEqualTo(C.INDEX_UNSET); // from content
+    assertThat(newPositions.get(0).adGroupIndex).isEqualTo(0); // to midroll
+    assertThat(newPositions.get(0).adIndexInAdGroup).isEqualTo(0);
+    // midroll to content
+    assertThat(oldPositions.get(1).adGroupIndex).isEqualTo(0); // from midroll
+    assertThat(oldPositions.get(1).adIndexInAdGroup).isEqualTo(0);
+    assertThat(newPositions.get(1).adGroupIndex).isEqualTo(C.INDEX_UNSET); // to content
+  }
+
+  @Test
   public void skipAd_withContentResumption_correctPositionAtDiscontinuity()
       throws PlaybackException, TimeoutException {
     Timeline primaryContentTimeline =
@@ -1459,7 +1592,7 @@ public class ExoPlayerAdTest {
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
-    verify(listener, times(1))
+    verify(listener)
         .onPositionDiscontinuity(
             oldPositionArgumentCaptor.capture(),
             newPositionArgumentCaptor.capture(),
