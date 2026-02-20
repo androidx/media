@@ -245,6 +245,11 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
       return this;
     }
 
+    /** Returns the comparator used to order formats in adaptive track selections. */
+    protected final Comparator<Format> getTrackFormatComparator() {
+      return trackFormatComparator;
+    }
+
     @Override
     public final @NullableType ExoTrackSelection[] createTrackSelections(
         @NullableType Definition[] definitions,
@@ -306,7 +311,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           bufferedFractionToLiveEdgeForQualityIncrease,
           adaptationCheckpoints,
           clock,
-          trackFormatComparator);
+          getTrackFormatComparator());
     }
   }
 
