@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.view.Surface;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -26,7 +27,6 @@ import androidx.media3.common.util.Util;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 
@@ -58,7 +58,7 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private final VideoDecoderOutputBuffer[] availableOutputBuffers;
 
-  private long dav1dDecoderContext;
+  private volatile long dav1dDecoderContext;
 
   private volatile @C.VideoOutputMode int outputMode;
 
@@ -247,12 +247,14 @@ public final class Dav1dDecoder
    */
   public void renderToSurface(VideoDecoderOutputBuffer outputBuffer, Surface surface)
       throws Dav1dDecoderException {
-    if (outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
-      throw new Dav1dDecoderException("Unsupported Output Mode.");
-    }
-    int error = dav1dRenderFrame(dav1dDecoderContext, surface, outputBuffer);
-    if (error != DAV1D_OK) {
-      throw new Dav1dDecoderException("Failed to render output buffer to surface.");
+    synchronized (lock) {
+      if (outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
+        throw new Dav1dDecoderException("Unsupported Output Mode.");
+      }
+      int error = dav1dRenderFrame(dav1dDecoderContext, surface, outputBuffer);
+      if (error != DAV1D_OK) {
+        throw new Dav1dDecoderException("Failed to render output buffer to surface.");
+      }
     }
   }
 
@@ -343,6 +345,13 @@ public final class Dav1dDecoder
         if (status == DAV1D_ERROR) {
           throw new Dav1dDecoderException(
               "dav1dDecode error: " + dav1dGetErrorMessage(dav1dDecoderContext));
+        }
+        // If the decoder is overloaded, we will get EAGAIN. In this case, we will put the input
+        // buffer back into the front of the queue and try again later.
+        if (status == DAV1D_EAGAIN) {
+          synchronized (lock) {
+            queuedInputBuffers.addFirst(inputBuffer);
+          }
         }
         while ((status = dav1dGetFrame(dav1dDecoderContext, outputBuffer)) == DAV1D_OK
             || status == DAV1D_DECODE_ONLY) {
