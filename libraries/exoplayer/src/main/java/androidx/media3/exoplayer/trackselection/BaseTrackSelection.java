@@ -29,11 +29,15 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 /** An abstract base class suitable for most {@link ExoTrackSelection} implementations. */
 @UnstableApi
 public abstract class BaseTrackSelection implements ExoTrackSelection {
+
+  static final Comparator<Format> DEFAULT_FORMAT_COMPARATOR =
+      (firstFormat, secondFormat) -> Integer.compare(secondFormat.bitrate, firstFormat.bitrate);
 
   /** The selected {@link TrackGroup}. */
   protected final TrackGroup group;
@@ -41,16 +45,16 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
   /** The number of selected tracks within the {@link TrackGroup}. Always greater than zero. */
   protected final int length;
 
-  /** The indices of the selected tracks in {@link #group}, in order of decreasing bandwidth. */
+  /** The indices of the selected tracks in {@link #group}, in selection order. */
   protected final int[] tracks;
 
   /** The type of the selection. */
   private final @Type int type;
 
-  /** The {@link Format}s of the selected tracks, in order of decreasing bandwidth. */
+  /** The {@link Format}s of the selected tracks, in selection order. */
   private final Format[] formats;
 
-  /** Selected track exclusion timestamps, in order of decreasing bandwidth. */
+  /** Selected track exclusion timestamps, in selection order. */
   private final long[] excludeUntilTimes;
 
   // Lazily initialized hashcode.
@@ -75,17 +79,28 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
    * @param type The type that will be returned from {@link TrackSelection#getType()}.
    */
   public BaseTrackSelection(TrackGroup group, int[] tracks, @Type int type) {
+    this(group, tracks, type, DEFAULT_FORMAT_COMPARATOR);
+  }
+
+  /**
+   * @param group The {@link TrackGroup}. Must not be null.
+   * @param tracks The indices of the selected tracks within the {@link TrackGroup}. Must not be
+   *     null or empty. May be in any order.
+   * @param type The type that will be returned from {@link TrackSelection#getType()}.
+   * @param formatComparator Comparator that determines the order of selected {@link Format}s.
+   */
+  protected BaseTrackSelection(
+      TrackGroup group, int[] tracks, @Type int type, Comparator<Format> formatComparator) {
     checkState(tracks.length > 0);
     this.type = type;
     this.group = checkNotNull(group);
     this.length = tracks.length;
-    // Set the formats, sorted in order of decreasing bandwidth.
+    // Set the formats in selection order.
     formats = new Format[length];
     for (int i = 0; i < tracks.length; i++) {
       formats[i] = group.getFormat(tracks[i]);
     }
-    // Sort in order of decreasing bandwidth.
-    Arrays.sort(formats, (a, b) -> b.bitrate - a.bitrate);
+    Arrays.sort(formats, checkNotNull(formatComparator));
     // Set the format indices in the same order.
     this.tracks = new int[length];
     for (int i = 0; i < length; i++) {
