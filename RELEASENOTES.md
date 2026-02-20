@@ -99,6 +99,9 @@
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.extractor.metadata.flac.VorbisComment`. Use
         `androidx.media3.extractor.metadata.vorbis.VorbisComment` instead.
+    *   Remove `Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA`. Use
+        `HeifExtractor` to extract motion photo metadata from HEIC files
+        instead.
     *   Remove `androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata`. Use
         `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
     *   Remove `MediaSource.prepareSource(MediaSourceCaller, TransferListener)`.

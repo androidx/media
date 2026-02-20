@@ -15,8 +15,6 @@
  */
 package androidx.media3.extractor.heif;
 
-import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
-
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.extractor.ExtractorInput;
@@ -27,6 +25,8 @@ import java.io.IOException;
  * supported HEIF/HEIC file.
  */
 /* package */ final class HeifSniffer {
+
+  private static final int BRAND_HEIC = 0x68656963;
 
   /**
    * Peeks into the input stream to determine if it is a supported HEIC file.
