@@ -34,8 +34,8 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.effect.PacketConsumer;
-import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -61,8 +61,8 @@ import org.junit.runner.RunWith;
 
 /**
  * Pixel tests for {@link
- * CompositionPlayer.Builder#setPacketConsumerFactory(PacketConsumer.Factory)} when outputting to a
- * {@link android.view.SurfaceView}.
+ * CompositionPlayer.Builder#setHardwareBufferEffectsPipeline(RenderingPacketConsumer)} when
+ * outputting to a {@link android.view.SurfaceView}.
  */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
@@ -112,13 +112,13 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          ProcessAndRenderToSurfaceConsumer.Factory packetConsumerFactory =
-              new ProcessAndRenderToSurfaceConsumer.Factory();
-          packetConsumerFactory.setOutput(surfaceView.getHolder(), surfaceView::post);
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              new DefaultHardwareBufferEffectsPipeline();
           compositionPlayer =
               new CompositionPlayer.Builder(context)
-                  .setPacketConsumerFactory(packetConsumerFactory)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -159,13 +159,13 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          ProcessAndRenderToSurfaceConsumer.Factory packetConsumerFactory =
-              new ProcessAndRenderToSurfaceConsumer.Factory();
-          packetConsumerFactory.setOutput(surfaceView.getHolder(), surfaceView::post);
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              new DefaultHardwareBufferEffectsPipeline();
           compositionPlayer =
               new CompositionPlayer.Builder(context)
-                  .setPacketConsumerFactory(packetConsumerFactory)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(
               new Player.Listener() {
                 @Override
@@ -226,14 +226,14 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          ProcessAndRenderToSurfaceConsumer.Factory packetConsumerFactory =
-              new ProcessAndRenderToSurfaceConsumer.Factory();
-          packetConsumerFactory.setOutput(surfaceView.getHolder(), surfaceView::post);
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              new DefaultHardwareBufferEffectsPipeline();
           compositionPlayer =
               new CompositionPlayer.Builder(context)
-                  .setPacketConsumerFactory(packetConsumerFactory)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(
               (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
                 videoTimestamps.add(presentationTimeUs);

@@ -70,7 +70,10 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   private final Object lock;
 
   private final Executor surfaceHolderExecutor;
-  private final SurfaceHolder surfaceHolder;
+
+  @GuardedBy("lock")
+  @Nullable
+  private SurfaceHolder surfaceHolder;
 
   @GuardedBy("lock")
   @Nullable
@@ -94,14 +97,15 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   /**
    * Creates a new instance.
    *
-   * @param surfaceHolder The {@link SurfaceHolder} to which frames will be written.
+   * @param surfaceHolder The {@link SurfaceHolder} to which frames will be written, or {@code null}
+   *     if not yet available.
    * @param surfaceHolderExecutor The {@link Executor} on which the surface holder methods will be
    *     called.
    * @param listener The {@link Listener}.
    * @param listenerExecutor The {@link Executor} on which the listener methods will be called.
    */
   public SurfaceHolderHardwareBufferFrameQueue(
-      SurfaceHolder surfaceHolder,
+      @Nullable SurfaceHolder surfaceHolder,
       Executor surfaceHolderExecutor,
       Listener listener,
       Executor listenerExecutor) {
@@ -110,7 +114,37 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     this.surfaceHolderExecutor = surfaceHolderExecutor;
     this.listener = listener;
     this.listenerExecutor = listenerExecutor;
-    surfaceHolder.addCallback(this);
+    if (surfaceHolder != null) {
+      surfaceHolder.addCallback(this);
+    }
+  }
+
+  /**
+   * Sets the {@link SurfaceHolder} to which frames will be written.
+   *
+   * @param surfaceHolder The {@link SurfaceHolder}, or {@code null} to clear the output.
+   */
+  public void setSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+    synchronized (lock) {
+      if (this.surfaceHolder != null) {
+        this.surfaceHolder.removeCallback(this);
+      }
+      this.surfaceHolder = surfaceHolder;
+      if (imageWriter != null) {
+        imageWriter.close();
+        imageWriter = null;
+      }
+      if (surfaceHolder != null) {
+        surfaceHolder.addCallback(this);
+        // Re-trigger surface format change for the new surface.
+        FrameFormat currentFormat = this.currentFormat;
+        if (currentFormat != null) {
+          isSurfaceChangeRequested = true;
+          surfaceHolderExecutor.execute(
+              () -> surfaceHolder.setFixedSize(/* width= */ 1, /* height= */ 1));
+        }
+      }
+    }
   }
 
   @Override
@@ -134,8 +168,8 @@ public final class SurfaceHolderHardwareBufferFrameQueue
           return null;
         }
       }
-      if (isSurfaceChangeRequested) {
-        // Waiting for an earlier surface format change. Do nothing.
+      if (isSurfaceChangeRequested || surfaceHolder == null) {
+        // Waiting for an earlier surface format change or surface holder is not set. Do nothing.
         this.wakeupListener = wakeupListener;
         return null;
       }
@@ -151,6 +185,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
       // Set the size to an arbitrary value in order to trigger a surfaceChanged() callback,
       // in case the previously set SurfaceHolder size matches the requested format.
       // There is no getter for size or format.
+      SurfaceHolder surfaceHolder = checkNotNull(this.surfaceHolder);
       surfaceHolderExecutor.execute(
           () -> surfaceHolder.setFixedSize(/* width= */ 1, /* height= */ 1));
       return null;
@@ -207,8 +242,11 @@ public final class SurfaceHolderHardwareBufferFrameQueue
         imageWriter.close();
         imageWriter = null;
       }
+      if (surfaceHolder != null) {
+        surfaceHolder.removeCallback(this);
+        surfaceHolder = null;
+      }
     }
-    surfaceHolder.removeCallback(this);
   }
 
   @Override

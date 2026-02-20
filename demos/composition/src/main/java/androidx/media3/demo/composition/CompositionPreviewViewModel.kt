@@ -63,7 +63,6 @@ import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
-import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
@@ -109,14 +108,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   internal var frameConsumerEnabled: Boolean = false
   internal var surfaceView: SurfaceView? = null
-  internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
-    if (SDK_INT < 34) {
-      throw IllegalStateException(
-        "Render with PacketConsumer<HardwareBufferFrame> requires API 34+"
-      )
-    }
-    ProcessAndRenderToSurfaceConsumer.Factory()
-  }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
@@ -784,8 +775,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
       playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
-      surfaceView?.let { packetConsumerFactory.setOutput(it.holder, it::post) }
-      playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
+      playerBuilder.setHardwareBufferEffectsPipeline(DefaultHardwareBufferEffectsPipeline())
       playerBuilder.setGlThreadExecutorService(glExecutorService)
     } else {
       playerBuilder = CompositionPlayer.Builder(getApplication())

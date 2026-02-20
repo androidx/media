@@ -62,11 +62,11 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
-import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
@@ -836,14 +836,14 @@ public class CompositionPlayerTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          ProcessAndRenderToSurfaceConsumer.Factory packetConsumerFactory =
-              new ProcessAndRenderToSurfaceConsumer.Factory();
-          packetConsumerFactory.setOutput(surfaceView.getHolder(), surfaceView::post);
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              new DefaultHardwareBufferEffectsPipeline();
           compositionPlayer =
               new CompositionPlayer.Builder(applicationContext)
-                  .setPacketConsumerFactory(packetConsumerFactory)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.setVideoFrameMetadataListener(
               (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
                 videoTimestamps.add(presentationTimeUs);

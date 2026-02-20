@@ -82,9 +82,10 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
-import androidx.media3.effect.ProcessAndRenderToSurfaceConsumer;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.SurfaceHolderHardwareBufferFrameQueue;
 import androidx.media3.effect.TimestampAdjustment;
@@ -168,8 +169,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-    private PacketConsumer.@MonotonicNonNull Factory<ImmutableList<HardwareBufferFrame>>
-        packetConsumerFactory;
+
+    @Nullable
+    private PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory;
+
+    @Nullable
+    private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+        packetProcessor;
+
     @Nullable private HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
     private boolean videoPrewarmingEnabled;
@@ -457,13 +464,41 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @param packetConsumerFactory The {@link PacketConsumer.Factory}.
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
      *     #setVideoGraphFactory set}.
+     * @deprecated Use {@link #setHardwareBufferEffectsPipeline} instead.
      */
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setPacketConsumerFactory(
         PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
       this.packetConsumerFactory = packetConsumerFactory;
+      return this;
+    }
+
+    /**
+     * Sets the {@link RenderingPacketConsumer} used to process {@link HardwareBufferFrame}s.
+     *
+     * <p>If set, {@link #videoGraphFactory} and {@link #setPacketConsumerFactory} are ignored.
+     *
+     * <p>The {@link PacketConsumer} will be released on {@link CompositionPlayer#release()}.
+     *
+     * <p>The default value is {@code null}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
+     * @return This builder.
+     * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
+     *     #setVideoGraphFactory set}.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    public Builder setHardwareBufferEffectsPipeline(
+        RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+            packetProcessor) {
+      checkState(videoGraphFactory == null);
+      this.packetProcessor = packetProcessor;
       return this;
     }
 
@@ -563,6 +598,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
   @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
+
+  @Nullable
+  private final SurfaceHolderHardwareBufferFrameQueue surfaceHolderHardwareBufferFrameQueue;
+
   // Applications can choose to render frames to screen themselves, or use media3 components.
   // CompositionPlayer only receives events when frames are rendered on screen when media3
   // components are used.
@@ -644,24 +683,25 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new AudioFocusManager(
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
-    if (builder.packetConsumerFactory != null) {
+    RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+        packetProcessor = builder.packetProcessor;
+    if (packetProcessor != null || builder.packetConsumerFactory != null) {
       hardwareBufferPostProcessor = builder.hardwareBufferPostProcessor;
-      executorService =
-          builder.glExecutorService != null
-              ? builder.glExecutorService
-              : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
-      shouldShutdownExecutorService = builder.glExecutorService == null;
-      // TODO: b/483976838 - Switch to PacketProcessor and create the
-      // SurfaceHolderHardwareBufferFrameQueue inside CompositionPlayer.
-      if (SDK_INT >= 34
-          && builder.packetConsumerFactory instanceof ProcessAndRenderToSurfaceConsumer.Factory) {
-        ((ProcessAndRenderToSurfaceConsumer.Factory) builder.packetConsumerFactory)
-            .setListener(internalListener, directExecutor());
+      if (packetProcessor != null && SDK_INT >= 33) {
+        packetConsumer = packetProcessor;
+        surfaceHolderHardwareBufferFrameQueue =
+            new SurfaceHolderHardwareBufferFrameQueue(
+                /* surfaceHolder= */ null,
+                /* surfaceHolderExecutor= */ applicationHandler::post,
+                internalListener,
+                directExecutor());
+        packetProcessor.setRenderOutput(surfaceHolderHardwareBufferFrameQueue);
         packetConsumerReportsRenderingEvents = true;
       } else {
         packetConsumerReportsRenderingEvents = false;
+        packetConsumer = checkNotNull(builder.packetConsumerFactory).create();
+        surfaceHolderHardwareBufferFrameQueue = null;
       }
-      packetConsumer = builder.packetConsumerFactory.create();
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
               this.context,
@@ -672,6 +712,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                       : C.TIME_UNSET),
               /* allowedJoiningTimeMs= */ 0);
       videoFrameReleaseControl.setClock(clock);
+      executorService =
+          builder.glExecutorService != null
+              ? builder.glExecutorService
+              : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
+      shouldShutdownExecutorService = builder.glExecutorService == null;
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
               videoFrameReleaseControl,
@@ -683,6 +728,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;
       packetConsumer = null;
+      surfaceHolderHardwareBufferFrameQueue = null;
       packetConsumerReportsRenderingEvents = false;
       frameAggregator = null;
       videoPacketReleaseControl = null;
@@ -956,6 +1002,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolders.clear();
     boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
     removeSurfaceCallbacks();
+    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
+      surfaceHolderHardwareBufferFrameQueue.release();
+    }
     // TODO: b/449956936 - Sequence releasing PacketConsumer with other internal objects.
     ListenableFuture<Void> releaseFuture;
     if (packetConsumer != null) {
@@ -1867,6 +1916,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setVideoSurfaceHolderInternal(SurfaceHolder surfaceHolder) {
+    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
+      surfaceHolderHardwareBufferFrameQueue.setSurfaceHolder(surfaceHolder);
+      return;
+    }
     removeSurfaceCallbacks();
     this.surfaceHolder = surfaceHolder;
     surfaceHolder.addCallback(internalListener);
@@ -1900,6 +1953,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    */
   private void clearVideoSurfaceInternal() {
     displaySurface = null;
+    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
+      surfaceHolderHardwareBufferFrameQueue.setSurfaceHolder(null);
+    }
     if (compositionPlayerInternal != null) {
       ConditionVariable surfaceCleared = new ConditionVariable();
       compositionPlayerInternal.clearOutputSurface(surfaceCleared);
