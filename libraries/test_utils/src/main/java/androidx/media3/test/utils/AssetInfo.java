@@ -649,6 +649,7 @@ public final class AssetInfo {
                           .build())
                   .setCodecs("hvc1.2.4.L153")
                   .build())
+          .setVideoDurationUs(300_000)
           .build();
 
   public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =

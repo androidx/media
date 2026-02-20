@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
@@ -161,7 +162,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
                   /* releaseCallback= */ (releaseFence) -> {
                     throw new UnsupportedOperationException();
                   })
-              .setInternalFrame(image)
+              .setInternalFrame(new ImageWithImageWriter(image, checkNotNull(imageWriter)))
               .build();
         } catch (IllegalStateException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
@@ -194,27 +195,32 @@ public final class SurfaceHolderHardwareBufferFrameQueue
 
   @Override
   public void queue(HardwareBufferFrame frame) {
-    Image image = (Image) checkNotNull(frame.internalFrame);
     synchronized (lock) {
-      ImageWriter imageWriter = this.imageWriter;
-      if (imageWriter != null) {
-        if (frame.acquireFence != null) {
-          try {
-            checkState(frame.acquireFence.await(/* timeoutMs= */ 500));
-            frame.acquireFence.close();
-          } catch (ErrnoException | IllegalStateException | IOException e) {
-            listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
-          }
-        }
-        if (frame.hardwareBuffer != null) {
-          frame.hardwareBuffer.close();
-        }
+      if (frame.acquireFence != null) {
         try {
-          image.setTimestamp(frame.releaseTimeNs);
-          imageWriter.queueInputImage(image);
-        } catch (IllegalStateException e) {
+          checkState(frame.acquireFence.await(/* timeoutMs= */ 500));
+          frame.acquireFence.close();
+        } catch (ErrnoException | IllegalStateException | IOException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
         }
+      }
+      if (frame.hardwareBuffer != null) {
+        frame.hardwareBuffer.close();
+      }
+      ImageWithImageWriter imageWithImageWriter =
+          (ImageWithImageWriter) checkNotNull(frame.internalFrame);
+      ImageWriter imageWriter = this.imageWriter;
+      if (imageWriter != imageWithImageWriter.imageWriter) {
+        // The ImageWriter has changed since this frame was dequeued. The previous writer was
+        // closed and this image can no longer be used.
+        return;
+      }
+      Image image = imageWithImageWriter.image;
+      try {
+        image.setTimestamp(frame.releaseTimeNs);
+        imageWriter.queueInputImage(image);
+      } catch (IllegalStateException e) {
+        listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
       }
     }
 
@@ -272,7 +278,15 @@ public final class SurfaceHolderHardwareBufferFrameQueue
       }
 
       imageWriter =
-          new ImageWriter.Builder(holder.getSurface()).setUsage(currentFormat.usageFlags).build();
+          new ImageWriter.Builder(holder.getSurface())
+              .setUsage(currentFormat.usageFlags)
+              .setHardwareBufferFormat(currentFormat.pixelFormat)
+              .setDataSpace(
+                  DataSpace.pack(
+                      colorSpaceToDataSpaceStandard(currentFormat.colorInfo.colorSpace),
+                      colorTransferToDataSpaceTransfer(currentFormat.colorInfo.colorTransfer),
+                      colorRangeToDataSpaceRange(currentFormat.colorInfo.colorRange)))
+              .build();
 
       isSurfaceChangeRequested = false;
       Runnable wakeupListener = this.wakeupListener;
@@ -290,6 +304,62 @@ public final class SurfaceHolderHardwareBufferFrameQueue
         imageWriter.close();
         imageWriter = null;
       }
+    }
+  }
+
+  private static final class ImageWithImageWriter {
+    final Image image;
+    final ImageWriter imageWriter;
+
+    ImageWithImageWriter(Image image, ImageWriter imageWriter) {
+      this.image = image;
+      this.imageWriter = imageWriter;
+    }
+  }
+
+  private static int colorSpaceToDataSpaceStandard(@C.ColorSpace int colorSpace) {
+    switch (colorSpace) {
+      case C.COLOR_SPACE_BT709:
+        return DataSpace.STANDARD_BT709;
+      case C.COLOR_SPACE_BT601:
+        return DataSpace.STANDARD_BT601_625;
+      case C.COLOR_SPACE_BT2020:
+        return DataSpace.STANDARD_BT2020;
+      case Format.NO_VALUE:
+      default:
+        return DataSpace.STANDARD_UNSPECIFIED;
+    }
+  }
+
+  private static int colorTransferToDataSpaceTransfer(@C.ColorTransfer int colorTransfer) {
+    switch (colorTransfer) {
+      case C.COLOR_TRANSFER_ST2084:
+        return DataSpace.TRANSFER_ST2084;
+      case C.COLOR_TRANSFER_HLG:
+        return DataSpace.TRANSFER_HLG;
+      case C.COLOR_TRANSFER_SDR:
+        return DataSpace.TRANSFER_SMPTE_170M;
+      case C.COLOR_TRANSFER_SRGB:
+        return DataSpace.TRANSFER_SRGB;
+      case C.COLOR_TRANSFER_GAMMA_2_2:
+        return DataSpace.TRANSFER_GAMMA2_2;
+      case C.COLOR_TRANSFER_LINEAR:
+        return DataSpace.TRANSFER_LINEAR;
+      case Format.NO_VALUE:
+      default:
+        return DataSpace.TRANSFER_UNSPECIFIED;
+    }
+  }
+
+  private static int colorRangeToDataSpaceRange(@C.ColorRange int colorRange) {
+    switch (colorRange) {
+      case C.COLOR_RANGE_FULL:
+        return DataSpace.RANGE_FULL;
+      case C.COLOR_RANGE_LIMITED:
+        return DataSpace.RANGE_LIMITED;
+      case Format.NO_VALUE:
+      default:
+        return DataSpace.RANGE_UNSPECIFIED;
     }
   }
 }
