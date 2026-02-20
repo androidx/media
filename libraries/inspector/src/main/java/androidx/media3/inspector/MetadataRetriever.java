@@ -27,7 +27,6 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.MetadataRetrieverInternal;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.inspector;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -26,12 +26,12 @@ import android.os.Looper;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -58,10 +58,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * MediaSource} just enough to extract information like track groups and timeline without performing
  * a full playback.
  */
-// TODO(b/442827020): Move this class to the androidx.media3.inspector package and make it
-// package-private.
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public final class MetadataRetrieverInternal implements AutoCloseable {
+/* package */ final class MetadataRetrieverInternal implements AutoCloseable {
 
   private final MediaItem mediaItem;
   private final MediaSource.Factory mediaSourceFactory;
@@ -87,7 +84,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
    * @param mediaSourceFactory The {@link MediaSource.Factory} for creating {@link MediaSource}s.
    * @param clock The {@link Clock} to use.
    */
-  public MetadataRetrieverInternal(
+  /* package */ MetadataRetrieverInternal(
       MediaItem mediaItem, MediaSource.Factory mediaSourceFactory, Clock clock) {
     this.mediaItem = mediaItem;
     this.mediaSourceFactory = mediaSourceFactory;
@@ -101,7 +98,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
    *
    * @return A {@link ListenableFuture} that will be populated with the {@link TrackGroupArray}.
    */
-  public ListenableFuture<TrackGroupArray> retrieveTrackGroups() {
+  /* package */ ListenableFuture<TrackGroupArray> retrieveTrackGroups() {
     synchronized (lock) {
       if (released) {
         return immediateFailedFuture(new IllegalStateException("Retriever is released."));
@@ -132,7 +129,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
    *
    * @return A {@link ListenableFuture} that will be populated with the {@link Timeline}.
    */
-  public ListenableFuture<Timeline> retrieveTimeline() {
+  /* package */ ListenableFuture<Timeline> retrieveTimeline() {
     synchronized (lock) {
       if (released) {
         return immediateFailedFuture(new IllegalStateException("Retriever is released."));
@@ -164,7 +161,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
    * @return A {@link ListenableFuture} that will be populated with the duration in microseconds, or
    *     {@link C#TIME_UNSET} if unknown.
    */
-  public ListenableFuture<Long> retrieveDurationUs() {
+  /* package */ ListenableFuture<Long> retrieveDurationUs() {
     synchronized (lock) {
       if (released) {
         return immediateFailedFuture(new IllegalStateException("Retriever is released."));
@@ -239,18 +236,17 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
   }
 
   private static final class InternalResult {
-    public final TrackGroupArray trackGroups;
-    public final Timeline timeline;
+    private final TrackGroupArray trackGroups;
+    private final Timeline timeline;
 
-    public InternalResult(TrackGroupArray trackGroups, Timeline timeline) {
+    private InternalResult(TrackGroupArray trackGroups, Timeline timeline) {
       this.trackGroups = trackGroups;
       this.timeline = timeline;
     }
   }
 
   /** A task that retrieves metadata from a {@link MediaItem}. */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public static final class RetrievalTask {
+  /* package */ static final class RetrievalTask {
 
     private static final int MESSAGE_PREPARE_SOURCE = 1;
     private static final int MESSAGE_CHECK_FOR_FAILURE = 2;
@@ -267,15 +263,13 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
     private boolean sentReleaseMessage;
 
     /** A listener for successfully prepared media. */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public interface OnPreparedListener {
+    /* package */ interface OnPreparedListener {
       /** Called when the media is prepared. */
       void onPrepared(TrackGroupArray trackGroups, Timeline timeline);
     }
 
     /** A listener for failures. */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    public interface OnFailureListener {
+    /* package */ interface OnFailureListener {
       /** Called when an error occurs. */
       void onFailure(Exception e);
     }
@@ -289,7 +283,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
      * @param onPreparedListener A listener to be notified when the media is prepared.
      * @param onFailureListener A listener to be notified of failures.
      */
-    public RetrievalTask(
+    /* package */ RetrievalTask(
         MediaSource.Factory mediaSourceFactory,
         MediaItem mediaItem,
         Clock clock,
@@ -305,17 +299,17 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
     }
 
     /** Queues the retrieval to be started when permitted. */
-    public void queueRetrieval() {
+    /* package */ void queueRetrieval() {
       SHARED_WORKER_THREAD.startRetrieval(this);
     }
 
     /** Starts the retrieval. */
-    public void start() {
+    /* package */ void start() {
       mediaSourceHandler.obtainMessage(MESSAGE_PREPARE_SOURCE, mediaItem).sendToTarget();
     }
 
     /** Releases the resources used by this task. */
-    public synchronized void release() {
+    /* package */ synchronized void release() {
       if (!sentReleaseMessage) {
         sentReleaseMessage = true;
         mediaSourceHandler.obtainMessage(MESSAGE_RELEASE).sendToTarget();
@@ -332,7 +326,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
       private @MonotonicNonNull Timeline timeline;
       private boolean released;
 
-      public MediaSourceHandlerCallback() {
+      private MediaSourceHandlerCallback() {
         mediaSourceCaller = new MediaSourceCaller();
       }
 
@@ -389,7 +383,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
         private final Allocator allocator;
         private boolean mediaPeriodCreated;
 
-        public MediaSourceCaller() {
+        private MediaSourceCaller() {
           mediaPeriodCallback = new MediaPeriodCallback();
           allocator =
               new DefaultAllocator(
@@ -431,15 +425,10 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
   }
 
   /** Manages a shared worker thread for metadata retrieval. */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public static final class SharedWorkerThread {
+  /* package */ static final class SharedWorkerThread {
 
     /** The maximum number of parallel metadata retrieval operations. */
-    // TODO(b/442827020): When MetadataRetrieverInternal is moved to the inspector module, update
-    // this to use a DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS constant defined within
-    // androidx.media3.inspector.MetadataRetriever (and remove the deprecation suppression).
-    @SuppressWarnings("deprecation")
-    public static final AtomicInteger MAX_PARALLEL_RETRIEVALS =
+    /* package */ static final AtomicInteger MAX_PARALLEL_RETRIEVALS =
         new AtomicInteger(MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
 
     private final Deque<RetrievalTask> pendingRetrievals;
@@ -455,10 +444,10 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
      *
      * @return The {@link Looper} of the shared thread.
      */
-    public synchronized Looper addWorker() {
+    /* package */ synchronized Looper addWorker() {
       if (mediaSourceThread == null) {
         checkState(referenceCount == 0);
-        mediaSourceThread = new HandlerThread("ExoPlayer:MetadataRetriever");
+        mediaSourceThread = new HandlerThread("Inspector:MetadataRetriever");
         mediaSourceThread.start();
       }
       referenceCount++;
@@ -470,13 +459,13 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
      *
      * @param retrieval The retrieval task to run.
      */
-    public synchronized void startRetrieval(RetrievalTask retrieval) {
+    /* package */ synchronized void startRetrieval(RetrievalTask retrieval) {
       pendingRetrievals.addLast(retrieval);
       maybeStartNewRetrieval();
     }
 
     /** Removes a worker from the shared thread, quitting the thread if it's the last worker. */
-    public synchronized void removeWorker() {
+    /* package */ synchronized void removeWorker() {
       if (--referenceCount == 0) {
         checkNotNull(mediaSourceThread).quit();
         mediaSourceThread = null;

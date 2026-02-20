@@ -97,6 +97,8 @@
 *   Cast extension:
 *   Test utilities:
 *   Remove deprecated symbols:
+    *   Remove `androidx.media3.exoplayer.MetadataRetriever`. Use
+        `androidx.media3.inspector.MetadataRetriever` instead.
     *   Remove `androidx.media3.exoplayer.MediaExtractorCompat`. Use
         `androidx.media3.inspector.MediaExtractorCompat` instead.
     *   Remove `androidx.media3.extractor.metadata.flac.VorbisComment`. Use
