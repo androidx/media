@@ -211,6 +211,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
+  private boolean isDolbyVisionProfile8;
   private @MonotonicNonNull VideoSink videoSink;
   private boolean hasSetVideoSink;
   private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
@@ -1551,6 +1552,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codecNeedsSetOutputSurfaceWorkaround = codecNeedsSetOutputSurfaceWorkaround(name);
     codecHandlesHdr10PlusOutOfBandMetadata =
         checkNotNull(getCodecInfo()).isHdr10PlusOutOfBandMetadataSupported();
+    isDolbyVisionProfile8 = isDolbyVisionProfile8(configuration.format);
     maybeSetupTunnelingForFirstFrame();
   }
 
@@ -1823,6 +1825,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer)
       throws ExoPlaybackException {
     if (!codecHandlesHdr10PlusOutOfBandMetadata) {
+      return;
+    }
+    // Workaround for https://github.com/androidx/media/issues/1895
+    // Skip HDR10+ metadata when using Dolby Vision Profile 8. The combination of DV Profile 8
+    // (which has its own dynamic metadata) with HDR10+ causes playback issues on many devices.
+    // Since DV Profile 8 already provides dynamic HDR metadata, HDR10+ is redundant and the
+    // conflicting metadata can cause severe issues (freezes, black screens).
+    if (isDolbyVisionProfile8) {
       return;
     }
     ByteBuffer data = checkNotNull(buffer.supplementalData);
@@ -2633,6 +2643,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // operations that can modify frame output timestamps, which is incompatible with ExoPlayer's
     // logic for skipping decode-only frames.
     return "NVIDIA".equals(Build.MANUFACTURER);
+  }
+
+  /**
+   * Returns whether the format contains Dolby Vision Profile 8.
+   *
+   * @param format The {@link Format} to check.
+   * @return Whether the format contains Dolby Vision Profile 8.
+   */
+  private static boolean isDolbyVisionProfile8(Format format) {
+    if (!MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
+      return false;
+    }
+    @Nullable
+    Pair<Integer, Integer> codecProfileAndLevel =
+        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+    return codecProfileAndLevel != null
+        && codecProfileAndLevel.first == CodecProfileLevel.DolbyVisionProfileDvheSt;
   }
 
   /*
