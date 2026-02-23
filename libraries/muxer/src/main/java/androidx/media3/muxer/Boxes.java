@@ -25,7 +25,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -93,6 +92,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * 1 (bit index 16)
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
+
+  private static final Pair<Integer, Integer> DEFAULT_H263_PROFILE_AND_LEVEL = new Pair<>(0, 10);
 
   private static final String TAG = "Boxes";
 
@@ -1399,13 +1400,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
     d263Box.put((byte) 0x00); // decoder version
-    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-    if (profileAndLevel == null) {
-      profileAndLevel =
-          new Pair<>(
-              MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-              MediaCodecInfo.CodecProfileLevel.H263Level10);
-    }
+    Pair<Integer, Integer> profileAndLevel = getH263ProfileAndLevel(format);
     d263Box.put(profileAndLevel.second.byteValue()); // level
     d263Box.put(profileAndLevel.first.byteValue()); // profile
 
@@ -2029,5 +2024,25 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int profile = Integer.parseInt(parts.get(1));
     int level = Integer.parseInt(parts.get(2));
     return Pair.create(profile, level);
+  }
+
+  /** Returns H263 profile and level from codec string. */
+  private static Pair<Integer, Integer> getH263ProfileAndLevel(Format format) {
+    if (format.codecs == null) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    int profile;
+    int level;
+    try {
+      profile = Integer.parseInt(parts.get(1));
+      level = Integer.parseInt(parts.get(2));
+      return new Pair<>(profile, level);
+    } catch (NumberFormatException e) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
   }
 }

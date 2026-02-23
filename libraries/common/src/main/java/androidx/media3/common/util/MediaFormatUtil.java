@@ -389,6 +389,7 @@ public final class MediaFormatUtil {
     if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
         && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+      // TODO: b/485509264 - Convert MediaFormat constants to H263 spec constants.
       return CodecSpecificDataUtil.buildH263CodecString(
           mediaFormat.getInteger(MediaFormat.KEY_PROFILE),
           mediaFormat.getInteger(MediaFormat.KEY_LEVEL));
