@@ -3,17 +3,7 @@
 ### Unreleased changes
 
 *   Common library:
-    *   Add `Format.primaryTrackGroupId` to identify the primary group of
-        embedded `Format` instances
-        ([#294](https://github.com/androidx/media/issues/294)).
 *   ExoPlayer:
-    *   Fix issue where ExoPlayer would not request delayed audio focus when
-        playback is requested during phone calls.
-    *   Fix bug where transitions from on-demand to live content may cause
-        re-buffers at the end of the on-demand content
-        ([#3052](https://github.com/androidx/media/issues/3052)).
-    *   Add support for Dolby Vision Profile 10
-        ([#2830](https://github.com/androidx/media/pull/2830)).
     *   Mark tracks with a well-formed but unrecognized codec profile or level
         as `supported=NO_EXCEEDS_CAPABILITIES` instead of `supported=YES` (which
         is how tracks with missing or malformed profile or level info are
@@ -29,6 +19,65 @@
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Effect Lottie:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test utilities:
+*   Remove deprecated symbols:
+    *   Remove `androidx.media3.exoplayer.MetadataRetriever`. Use
+        `androidx.media3.inspector.MetadataRetriever` instead.
+    *   Remove `androidx.media3.exoplayer.MediaExtractorCompat`. Use
+        `androidx.media3.inspector.MediaExtractorCompat` instead.
+    *   Remove `Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA`. Use
+        `HeifExtractor` to extract motion photo metadata from HEIC files
+        instead.
+    *   Remove `androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata`. Use
+        `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
+
+## 1.10
+
+### 1.10.0-beta01 (2026-02-23)
+
+This release includes the following changes since
+[1.10.0-alpha01 release](#1100-alpha01-2026-02-06):
+
+*   Common library:
+    *   Add `Format.primaryTrackGroupId` to identify the primary group of
+        embedded `Format` instances
+        ([#294](https://github.com/androidx/media/issues/294)).
+*   ExoPlayer:
+    *   Fix issue where ExoPlayer would not request delayed audio focus when
+        playback is requested during phone calls.
+    *   Fix bug where transitions from on-demand to live content may cause
+        re-buffers at the end of the on-demand content
+        ([#3052](https://github.com/androidx/media/issues/3052)).
+    *   Add support for Dolby Vision Profile 10
+        ([#2830](https://github.com/androidx/media/pull/2830)).
+*   Track selection:
     *   Change signature of `DefaultTrackSelector.selectAllTracks` to include
         the output array as a parameter, pre-populated with track overrides.
     *   Fix issue where embedded metadata tracks are selected irrespective of
@@ -42,7 +91,6 @@
         `moov` ([#3046](https://github.com/androidx/media/issues/3046)).
     *   MP4: Add support for Versatile Video Coding (VVC) tracks in MP4
         containers.
-*   Inspector:
 *   Audio:
     *   Improve the retry logic of `AudioOutput` initialization in
         `DefaultAudioSink`
@@ -51,19 +99,10 @@
         applicable) when decoding IAMF, both with the IAMF extension and media
         codec decoders, supported by new fields and logic in AudioCapabilities
         and AudioCapabilitiesReceiver.
-*   Video:
-*   Text:
 *   Metadata:
     *   Increase default count of metadata renderers to four to cover all
         potential metadata tracks published by HLS variants and renditions
         ([#3043](https://github.com/androidx/media/issues/3043)).
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Effect Lottie:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Fix issue where system UI button placement workaround negatively affects
         other UI surface like Android Auto or manufacturers not needing the
@@ -74,10 +113,6 @@
     *   Add `Player` Composable to `media3-ui-compose-material3` which combines
         a `ContentFrame` with customizable controls aligned to top, center, and
         bottom.
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Expose ID3 (EMSG) metadata track in audio renditions
         ([#3043](https://github.com/androidx/media/issues/3043)).
@@ -93,32 +128,15 @@
         ([#3057](https://github.com/androidx/media/issues/3057)).
     *   Fix bug where timestamps of inband EMSG v0 metadata are not set
         correctly ([#3024](https://github.com/androidx/media/issues/3024)).
-*   Smooth Streaming extension:
-*   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   Add MPEG-H UI manager support to the MPEG-H decoder extension
         ([#3066](https://github.com/androidx/media/pull/3066)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test utilities:
 *   Remove deprecated symbols:
-    *   Remove `androidx.media3.exoplayer.MetadataRetriever`. Use
-        `androidx.media3.inspector.MetadataRetriever` instead.
-    *   Remove `androidx.media3.exoplayer.MediaExtractorCompat`. Use
-        `androidx.media3.inspector.MediaExtractorCompat` instead.
     *   Remove `androidx.media3.extractor.metadata.flac.VorbisComment`. Use
         `androidx.media3.extractor.metadata.vorbis.VorbisComment` instead.
-    *   Remove `Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA`. Use
-        `HeifExtractor` to extract motion photo metadata from HEIC files
-        instead.
-    *   Remove `androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata`. Use
-        `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
     *   Remove `MediaSource.prepareSource(MediaSourceCaller, TransferListener)`.
         Use `MediaSource.prepareSource(MediaSourceCaller, TransferListener,
         PlayerId)` instead.
-
-## 1.10
 
 ### 1.10.0-alpha01 (2026-02-06)
 
