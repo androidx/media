@@ -38,6 +38,7 @@ dependencies {
     api project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
+    compileOnly 'androidx.exifinterface:exifinterface:' + androidxExifInterfaceVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
