@@ -27,6 +27,7 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -40,6 +41,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * Retrieves information from a {@link MediaItem} without playback.
+ *
+ * <p>This class is intended for extracting metadata from media formats supported by Media3 players
+ * (such as {@link ExoPlayer}) for playback. It is not designed as a general-purpose metadata
+ * extractor for non-playback formats, such as standalone images. To extract properties like height,
+ * width, and rotation from images, use {@link androidx.exifinterface.media.ExifInterface}.
  *
  * <p>An instance is created for a single {@link MediaItem} via a {@link Builder}. It provides
  * methods to asynchronously retrieve metadata. The instance must be {@link #close() closed} after
