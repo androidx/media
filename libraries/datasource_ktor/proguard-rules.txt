@@ -5,7 +5,3 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**
-
-# Keep Ktor client classes
--keep class io.ktor.** { *; }
--keep class kotlinx.coroutines.** { *; }
