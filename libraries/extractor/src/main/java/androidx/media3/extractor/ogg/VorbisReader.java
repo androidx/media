@@ -24,8 +24,8 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.extractor.VorbisUtil;
-import androidx.media3.extractor.VorbisUtil.Mode;
+import androidx.media3.container.VorbisUtil;
+import androidx.media3.container.VorbisUtil.Mode;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -114,7 +114,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
     @Nullable
     Metadata metadata =
-        VorbisUtil.parseVorbisComments(ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
+        androidx.media3.extractor.VorbisUtil.parseVorbisComments(
+            ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
 
     setupData.format =
         new Format.Builder()

@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor;
+package androidx.media3.container;
 
-import static androidx.media3.extractor.VorbisUtil.iLog;
-import static androidx.media3.extractor.VorbisUtil.verifyVorbisHeaderCapturePattern;
+import static androidx.media3.container.VorbisUtil.iLog;
+import static androidx.media3.container.VorbisUtil.verifyVorbisHeaderCapturePattern;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 

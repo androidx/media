@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor;
+package androidx.media3.container;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.media3.common.util.UnstableApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
  * Wraps a byte array, providing methods that allow it to be read as a Vorbis bitstream.
@@ -56,6 +57,7 @@ public final class VorbisBitArray {
    *
    * @return {@code true} if the bit is set, {@code false} otherwise.
    */
+  @CanIgnoreReturnValue
   public boolean readBit() {
     boolean returnValue = (((data[byteOffset] & 0xFF) >> bitOffset) & 0x01) == 1;
     skipBits(1);

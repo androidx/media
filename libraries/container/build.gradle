@@ -37,6 +37,7 @@ android {
 dependencies {
     api project(modulePrefix + 'lib-common')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     testImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion
     testImplementation 'com.google.truth:truth:' + truthVersion
     testImplementation 'junit:junit:' + junitVersion
