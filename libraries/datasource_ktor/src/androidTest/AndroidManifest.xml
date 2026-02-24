@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="androidx.media3.datasource.ktor.test">
+
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-sdk/>
+
+  <application
+    android:usesCleartextTraffic="true" />
+
+  <instrumentation
+    android:targetPackage="androidx.media3.datasource.ktor.test"
+    android:name="androidx.test.runner.AndroidJUnitRunner"/>
+</manifest>
