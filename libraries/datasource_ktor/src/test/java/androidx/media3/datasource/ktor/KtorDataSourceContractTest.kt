@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,7 +20,13 @@ class KtorDataSourceContractTest : DataSourceContractTest() {
     @JvmField
     @Rule
     var httpDataSourceTestEnv = HttpDataSourceTestEnv()
-    val httpClient = HttpClient()
+    val httpClient = HttpClient() {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 400
+            connectTimeoutMillis = 400
+            socketTimeoutMillis = 400
+        }
+    }
 
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
