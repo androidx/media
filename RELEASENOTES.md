@@ -31,6 +31,10 @@
 *   Effect:
 *   Effect Lottie:
 *   Muxers:
+    *   Add support for track references (the `tref` box) in `Mp4Muxer` via a
+        new `addTrackReference` API. This allows establishing relationships
+        between tracks, such as linking a metadata track to the video track it
+        describes.
 *   IMA extension:
 *   Session:
 *   UI:

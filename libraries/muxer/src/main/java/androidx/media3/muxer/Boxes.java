@@ -50,8 +50,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -140,10 +142,22 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return ByteBuffer.allocate(0);
     }
 
+    // The final track id depends on the order of tracks in List<Track>.
+    Map<Integer, Integer> trackIdToFinalTrackIdMap = new HashMap<>();
+    int nextTrackId = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // For a non fragmented MP4 file, empty track is skipped.
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
+        continue;
+      }
+      trackIdToFinalTrackIdMap.put(track.id, nextTrackId++);
+    }
+
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
-    int nextTrackId = 1;
+    nextTrackId = 1;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
@@ -231,6 +245,22 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           throw new IllegalArgumentException("Unsupported track type");
       }
 
+      Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+      for (Map.Entry<Integer, List<Integer>> entry : track.trackReferences.entrySet()) {
+        List<Integer> newIds = new ArrayList<>();
+        for (Integer oldId : entry.getValue()) {
+          if (trackIdToFinalTrackIdMap.containsKey(oldId)) {
+            newIds.add(trackIdToFinalTrackIdMap.get(oldId));
+          }
+        }
+        if (!newIds.isEmpty()) {
+          trackReferences.put(entry.getKey(), newIds);
+        }
+      }
+
+      ByteBuffer trefBox =
+          trackReferences.isEmpty() ? ByteBuffer.allocate(0) : tref(trackReferences);
+
       ByteBuffer trakBox =
           trak(
               tkhd(
@@ -240,6 +270,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
                   format),
+              trefBox,
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
@@ -1351,6 +1382,26 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     axteBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
     axteBoxHeader.flip();
     return axteBoxHeader;
+  }
+
+  /** Returns the tref (track reference) box. */
+  public static ByteBuffer tref(Map<Integer, List<Integer>> trackReferences) {
+    List<ByteBuffer> refBoxes = new ArrayList<>();
+    for (Map.Entry<Integer, List<Integer>> entry : trackReferences.entrySet()) {
+      refBoxes.add(trefTypeBox(entry.getKey(), entry.getValue()));
+    }
+    return BoxUtils.wrapBoxesIntoBox("tref", refBoxes);
+  }
+
+  /** Returns the track reference type box. */
+  private static ByteBuffer trefTypeBox(int referenceType, List<Integer> trackIds) {
+    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * BYTES_PER_INTEGER);
+    for (int i = 0; i < trackIds.size(); i++) {
+      contents.putInt(trackIds.get(i));
+    }
+    contents.flip();
+    byte[] typeBytes = Util.toByteArray(referenceType);
+    return BoxUtils.wrapIntoBox(typeBytes, contents);
   }
 
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */

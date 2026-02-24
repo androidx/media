@@ -45,7 +45,9 @@ import com.google.common.truth.Correspondence;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1013,6 +1015,35 @@ public class BoxesTest {
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trexBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("trex_box"));
+  }
+
+  @Test
+  public void createTrefBox_withSingleTrackReference_matchesExpected() throws IOException {
+    Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+    trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));
+
+    ByteBuffer trefBox = Boxes.tref(trackReferences);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trefBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("tref_box_with_one_track_reference"));
+  }
+
+  @Test
+  public void createTrefBox_withMultipleTrackReferences_matchesExpected() throws IOException {
+    Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+    trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));
+    trackReferences.put(Util.getIntegerCodeForString("hind"), ImmutableList.of(1, 2));
+
+    ByteBuffer trefBox = Boxes.tref(trackReferences);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trefBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("tref_box_with_multiple_track_reference"));
   }
 
   private static List<Long> durationsVuToPresentationTimestamps(
