@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/constants.gradle"
-apply plugin: 'com.android.library'
 
 group = 'androidx.media3'
 
