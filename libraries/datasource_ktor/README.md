@@ -40,23 +40,6 @@ new DefaultDataSourceFactory(
     /* baseDataSourceFactory= */ new KtorDataSource.Factory(...));
 ```
 
-### Using with OkHttp engine
-
-```kotlin
-val dataSourceFactory = KtorDataSource.Factory(OkHttp.create())
-```
-
-### Using with a custom HttpClient
-
-```kotlin
-val httpClient = HttpClient(OkHttp) {
-    engine {
-        // Configure OkHttp engine
-    }
-}
-val dataSourceFactory = KtorDataSource.Factory(httpClient)
-```
-
 ## Links
 
 *   [Javadoc][]
