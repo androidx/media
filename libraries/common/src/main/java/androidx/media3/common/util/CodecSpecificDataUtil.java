@@ -1105,26 +1105,33 @@ public final class CodecSpecificDataUtil {
   }
 
   /** Returns H263 profile and level from codec string. */
+  @Nullable
   private static MediaCodecProfileAndLevel getH263ProfileAndLevel(String codec, String[] parts) {
-    MediaCodecProfileAndLevel defaultProfileAndLevel =
-        new MediaCodecProfileAndLevel(
-            MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-            MediaCodecInfo.CodecProfileLevel.H263Level10);
     if (parts.length < 3) {
       Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
-      return defaultProfileAndLevel;
+      return null;
     }
 
+    int profileInteger;
+    int levelInteger;
     try {
-      int profile = Integer.parseInt(parts[1]);
-      int level = Integer.parseInt(parts[2]);
-      // TODO: b/485509264 - Correctly map these to MediaCodec constants once muxer is no longer
-      // using the result of getCodecProfileAndLevel to populate a MP4 d263 box.
-      return new MediaCodecProfileAndLevel(profile, level);
+      profileInteger = Integer.parseInt(parts[1]);
+      levelInteger = Integer.parseInt(parts[2]);
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed H263 codec string: " + codec);
-      return defaultProfileAndLevel;
+      return null;
     }
+    int profile = h263ProfileNumberToConst(profileInteger);
+    if (profile == -1) {
+      Log.w(TAG, "Unknown H263 profile: " + profileInteger);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+    int level = h263LevelNumberToConst(levelInteger);
+    if (level == -1) {
+      Log.w(TAG, "Unknown H263 level: " + levelInteger);
+      return MediaCodecProfileAndLevel.UNSUPPORTABLE;
+    }
+    return new MediaCodecProfileAndLevel(profile, level);
   }
 
   @Nullable
@@ -1992,6 +1999,56 @@ public final class CodecSpecificDataUtil {
         return MediaCodecInfo.CodecProfileLevel.AC4Level3;
       case 4:
         return MediaCodecInfo.CodecProfileLevel.AC4Level4;
+      default:
+        return -1;
+    }
+  }
+
+  /** Maps H.263 Profile numbers to Android MediaCodec constants. */
+  private static int h263ProfileNumberToConst(int profileNumber) {
+    switch (profileNumber) {
+      case 0:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline;
+      case 1:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileH320Coding;
+      case 2:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileBackwardCompatible;
+      case 3:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileISWV2;
+      case 4:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileISWV3;
+      case 5:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileHighCompression;
+      case 6:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileInternet;
+      case 7:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileInterlace;
+      case 8:
+        return MediaCodecInfo.CodecProfileLevel.H263ProfileHighLatency;
+      default:
+        return -1;
+    }
+  }
+
+  /** Maps H.263 Level numbers to Android MediaCodec constants. */
+  private static int h263LevelNumberToConst(int levelNumber) {
+    switch (levelNumber) {
+      case 10:
+        return MediaCodecInfo.CodecProfileLevel.H263Level10;
+      case 20:
+        return MediaCodecInfo.CodecProfileLevel.H263Level20;
+      case 30:
+        return MediaCodecInfo.CodecProfileLevel.H263Level30;
+      case 40:
+        return MediaCodecInfo.CodecProfileLevel.H263Level40;
+      case 45:
+        return MediaCodecInfo.CodecProfileLevel.H263Level45;
+      case 50:
+        return MediaCodecInfo.CodecProfileLevel.H263Level50;
+      case 60:
+        return MediaCodecInfo.CodecProfileLevel.H263Level60;
+      case 70:
+        return MediaCodecInfo.CodecProfileLevel.H263Level70;
       default:
         return -1;
     }
