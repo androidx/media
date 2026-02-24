@@ -824,6 +824,12 @@ This release includes the following changes since
     *   Add support for displaying a media route button on a Composable UI.
     *   Add support for displaying a media route button on an action bar menu.
     *   Add support for displaying a media route button as a View UI.
+    *   Change the Cast media channel message type used to populate the Cast
+        receiver's media queue from "QUEUE_LOAD" to "LOAD"
+        ([CAF docs](https://developers.google.com/cast/docs/reference/web_receiver/cast.framework.events#.EventType)).
+        This may affect receiver applications' relying on a specific message
+        format to load the media queue
+        ([#3080](https://github.com/androidx/media/issues/3080)).
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
         defaults to 1 second, but is configurable via `FakeClock.Builder`.
