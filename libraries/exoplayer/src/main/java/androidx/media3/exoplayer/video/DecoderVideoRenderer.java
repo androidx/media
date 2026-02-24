@@ -142,6 +142,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   private @C.FirstFrameState int firstFrameState;
   private long initialPositionUs;
   private long joiningDeadlineMs;
+  private boolean joiningRenderNextFrameImmediately;
   private boolean waitingForFirstSampleInFormat;
 
   private boolean inputStreamEnded;
@@ -183,8 +184,6 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
     decoderCounters = new DecoderCounters();
   }
-
-  // BaseRenderer implementation.
 
   @Override
   public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
@@ -304,7 +303,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       flushDecoder();
     }
     if (joining) {
-      setJoiningDeadlineMs();
+      setJoiningDeadlineMs(/* renderNextFrameImmediately= */ false);
     } else {
       joiningDeadlineMs = C.TIME_UNSET;
     }
@@ -537,11 +536,16 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     if (droppedSourceBufferCount == 0) {
       return false;
     }
-    decoderCounters.droppedToKeyframeCount++;
-    // We dropped some buffers to catch up, so update the decoder counters and flush the decoder,
-    // which releases all pending buffers buffers including the current output buffer.
-    updateDroppedBufferCounters(
-        droppedSourceBufferCount, /* droppedDecoderBufferCount= */ buffersInCodecCount);
+    if (isJoiningInProgress() && !joiningRenderNextFrameImmediately) {
+      decoderCounters.skippedInputBufferCount += droppedSourceBufferCount;
+      decoderCounters.skippedOutputBufferCount += buffersInCodecCount;
+    } else {
+      decoderCounters.droppedToKeyframeCount++;
+      // We dropped some buffers to catch up, so update the decoder counters and flush the decoder,
+      // which releases all pending buffers including the current output buffer.
+      updateDroppedBufferCounters(
+          droppedSourceBufferCount, /* droppedDecoderBufferCount= */ buffersInCodecCount);
+    }
     flushDecoder();
     return true;
   }
@@ -894,12 +898,15 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       return false;
     }
 
-    // TODO: Treat dropped buffers as skipped while we are joining an ongoing playback.
     if (shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs)
         && maybeDropBuffersToKeyframe(positionUs)) {
       return false;
     } else if (shouldDropOutputBuffer(earlyUs, elapsedRealtimeUs)) {
-      dropOutputBuffer(outputBuffer);
+      if (isJoiningInProgress() && !joiningRenderNextFrameImmediately) {
+        skipOutputBuffer(outputBuffer);
+      } else {
+        dropOutputBuffer(outputBuffer);
+      }
       return true;
     }
 
@@ -913,7 +920,9 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
 
   /** Returns whether a buffer or a processed frame should be force rendered. */
   private boolean shouldForceRender(long earlyUs) {
-    // TODO: We shouldn't force render while we are joining an ongoing playback.
+    if (isJoiningInProgress() && !joiningRenderNextFrameImmediately) {
+      return false;
+    }
     boolean isStarted = getState() == STATE_STARTED;
     switch (firstFrameState) {
       case C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED:
@@ -938,7 +947,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     // We haven't rendered to the new output yet.
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     if (getState() == STATE_STARTED) {
-      setJoiningDeadlineMs();
+      setJoiningDeadlineMs(/* renderNextFrameImmediately= */ true);
     }
   }
 
@@ -954,7 +963,13 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     maybeRenotifyRenderedFirstFrame();
   }
 
-  private void setJoiningDeadlineMs() {
+  /**
+   * Sets the deadline for joining.
+   *
+   * @param renderNextFrameImmediately Whether the next frame should be rendered immediately.
+   */
+  protected void setJoiningDeadlineMs(boolean renderNextFrameImmediately) {
+    joiningRenderNextFrameImmediately = renderNextFrameImmediately;
     joiningDeadlineMs =
         allowedJoiningTimeMs > 0
             ? (SystemClock.elapsedRealtime() + allowedJoiningTimeMs)
@@ -1003,6 +1018,10 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       droppedFrames = 0;
       droppedFrameAccumulationStartTimeMs = now;
     }
+  }
+
+  private boolean isJoiningInProgress() {
+    return joiningDeadlineMs != C.TIME_UNSET;
   }
 
   private static boolean isBufferLate(long earlyUs) {

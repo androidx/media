@@ -23,6 +23,8 @@
 *   Inspector:
 *   Audio:
 *   Video:
+    *   Add support for skipping frames that are late during join rather than
+        dropping in DecoderVideoRenderer.
 *   Text:
 *   Metadata:
 *   Image:

@@ -215,7 +215,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0L,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -247,7 +247,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ false,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -278,7 +278,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ false,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
     for (int i = 0; i < 10; i++) {
@@ -323,7 +323,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         mediaPeriodId1);
     renderer.start();
 
@@ -380,7 +380,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         mediaPeriodId1);
 
     boolean replacedStream = false;
@@ -451,5 +451,455 @@ public final class DecoderVideoRendererTest {
 
     assertThat(capturedOutputFormat).isEqualTo(H264_FORMAT);
     verify(eventListener).onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+  }
+
+  @Test
+  public void render_withLateBufferWhileJoining_skipsOutputBuffer() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 10_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    renderer =
+        new DecoderVideoRenderer(
+            /* allowedJoiningTimeMs= */ 1000,
+            new Handler(),
+            eventListener,
+            /* maxDroppedFramesToNotify= */ -1) {
+          private final Phaser inputBuffersInCodecPhaser = new Phaser();
+          private @C.VideoOutputMode int outputMode;
+
+          @Override
+          public String getName() {
+            return "TestVideoRenderer";
+          }
+
+          @Override
+          public @Capabilities int supportsFormat(Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+
+          @Override
+          protected void setDecoderOutputMode(@C.VideoOutputMode int outputMode) {
+            this.outputMode = outputMode;
+          }
+
+          @Override
+          protected void renderOutputBuffer(
+              VideoDecoderOutputBuffer outputBuffer, long presentationTimeUs, Format outputFormat)
+              throws DecoderException {
+            capturedOutputFormat = outputFormat;
+            super.renderOutputBuffer(outputBuffer, presentationTimeUs, outputFormat);
+          }
+
+          @Override
+          protected void renderOutputBufferToSurface(
+              VideoDecoderOutputBuffer outputBuffer, Surface surface) {}
+
+          @Override
+          protected void onQueueInputBuffer(DecoderInputBuffer buffer) {
+            int currentPhase = inputBuffersInCodecPhaser.register();
+            new Handler().post(() -> inputBuffersInCodecPhaser.awaitAdvance(currentPhase));
+            super.onQueueInputBuffer(buffer);
+          }
+
+          @Override
+          protected SimpleDecoder<
+                  DecoderInputBuffer,
+                  ? extends VideoDecoderOutputBuffer,
+                  ? extends DecoderException>
+              createDecoder(Format format, @Nullable CryptoConfig cryptoConfig) {
+            return new SimpleDecoder<
+                DecoderInputBuffer, VideoDecoderOutputBuffer, DecoderException>(
+                new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
+              @Override
+              protected DecoderInputBuffer createInputBuffer() {
+                return new DecoderInputBuffer(2) {
+                  @Override
+                  public void clear() {
+                    super.clear();
+                    inputBuffersInCodecPhaser.arriveAndDeregister();
+                  }
+                };
+              }
+
+              @Override
+              protected VideoDecoderOutputBuffer createOutputBuffer() {
+                return new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+              }
+
+              @Override
+              protected DecoderException createUnexpectedDecodeException(Throwable error) {
+                return new DecoderException("error", error);
+              }
+
+              @Nullable
+              @Override
+              protected DecoderException decode(
+                  DecoderInputBuffer inputBuffer,
+                  VideoDecoderOutputBuffer outputBuffer,
+                  boolean reset) {
+                outputBuffer.init(inputBuffer.timeUs, outputMode, /* supplementalData= */ null);
+                return null;
+              }
+
+              @Override
+              public String getName() {
+                return "TestDecoder";
+              }
+            };
+          }
+        };
+    renderer.setOutput(surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.onPositionReset(0, /* joining= */ true, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    // Fast-forward position to make the second frame late (position 100ms, frame at 10ms).
+    // earlyUs = 10ms - 100ms = -90ms (which is < -30ms threshold).
+    for (int i = 0; i < 6; i++) {
+      renderer.render(/* positionUs= */ 100_000 + i, SystemClock.elapsedRealtime() * 1000);
+      ShadowLooper.idleMainLooper();
+    }
+
+    assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(2);
+    assertThat(renderer.decoderCounters.droppedBufferCount).isEqualTo(0);
+  }
+
+  @Test
+  public void render_withVeryLateBufferWhileJoining_skipsBuffersToKeyFrame() throws Exception {
+    ImmutableList.Builder<FakeSampleStream.FakeSampleStreamItem> samples =
+        new ImmutableList.Builder<>();
+    samples.add(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME));
+    for (int i = 1; i < 20; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 10_000));
+    }
+    samples.add(oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME));
+    samples.add(END_OF_STREAM_ITEM);
+
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            samples.build());
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    renderer =
+        new DecoderVideoRenderer(
+            /* allowedJoiningTimeMs= */ 1000,
+            new Handler(),
+            eventListener,
+            /* maxDroppedFramesToNotify= */ -1) {
+          private final Phaser inputBuffersInCodecPhaser = new Phaser();
+          private @C.VideoOutputMode int outputMode;
+
+          @Override
+          public String getName() {
+            return "TestVideoRenderer";
+          }
+
+          @Override
+          public @Capabilities int supportsFormat(Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+
+          @Override
+          protected void setDecoderOutputMode(@C.VideoOutputMode int outputMode) {
+            this.outputMode = outputMode;
+          }
+
+          @Override
+          protected void renderOutputBuffer(
+              VideoDecoderOutputBuffer outputBuffer, long presentationTimeUs, Format outputFormat)
+              throws DecoderException {
+            capturedOutputFormat = outputFormat;
+            super.renderOutputBuffer(outputBuffer, presentationTimeUs, outputFormat);
+          }
+
+          @Override
+          protected void renderOutputBufferToSurface(
+              VideoDecoderOutputBuffer outputBuffer, Surface surface) {}
+
+          @Override
+          protected void onQueueInputBuffer(DecoderInputBuffer buffer) {
+            int currentPhase = inputBuffersInCodecPhaser.register();
+            new Handler().post(() -> inputBuffersInCodecPhaser.awaitAdvance(currentPhase));
+            super.onQueueInputBuffer(buffer);
+          }
+
+          @Override
+          protected SimpleDecoder<
+                  DecoderInputBuffer,
+                  ? extends VideoDecoderOutputBuffer,
+                  ? extends DecoderException>
+              createDecoder(Format format, @Nullable CryptoConfig cryptoConfig) {
+            return new SimpleDecoder<
+                DecoderInputBuffer, VideoDecoderOutputBuffer, DecoderException>(
+                new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
+              @Override
+              protected DecoderInputBuffer createInputBuffer() {
+                return new DecoderInputBuffer(2) {
+                  @Override
+                  public void clear() {
+                    super.clear();
+                    inputBuffersInCodecPhaser.arriveAndDeregister();
+                  }
+                };
+              }
+
+              @Override
+              protected VideoDecoderOutputBuffer createOutputBuffer() {
+                return new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+              }
+
+              @Override
+              protected DecoderException createUnexpectedDecodeException(Throwable error) {
+                return new DecoderException("error", error);
+              }
+
+              @Nullable
+              @Override
+              protected DecoderException decode(
+                  DecoderInputBuffer inputBuffer,
+                  VideoDecoderOutputBuffer outputBuffer,
+                  boolean reset) {
+                outputBuffer.init(inputBuffer.timeUs, outputMode, /* supplementalData= */ null);
+                return null;
+              }
+
+              @Override
+              public String getName() {
+                return "TestDecoder";
+              }
+            };
+          }
+        };
+    renderer.setOutput(surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.onPositionReset(0, /* joining= */ true, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    // Fast-forward position to make the first frame VERY late (position 600ms, frame at 0ms).
+    // earlyUs = 0ms - 600ms = -600ms (which is < -500ms threshold).
+    for (int i = 0; i < 6; i++) {
+      renderer.render(/* positionUs= */ 600_000 + i, SystemClock.elapsedRealtime() * 1000);
+      ShadowLooper.idleMainLooper();
+    }
+
+    // It should skip all buffers until the next keyframe at 200_000 us. There are 20 buffers
+    // (from 0 to 190_000 us). Plus the keyframe at 200_000 us which is also late.
+    assertThat(
+            renderer.decoderCounters.skippedInputBufferCount
+                + renderer.decoderCounters.skippedOutputBufferCount)
+        .isEqualTo(21);
+    assertThat(renderer.decoderCounters.droppedBufferCount).isEqualTo(0);
+  }
+
+  @Test
+  public void render_notDuringJoining_dropsVeryLateBuffersToKeyframe() throws Exception {
+    ImmutableList.Builder<FakeSampleStream.FakeSampleStreamItem> samples =
+        new ImmutableList.Builder<>();
+    samples.add(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME));
+    for (int i = 1; i < 20; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 10_000));
+    }
+    samples.add(oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_KEY_FRAME));
+    samples.add(END_OF_STREAM_ITEM);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            samples.build());
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // Fast-forward position to make the first frame VERY late (position 600ms, frame at 0ms).
+    for (int i = 0; i < 20; i++) {
+      renderer.render(/* positionUs= */ 600_000 + i, SystemClock.elapsedRealtime() * 1000);
+      ShadowLooper.idleMainLooper();
+    }
+
+    // It should drop all buffers until the next keyframe at 200_000 us. There are 20 buffers
+    // (from 0 to 190_000 us).
+    assertThat(renderer.decoderCounters.droppedToKeyframeCount).isEqualTo(1);
+    assertThat(renderer.decoderCounters.droppedBufferCount).isEqualTo(20);
+    assertThat(renderer.decoderCounters.skippedInputBufferCount).isEqualTo(0);
+    assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(0);
+  }
+
+  @Test
+  public void render_withLateBufferWhileJoining_doesNotForceRenderFrame() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 10_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    renderer =
+        new DecoderVideoRenderer(
+            /* allowedJoiningTimeMs= */ 1000,
+            new Handler(),
+            eventListener,
+            /* maxDroppedFramesToNotify= */ -1) {
+          private final Phaser inputBuffersInCodecPhaser = new Phaser();
+          private @C.VideoOutputMode int outputMode;
+
+          @Override
+          public String getName() {
+            return "TestVideoRenderer";
+          }
+
+          @Override
+          public @Capabilities int supportsFormat(Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+
+          @Override
+          protected void setDecoderOutputMode(@C.VideoOutputMode int outputMode) {
+            this.outputMode = outputMode;
+          }
+
+          @Override
+          protected void renderOutputBuffer(
+              VideoDecoderOutputBuffer outputBuffer, long presentationTimeUs, Format outputFormat)
+              throws DecoderException {
+            capturedOutputFormat = outputFormat;
+            super.renderOutputBuffer(outputBuffer, presentationTimeUs, outputFormat);
+          }
+
+          @Override
+          protected void renderOutputBufferToSurface(
+              VideoDecoderOutputBuffer outputBuffer, Surface surface) {}
+
+          @Override
+          protected void onQueueInputBuffer(DecoderInputBuffer buffer) {
+            int currentPhase = inputBuffersInCodecPhaser.register();
+            new Handler().post(() -> inputBuffersInCodecPhaser.awaitAdvance(currentPhase));
+            super.onQueueInputBuffer(buffer);
+          }
+
+          @Override
+          protected SimpleDecoder<
+                  DecoderInputBuffer,
+                  ? extends VideoDecoderOutputBuffer,
+                  ? extends DecoderException>
+              createDecoder(Format format, @Nullable CryptoConfig cryptoConfig) {
+            return new SimpleDecoder<
+                DecoderInputBuffer, VideoDecoderOutputBuffer, DecoderException>(
+                new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
+              @Override
+              protected DecoderInputBuffer createInputBuffer() {
+                return new DecoderInputBuffer(2) {
+                  @Override
+                  public void clear() {
+                    super.clear();
+                    inputBuffersInCodecPhaser.arriveAndDeregister();
+                  }
+                };
+              }
+
+              @Override
+              protected VideoDecoderOutputBuffer createOutputBuffer() {
+                return new VideoDecoderOutputBuffer(this::releaseOutputBuffer);
+              }
+
+              @Override
+              protected DecoderException createUnexpectedDecodeException(Throwable error) {
+                return new DecoderException("error", error);
+              }
+
+              @Nullable
+              @Override
+              protected DecoderException decode(
+                  DecoderInputBuffer inputBuffer,
+                  VideoDecoderOutputBuffer outputBuffer,
+                  boolean reset) {
+                outputBuffer.init(inputBuffer.timeUs, outputMode, /* supplementalData= */ null);
+                return null;
+              }
+
+              @Override
+              public String getName() {
+                return "TestDecoder";
+              }
+            };
+          }
+        };
+    renderer.setOutput(surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ true,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.onPositionReset(0, /* joining= */ true, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    // Fast-forward position to make the first frame late (position 200ms, frame at 0ms).
+    // earlyUs = 0ms - 200ms = -200ms.
+    // In normal state, with lastRenderTime far in the past, it might force render.
+    // But during joining it should NOT force render.
+    for (int i = 0; i < 6; i++) {
+      renderer.render(/* positionUs= */ 200_000 + i, SystemClock.elapsedRealtime() * 1000);
+      ShadowLooper.idleMainLooper();
+    }
+
+    // It should skip the buffers as late, NOT force render them.
+    assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(0);
+    assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(2);
   }
 }
