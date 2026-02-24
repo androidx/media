@@ -41,18 +41,17 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.utils.io.jvm.javaio.toInputStream
-import java.io.IOException
-import java.io.InterruptedIOException
-import java.util.TreeMap
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.io.IOException
+import java.io.InterruptedIOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.min
 
 /**
  * An [HttpDataSource] that delegates to Ktor's [HttpClient].
@@ -214,11 +213,9 @@ private constructor(
 
   override fun getResponseHeaders(): Map<String, List<String>> {
     val httpResponse = response ?: return emptyMap()
-    val headers = TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER)
-    httpResponse.headers.names().forEach { name ->
-      headers[name] = httpResponse.headers.getAll(name) ?: emptyList()
+    return httpResponse.headers.names().associateWith { name ->
+      httpResponse.headers.getAll(name) ?: emptyList()
     }
-    return headers
   }
 
   override fun setRequestProperty(name: String, value: String) {
