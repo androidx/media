@@ -76,6 +76,7 @@ public final class WavUtil {
       case C.ENCODING_PCM_32BIT:
         return TYPE_PCM;
       case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_PCM_DOUBLE:
         return TYPE_FLOAT;
       // TYPE_PCM is little endian so big endian formats don't match.
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
@@ -98,7 +99,7 @@ public final class WavUtil {
       case TYPE_WAVE_FORMAT_EXTENSIBLE:
         return Util.getPcmEncoding(bitsPerSample);
       case TYPE_FLOAT:
-        return bitsPerSample == 32 ? C.ENCODING_PCM_FLOAT : C.ENCODING_INVALID;
+        return Util.getFloatPcmEncoding(bitsPerSample);
       default:
         return C.ENCODING_INVALID;
     }

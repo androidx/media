@@ -2451,9 +2451,8 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_PCM_FLOAT:
           mimeType = MimeTypes.AUDIO_RAW;
-          if (audioBitDepth == 32) {
-            pcmEncoding = C.ENCODING_PCM_FLOAT;
-          } else {
+          pcmEncoding = Util.getFloatPcmEncoding(audioBitDepth);
+          if (pcmEncoding == C.ENCODING_INVALID) {
             pcmEncoding = Format.NO_VALUE;
             mimeType = MimeTypes.AUDIO_UNKNOWN;
             Log.w(

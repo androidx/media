@@ -2131,8 +2131,8 @@ public final class BoxParser {
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
       if (!isFloat) {
         pcmEncoding = Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
-      } else if (!isBigEndian && bitsPerSample == 32) {
-        pcmEncoding = C.ENCODING_PCM_FLOAT;
+      } else if (!isBigEndian) {
+        pcmEncoding = Util.getFloatPcmEncoding(bitsPerSample);
       }
       if (pcmEncoding == C.ENCODING_INVALID) {
         pcmEncoding = Format.NO_VALUE;
@@ -2389,11 +2389,9 @@ public final class BoxParser {
         int sampleSize = parent.readUnsignedByte();
         if (atomType == Mp4Box.TYPE_ipcm) {
           pcmEncoding = Util.getPcmEncoding(sampleSize, byteOrder);
-        } else if (atomType == Mp4Box.TYPE_fpcm
-            && sampleSize == 32
-            && byteOrder.equals(LITTLE_ENDIAN)) {
-          // Only single-width little-endian floating point PCM is supported.
-          pcmEncoding = C.ENCODING_PCM_FLOAT;
+        } else if (atomType == Mp4Box.TYPE_fpcm && byteOrder.equals(LITTLE_ENDIAN)) {
+          // Only little-endian floating point PCM is supported.
+          pcmEncoding = Util.getFloatPcmEncoding(sampleSize);
         }
         if (pcmEncoding != Format.NO_VALUE) {
           mimeType = MimeTypes.AUDIO_RAW;
