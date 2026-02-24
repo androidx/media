@@ -42,12 +42,14 @@ public class ToFloatPcmAudioProcessorTest {
    *   <li>{@link C#ENCODING_PCM_16BIT}
    *   <li>{@link C#ENCODING_PCM_32BIT}
    *   <li>{@link C#ENCODING_PCM_24BIT}
+   *   <li>{@link C#ENCODING_PCM_8BIT}
    *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_16BIT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_DOUBLE}
    * </ul>
    */
-  @TestParameter({"2", "22", "21", "1610612736", "1342177280", "1879048192"})
+  @TestParameter({"2", "22", "21", "3", "1610612736", "1342177280", "268435456", "1879048192"})
   private int pcmEncoding;
 
   @Test
@@ -87,7 +89,10 @@ public class ToFloatPcmAudioProcessorTest {
 
   private static float getToleranceForEncoding(int pcmEncoding) {
     switch (pcmEncoding) {
+      case C.ENCODING_PCM_8BIT:
+        return 1f / 0x80;
       case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
         return 1f / 0x8000;
       case C.ENCODING_PCM_32BIT:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
@@ -107,9 +112,20 @@ public class ToFloatPcmAudioProcessorTest {
    */
   private static ByteBuffer getTestSamplesForEncoding(int pcmEncoding) {
     switch (pcmEncoding) {
+      case C.ENCODING_PCM_8BIT:
+        return createByteBuffer(
+            new short[] {Byte.MAX_VALUE, Byte.MIN_VALUE, Byte.MAX_VALUE / 2, Byte.MIN_VALUE / 2});
       case C.ENCODING_PCM_16BIT:
         return createByteBuffer(
             new short[] {Short.MAX_VALUE, Short.MIN_VALUE, 0x4000, (short) 0xC000});
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+        return createByteBuffer(
+            new short[] {
+              Short.reverseBytes(Short.MAX_VALUE),
+              Short.reverseBytes(Short.MIN_VALUE),
+              Short.reverseBytes((short) 0x4000),
+              Short.reverseBytes((short) 0xC000)
+            });
       case C.ENCODING_PCM_32BIT:
         return createByteBuffer(
             new int[] {
