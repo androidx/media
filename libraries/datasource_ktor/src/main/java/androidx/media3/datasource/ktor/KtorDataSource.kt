@@ -61,6 +61,7 @@ import kotlinx.coroutines.launch
  * priority) the `dataSpec`, [setRequestProperty] and the default parameters used to construct the
  * instance.
  */
+@UnstableApi
 class KtorDataSource
 private constructor(
   private val httpClient: HttpClient,
@@ -102,7 +103,6 @@ private constructor(
 
     private var contentTypePredicate: Predicate<String>? = null
 
-    @UnstableApi
     override fun setDefaultRequestProperties(
       defaultRequestProperties: Map<String, String>
     ): Factory {
@@ -134,7 +134,6 @@ private constructor(
      *   previously set value.
      * @return This factory.
      */
-    @UnstableApi
     fun setCacheControl(cacheControl: String?): Factory {
       this.cacheControl = cacheControl
       return this
@@ -150,7 +149,6 @@ private constructor(
      *   was previously set.
      * @return This factory.
      */
-    @UnstableApi
     fun setContentTypePredicate(contentTypePredicate: Predicate<String>?): Factory {
       this.contentTypePredicate = contentTypePredicate
       return this
@@ -166,13 +164,11 @@ private constructor(
      * @param transferListener The listener that will be used.
      * @return This factory.
      */
-    @UnstableApi
     fun setTransferListener(transferListener: TransferListener?): Factory {
       this.transferListener = transferListener
       return this
     }
 
-    @UnstableApi
     override fun createDataSource(): KtorDataSource {
       val client = httpClient
       val dataSource =
@@ -202,7 +198,6 @@ private constructor(
   private var bytesToRead: Long = 0
   private var bytesRead: Long = 0
 
-  @UnstableApi
   override fun getUri(): Uri? {
     return if (response != null) {
       Uri.parse(response!!.request.url.toString())
@@ -213,12 +208,10 @@ private constructor(
     }
   }
 
-  @UnstableApi
   override fun getResponseCode(): Int {
     return response?.status?.value ?: -1
   }
 
-  @UnstableApi
   override fun getResponseHeaders(): Map<String, List<String>> {
     val httpResponse = response ?: return emptyMap()
     val headers = TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER)
@@ -228,25 +221,21 @@ private constructor(
     return headers
   }
 
-  @UnstableApi
   override fun setRequestProperty(name: String, value: String) {
     requireNotNull(name) { "name cannot be null" }
     requireNotNull(value) { "value cannot be null" }
     requestProperties.set(name, value)
   }
 
-  @UnstableApi
   override fun clearRequestProperty(name: String) {
     requireNotNull(name) { "name cannot be null" }
     requestProperties.remove(name)
   }
 
-  @UnstableApi
   override fun clearAllRequestProperties() {
     requestProperties.clear()
   }
 
-  @UnstableApi
   @Throws(HttpDataSource.HttpDataSourceException::class)
   override fun open(dataSpec: DataSpec): Long {
     this.dataSpec = dataSpec
@@ -336,7 +325,6 @@ private constructor(
     return bytesToRead
   }
 
-  @UnstableApi
   @Throws(HttpDataSource.HttpDataSourceException::class)
   override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
     return try {
@@ -350,7 +338,6 @@ private constructor(
     }
   }
 
-  @UnstableApi
   override fun close() {
     if (connectionEstablished) {
       connectionEstablished = false
