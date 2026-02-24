@@ -22,10 +22,9 @@ dependencies {
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
   implementation(libs.kotlinx.coroutines.core)
-  testImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(modulePrefix + "test-utils"))
   androidTestImplementation(libs.okhttp.mockwebserver)
-  testImplementation(libs.robolectric)
-  testImplementation(libs.ktor.client.okhttp)
+  androidTestImplementation(libs.ktor.client.okhttp)
   api(libs.ktor.client.core)
 }
 
