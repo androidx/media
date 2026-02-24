@@ -219,13 +219,10 @@ private constructor(
   }
 
   override fun setRequestProperty(name: String, value: String) {
-    requireNotNull(name) { "name cannot be null" }
-    requireNotNull(value) { "value cannot be null" }
     requestProperties.set(name, value)
   }
 
   override fun clearRequestProperty(name: String) {
-    requireNotNull(name) { "name cannot be null" }
     requestProperties.remove(name)
   }
 
