@@ -637,7 +637,7 @@ public final class DefaultPreloadManager
 
   private DefaultPreloadManager(Builder builder) {
     super(
-        new SimpleRankingDataComparator(),
+        builder.rankingDataComparator,
         builder.targetPreloadStatusControl,
         builder.mediaSourceFactorySupplier.get());
     rendererCapabilitiesList =

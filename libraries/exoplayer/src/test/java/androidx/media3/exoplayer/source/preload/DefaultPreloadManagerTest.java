@@ -22,8 +22,11 @@ import static java.lang.Math.abs;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,6 +65,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.SimpleRankingDataComparator;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
@@ -87,13 +91,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link DefaultPreloadManager}. */
 @RunWith(AndroidJUnit4.class)
 public class DefaultPreloadManagerTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private static final int SMALL_LOADING_CHECK_INTERVAL_BYTES = 32;
   private static final int TARGET_BUFFER_BYTES_FOR_PRELOAD =
@@ -143,6 +151,25 @@ public class DefaultPreloadManagerTest {
     downloadCache.release();
     Util.recursiveDelete(testDir);
     preloadThread.quit();
+  }
+
+  @Test
+  public void buildDefaultPreloadManager_useInjectedCustomSimpleRankingDataComparator() {
+    when(mockTargetPreloadStatusControl.getTargetPreloadStatus(anyInt()))
+        .thenReturn(DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED);
+    SimpleRankingDataComparator customSimpleRankingDataComparator =
+        spy(new SimpleRankingDataComparator());
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(
+                context, customSimpleRankingDataComparator, mockTargetPreloadStatusControl)
+            .build();
+    preloadManager.addMediaItems(
+        ImmutableList.of(
+            MediaItem.fromUri("http://exoplayer.dev/video1"),
+            MediaItem.fromUri("http://exoplayer.dev/video2")),
+        ImmutableList.of(0, 1));
+
+    verify(customSimpleRankingDataComparator, atLeastOnce()).compare(anyInt(), anyInt());
   }
 
   @Test
