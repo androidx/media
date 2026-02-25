@@ -40,19 +40,15 @@ import io.ktor.client.statement.request
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentLength
 import io.ktor.http.contentType
-import io.ktor.utils.io.jvm.javaio.toInputStream
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.availableForRead
+import io.ktor.utils.io.readAvailable
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.util.TreeMap
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.min
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runBlocking
 
 /**
  * An [HttpDataSource] that delegates to Ktor's [HttpClient].
@@ -65,7 +61,6 @@ import kotlin.math.min
 class KtorDataSource
 private constructor(
   private val httpClient: HttpClient,
-  private val coroutineScope: CoroutineScope,
   private val userAgent: String?,
   private val cacheControl: String?,
   private val defaultRequestProperties: HttpDataSource.RequestProperties?,
@@ -85,13 +80,8 @@ private constructor(
    * [androidx.media3.datasource.DataSource.Factory] for [KtorDataSource] instances.
    *
    * @param httpClient A [HttpClient] for use by the sources created by the factory.
-   * @param scope A [CoroutineScope] for running suspend functions. If not provided, a default scope
-   *   with [Dispatchers.IO] and a [SupervisorJob] will be created.
    */
-  class Factory(
-    private val httpClient: HttpClient,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-  ) : HttpDataSource.Factory {
+  class Factory(private val httpClient: HttpClient) : HttpDataSource.Factory {
 
     private val defaultRequestProperties = HttpDataSource.RequestProperties()
 
@@ -174,7 +164,6 @@ private constructor(
       val dataSource =
         KtorDataSource(
           client,
-          scope,
           userAgent,
           cacheControl,
           defaultRequestProperties,
@@ -190,9 +179,7 @@ private constructor(
 
   private var response: HttpResponse? = null
 
-  private var responseInputStream: java.io.InputStream? = null
-
-  private var currentJob: Job? = null
+  private var responseChannel: ByteReadChannel? = null
 
   private var connectionEstablished = false
   private var bytesToRead: Long = 0
@@ -241,10 +228,75 @@ private constructor(
     bytesToRead = 0
     transferInitializing(dataSpec)
 
+    val urlString = dataSpec.uri.toString()
+    val uri = Uri.parse(urlString)
+    val scheme = uri.scheme
+    if (scheme == null || !scheme.lowercase().startsWith("http")) {
+      throw HttpDataSource.HttpDataSourceException(
+        "Malformed URL",
+        dataSpec,
+        PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK,
+        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
+      )
+    }
+
+    val mergedHeaders = HashMap<String, String>()
+    defaultRequestProperties?.snapshot?.forEach { (key, value) -> mergedHeaders[key] = value }
+    requestProperties.snapshot.forEach { (key, value) -> mergedHeaders[key] = value }
+    dataSpec.httpRequestHeaders.forEach { (key, value) -> mergedHeaders[key] = value }
+
+    val httpResponse: HttpResponse
+    val channel: ByteReadChannel
     try {
-      val httpResponse = executeRequest(dataSpec)
+      runBlocking {
+        httpResponse =
+          httpClient
+            .prepareRequest {
+              url(urlString)
+
+              headers {
+                mergedHeaders.forEach { (key, value) -> append(key, value) }
+
+                val rangeHeader =
+                  HttpUtil.buildRangeRequestHeader(dataSpec.position, dataSpec.length)
+                if (rangeHeader != null) {
+                  append(HttpHeaders.RANGE, rangeHeader)
+                }
+
+                if (userAgent != null) {
+                  append(HttpHeaders.USER_AGENT, userAgent)
+                }
+
+                if (cacheControl != null) {
+                  append(HttpHeaders.CACHE_CONTROL, cacheControl)
+                }
+
+                if (!dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP)) {
+                  append(HttpHeaders.ACCEPT_ENCODING, "identity")
+                }
+              }
+
+              method =
+                when (dataSpec.httpMethod) {
+                  DataSpec.HTTP_METHOD_GET -> HttpMethod.Get
+                  DataSpec.HTTP_METHOD_POST -> HttpMethod.Post
+                  DataSpec.HTTP_METHOD_HEAD -> HttpMethod.Head
+                  else -> HttpMethod.Get
+                }
+
+              if (dataSpec.httpBody != null) {
+                setBody(dataSpec.httpBody!!)
+              } else if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
+                setBody(ByteArray(0))
+              }
+            }
+            .execute()
+        channel = httpResponse.bodyAsChannel()
+      }
       this.response = httpResponse
-      this.responseInputStream = executeSuspend { httpResponse.bodyAsChannel().toInputStream() }
+      this.responseChannel = channel
+    } catch (_: CancellationException) {
+      throw InterruptedIOException()
     } catch (e: IOException) {
       if (e is HttpDataSource.HttpDataSourceException) throw e
       throw HttpDataSource.HttpDataSourceException.createForIOException(
@@ -252,9 +304,16 @@ private constructor(
         dataSpec,
         HttpDataSource.HttpDataSourceException.TYPE_OPEN,
       )
+    } catch (e: Exception) {
+      throw HttpDataSource.HttpDataSourceException(
+        e.message ?: "Unknown error",
+        null,
+        dataSpec,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
+      )
     }
 
-    val httpResponse = this.response!!
     val responseCode = httpResponse.status.value
 
     if (responseCode !in 200..299) {
@@ -270,8 +329,13 @@ private constructor(
 
       val errorResponseBody: ByteArray =
         try {
-          responseInputStream?.readBytes() ?: Util.EMPTY_BYTE_ARRAY
-        } catch (e: IOException) {
+          runBlocking {
+            val ch = responseChannel ?: return@runBlocking Util.EMPTY_BYTE_ARRAY
+            val buffer = ByteArray(ch.availableForRead.coerceAtMost(1024 * 1024))
+            val read = ch.readAvailable(buffer)
+            if (read > 0) buffer.copyOf(read) else Util.EMPTY_BYTE_ARRAY
+          }
+        } catch (_: Exception) {
           Util.EMPTY_BYTE_ARRAY
         }
 
@@ -314,10 +378,13 @@ private constructor(
     transferStarted(dataSpec)
 
     try {
-      skipFully(bytesToSkip, dataSpec)
+      runBlocking { skipFully(bytesToSkip, dataSpec) }
     } catch (e: HttpDataSource.HttpDataSourceException) {
       closeConnectionQuietly()
       throw e
+    } catch (_: CancellationException) {
+      closeConnectionQuietly()
+      throw InterruptedIOException()
     }
 
     return bytesToRead
@@ -326,11 +393,26 @@ private constructor(
   @Throws(HttpDataSource.HttpDataSourceException::class)
   override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
     return try {
-      readInternal(buffer, offset, length)
+      runBlocking { readInternal(buffer, offset, length) }
+    } catch (_: CancellationException) {
+      throw HttpDataSource.HttpDataSourceException(
+        InterruptedIOException(),
+        dataSpec!!,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        HttpDataSource.HttpDataSourceException.TYPE_READ,
+      )
     } catch (e: IOException) {
       throw HttpDataSource.HttpDataSourceException.createForIOException(
         e,
         dataSpec!!,
+        HttpDataSource.HttpDataSourceException.TYPE_READ,
+      )
+    } catch (e: Exception) {
+      throw HttpDataSource.HttpDataSourceException(
+        e.message ?: "Unknown error",
+        null,
+        dataSpec!!,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
         HttpDataSource.HttpDataSourceException.TYPE_READ,
       )
     }
@@ -346,124 +428,18 @@ private constructor(
     dataSpec = null
   }
 
-  @Throws(IOException::class)
-  private fun executeRequest(dataSpec: DataSpec): HttpResponse {
-    val urlString = dataSpec.uri.toString()
-
-    val uri = Uri.parse(urlString)
-    val scheme = uri.scheme
-    if (scheme == null || !scheme.lowercase().startsWith("http")) {
-      throw HttpDataSource.HttpDataSourceException(
-        "Malformed URL",
-        dataSpec,
-        PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK,
-        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
-      )
-    }
-
-    val mergedHeaders = HashMap<String, String>()
-    defaultRequestProperties?.snapshot?.forEach { (key, value) -> mergedHeaders[key] = value }
-    requestProperties.snapshot.forEach { (key, value) -> mergedHeaders[key] = value }
-    dataSpec.httpRequestHeaders.forEach { (key, value) -> mergedHeaders[key] = value }
-
-    return executeSuspend {
-      httpClient
-        .prepareRequest {
-          url(urlString)
-
-          headers {
-            mergedHeaders.forEach { (key, value) -> append(key, value) }
-
-            val rangeHeader = HttpUtil.buildRangeRequestHeader(dataSpec.position, dataSpec.length)
-            if (rangeHeader != null) {
-              append(HttpHeaders.RANGE, rangeHeader)
-            }
-
-            if (userAgent != null) {
-              append(HttpHeaders.USER_AGENT, userAgent)
-            }
-
-            if (cacheControl != null) {
-              append(HttpHeaders.CACHE_CONTROL, cacheControl)
-            }
-
-            if (!dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP)) {
-              append(HttpHeaders.ACCEPT_ENCODING, "identity")
-            }
-          }
-
-          method =
-            when (dataSpec.httpMethod) {
-              DataSpec.HTTP_METHOD_GET -> HttpMethod.Get
-              DataSpec.HTTP_METHOD_POST -> HttpMethod.Post
-              DataSpec.HTTP_METHOD_HEAD -> HttpMethod.Head
-              else -> HttpMethod.Get
-            }
-
-          if (dataSpec.httpBody != null) {
-            setBody(dataSpec.httpBody!!)
-          } else if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
-            setBody(ByteArray(0))
-          }
-        }
-        .execute()
-    }
-  }
-
-  @Throws(IOException::class)
-  private fun <T> executeSuspend(block: suspend () -> T): T {
-    val exceptionRef = AtomicReference<Throwable?>(null)
-    val resultRef = AtomicReference<T?>(null)
-    val latch = CountDownLatch(1)
-
-    currentJob =
-      coroutineScope.launch {
-        try {
-          resultRef.set(block())
-        } catch (e: CancellationException) {
-          exceptionRef.set(InterruptedIOException())
-        } catch (e: Exception) {
-          exceptionRef.set(e)
-        } finally {
-          latch.countDown()
-        }
-      }
-
-    try {
-      latch.await()
-    } catch (e: InterruptedException) {
-      currentJob?.cancel()
-      throw InterruptedIOException()
-    }
-
-    exceptionRef.get()?.let { throwable ->
-      when (throwable) {
-        is IOException -> throw throwable
-        is InterruptedIOException -> throw throwable
-        else -> throw IOException(throwable)
-      }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    return resultRef.get() as T
-  }
-
   @Throws(HttpDataSource.HttpDataSourceException::class)
-  private fun skipFully(bytesToSkip: Long, dataSpec: DataSpec) {
+  private suspend fun skipFully(bytesToSkip: Long, dataSpec: DataSpec) {
     if (bytesToSkip == 0L) return
 
     val skipBuffer = ByteArray(4096)
     var remaining = bytesToSkip
 
     try {
-      val inputStream = responseInputStream ?: throw IOException("Stream closed")
+      val channel = responseChannel ?: throw IOException("Channel closed")
       while (remaining > 0) {
         val readLength = min(remaining.toInt(), skipBuffer.size)
-        val read = inputStream.read(skipBuffer, 0, readLength)
-
-        if (Thread.currentThread().isInterrupted) {
-          throw InterruptedIOException()
-        }
+        val read = channel.readAvailable(skipBuffer, 0, readLength)
 
         if (read < 0) {
           throw HttpDataSource.HttpDataSourceException(
@@ -487,7 +463,7 @@ private constructor(
   }
 
   @Throws(IOException::class)
-  private fun readInternal(buffer: ByteArray, offset: Int, readLength: Int): Int {
+  private suspend fun readInternal(buffer: ByteArray, offset: Int, readLength: Int): Int {
     if (readLength == 0) return 0
 
     if (bytesToRead != C.LENGTH_UNSET.toLong()) {
@@ -495,16 +471,16 @@ private constructor(
       if (bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
 
       val actualReadLength = min(readLength.toLong(), bytesRemaining).toInt()
-      return readFromStream(buffer, offset, actualReadLength)
+      return readFromChannel(buffer, offset, actualReadLength)
     }
 
-    return readFromStream(buffer, offset, readLength)
+    return readFromChannel(buffer, offset, readLength)
   }
 
   @Throws(IOException::class)
-  private fun readFromStream(buffer: ByteArray, offset: Int, readLength: Int): Int {
-    val inputStream = responseInputStream ?: return C.RESULT_END_OF_INPUT
-    val read = inputStream.read(buffer, offset, readLength)
+  private suspend fun readFromChannel(buffer: ByteArray, offset: Int, readLength: Int): Int {
+    val channel = responseChannel ?: return C.RESULT_END_OF_INPUT
+    val read = channel.readAvailable(buffer, offset, readLength)
 
     if (read < 0) return C.RESULT_END_OF_INPUT
 
@@ -514,8 +490,7 @@ private constructor(
   }
 
   private fun closeConnectionQuietly() {
-    responseInputStream?.close()
-    responseInputStream = null
-    currentJob = null
+    responseChannel?.cancel(null)
+    responseChannel = null
   }
 }
