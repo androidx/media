@@ -2130,17 +2130,12 @@ public final class BoxParser {
       boolean isFloat = (formatSpecificFlags & 1) != 0;
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
       if (!isFloat) {
-        if (bitsPerSample == 8) {
-          pcmEncoding = C.ENCODING_PCM_8BIT;
-        } else if (bitsPerSample == 16) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_16BIT_BIG_ENDIAN : C.ENCODING_PCM_16BIT;
-        } else if (bitsPerSample == 24) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_24BIT_BIG_ENDIAN : C.ENCODING_PCM_24BIT;
-        } else if (bitsPerSample == 32) {
-          pcmEncoding = isBigEndian ? C.ENCODING_PCM_32BIT_BIG_ENDIAN : C.ENCODING_PCM_32BIT;
-        }
+        pcmEncoding = Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
       } else if (!isBigEndian && bitsPerSample == 32) {
         pcmEncoding = C.ENCODING_PCM_FLOAT;
+      }
+      if (pcmEncoding == C.ENCODING_INVALID) {
+        pcmEncoding = Format.NO_VALUE;
       }
       parent.skipBytes(8); // constBytesPerAudioPacket, constLPCMFramesPerAudioPacket
     } else {
