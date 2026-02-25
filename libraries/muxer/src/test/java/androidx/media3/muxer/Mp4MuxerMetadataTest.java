@@ -72,7 +72,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_0_orientation.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_0_orientation.mp4"));
   }
 
   @Test
@@ -97,7 +97,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_90_orientation.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_90_orientation.mp4"));
   }
 
   @Test
@@ -122,7 +122,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_180_orientation.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_180_orientation.mp4"));
   }
 
   @Test
@@ -147,7 +147,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_270_orientation.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_270_orientation.mp4"));
   }
 
   @Test
@@ -171,7 +171,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_location.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_location.mp4"));
   }
 
   @Test
@@ -194,7 +194,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_null_location.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_null_location.mp4"));
   }
 
   @Test
@@ -221,7 +221,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_frame_rate.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_frame_rate.mp4"));
   }
 
   @Test
@@ -247,7 +247,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_string_metadata.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_string_metadata.mp4"));
   }
 
   @Test
@@ -290,7 +290,7 @@ public class Mp4MuxerMetadataTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_float_metadata.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_float_metadata.mp4"));
   }
 
   @Test
@@ -314,6 +314,6 @@ public class Mp4MuxerMetadataTest {
         new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
     // The uuid box should be present in the output MP4.
     DumpFileAsserts.assertOutput(
-        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("mp4_with_xmp.mp4"));
+        context, dumpableBox, MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_xmp.mp4"));
   }
 }

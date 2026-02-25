@@ -154,6 +154,9 @@ public final class MimeTypes {
   @UnstableApi public static final String APPLICATION_META = BASE_TYPE_APPLICATION + "/meta";
 
   @UnstableApi
+  public static final String APPLICATION_ITUT_T35 = BASE_TYPE_APPLICATION + "/x-itut-t35";
+
+  @UnstableApi
   public static final String APPLICATION_DEPTH_METADATA =
       BASE_TYPE_APPLICATION + "/x-depth-metadata";
 
@@ -276,9 +279,8 @@ public final class MimeTypes {
 
   /**
    * Returns true if it is known that all samples in a stream of the given MIME type and codec are
-   * guaranteed to be sync samples (i.e., {@link C#BUFFER_FLAG_KEY_FRAME} is guaranteed to be set on
-   * every sample) and the inherent duration of each sample is negligible (i.e., we never expect to
-   * require a sample because playback partially falls into its duration).
+   * guaranteed to be sync samples, i.e., {@link C#BUFFER_FLAG_KEY_FRAME} is guaranteed to be set on
+   * every sample and no additional samples are needed to start decoding.
    *
    * @param mimeType The MIME type of the stream.
    * @param codec The RFC 6381 codec string of the stream, or {@code null} if unknown.
@@ -290,11 +292,8 @@ public final class MimeTypes {
     if (mimeType == null) {
       return false;
     }
-    // TODO: Add additional audio MIME types. Also consider evaluating based on Format rather than
-    // just MIME type, since in some cases the property is true for a subset of the profiles
-    // belonging to a single MIME type. If we do this, we should move the method to a different
-    // class. See [Internal ref: http://go/exo-audio-format-random-access].
     switch (mimeType) {
+      case VIDEO_APV:
       case AUDIO_MPEG:
       case AUDIO_MPEG_L1:
       case AUDIO_MPEG_L2:
@@ -305,6 +304,15 @@ public final class MimeTypes {
       case AUDIO_AC3:
       case AUDIO_E_AC3:
       case AUDIO_E_AC3_JOC:
+      case APPLICATION_MEDIA3_CUES:
+      case APPLICATION_ID3:
+      case APPLICATION_EMSG:
+      case APPLICATION_SCTE35:
+      case APPLICATION_ICY:
+      case APPLICATION_AIT:
+      case APPLICATION_META:
+      case APPLICATION_ITUT_T35:
+      case APPLICATION_CAMERA_MOTION:
         return true;
       case AUDIO_AAC:
         if (codec == null) {
@@ -459,7 +467,8 @@ public final class MimeTypes {
     } else if (codec.startsWith("dvav")
         || codec.startsWith("dva1")
         || codec.startsWith("dvhe")
-        || codec.startsWith("dvh1")) {
+        || codec.startsWith("dvh1")
+        || codec.startsWith("dav1")) {
       return MimeTypes.VIDEO_DOLBY_VISION;
     } else if (codec.startsWith("av01")) {
       return MimeTypes.VIDEO_AV1;
@@ -614,8 +623,8 @@ public final class MimeTypes {
     if (codecs == null) {
       return false;
     }
-    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1")) {
-      // profile 5
+    if (codecs.startsWith("dvhe") || codecs.startsWith("dvh1") || codecs.startsWith("dav1")) {
+      // profiles 5, 10.0 and 20.0
       return true;
     }
     if (supplementalCodecs == null) {
@@ -654,7 +663,8 @@ public final class MimeTypes {
         || APPLICATION_SCTE35.equals(mimeType)
         || APPLICATION_ICY.equals(mimeType)
         || APPLICATION_AIT.equals(mimeType)
-        || APPLICATION_META.equals(mimeType)) {
+        || APPLICATION_META.equals(mimeType)
+        || APPLICATION_ITUT_T35.equals(mimeType)) {
       return C.TRACK_TYPE_METADATA;
     } else if (APPLICATION_CAMERA_MOTION.equals(mimeType)) {
       return C.TRACK_TYPE_CAMERA_MOTION;

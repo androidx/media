@@ -404,8 +404,6 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     verifySinglePlaybackLooper();
     if (listeners == null) {
       listeners = new ListenerSet<>(Thread.currentThread());
-      // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
-      listeners.setThrowsWhenUsingWrongThread(false);
     }
     listeners.add(listener);
   }
@@ -431,6 +429,13 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     if (audioCapabilitiesReceiver != null) {
       audioCapabilitiesReceiver.unregister();
     }
+  }
+
+  /** Returns the {@link AudioCapabilities}. */
+  @UnstableApi
+  @Nullable
+  public AudioCapabilities getAudioCapabilities() {
+    return audioCapabilities;
   }
 
   private android.media.AudioAttributes getAudioTrackAttributes(

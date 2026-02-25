@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.source;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
@@ -54,7 +55,12 @@ public final class MergingMediaPeriodTest {
   private static final Format childFormat22 = new Format.Builder().setId("2_2").build();
 
   @Test
-  public void getTrackGroups_returnsAllChildTrackGroups() throws Exception {
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, MergingMediaPeriod.class);
+  }
+
+  @Test
+  public void getTrackGroups_returnsAllChildTrackGroupsWithUniqueIds() throws Exception {
     MergingMediaPeriod mergingMediaPeriod =
         prepareMergingPeriod(
             new MergingPeriodDefinition(
@@ -67,6 +73,38 @@ public final class MergingMediaPeriodTest {
     assertThat(mergingMediaPeriod.getTrackGroups().get(1).getFormat(0).id).isEqualTo("0:1_2");
     assertThat(mergingMediaPeriod.getTrackGroups().get(2).getFormat(0).id).isEqualTo("1:2_1");
     assertThat(mergingMediaPeriod.getTrackGroups().get(3).getFormat(0).id).isEqualTo("1:2_2");
+  }
+
+  @Test
+  public void getTrackGroups_withPrimaryTrackGroupIds_keepsMatchingIds() throws Exception {
+    MergingMediaPeriod mergingMediaPeriod =
+        prepareMergingPeriod(
+            new MergingPeriodDefinition(
+                /* groupIds= */ ImmutableList.of("A", "B"),
+                /* timeOffsetUs= */ 0,
+                /* singleSampleTimeUs= */ 0,
+                childFormat11,
+                childFormat12),
+            new MergingPeriodDefinition(
+                /* groupIds= */ ImmutableList.of("A", "B"),
+                /* timeOffsetUs= */ 0,
+                /* singleSampleTimeUs= */ 0,
+                childFormat21,
+                childFormat22.buildUpon().setPrimaryTrackGroupId("A").build()));
+
+    assertThat(mergingMediaPeriod.getTrackGroups().length).isEqualTo(4);
+    assertThat(mergingMediaPeriod.getTrackGroups().get(0).id).isEqualTo("0:A");
+    assertThat(mergingMediaPeriod.getTrackGroups().get(1).id).isEqualTo("0:B");
+    assertThat(mergingMediaPeriod.getTrackGroups().get(2).id).isEqualTo("1:A");
+    assertThat(mergingMediaPeriod.getTrackGroups().get(3).id).isEqualTo("1:B");
+    assertThat(mergingMediaPeriod.getTrackGroups().get(0).getFormat(0).primaryTrackGroupId)
+        .isNull();
+    assertThat(mergingMediaPeriod.getTrackGroups().get(1).getFormat(0).primaryTrackGroupId)
+        .isNull();
+    assertThat(mergingMediaPeriod.getTrackGroups().get(2).getFormat(0).primaryTrackGroupId)
+        .isNull();
+    assertThat(mergingMediaPeriod.getTrackGroups().get(3).getFormat(0).primaryTrackGroupId)
+        .isEqualTo("1:A");
   }
 
   @Test
@@ -239,6 +277,61 @@ public final class MergingMediaPeriodTest {
     assertThat(selectionChild2.indexOf(childFormat22)).isEqualTo(0);
   }
 
+  @Test
+  public void selectTracks_withPrimaryTrackGroupIds_forwardsSelectionsWithChildIdsToChildSources()
+      throws Exception {
+    Format adjustedChildFormat11 = childFormat11.buildUpon().setPrimaryTrackGroupId("B").build();
+    Format adjustedChildFormat22 = childFormat22.buildUpon().setPrimaryTrackGroupId("A").build();
+    MergingMediaPeriod mergingMediaPeriod =
+        prepareMergingPeriod(
+            new MergingPeriodDefinition(
+                /* groupIds= */ ImmutableList.of("A", "B"),
+                /* timeOffsetUs= */ 0,
+                /* singleSampleTimeUs= */ 0,
+                adjustedChildFormat11,
+                childFormat12),
+            new MergingPeriodDefinition(
+                /* groupIds= */ ImmutableList.of("A", "B"),
+                /* timeOffsetUs= */ 0,
+                /* singleSampleTimeUs= */ 0,
+                childFormat21,
+                adjustedChildFormat22));
+    FakeMediaPeriodWithSelectionParameters childMediaPeriod1 =
+        (FakeMediaPeriodWithSelectionParameters) mergingMediaPeriod.getChildPeriod(0);
+    FakeMediaPeriodWithSelectionParameters childMediaPeriod2 =
+        (FakeMediaPeriodWithSelectionParameters) mergingMediaPeriod.getChildPeriod(1);
+    TrackGroupArray mergedTrackGroups = mergingMediaPeriod.getTrackGroups();
+    ExoTrackSelection[] selectionArray =
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(mergedTrackGroups.get(0), /* track= */ 0),
+          new FixedTrackSelection(mergedTrackGroups.get(1), /* track= */ 0),
+          new FixedTrackSelection(mergedTrackGroups.get(2), /* track= */ 0),
+          new FixedTrackSelection(mergedTrackGroups.get(3), /* track= */ 0)
+        };
+
+    mergingMediaPeriod.selectTracks(
+        selectionArray,
+        /* mayRetainStreamFlags= */ new boolean[4],
+        /* streams= */ new SampleStream[4],
+        /* streamResetFlags= */ new boolean[4],
+        /* positionUs= */ 0);
+
+    ExoTrackSelection[] selectionsChild1 = childMediaPeriod1.selectTracksSelections;
+    ExoTrackSelection[] selectionsChild2 = childMediaPeriod2.selectTracksSelections;
+    assertThat(selectionsChild1[0].getSelectedFormat()).isEqualTo(adjustedChildFormat11);
+    assertThat(selectionsChild1[1].getSelectedFormat()).isEqualTo(childFormat12);
+    assertThat(selectionsChild2[2].getSelectedFormat()).isEqualTo(childFormat21);
+    assertThat(selectionsChild2[3].getSelectedFormat()).isEqualTo(adjustedChildFormat22);
+    assertThat(selectionsChild1[0].getFormat(/* index= */ 0)).isEqualTo(adjustedChildFormat11);
+    assertThat(selectionsChild1[1].getFormat(/* index= */ 0)).isEqualTo(childFormat12);
+    assertThat(selectionsChild2[2].getFormat(/* index= */ 0)).isEqualTo(childFormat21);
+    assertThat(selectionsChild2[3].getFormat(/* index= */ 0)).isEqualTo(adjustedChildFormat22);
+    assertThat(selectionsChild1[0].indexOf(adjustedChildFormat11)).isEqualTo(0);
+    assertThat(selectionsChild1[1].indexOf(childFormat12)).isEqualTo(0);
+    assertThat(selectionsChild2[2].indexOf(childFormat21)).isEqualTo(0);
+    assertThat(selectionsChild2[3].indexOf(adjustedChildFormat22)).isEqualTo(0);
+  }
+
   // https://github.com/google/ExoPlayer/issues/10930
   @Test
   public void selectTracks_withIdenticalFormats_selectsMatchingPeriod() throws Exception {
@@ -319,11 +412,12 @@ public final class MergingMediaPeriodTest {
       timeOffsetsUs[i] = definition.timeOffsetUs;
       TrackGroup[] trackGroups;
       if (singleTrackGroup) {
-        trackGroups = new TrackGroup[] {new TrackGroup(definition.formats)};
+        trackGroups =
+            new TrackGroup[] {new TrackGroup(definition.groupIds.get(0), definition.formats)};
       } else {
         trackGroups = new TrackGroup[definition.formats.length];
         for (int j = 0; j < definition.formats.length; j++) {
-          trackGroups[j] = new TrackGroup(definition.formats[j]);
+          trackGroups[j] = new TrackGroup(definition.groupIds.get(j), definition.formats[j]);
         }
       }
       mediaPeriods[i] =
@@ -397,11 +491,28 @@ public final class MergingMediaPeriodTest {
 
   private static final class MergingPeriodDefinition {
 
+    public final ImmutableList<String> groupIds;
     public final long timeOffsetUs;
     public final long singleSampleTimeUs;
     public final Format[] formats;
 
     public MergingPeriodDefinition(long timeOffsetUs, long singleSampleTimeUs, Format... formats) {
+      this(ImmutableList.of(), timeOffsetUs, singleSampleTimeUs, formats);
+    }
+
+    public MergingPeriodDefinition(
+        ImmutableList<String> groupIds,
+        long timeOffsetUs,
+        long singleSampleTimeUs,
+        Format... formats) {
+      if (groupIds.isEmpty()) {
+        ImmutableList.Builder<String> groupIdBuilder = ImmutableList.builder();
+        for (int i = 0; i < formats.length; i++) {
+          groupIdBuilder.add("");
+        }
+        groupIds = groupIdBuilder.build();
+      }
+      this.groupIds = groupIds;
       this.timeOffsetUs = timeOffsetUs;
       this.singleSampleTimeUs = singleSampleTimeUs;
       this.formats = formats;

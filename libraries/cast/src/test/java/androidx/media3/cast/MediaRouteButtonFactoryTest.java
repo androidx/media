@@ -91,7 +91,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_withoutMenuItem_throwsExceptionWithListenableFuture() {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
     RoboMenu menu = new RoboMenu(context);
 
     IllegalArgumentException thrown =
@@ -104,7 +104,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_withoutActionProvider_throwsExceptionWithListenableFuture() {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
     RoboMenu menu = new RoboMenu(context);
     MenuItem unused =
         menu.add(Menu.NONE, MENU_ITEM_ID, Menu.NONE, R.string.media_route_button_menu_title);
@@ -120,7 +120,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_withMenuItem_setSelector() throws Exception {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
     RoboMenu menu = new RoboMenu(context);
     MenuItem menuItem =
         menu.add(Menu.NONE, MENU_ITEM_ID, Menu.NONE, R.string.media_route_button_menu_title);
@@ -138,7 +138,7 @@ public final class MediaRouteButtonFactoryTest {
   @Test
   public void setUpMediaRouteButton_withMenuItem_onBackgroundThread_throwsException()
       throws Exception {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
     RoboMenu menu = new RoboMenu(context);
     MenuItem menuItem =
         menu.add(Menu.NONE, MENU_ITEM_ID, Menu.NONE, R.string.media_route_button_menu_title);
@@ -191,7 +191,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_withNullButton_throwsExceptionWithListenableFuture() {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
 
     NullPointerException thrown =
         assertThrows(
@@ -202,7 +202,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_withSuccessfulInit_setsSelector() throws Exception {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
 
     MediaRouteButton mediaRouteButton = new MediaRouteButton(context);
     ListenableFuture<Void> future =
@@ -214,7 +214,7 @@ public final class MediaRouteButtonFactoryTest {
 
   @Test
   public void setUpMediaRouteButton_onBackgroundThread_throwsException() throws Exception {
-    cast.sideloadCastContext(mockCastContext);
+    cast = Cast.getSingletonInstance(mockCastContext);
     MediaRouteButton mediaRouteButton = new MediaRouteButton(context);
     AtomicReference<Throwable> exceptionRef = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);

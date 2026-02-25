@@ -3,19 +3,6 @@
     "name": "Playlists",
     "samples": [
       {
-        "name": "Cats -> Dogs",
-        "playlist": [
-          {
-            "name": "Dizzy (MP4)",
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          },
-          {
-            "name": "Android screens (MKV)",
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv"
-          }
-        ]
-      },
-      {
         "name": "Video (MKV) -> Audio Only -> Video Only",
         "playlist": [
           {
@@ -36,8 +23,8 @@
         "name": "Horizontal -> Vertical -> Horizontal -> Vertical",
         "playlist": [
           {
-            "name": "Dizzy (MP4)",
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
+            "name": "Screens 720p (MP4, H264)",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/android-screens-10s.mp4"
           },
           {
             "name": "Vertical video - outside 6PS (MP4)",

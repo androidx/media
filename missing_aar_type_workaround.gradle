@@ -28,6 +28,7 @@ def addMissingAarTypeToXml(xml) {
         "com.squareup.okhttp3:mockwebserver",
         "com.squareup.okhttp3:okhttp",
         "junit:junit",
+        "org.chromium.net:cronet-api",
         "org.jetbrains.kotlin:kotlin-stdlib",
         "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
         "org.jetbrains.kotlinx:kotlinx-coroutines-android",
@@ -35,7 +36,7 @@ def addMissingAarTypeToXml(xml) {
         "org.jetbrains.kotlinx:kotlinx-coroutines-guava",
         "org.jetbrains.kotlinx:kotlinx-coroutines-test",
         "org.mockito:mockito-core",
-        "org.robolectric:robolectric",
+        "org.robolectric:robolectric"
         // go/keep-sorted end
     ]
     // Dependencies that have AAR files.

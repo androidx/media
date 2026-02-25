@@ -649,6 +649,7 @@ public final class AssetInfo {
                           .build())
                   .setCodecs("hvc1.2.4.L153")
                   .build())
+          .setVideoDurationUs(300_000)
           .build();
 
   public static final AssetInfo MP4_ASSET_720P_4_SECOND_HDR10 =
@@ -1159,19 +1160,19 @@ public final class AssetInfo {
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
 
   public static final AssetInfo AMR_NB_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_8kHz_12.2kbps_amrnb.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_mono_8kHz_12.2kbps_amrnb.3gp")
           .setTrackCount(1)
           .setAudioSampleCount(151)
           .build();
 
   public static final AssetInfo AMR_WB_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_16kHz_23.05kbps_amrwb.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_mono_16kHz_23.05kbps_amrwb.3gp")
           .setTrackCount(1)
           .setAudioSampleCount(150)
           .build();
 
   public static final AssetInfo H263_3GP_ASSET =
-      new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_128kbps_15fps_h263.3gp")
+      new AssetInfo.Builder("asset:///media/3gp/bbb_176x144_128kbps_15fps_h263.3gp")
           .setTrackCount(1)
           .setVideoFrameCount(15)
           .build();

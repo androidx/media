@@ -47,20 +47,23 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.List;
 import java.util.Map;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** End-to-end tests for the behavior of clipping with progressive media. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingProgressivePlaybackTest {
 
   private static final String TEST_MP4_URI = "asset:///media/mp4/sample.mp4";
+
+  @TestParameter private boolean enableMediaPeriodClipping;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -152,6 +155,7 @@ public final class ClippingProgressivePlaybackTest {
                     return new ClippingMediaSource.Builder(progressiveSource)
                         .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
                         .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+                        .setEnableClippingInMediaPeriod(enableMediaPeriodClipping)
                         .build();
                   }
                 })

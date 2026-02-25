@@ -91,6 +91,7 @@ public class DashManifestParserTest {
       "media/mpd/sample_mpd_clear_key_license_url";
   private static final String SAMPLE_MPD_DASHIF_LICENSE_URL =
       "media/mpd/sample_mpd_dashif_license_url";
+  private static final String SAMPLE_MPD_DOLBY_VISION = "media/mpd/sample_mpd_dolby";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -402,6 +403,31 @@ public class DashManifestParserTest {
     assertThat(adaptationSet.supplementalProperties.get(0).value).isEqualTo("1");
     assertThat(adaptationSet.representations.get(0).format.roleFlags)
         .isEqualTo(C.ROLE_FLAG_TRICK_PLAY);
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_dolbyVisionProfile10() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_DOLBY_VISION));
+
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    AdaptationSet adaptationSet = adaptationSets.get(0);
+    assertThat(adaptationSet.representations).hasSize(2);
+    Representation representation = adaptationSet.representations.get(0);
+    assertThat(representation).isNotNull();
+    assertThat(representation.format.colorInfo).isNotNull();
+    assertThat(representation.format.colorInfo.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
+    assertThat(representation.format.colorInfo.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
+    assertThat(representation.format.colorInfo.colorRange).isEqualTo(C.COLOR_RANGE_FULL);
+    assertThat(adaptationSet.supplementalProperties).hasSize(1);
+    assertThat(adaptationSet.supplementalProperties.get(0).schemeIdUri)
+        .isEqualTo("urn:dolby:dash:dolby-vision:2018");
+    assertThat(adaptationSet.supplementalProperties.get(0).value).isEqualTo("10.1");
   }
 
   @Test

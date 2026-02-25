@@ -11,10 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'com.android.library'
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_config.gradle"
 
 android {
     namespace 'androidx.media3.decoder.av1'
+
+    sourceSets {
+        androidTest.assets.srcDir '../test_data/src/test/assets'
+    }
 
     defaultConfig {
         externalNativeBuild {
@@ -47,7 +52,6 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
-    compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     androidTestImplementation project(modulePrefix + 'test-utils')

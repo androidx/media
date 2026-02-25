@@ -1095,10 +1095,19 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       // IAMF can support many different output Layouts, which are communicated to the Media Codec
       // (IAMF Codec2 software decoder) as a channel mask.  We want to choose one appropriate
       // for the current audio output configuration.
-      int channelMask = IamfUtil.getOutputChannelMaskForCurrentConfiguration(context);
-      int channelCount = Integer.bitCount(channelMask);
-      mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
-      mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, channelCount);
+      AudioCapabilities audioCapabilities = audioSink.getAudioCapabilities();
+      if (audioCapabilities == null) {
+        Log.w(
+            TAG,
+            "AudioCapabilities from the AudioSink are null, using default stereo output layout.");
+        mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_STEREO);
+        mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, 2);
+      } else {
+        int channelMask = IamfUtil.getOutputChannelMaskForCurrentConfiguration(audioCapabilities);
+        int channelCount = Integer.bitCount(channelMask);
+        mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
+        mediaFormat.setInteger(MediaFormat.KEY_MAX_OUTPUT_CHANNEL_COUNT, channelCount);
+      }
     }
 
     applyCodecParametersToMediaFormat(mediaFormat);

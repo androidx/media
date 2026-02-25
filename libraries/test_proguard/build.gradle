@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_config.gradle"
 
 android {
     namespace 'androidx.media3.test.proguard'
@@ -22,20 +22,14 @@ android {
         test.assets.srcDir '../test_data/src/test/assets/'
     }
 
-    compileSdk project.ext.compileSdkVersion
-
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
         coreLibraryDesugaringEnabled true
     }
 
     defaultConfig {
         versionName project.ext.releaseVersion
         versionCode project.ext.releaseVersionCode
-        minSdkVersion project.ext.minSdkVersion
         targetSdkVersion project.ext.appTargetSdkVersion
-        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
     buildTypes {

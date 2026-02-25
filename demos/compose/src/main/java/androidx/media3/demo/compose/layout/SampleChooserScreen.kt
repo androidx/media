@@ -17,16 +17,20 @@
 package androidx.media3.demo.compose.layout
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,15 +65,19 @@ fun SampleChooserScreen(
     isLoading = false
   }
 
-  Box(modifier = modifier.fillMaxSize()) {
+  Box(modifier = modifier.background(MaterialTheme.colorScheme.background).fillMaxSize()) {
     if (isLoading) {
       Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
       ) {
-        CircularProgressIndicator()
-        Text("Loading samples...", modifier = Modifier.padding(top = 16.dp))
+        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        Text(
+          "Loading samples...",
+          modifier = Modifier.padding(top = 16.dp),
+          color = MaterialTheme.colorScheme.primary,
+        )
       }
     } else {
       LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -78,7 +86,11 @@ fun SampleChooserScreen(
             Text(
               text = group.title,
               fontWeight = FontWeight.Bold,
-              modifier = Modifier.padding(16.dp),
+              modifier =
+                Modifier.fillMaxWidth()
+                  .background(MaterialTheme.colorScheme.primaryContainer)
+                  .padding(16.dp),
+              color = MaterialTheme.colorScheme.onPrimaryContainer,
             )
           }
           items(group.playlists) { playlist ->
@@ -91,6 +103,11 @@ fun SampleChooserScreen(
                     onPlaylistClick(loadDurationsForMediaItems(context, playlist.mediaItems))
                   }
                 },
+              colors =
+                ListItemDefaults.colors(
+                  containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                  headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             )
           }
         }

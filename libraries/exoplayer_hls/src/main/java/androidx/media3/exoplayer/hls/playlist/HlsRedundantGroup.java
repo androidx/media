@@ -17,8 +17,10 @@ package androidx.media3.exoplayer.hls.playlist;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
@@ -28,6 +30,10 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +47,28 @@ import java.util.Objects;
  */
 @UnstableApi
 public final class HlsRedundantGroup {
+
+  /**
+   * Represents the type of a {@link HlsRedundantGroup}. One of {@link #VARIANT}, {@link
+   * #VIDEO_RENDITION}, {@link #AUDIO_RENDITION} and {@link #SUBTITLE_RENDITION}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(value = {VARIANT, VIDEO_RENDITION, AUDIO_RENDITION, SUBTITLE_RENDITION})
+  public @interface Type {}
+
+  /** The {@link HlsRedundantGroup} groups {@linkplain Variant variants}. */
+  public static final @Type int VARIANT = 0;
+
+  /** The {@link HlsRedundantGroup} groups {@linkplain Rendition video renditions}. */
+  public static final @Type int VIDEO_RENDITION = 1;
+
+  /** The {@link HlsRedundantGroup} groups {@linkplain Rendition audio renditions}. */
+  public static final @Type int AUDIO_RENDITION = 2;
+
+  /** The {@link HlsRedundantGroup} groups {@linkplain Rendition subtitle renditions}. */
+  public static final @Type int SUBTITLE_RENDITION = 3;
 
   /**
    * Defines a key that groups {@linkplain Variant variants} or {@linkplain Rendition renditions}

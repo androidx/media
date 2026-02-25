@@ -58,16 +58,6 @@ import java.util.List;
                     .build())
             .setMimeType(MIME_TYPE_HLS)
             .build());
-    samples.add(
-        new MediaItem.Builder()
-            .setUri(
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/CastVideos/hls/DesigningForGoogleCast.m3u8")
-            .setMediaMetadata(
-                new MediaMetadata.Builder()
-                    .setTitle("HLS (1280x720): Designing For Google Cast (TS/h264/aac)")
-                    .build())
-            .setMimeType(MIME_TYPE_HLS)
-            .build());
     // DASH streams
     samples.add(
         new MediaItem.Builder()
@@ -90,13 +80,6 @@ import java.util.List;
     // Progressive video streams
     samples.add(
         new MediaItem.Builder()
-            .setUri("https://html5demos.com/assets/dizzy.mp4")
-            .setMediaMetadata(
-                new MediaMetadata.Builder().setTitle("MP4 (480x360): Dizzy (H264/aac)").build())
-            .setMimeType(MIME_TYPE_VIDEO_MP4)
-            .build());
-    samples.add(
-        new MediaItem.Builder()
             .setUri(
                 "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv")
             .setMediaMetadata(
@@ -106,7 +89,8 @@ import java.util.List;
     // Progressive audio streams with artwork
     samples.add(
         new MediaItem.Builder()
-            .setUri("https://storage.googleapis.com/automotive-media/Keys_To_The_Kingdom.mp3")
+            .setUri(
+                "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Keys_To_The_Kingdom.mp3")
             .setMediaMetadata(
                 new MediaMetadata.Builder()
                     .setTitle("MP3: Keys To The Kingdom (44100/stereo/320kb/s)")
@@ -117,7 +101,7 @@ import java.util.List;
                     .setTotalTrackCount(4)
                     .setArtworkUri(
                         Uri.parse(
-                            "https://storage.googleapis.com/automotive-media/album_art_3.jpg"))
+                            "https://storage.googleapis.com/exoplayer-test-media-1/mp3/album_art_3.jpg"))
                     .build())
             .setMimeType(MimeTypes.AUDIO_MPEG)
             .build());

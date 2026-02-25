@@ -106,6 +106,7 @@ import java.util.concurrent.atomic.AtomicLong;
   private boolean inputBlocked;
   private long currentItemExpectedInputDurationUs;
   private boolean isCurrentItemLast;
+  private boolean isReleased;
 
   /**
    * Creates an instance.
@@ -168,6 +169,7 @@ import java.util.concurrent.atomic.AtomicLong;
    *     result of upstream changes.
    */
   public ByteBuffer getOutput() throws UnhandledAudioFormatException {
+    checkState(!isReleased);
     ByteBuffer outputBuffer = getOutputInternal();
 
     if (outputBuffer.hasRemaining()) {
@@ -195,6 +197,7 @@ import java.util.concurrent.atomic.AtomicLong;
       @Nullable Format decodedFormat,
       boolean isLast,
       @IntRange(from = 0) long positionOffsetUs) {
+    checkState(!isReleased);
     checkArgument(positionOffsetUs >= 0);
 
     if (decodedFormat == null) {
@@ -218,6 +221,7 @@ import java.util.concurrent.atomic.AtomicLong;
   @Override
   @Nullable
   public DecoderInputBuffer getInputBuffer() {
+    checkState(!isReleased);
     if (inputBlocked || !pendingMediaItemChanges.isEmpty()) {
       return null;
     }
@@ -231,6 +235,7 @@ import java.util.concurrent.atomic.AtomicLong;
    */
   @Override
   public boolean queueInputBuffer() {
+    checkState(!isReleased);
     if (inputBlocked) {
       return false;
     }
@@ -256,6 +261,7 @@ import java.util.concurrent.atomic.AtomicLong;
    * <p>Should only be called if the input thread and processing thread are the same.
    */
   public void blockInput() {
+    checkState(!isReleased);
     inputBlocked = true;
   }
 
@@ -265,6 +271,7 @@ import java.util.concurrent.atomic.AtomicLong;
    * <p>Should only be called if the input thread and processing thread are the same.
    */
   public void unblockInput() {
+    checkState(!isReleased);
     inputBlocked = false;
   }
 
@@ -284,6 +291,7 @@ import java.util.concurrent.atomic.AtomicLong;
    *     receiving input buffers after the flush.
    */
   public void flush(@IntRange(from = 0) long positionOffsetUs) {
+    checkState(!isReleased);
     checkArgument(positionOffsetUs >= 0);
     pendingMediaItemChanges.clear();
     processedFirstMediaItemChange = true;
@@ -308,14 +316,26 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   /**
-   * Releases any underlying resources.
+   * Unregisters the input from its {@link AudioGraph} and releases any resources it currently
+   * holds.
+   *
+   * <p>After release, any operation on the instance will throw an {@link IllegalStateException}.
    *
    * <p>Should only be called by the processing thread.
    */
   public void release() {
+    checkState(!isReleased);
     preProcessingPipeline.reset();
     userPipeline.reset();
-    lastInputFormat = AudioFormat.NOT_SET;
+    pendingMediaItemChanges.clear();
+    availableInputBuffers.clear();
+    pendingInputBuffers.clear();
+    isReleased = true;
+  }
+
+  /** Returns whether the instance has been {@linkplain #release() released.} */
+  public boolean isReleased() {
+    return isReleased;
   }
 
   /**
@@ -324,6 +344,10 @@ import java.util.concurrent.atomic.AtomicLong;
    * <p>Should only be called on the processing thread.
    */
   public boolean isEnded() {
+    if (isReleased) {
+      return true;
+    }
+
     if (hasDataToOutput()) {
       return false;
     }

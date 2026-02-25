@@ -25,7 +25,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -51,8 +50,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
@@ -93,6 +94,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * 1 (bit index 16)
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
+
+  private static final Pair<Integer, Integer> DEFAULT_H263_PROFILE_AND_LEVEL = new Pair<>(0, 10);
 
   private static final String TAG = "Boxes";
 
@@ -139,10 +142,22 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       return ByteBuffer.allocate(0);
     }
 
+    // The final track id depends on the order of tracks in List<Track>.
+    Map<Integer, Integer> trackIdToFinalTrackIdMap = new HashMap<>();
+    int nextTrackId = 1;
+    for (int i = 0; i < tracks.size(); i++) {
+      Track track = tracks.get(i);
+      // For a non fragmented MP4 file, empty track is skipped.
+      if (!isFragmentedMp4 && track.writtenSamples.isEmpty()) {
+        continue;
+      }
+      trackIdToFinalTrackIdMap.put(track.id, nextTrackId++);
+    }
+
     List<ByteBuffer> trakBoxes = new ArrayList<>();
     List<ByteBuffer> trexBoxes = new ArrayList<>();
 
-    int nextTrackId = 1;
+    nextTrackId = 1;
     long videoDurationUs = 0L;
     for (int i = 0; i < tracks.size(); i++) {
       Track track = tracks.get(i);
@@ -222,13 +237,29 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           handlerType = "meta";
           handlerName = "MetaHandle";
           mhdBox = nmhd();
-          sampleEntryBox = textMetaDataSampleEntry(format);
+          sampleEntryBox = getMetadataSampleEntry(format);
           stsdBox = stsd(sampleEntryBox);
           stblBox = stbl(stsdBox, stts, stsz, stsc, chunkOffsetBox);
           break;
         default:
           throw new IllegalArgumentException("Unsupported track type");
       }
+
+      Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+      for (Map.Entry<Integer, List<Integer>> entry : track.trackReferences.entrySet()) {
+        List<Integer> newIds = new ArrayList<>();
+        for (Integer oldId : entry.getValue()) {
+          if (trackIdToFinalTrackIdMap.containsKey(oldId)) {
+            newIds.add(trackIdToFinalTrackIdMap.get(oldId));
+          }
+        }
+        if (!newIds.isEmpty()) {
+          trackReferences.put(entry.getKey(), newIds);
+        }
+      }
+
+      ByteBuffer trefBox =
+          trackReferences.isEmpty() ? ByteBuffer.allocate(0) : tref(trackReferences);
 
       ByteBuffer trakBox =
           trak(
@@ -239,6 +270,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
                   format),
+              trefBox,
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
@@ -457,16 +489,44 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("nmhd", contents);
   }
 
+  /** Returns the metadata sample entry box. */
+  public static ByteBuffer getMetadataSampleEntry(Format format) {
+    return MimeTypes.APPLICATION_ITUT_T35.equals(format.sampleMimeType)
+        ? t35MetadataSampleEntry(format)
+        : textMetadataSampleEntry(format);
+  }
+
+  private static ByteBuffer t35MetadataSampleEntry(Format format) {
+    checkArgument(format.initializationData.size() == 1);
+    ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
+
+    // SampleEntry fields
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
+    // it35 specific fields
+    contents.put((byte) 0x0); // description
+    contents.put(format.initializationData.get(0)); // itu_t_t35_data_prefix
+    contents.flip();
+    return BoxUtils.wrapIntoBox("it35", contents);
+  }
+
   /**
    * Returns a text metadata sample entry box as per ISO/IEC 14496-12: 8.5.2.2.
    *
    * <p>This contains the sample entry (to be placed within the sample description box) for the text
    * metadata tracks.
    */
-  public static ByteBuffer textMetaDataSampleEntry(Format format) {
+  private static ByteBuffer textMetadataSampleEntry(Format format) {
     ByteBuffer contents = ByteBuffer.allocate(MAX_FIXED_LEAF_BOX_SIZE);
     String mimeType = checkNotNull(format.sampleMimeType);
     byte[] mimeBytes = Util.getUtf8Bytes(mimeType);
+
+    contents.putInt(0); // reserved
+    contents.putShort((short) 0); // reserved
+    contents.putShort((short) 1); // data_reference_index
+
     contents.put(mimeBytes); // content_encoding
     contents.put((byte) 0x0);
     contents.put(mimeBytes); // mime_format
@@ -1324,6 +1384,26 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return axteBoxHeader;
   }
 
+  /** Returns the tref (track reference) box. */
+  public static ByteBuffer tref(Map<Integer, List<Integer>> trackReferences) {
+    List<ByteBuffer> refBoxes = new ArrayList<>();
+    for (Map.Entry<Integer, List<Integer>> entry : trackReferences.entrySet()) {
+      refBoxes.add(trefTypeBox(entry.getKey(), entry.getValue()));
+    }
+    return BoxUtils.wrapBoxesIntoBox("tref", refBoxes);
+  }
+
+  /** Returns the track reference type box. */
+  private static ByteBuffer trefTypeBox(int referenceType, List<Integer> trackIds) {
+    ByteBuffer contents = ByteBuffer.allocate(trackIds.size() * BYTES_PER_INTEGER);
+    for (int i = 0; i < trackIds.size(); i++) {
+      contents.putInt(trackIds.get(i));
+    }
+    contents.flip();
+    byte[] typeBytes = Util.toByteArray(referenceType);
+    return BoxUtils.wrapIntoBox(typeBytes, contents);
+  }
+
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
   private static @PolyNull String bcp47LanguageTagToIso3(@PolyNull String languageTag) {
     if (languageTag == null) {
@@ -1371,13 +1451,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     ByteBuffer d263Box = ByteBuffer.allocate(7);
     d263Box.put("    ".getBytes(UTF_8)); // 4 spaces (vendor)
     d263Box.put((byte) 0x00); // decoder version
-    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-    if (profileAndLevel == null) {
-      profileAndLevel =
-          new Pair<>(
-              MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
-              MediaCodecInfo.CodecProfileLevel.H263Level10);
-    }
+    Pair<Integer, Integer> profileAndLevel = getH263ProfileAndLevel(format);
     d263Box.put(profileAndLevel.second.byteValue()); // level
     d263Box.put(profileAndLevel.first.byteValue()); // profile
 
@@ -2001,5 +2075,25 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int profile = Integer.parseInt(parts.get(1));
     int level = Integer.parseInt(parts.get(2));
     return Pair.create(profile, level);
+  }
+
+  /** Returns H263 profile and level from codec string. */
+  private static Pair<Integer, Integer> getH263ProfileAndLevel(Format format) {
+    if (format.codecs == null) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
+    int profile;
+    int level;
+    try {
+      profile = Integer.parseInt(parts.get(1));
+      level = Integer.parseInt(parts.get(2));
+      return new Pair<>(profile, level);
+    } catch (NumberFormatException e) {
+      return DEFAULT_H263_PROFILE_AND_LEVEL;
+    }
   }
 }

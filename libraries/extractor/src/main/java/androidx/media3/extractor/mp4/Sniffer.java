@@ -34,9 +34,6 @@ public final class Sniffer {
   /** Brand stored in the ftyp atom for QuickTime media. */
   public static final int BRAND_QUICKTIME = 0x71742020;
 
-  /** Brand stored in the ftyp atom for HEIC media. */
-  public static final int BRAND_HEIC = 0x68656963;
-
   /** The maximum number of bytes to peek when sniffing. */
   private static final int SEARCH_LENGTH = 4 * 1024;
 
@@ -85,7 +82,7 @@ public final class Sniffer {
    */
   @Nullable
   public static SniffFailure sniffFragmented(ExtractorInput input) throws IOException {
-    return sniffInternal(input, /* fragmented= */ true, /* acceptHeic= */ false);
+    return sniffInternal(input, /* fragmented= */ true);
   }
 
   /**
@@ -94,20 +91,18 @@ public final class Sniffer {
    * describing the first detected inconsistency.
    *
    * @param input The extractor input from which to peek data. The peek position will be modified.
-   * @param acceptHeic Whether {@code null} should be returned for HEIC photos.
    * @return {@code null} if the input appears to be in the fragmented MP4 format, otherwise a
    *     {@link SniffFailure} describing why the input isn't deemed to be a fragmented MP4.
    * @throws IOException If an error occurs reading from the input.
    */
   @Nullable
-  public static SniffFailure sniffUnfragmented(ExtractorInput input, boolean acceptHeic)
-      throws IOException {
-    return sniffInternal(input, /* fragmented= */ false, acceptHeic);
+  public static SniffFailure sniffUnfragmented(ExtractorInput input) throws IOException {
+    return sniffInternal(input, /* fragmented= */ false);
   }
 
   @Nullable
-  private static SniffFailure sniffInternal(
-      ExtractorInput input, boolean fragmented, boolean acceptHeic) throws IOException {
+  private static SniffFailure sniffInternal(ExtractorInput input, boolean fragmented)
+      throws IOException {
     long inputLength = input.getLength();
     int bytesToSearch =
         (int)
@@ -215,7 +210,7 @@ public final class Sniffer {
         buffer.reset(atomDataSize);
         input.peekFully(buffer.getData(), 0, atomDataSize);
         int majorBrand = buffer.readInt();
-        if (isCompatibleBrand(majorBrand, acceptHeic)) {
+        if (isCompatibleBrand(majorBrand)) {
           foundGoodFileType = true;
         }
         // Skip the minorVersion.
@@ -226,7 +221,7 @@ public final class Sniffer {
           compatibleBrands = new int[compatibleBrandsCount];
           for (int i = 0; i < compatibleBrandsCount; i++) {
             compatibleBrands[i] = buffer.readInt();
-            if (isCompatibleBrand(compatibleBrands[i], acceptHeic)) {
+            if (isCompatibleBrand(compatibleBrands[i])) {
               foundGoodFileType = true;
               break;
             }
@@ -255,11 +250,9 @@ public final class Sniffer {
   /**
    * Returns whether {@code brand} is an ftyp atom brand that is compatible with the MP4 extractors.
    */
-  private static boolean isCompatibleBrand(int brand, boolean acceptHeic) {
+  private static boolean isCompatibleBrand(int brand) {
     if (brand >>> 8 == 0x00336770) {
       // Brand starts with '3gp'.
-      return true;
-    } else if (brand == BRAND_HEIC && acceptHeic) {
       return true;
     }
     for (int compatibleBrand : COMPATIBLE_BRANDS) {

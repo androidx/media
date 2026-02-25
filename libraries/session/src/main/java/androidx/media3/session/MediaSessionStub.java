@@ -83,6 +83,7 @@ import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
@@ -107,6 +108,7 @@ import androidx.media3.session.SessionCommand.CommandCode;
 import androidx.media3.session.legacy.MediaSessionManager;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -141,6 +143,7 @@ import java.util.concurrent.ExecutionException;
   private final Set<ControllerInfo> pendingControllers;
 
   private ImmutableBiMap<TrackGroup, String> trackGroupIdMap;
+  private ImmutableMap<String, String> trackGroupOriginalToUniqueIdMap;
   private int nextUniqueTrackGroupIdPrefix;
   @Nullable private SurfaceHolderWithSize surfaceHolderWithSize;
 
@@ -151,6 +154,7 @@ import java.util.concurrent.ExecutionException;
     // ConcurrentHashMap has a bug in APIs 21-22 that can result in lost updates.
     pendingControllers = Collections.synchronizedSet(new HashSet<>());
     trackGroupIdMap = ImmutableBiMap.of();
+    trackGroupOriginalToUniqueIdMap = ImmutableMap.of();
   }
 
   public ConnectedControllersManager<IBinder> getConnectedControllersManager() {
@@ -2219,9 +2223,8 @@ import java.util.concurrent.ExecutionException;
     ImmutableList.Builder<Tracks.Group> updatedTrackGroups = ImmutableList.builder();
     for (int i = 0; i < trackGroups.size(); i++) {
       Tracks.Group trackGroup = trackGroups.get(i);
-      TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
-      String uniqueId = checkNotNull(trackGroupIdMap.get(mediaTrackGroup));
-      updatedTrackGroups.add(trackGroup.copyWithId(uniqueId));
+      TrackGroup mediaTrackGroup = updateTrackGroupWithUniqueIds(trackGroup.getMediaTrackGroup());
+      updatedTrackGroups.add(trackGroup.copyWithMediaTrackGroup(mediaTrackGroup));
     }
     playerInfo = playerInfo.copyWithCurrentTracks(new Tracks(updatedTrackGroups.build()));
 
@@ -2232,20 +2235,17 @@ import java.util.concurrent.ExecutionException;
     TrackSelectionParameters.Builder updatedTrackSelectionParameters =
         playerInfo.trackSelectionParameters.buildUpon().clearOverrides();
     for (TrackSelectionOverride override : playerInfo.trackSelectionParameters.overrides.values()) {
-      TrackGroup trackGroup = override.mediaTrackGroup;
-      @Nullable String uniqueId = trackGroupIdMap.get(trackGroup);
-      if (uniqueId != null) {
-        updatedTrackSelectionParameters.addOverride(
-            new TrackSelectionOverride(trackGroup.copyWithId(uniqueId), override.trackIndices));
-      } else {
-        updatedTrackSelectionParameters.addOverride(override);
-      }
+      TrackGroup trackGroup = updateTrackGroupWithUniqueIds(override.mediaTrackGroup);
+      updatedTrackSelectionParameters.addOverride(
+          new TrackSelectionOverride(trackGroup, override.trackIndices));
     }
     return playerInfo.copyWithTrackSelectionParameters(updatedTrackSelectionParameters.build());
   }
 
   private void generateAndCacheUniqueTrackGroupIds(ImmutableList<Tracks.Group> trackGroups) {
     ImmutableBiMap.Builder<TrackGroup, String> updatedTrackGroupIdMap = ImmutableBiMap.builder();
+    ImmutableMap.Builder<String, String> updatedTrackGroupOriginalToUniqueMap =
+        ImmutableMap.builder();
     for (int i = 0; i < trackGroups.size(); i++) {
       Tracks.Group trackGroup = trackGroups.get(i);
       TrackGroup mediaTrackGroup = trackGroup.getMediaTrackGroup();
@@ -2254,8 +2254,46 @@ import java.util.concurrent.ExecutionException;
         uniqueId = generateUniqueTrackGroupId(mediaTrackGroup);
       }
       updatedTrackGroupIdMap.put(mediaTrackGroup, uniqueId);
+      updatedTrackGroupOriginalToUniqueMap.put(mediaTrackGroup.id, uniqueId);
     }
     trackGroupIdMap = updatedTrackGroupIdMap.buildOrThrow();
+    // The original track group ids don't have to be unique, so do a best effort mapping only.
+    trackGroupOriginalToUniqueIdMap = updatedTrackGroupOriginalToUniqueMap.buildKeepingLast();
+  }
+
+  private TrackGroup updateTrackGroupWithUniqueIds(TrackGroup trackGroup) {
+    // Map the id of this group.
+    @Nullable String uniqueGroupId = trackGroupIdMap.get(trackGroup);
+    if (uniqueGroupId == null) {
+      uniqueGroupId = trackGroup.id;
+    }
+    // Check if any primary group ids need to be updated.
+    boolean hasPrimaryTrackGroupIds = false;
+    for (int i = 0; i < trackGroup.length; i++) {
+      if (trackGroup.getFormat(i).primaryTrackGroupId != null) {
+        hasPrimaryTrackGroupIds = true;
+        break;
+      }
+    }
+    if (!hasPrimaryTrackGroupIds) {
+      return trackGroup.copyWithId(uniqueGroupId);
+    }
+    Format[] updatedFormats = new Format[trackGroup.length];
+    for (int i = 0; i < trackGroup.length; i++) {
+      Format format = trackGroup.getFormat(i);
+      @Nullable
+      String uniquePrimaryTrackGroupId =
+          format.primaryTrackGroupId != null
+              ? trackGroupOriginalToUniqueIdMap.get(format.primaryTrackGroupId)
+              : null;
+      if (uniquePrimaryTrackGroupId != null) {
+        updatedFormats[i] =
+            format.buildUpon().setPrimaryTrackGroupId(uniquePrimaryTrackGroupId).build();
+      } else {
+        updatedFormats[i] = format;
+      }
+    }
+    return new TrackGroup(uniqueGroupId, updatedFormats);
   }
 
   private TrackSelectionParameters updateOverridesUsingUniqueTrackGroupIds(

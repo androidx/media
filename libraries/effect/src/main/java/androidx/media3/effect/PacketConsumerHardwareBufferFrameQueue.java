@@ -19,18 +19,19 @@ import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.util.Consumer;
+import androidx.media3.common.Format;
+import androidx.media3.common.SurfaceInfo;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.PacketConsumer.Packet;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
@@ -49,6 +50,23 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   /** The maximum number of buffers allowed to exist (pooled + in-flight). */
   private static final int CAPACITY = 5;
 
+  /**
+   * Listener for {@link PacketConsumerHardwareBufferFrameQueue} events.
+   *
+   * <p>The methods are called on an internal processing thread before packets are forwarded to the
+   * downstream {@link PacketConsumer}.
+   */
+  public interface Listener {
+    /** Returns a {@link SurfaceInfo} based on the given {@link Format}. */
+    SurfaceInfo getRendererSurfaceInfo(Format format) throws VideoFrameProcessingException;
+
+    /** Called when the end of stream has been reached and is about to be signaled downstream. */
+    void onEndOfStream();
+
+    /** Called when an asynchronous error occurs. */
+    void onError(VideoFrameProcessingException e);
+  }
+
   private final Object lock = new Object();
 
   /** The pool of created {@link HardwareBufferFrame} instances that are ready to be dequeued. */
@@ -58,10 +76,12 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   /** Only accessed on the {@link #releaseFrameExecutor}. */
   private boolean isReleased;
 
-  private final Consumer<Exception> errorConsumer;
   private final Executor releaseFrameExecutor;
+  private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+  private final Listener listener;
+
   // TODO: b/479134794 - This being nullable and mutable adds complexity, simplify this.
-  @Nullable private volatile PacketConsumerCaller<HardwareBufferFrame> output;
+  private final PacketConsumerCaller<HardwareBufferFrame> output;
 
   @GuardedBy("lock")
   private int allocatedBufferCount;
@@ -70,32 +90,32 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   @Nullable
   private Runnable wakeupListener;
 
+  private boolean isRenderSurfaceInfoSet;
+
   /**
    * Creates a new instance.
    *
-   * @param errorConsumer A consumer for reporting asynchronous errors.
    * @param releaseFrameExecutor The executor that frames will be used to release frames back to the
    *     pool.
+   * @param packetRenderer The downstream {@link RenderingPacketConsumer} that will receive the
+   *     frames.
+   * @param listener The {@link Listener}.
    */
   public PacketConsumerHardwareBufferFrameQueue(
-      Consumer<Exception> errorConsumer, Executor releaseFrameExecutor) {
+      Executor releaseFrameExecutor,
+      RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      Listener listener) {
     pool = new ArrayDeque<>(CAPACITY);
-    this.errorConsumer = errorConsumer;
     this.releaseFrameExecutor = releaseFrameExecutor;
-  }
-
-  /**
-   * Sets the downstream {@link PacketConsumer} that will receive the frames.
-   *
-   * <p>This method must be called before calling {@link #queue(HardwareBufferFrame)}.
-   *
-   * @param output The downstream consumer.
-   * @throws IllegalStateException If an output has already been set.
-   */
-  public void setOutput(PacketConsumer<HardwareBufferFrame> output) {
-    checkState(this.output == null);
-    this.output = PacketConsumerCaller.create(output, newDirectExecutorService(), errorConsumer);
-    this.output.run();
+    this.packetRenderer = packetRenderer;
+    this.listener = listener;
+    packetRenderer.setErrorConsumer(e -> listener.onError(VideoFrameProcessingException.from(e)));
+    output =
+        PacketConsumerCaller.create(
+            packetRenderer,
+            newDirectExecutorService(),
+            e -> listener.onError(VideoFrameProcessingException.from(e)));
+    output.run();
   }
 
   /**
@@ -139,6 +159,17 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
    */
   @Override
   public void queue(HardwareBufferFrame frame) {
+    if (!isRenderSurfaceInfoSet) {
+      SurfaceInfo surfaceInfo;
+      try {
+        surfaceInfo = listener.getRendererSurfaceInfo(frame.format);
+      } catch (VideoFrameProcessingException e) {
+        listener.onError(e);
+        return;
+      }
+      isRenderSurfaceInfoSet = true;
+      checkNotNull(packetRenderer).setRenderOutput(surfaceInfo);
+    }
     HardwareBufferFrame outputFrame =
         new HardwareBufferFrame.Builder(
                 frame.hardwareBuffer,
@@ -158,6 +189,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   @Override
   @SuppressWarnings("unchecked")
   public void signalEndOfStream() {
+    listener.onEndOfStream();
     sendDownstream(Packet.EndOfStream.INSTANCE);
   }
 
@@ -169,14 +201,27 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
    * <p>This should be called when the pipeline is being shut down to ensure all asynchronous
    * resources are cleaned up.
    */
+  @Override
   public void release() {
     if (isReleased) {
       return;
     }
     isReleased = true;
-    PacketConsumerCaller<HardwareBufferFrame> output = this.output;
-    if (output != null) {
-      output.release();
+    output.release();
+    ListenableFuture<Void> releaseFrameRendererFuture =
+        PacketConsumerUtil.release(packetRenderer, newDirectExecutorService());
+    @Nullable Exception exception = null;
+    try {
+      releaseFrameRendererFuture.get(/* timeout= */ 500, MILLISECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      exception = e;
+    } catch (Exception e) {
+      exception = e;
+    } finally {
+      if (exception != null) {
+        listener.onError(VideoFrameProcessingException.from(exception));
+      }
     }
     synchronized (lock) {
       HardwareBufferFrame frame;
@@ -241,19 +286,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   }
 
   private void sendDownstream(Packet<HardwareBufferFrame> packet) {
-    checkState(output != null);
-    Futures.addCallback(
-        output.queuePacket(packet),
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            errorConsumer.accept(new Exception(t));
-          }
-        },
-        directExecutor());
+    checkNotNull(output).queuePacket(packet);
   }
 
   private void closeFence(@Nullable SyncFenceCompat fence) {
@@ -262,7 +295,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
         try {
           fence.close();
         } catch (IOException e) {
-          errorConsumer.accept(e);
+          listener.onError(VideoFrameProcessingException.from(e));
         }
       }
     }

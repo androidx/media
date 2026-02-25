@@ -16,7 +16,10 @@
 
 package androidx.media3.ui.compose.material3.indicator
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -45,6 +48,12 @@ import kotlinx.coroutines.CoroutineScope
  *   their interaction (by lifting their finger or tapping). The underlying `Player.seekTo`
  *   operation is performed internally just before this callback is invoked.
  * @param scope The [CoroutineScope] to use for listening to player progress updates.
+ * @param colors [SliderColors] that will be used to resolve the colors used for this slider in
+ *   different states. See [SliderDefaults.colors].
+ * @param interactionSource the [MutableInteractionSource] representing the stream of
+ *   [Interactions][androidx.compose.foundation.interaction.Interaction] for this slider. You can
+ *   create and pass in your own `remember`ed instance to observe `Interactions` and customize the
+ *   appearance / behavior of this slider in different states.
  */
 @UnstableApi
 @Composable
@@ -54,6 +63,8 @@ fun ProgressSlider(
   onValueChange: ((Float) -> Unit)? = null,
   onValueChangeFinished: (() -> Unit)? = null,
   scope: CoroutineScope = rememberCoroutineScope(),
+  colors: SliderColors = SliderDefaults.colors(),
+  interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
   var sliderWidthPx by remember { mutableIntStateOf(0) }
   ProgressIndicator(player, totalTickCount = sliderWidthPx, scope) {
@@ -81,6 +92,8 @@ fun ProgressSlider(
       // that should not affect the position update interval.
       modifier = modifier.onSizeChanged { (w, _) -> sliderWidthPx = w },
       enabled = changingProgressEnabled,
+      colors = colors,
+      interactionSource = interactionSource,
     )
   }
 }

@@ -227,6 +227,13 @@ struct JniContext {
     }
     native_window_width = 0;
     native_window_height = 0;
+    if (new_surface == nullptr) {
+      LOGE("MaybeAcquireNativeWindow: new_surface is null.");
+      native_window = nullptr;
+      surface = nullptr;
+      jni_status_code = kJniStatusANativeWindowError;
+      return false;
+    }
     native_window = ANativeWindow_fromSurface(env, new_surface);
     if (native_window == nullptr) {
       jni_status_code = kJniStatusANativeWindowError;
@@ -266,6 +273,7 @@ struct JniContext {
   // array. The size should be bounded by the number of input buffers to avoid
   // dynamic allocations.
   std::vector<std::unique_ptr<Cookie>> unused_cookies;
+  std::mutex state_mutex;           // NOLINT(build/c++11)
   std::mutex unused_cookies_mutex;  // NOLINT(build/c++11)
   std::vector<std::unique_ptr<PictureAllocatorData>>
       unused_picture_allocator_data;
@@ -438,6 +446,8 @@ void CleanUpAllocatorData(jlong jContext, JNIEnv* env) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  std::lock_guard<std::mutex> state_lock(  // NOLINT(build/c++11)
+      context->state_mutex);
   std::lock_guard<std::mutex>  // NOLINT(build/c++11)
       unused_picture_allocator_data_lock(
           context->unused_picture_allocator_data_mutex);
@@ -665,11 +675,18 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
     dav1d_data_unref(&data);
     return kStatusError;
   }
-  context->libdav1d_status_code = dav1d_send_data(context->decoder, &data);
-  if (context->libdav1d_status_code != 0 &&
-      context->libdav1d_status_code != DAV1D_ERR(EAGAIN)) {
+  int libdav1d_status_code = dav1d_send_data(context->decoder, &data);
+  {
+    std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+        context->state_mutex);
+    context->libdav1d_status_code = libdav1d_status_code;
+  }
+  if (libdav1d_status_code != 0) {
     LOGE("Failed to send data.");
     dav1d_data_unref(&data);
+    if (libdav1d_status_code == DAV1D_ERR(EAGAIN)) {
+      return kStatusEagain;
+    }
     return kStatusError;
   }
   return kStatusOk;
@@ -687,14 +704,18 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
   };
   std::unique_ptr<Dav1dPicture, decltype(cleanup_dav1d_picture)> dav1d_picture(
       new Dav1dPicture(), cleanup_dav1d_picture);
-  context->libdav1d_status_code =
+  int libdav1d_status_code =
       dav1d_get_picture(context->decoder, dav1d_picture.get());
-  if (context->libdav1d_status_code != 0 &&
-      context->libdav1d_status_code != DAV1D_ERR(EAGAIN)) {
-    LOGE("Failed to get picture. %d", context->libdav1d_status_code);
+  {
+    std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+        context->state_mutex);
+    context->libdav1d_status_code = libdav1d_status_code;
+  }
+  if (libdav1d_status_code != 0 && libdav1d_status_code != DAV1D_ERR(EAGAIN)) {
+    LOGE("Failed to get picture. %d", libdav1d_status_code);
     return kStatusError;
   }
-  if (context->libdav1d_status_code == DAV1D_ERR(EAGAIN)) {
+  if (libdav1d_status_code == DAV1D_ERR(EAGAIN)) {
     return kStatusEagain;
   }
   const UserDataCookie* returned_user_data =
@@ -719,6 +740,8 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
     return kStatusError;
   }
   if (dav1d_picture->p.bpc != 8) {
+    std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+        context->state_mutex);
     context->jni_status_code = kJniStatusHighBitDepthNotSupportedWithYuv;
     return kStatusError;
   }
@@ -745,11 +768,15 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
           GetColorSpace(dav1d_picture->seq_hdr->pri));
     }
     if (!init_result) {
+      std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+          context->state_mutex);
       context->jni_status_code = kJniStatusBufferResizeError;
       return kStatusError;
     }
     if (env->ExceptionCheck()) {
       // Exception is thrown in Java when returning from the native call.
+      std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+          context->state_mutex);
       context->jni_status_code = kJniStatusBufferResizeError;
       return kStatusError;
     }
@@ -778,8 +805,15 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
     return kStatusError;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+      context->state_mutex);
   if (!context->MaybeAcquireNativeWindow(env, jSurface)) {
     LOGE("Failed to acquire native window.");
+    return kStatusError;
+  }
+
+  if (context->native_window == nullptr) {
+    LOGE("Failed to render frame. native_window is null.");
     return kStatusError;
   }
 
@@ -875,6 +909,8 @@ DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
   }
 
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+      context->state_mutex);
   if (context->libdav1d_status_code != kLibdav1dDecoderStatusOk) {
     char error_message[100];
     snprintf(error_message, sizeof(error_message),
@@ -892,6 +928,8 @@ DECODER_FUNC(jint, dav1dCheckError, jlong jContext) {
     return kStatusError;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+      context->state_mutex);
   return (context->libdav1d_status_code != kLibdav1dDecoderStatusOk ||
           context->jni_status_code != kJniStatusOk)
              ? kStatusError
@@ -911,21 +949,23 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  std::vector<std::unique_ptr<Cookie>> cookies_to_release;
   {
     std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
-    while (!context->unused_cookies.empty()) {
-      Cookie* cookie = context->unused_cookies.back().get();
-      env->CallVoidMethod(decoder, context->release_input_buffer_method,
-                          cookie->global_ref_input_buffer);
-      if (env->ExceptionCheck()) {
-        LOGE("Failed to release input buffer.");
-        env->ExceptionClear();
-        break;
-      }
-      env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
-      env->DeleteGlobalRef(cookie->global_ref_input_buffer);
-      context->unused_cookies.pop_back();
+    cookies_to_release.swap(context->unused_cookies);
+  }
+
+  while (!cookies_to_release.empty()) {
+    Cookie* cookie = cookies_to_release.back().get();
+    env->CallVoidMethod(decoder, context->release_input_buffer_method,
+                        cookie->global_ref_input_buffer);
+    if (env->ExceptionCheck()) {
+      LOGE("Failed to release input buffer.");
+      env->ExceptionClear();
     }
+    env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
+    env->DeleteGlobalRef(cookie->global_ref_input_buffer);
+    cookies_to_release.pop_back();
   }
 }

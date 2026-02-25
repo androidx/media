@@ -68,6 +68,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.lifecycle:lifecycle-runtime-compose:' + androidxLifecycleVersion
     implementation 'androidx.navigation:navigation-compose:' + androidxNavigationVersion
+    implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion
 
     implementation project(modulePrefix + 'lib-exoplayer')

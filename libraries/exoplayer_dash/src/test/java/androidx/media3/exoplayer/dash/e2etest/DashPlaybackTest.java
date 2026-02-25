@@ -33,6 +33,7 @@ import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -48,6 +49,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.ResolvingDataSource;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -80,12 +82,14 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -906,6 +910,44 @@ public final class DashPlaybackTest {
   }
 
   @Test
+  public void multiTrack_withOffsetsAndDelayedInit_playsAllExpectedSamples() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(context, clock);
+    DefaultDataSource.Factory defaultDataSourceFactory = new DefaultDataSource.Factory(context);
+    // Add a delay to the audio track to verify the handling of the initial discontinuities for the
+    // offsets is not affected by different loading speeds of the init segments.
+    // See https://github.com/androidx/media/issues/3057.
+    ExoPlayer player =
+        new ExoPlayer.Builder(context, capturingRenderersFactory)
+            .setClock(clock)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(
+                    () ->
+                        new DelayingDataSource(
+                            defaultDataSourceFactory.createDataSource(),
+                            clock,
+                            /* shouldDelay= */ dataSpec ->
+                                dataSpec.uri.toString().contains("audio"))))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-track-with-offset/sample.mpd"));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        context, playbackOutput, "playbackdumps/dash/multi-track-with-offset.dump");
+  }
+
+  @Test
   public void cmcdEnabled_withInitSegment() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -1053,6 +1095,58 @@ public final class DashPlaybackTest {
         /* dumpFile= */ "playbackdumps/dash/scrubbing-skipKeyFrameReset-sameSyncNextGoP.dump");
   }
 
+  @Test
+  public void play_multiSegmentWithEmsgVersion0_outputsExpectedSamples() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-segment-with-emsg0/manifest.mpd"));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/multi-segment-with-emsg0.dump");
+  }
+
+  @Test
+  public void play_multiSegmentWithEmsgVersion1_outputsExpectedSamples() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-segment-with-emsg1/manifest.mpd"));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/dash/multi-segment-with-emsg1.dump");
+  }
+
   private static ImmutableList<WebServerDispatcher.Resource>
       mockWebServerResourcesFromAssetsDirectory(String assetDirectory) throws IOException {
     Context context = ApplicationProvider.getApplicationContext();
@@ -1162,6 +1256,64 @@ public final class DashPlaybackTest {
               format);
         }
       };
+    }
+  }
+
+  private static final class DelayingDataSource implements DataSource {
+
+    private static final int DELAY_MS = 5000;
+
+    private final DataSource dataSource;
+    private final Clock clock;
+    private final Function<DataSpec, Boolean> shouldDelay;
+
+    private DelayingDataSource(
+        DataSource dataSource, Clock clock, Function<DataSpec, Boolean> shouldDelay) {
+      this.dataSource = dataSource;
+      this.clock = clock;
+      this.shouldDelay = shouldDelay;
+    }
+
+    @Override
+    public void addTransferListener(TransferListener transferListener) {
+      dataSource.addTransferListener(transferListener);
+    }
+
+    @Override
+    public long open(DataSpec dataSpec) throws IOException {
+      if (shouldDelay.apply(dataSpec)) {
+        ConditionVariable wakeupCondition = new ConditionVariable();
+        clock
+            .createHandler(Looper.getMainLooper(), /* callback= */ null)
+            .postDelayed(wakeupCondition::open, DELAY_MS);
+        try {
+          wakeupCondition.block();
+        } catch (InterruptedException e) {
+          throw new IllegalStateException();
+        }
+      }
+      return dataSource.open(dataSpec);
+    }
+
+    @Nullable
+    @Override
+    public Uri getUri() {
+      return dataSource.getUri();
+    }
+
+    @Override
+    public void close() throws IOException {
+      dataSource.close();
+    }
+
+    @Override
+    public int read(byte[] buffer, int offset, int length) throws IOException {
+      return dataSource.read(buffer, offset, length);
+    }
+
+    @Override
+    public Map<String, List<String>> getResponseHeaders() {
+      return dataSource.getResponseHeaders();
     }
   }
 }

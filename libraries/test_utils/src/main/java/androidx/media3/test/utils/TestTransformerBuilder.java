@@ -17,6 +17,7 @@ package androidx.media3.test.utils;
 
 import android.content.Context;
 import android.os.Looper;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -56,8 +57,8 @@ public final class TestTransformerBuilder {
 
   private final Context context;
   private final List<Transformer.Listener> listeners;
-  private final Clock clock;
 
+  private Clock clock;
   private @MonotonicNonNull String audioMimeType;
   private boolean trimOptimizationEnabled;
   private boolean mp4EditListTrimEnabled;
@@ -218,6 +219,21 @@ public final class TestTransformerBuilder {
   @CanIgnoreReturnValue
   public TestTransformerBuilder setForceTransformerToFail(boolean forceTransformerToFail) {
     this.forceTransformerToFail = forceTransformerToFail;
+    return this;
+  }
+
+  /**
+   * Sets the {@link Clock} that will be used by the transformer.
+   *
+   * <p>The default value is a {@link FakeClock} instance.
+   *
+   * @param clock The {@link Clock} instance.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  @VisibleForTesting
+  public TestTransformerBuilder setClock(Clock clock) {
+    this.clock = clock;
     return this;
   }
 

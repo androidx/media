@@ -17,6 +17,7 @@ package androidx.media3.cast;
 
 import static androidx.media3.cast.CastUtils.verifyMainThread;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.annotation.SuppressLint;
 import android.app.Application;
@@ -37,7 +38,6 @@ import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.tasks.Task;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -85,35 +85,29 @@ public class Cast {
    */
   public static Cast getSingletonInstance(Context context) {
     verifyMainThread();
+    checkNotNull(context);
     if (singletonInstance == null) {
       singletonInstance = new Cast(context);
     }
-    return singletonInstance;
-  }
-
-  /** Returns a singleton instance of the class. */
-  /* package */ static Cast getSingletonInstance() {
-    verifyMainThread();
-    if (singletonInstance == null) {
-      singletonInstance = new Cast(/* context= */ null);
-    }
+    checkState(singletonInstance.context != null || !singletonInstance.needsInitialization());
     return singletonInstance;
   }
 
   /**
-   * Initializes the singleton instance with the given Cast context.
-   *
-   * <p>Consider using {@link #initialize asynchronous initialization} to account for module load
-   * errors, or to perform the Cast module loading on a background thread.
+   * Returns a singleton instance of the class that's already initialized with the given Cast
+   * context.
    */
-  @CanIgnoreReturnValue
-  /* package */ Cast sideloadCastContext(CastContext castContext) {
+  /* package */ static Cast getSingletonInstance(CastContext castContext) {
     verifyMainThread();
     checkNotNull(castContext);
-    if (needsInitialization()) {
-      setCastContext(castContext);
+    if (singletonInstance == null) {
+      singletonInstance = new Cast(/* context= */ null);
     }
-    return this;
+    if (singletonInstance.needsInitialization()) {
+      singletonInstance.setCastContext(castContext);
+    }
+    checkState(singletonInstance.context != null || !singletonInstance.needsInitialization());
+    return singletonInstance;
   }
 
   /**
@@ -151,16 +145,15 @@ public class Cast {
    * </application>
    * }</pre>
    *
-   * @throws NullPointerException if the singleton instance is not created via {@link
-   *     #getSingletonInstance(Context)}.
    * @throws IllegalStateException if this method is not called on the main process.
    */
   public void initialize() {
     initialize(
         () ->
             CastContext.getSharedInstance(
-                checkNotNull(context, "Cast must be created via getSingletonInstance(Context)."),
-                BackgroundExecutor.get()));
+                // This assertion should never fail. If context == null, then needsInit == false.
+                // If needsInit == false, this lambda shouldn't run.
+                checkNotNull(context), BackgroundExecutor.get()));
   }
 
   @VisibleForTesting

@@ -28,170 +28,170 @@ track 0:
       data = length 18, hash 77EBC81
   sample 0:
     time = 2766644
-    flags = 1
+    flags = 67108865
     data = length 70495, hash 483A64AF
   sample 1:
     time = 2799966
-    flags = 1
+    flags = 67108865
     data = length 70462, hash 51487309
   sample 2:
     time = 2833300
-    flags = 1
+    flags = 67108865
     data = length 70710, hash 702CCEC5
   sample 3:
     time = 2866633
-    flags = 1
+    flags = 67108865
     data = length 70673, hash D0BEB6EF
   sample 4:
     time = 2899966
-    flags = 1
+    flags = 67108865
     data = length 70655, hash 5CC59E74
   sample 5:
     time = 2933300
-    flags = 1
+    flags = 67108865
     data = length 70581, hash DDF1BD6E
   sample 6:
     time = 2966633
-    flags = 1
+    flags = 67108865
     data = length 70609, hash 68B4B148
   sample 7:
     time = 2999966
-    flags = 1
+    flags = 67108865
     data = length 70525, hash 30C40E7
   sample 8:
     time = 3033300
-    flags = 1
+    flags = 67108865
     data = length 70481, hash D92EBDAD
   sample 9:
     time = 3066633
-    flags = 1
+    flags = 67108865
     data = length 70719, hash D989799F
   sample 10:
     time = 3099966
-    flags = 1
+    flags = 67108865
     data = length 70723, hash 54AC0C9E
   sample 11:
     time = 3133300
-    flags = 1
+    flags = 67108865
     data = length 70648, hash 1E2B3C17
   sample 12:
     time = 3166633
-    flags = 1
+    flags = 67108865
     data = length 70604, hash 32415786
   sample 13:
     time = 3199966
-    flags = 1
+    flags = 67108865
     data = length 70551, hash E6264E36
   sample 14:
     time = 3233300
-    flags = 1
+    flags = 67108865
     data = length 70594, hash AAB4BFFA
   sample 15:
     time = 3266633
-    flags = 1
+    flags = 67108865
     data = length 70578, hash 10C3F52E
   sample 16:
     time = 3299966
-    flags = 1
+    flags = 67108865
     data = length 70501, hash 66DE5232
   sample 17:
     time = 3333300
-    flags = 1
+    flags = 67108865
     data = length 70170, hash 1B6AAF6C
   sample 18:
     time = 3366633
-    flags = 1
+    flags = 67108865
     data = length 70229, hash 3C050C5F
   sample 19:
     time = 3399966
-    flags = 1
+    flags = 67108865
     data = length 70225, hash 815C3843
   sample 20:
     time = 3433300
-    flags = 1
+    flags = 67108865
     data = length 70209, hash 926B6B46
   sample 21:
     time = 3466633
-    flags = 1
+    flags = 67108865
     data = length 70217, hash 7C6BB0E
   sample 22:
     time = 3499966
-    flags = 1
+    flags = 67108865
     data = length 70245, hash 38AE5D4C
   sample 23:
     time = 3533300
-    flags = 1
+    flags = 67108865
     data = length 70230, hash 5D96C49C
   sample 24:
     time = 3566633
-    flags = 1
+    flags = 67108865
     data = length 70267, hash 4B1D3FB1
   sample 25:
     time = 3599966
-    flags = 1
+    flags = 67108865
     data = length 70190, hash 56814D6D
   sample 26:
     time = 3633300
-    flags = 1
+    flags = 67108865
     data = length 70314, hash 8DE18BA4
   sample 27:
     time = 3666633
-    flags = 1
+    flags = 67108865
     data = length 70333, hash F9958CFA
   sample 28:
     time = 3699966
-    flags = 1
+    flags = 67108865
     data = length 70349, hash 477CE6F1
   sample 29:
     time = 3733300
-    flags = 1
+    flags = 67108865
     data = length 70451, hash 8B63B929
   sample 30:
     time = 3766633
-    flags = 1
+    flags = 67108865
     data = length 70440, hash EE1D1A34
   sample 31:
     time = 3799966
-    flags = 1
+    flags = 67108865
     data = length 70494, hash 278D4DFC
   sample 32:
     time = 3833300
-    flags = 1
+    flags = 67108865
     data = length 70561, hash 88B5A2D
   sample 33:
     time = 3866633
-    flags = 1
+    flags = 67108865
     data = length 70521, hash B37703F9
   sample 34:
     time = 3899955
-    flags = 1
+    flags = 67108865
     data = length 70663, hash F4B7AA3D
   sample 35:
     time = 3933288
-    flags = 1
+    flags = 67108865
     data = length 70697, hash 3974C162
   sample 36:
     time = 3966622
-    flags = 1
+    flags = 67108865
     data = length 70731, hash 482111DF
   sample 37:
     time = 3999955
-    flags = 1
+    flags = 67108865
     data = length 70818, hash 33C78B98
   sample 38:
     time = 4033288
-    flags = 1
+    flags = 67108865
     data = length 70852, hash C7515D29
   sample 39:
     time = 4066622
-    flags = 1
+    flags = 67108865
     data = length 70860, hash 35E3AE4
   sample 40:
     time = 4099955
-    flags = 1
+    flags = 67108865
     data = length 70944, hash 7A711E1B
   sample 41:
     time = 4133288
-    flags = 536870913
+    flags = 603979777
     data = length 70930, hash 2CD9EE13
 tracksEnded = true

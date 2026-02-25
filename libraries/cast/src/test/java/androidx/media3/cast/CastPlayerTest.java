@@ -102,7 +102,7 @@ public final class CastPlayerTest {
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
+            Cast.getSingletonInstance(mockCastContext),
             new DefaultMediaItemConverter(),
             /* trackSelector= */ null,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,

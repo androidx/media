@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer.video;
 
 import static android.media.MediaCodec.INFO_TRY_AGAIN_LATER;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AV1Level2;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel42;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -59,6 +61,7 @@ import android.view.Display;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
@@ -4058,7 +4061,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void supportsFormat_withDolbyVisionMedia_returnsTrueWhenFallbackToH265orH264Allowed()
+  public void supportsFormat_withDolbyVisionMedia_returnsTrueWhenFallbackToAv1H265orH264Allowed()
       throws Exception {
     // Create Dolby media formats that could fall back to H265 or H264.
     Format formatDvheDtrFallbackToH265 =
@@ -4075,6 +4078,30 @@ public class MediaCodecVideoRendererTest {
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dvav.09.01")
+            .build();
+    // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
+    Format formatDav1FallbackToAv1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+    // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDav1NoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
             .build();
     Format formatNoFallbackPossible =
         new Format.Builder()
@@ -4121,6 +4148,21 @@ public class MediaCodecVideoRendererTest {
                       /* vendor= */ false,
                       /* forceDisableAdaptive= */ false,
                       /* forceSecure= */ false));
+            case MimeTypes.VIDEO_AV1:
+              CodecCapabilities capabilitiesAv1 = new CodecCapabilities();
+              capabilitiesAv1.profileLevels =
+                  new CodecProfileLevel[] {createCodecProfileLevel(AV1ProfileMain10, AV1Level2)};
+              return ImmutableList.of(
+                  MediaCodecInfo.newInstance(
+                      /* name= */ "av1-codec",
+                      /* mimeType= */ mimeType,
+                      /* codecMimeType= */ mimeType,
+                      /* capabilities= */ capabilitiesAv1,
+                      /* hardwareAccelerated= */ false,
+                      /* softwareOnly= */ true,
+                      /* vendor= */ false,
+                      /* forceDisableAdaptive= */ false,
+                      /* forceSecure= */ false));
             default:
               return ImmutableList.of();
           }
@@ -4142,6 +4184,10 @@ public class MediaCodecVideoRendererTest {
     @Capabilities
     int capabilitiesDvavSeFallbackToH264 = renderer.supportsFormat(formatDvavSeFallbackToH264);
     @Capabilities
+    int capabilitiesDav1FallbackToAv1 = renderer.supportsFormat(formatDav1FallbackToAv1);
+    @Capabilities
+    int capabilitiesDav1NoFallbackToAv1 = renderer.supportsFormat(formatDav1NoFallbackPossible);
+    @Capabilities
     int capabilitiesNoFallbackPossible = renderer.supportsFormat(formatNoFallbackPossible);
 
     assertThat(RendererCapabilities.getFormatSupport(capabilitiesDvheDtrFallbackToH265))
@@ -4150,6 +4196,10 @@ public class MediaCodecVideoRendererTest {
         .isEqualTo(C.FORMAT_HANDLED);
     assertThat(RendererCapabilities.getFormatSupport(capabilitiesDvavSeFallbackToH264))
         .isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getFormatSupport(capabilitiesDav1FallbackToAv1))
+        .isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getFormatSupport(capabilitiesDav1NoFallbackToAv1))
+        .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
     assertThat(RendererCapabilities.getFormatSupport(capabilitiesNoFallbackPossible))
         .isEqualTo(C.FORMAT_UNSUPPORTED_SUBTYPE);
   }

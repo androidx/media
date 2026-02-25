@@ -20,7 +20,6 @@ import androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.VideoFrameProcessingException
-import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.effect.PacketConsumer.Packet
 import com.google.common.util.concurrent.ListenableFuture
@@ -32,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.withContext
 
@@ -55,7 +55,6 @@ private constructor(
   private val glThreadDispatcher: CoroutineDispatcher,
   private val shaderProgram: GlShaderProgram,
   private val glObjectsProvider: GlObjectsProvider,
-  private val shaderProgramErrorHandler: Consumer<VideoFrameProcessingException>,
 ) :
   PacketProcessor<GlTextureFrame, GlTextureFrame>,
   GlShaderProgram.InputListener,
@@ -63,21 +62,22 @@ private constructor(
 
   private val isReleased = AtomicBoolean()
 
-  @Volatile private var outputConsumer: PacketConsumer<GlTextureFrame>? = null
+  @Volatile private lateinit var outputConsumer: PacketConsumer<GlTextureFrame>
 
   // State accessed only on the dispatcher thread
   private var currentInputFrame: GlTextureFrame? = null
   private var currentInputMetadata: Frame.Metadata? = null
   private var outputFrameDeferred: CompletableDeferred<GlTextureFrame>? = null
+  /** Tracks the input capacity of the underlying [shaderProgram]. */
+  private val inputCapacityChannel = Channel<Unit>(capacity = Channel.UNLIMITED)
 
   init {
     shaderProgram.setInputListener(this)
     shaderProgram.setOutputListener(this)
     // The error listener will run on the dispatcher thread.
-    shaderProgram.setErrorListener(
-      glThreadDispatcher.asExecutor(),
-      shaderProgramErrorHandler::accept,
-    )
+    shaderProgram.setErrorListener(glThreadDispatcher.asExecutor()) { e ->
+      outputFrameDeferred?.completeExceptionally(e)
+    }
   }
 
   /**
@@ -96,7 +96,7 @@ private constructor(
       when (packet) {
         is Packet.Payload -> processFramePacket(packet.payload)
         is Packet.EndOfStream -> {
-          outputConsumer?.queuePacket(Packet.EndOfStream)
+          outputConsumer.queuePacket(Packet.EndOfStream)
         }
       }
     }
@@ -105,6 +105,10 @@ private constructor(
   private suspend fun processFramePacket(inputFrame: GlTextureFrame) {
     check(outputFrameDeferred == null) { "Frame processing already in progress" }
     check(currentInputFrame == null) { "currentInputFrame not null" }
+
+    // Acquire a permit from the input channel, there will be a permit available once
+    // onReadyToAcceptInputFrame is called by the underlying shaderProgram.
+    inputCapacityChannel.receive()
 
     currentInputFrame = inputFrame
     currentInputMetadata = inputFrame.metadata
@@ -119,8 +123,7 @@ private constructor(
         inputFrame.presentationTimeUs,
       )
       outputFrame = deferred.await()
-      outputConsumer?.queuePacket(Packet.of(outputFrame))
-        ?: outputFrame.release(/* releaseFence= */ null)
+      outputConsumer.queuePacket(Packet.of(outputFrame))
     } catch (e: Exception) {
       outputFrame?.release(/* releaseFence= */ null)
       throw e
@@ -145,7 +148,12 @@ private constructor(
       currentInputFrame = null
       currentInputMetadata = null
       shaderProgram.release()
+      inputCapacityChannel.close()
     }
+  }
+
+  override fun onReadyToAcceptInputFrame() {
+    val unused = inputCapacityChannel.trySend(Unit)
   }
 
   // GlShaderProgram.OutputListener - Called on GL thread
@@ -156,7 +164,13 @@ private constructor(
       return
     }
 
-    val deferred = checkNotNull(outputFrameDeferred)
+    val deferred = outputFrameDeferred
+    if (deferred == null) {
+      // Coroutine was likely cancelled. Clean up and drop the frame.
+      shaderProgram.releaseOutputFrame(outputTexture)
+      return
+    }
+
     val inputMetadata = currentInputMetadata
     val inputFrame = currentInputFrame
     if (inputFrame == null || inputMetadata == null) {
@@ -172,7 +186,7 @@ private constructor(
       GlTextureFrame.Builder(
           outputTexture,
           glThreadDispatcher.asExecutor(),
-          /* releaseTextureCallback= */ { texInfo -> shaderProgram.releaseOutputFrame(texInfo) },
+          /* releaseTextureCallback= */ { _ -> shaderProgram.releaseOutputFrame(outputTexture) },
         )
         .setPresentationTimeUs(presentationTimeUs)
         .setFormat(inputFrame.format)
@@ -195,15 +209,9 @@ private constructor(
       shaderProgram: GlShaderProgram,
       glThreadDispatcher: CoroutineDispatcher,
       glObjectsProvider: GlObjectsProvider,
-      shaderProgramErrorHandler: Consumer<VideoFrameProcessingException>,
     ): GlShaderProgramPacketProcessor {
       return withContext(glThreadDispatcher) {
-        GlShaderProgramPacketProcessor(
-          glThreadDispatcher,
-          shaderProgram,
-          glObjectsProvider,
-          shaderProgramErrorHandler,
-        )
+        GlShaderProgramPacketProcessor(glThreadDispatcher, shaderProgram, glObjectsProvider)
       }
     }
 
@@ -216,11 +224,10 @@ private constructor(
       shaderProgram: GlShaderProgram,
       glThreadExecutorService: ExecutorService,
       glObjectsProvider: GlObjectsProvider,
-      shaderProgramErrorHandler: Consumer<VideoFrameProcessingException>,
     ): ListenableFuture<GlShaderProgramPacketProcessor> {
       val glDispatcher = glThreadExecutorService.asCoroutineDispatcher()
       return CoroutineScope(glDispatcher).future {
-        create(shaderProgram, glDispatcher, glObjectsProvider, shaderProgramErrorHandler)
+        create(shaderProgram, glDispatcher, glObjectsProvider)
       }
     }
   }

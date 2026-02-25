@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -64,6 +65,11 @@ import org.mockito.Mockito;
 /** Unit test for {@link PreloadMediaPeriod}. */
 @RunWith(AndroidJUnit4.class)
 public final class PreloadMediaPeriodTest {
+
+  @Test
+  public void mediaPeriod_overridesAllMethods() throws Exception {
+    assertSubclassOverridesAllMethods(MediaPeriod.class, PreloadMediaPeriod.class);
+  }
 
   @Test
   public void preload_prepareWrappedPeriodAndInvokeCallbackOnPrepared() {

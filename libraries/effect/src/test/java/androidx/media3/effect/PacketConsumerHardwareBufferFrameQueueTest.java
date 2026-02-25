@@ -22,9 +22,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.hardware.HardwareBuffer;
-import androidx.media3.common.util.Consumer;
+import androidx.media3.common.Format;
+import androidx.media3.common.SurfaceInfo;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
-import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashSet;
 import java.util.Set;
@@ -46,15 +47,32 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
 
   private static final int CAPACITY = 5;
   private static final int TEST_TIMEOUT_MS = 500;
-  private static final Consumer<Exception> NO_OP_ERROR_CONSUMER = unused -> {};
+  private static final PacketConsumerHardwareBufferFrameQueue.Listener NO_OP =
+      new PacketConsumerHardwareBufferFrameQueue.Listener() {
+        @Override
+        public SurfaceInfo getRendererSurfaceInfo(Format format) {
+          return null;
+        }
+
+        @Override
+        public void onEndOfStream() {}
+
+        @Override
+        public void onError(VideoFrameProcessingException e) {}
+      };
   private static final HardwareBufferFrameQueue.FrameFormat DEFAULT_FORMAT =
-      new HardwareBufferFrameQueue.FrameFormat(
-          100, 100, HardwareBuffer.RGBA_8888, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+      new HardwareBufferFrameQueue.FrameFormat.Builder()
+          .setWidth(100)
+          .setHeight(100)
+          .setPixelFormat(HardwareBuffer.RGBA_8888)
+          .setUsageFlags(HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)
+          .build();
 
   @Test
   public void dequeue_upToCapacity_createsNewFrames() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     Set<HardwareBufferFrame> seenFrames = new HashSet<>();
 
     for (int i = 0; i < CAPACITY; i++) {
@@ -74,7 +92,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void dequeue_afterRelease_reusesFrameForSameFormat() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
@@ -89,10 +108,15 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void dequeue_afterRelease_createsNewBufferForDifferentFormat() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrameQueue.FrameFormat format2 =
-        new HardwareBufferFrameQueue.FrameFormat(
-            200, 200, HardwareBuffer.RGBA_8888, HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        new HardwareBufferFrameQueue.FrameFormat.Builder()
+            .setWidth(200)
+            .setHeight(200)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .setUsageFlags(HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)
+            .build();
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
@@ -108,9 +132,15 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void dequeue_clearsIncompatibleBuffersFromFront() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrameQueue.FrameFormat formatB =
-        new HardwareBufferFrameQueue.FrameFormat(200, 200, HardwareBuffer.RGBA_8888, 0);
+        new HardwareBufferFrameQueue.FrameFormat.Builder()
+            .setWidth(200)
+            .setHeight(200)
+            .setPixelFormat(HardwareBuffer.RGBA_8888)
+            .setUsageFlags(0)
+            .build();
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer1 = frame1.hardwareBuffer;
@@ -129,7 +159,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void dequeue_atCapacity_returnsNull() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
 
     for (int i = 0; i < CAPACITY; i++) {
       assertThat(frameQueue.dequeue(DEFAULT_FORMAT, () -> {})).isNotNull();
@@ -140,7 +171,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void dequeue_atCapacity_notifiesWakeupListenerOnRelease() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrame[] frames = new HardwareBufferFrame[CAPACITY];
     for (int i = 0; i < CAPACITY; i++) {
       frames[i] = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
@@ -157,7 +189,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void release_idempotent_doesNotDecrementCapacityTwice() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
 
     frame.release(/* releaseFence= */ null);
@@ -172,7 +205,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void release_closedBuffer_throwsIllegalArgumentException() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
 
     frame.hardwareBuffer.close();
@@ -181,37 +215,17 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   }
 
   @Test
-  public void setOutput_calledTwice_throwsException() {
-    PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
-    RecordingPacketConsumer<HardwareBufferFrame> output = new RecordingPacketConsumer<>();
-
-    frameQueue.setOutput(output);
-    assertThrows(IllegalStateException.class, () -> frameQueue.setOutput(output));
-  }
-
-  @Test
-  public void queue_beforeSetOutput_throwsException() {
-    PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
-    HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
-
-    assertThrows(IllegalStateException.class, () -> frameQueue.queue(frame));
-  }
-
-  @Test
   public void queue_forwardsFrameDownstream() throws InterruptedException {
     CountDownLatch frameQueuedLatch = new CountDownLatch(1);
-    PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
-    RecordingPacketConsumer<HardwareBufferFrame> recordingConsumer =
-        new RecordingPacketConsumer<>();
+    FakeRenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> recordingConsumer =
+        new FakeRenderingPacketConsumer<>();
     recordingConsumer.setOnQueue(
         unused -> {
           frameQueuedLatch.countDown();
           return null;
         });
-    frameQueue.setOutput(recordingConsumer);
+    PacketConsumerHardwareBufferFrameQueue frameQueue =
+        new PacketConsumerHardwareBufferFrameQueue(directExecutor(), recordingConsumer, NO_OP);
 
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     frameQueue.queue(frame);
@@ -231,16 +245,15 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void releaseForwardedFrame_readdsBufferToPool() throws InterruptedException {
     CountDownLatch frameQueuedLatch = new CountDownLatch(1);
-    PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
-    RecordingPacketConsumer<HardwareBufferFrame> recordingConsumer =
-        new RecordingPacketConsumer<>();
+    FakeRenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> recordingConsumer =
+        new FakeRenderingPacketConsumer<>();
     recordingConsumer.setOnQueue(
         unused -> {
           frameQueuedLatch.countDown();
           return null;
         });
-    frameQueue.setOutput(recordingConsumer);
+    PacketConsumerHardwareBufferFrameQueue frameQueue =
+        new PacketConsumerHardwareBufferFrameQueue(directExecutor(), recordingConsumer, NO_OP);
 
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     // Create a new frame with the same buffer and different release method.
@@ -270,33 +283,46 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   public void downstreamError_reportedToErrorConsumer() throws InterruptedException {
     CountDownLatch errorReportedLatch = new CountDownLatch(1);
     AtomicReference<Exception> reportedError = new AtomicReference<>();
-    PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(
-            /* errorConsumer= */ e -> {
-              reportedError.set(e);
-              errorReportedLatch.countDown();
-            },
-            directExecutor());
     RuntimeException cause = new RuntimeException("test error");
-    RecordingPacketConsumer<HardwareBufferFrame> recordingConsumer =
-        new RecordingPacketConsumer<>();
+    FakeRenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> recordingConsumer =
+        new FakeRenderingPacketConsumer<>();
     recordingConsumer.setOnQueue(
         unused -> {
           throw cause;
         });
-    frameQueue.setOutput(recordingConsumer);
+    PacketConsumerHardwareBufferFrameQueue frameQueue =
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(),
+            recordingConsumer,
+            new PacketConsumerHardwareBufferFrameQueue.Listener() {
+              @Override
+              public SurfaceInfo getRendererSurfaceInfo(Format format)
+                  throws VideoFrameProcessingException {
+                return null;
+              }
+
+              @Override
+              public void onEndOfStream() {}
+
+              @Override
+              public void onError(VideoFrameProcessingException e) {
+                reportedError.set(e);
+                errorReportedLatch.countDown();
+              }
+            });
 
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     frameQueue.queue(frame);
 
     assertThat(errorReportedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(reportedError.get()).isSameInstanceAs(cause);
+    assertThat(reportedError.get()).hasCauseThat().isSameInstanceAs(cause);
   }
 
   @Test
   public void release_closesAllPoolBuffers() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
 
     // Fill the pool with released buffers
     HardwareBufferFrame frame1 = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
@@ -317,7 +343,8 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   @Test
   public void returnBuffer_afterRelease_closesBuffer() {
     PacketConsumerHardwareBufferFrameQueue frameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, directExecutor());
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(), new FakeRenderingPacketConsumer<>(), NO_OP);
     HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
     HardwareBuffer buffer = frame.hardwareBuffer;
 
@@ -330,12 +357,51 @@ public final class PacketConsumerHardwareBufferFrameQueueTest {
   }
 
   @Test
+  public void queue_setsRenderSurfaceInfo() throws InterruptedException {
+    SurfaceInfo expectedSurfaceInfo =
+        new SurfaceInfo(/* surface= */ null, /* width= */ 100, /* height= */ 100);
+    CountDownLatch surfaceInfoSet = new CountDownLatch(1);
+    AtomicReference<SurfaceInfo> receivedSurfaceInfo = new AtomicReference<>();
+    FakeRenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> recordingConsumer =
+        new FakeRenderingPacketConsumer<>();
+    recordingConsumer.setOnRenderOutput(
+        surfaceInfo -> {
+          surfaceInfoSet.countDown();
+          receivedSurfaceInfo.set(surfaceInfo);
+          return null;
+        });
+    PacketConsumerHardwareBufferFrameQueue frameQueue =
+        new PacketConsumerHardwareBufferFrameQueue(
+            directExecutor(),
+            recordingConsumer,
+            new PacketConsumerHardwareBufferFrameQueue.Listener() {
+              @Override
+              public SurfaceInfo getRendererSurfaceInfo(Format format) {
+                return expectedSurfaceInfo;
+              }
+
+              @Override
+              public void onEndOfStream() {}
+
+              @Override
+              public void onError(VideoFrameProcessingException e) {}
+            });
+
+    HardwareBufferFrame frame = frameQueue.dequeue(DEFAULT_FORMAT, () -> {});
+    frameQueue.queue(frame);
+
+    assertThat(surfaceInfoSet.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(receivedSurfaceInfo.get()).isSameInstanceAs(expectedSurfaceInfo);
+  }
+
+  @Test
   public void concurrentReleases_doNotCorruptPool()
       throws InterruptedException, ExecutionException, TimeoutException {
     try (ExecutorService releaseExecutor = Util.newSingleThreadExecutor("ReleaseThread");
         ExecutorService testExecutor = Executors.newFixedThreadPool(4)) {
       PacketConsumerHardwareBufferFrameQueue frameQueue =
-          new PacketConsumerHardwareBufferFrameQueue(NO_OP_ERROR_CONSUMER, releaseExecutor);
+          new PacketConsumerHardwareBufferFrameQueue(
+              releaseExecutor, new FakeRenderingPacketConsumer<>(), NO_OP);
       HardwareBufferFrame[] frames = new HardwareBufferFrame[CAPACITY];
 
       for (int j = 0; j < 100; j++) {

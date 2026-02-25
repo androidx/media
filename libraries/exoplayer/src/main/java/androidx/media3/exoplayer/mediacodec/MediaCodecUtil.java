@@ -32,9 +32,11 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -354,7 +356,7 @@ public final class MediaCodecUtil {
    *     format} is well-formed and recognized, or null otherwise.
    */
   @Nullable
-  public static Pair<Integer, Integer> getHevcBaseLayerCodecProfileAndLevel(Format format) {
+  public static MediaCodecProfileAndLevel getHevcBaseLayerCodecProfileAndLevel(Format format) {
     String codecs = NalUnitUtil.getH265BaseLayerCodecsString(format.initializationData);
     if (codecs == null) {
       return null;
@@ -384,16 +386,21 @@ public final class MediaCodecUtil {
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
       @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel =
-          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-      if (codecProfileAndLevel != null) {
-        int profile = codecProfileAndLevel.first;
+      MediaCodecProfileAndLevel codecProfileAndLevel =
+          CodecSpecificDataUtil.getMediaCodecProfileAndLevel(format);
+      if (codecProfileAndLevel != null && codecProfileAndLevel.isSupportableByMediaCodec()) {
+        int profile = codecProfileAndLevel.getProfile();
         if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr
             || profile == CodecProfileLevel.DolbyVisionProfileDvheSt) {
           return MimeTypes.VIDEO_H265;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
           return MimeTypes.VIDEO_H264;
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
+          if (format.colorInfo != null
+              && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
+              && format.colorInfo.colorRange == C.COLOR_RANGE_FULL) {
+            return null;
+          }
           return MimeTypes.VIDEO_AV1;
         }
       }

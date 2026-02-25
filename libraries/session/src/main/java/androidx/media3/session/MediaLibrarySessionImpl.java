@@ -28,6 +28,7 @@ import static java.lang.Math.min;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -42,7 +43,6 @@ import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
@@ -57,7 +57,11 @@ import java.util.concurrent.Future;
   private static final String RECENT_LIBRARY_ROOT_MEDIA_ID = "androidx.media3.session.recent.root";
   private final MediaLibrarySession instance;
   private final MediaLibrarySession.Callback callback;
+
+  @GuardedBy("this")
   private final HashMultimap<String, ControllerInfo> parentIdToSubscribedControllers;
+
+  @GuardedBy("this")
   private final HashMultimap<ControllerCb, String> controllerToSubscribedParentIds;
 
   private final @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode;
@@ -213,8 +217,10 @@ import java.util.concurrent.Future;
       ControllerInfo browser, String parentId, @Nullable LibraryParams params) {
 
     ControllerCb controllerCb = checkNotNull(browser.getControllerCb());
-    controllerToSubscribedParentIds.put(controllerCb, parentId);
-    parentIdToSubscribedControllers.put(parentId, browser);
+    synchronized (this) {
+      controllerToSubscribedParentIds.put(controllerCb, parentId);
+      parentIdToSubscribedControllers.put(parentId, browser);
+    }
 
     // Call callbacks after adding it to the subscription list because library session may want
     // to call notifyChildrenChanged() in the callback.
@@ -240,11 +246,11 @@ import java.util.concurrent.Future;
     return future;
   }
 
-  public ImmutableList<ControllerInfo> getSubscribedControllers(String mediaId) {
+  public synchronized ImmutableList<ControllerInfo> getSubscribedControllers(String mediaId) {
     return ImmutableList.copyOf(parentIdToSubscribedControllers.get(mediaId));
   }
 
-  private boolean isSubscribed(ControllerCb controllerCb, String parentId) {
+  private synchronized boolean isSubscribed(ControllerCb controllerCb, String parentId) {
     return controllerToSubscribedParentIds.containsEntry(controllerCb, parentId);
   }
 
@@ -336,9 +342,11 @@ import java.util.concurrent.Future;
   @Override
   public void onDisconnectedOnHandler(ControllerInfo controller) {
     ControllerCb controllerCb = checkNotNull(controller.getControllerCb());
-    Set<String> subscriptions = controllerToSubscribedParentIds.get(controllerCb);
-    for (String parentId : ImmutableSet.copyOf(subscriptions)) {
-      removeSubscription(controller, parentId);
+    synchronized (this) {
+      Set<String> subscriptions = controllerToSubscribedParentIds.removeAll(controllerCb);
+      for (String parentId : subscriptions) {
+        parentIdToSubscribedControllers.remove(parentId, controller);
+      }
     }
     super.onDisconnectedOnHandler(controller);
   }
@@ -400,7 +408,7 @@ import java.util.concurrent.Future;
     }
   }
 
-  private void removeSubscription(ControllerInfo controllerInfo, String parentId) {
+  private synchronized void removeSubscription(ControllerInfo controllerInfo, String parentId) {
     ControllerCb controllerCb = checkNotNull(controllerInfo.getControllerCb());
     parentIdToSubscribedControllers.remove(parentId, controllerInfo);
     controllerToSubscribedParentIds.remove(controllerCb, parentId);

@@ -43,6 +43,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Rendition;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
+import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.source.CompositeSequenceableLoaderFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -61,6 +62,7 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 
 /** Unit test for {@link HlsMediaPeriod}. */
 @RunWith(AndroidJUnit4.class)
@@ -71,19 +73,22 @@ public final class HlsMediaPeriodTest {
     HlsMultivariantPlaylist testMultivariantPlaylist =
         createMultivariantPlaylist(
             /* variants= */ Arrays.asList(
-                createAudioOnlyVariant(/* peakBitrate= */ 10000),
-                createMuxedVideoAudioVariant(/* peakBitrate= */ 200000),
-                createAudioOnlyVariant(/* peakBitrate= */ 300000),
-                createMuxedVideoAudioVariant(/* peakBitrate= */ 400000),
-                createMuxedVideoAudioVariant(/* peakBitrate= */ 600000)),
+                createAudioOnlyVariant(Uri.parse("https://variant1"), /* peakBitrate= */ 10000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant2"), /* peakBitrate= */ 200000),
+                createAudioOnlyVariant(Uri.parse("https://variant3"), /* peakBitrate= */ 300000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant4"), /* peakBitrate= */ 400000),
+                createMuxedVideoAudioVariant(
+                    Uri.parse("https://variant5"), /* peakBitrate= */ 600000)),
             /* audios= */ Arrays.asList(
-                createAudioRendition(/* language= */ "spa"),
-                createAudioRendition(/* language= */ "ger"),
-                createAudioRendition(/* language= */ "tur")),
+                createAudioRendition(Uri.parse("https://audio1"), /* language= */ "spa"),
+                createAudioRendition(Uri.parse("https://audio2"), /* language= */ "ger"),
+                createAudioRendition(Uri.parse("https://audio3"), /* language= */ "tur")),
             /* subtitles= */ Arrays.asList(
-                createSubtitleRendition(/* language= */ "spa"),
-                createSubtitleRendition(/* language= */ "ger"),
-                createSubtitleRendition(/* language= */ "tur")),
+                createSubtitleRendition(Uri.parse("https://subtitle1"), /* language= */ "spa"),
+                createSubtitleRendition(Uri.parse("https://subtitle2"), /* language= */ "ger"),
+                createSubtitleRendition(Uri.parse("https://subtitle3"), /* language= */ "tur")),
             /* muxedAudioFormat= */ createAudioFormat("eng"),
             /* muxedCaptionFormats= */ Arrays.asList(
                 createSubtitleFormat("eng"), createSubtitleFormat("gsw")));
@@ -95,8 +100,7 @@ public final class HlsMediaPeriodTest {
           HlsDataSourceFactory mockDataSourceFactory = mock(HlsDataSourceFactory.class);
           when(mockDataSourceFactory.createDataSource(anyInt())).thenReturn(mock(DataSource.class));
           HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
-          when(mockPlaylistTracker.getMultivariantPlaylist())
-              .thenReturn((HlsMultivariantPlaylist) playlist);
+          setupPlaylistTracker(mockPlaylistTracker, (HlsMultivariantPlaylist) playlist);
           MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
           return new HlsMediaPeriod(
               mockHlsExtractorFactory,
@@ -121,7 +125,10 @@ public final class HlsMediaPeriodTest {
         };
 
     MediaPeriodAsserts.assertGetStreamKeysAndManifestFilterIntegration(
-        mediaPeriodFactory, testMultivariantPlaylist);
+        mediaPeriodFactory,
+        testMultivariantPlaylist,
+        /* periodIndex= */ 0,
+        /* ignoredMimeType= */ APPLICATION_ID3);
   }
 
   @Test
@@ -143,7 +150,7 @@ public final class HlsMediaPeriodTest {
     HlsDataSourceFactory mockDataSourceFactory = mock(HlsDataSourceFactory.class);
     when(mockDataSourceFactory.createDataSource(anyInt())).thenReturn(mock(DataSource.class));
     HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
-    when(mockPlaylistTracker.getMultivariantPlaylist()).thenReturn(testMultivariantPlaylist);
+    setupPlaylistTracker(mockPlaylistTracker, testMultivariantPlaylist);
     when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
     LoadErrorHandlingPolicy mockLoadErrorHandlingPolicy = mock(LoadErrorHandlingPolicy.class);
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
@@ -191,10 +198,15 @@ public final class HlsMediaPeriodTest {
                     .setCodecs("mp4a.40.2")
                     .setSampleMimeType(AUDIO_AAC)
                     .setLanguage("en")
+                    .setPrimaryTrackGroupId("main")
                     .build()),
             new TrackGroup(
                 "main:id3",
-                new Format.Builder().setId("ID3").setSampleMimeType(APPLICATION_ID3).build()));
+                new Format.Builder()
+                    .setId("ID3")
+                    .setSampleMimeType(APPLICATION_ID3)
+                    .setPrimaryTrackGroupId("main")
+                    .build()));
     MediaPeriodAsserts.assertTrackGroups(mediaPeriod, expectedGroups);
 
     Uri failedPlaylistUrl = Uri.parse("https://variant1");
@@ -260,17 +272,9 @@ public final class HlsMediaPeriodTest {
             .build());
   }
 
-  private static Variant createMuxedVideoAudioVariant(int peakBitrate) {
+  private static Variant createAudioOnlyVariant(Uri url, int peakBitrate) {
     return createVariant(
-        new Format.Builder()
-            .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
-            .setCodecs("avc1.100.41,mp4a.40.2")
-            .setPeakBitrate(peakBitrate)
-            .build());
-  }
-
-  private static Variant createAudioOnlyVariant(int peakBitrate) {
-    return createVariant(
+        url,
         new Format.Builder()
             .setContainerMimeType(MimeTypes.APPLICATION_M3U8)
             .setCodecs("mp4a.40.2")
@@ -278,16 +282,12 @@ public final class HlsMediaPeriodTest {
             .build());
   }
 
-  private static Rendition createAudioRendition(String language) {
-    return createRendition(createAudioFormat(language), "", "");
+  private static Rendition createAudioRendition(Uri url, String language) {
+    return createRendition(url, createAudioFormat(language), "", "");
   }
 
-  private static Rendition createSubtitleRendition(String language) {
-    return createRendition(createSubtitleFormat(language), "", "");
-  }
-
-  private static Variant createVariant(Format format) {
-    return createVariant(Uri.parse("https://variant"), format);
+  private static Rendition createSubtitleRendition(Uri url, String language) {
+    return createRendition(url, createSubtitleFormat(language), "", "");
   }
 
   private static Variant createVariant(Uri url, Format format) {
@@ -302,9 +302,8 @@ public final class HlsMediaPeriodTest {
         /* stableVariantId= */ null);
   }
 
-  private static Rendition createRendition(Format format, String groupId, String name) {
-    return new Rendition(
-        Uri.parse("https://rendition"), format, groupId, name, /* stableRenditionId= */ null);
+  private static Rendition createRendition(Uri url, Format format, String groupId, String name) {
+    return new Rendition(url, format, groupId, name, /* stableRenditionId= */ null);
   }
 
   private static Format createAudioFormat(String language) {
@@ -339,5 +338,50 @@ public final class HlsMediaPeriodTest {
             new byte[0]);
     return new LoadErrorHandlingPolicy.LoadErrorInfo(
         loadEventInfo, mediaLoadData, invalidResponseCodeException, errorCount);
+  }
+
+  private static void setupPlaylistTracker(
+      @Mock HlsPlaylistTracker mockPlaylistTracker, HlsMultivariantPlaylist multivariantPlaylist) {
+    when(mockPlaylistTracker.getMultivariantPlaylist()).thenReturn(multivariantPlaylist);
+    try {
+      ImmutableList<HlsRedundantGroup> variantRedundantGroups =
+          HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+      ImmutableList<HlsRedundantGroup> videoRedundantGroups =
+          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+      ImmutableList<HlsRedundantGroup> audioRedundantGroups =
+          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+      ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
+          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+      for (HlsRedundantGroup redundantGroup : variantRedundantGroups) {
+        for (Uri url : redundantGroup.getAllPlaylistUrls()) {
+          when(mockPlaylistTracker.getRedundantGroup(url)).thenReturn(redundantGroup);
+        }
+      }
+      for (HlsRedundantGroup redundantGroup : videoRedundantGroups) {
+        for (Uri url : redundantGroup.getAllPlaylistUrls()) {
+          when(mockPlaylistTracker.getRedundantGroup(url)).thenReturn(redundantGroup);
+        }
+      }
+      for (HlsRedundantGroup redundantGroup : audioRedundantGroups) {
+        for (Uri url : redundantGroup.getAllPlaylistUrls()) {
+          when(mockPlaylistTracker.getRedundantGroup(url)).thenReturn(redundantGroup);
+        }
+      }
+      for (HlsRedundantGroup redundantGroup : subtitleRedundantGroups) {
+        for (Uri url : redundantGroup.getAllPlaylistUrls()) {
+          when(mockPlaylistTracker.getRedundantGroup(url)).thenReturn(redundantGroup);
+        }
+      }
+      when(mockPlaylistTracker.getRedundantGroups(HlsRedundantGroup.VARIANT))
+          .thenReturn(variantRedundantGroups);
+      when(mockPlaylistTracker.getRedundantGroups(HlsRedundantGroup.VIDEO_RENDITION))
+          .thenReturn(videoRedundantGroups);
+      when(mockPlaylistTracker.getRedundantGroups(HlsRedundantGroup.AUDIO_RENDITION))
+          .thenReturn(audioRedundantGroups);
+      when(mockPlaylistTracker.getRedundantGroups(HlsRedundantGroup.SUBTITLE_RENDITION))
+          .thenReturn(subtitleRedundantGroups);
+    } catch (Exception e) {
+      throw new IllegalStateException("Error in creating redundant group list", e);
+    }
   }
 }

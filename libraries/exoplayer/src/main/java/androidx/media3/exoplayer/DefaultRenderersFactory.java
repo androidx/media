@@ -106,6 +106,12 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   public static final int MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY = 50;
 
+  /**
+   * Number of metadata renderers created by default. Chosen to cover at least one metadata track
+   * per video, audio and text track and an additional side-loaded metadata track.
+   */
+  private static final int METADATA_RENDERER_COUNT = 4;
+
   private static final String TAG = "DefaultRenderersFactory";
 
   private final Context context;
@@ -181,7 +187,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and above
+   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 36 and above
    * when operating the codec in asynchronous mode.
    *
    * <p>This method is experimental. Its default value may change, or it may be renamed or removed
@@ -191,7 +197,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   @ExperimentalApi // TODO: b/470368123 - Remove method once flag usage once safe.
   public final DefaultRenderersFactory experimentalSetMediaCodecAsyncCryptoFlagEnabled(
       boolean enableAsyncCryptoFlag) {
-    codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(enableAsyncCryptoFlag);
+    codecAdapterFactory.setAsyncCryptoFlagEnabled(enableAsyncCryptoFlag);
     return this;
   }
 
@@ -742,9 +748,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Full class names used for media3 constructor args so the LINT rule triggers if any move.
       @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> builderConstructor =
-          builderClass.getConstructor(
-              Context.class, androidx.media3.exoplayer.audio.AudioSink.class);
-      Object builder = builderConstructor.newInstance(context, audioSink);
+          builderClass.getConstructor(androidx.media3.exoplayer.audio.AudioSink.class);
+      Object builder = builderConstructor.newInstance(audioSink);
       // Full class names used for media3 constructor args so the LINT rule triggers if any move.
       @SuppressWarnings("UnnecessarilyFullyQualified")
       Class<?> audioRenderEventListenerClass =
@@ -821,8 +826,9 @@ public class DefaultRenderersFactory implements RenderersFactory {
       Looper outputLooper,
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
-    out.add(new MetadataRenderer(output, outputLooper));
-    out.add(new MetadataRenderer(output, outputLooper));
+    for (int i = 0; i < METADATA_RENDERER_COUNT; i++) {
+      out.add(new MetadataRenderer(output, outputLooper));
+    }
   }
 
   /**

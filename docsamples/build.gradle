@@ -11,13 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'com.android.library'
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_config.gradle"
 
 apply plugin: 'kotlin-android'
 apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace 'androidx.media3.docsamples'
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+    }
 
     kotlinOptions {
         jvmTarget = '1.8'
@@ -29,10 +36,29 @@ android {
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-exoplayer')
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:" + desugarJdkLibsVersion
+    implementation 'androidx.activity:activity-compose:1.9.0'
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
-    implementation 'androidx.activity:activity-compose:1.9.0'
     implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.mediarouter:mediarouter:' + androidxMediaRouterVersion
+    implementation 'com.github.bumptech.glide:glide:' + glideVersion
+    implementation 'com.github.bumptech.glide:concurrent-integration:' + glideVersion
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion
+    implementation project(modulePrefix + 'lib-cast')
+    implementation project(modulePrefix + 'lib-container')
+    implementation project(modulePrefix + 'lib-datasource-cronet')
+    implementation project(modulePrefix + 'lib-effect')
+    implementation project(modulePrefix + 'lib-exoplayer')
+    implementation project(modulePrefix + 'lib-exoplayer-dash')
+    implementation project(modulePrefix + 'lib-exoplayer-hls')
+    implementation project(modulePrefix + 'lib-exoplayer-ima')
+    implementation project(modulePrefix + 'lib-exoplayer-rtsp')
+    implementation project(modulePrefix + 'lib-exoplayer-smoothstreaming')
+    implementation project(modulePrefix + 'lib-inspector')
+    implementation project(modulePrefix + 'lib-muxer')
+    implementation project(modulePrefix + 'lib-session')
+    implementation project(modulePrefix + 'lib-transformer')
+    implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-ui-compose-material3')
 }

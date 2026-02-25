@@ -18,7 +18,9 @@ package androidx.media3.effect;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.util.ExperimentalApi;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 
 /**
@@ -31,26 +33,108 @@ public interface HardwareBufferFrameQueue {
 
   /** Defines the configuration parameters required for a {@link HardwareBuffer}. */
   final class FrameFormat {
+
+    /** A builder for {@link FrameFormat} instances. */
+    public static final class Builder {
+      private int width;
+      private int height;
+      private int pixelFormat;
+      private long usageFlags;
+      private ColorInfo colorInfo;
+
+      /**
+       * Creates a new builder with default values.
+       *
+       * <p>Width and height default to 0, {@code pixelFormat} defaults to {@link
+       * HardwareBuffer#RGBA_8888}, {@code usageFlags} defaults to {@link
+       * HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE}, and {@link ColorInfo} defaults to {@link
+       * ColorInfo#SDR_BT709_LIMITED}.
+       */
+      public Builder() {
+        pixelFormat = HardwareBuffer.RGBA_8888;
+        usageFlags = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+        colorInfo = ColorInfo.SDR_BT709_LIMITED;
+      }
+
+      /**
+       * Sets the width of the buffer in pixels.
+       *
+       * @param width The width.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setWidth(int width) {
+        this.width = width;
+        return this;
+      }
+
+      /**
+       * Sets the height of the buffer in pixels.
+       *
+       * @param height The height.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setHeight(int height) {
+        this.height = height;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain HardwareBuffer#getFormat() format} of the {@link HardwareBuffer}.
+       *
+       * @param pixelFormat The pixel format.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setPixelFormat(int pixelFormat) {
+        this.pixelFormat = pixelFormat;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain HardwareBuffer#getUsage() usage flags} of the {@link HardwareBuffer}.
+       *
+       * @param usageFlags The usage flags.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setUsageFlags(long usageFlags) {
+        this.usageFlags = usageFlags;
+        return this;
+      }
+
+      /**
+       * Sets the {@link ColorInfo}.
+       *
+       * @param colorInfo The {@link ColorInfo}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setColorInfo(ColorInfo colorInfo) {
+        this.colorInfo = colorInfo;
+        return this;
+      }
+
+      /** Builds the {@link FrameFormat} instance. */
+      public FrameFormat build() {
+        return new FrameFormat(width, height, pixelFormat, usageFlags, colorInfo);
+      }
+    }
+
     public final int width;
     public final int height;
     public final int pixelFormat;
     public final long usageFlags;
+    public final ColorInfo colorInfo;
 
-    /**
-     * Creates a new {@link FrameFormat} instance.
-     *
-     * @param width The width of the buffer in pixels.
-     * @param height The height of the buffer in pixels.
-     * @param pixelFormat The {@linkplain HardwareBuffer#getFormat() format} of the {@link
-     *     HardwareBuffer}.
-     * @param usageFlags The {@linkplain HardwareBuffer#getUsage() usage flags} of the {@link
-     *     HardwareBuffer}.
-     */
-    public FrameFormat(int width, int height, int pixelFormat, long usageFlags) {
+    private FrameFormat(
+        int width, int height, int pixelFormat, long usageFlags, ColorInfo colorInfo) {
       this.width = width;
       this.height = height;
       this.pixelFormat = pixelFormat;
       this.usageFlags = usageFlags;
+      this.colorInfo = colorInfo;
     }
 
     @Override
@@ -65,12 +149,13 @@ public interface HardwareBufferFrameQueue {
       return width == that.width
           && height == that.height
           && pixelFormat == that.pixelFormat
-          && usageFlags == that.usageFlags;
+          && usageFlags == that.usageFlags
+          && Objects.equals(colorInfo, that.colorInfo);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(width, height, pixelFormat, usageFlags);
+      return Objects.hash(width, height, pixelFormat, usageFlags, colorInfo);
     }
 
     @Override
@@ -84,6 +169,8 @@ public interface HardwareBufferFrameQueue {
           + pixelFormat
           + ", usageFlags="
           + usageFlags
+          + ", colorInfo="
+          + colorInfo
           + '}';
     }
   }
@@ -123,4 +210,7 @@ public interface HardwareBufferFrameQueue {
    * <p>This propagates an end-of-stream signal to the downstream consumer.
    */
   void signalEndOfStream();
+
+  /** Releases all resources associated with this instance. */
+  void release();
 }

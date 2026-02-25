@@ -22,7 +22,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
-import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,13 +51,11 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
-import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
-import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -89,10 +86,9 @@ public final class Mp4Extractor implements Extractor {
 
   /**
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
-   * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_MOTION_PHOTO_METADATA}, {@link
-   * #FLAG_READ_SEF_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
-   * #FLAG_READ_AUXILIARY_TRACKS}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link
-   * #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
+   * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_SEF_DATA}, {@link
+   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link #FLAG_READ_AUXILIARY_TRACKS}, {@link
+   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -101,7 +97,6 @@ public final class Mp4Extractor implements Extractor {
       flag = true,
       value = {
         FLAG_WORKAROUND_IGNORE_EDIT_LISTS,
-        FLAG_READ_MOTION_PHOTO_METADATA,
         FLAG_READ_SEF_DATA,
         FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE,
         FLAG_EMIT_RAW_SUBTITLE_DATA,
@@ -114,11 +109,6 @@ public final class Mp4Extractor implements Extractor {
 
   /** Flag to ignore any edit lists in the stream. */
   public static final int FLAG_WORKAROUND_IGNORE_EDIT_LISTS = 1;
-
-  /**
-   * @deprecated Use {@code HeifExtractor} to extract {@link MotionPhotoMetadata} from HEIC files.
-   */
-  @Deprecated public static final int FLAG_READ_MOTION_PHOTO_METADATA = 1 << 1;
 
   /**
    * Flag to extract {@link SlowMotionData} metadata from Samsung Extension Format (SEF) slow motion
@@ -214,12 +204,11 @@ public final class Mp4Extractor implements Extractor {
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({FILE_TYPE_MP4, FILE_TYPE_QUICKTIME, FILE_TYPE_HEIC})
+  @IntDef({FILE_TYPE_MP4, FILE_TYPE_QUICKTIME})
   private @interface FileType {}
 
   private static final int FILE_TYPE_MP4 = 0;
   private static final int FILE_TYPE_QUICKTIME = 1;
-  private static final int FILE_TYPE_HEIC = 2;
 
   /**
    * When seeking within the source, if the offset is greater than or equal to this value (or the
@@ -274,7 +263,6 @@ public final class Mp4Extractor implements Extractor {
 
   @Nullable private long[][] accumulatedSampleSizes;
   private @FileType int fileType;
-  @Nullable private MotionPhotoMetadata motionPhotoMetadata;
 
   /**
    * @deprecated Use {@link #Mp4Extractor(SubtitleParser.Factory)} instead
@@ -348,10 +336,7 @@ public final class Mp4Extractor implements Extractor {
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    @Nullable
-    SniffFailure sniffFailure =
-        Sniffer.sniffUnfragmented(
-            input, /* acceptHeic= */ (flags & FLAG_READ_MOTION_PHOTO_METADATA) != 0);
+    @Nullable SniffFailure sniffFailure = Sniffer.sniffUnfragmented(input);
     lastSniffFailures = sniffFailure != null ? ImmutableList.of(sniffFailure) : ImmutableList.of();
     return sniffFailure == null;
   }
@@ -454,7 +439,6 @@ public final class Mp4Extractor implements Extractor {
     if (atomHeaderBytesRead == 0) {
       // Read the standard length atom header.
       if (!input.readFully(atomHeader.getData(), 0, Mp4Box.HEADER_SIZE, true)) {
-        processEndOfStreamReadingAtomHeader();
         return false;
       }
       atomHeaderBytesRead = Mp4Box.HEADER_SIZE;
@@ -517,7 +501,6 @@ public final class Mp4Extractor implements Extractor {
       this.atomData = atomData;
       parserState = STATE_READING_ATOM_PAYLOAD;
     } else {
-      processUnparsedAtom(input.getPosition() - atomHeaderBytesRead);
       atomData = null;
       parserState = STATE_READING_ATOM_PAYLOAD;
     }
@@ -1078,40 +1061,12 @@ public final class Mp4Extractor implements Extractor {
     track.sampleIndex = sampleIndex;
   }
 
-  /** Processes the end of stream in case there is not atom left to read. */
-  private void processEndOfStreamReadingAtomHeader() {
-    if (fileType == FILE_TYPE_HEIC && (flags & FLAG_READ_MOTION_PHOTO_METADATA) != 0) {
-      // Add image track and prepare media.
-      TrackOutput trackOutput = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_IMAGE);
-      @Nullable
-      Metadata metadata = motionPhotoMetadata == null ? null : new Metadata(motionPhotoMetadata);
-      trackOutput.format(new Format.Builder().setMetadata(metadata).build());
-      extractorOutput.endTracks();
-      extractorOutput.seekMap(new SeekMap.Unseekable(/* durationUs= */ C.TIME_UNSET));
-    }
-  }
-
   private void maybeSkipRemainingMetaAtomHeaderBytes(ExtractorInput input) throws IOException {
     scratch.reset(Mp4Box.HEADER_SIZE);
     input.peekFully(scratch.getData(), 0, Mp4Box.HEADER_SIZE);
     BoxParser.maybeSkipRemainingMetaBoxHeaderBytes(scratch);
     input.skipFully(scratch.getPosition());
     input.resetPeekPosition();
-  }
-
-  /** Processes an atom whose payload does not need to be parsed. */
-  private void processUnparsedAtom(long atomStartPosition) {
-    if (atomType == Mp4Box.TYPE_mpvd) {
-      // The input is an HEIC motion photo following the Google Photos Motion Photo File Format
-      // V1.1.
-      motionPhotoMetadata =
-          new MotionPhotoMetadata(
-              /* photoStartPosition= */ 0,
-              /* photoSize= */ atomStartPosition,
-              /* photoPresentationTimestampUs= */ C.TIME_UNSET,
-              /* videoStartPosition= */ atomStartPosition + atomHeaderBytesRead,
-              /* videoSize= */ atomSize - atomHeaderBytesRead);
-    }
   }
 
   /**
@@ -1125,7 +1080,9 @@ public final class Mp4Extractor implements Extractor {
     if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
       return (flags & FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265) != 0;
     }
-    return false;
+    // Do not flag gate APV sample dependency parsing - prior experiments with H.264 and H.265
+    // were positive, and the defaults have been updated.
+    return Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_APV);
   }
 
   /**
@@ -1233,8 +1190,6 @@ public final class Mp4Extractor implements Extractor {
     switch (brand) {
       case BRAND_QUICKTIME:
         return FILE_TYPE_QUICKTIME;
-      case BRAND_HEIC:
-        return FILE_TYPE_HEIC;
       default:
         return FILE_TYPE_MP4;
     }

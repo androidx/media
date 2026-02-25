@@ -315,7 +315,7 @@ public final class ProgressiveMediaSource extends BaseMediaSource
   }
 
   /**
-   * The default number of bytes that should be loaded between each each invocation of {@link
+   * The default number of bytes that should be loaded between each invocation of {@link
    * MediaPeriod.Callback#onContinueLoadingRequested(SequenceableLoader)}.
    */
   public static final int DEFAULT_LOADING_CHECK_INTERVAL_BYTES = 1024 * 1024;

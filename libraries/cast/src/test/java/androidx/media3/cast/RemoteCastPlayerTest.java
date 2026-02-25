@@ -203,7 +203,7 @@ public class RemoteCastPlayerTest {
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
+            Cast.getSingletonInstance(mockCastContext),
             mediaItemConverter,
             spyTrackSelector,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
@@ -2396,7 +2396,7 @@ public class RemoteCastPlayerTest {
     RemoteCastPlayer remoteCastPlayerWithTrackSelector =
         new RemoteCastPlayer(
             /* context= */ null,
-            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
+            Cast.getSingletonInstance(mockCastContext),
             mediaItemConverter,
             new CastTrackSelector() {
               @Override
@@ -2421,7 +2421,7 @@ public class RemoteCastPlayerTest {
     RemoteCastPlayer remoteCastPlayerWithoutTrackSelector =
         new RemoteCastPlayer(
             /* context= */ null,
-            Cast.getSingletonInstance().sideloadCastContext(mockCastContext),
+            Cast.getSingletonInstance(mockCastContext),
             mediaItemConverter,
             /* trackSelector= */ null,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,

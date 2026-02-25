@@ -1,0 +1,86 @@
+ftyp (28 bytes):
+  Data = length 20, hash EF896440
+moov (2454 bytes):
+  mvhd (108 bytes):
+    Data = length 100, hash 17D30507
+  trak (433 bytes):
+    tkhd (92 bytes):
+      Data = length 84, hash 5C2D954E
+    mdia (333 bytes):
+      mdhd (32 bytes):
+        Data = length 24, hash B4067EFA
+      hdlr (43 bytes):
+        Data = length 35, hash 3A96CDAD
+      minf (250 bytes):
+        nmhd (12 bytes):
+          Data = length 4, hash E1781
+        dinf (36 bytes):
+          Data = length 28, hash D535436B
+        stbl (194 bytes):
+          stsd (38 bytes):
+            Data = length 30, hash F7F009A8
+          stts (24 bytes):
+            Data = length 16, hash E534C6EC
+          stsz (40 bytes):
+            Data = length 32, hash AD2339A
+          stsc (28 bytes):
+            Data = length 20, hash 8F6E8285
+          co64 (56 bytes):
+            Data = length 48, hash 7EA86C64
+  trak (867 bytes):
+    tkhd (92 bytes):
+      Data = length 84, hash 6B57450F
+    mdia (767 bytes):
+      mdhd (32 bytes):
+        Data = length 24, hash 174688FC
+      hdlr (44 bytes):
+        Data = length 36, hash A0852FF2
+      minf (683 bytes):
+        vmhd (20 bytes):
+          Data = length 12, hash EE830681
+        dinf (36 bytes):
+          Data = length 28, hash D535436B
+        stbl (619 bytes):
+          stsd (143 bytes):
+            Data = length 135, hash F53E78CB
+          stts (24 bytes):
+            Data = length 16, hash E6950F30
+          stsz (140 bytes):
+            Data = length 132, hash B04B2673
+          stsc (28 bytes):
+            Data = length 20, hash 8F6E8285
+          co64 (256 bytes):
+            Data = length 248, hash 3A00BFD5
+          stss (20 bytes):
+            Data = length 12, hash EE911E03
+  trak (1038 bytes):
+    tkhd (92 bytes):
+      Data = length 84, hash CD454303
+    edts (64 bytes):
+      elst (56 bytes):
+        Data = length 48, hash 9423B95A
+    mdia (874 bytes):
+      mdhd (32 bytes):
+        Data = length 24, hash 9BA8E1E2
+      hdlr (44 bytes):
+        Data = length 36, hash 49FC755F
+      minf (790 bytes):
+        smhd (16 bytes):
+          Data = length 8, hash 94446F01
+        dinf (36 bytes):
+          Data = length 28, hash D535436B
+        stbl (730 bytes):
+          stsd (94 bytes):
+            Data = length 86, hash 59366562
+          stts (24 bytes):
+            Data = length 16, hash E7686F2B
+          stsz (200 bytes):
+            Data = length 192, hash 429A9D4C
+          stsc (28 bytes):
+            Data = length 20, hash 8F6E8285
+          co64 (376 bytes):
+            Data = length 368, hash 24CFEB70
+free (397554 bytes):
+  Data = length 397546, hash A45BD6C1
+mdat (78432 bytes):
+  Data = length 78416, hash 50713FCB

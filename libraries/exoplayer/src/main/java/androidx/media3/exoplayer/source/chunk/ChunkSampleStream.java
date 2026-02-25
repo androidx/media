@@ -23,7 +23,6 @@ import static java.lang.Math.min;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -97,7 +96,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   private long lastSeekPositionUs;
   private int nextNotifyPrimaryFormatMediaChunkIndex;
   @Nullable private BaseMediaChunk canceledMediaChunk;
-  private boolean canReportInitialDiscontinuity;
+  private boolean needToEvaluateInitialDiscontinuity;
   private boolean hasInitialDiscontinuity;
   private boolean suppressRead;
 
@@ -119,8 +118,10 @@ public class ChunkSampleStream<T extends ChunkSource>
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param mediaSourceEventDispatcher A dispatcher to notify of {@link MediaSourceEventListener}
    *     events.
-   * @param canReportInitialDiscontinuity Whether the stream can report an initial discontinuity if
-   *     the first chunk can't start at the beginning and needs to preroll data.
+   * @param handleInitialDiscontinuity Whether the stream needs to handle an initial discontinuity
+   *     if the first chunk can't start at the beginning and needs to preroll data.
+   * @param firstChunkStartTimeUs The start time of the first chunk in microseconds, or {@link
+   *     C#TIME_UNSET} if not known yet.
    * @param downloadExecutor An optional externally provided {@link ReleasableExecutor} for loading
    *     and extracting media.
    */
@@ -136,7 +137,8 @@ public class ChunkSampleStream<T extends ChunkSource>
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-      boolean canReportInitialDiscontinuity,
+      boolean handleInitialDiscontinuity,
+      long firstChunkStartTimeUs,
       @Nullable ReleasableExecutor downloadExecutor) {
     this.primaryTrackType = primaryTrackType;
     this.embeddedTrackTypes = embeddedTrackTypes == null ? new int[0] : embeddedTrackTypes;
@@ -145,7 +147,6 @@ public class ChunkSampleStream<T extends ChunkSource>
     this.callback = callback;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
-    this.canReportInitialDiscontinuity = canReportInitialDiscontinuity;
     loader =
         downloadExecutor != null ? new Loader(downloadExecutor) : new Loader("ChunkSampleStream");
     nextChunkHolder = new ChunkHolder();
@@ -173,6 +174,13 @@ public class ChunkSampleStream<T extends ChunkSource>
     chunkOutput = new BaseMediaChunkOutput(trackTypes, sampleQueues);
     pendingResetPositionUs = positionUs;
     lastSeekPositionUs = positionUs;
+
+    needToEvaluateInitialDiscontinuity = handleInitialDiscontinuity;
+    if (handleInitialDiscontinuity && firstChunkStartTimeUs != C.TIME_UNSET) {
+      // Evaluate need for initial discontinuity immediately if all information is available.
+      needToEvaluateInitialDiscontinuity = false;
+      hasInitialDiscontinuity = firstChunkStartTimeUs < pendingResetPositionUs;
+    }
   }
 
   /**
@@ -271,7 +279,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    */
   public void seekToUs(long positionUs) {
     lastSeekPositionUs = positionUs;
-    canReportInitialDiscontinuity = false;
+    needToEvaluateInitialDiscontinuity = false;
     if (isPendingReset()) {
       // A reset is already pending. We only need to update its position.
       pendingResetPositionUs = positionUs;
@@ -336,6 +344,24 @@ public class ChunkSampleStream<T extends ChunkSource>
   }
 
   /**
+   * Sets the end position at which the period stops loading and providing samples.
+   *
+   * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is set, the implementation will stop
+   * returning samples from the created {@link SampleStream} instances beyond the specified end
+   * position and mark further reads with {@link C#BUFFER_FLAG_END_OF_STREAM}. The stream may return
+   * additional out of order samples required for decoding.
+   *
+   * @param endPositionUs The requested end position, in microseconds, or {@link
+   *     C#TIME_END_OF_SOURCE} to not set an end position.
+   */
+  public void setEndPositionUs(long endPositionUs) {
+    primarySampleQueue.setReadEndTimeUs(endPositionUs);
+    for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
+      embeddedSampleQueue.setReadEndTimeUs(endPositionUs);
+    }
+  }
+
+  /**
    * Releases the stream.
    *
    * <p>This method should be called when the stream is no longer required. Either this method or
@@ -395,7 +421,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   @Override
   public int readData(
       FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
-    if (isPendingReset() || hasInitialDiscontinuity || suppressRead) {
+    if (isPendingReset() || mayHaveInitialDiscontinuity() || suppressRead) {
       return C.RESULT_NOTHING_READ;
     }
     if (canceledMediaChunk != null
@@ -412,7 +438,7 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   @Override
   public int skipData(long positionUs) {
-    if (isPendingReset() || hasInitialDiscontinuity || suppressRead) {
+    if (isPendingReset() || mayHaveInitialDiscontinuity() || suppressRead) {
       return 0;
     }
     int skipCount = primarySampleQueue.getSkipCount(positionUs, loadingFinished);
@@ -646,17 +672,11 @@ public class ChunkSampleStream<T extends ChunkSource>
           for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
             embeddedSampleQueue.setStartTimeUs(pendingResetPositionUs);
           }
-          if (canReportInitialDiscontinuity) {
-            // Only report it as discontinuity if the SampleQueue can't skip the samples directly.
-            boolean sampleQueueCanSkipSamples =
-                MimeTypes.allSamplesAreSyncSamples(
-                    mediaChunk.trackFormat.sampleMimeType, mediaChunk.trackFormat.codecs);
-            hasInitialDiscontinuity = !sampleQueueCanSkipSamples;
-          }
+          hasInitialDiscontinuity = needToEvaluateInitialDiscontinuity;
         }
         // Once we started loading the first media chunk, no more initial discontinuities can be
         // reported.
-        canReportInitialDiscontinuity = false;
+        needToEvaluateInitialDiscontinuity = false;
         pendingResetPositionUs = C.TIME_UNSET;
       }
       mediaChunk.init(chunkOutput);
@@ -709,14 +729,20 @@ public class ChunkSampleStream<T extends ChunkSource>
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
     }
+
+    if (primarySampleQueue.hasQueuedTimestampsUpToReadEndTimeUs()) {
+      loadingFinished = true;
+    }
   }
 
   /**
-   * Returns whether there is a pending initial discontinuity that needs to be consumed by {@link
-   * #consumeInitialDiscontinuity()}.
+   * Returns whether there could be a pending initial discontinuity that needs to be consumed by
+   * {@link #consumeInitialDiscontinuity()}.
    */
-  public boolean hasInitialDiscontinuity() {
-    return hasInitialDiscontinuity;
+  public boolean mayHaveInitialDiscontinuity() {
+    return (needToEvaluateInitialDiscontinuity || hasInitialDiscontinuity)
+        && !loadingFinished
+        && !loader.hasFatalError();
   }
 
   /**

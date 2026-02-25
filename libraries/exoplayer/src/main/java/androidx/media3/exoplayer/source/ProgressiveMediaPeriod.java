@@ -154,6 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long durationUs;
   private boolean isLive;
   private @DataType int dataType;
+  private long endPositionUs;
 
   private boolean seenFirstTrackSelection;
   private boolean notifyDiscontinuity;
@@ -227,6 +228,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.loadOnlySelectedTracks = loadOnlySelectedTracks;
     this.singleTrackId = singleTrackId;
     this.singleTrackFormat = singleTrackFormat;
+    this.endPositionUs = C.TIME_END_OF_SOURCE;
     loader =
         downloadExecutor != null
             ? new Loader(downloadExecutor)
@@ -421,7 +423,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void reevaluateBuffer(long positionUs) {
-    // Do nothing.
+    if (enabledTrackCount > 0 && !isPendingReset() && haveSampleQueuesReachedEndTimeUs()) {
+      loadingFinished = true;
+      // TODO: b/474538573 - Actually cancel ongoing load and restart later if required.
+    }
   }
 
   @Override
@@ -442,7 +447,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isLoading() {
-    return loader.isLoading() && loadCondition.isOpen();
+    return !loadingFinished && loader.isLoading() && loadCondition.isOpen();
   }
 
   @Override
@@ -550,6 +555,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         positionUs, seekPoints.first.timeUs, seekPoints.second.timeUs);
   }
 
+  @Override
+  public long setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    for (SampleQueue sampleQueue : sampleQueues) {
+      sampleQueue.setReadEndTimeUs(endPositionUs);
+    }
+    return endPositionUs;
+  }
+
   // SampleStream methods.
 
   /* package */ boolean isReady(int track) {
@@ -594,6 +608,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       maybeStartDeferredRetry(track);
     }
     return skipCount;
+  }
+
+  private boolean haveSampleQueuesReachedEndTimeUs() {
+    if (endPositionUs == C.TIME_END_OF_SOURCE) {
+      return false;
+    }
+    assertPrepared();
+    boolean endPositionReached = true;
+    for (int i = 0; i < sampleQueues.length; i++) {
+      // Ignore non-AV tracks, which may be sparse or poorly interleaved.
+      if (trackState.trackEnabledStates[i]
+          && (trackState.trackIsAudioVideoFlags[i] || !haveAudioVideoTracks)) {
+        endPositionReached &= sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs();
+      }
+    }
+    return endPositionReached;
   }
 
   private void maybeNotifyDownstreamFormat(int track) {
@@ -882,6 +912,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     loadCondition.close();
     int trackCount = sampleQueues.length;
+    int primaryTrackIndex = 0;
+    @C.TrackType int primaryTrackIndexType = C.TRACK_TYPE_UNKNOWN;
+    for (int i = 0; i < trackCount; i++) {
+      @C.TrackType
+      int trackType =
+          MimeTypes.getTrackType(checkNotNull(sampleQueues[i].getUpstreamFormat()).sampleMimeType);
+      if (getTrackTypePriority(trackType) > getTrackTypePriority(primaryTrackIndexType)) {
+        primaryTrackIndex = i;
+        primaryTrackIndexType = trackType;
+      }
+    }
     TrackGroup[] trackArray = new TrackGroup[trackCount];
     boolean[] trackIsAudioVideoFlags = new boolean[trackCount];
     for (int i = 0; i < trackCount; i++) {
@@ -914,8 +955,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
       trackFormat = trackFormat.copyWithCryptoType(drmSessionManager.getCryptoType(trackFormat));
+      if (i != primaryTrackIndex) {
+        trackFormat =
+            trackFormat
+                .buildUpon()
+                .setPrimaryTrackGroupId(Integer.toString(primaryTrackIndex))
+                .build();
+      }
       trackArray[i] = new TrackGroup(/* id= */ Integer.toString(i), trackFormat);
       pendingInitialDiscontinuity |= trackFormat.hasPrerollSamples;
+      sampleQueues[i].setReadEndTimeUs(endPositionUs);
     }
     trackState = new TrackState(new TrackGroupArray(trackArray), trackIsAudioVideoFlags);
     if (isSingleSample && durationUs == C.TIME_UNSET) {
@@ -939,7 +988,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             uri, dataSource, progressiveMediaExtractor, /* extractorOutput= */ this, loadCondition);
     if (prepared) {
       checkState(isPendingReset());
-      if (durationUs != C.TIME_UNSET && pendingResetPositionUs > durationUs) {
+      long maxLoadPositionUs = endPositionUs != C.TIME_END_OF_SOURCE ? endPositionUs : durationUs;
+      if (maxLoadPositionUs != C.TIME_UNSET && pendingResetPositionUs > maxLoadPositionUs) {
         loadingFinished = true;
         pendingResetPositionUs = C.TIME_UNSET;
         return;
@@ -1307,6 +1357,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         IcyHeaders.REQUEST_HEADER_ENABLE_METADATA_NAME,
         IcyHeaders.REQUEST_HEADER_ENABLE_METADATA_VALUE);
     return Collections.unmodifiableMap(headers);
+  }
+
+  private static int getTrackTypePriority(@C.TrackType int trackType) {
+    switch (trackType) {
+      case C.TRACK_TYPE_VIDEO:
+        return 4;
+      case C.TRACK_TYPE_AUDIO:
+        return 3;
+      case C.TRACK_TYPE_IMAGE:
+        return 2;
+      case C.TRACK_TYPE_TEXT:
+        return 1;
+      default:
+        return 0;
+    }
   }
 
   /** A track output that can discard samples when not selected. */

@@ -24,8 +24,8 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.extractor.VorbisUtil;
-import androidx.media3.extractor.VorbisUtil.Mode;
+import androidx.media3.container.VorbisUtil;
+import androidx.media3.container.VorbisUtil.Mode;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -77,11 +77,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     }
 
     // ... we need to decode the block size
-    int packetBlockSize = decodeBlockSize(packet.getData()[0], checkNotNull(vorbisSetup));
-    // a packet contains samples produced from overlapping the previous and current frame data
-    // (https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-350001.3.2)
+    VorbisSetup vorbisSetup = checkNotNull(this.vorbisSetup);
+    int packetBlockSize =
+        VorbisUtil.getPacketBlockSize(packet.getData()[0], vorbisSetup.idHeader, vorbisSetup.modes);
     int samplesInPacket =
-        seenFirstAudioPacket ? (packetBlockSize + previousPacketBlockSize) / 4 : 0;
+        VorbisUtil.getSampleCountInPacket(
+            packetBlockSize, previousPacketBlockSize, seenFirstAudioPacket);
     // codec expects the number of samples appended to audio data
     appendNumberOfSamples(packet, samplesInPacket);
 
@@ -114,7 +115,8 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
     @Nullable
     Metadata metadata =
-        VorbisUtil.parseVorbisComments(ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
+        androidx.media3.extractor.VorbisUtil.parseVorbisComments(
+            ImmutableList.copyOf(vorbisSetup.commentHeader.comments));
 
     setupData.format =
         new Format.Builder()
@@ -158,20 +160,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     return new VorbisSetup(vorbisIdHeader, commentHeader, setupHeaderData, modes, iLogModes);
   }
 
-  /**
-   * Reads an int of {@code length} bits from {@code src} starting at {@code
-   * leastSignificantBitIndex}.
-   *
-   * @param src the {@code byte} to read from.
-   * @param length the length in bits of the int to read.
-   * @param leastSignificantBitIndex the index of the least significant bit of the int to read.
-   * @return the int value read.
-   */
-  @VisibleForTesting
-  /* package */ static int readBits(byte src, int length, int leastSignificantBitIndex) {
-    return (src >> leastSignificantBitIndex) & (255 >>> (8 - length));
-  }
-
   @VisibleForTesting
   /* package */ static void appendNumberOfSamples(
       ParsableByteArray buffer, long packetSampleCount) {
@@ -187,18 +175,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     data[buffer.limit() - 3] = (byte) ((packetSampleCount >>> 8) & 0xFF);
     data[buffer.limit() - 2] = (byte) ((packetSampleCount >>> 16) & 0xFF);
     data[buffer.limit() - 1] = (byte) ((packetSampleCount >>> 24) & 0xFF);
-  }
-
-  private static int decodeBlockSize(byte firstByteOfAudioPacket, VorbisSetup vorbisSetup) {
-    // read modeNumber (https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-730004.3.1)
-    int modeNumber = readBits(firstByteOfAudioPacket, vorbisSetup.iLogModes, 1);
-    int currentBlockSize;
-    if (!vorbisSetup.modes[modeNumber].blockFlag) {
-      currentBlockSize = vorbisSetup.idHeader.blockSize0;
-    } else {
-      currentBlockSize = vorbisSetup.idHeader.blockSize1;
-    }
-    return currentBlockSize;
   }
 
   /** Class to hold all data read from Vorbis setup headers. */

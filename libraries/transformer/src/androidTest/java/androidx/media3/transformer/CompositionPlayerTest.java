@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
@@ -51,6 +52,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
@@ -60,6 +62,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -78,10 +81,13 @@ import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -820,6 +826,62 @@ public class CompositionPlayerTest {
     playerReleased.block(TEST_TIMEOUT_MS);
 
     assertThat(droppedFramesCounter.get()).isGreaterThan(0);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34)
+  public void compositionPlayer_withPacketConsumer_outputsFrameBeforeEnding() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              new DefaultHardwareBufferEffectsPipeline();
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                videoTimestamps.add(presentationTimeUs);
+              });
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(int playbackState) {
+                  if (playbackState == STATE_ENDED) {
+                    videoTimestamps.add(-1L);
+                  }
+                }
+              });
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(
+                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                          .setClippingConfiguration(
+                                              new MediaItem.ClippingConfiguration.Builder()
+                                                  .setEndPositionMs(10)
+                                                  .build())
+                                          .build())
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    listener.waitUntilPlayerEnded();
+
+    assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
   }
 
   private static final class TestExternallyLoadedBitmapResolver

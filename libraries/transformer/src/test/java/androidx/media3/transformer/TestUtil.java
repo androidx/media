@@ -132,6 +132,10 @@ public final class TestUtil {
     return fileName + '.' + DUMP_FILE_EXTENSION;
   }
 
+  public static String getSubstitutedPath(String originalAssetPath, String newSubDir) {
+    return originalAssetPath.replaceFirst("[^/]+/", newSubDir + "/");
+  }
+
   /**
    * Returns the file path of the sequence export dump file, based on the item summaries provided.
    *

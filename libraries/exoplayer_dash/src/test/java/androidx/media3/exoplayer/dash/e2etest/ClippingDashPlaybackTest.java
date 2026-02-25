@@ -43,17 +43,20 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** End-to-end tests for the behavior of clipping with DASH media. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingDashPlaybackTest {
 
   private static final String TEST_DASH_URI = "asset:///media/cmaf/multi-segment/manifest.mpd";
+
+  @TestParameter private boolean enableMediaPeriodClipping;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -144,6 +147,7 @@ public final class ClippingDashPlaybackTest {
                     return new ClippingMediaSource.Builder(dashSource)
                         .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
                         .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+                        .setEnableClippingInMediaPeriod(enableMediaPeriodClipping)
                         .build();
                   }
                 })

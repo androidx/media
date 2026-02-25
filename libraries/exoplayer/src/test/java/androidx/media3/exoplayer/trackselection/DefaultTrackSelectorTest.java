@@ -118,6 +118,8 @@ public final class DefaultTrackSelectorTest {
       new FakeRendererCapabilities(C.TRACK_TYPE_AUDIO);
   private static final RendererCapabilities IMAGE_CAPABILITIES =
       new FakeRendererCapabilities(C.TRACK_TYPE_IMAGE);
+  private static final RendererCapabilities METADATA_CAPABILITIES =
+      new FakeRendererCapabilities(C.TRACK_TYPE_METADATA);
   private static final RendererCapabilities NO_SAMPLE_CAPABILITIES =
       new FakeRendererCapabilities(C.TRACK_TYPE_NONE);
   private static final RendererCapabilities[] RENDERER_CAPABILITIES =
@@ -143,6 +145,8 @@ public final class DefaultTrackSelectorTest {
       new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build();
   private static final Format IMAGE_FORMAT =
       new Format.Builder().setSampleMimeType(MimeTypes.IMAGE_PNG).build();
+  private static final Format METADATA_FORMAT =
+      new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_ID3).build();
 
   private static final TrackGroup VIDEO_TRACK_GROUP = new TrackGroup(VIDEO_FORMAT);
   private static final TrackGroup AUDIO_TRACK_GROUP = new TrackGroup(AUDIO_FORMAT);
@@ -1432,6 +1436,168 @@ public final class DefaultTrackSelectorTest {
     trackGroups = wrapFormats(germanAudio, forcedGerman, forcedEnglish, defaultEnglish);
     result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
     assertFixedSelection(result.selections[1], trackGroups, defaultEnglish);
+  }
+
+  @Test
+  public void selectTracks_withAudioTrackOverride_choosesVideoAndTextTracksWithMatchingLanguage()
+      throws ExoPlaybackException {
+    Format.Builder textBuilder =
+        TEXT_FORMAT.buildUpon().setSelectionFlags(C.SELECTION_FLAG_DEFAULT);
+    Format textEnglish = textBuilder.setLanguage("en").build();
+    Format textGerman = textBuilder.setLanguage("de").build();
+    Format audioEnglish = AUDIO_FORMAT.buildUpon().setLanguage("en").build();
+    Format audioGerman = AUDIO_FORMAT.buildUpon().setLanguage("de").build();
+    Format videoEnglish = VIDEO_FORMAT.buildUpon().setLanguage("en").build();
+    Format videoGerman = VIDEO_FORMAT.buildUpon().setLanguage("de").build();
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {
+          ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES,
+          ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES,
+          ALL_VIDEO_FORMAT_EXCEEDED_RENDERER_CAPABILITIES
+        };
+    TrackGroupArray trackGroups =
+        wrapFormats(audioEnglish, audioGerman, textEnglish, textGerman, videoEnglish, videoGerman);
+
+    // Specify override for English audio to assert English text and video is selected and override
+    // for German audio to assert German text and video is selected.
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setOverrideForType(new TrackSelectionOverride(trackGroups.get(0), /* trackIndex= */ 0))
+            .build());
+    TrackSelectorResult resultEnglish =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setOverrideForType(new TrackSelectionOverride(trackGroups.get(1), /* trackIndex= */ 0))
+            .build());
+    TrackSelectorResult resultGerman =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(resultEnglish.selections[0], trackGroups, audioEnglish);
+    assertFixedSelection(resultEnglish.selections[1], trackGroups, textEnglish);
+    assertFixedSelection(resultEnglish.selections[2], trackGroups, videoEnglish);
+    assertFixedSelection(resultGerman.selections[0], trackGroups, audioGerman);
+    assertFixedSelection(resultGerman.selections[1], trackGroups, textGerman);
+    assertFixedSelection(resultGerman.selections[2], trackGroups, videoGerman);
+  }
+
+  @Test
+  public void selectTracks_withMuxedMetadata_choosesMetadataTracksForSelectedPrimaryTracks()
+      throws ExoPlaybackException {
+    TrackGroup videoGroupA =
+        new TrackGroup(/* id= */ "A", VIDEO_FORMAT.buildUpon().setLabel("A").build());
+    TrackGroup videoGroupB =
+        new TrackGroup(/* id= */ "B", VIDEO_FORMAT.buildUpon().setLabel("B").build());
+    TrackGroup audioGroupC =
+        new TrackGroup(/* id= */ "C", AUDIO_FORMAT.buildUpon().setLabel("C").build());
+    TrackGroup audioGroupD =
+        new TrackGroup(/* id= */ "D", AUDIO_FORMAT.buildUpon().setLabel("D").build());
+    TrackGroup metadataGroupA =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("A").build());
+    TrackGroup metadataGroupB =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("B").build());
+    TrackGroup metadataGroupC =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("C").build());
+    TrackGroup metadataGroupD =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("D").build());
+    TrackGroup metadataStandalone = new TrackGroup(METADATA_FORMAT);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {
+          AUDIO_CAPABILITIES,
+          VIDEO_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES
+        };
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(
+            videoGroupA,
+            videoGroupB,
+            audioGroupC,
+            audioGroupD,
+            metadataGroupA,
+            metadataGroupB,
+            metadataGroupC,
+            metadataGroupD,
+            metadataStandalone);
+
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setPreferredVideoLabels("A")
+            .setPreferredAudioLabels("D")
+            .build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, audioGroupD.getFormat(0));
+    assertFixedSelection(result.selections[1], trackGroups, videoGroupA.getFormat(0));
+    assertFixedSelection(result.selections[2], trackGroups, metadataGroupA.getFormat(0));
+    assertFixedSelection(result.selections[3], trackGroups, metadataStandalone.getFormat(0));
+    assertFixedSelection(result.selections[4], trackGroups, metadataGroupD.getFormat(0));
+    assertNoSelection(result.selections[5]);
+  }
+
+  @Test
+  public void
+      selectTracks_withMuxedMetadataAndOverridesAndDisabledTracks_choosesMetadataTracksForSelectedPrimaryTracks()
+          throws ExoPlaybackException {
+    TrackGroup videoGroupA =
+        new TrackGroup(/* id= */ "A", VIDEO_FORMAT.buildUpon().setLabel("A").build());
+    TrackGroup videoGroupB =
+        new TrackGroup(/* id= */ "B", VIDEO_FORMAT.buildUpon().setLabel("B").build());
+    TrackGroup audioGroupC =
+        new TrackGroup(/* id= */ "C", AUDIO_FORMAT.buildUpon().setLabel("C").build());
+    TrackGroup audioGroupD =
+        new TrackGroup(/* id= */ "D", AUDIO_FORMAT.buildUpon().setLabel("D").build());
+    TrackGroup metadataGroupA =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("A").build());
+    TrackGroup metadataGroupB =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("B").build());
+    TrackGroup metadataGroupC =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("C").build());
+    TrackGroup metadataGroupD =
+        new TrackGroup(METADATA_FORMAT.buildUpon().setPrimaryTrackGroupId("D").build());
+    TrackGroup metadataStandalone = new TrackGroup(METADATA_FORMAT);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {
+          AUDIO_CAPABILITIES,
+          VIDEO_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES,
+          METADATA_CAPABILITIES
+        };
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(
+            videoGroupA,
+            videoGroupB,
+            audioGroupC,
+            audioGroupD,
+            metadataGroupA,
+            metadataGroupB,
+            metadataGroupC,
+            metadataGroupD,
+            metadataStandalone);
+
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setOverrideForType(new TrackSelectionOverride(videoGroupB, /* trackIndex= */ 0))
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+            .build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertNoSelection(result.selections[0]);
+    assertFixedSelection(result.selections[1], trackGroups, videoGroupB.getFormat(0));
+    assertFixedSelection(result.selections[2], trackGroups, metadataStandalone.getFormat(0));
+    assertFixedSelection(result.selections[3], trackGroups, metadataGroupB.getFormat(0));
+    assertNoSelection(result.selections[4]);
+    assertNoSelection(result.selections[5]);
   }
 
   /**

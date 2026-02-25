@@ -164,6 +164,16 @@ class ProgressStateWithTickCount(
     }
   }
 
+  /** Converts a progress value (0.0 to 1.0) to a position in the current media in milliseconds. */
+  fun progressToPosition(progress: Float): Long {
+    val player = player ?: return 0
+    val durationMs = getDurationMsOrDefault(player)
+    if (durationMs == C.TIME_UNSET || durationMs <= 0) {
+      return 0
+    }
+    return (progress * durationMs).toLong()
+  }
+
   init {
     require(totalTickCount >= 0)
   }

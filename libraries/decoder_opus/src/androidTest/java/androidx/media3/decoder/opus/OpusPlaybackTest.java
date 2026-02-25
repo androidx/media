@@ -38,10 +38,12 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Playback tests using {@link LibopusAudioRenderer}. */
+@Ignore("Fails on gradle: b/396659095")
 @RunWith(AndroidJUnit4.class)
 public class OpusPlaybackTest {
 

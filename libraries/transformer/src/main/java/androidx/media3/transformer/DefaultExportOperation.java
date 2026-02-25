@@ -34,7 +34,6 @@ import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
 import androidx.media3.transformer.Transformer.ProgressState;
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /** An {@link ExportOperation} implementation for single export operations. */
 /* package */ final class DefaultExportOperation implements ExportOperation {
@@ -56,7 +55,7 @@ import java.util.List;
 
   @Nullable
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
   @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
@@ -87,7 +86,7 @@ import java.util.List;
       DebugViewProvider debugViewProvider,
       Clock clock,
       @Nullable
-          RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
       @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       @Nullable LogSessionId logSessionId,

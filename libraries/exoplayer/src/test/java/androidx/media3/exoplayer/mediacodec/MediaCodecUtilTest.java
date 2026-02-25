@@ -18,10 +18,9 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
-import android.util.Pair;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -228,11 +227,10 @@ public final class MediaCodecUtilTest {
 
   private static void assertHevcBaseLayerCodecProfileAndLevelForFormat(
       Format format, int profile, int level) {
-    @Nullable
-    Pair<Integer, Integer> codecProfileAndLevel =
+    MediaCodecProfileAndLevel codecProfileAndLevel =
         MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format);
-    assertThat(codecProfileAndLevel).isNotNull();
-    assertThat(codecProfileAndLevel.first).isEqualTo(profile);
-    assertThat(codecProfileAndLevel.second).isEqualTo(level);
+    assertThat(codecProfileAndLevel.isSupportableByMediaCodec()).isTrue();
+    assertThat(codecProfileAndLevel.getProfile()).isEqualTo(profile);
+    assertThat(codecProfileAndLevel.getLevel()).isEqualTo(level);
   }
 }

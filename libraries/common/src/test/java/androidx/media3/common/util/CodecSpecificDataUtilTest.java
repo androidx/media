@@ -16,6 +16,7 @@
 package androidx.media3.common.util;
 
 import static androidx.media3.common.util.CodecSpecificDataUtil.getCodecProfileAndLevel;
+import static androidx.media3.common.util.CodecSpecificDataUtil.getMediaCodecProfileAndLevel;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
@@ -57,7 +58,7 @@ public class CodecSpecificDataUtilTest {
   public void getCodecProfileAndLevel_handlesH263CodecString() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_H263,
-        "s263.1.1",
+        "s263.0.10",
         MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline,
         MediaCodecInfo.CodecProfileLevel.H263Level10);
   }
@@ -165,6 +166,17 @@ public class CodecSpecificDataUtilTest {
         format,
         MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10,
         MediaCodecInfo.CodecProfileLevel.AV1Level71);
+  }
+
+  @Test
+  public void getMediaCodecProfileAndLevel_handlesAv1ProfileHigh() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_AV1)
+            .setCodecs("av01.1.10M.8")
+            .build();
+
+    assertThat(getMediaCodecProfileAndLevel(format).isSupportableByMediaCodec()).isFalse();
   }
 
   @Test

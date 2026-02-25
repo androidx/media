@@ -28,6 +28,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.audio.AudioCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
@@ -41,7 +42,6 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
 
   /** Builds {@link IamfAudioRenderer} instances. */
   public static final class Builder {
-    private final Context context;
     private final AudioSink audioSink;
     @Nullable private Handler eventHandler;
     @Nullable private AudioRendererEventListener eventListener;
@@ -52,13 +52,19 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     private boolean enableIntegratedBinaural;
 
     /**
+     * @deprecated Use {@link #Builder(AudioSink)} instead.
+     */
+    @Deprecated
+    public Builder(Context context, AudioSink audioSink) {
+      this(audioSink);
+    }
+
+    /**
      * Creates a builder.
      *
-     * @param context The {@link Context}.
      * @param audioSink The sink to which audio will be output.
      */
-    public Builder(Context context, AudioSink audioSink) {
-      this.context = context;
+    public Builder(AudioSink audioSink) {
       this.audioSink = audioSink;
       this.requestedOutputLayout = IamfUtil.OUTPUT_LAYOUT_UNSET;
       this.requestedMixPresentationId = IamfUtil.REQUESTED_MIX_PRESENTATION_ID_UNSET;
@@ -128,10 +134,11 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     /**
      * Enables or disables binaural rendering within the IAMF decoder. Default {@code true}.
      *
-     * <p>This setting controls the behaviour when we believe the user is using headphones. If
-     * {@code true}, the IAMF decoder can output pre-rendered binaural audio. If this is {@code
-     * false}, the {@link IamfAudioRenderer} will instead produce output appropriate for the Android
-     * {@link android.media.Spatializer}.
+     * <p>This setting controls the behaviour only when we believe the user is using headphones. If
+     * the user is using headphones and this setting is {@code true}, the decoder will produce
+     * two-channel binaural output directly. If {@code false}, the decoder will produce output to
+     * match a channel mask from the {@link AudioCapabilities#getSpatializerChannelMasks()} to be
+     * rendered by for headphones by the {@link android.media.Spatializer}.
      *
      * <p>The IAMF binaural renderer may be higher fidelity because the audio content of the IAMF
      * stream can be rendered directly to binaural audio, without first producing an intermediate
@@ -154,22 +161,21 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   }
 
   private static final String TAG = "IamfAudioRenderer";
-  private final Context context;
+  private final AudioSink audioSink;
   private final @IamfDecoder.OutputSampleType int outputSampleType;
   private final @IamfDecoder.ChannelOrdering int channelOrdering;
   private final @IamfUtil.OutputLayout int requestedOutputLayout;
-  private final @IamfUtil.OutputLayout int currentOutputLayout;
   private final long requestedMixPresentationId;
+  private final boolean enableIntegratedBinaural;
 
   private IamfAudioRenderer(Builder builder) {
     super(builder.eventHandler, builder.eventListener, builder.audioSink);
-    this.context = builder.context;
+    this.audioSink = builder.audioSink;
     this.outputSampleType = builder.outputSampleType;
     this.channelOrdering = builder.channelOrdering;
     this.requestedOutputLayout = builder.requestedOutputLayout;
     this.requestedMixPresentationId = builder.requestedMixPresentationId;
-    this.currentOutputLayout =
-        determineOutputLayout(context, requestedOutputLayout, builder.enableIntegratedBinaural);
+    this.enableIntegratedBinaural = builder.enableIntegratedBinaural;
   }
 
   @Override
@@ -184,6 +190,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   protected IamfDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws DecoderException {
     TraceUtil.beginSection("createIamfDecoder");
+    @IamfUtil.OutputLayout int currentOutputLayout = determineOutputLayout();
     IamfDecoder decoder =
         new IamfDecoder(
             format.initializationData,
@@ -214,6 +221,22 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
     return "IamfAudioRenderer";
   }
 
+  private @IamfUtil.OutputLayout int determineOutputLayout() {
+    // If the user has requested a specific output layout, use that.
+    if (requestedOutputLayout != IamfUtil.OUTPUT_LAYOUT_UNSET) {
+      return requestedOutputLayout;
+    }
+    AudioCapabilities audioCapabilities = audioSink.getAudioCapabilities();
+    if (audioCapabilities == null) {
+      Log.w(
+          TAG,
+          "AudioCapabilities from the AudioSink are null, using default stereo output layout.");
+      return IamfUtil.OUTPUT_LAYOUT_ITU2051_SOUND_SYSTEM_A_0_2_0; // Default to stereo.
+    }
+    return IamfUtil.getOutputLayoutForCurrentConfiguration(
+        audioCapabilities, enableIntegratedBinaural);
+  }
+
   private static int getEncodingForSampleType(@IamfDecoder.OutputSampleType int sampleType) {
     switch (sampleType) {
       case IamfDecoder.OUTPUT_SAMPLE_TYPE_INT16_LITTLE_ENDIAN:
@@ -223,16 +246,5 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
       default:
         throw new IllegalArgumentException("Unsupported sample type: " + sampleType);
     }
-  }
-
-  private static @IamfUtil.OutputLayout int determineOutputLayout(
-      Context context,
-      @IamfUtil.OutputLayout int requestedOutputLayout,
-      boolean enableIntegratedBinaural) {
-    // If the user has requested a specific output layout, use that.
-    if (requestedOutputLayout != IamfUtil.OUTPUT_LAYOUT_UNSET) {
-      return requestedOutputLayout;
-    }
-    return IamfUtil.getOutputLayoutForCurrentConfiguration(context, enableIntegratedBinaural);
   }
 }

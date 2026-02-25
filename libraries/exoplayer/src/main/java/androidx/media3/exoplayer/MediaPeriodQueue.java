@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -73,6 +74,16 @@ import java.util.List;
    * small periods to be buffered if the period count were not limited.
    */
   private static final int MAXIMUM_BUFFER_AHEAD_PERIODS = 100;
+
+  /**
+   * The maximum acceptable difference between the effective start positions of live streams in
+   * playlists to not re-create the period. This happens when forward projecting the start position
+   * in a playlist, where subsequent Timeline refresh operations may move the effective start
+   * position of the stream. The default value is 5 seconds to account for potential snapping of
+   * this start position to chunk boundaries.
+   */
+  private static final long MAX_EFFECTIVE_START_POSITION_DIFF_WITH_PROJECTION_US =
+      5 * C.MICROS_PER_SECOND;
 
   private final Timeline.Period period;
   private final Timeline.Window window;
@@ -328,6 +339,7 @@ import java.util.List;
             timeline,
             mediaPeriodId.periodUid,
             /* startPositionUs= */ positionUs,
+            /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
             /* requestedContentPositionUs= */ C.TIME_UNSET,
             mediaPeriodId.windowSequenceNumber,
             /* isPrecededByTransitionFromSameStream= */ false);
@@ -579,6 +591,12 @@ import java.util.List;
           // We've loaded a next media period that is not in the new timeline
           // or the new media period has a different id or start position.
           return removeAfter(previousPeriodHolder);
+        } else if (oldPeriodInfo.startPositionUs != newPeriodInfo.startPositionUs) {
+          // If we can keep it, but the calculated start position changed, update back to the
+          // previous value to ensure it matches the actual data being loaded.
+          newPeriodInfo =
+              newPeriodInfo.copyWithStartPositionUs(
+                  oldPeriodInfo.startPositionUs, oldPeriodInfo.liveStreamStartPositionProjectionUs);
         }
       }
 
@@ -665,6 +683,7 @@ import java.util.List;
     return new MediaPeriodInfo(
         id,
         info.startPositionUs,
+        info.liveStreamStartPositionProjectionUs,
         info.requestedContentPositionUs,
         endPositionUs,
         durationUs,
@@ -874,7 +893,24 @@ import java.util.List;
    * described by {@code newInfo}.
    */
   private boolean canKeepMediaPeriodHolder(MediaPeriodInfo oldInfo, MediaPeriodInfo newInfo) {
-    return oldInfo.startPositionUs == newInfo.startPositionUs && oldInfo.id.equals(newInfo.id);
+    if (!oldInfo.id.equals(newInfo.id)) {
+      return false;
+    }
+    if (oldInfo.startPositionUs == newInfo.startPositionUs) {
+      return true;
+    }
+    // The start position changed. If this is caused by an acceptable difference from the forward
+    // projection into live streams, keep the old period.
+    if (oldInfo.liveStreamStartPositionProjectionUs == C.TIME_UNSET
+        || newInfo.liveStreamStartPositionProjectionUs == C.TIME_UNSET) {
+      return false;
+    }
+    long oldEffectiveStartPositionUs =
+        oldInfo.startPositionUs - oldInfo.liveStreamStartPositionProjectionUs;
+    long newEffectiveStartPositionUs =
+        newInfo.startPositionUs - newInfo.liveStreamStartPositionProjectionUs;
+    return abs(newEffectiveStartPositionUs - oldEffectiveStartPositionUs)
+        < MAX_EFFECTIVE_START_POSITION_DIFF_WITH_PROJECTION_US;
   }
 
   /**
@@ -939,7 +975,8 @@ import java.util.List;
         playbackInfo.timeline,
         playbackInfo.periodId,
         playbackInfo.requestedContentPositionUs,
-        /* startPositionUs= */ playbackInfo.positionUs);
+        /* startPositionUs= */ playbackInfo.positionUs,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET);
   }
 
   /**
@@ -995,16 +1032,22 @@ import java.util.List;
       return null;
     }
     long startPositionUs = 0;
+    long liveStreamStartPositionProjectionUs = C.TIME_UNSET;
     long contentPositionUs = 0;
     int nextWindowIndex =
         timeline.getPeriod(nextPeriodIndex, period, /* setIds= */ true).windowIndex;
     Object nextPeriodUid = checkNotNull(period.uid);
     long windowSequenceNumber = mediaPeriodInfo.id.windowSequenceNumber;
     if (timeline.getWindow(nextWindowIndex, window).firstPeriodIndex == nextPeriodIndex) {
-      // We're starting to buffer a new window. When playback transitions to this window we'll
-      // want it to be from its default start position, so project the default start position
-      // forward by the duration of the buffer, and start buffering from this point.
+      // We're starting to buffer a new window.
       contentPositionUs = C.TIME_UNSET;
+      if (shouldUseLiveStartPositionProjection(
+          timeline, period.windowIndex, period.durationUs, window)) {
+        // When playback transitions to this window we'll want it to be from its default start
+        // position, so project the default start position forward by the duration of the buffer,
+        // and start buffering from this point.
+        liveStreamStartPositionProjectionUs = max(0, bufferedDurationUs);
+      }
       @Nullable
       Pair<Object, Long> defaultPositionUs =
           timeline.getPeriodPositionUs(
@@ -1012,7 +1055,7 @@ import java.util.List;
               period,
               nextWindowIndex,
               /* windowPositionUs= */ C.TIME_UNSET,
-              /* defaultPositionProjectionUs= */ max(0, bufferedDurationUs));
+              liveStreamStartPositionProjectionUs);
       if (defaultPositionUs == null) {
         return null;
       }
@@ -1048,7 +1091,12 @@ import java.util.List;
         startPositionUs = mediaPeriodInfo.requestedContentPositionUs;
       }
     }
-    return getMediaPeriodInfo(timeline, periodId, contentPositionUs, startPositionUs);
+    return getMediaPeriodInfo(
+        timeline,
+        periodId,
+        contentPositionUs,
+        startPositionUs,
+        liveStreamStartPositionProjectionUs);
   }
 
   /**
@@ -1089,9 +1137,14 @@ import java.util.List;
       } else {
         // Play content from the ad group position.
         long startPositionUs = mediaPeriodInfo.requestedContentPositionUs;
+        long liveStreamStartPositionProjectionUs = C.TIME_UNSET;
         if (startPositionUs == C.TIME_UNSET) {
-          // If we're transitioning from an ad group to content starting from its default position,
-          // project the start position forward as if this were a transition to a new window.
+          if (shouldUseLiveStartPositionProjection(
+              timeline, period.windowIndex, period.durationUs, window)) {
+            // If we're transitioning from an ad group to content starting from its default
+            // position, project the start position forward as if transitioning to a new window.
+            liveStreamStartPositionProjectionUs = max(0, bufferedDurationUs);
+          }
           @Nullable
           Pair<Object, Long> defaultPositionUs =
               timeline.getPeriodPositionUs(
@@ -1099,7 +1152,7 @@ import java.util.List;
                   period,
                   period.windowIndex,
                   /* windowPositionUs= */ C.TIME_UNSET,
-                  /* defaultPositionProjectionUs= */ max(0, bufferedDurationUs));
+                  liveStreamStartPositionProjectionUs);
           if (defaultPositionUs == null) {
             return null;
           }
@@ -1112,6 +1165,7 @@ import java.util.List;
             timeline,
             currentPeriodId.periodUid,
             max(minStartPositionUs, startPositionUs),
+            liveStreamStartPositionProjectionUs,
             mediaPeriodInfo.requestedContentPositionUs,
             currentPeriodId.windowSequenceNumber,
             isPrecededByTransitionFromSameStream);
@@ -1138,6 +1192,7 @@ import java.util.List;
             timeline,
             currentPeriodId.periodUid,
             startPositionUs,
+            /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
             /* requestedContentPositionUs= */ mediaPeriodInfo.durationUs,
             currentPeriodId.windowSequenceNumber,
             /* isPrecededByTransitionFromSameStream= */ false);
@@ -1162,7 +1217,11 @@ import java.util.List;
   }
 
   private MediaPeriodInfo getMediaPeriodInfo(
-      Timeline timeline, MediaPeriodId id, long requestedContentPositionUs, long startPositionUs) {
+      Timeline timeline,
+      MediaPeriodId id,
+      long requestedContentPositionUs,
+      long startPositionUs,
+      long liveStreamStartPositionProjectionUs) {
     timeline.getPeriodByUid(id.periodUid, period);
     if (id.isAd()) {
       return getMediaPeriodInfoForAd(
@@ -1178,6 +1237,7 @@ import java.util.List;
           timeline,
           id.periodUid,
           startPositionUs,
+          liveStreamStartPositionProjectionUs,
           requestedContentPositionUs,
           id.windowSequenceNumber,
           /* isPrecededByTransitionFromSameStream= */ false);
@@ -1211,6 +1271,7 @@ import java.util.List;
     return new MediaPeriodInfo(
         id,
         startPositionUs,
+        /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ contentPositionUs,
         /* endPositionUs= */ C.TIME_UNSET,
         durationUs,
@@ -1225,6 +1286,7 @@ import java.util.List;
       Timeline timeline,
       Object periodUid,
       long startPositionUs,
+      long liveStreamStartPositionProjectionUs,
       long requestedContentPositionUs,
       long windowSequenceNumber,
       boolean isPrecededByTransitionFromSameStream) {
@@ -1272,6 +1334,7 @@ import java.util.List;
     return new MediaPeriodInfo(
         id,
         startPositionUs,
+        liveStreamStartPositionProjectionUs,
         requestedContentPositionUs,
         endPositionUs,
         durationUs,
@@ -1312,6 +1375,15 @@ import java.util.List;
       return period.durationUs;
     }
     return startPositionUs + period.getContentResumeOffsetUs(adGroupIndex);
+  }
+
+  private static boolean shouldUseLiveStartPositionProjection(
+      Timeline timeline, int windowIndex, long periodDurationUs, Timeline.Window window) {
+    if (periodDurationUs != C.TIME_UNSET) {
+      return false;
+    }
+    timeline.getWindow(windowIndex, window);
+    return window.isDynamic && !window.isPlaceholder;
   }
 
   /**

@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'com.android.library'
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_config.gradle"
 
 android {
     namespace 'androidx.media3.exoplayer.dash'
@@ -40,6 +41,7 @@ dependencies {
     testImplementation project(modulePrefix + 'lib-inspector')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
 

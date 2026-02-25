@@ -29,9 +29,11 @@ import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Objects;
 
 /** Processes raw audio samples. */
@@ -46,6 +48,11 @@ import java.util.Objects;
   private boolean isMixerReady;
   private long pendingStartTimeUs;
   private ByteBuffer mixerOutput;
+
+  /**
+   * Number of {@link InputInfo} instances whose underlying {@link AudioGraphInput} have ended, but
+   * have not been released and are still in {@link #inputInfos}.
+   */
   private int finishedInputs;
 
   /**
@@ -137,21 +144,20 @@ import java.util.Objects;
       feedProcessingPipelineFromMixer();
       return audioProcessingPipeline.getOutput();
     }
-
     return mixerOutput;
   }
 
   /** Instructs the {@code AudioGraph} to not queue any input buffer. */
   public void blockInput() {
-    for (int i = 0; i < inputInfos.size(); i++) {
-      inputInfos.get(i).audioGraphInput.blockInput();
+    for (InputInfo info : getActiveInputs()) {
+      info.audioGraphInput.blockInput();
     }
   }
 
   /** Unblocks incoming data if {@linkplain #blockInput() blocked}. */
   public void unblockInput() {
-    for (int i = 0; i < inputInfos.size(); i++) {
-      inputInfos.get(i).audioGraphInput.unblockInput();
+    for (InputInfo info : getActiveInputs()) {
+      info.audioGraphInput.unblockInput();
     }
   }
 
@@ -165,14 +171,13 @@ import java.util.Objects;
   public void flush(@IntRange(from = 0) long positionOffsetUs) {
     this.pendingStartTimeUs = positionOffsetUs;
 
-    for (int i = 0; i < inputInfos.size(); i++) {
-      InputInfo inputInfo = inputInfos.get(i);
-      inputInfo.mixerSourceId = C.INDEX_UNSET;
+    for (InputInfo info : getActiveInputs()) {
+      info.mixerSourceId = C.INDEX_UNSET;
       // AudioGraph does not know the exact position offset of each AudioGraphInput. Each holder of
       // AudioGraphInput must call AudioGraphInput#flush() or AudioGraphInput#onMediaItemChanged()
       // once the renderer resolves the seek position, which might be slightly different than
       // positionOffsetUs.
-      inputInfo.audioGraphInput.flush(/* positionOffsetUs= */ 0);
+      info.audioGraphInput.flush(/* positionOffsetUs= */ 0);
     }
     mixer.reset();
     isMixerConfigured = false;
@@ -188,8 +193,8 @@ import java.util.Objects;
    * <p>Call {@link #registerInput(EditedMediaItem, Format)} to prepare the audio graph again.
    */
   public void reset() {
-    for (int i = 0; i < inputInfos.size(); i++) {
-      inputInfos.get(i).audioGraphInput.release();
+    for (InputInfo info : getActiveInputs()) {
+      info.audioGraphInput.release();
     }
     inputInfos.clear();
     mixer.reset();
@@ -207,6 +212,14 @@ import java.util.Objects;
     return isMixerEnded();
   }
 
+  /**
+   * Returns an {@link Iterable} containing {@linkplain AudioGraphInput#isReleased() unreleased}
+   * inputs.
+   */
+  private Iterable<InputInfo> getActiveInputs() {
+    return Iterables.filter(inputInfos, info -> !info.audioGraphInput.isReleased());
+  }
+
   private boolean ensureMixerReady() throws ExportException {
     if (isMixerReady) {
       return true;
@@ -220,12 +233,20 @@ import java.util.Objects;
       isMixerConfigured = true;
     }
     isMixerReady = true;
-    for (int i = 0; i < inputInfos.size(); i++) {
-      InputInfo inputInfo = inputInfos.get(i);
+    ListIterator<InputInfo> iter = inputInfos.listIterator();
+    while (iter.hasNext()) {
+      InputInfo inputInfo = iter.next();
       if (inputInfo.mixerSourceId != C.INDEX_UNSET) {
         continue; // The source has already been added.
       }
       AudioGraphInput audioGraphInput = inputInfo.audioGraphInput;
+      // If input has been released before being added as a mixer source, then we can remove it
+      // from the input list directly. Otherwise, #removeEndedAndReleasedInputs() will eventually
+      // unregister the source and clean the input up.
+      if (audioGraphInput.isReleased()) {
+        iter.remove();
+        continue;
+      }
       try {
         // Force processing input.
         audioGraphInput.getOutput();
@@ -247,24 +268,58 @@ import java.util.Objects;
   }
 
   private void feedMixer() throws ExportException {
-    for (int i = 0; i < inputInfos.size(); i++) {
-      feedMixerFromInput(inputInfos.get(i));
+    removeEndedAndReleasedInputs();
+    for (InputInfo info : inputInfos) {
+      feedMixerFromInput(info);
     }
   }
 
-  private void feedMixerFromInput(InputInfo inputInfo) throws ExportException {
+  private void removeEndedAndReleasedInputs() {
+    ListIterator<InputInfo> iter = inputInfos.listIterator();
+    while (iter.hasNext()) {
+      if (maybeUnregisterAndRemoveInput(iter.next())) {
+        iter.remove();
+      }
+    }
+  }
+
+  /**
+   * Checks whether the {@link InputInfo} is {@linkplain AudioGraphInput#isEnded() ended} or has
+   * been {@linkplain AudioGraphInput#isReleased() released} to unregister it from the {@link
+   * #mixer} and clear it from {@link #inputInfos}.
+   *
+   * @return Whether the underlying {@link AudioGraphInput} is released and should be removed from
+   *     {@link #inputInfos}.
+   */
+  private boolean maybeUnregisterAndRemoveInput(InputInfo inputInfo) {
     int sourceId = inputInfo.mixerSourceId;
+    // Remove the input directly if not registered in the mixer.
     if (!mixer.hasSource(sourceId)) {
-      return;
+      return inputInfo.audioGraphInput.isReleased();
     }
 
+    // If input is still registered in mixer, remove source first and then remove input from list.
     AudioGraphInput input = inputInfo.audioGraphInput;
     if (input.isEnded()) {
       mixer.removeSource(sourceId);
       inputInfo.mixerSourceId = C.INDEX_UNSET;
+      if (input.isReleased()) {
+        return true;
+      }
+      // Only keep track of finished inputs that have not been released.
       finishedInputs++;
-      return;
     }
+    return false;
+  }
+
+  /**
+   * Feeds the {@link #mixer} from a specific {@link InputInfo}.
+   *
+   * <p>This method assumes the {@link InputInfo} is registered in the mixer.
+   */
+  private void feedMixerFromInput(InputInfo inputInfo) throws ExportException {
+    int sourceId = inputInfo.mixerSourceId;
+    AudioGraphInput input = inputInfo.audioGraphInput;
 
     try {
       mixer.queueInput(sourceId, input.getOutput());

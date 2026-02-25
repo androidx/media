@@ -22,10 +22,13 @@ import android.graphics.RenderNode
 import android.hardware.HardwareBuffer
 import android.hardware.SyncFence
 import androidx.annotation.RequiresApi
+import androidx.media3.common.ColorInfo
+import androidx.media3.common.ColorInfo.SDR_BT709_LIMITED
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Log
 import androidx.media3.effect.PacketConsumer.Packet
+import com.google.common.collect.ImmutableList
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
@@ -43,7 +46,7 @@ import kotlinx.coroutines.withTimeout
 @RequiresApi(34)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 class DefaultHardwareBufferEffectsPipeline :
-  RenderingPacketConsumer<List<HardwareBufferFrame>, HardwareBufferFrameQueue> {
+  RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue> {
 
   /** Executor used for all blocking [SyncFence.await] calls. */
   private val internalExecutor = Executors.newSingleThreadExecutor()
@@ -58,7 +61,7 @@ class DefaultHardwareBufferEffectsPipeline :
 
   override fun setErrorConsumer(errorConsumer: Consumer<Exception>) {}
 
-  override suspend fun queuePacket(packet: Packet<List<HardwareBufferFrame>>) {
+  override suspend fun queuePacket(packet: Packet<ImmutableList<HardwareBufferFrame>>) {
     check(!isReleased.get())
     when (packet) {
       is Packet.EndOfStream -> outputBufferQueue!!.signalEndOfStream()
@@ -122,12 +125,18 @@ class DefaultHardwareBufferEffectsPipeline :
     val width = inputFrame.format.width
     val height = inputFrame.format.height
     val bufferFormat =
-      HardwareBufferFrameQueue.FrameFormat(
-        width,
-        height,
-        HardwareBuffer.RGBA_8888,
-        HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
-      )
+      HardwareBufferFrameQueue.FrameFormat.Builder()
+        .setWidth(width)
+        .setHeight(height)
+        .setPixelFormat(
+          if (ColorInfo.isTransferHdr(inputFrame.format.colorInfo)) HardwareBuffer.RGBA_1010102
+          else HardwareBuffer.RGBA_8888
+        )
+        .setUsageFlags(
+          HardwareBuffer.USAGE_GPU_COLOR_OUTPUT or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
+        )
+        .setColorInfo(inputFrame.format.colorInfo ?: SDR_BT709_LIMITED)
+        .build()
 
     // Try and get an output buffer from the queue. If not immediately available, suspend until
     // notified and retry.

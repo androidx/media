@@ -26,6 +26,7 @@ find_library(log-lib log)
 find_library(android-lib android)
 find_library(egl-lib EGL)
 find_library(glesv2-lib GLESv2)
+find_library(jnigraphics-lib jnigraphics)
 
 add_library(${PROJECT_NAME} SHARED hardware_buffer_jni.cc)
 
@@ -36,4 +37,5 @@ target_link_libraries(${PROJECT_NAME}
     ${android-lib}
     ${egl-lib}
     ${glesv2-lib}
+    ${jnigraphics-lib}
 )

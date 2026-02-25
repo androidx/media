@@ -315,6 +315,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
     }
 
+    @Override
+    public long setEndPositionUs(long endPositionUs) {
+      return getAdjustedPeriodTimeUs(
+          mediaPeriod.setEndPositionUs(
+              getOriginalPeriodTimeUs(endPositionUs, speedProviderMapper, clipStartUs)),
+          speedProviderMapper,
+          clipStartUs);
+    }
+
     private static final class SpeedProviderMapperSampleStream implements SampleStream {
 
       private final SampleStream sampleStream;

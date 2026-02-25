@@ -42,9 +42,9 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 /** End to end parameterized tests for {@link OggMuxer}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class OggMuxerEndToEndParameterizedTest {
-  private static final String OPUS_OGG = "bbb_6ch_8kHz_opus.ogg";
+  private static final String OPUS_OGG = "ogg/bbb_6ch_8kHz_opus.ogg";
 
-  public static final String OGG_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+  public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
@@ -73,7 +73,7 @@ public final class OggMuxerEndToEndParameterizedTest {
   public void createOggFile_fromInputFileSampleData_matchesExpected() throws Exception {
     try (OggMuxer oggMuxer =
         new OggMuxer.Builder(outputStream.getChannel()).setVendorString("Media3 Muxer").build()) {
-      feedInputDataToMuxer(context, oggMuxer, OGG_FILE_ASSET_DIRECTORY + checkNotNull(inputFile));
+      feedInputDataToMuxer(context, oggMuxer, MEDIA_FILE_ASSET_DIRECTORY + checkNotNull(inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =
@@ -81,6 +81,6 @@ public final class OggMuxerEndToEndParameterizedTest {
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("ogg/" + checkNotNull(inputFile)));
+        MuxerTestUtil.getExpectedDumpFilePath(checkNotNull(inputFile)));
   }
 }

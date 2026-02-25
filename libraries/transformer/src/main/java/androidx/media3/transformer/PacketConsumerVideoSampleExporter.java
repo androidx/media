@@ -15,12 +15,12 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -40,19 +40,13 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer.Packet;
-import androidx.media3.effect.PacketConsumer.Packet.EndOfStream;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumerUtil;
-import androidx.media3.effect.PacketProcessor;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.List;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -66,14 +60,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final Consumer<ExportException> errorConsumer;
   private final RenderingPacketConsumer<
-          List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
-  private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
 
-  private final PacketConsumerCaller<List<? extends HardwareBufferFrame>> packetConsumerCaller;
+  private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> packetConsumerCaller;
   private final FrameAggregator frameAggregator;
-  private final PacketConsumerHardwareBufferFrameQueue hardwareBufferFrameQueue;
+  private final HardwareBufferFrameQueue hardwareBufferFrameQueue;
   private final ImmutableList<HardwareBufferSampleConsumer> sampleConsumers;
+  private final ComponentListener componentListener;
 
   private final Codec.EncoderFactory encoderFactory;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
@@ -98,9 +92,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Composition composition,
       Format firstInputFormat,
       TransformationRequest transformationRequest,
-      RenderingPacketConsumer<List<? extends HardwareBufferFrame>, HardwareBufferFrameQueue>
+      RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
           packetProcessor,
-      RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
       EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
@@ -120,13 +114,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.fallbackListener = fallbackListener;
     this.logSessionId = logSessionId;
     this.packetProcessor = packetProcessor;
-    this.packetRenderer = packetRenderer;
     packetProcessor.setErrorConsumer(
-        (e) ->
-            errorConsumer.accept(
-                ExportException.createForVideoFrameProcessingException(
-                    VideoFrameProcessingException.from(e))));
-    packetRenderer.setErrorConsumer(
         (e) ->
             errorConsumer.accept(
                 ExportException.createForVideoFrameProcessingException(
@@ -140,24 +128,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Initialized
     PacketConsumerVideoSampleExporter thisRef = this;
 
-    // Create an intermediate PacketProcessor that will trigger the encoder configuration on the
-    // first output frame from the effects pipeline.
-    PacketProcessor<HardwareBufferFrame, HardwareBufferFrame> encoderWrapperListener =
-        PacketConsumerUtil.createPacketProcessor(
-            /* onPayload= */ thisRef::onProcessedFrame,
-            /* onEndOfStream= */ thisRef::onEndOfStream);
-    encoderWrapperListener.setOutput(packetRenderer);
+    componentListener = new ComponentListener();
 
-    // Create the HardwareBufferQueue that will provide buffers for the  effects pipeline to write
-    // into.
-    hardwareBufferFrameQueue =
-        new PacketConsumerHardwareBufferFrameQueue(
-            /* errorConsumer= */ (e) ->
-                errorConsumer.accept(
-                    ExportException.createForVideoFrameProcessingException(
-                        VideoFrameProcessingException.from(e))),
-            /* releaseFrameExecutor= */ handlerWrapper::post);
-    hardwareBufferFrameQueue.setOutput(encoderWrapperListener);
+    // TODO: b/484926720 - add executor to the Listener callbacks.
+    if (packetRenderer != null) {
+      hardwareBufferFrameQueue =
+          new PacketConsumerHardwareBufferFrameQueue(
+              /* releaseFrameExecutor= */ handlerWrapper::post, packetRenderer, componentListener);
+    } else if (SDK_INT >= 33) {
+      hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
+    } else {
+      throw new UnsupportedOperationException();
+    }
 
     // Create a Java wrapper to feed frames into the effects pipeline.
     packetConsumerCaller =
@@ -206,76 +188,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleConsumers = sampleConsumerBuilder.build();
   }
 
-  /**
-   * Attempts to configure the encoder with the {@link Format} of the first input {@link
-   * HardwareBufferFrame}.
-   *
-   * @throws ExportException if the encoder configuration fails.
-   */
-  @CanIgnoreReturnValue
-  private HardwareBufferFrame onProcessedFrame(HardwareBufferFrame frame) throws ExportException {
-    if (encoderWrapper != null) {
-      return frame;
-    }
-    VideoEncoderWrapper encoderWrapper =
-        new VideoEncoderWrapper(
-            encoderFactory,
-            frame.format,
-            allowedEncodingRotationDegrees,
-            muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO),
-            transformationRequest,
-            fallbackListener,
-            logSessionId);
-
-    // TODO: b/475744934 - Notify the effects pipeline if the encoder fell back to a format that
-    // differs from the input format.
-    SurfaceInfo surfaceInfo =
-        encoderWrapper.getSurfaceInfo(frame.format.width, frame.format.height);
-    packetRenderer.setRenderOutput(surfaceInfo);
-    this.encoderWrapper = encoderWrapper;
-    // TODO: b/475744934 - Update this to use the output from the renderer to determine when a frame
-    //  has been produced.
-    hasProducedFrameWithTimestampZero = true;
-    return frame;
-  }
-
-  private void onEndOfStream() {
-    checkState(!hasSignaledEndOfStream);
-    if (encoderWrapper != null) {
-      try {
-        hasSignaledEndOfStream = true;
-        // TODO: b/475744934 - Update this to only end the encoder once the renderer has received
-        // the EOS.
-        encoderWrapper.signalEndOfInputStream();
-      } catch (ExportException e) {
-        errorConsumer.accept(e);
-      }
-    }
-    finalFramePresentationTimeUs = C.TIME_UNSET;
-  }
-
-  @SuppressWarnings("unchecked")
-  private void queueAggregatedFrames(List<HardwareBufferFrame> frames) {
+  private void queueAggregatedFrames(ImmutableList<HardwareBufferFrame> frames) {
     // We don't need to apply backpressure here - it's applied implicitly via the texture listener
     // capacity.
-    ListenableFuture<Void> queuePacketFuture;
     if (frames.get(0) == END_OF_STREAM_FRAME) {
-      queuePacketFuture = packetConsumerCaller.queuePacket(EndOfStream.INSTANCE);
+      packetConsumerCaller.queueEndOfStream();
     } else {
-      queuePacketFuture = packetConsumerCaller.queuePacket(Packet.of(frames));
+      packetConsumerCaller.queuePacket(Packet.of(frames));
     }
-    Futures.addCallback(
-        queuePacketFuture,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            errorConsumer.accept(ExportException.createForUnexpected(t));
-          }
-        },
-        directExecutor());
   }
 
   @Override
@@ -289,23 +209,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       sampleConsumers.get(i).release();
     }
     // Wait until the frame renderer and packet processors are released.
-    ListenableFuture<Void> releaseFrameRendererFuture =
-        PacketConsumerUtil.release(packetRenderer, newDirectExecutorService());
     ListenableFuture<Void> releasePacketProcessorFuture =
         PacketConsumerUtil.release(packetProcessor, newDirectExecutorService());
 
     hardwareBufferFrameQueue.release();
-
-    ListenableFuture<List<Void>> releaseFutures =
-        Futures.allAsList(
-            ImmutableList.of(releasePacketProcessorFuture, releaseFrameRendererFuture));
     if (encoderWrapper != null) {
       encoderWrapper.release();
     }
 
     @Nullable Exception exception = null;
     try {
-      releaseFutures.get(RELEASE_TIMEOUT_MS, MILLISECONDS);
+      releasePacketProcessorFuture.get(RELEASE_TIMEOUT_MS, MILLISECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       exception = e;
@@ -376,5 +290,53 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       numVideoSequences++;
     }
     return numVideoSequences;
+  }
+
+  private final class ComponentListener implements PacketConsumerHardwareBufferFrameQueue.Listener {
+
+    @Override
+    public SurfaceInfo getRendererSurfaceInfo(Format format) throws VideoFrameProcessingException {
+      try {
+        checkState(encoderWrapper == null);
+        VideoEncoderWrapper encoderWrapper =
+            new VideoEncoderWrapper(
+                encoderFactory,
+                format,
+                allowedEncodingRotationDegrees,
+                muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO),
+                transformationRequest,
+                fallbackListener,
+                logSessionId);
+
+        PacketConsumerVideoSampleExporter.this.encoderWrapper = encoderWrapper;
+        hasProducedFrameWithTimestampZero = true;
+        // TODO: b/475744934 - Notify the effects pipeline if the encoder fell back to a format that
+        // differs from the input format.
+        return checkNotNull(encoderWrapper.getSurfaceInfo(format.width, format.height));
+      } catch (ExportException e) {
+        throw VideoFrameProcessingException.from(e);
+      }
+    }
+
+    @Override
+    public void onEndOfStream() {
+      checkState(!hasSignaledEndOfStream);
+      if (encoderWrapper != null) {
+        try {
+          hasSignaledEndOfStream = true;
+          // TODO: b/475744934 - Update this to only end the encoder once the renderer has received
+          // the EOS.
+          encoderWrapper.signalEndOfInputStream();
+        } catch (ExportException e) {
+          errorConsumer.accept(e);
+        }
+      }
+      finalFramePresentationTimeUs = C.TIME_UNSET;
+    }
+
+    @Override
+    public void onError(VideoFrameProcessingException e) {
+      errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
+    }
   }
 }

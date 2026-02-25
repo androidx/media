@@ -722,8 +722,8 @@ public class FragmentedMp4Extractor implements Extractor {
     } else if (leaf.type == Mp4Box.TYPE_sidx) {
       Pair<Long, ChunkIndex> result = parseSidx(leaf.data, input.getPosition());
       chunkIndexMerger.add(result.second);
+      segmentIndexEarliestPresentationTimeUs = result.first;
       if (!haveOutputSeekMap) {
-        segmentIndexEarliestPresentationTimeUs = result.first;
         extractorOutput.seekMap(result.second);
         haveOutputSeekMap = true;
       } else if ((flags & FLAG_MERGE_FRAGMENTED_SIDX) != 0

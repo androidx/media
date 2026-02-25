@@ -157,6 +157,7 @@ public final class Format {
     @Nullable private String codecs;
     @Nullable private Metadata metadata;
     @Nullable private Object customData;
+    @Nullable private String primaryTrackGroupId;
 
     // Container specific.
 
@@ -258,6 +259,7 @@ public final class Format {
       this.codecs = format.codecs;
       this.metadata = format.metadata;
       this.customData = format.customData;
+      this.primaryTrackGroupId = format.primaryTrackGroupId;
       // Container specific.
       this.containerMimeType = format.containerMimeType;
       // Sample specific.
@@ -467,6 +469,24 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setCustomData(@Nullable Object customData) {
       this.customData = customData;
+      return this;
+    }
+
+    /**
+     * Sets the {@link TrackGroup#id} of the primary {@link TrackGroup} this format is embedded
+     * into.
+     *
+     * <p>If {@code null}, the format is not known to be embedded in another stream. The default
+     * value is {@code null}.
+     *
+     * @param primaryTrackGroupId The {@link TrackGroup#id} of the primary {@link TrackGroup} this
+     *     format is embedded into.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPrimaryTrackGroupId(@Nullable String primaryTrackGroupId) {
+      this.primaryTrackGroupId = primaryTrackGroupId;
       return this;
     }
 
@@ -977,6 +997,13 @@ public final class Format {
    */
   @UnstableApi @Nullable public final Object customData;
 
+  /**
+   * The {@link TrackGroup#id} of the primary {@link TrackGroup} this format is embedded into.
+   *
+   * <p>If {@code null}, the format is not known to be embedded in another stream.
+   */
+  @UnstableApi @Nullable public final String primaryTrackGroupId;
+
   // Container specific.
 
   /** The MIME type of the container, or null if unknown or not applicable. */
@@ -1179,6 +1206,7 @@ public final class Format {
     codecs = builder.codecs;
     metadata = builder.metadata;
     customData = builder.customData;
+    primaryTrackGroupId = builder.primaryTrackGroupId;
     // Container specific.
     containerMimeType = builder.containerMimeType;
     // Sample specific.
@@ -1267,6 +1295,11 @@ public final class Format {
         codecs = codecsOfType;
       }
     }
+    @Nullable
+    String primaryTrackGroupId =
+        this.primaryTrackGroupId != null
+            ? this.primaryTrackGroupId
+            : manifestFormat.primaryTrackGroupId;
 
     @Nullable
     Metadata metadata =
@@ -1297,6 +1330,7 @@ public final class Format {
         .setPeakBitrate(peakBitrate)
         .setCodecs(codecs)
         .setMetadata(metadata)
+        .setPrimaryTrackGroupId(primaryTrackGroupId)
         .setDrmInitData(drmInitData)
         .setFrameRate(frameRate)
         .setTileCountHorizontal(tileCountHorizontal)
@@ -1368,6 +1402,7 @@ public final class Format {
       result = 31 * result + (codecs == null ? 0 : codecs.hashCode());
       result = 31 * result + (metadata == null ? 0 : metadata.hashCode());
       result = 31 * result + (customData == null ? 0 : customData.hashCode());
+      result = 31 * result + (primaryTrackGroupId == null ? 0 : primaryTrackGroupId.hashCode());
       // Container specific.
       result = 31 * result + (containerMimeType == null ? 0 : containerMimeType.hashCode());
       // Sample specific.
@@ -1448,6 +1483,7 @@ public final class Format {
         && Objects.equals(label, other.label)
         && labels.equals(other.labels)
         && Objects.equals(codecs, other.codecs)
+        && Objects.equals(primaryTrackGroupId, other.primaryTrackGroupId)
         && Objects.equals(containerMimeType, other.containerMimeType)
         && Objects.equals(sampleMimeType, other.sampleMimeType)
         && Objects.equals(language, other.language)
@@ -1493,6 +1529,9 @@ public final class Format {
     builder.append("id=").append(format.id).append(", mimeType=").append(format.sampleMimeType);
     if (format.containerMimeType != null) {
       builder.append(", container=").append(format.containerMimeType);
+    }
+    if (format.primaryTrackGroupId != null) {
+      builder.append(", primaryGroupId=").append(format.primaryTrackGroupId);
     }
     if (format.bitrate != NO_VALUE) {
       builder.append(", bitrate=").append(format.bitrate);
@@ -1618,6 +1657,7 @@ public final class Format {
   private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
   private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
   private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
+  private static final String FIELD_PRIMARY_TRACK_GROUP_ID = Util.intToStringMaxRadix(37);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1639,6 +1679,9 @@ public final class Format {
     bundle.putInt(FIELD_AVERAGE_BITRATE, averageBitrate);
     bundle.putInt(FIELD_PEAK_BITRATE, peakBitrate);
     bundle.putString(FIELD_CODECS, codecs);
+    if (primaryTrackGroupId != null) {
+      bundle.putString(FIELD_PRIMARY_TRACK_GROUP_ID, primaryTrackGroupId);
+    }
     // The metadata does not implement toBundle() method, hence can not be added.
     // Container specific.
     bundle.putString(FIELD_CONTAINER_MIME_TYPE, containerMimeType);
@@ -1705,6 +1748,9 @@ public final class Format {
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
         .setPeakBitrate(bundle.getInt(FIELD_PEAK_BITRATE, DEFAULT.peakBitrate))
         .setCodecs(defaultIfNull(bundle.getString(FIELD_CODECS), DEFAULT.codecs))
+        .setPrimaryTrackGroupId(
+            defaultIfNull(
+                bundle.getString(FIELD_PRIMARY_TRACK_GROUP_ID), DEFAULT.primaryTrackGroupId))
         // Container specific.
         .setContainerMimeType(
             defaultIfNull(bundle.getString(FIELD_CONTAINER_MIME_TYPE), DEFAULT.containerMimeType))

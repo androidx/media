@@ -21,6 +21,8 @@ import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import androidx.media3.common.ParserException;
+import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup.GroupKey;
+import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
@@ -368,6 +370,21 @@ public class HlsRedundantGroupTest {
     assertThrows(
         ParserException.class,
         () -> HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants));
+  }
+
+  @Test
+  public void equals_differentInstances_notEqual() {
+    // We currently avoid HlsRedundantGroup.equals() being overridden because we want to compare
+    // the HlsRedundantGroups with object equality. And using the object equality of
+    // HlsRedundantGroup will strictly ensure that the information of the redundant streams
+    // are consistent at HlsChunkSource and HlsPlaylistTracker.
+    GroupKey groupKey =
+        new GroupKey(ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().build(), /* stableId= */ null);
+    String pathwayId = "CDN-A";
+    HlsRedundantGroup redundantGroup1 = new HlsRedundantGroup(groupKey, pathwayId, PLAYLIST_URI);
+    HlsRedundantGroup redundantGroup2 = new HlsRedundantGroup(groupKey, pathwayId, PLAYLIST_URI);
+
+    assertThat(redundantGroup1).isNotEqualTo(redundantGroup2);
   }
 
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(String playlistString)

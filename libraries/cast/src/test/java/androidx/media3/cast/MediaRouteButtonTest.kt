@@ -66,7 +66,7 @@ class MediaRouteButtonTest {
     whenever(mockCastContextInitializer.init()).thenReturn(castContextTaskCompletionSource.task)
     whenever(mockCastContext.sessionManager).thenReturn(mockSessionManager)
     whenever(mockCastContext.mergedSelector).thenReturn(selector)
-    cast = Cast.getSingletonInstance()
+    cast = Cast.getSingletonInstance(context)
   }
 
   @After
@@ -76,7 +76,7 @@ class MediaRouteButtonTest {
 
   @Test
   fun initializeMediaRouteButton_buttonIsDisplayed() {
-    cast.sideloadCastContext(mockCastContext)
+    cast = Cast.getSingletonInstance(mockCastContext)
     val buttonContentDescription = context.getString(R.string.media_route_button_disconnected)
 
     composeTestRule.setContent { MediaRouteButton() }
@@ -98,7 +98,7 @@ class MediaRouteButtonTest {
 
   @Test
   fun initializeMediaRouteButton_alreadyInitialized_contentIsComposed() = runTest {
-    cast.sideloadCastContext(mockCastContext)
+    cast = Cast.getSingletonInstance(mockCastContext)
     val isContentComposed = AtomicBoolean(false)
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
 
@@ -138,7 +138,7 @@ class MediaRouteButtonTest {
 
   @Test
   fun initializeMediaRouteButton_onBackgroundThread_throwsException() = runTest {
-    cast.sideloadCastContext(mockCastContext)
+    cast = Cast.getSingletonInstance(mockCastContext)
     val isContentComposed = AtomicBoolean(false)
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
     var caughtException: Throwable? = null

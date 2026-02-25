@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.hls;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PRELOAD;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
-import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -189,6 +188,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private boolean pendingResetUpstreamFormats;
   private boolean seenFirstTrackSelection;
   private boolean loadingFinished;
+  private long endPositionUs;
 
   // Accessed only by the loading thread.
   private boolean tracksEnded;
@@ -269,6 +269,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     handler = Util.createHandlerForCurrentLooper();
     lastSeekPositionUs = positionUs;
     pendingResetPositionUs = positionUs;
+    endPositionUs = C.TIME_END_OF_SOURCE;
   }
 
   public void continuePreparing() {
@@ -337,8 +338,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     assertIsPrepared();
     checkNotNull(trackGroupToSampleQueueIndex);
     int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
-    checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
-    sampleQueuesEnabledStates[sampleQueueIndex] = false;
+    if (sampleQueueIndex >= 0) {
+      checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
+      sampleQueuesEnabledStates[sampleQueueIndex] = false;
+    }
   }
 
   /**
@@ -406,8 +409,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         if (trackGroupToSampleQueueIndex != null) {
           ((HlsSampleStream) streams[i]).bindSampleQueue();
           // If there's still a chance of avoiding a seek, try and seek within the sample queue.
-          if (!seekRequired) {
-            SampleQueue sampleQueue = sampleQueues[trackGroupToSampleQueueIndex[trackGroupIndex]];
+          int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
+          if (!seekRequired && sampleQueueIndex >= 0) {
+            SampleQueue sampleQueue = sampleQueues[sampleQueueIndex];
             // A seek can be avoided if we haven't read any samples yet (e.g. for the first track
             // selection) or we are able to seek to the current playback position in the sample
             // queue. In all other cases a seek is required.
@@ -610,20 +614,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // Return early if the chunk source doesn't deliver chunks for the failing playlist.
       return false;
     }
-    long exclusionDurationMs = C.TIME_UNSET;
+    @Nullable LoadErrorHandlingPolicy.FallbackSelection fallbackSelection = null;
     if (!forceRetry) {
-      @Nullable
-      LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
-          loadErrorHandlingPolicy.getFallbackSelectionFor(
-              createFallbackOptions(chunkSource.getTrackSelection()), loadErrorInfo);
-      if (fallbackSelection != null
-          && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
-        exclusionDurationMs = fallbackSelection.exclusionDurationMs;
-      }
+      LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
+          chunkSource.createFallbackOptions(playlistUrl);
+      fallbackSelection =
+          loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
     }
     // We must call ChunkSource.onPlaylistError in any case to give the chunk source the chance to
     // mark the playlist as failing.
-    return chunkSource.onPlaylistError(playlistUrl, exclusionDurationMs);
+    return chunkSource.onPlaylistError(playlistUrl, fallbackSelection);
   }
 
   /** Returns whether the primary sample stream is {@link C#TRACK_TYPE_VIDEO}. */
@@ -733,6 +733,26 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     sampleQueue.skip(skipCount);
     return skipCount;
+  }
+
+  /**
+   * Sets the end position at which the period stops loading and providing samples.
+   *
+   * <p>If a value other than {@link C#TIME_END_OF_SOURCE} is set, the implementation will stop
+   * returning samples from the created {@link SampleStream} instances beyond the specified end
+   * position and mark further reads with {@link C#BUFFER_FLAG_END_OF_STREAM}. The stream may return
+   * additional out of order samples required for decoding.
+   *
+   * @param endPositionUs The requested end position, in microseconds, or {@link
+   *     C#TIME_END_OF_SOURCE} to not set an end position.
+   */
+  public void setEndPositionUs(long endPositionUs) {
+    this.endPositionUs = endPositionUs;
+    if (sampleQueuesBuilt) {
+      for (HlsSampleQueue sampleQueue : sampleQueues) {
+        sampleQueue.setReadEndTimeUs(endPositionUs);
+      }
+    }
   }
 
   // SequenceableLoader implementation
@@ -902,6 +922,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
     }
+
+    if (haveSampleQueuesReachedEndTimeUs()) {
+      loadingFinished = true;
+    }
   }
 
   // Loader.Callback implementation.
@@ -1015,7 +1039,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
     }
     long bytesLoaded = loadable.bytesLoaded();
-    boolean exclusionSucceeded = false;
     LoadEventInfo loadEventInfo =
         new LoadEventInfo(
             loadable.loadTaskId,
@@ -1037,15 +1060,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     LoadErrorInfo loadErrorInfo =
         new LoadErrorInfo(loadEventInfo, mediaLoadData, error, errorCount);
     LoadErrorAction loadErrorAction;
+    LoadErrorHandlingPolicy.FallbackOptions fallbackOptions =
+        chunkSource.createFallbackOptions(loadable);
     @Nullable
     LoadErrorHandlingPolicy.FallbackSelection fallbackSelection =
-        loadErrorHandlingPolicy.getFallbackSelectionFor(
-            createFallbackOptions(chunkSource.getTrackSelection()), loadErrorInfo);
-    if (fallbackSelection != null
-        && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
-      exclusionSucceeded =
-          chunkSource.maybeExcludeTrack(loadable, fallbackSelection.exclusionDurationMs);
-    }
+        loadErrorHandlingPolicy.getFallbackSelectionFor(fallbackOptions, loadErrorInfo);
+    boolean exclusionSucceeded = chunkSource.onChunkError(loadable, fallbackSelection);
 
     if (exclusionSucceeded) {
       if (isMediaChunk && bytesLoaded == 0) {
@@ -1117,6 +1137,21 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         sampleQueue.splice();
       }
     }
+  }
+
+  private boolean haveSampleQueuesReachedEndTimeUs() {
+    if (!sampleQueuesBuilt || endPositionUs == C.TIME_END_OF_SOURCE) {
+      return false;
+    }
+    boolean endPositionReached = true;
+    for (int i = 0; i < sampleQueues.length; i++) {
+      // Ignore non-AV tracks, which may be sparse or poorly interleaved.
+      if (sampleQueuesEnabledStates[i]
+          && (sampleQueueIsAudioVideoFlags[i] || !haveAudioVideoSampleQueues)) {
+        endPositionReached &= sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs();
+      }
+    }
+    return endPositionReached;
   }
 
   private void discardUpstream(int preferredQueueSize) {
@@ -1380,6 +1415,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   private void onTracksEnded() {
+    for (SampleQueue sampleQueue : sampleQueues) {
+      sampleQueue.setReadEndTimeUs(endPositionUs);
+    }
     sampleQueuesBuilt = true;
     maybeFinishPrepare();
   }
@@ -1526,10 +1564,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                 ? muxedAudioFormat
                 : null;
         String muxedTrackGroupId = uid + ":muxed:" + (i < primaryExtractorTrackIndex ? i : i - 1);
-        trackGroups[i] =
-            new TrackGroup(
-                muxedTrackGroupId,
-                deriveFormat(playlistFormat, sampleFormat, /* propagateBitrates= */ false));
+        Format muxedFormat =
+            deriveFormat(playlistFormat, sampleFormat, /* propagateBitrates= */ false)
+                .buildUpon()
+                .setPrimaryTrackGroupId(uid)
+                .build();
+        trackGroups[i] = new TrackGroup(muxedTrackGroupId, muxedFormat);
       }
     }
     this.trackGroups = createTrackGroupArrayWithDrmInfo(trackGroups);

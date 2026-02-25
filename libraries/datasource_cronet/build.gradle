@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'com.android.library'
+apply from: "$gradle.ext.androidxMediaSettingsDir/common_config.gradle"
 
 android {
     namespace 'androidx.media3.datasource.cronet'
@@ -24,7 +25,9 @@ android {
 }
 
 dependencies {
-    api "com.google.android.gms:play-services-cronet:18.0.1"
+    def cronetVersion = '113.5672.61'
+    runtimeOnly "com.google.android.gms:play-services-cronet:18.0.1"
+    api 'org.chromium.net:cronet-api:' + cronetVersion
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-datasource')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
@@ -36,7 +39,7 @@ dependencies {
     androidTestImplementation 'com.linkedin.dexmaker:dexmaker-mockito:' + dexmakerVersion
     // Instrumentation tests assume that an app-packaged version of cronet is
     // available.
-    androidTestImplementation 'org.chromium.net:cronet-embedded:113.5672.61'
+    androidTestImplementation 'org.chromium.net:cronet-embedded:' + cronetVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion

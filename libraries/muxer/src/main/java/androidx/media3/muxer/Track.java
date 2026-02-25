@@ -21,11 +21,14 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.muxer.Mp4Muxer.TrackReferenceType;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Represents a single track (audio, video, metadata etc.). */
 /* package */ final class Track {
@@ -37,6 +40,8 @@ import java.util.List;
   public final List<Integer> writtenChunkSampleCounts;
   public final Deque<BufferInfo> pendingSamplesBufferInfo;
   public final Deque<ByteBuffer> pendingSamplesByteBuffer;
+  // Map from the reference type (e.g. "cdsc") to the list of referenced track ids.
+  public final Map<Integer, List<Integer>> trackReferences;
   public boolean hadKeyframe;
   @Nullable public byte[] parsedCsd;
   public long endOfStreamTimestampUs;
@@ -66,6 +71,7 @@ import java.util.List;
     writtenChunkSampleCounts = new ArrayList<>();
     pendingSamplesBufferInfo = new ArrayDeque<>();
     pendingSamplesByteBuffer = new ArrayDeque<>();
+    trackReferences = new HashMap<>();
     endOfStreamTimestampUs = C.TIME_UNSET;
   }
 
@@ -106,6 +112,11 @@ import java.util.List;
 
     pendingSamplesBufferInfo.addLast(bufferInfoToAdd);
     pendingSamplesByteBuffer.addLast(byteBufferToAdd);
+  }
+
+  public void addTrackReference(
+      @TrackReferenceType int referenceType, List<Integer> referencedTrackIds) {
+    trackReferences.put(referenceType, referencedTrackIds);
   }
 
   public int videoUnitTimebase() {

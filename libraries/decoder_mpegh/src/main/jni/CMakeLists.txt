@@ -40,7 +40,8 @@ include_directories ("${libmpegh_jni_root}/libmpegh/include")
 # Build libmpeghJNI.
 add_library(mpeghJNI
             SHARED
-            mpegh_jni.cpp)
+            mpegh_jni.cpp
+            mpeghuimanager_jni.cpp)
 
 # Locate NDK log library.
 find_library(android_log_lib log)

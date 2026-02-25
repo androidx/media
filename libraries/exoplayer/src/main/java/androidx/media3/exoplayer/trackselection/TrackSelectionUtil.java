@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.trackselection;
 
 import android.graphics.Point;
-import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
@@ -28,7 +27,6 @@ import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection.Definition;
-import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
@@ -106,31 +104,6 @@ public final class TrackSelectionUtil {
   }
 
   /**
-   * Returns the {@link LoadErrorHandlingPolicy.FallbackOptions} with the tracks of the given {@link
-   * ExoTrackSelection} and with a single location option indicating that there are no alternative
-   * locations available.
-   *
-   * @param trackSelection The track selection to get the number of total and excluded tracks.
-   * @return The {@link LoadErrorHandlingPolicy.FallbackOptions} for the given track selection.
-   */
-  public static LoadErrorHandlingPolicy.FallbackOptions createFallbackOptions(
-      ExoTrackSelection trackSelection) {
-    long nowMs = SystemClock.elapsedRealtime();
-    int numberOfTracks = trackSelection.length();
-    int numberOfExcludedTracks = 0;
-    for (int i = 0; i < numberOfTracks; i++) {
-      if (trackSelection.isTrackExcluded(i, nowMs)) {
-        numberOfExcludedTracks++;
-      }
-    }
-    return new LoadErrorHandlingPolicy.FallbackOptions(
-        /* numberOfLocations= */ 1,
-        /* numberOfExcludedLocations= */ 0,
-        numberOfTracks,
-        numberOfExcludedTracks);
-  }
-
-  /**
    * Returns {@link Tracks} built from {@link MappingTrackSelector.MappedTrackInfo} and {@link
    * TrackSelection TrackSelections} for each renderer.
    *
@@ -168,7 +141,6 @@ public final class TrackSelectionUtil {
         rendererIndex < mappedTrackInfo.getRendererCount();
         rendererIndex++) {
       TrackGroupArray trackGroupArray = mappedTrackInfo.getTrackGroups(rendererIndex);
-      List<? extends TrackSelection> rendererTrackSelections = selections[rendererIndex];
       for (int groupIndex = 0; groupIndex < trackGroupArray.length; groupIndex++) {
         TrackGroup trackGroup = trackGroupArray.get(groupIndex);
         boolean adaptiveSupported =
@@ -181,12 +153,14 @@ public final class TrackSelectionUtil {
           trackSupport[trackIndex] =
               mappedTrackInfo.getTrackSupport(rendererIndex, groupIndex, trackIndex);
           boolean isTrackSelected = false;
-          for (int i = 0; i < rendererTrackSelections.size(); i++) {
-            TrackSelection trackSelection = rendererTrackSelections.get(i);
-            if (trackSelection.getTrackGroup().equals(trackGroup)
-                && trackSelection.indexOf(trackIndex) != C.INDEX_UNSET) {
-              isTrackSelected = true;
-              break;
+          for (List<? extends TrackSelection> selection : selections) {
+            for (int j = 0; j < selection.size(); j++) {
+              TrackSelection trackSelection = selection.get(j);
+              if (trackSelection.getTrackGroup().equals(trackGroup)
+                  && trackSelection.indexOf(trackIndex) != C.INDEX_UNSET) {
+                isTrackSelected = true;
+                break;
+              }
             }
           }
           selected[trackIndex] = isTrackSelected;

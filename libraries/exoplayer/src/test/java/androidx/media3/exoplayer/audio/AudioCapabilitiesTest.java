@@ -112,6 +112,11 @@ public class AudioCapabilitiesTest {
             .setProfiles(expectedProfiles)
             .build();
     shadowOf(audioManager).addOutputDeviceWithDirectProfiles(device);
+    if (SDK_INT >= 33) {
+      shadowOf(audioManager)
+          .setAudioDevicesForAttributes(
+              AudioAttributes.DEFAULT.getPlatformAudioAttributes(), ImmutableList.of(device));
+    }
 
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
@@ -137,6 +142,9 @@ public class AudioCapabilitiesTest {
                     .build(),
                 AudioAttributes.DEFAULT))
         .isFalse();
+    // Default routed device is chosen when routedDevice is null.
+    assertThat(audioCapabilities.getSpeakerLayoutChannelMasks())
+        .isEqualTo(SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(device));
   }
 
   @Test
@@ -155,7 +163,10 @@ public class AudioCapabilitiesTest {
 
     assertThat(getDeviceTypes(audioDeviceInfos))
         .containsAtLeast(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
-    assertThat(audioCapabilities).isEqualTo(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+    assertThat(audioCapabilities.getSpeakerLayoutChannelMasks())
+        .containsExactly(AudioFormat.CHANNEL_OUT_STEREO); // Default capabilities.
+    assertThat(audioCapabilities.getMaxChannelCount()).isEqualTo(10);
+    assertThat(audioCapabilities.supportsEncoding(C.ENCODING_PCM_16BIT)).isTrue();
   }
 
   /** {@link AudioDeviceInfo#TYPE_BLE_HEADSET} is only supported from API 31. */
@@ -176,7 +187,10 @@ public class AudioCapabilitiesTest {
 
     assertThat(getDeviceTypes(audioDeviceInfos))
         .containsAtLeast(AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_HDMI);
-    assertThat(audioCapabilities).isEqualTo(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+    assertThat(audioCapabilities.getSpeakerLayoutChannelMasks())
+        .containsExactly(AudioFormat.CHANNEL_OUT_STEREO); // Default capabilities.
+    assertThat(audioCapabilities.getMaxChannelCount()).isEqualTo(10);
+    assertThat(audioCapabilities.supportsEncoding(C.ENCODING_PCM_16BIT)).isTrue();
   }
 
   /** {@link AudioDeviceInfo#TYPE_BLE_BROADCAST} is only supported from API 33. */
@@ -197,7 +211,10 @@ public class AudioCapabilitiesTest {
 
     assertThat(getDeviceTypes(audioDeviceInfos))
         .containsAtLeast(AudioDeviceInfo.TYPE_BLE_BROADCAST, AudioDeviceInfo.TYPE_HDMI);
-    assertThat(audioCapabilities).isEqualTo(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+    assertThat(audioCapabilities.getSpeakerLayoutChannelMasks())
+        .containsExactly(AudioFormat.CHANNEL_OUT_STEREO); // Default capabilities.
+    assertThat(audioCapabilities.getMaxChannelCount()).isEqualTo(10);
+    assertThat(audioCapabilities.supportsEncoding(C.ENCODING_PCM_16BIT)).isTrue();
   }
 
   @Test
@@ -211,6 +228,7 @@ public class AudioCapabilitiesTest {
 
     AudioDeviceInfo[] audioDeviceInfos =
         shadowOf(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             ApplicationProvider.getApplicationContext(),
@@ -220,6 +238,9 @@ public class AudioCapabilitiesTest {
     assertThat(getDeviceTypes(audioDeviceInfos)).contains(AudioDeviceInfo.TYPE_HDMI);
     assertThat(getDeviceTypes(audioDeviceInfos))
         .doesNotContain(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP);
+    // On API 33+, currentDevice is set as setOutputDevices sets the default routed device for
+    // AudioAttributes.DEFAULT.
+    AudioDeviceInfo expectedDevice = SDK_INT >= 33 ? audioDeviceInfos[0] : null;
     assertThat(audioCapabilities)
         .isEqualTo(
             new AudioCapabilities(
@@ -229,7 +250,11 @@ public class AudioCapabilitiesTest {
                   AudioFormat.ENCODING_DTS,
                   AudioFormat.ENCODING_E_AC3
                 },
-                /* maxChannelCount= */ 6));
+                /* maxChannelCount= */ 6,
+                expectedDevice != null
+                    ? SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(expectedDevice)
+                    : ImmutableList.of(AudioFormat.CHANNEL_OUT_STEREO),
+                spatializerChannelMasks));
   }
 
   @Config(maxSdk = 32) // Fallback test for APIs before 33
@@ -309,9 +334,13 @@ public class AudioCapabilitiesTest {
         routedDevice = deviceInfo;
       }
     }
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
-            ApplicationProvider.getApplicationContext(), AudioAttributes.DEFAULT, routedDevice);
+            ApplicationProvider.getApplicationContext(),
+            AudioAttributes.DEFAULT,
+            routedDevice,
+            spatializerChannelMasks);
 
     assertThat(routedDevice).isNotNull();
     assertThat(getDeviceTypes(audioDeviceInfos))
@@ -325,7 +354,9 @@ public class AudioCapabilitiesTest {
                   AudioFormat.ENCODING_DTS,
                   AudioFormat.ENCODING_E_AC3_JOC
                 },
-                /* maxChannelCount= */ 10));
+                /* maxChannelCount= */ 10,
+                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(routedDevice),
+                spatializerChannelMasks));
   }
 
   @Test
@@ -342,14 +373,24 @@ public class AudioCapabilitiesTest {
 
     AudioDeviceInfo[] audioDeviceInfos =
         shadowOf(audioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+    ImmutableList<Integer> spatializerChannelMasks = ImmutableList.of();
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(
             ApplicationProvider.getApplicationContext(),
             AudioAttributes.DEFAULT,
-            /* routedDevice= */ null);
+            /* routedDevice= */ null,
+            spatializerChannelMasks);
 
     assertThat(getDeviceTypes(audioDeviceInfos))
         .containsAtLeast(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
+    // On API 33+, the default routed device is automatically detected based on AudioAttributes.
+    AudioDeviceInfo expectedDevice = null;
+    for (AudioDeviceInfo deviceInfo : audioDeviceInfos) {
+      if (deviceInfo.getType() == AudioDeviceInfo.TYPE_HDMI) {
+        expectedDevice = deviceInfo;
+        break;
+      }
+    }
     assertThat(audioCapabilities)
         .isEqualTo(
             new AudioCapabilities(
@@ -359,7 +400,9 @@ public class AudioCapabilitiesTest {
                   AudioFormat.ENCODING_DTS,
                   AudioFormat.ENCODING_E_AC3_JOC
                 },
-                /* maxChannelCount= */ 10));
+                /* maxChannelCount= */ 10,
+                SpeakerLayoutUtil.getLoudspeakerLayoutChannelMasks(expectedDevice),
+                spatializerChannelMasks));
   }
 
   @Test
@@ -371,6 +414,20 @@ public class AudioCapabilitiesTest {
             /* routedDevice= */ null);
 
     assertThat(audioCapabilities).isEqualTo(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES);
+  }
+
+  @Test
+  public void getCapabilities_usesSpatializerChannelMasks() {
+    ImmutableList<Integer> spatializerChannelMasks =
+        ImmutableList.of(AudioFormat.CHANNEL_OUT_5POINT1);
+    AudioCapabilities audioCapabilities =
+        AudioCapabilities.getCapabilities(
+            ApplicationProvider.getApplicationContext(),
+            AudioAttributes.DEFAULT,
+            /* routedDevice= */ null,
+            spatializerChannelMasks);
+
+    assertThat(audioCapabilities.getSpatializerChannelMasks()).isEqualTo(spatializerChannelMasks);
   }
 
   @Config(minSdk = 29)
@@ -452,7 +509,14 @@ public class AudioCapabilitiesTest {
     for (int type : types) {
       audioDeviceInfos.add(AudioDeviceInfoBuilder.newBuilder().setType(type).build());
     }
-    shadowOf(audioManager).setOutputDevices(audioDeviceInfos.build());
+    ImmutableList<AudioDeviceInfo> devices = audioDeviceInfos.build();
+    shadowOf(audioManager).setOutputDevices(devices);
+    if (SDK_INT >= 33 && !devices.isEmpty()) {
+      shadowOf(audioManager)
+          .setAudioDevicesForAttributes(
+              AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
+              ImmutableList.of(devices.get(0)));
+    }
   }
 
   @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664

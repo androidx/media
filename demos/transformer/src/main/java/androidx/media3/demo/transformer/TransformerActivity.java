@@ -92,7 +92,6 @@ import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
-import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -364,17 +363,14 @@ public final class TransformerActivity extends AppCompatActivity {
   @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
   private Transformer createTransformer(
       @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
-    Transformer.Builder transformerBuilder;
+    Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
 
     if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
       if (SDK_INT < 34) {
         throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
       }
-      transformerBuilder =
-          NdkTransformerBuilder.create(this)
-              .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline());
-    } else {
-      transformerBuilder = new Transformer.Builder(/* context= */ this);
+      transformerBuilder.setHardwareBufferEffectsPipeline(
+          new DefaultHardwareBufferEffectsPipeline());
     }
     transformerBuilder.addListener(
         new Transformer.Listener() {
@@ -752,12 +748,6 @@ public final class TransformerActivity extends AppCompatActivity {
           Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
       TextOverlay textOverlay = TextOverlay.createStaticTextOverlay(overlayText, overlaySettings);
       overlaysBuilder.add(textOverlay);
-    }
-    if (selectedEffects[ConfigurationActivity.CLOCK_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ClockOverlay());
-    }
-    if (selectedEffects[ConfigurationActivity.CONFETTI_OVERLAY_INDEX]) {
-      overlaysBuilder.add(new ConfettiOverlay());
     }
     if (selectedEffects[ConfigurationActivity.ANIMATING_LOGO_OVERLAY]) {
       overlaysBuilder.add(new AnimatedLogoOverlay(this.getApplicationContext()));

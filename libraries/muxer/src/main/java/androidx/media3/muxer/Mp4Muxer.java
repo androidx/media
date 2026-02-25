@@ -23,6 +23,7 @@ import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
 import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
 import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -177,6 +178,18 @@ public final class Mp4Muxer implements Muxer {
    * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
   public static final int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1;
+
+  /** A track reference type. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    TRACK_REFERENCE_TYPE_CDSC,
+  })
+  public @interface TrackReferenceType {}
+
+  /** Links a descriptive or metadata track to the content which it describes. */
+  public static final int TRACK_REFERENCE_TYPE_CDSC = 0x63647363;
 
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
@@ -476,6 +489,9 @@ public final class Mp4Muxer implements Muxer {
    *
    * <p>The order of tracks remains same in which they are added.
    *
+   * <p>For a metadata track, it is recommended to {@linkplain #addTrackReference(int, int, List)
+   * add track reference}.
+   *
    * @param format The {@link Format} for the track.
    * @return A unique track id. The track id is non-negative. It should be used in {@link
    *     #writeSampleData}.
@@ -601,6 +617,29 @@ public final class Mp4Muxer implements Muxer {
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
+  }
+
+  /**
+   * Adds a track reference to establish a relationship between tracks in the MP4 file.
+   *
+   * <p>Track references are used to link one track to another. For example, a metadata track might
+   * reference a video track to indicate that the metadata describes the content of that video.
+   *
+   * @param trackId The track id of the track to which the reference is being added. This must be a
+   *     valid track id returned by {@link #addTrack(Format)}.
+   * @param referenceType The type of the reference, as defined by {@link TrackReferenceType}.
+   * @param referencedTrackIds The track ids of the tracks that are being referenced. These must
+   *     also be valid track ids returned by {@link #addTrack(Format)}.
+   */
+  public void addTrackReference(
+      int trackId, @TrackReferenceType int referenceType, List<Integer> referencedTrackIds) {
+    checkElementIndex(trackId, trackIdToTrack.size());
+    checkArgument(referenceType == TRACK_REFERENCE_TYPE_CDSC);
+    for (int i = 0; i < referencedTrackIds.size(); i++) {
+      checkElementIndex(referencedTrackIds.get(i), trackIdToTrack.size());
+    }
+    Track track = trackIdToTrack.get(trackId);
+    track.addTrackReference(referenceType, ImmutableList.copyOf(referencedTrackIds));
   }
 
   @Override

@@ -914,7 +914,11 @@ public final class DefaultAudioSink implements AudioSink {
       if (!drainToEndOfStream()) {
         // There's still pending data in audio processors to write to the output.
         return false;
-      } else if (!pendingConfiguration.canReuseAudioOutput(configuration)) {
+      } else if (audioOutput != null
+          && !audioOutput.canReuseAudioOutput(
+              configuration.outputConfig,
+              getFormatConfig(pendingConfiguration.afterProcessingInputFormat),
+              pendingConfiguration.outputConfig)) {
         playPendingData();
         if (hasPendingData()) {
           // We're waiting for playout on the current audio output to finish.
@@ -1351,6 +1355,15 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public AudioAttributes getAudioAttributes() {
     return audioAttributes;
+  }
+
+  @Nullable
+  @Override
+  public AudioCapabilities getAudioCapabilities() {
+    if (audioOutputProvider instanceof AudioTrackAudioOutputProvider) {
+      return ((AudioTrackAudioOutputProvider) audioOutputProvider).getAudioCapabilities();
+    }
+    return null;
   }
 
   @Override
@@ -2023,11 +2036,6 @@ public final class DefaultAudioSink implements AudioSink {
           outputPcmFrameSize,
           outputConfig,
           audioProcessingPipeline);
-    }
-
-    /** Returns if the configurations are sufficiently compatible to reuse the audio output. */
-    private boolean canReuseAudioOutput(Configuration newConfiguration) {
-      return newConfiguration.outputConfig.equals(outputConfig);
     }
 
     private long inputFramesToDurationUs(long frameCount) {
