@@ -28,6 +28,8 @@ android {
 }
 
 dependencies {
+  api(libs.ktor.client.android)
+  api(libs.ktor.client.core)
   api(project(modulePrefix + "lib-common"))
   api(project(modulePrefix + "lib-datasource"))
   implementation(libs.androidx.annotation)
@@ -39,8 +41,6 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)
-  androidTestImplementation(libs.ktor.client.android)
-  api(libs.ktor.client.core)
 }
 
 extra["releaseArtifactId"] = "media3-datasource-ktor"
