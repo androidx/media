@@ -1384,4 +1384,21 @@ public class AdPlaybackStateTest {
 
     assertThat(arrayFieldCount).isEqualTo(expectedNumberOfFieldsOfTypeArray);
   }
+
+  @Test
+  public void sumOfDurations() {
+    assertThat(AdPlaybackState.sumOfDurations()).isEqualTo(0);
+
+    assertThat(AdPlaybackState.sumOfDurations(1L, 2L, 3L)).isEqualTo(6L);
+
+    assertThat(AdPlaybackState.sumOfDurations(1L, C.TIME_UNSET, 3L)).isEqualTo(4L);
+
+    assertThat(AdPlaybackState.sumOfDurations(C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET))
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void sumOfDurations_overflow() {
+    assertThat(AdPlaybackState.sumOfDurations(Long.MAX_VALUE, 1L)).isEqualTo(Long.MAX_VALUE);
+  }
 }

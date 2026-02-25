@@ -35,6 +35,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.math.LongMath;
 import com.google.errorprone.annotations.InlineMe;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -970,6 +971,23 @@ public final class AdPlaybackState {
           bundle.getLong(FIELD_SKIP_DURATION_US),
           bundle.getString(FIELD_LABEL_ID));
     }
+  }
+
+  /**
+   * Returns the sum of all durations in the given array, treating {@link C#TIME_UNSET} as 0.
+   *
+   * @param durations The durations to sum.
+   * @return The sum of all durations.
+   */
+  @UnstableApi
+  public static long sumOfDurations(long... durations) {
+    long sum = 0;
+    for (long duration : durations) {
+      if (duration != C.TIME_UNSET) {
+        sum = LongMath.saturatedAdd(sum, duration);
+      }
+    }
+    return sum;
   }
 
   /**
