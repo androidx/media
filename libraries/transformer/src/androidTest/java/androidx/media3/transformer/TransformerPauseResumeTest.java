@@ -28,6 +28,7 @@ import static org.junit.Assume.assumeFalse;
 import android.content.Context;
 import android.os.Build;
 import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
@@ -35,19 +36,23 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.RgbFilter;
+import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.transformer.AndroidTestUtil.BatchProgressReportingMuxer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.SettableFuture;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -628,8 +633,136 @@ public class TransformerPauseResumeTest {
     assertThat(Iterables.getFirst(progresses, /* defaultValue= */ -1)).isLessThan(85);
   }
 
+  @Test
+  public void resume_withTwoMediaItemsVideoOnlySequence_outputMatchesExpected() throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 2);
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
+    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
+    // Block here until timeout reached or latch is counted down.
+    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException(
+          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+    }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition, firstOutputPath);
+
+    ExportResult exportResult = result.exportResult;
+    assertThat(exportResult.processedInputs).hasSize(3);
+    int expectedVideoFrameCount = 2 * MP4_ASSET_FRAME_COUNT;
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResult.videoFrameCount).isWithin(2).of(expectedVideoFrameCount);
+    // The first processed media item corresponds to remuxing previous output video.
+    assertThat(exportResult.processedInputs.get(0).audioDecoderName).isNull();
+    assertThat(exportResult.processedInputs.get(0).videoDecoderName).isNull();
+    // The next two processed media item corresponds to processing remaining video.
+    assertThat(exportResult.processedInputs.get(1).audioDecoderName).isNull();
+    assertThat(exportResult.processedInputs.get(1).videoDecoderName).isNotEmpty();
+    assertThat(exportResult.processedInputs.get(1).mediaItem.clippingConfiguration.startPositionMs)
+        .isGreaterThan(0);
+    assertThat(exportResult.processedInputs.get(2).audioDecoderName).isNull();
+    assertThat(exportResult.processedInputs.get(2).videoDecoderName).isNotEmpty();
+    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void resume_withTwoMediaItemsVideoOnlySequence_outputMatchesWithoutResume()
+      throws Exception {
+    assumeFalse(shouldSkipDevice());
+    assumeFormatsSupported(
+        getApplicationContext(),
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
+    Composition composition =
+        buildSingleSequenceComposition(
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            /* clippingStartPositionMs= */ 0,
+            /* clippingEndPositionMs= */ C.TIME_END_OF_SOURCE,
+            /* mediaItemsInSequence= */ 2);
+    // Export without resume.
+    ExportTestResult resultWithoutResume =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition);
+    ExportResult exportResultWithoutResume = resultWithoutResume.exportResult;
+    // Export with resume.
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    Transformer blockingTransformer = buildBlockingTransformer(countDownLatch::countDown);
+    String firstOutputPath = temporaryFolder.newFile("FirstOutput.mp4").getAbsolutePath();
+    InstrumentationRegistry.getInstrumentation()
+        .runOnMainSync(() -> blockingTransformer.start(composition, firstOutputPath));
+    // Block here until timeout reached or latch is counted down.
+    if (!countDownLatch.await(DEFAULT_TIMEOUT_SECONDS, SECONDS)) {
+      throw new TimeoutException(
+          "Transformer timed out after " + DEFAULT_TIMEOUT_SECONDS + " seconds.");
+    }
+    InstrumentationRegistry.getInstrumentation().runOnMainSync(blockingTransformer::cancel);
+
+    ExportTestResult resultWithResume =
+        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+            .build()
+            .run(testId, composition, firstOutputPath);
+
+    ExportResult exportResultWithResume = resultWithResume.exportResult;
+    assertThat(exportResultWithResume.processedInputs).hasSize(3);
+    assertThat(exportResultWithResume.audioEncoderName)
+        .isEqualTo(exportResultWithoutResume.audioEncoderName);
+    assertThat(exportResultWithResume.videoEncoderName)
+        .isEqualTo(exportResultWithoutResume.videoEncoderName);
+    // Rarely, MediaCodec decoders output frames in the wrong order.
+    // When the MediaCodec encoder sees frames in the wrong order, fewer output frames are produced.
+    // Use a tolerance when comparing frame counts. See b/343476417#comment5.
+    assertThat(exportResultWithResume.videoFrameCount)
+        .isWithin(2)
+        .of(exportResultWithoutResume.videoFrameCount);
+    int maxDiffExpectedInDurationUs = 2_000;
+    assertThat(
+            getActualMediaDurationUs(resultWithResume.filePath)
+                - getActualMediaDurationUs(resultWithoutResume.filePath))
+        .isLessThan(maxDiffExpectedInDurationUs);
+  }
+
+  private long getActualMediaDurationUs(String filePath)
+      throws ExecutionException, InterruptedException {
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(filePath)).build();
+    return metadataRetriever.retrieveDurationUs().get();
+  }
+
   private static Composition buildSingleSequenceComposition(
       long clippingStartPositionMs, long clippingEndPositionMs, int mediaItemsInSequence) {
+    return buildSingleSequenceComposition(
+        ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+        clippingStartPositionMs,
+        clippingEndPositionMs,
+        mediaItemsInSequence);
+  }
+
+  private static Composition buildSingleSequenceComposition(
+      Set<@TrackType Integer> outputTrackTypes,
+      long clippingStartPositionMs,
+      long clippingEndPositionMs,
+      int mediaItemsInSequence) {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setPitch(/* pitch= */ 2f);
     ImmutableList<AudioProcessor> audioEffects = ImmutableList.of(sonic);
@@ -655,7 +788,9 @@ public class TransformerPauseResumeTest {
     }
 
     return new Composition.Builder(
-            EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItemList))
+            new EditedMediaItemSequence.Builder(outputTrackTypes)
+                .addItems(editedMediaItemList)
+                .build())
         .build();
   }
 

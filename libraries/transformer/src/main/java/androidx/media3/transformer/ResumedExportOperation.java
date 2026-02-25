@@ -21,6 +21,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -183,6 +184,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       String outputFilePath,
       String oldFilePath) {
     this.context = context;
+    checkArgument(
+        composition.sequences.size() == 1,
+        "Resume is supported only for single sequence composition");
     this.composition = composition;
     this.transformationRequest = transformationRequest;
     this.assetLoaderFactory = assetLoaderFactory;
@@ -346,6 +350,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void processAudio() {
+    // Skip audio processing for video only composition. Resume operation is supported only for a
+    // single sequence composition.
+    if (!composition.sequences.get(0).trackTypes.contains(C.TRACK_TYPE_AUDIO)) {
+      listener.onCompleted(exportResultBuilder.build());
+      return;
+    }
+
     state = STATE_PROCESS_AUDIO;
 
     MuxerWrapper muxerWrapper =
