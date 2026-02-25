@@ -19,6 +19,9 @@
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
+    *   Add `TrackSelectionParameters.preferredAudioChannelCount` to prefer
+        audio tracks with a specific channel count
+        ([#2996](https://github.com/androidx/media/pull/2996)).
 *   Extractors:
 *   Inspector:
 *   Audio:
