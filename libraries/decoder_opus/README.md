@@ -17,20 +17,12 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to fetch libopus as follows:
+In addition, it's necessary to fetch libopus as follows (starting at the root of
+your media3 check-out):
 
-* Set the following environment variables:
-
-```
-cd "<path to project checkout>"
-OPUS_MODULE_PATH="$(pwd)/libraries/decoder_opus/src/main"
-```
-
-* Fetch libopus:
-
-```
-cd "${OPUS_MODULE_PATH}/jni" && \
-git clone https://gitlab.xiph.org/xiph/opus.git libopus
+```shell
+cd libraries/decoder_opus/src/main/jni && \
+git clone https://github.com/xiph/opus.git --depth=1 libopus
 ```
 
 * [Install CMake][]

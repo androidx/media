@@ -40,10 +40,24 @@ In addition, it's necessary to fetch iamf_tools with dependencies as follows:
 
     ```shell
     cd "${IAMF_MODULE_PATH}/jni" && \
-    git clone https://github.com/AOMediaCodec/iamf-tools.git iamf_tools && \
-    cd iamf_tools && \
-    git reset --hard de364b983
+    git clone https://github.com/AOMediaCodec/iamf-tools.git \
+        --depth=1 \
+        --revision=de364b983447a45d8be81f9172eea422c139dcf0 \
+        iamf_tools
     ```
+
+    *   If you are using an old version of `git` without the `--revision` flag
+        (added in 2.49), run this instead:
+
+        ```shell
+        cd "${IAMF_MODULE_PATH}/jni" && \
+        mkdir iamf_tools && \
+        cd iamf_tools && \
+        git init && \
+        git remote add origin https://github.com/AOMediaCodec/iamf-tools.git \
+        git fetch --depth=1 origin de364b983447a45d8be81f9172eea422c139dcf0 && \
+        git checkout FETCH_HEAD
+        ```
 
 *   Build the library.
 
