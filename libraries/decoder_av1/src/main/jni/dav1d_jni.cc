@@ -227,6 +227,13 @@ struct JniContext {
     }
     native_window_width = 0;
     native_window_height = 0;
+    if (new_surface == nullptr) {
+      LOGE("MaybeAcquireNativeWindow: new_surface is null.");
+      native_window = nullptr;
+      surface = nullptr;
+      jni_status_code = kJniStatusANativeWindowError;
+      return false;
+    }
     native_window = ANativeWindow_fromSurface(env, new_surface);
     if (native_window == nullptr) {
       jni_status_code = kJniStatusANativeWindowError;
@@ -802,6 +809,11 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
       context->state_mutex);
   if (!context->MaybeAcquireNativeWindow(env, jSurface)) {
     LOGE("Failed to acquire native window.");
+    return kStatusError;
+  }
+
+  if (context->native_window == nullptr) {
+    LOGE("Failed to render frame. native_window is null.");
     return kStatusError;
   }
 
