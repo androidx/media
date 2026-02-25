@@ -23,9 +23,6 @@ import io.ktor.client.HttpClient
 import java.nio.charset.StandardCharsets
 import java.util.HashMap
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertThrows
@@ -35,7 +32,6 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class KtorDataSourceTest {
 
-  private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   val httpClient = HttpClient()
 
   @Test
@@ -52,7 +48,7 @@ class KtorDataSourceTest {
     defaultRequestProperties["4"] = propertyFromFactory
 
     val dataSource =
-      KtorDataSource.Factory(httpClient, coroutineScope)
+      KtorDataSource.Factory(httpClient)
         .setDefaultRequestProperties(defaultRequestProperties)
         .createDataSource()
 
@@ -94,7 +90,7 @@ class KtorDataSourceTest {
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse().setResponseCode(404).setBody("failure msg"))
 
-    val dataSource = KtorDataSource.Factory(httpClient, coroutineScope).createDataSource()
+    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
@@ -114,7 +110,7 @@ class KtorDataSourceTest {
     mockWebServer.enqueue(MockResponse())
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
-    val factory = KtorDataSource.Factory(httpClient, coroutineScope)
+    val factory = KtorDataSource.Factory(httpClient)
     val dataSource = factory.createDataSource()
 
     val defaultRequestProperties = HashMap<String, String>()
@@ -130,7 +126,7 @@ class KtorDataSourceTest {
 
   @Test
   fun open_malformedUrl_throwsException() {
-    val dataSource = KtorDataSource.Factory(httpClient, coroutineScope).createDataSource()
+    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri("not-a-valid-url").build()
 
@@ -146,7 +142,7 @@ class KtorDataSourceTest {
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
-    val dataSource = KtorDataSource.Factory(httpClient, coroutineScope).createDataSource()
+    val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec =
       DataSpec.Builder()
