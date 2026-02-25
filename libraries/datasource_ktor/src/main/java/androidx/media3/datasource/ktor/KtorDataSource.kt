@@ -49,6 +49,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.util.TreeMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.min
@@ -213,9 +214,12 @@ private constructor(
 
   override fun getResponseHeaders(): Map<String, List<String>> {
     val httpResponse = response ?: return emptyMap()
-    return httpResponse.headers.names().associateWith { name ->
-      httpResponse.headers.getAll(name) ?: emptyList()
+    // ordered map use case-insensitive comparator to support case-insensitive lookup
+    val result = TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER)
+    for (name in httpResponse.headers.names()) {
+      result[name] = httpResponse.headers.getAll(name) ?: emptyList()
     }
+    return result
   }
 
   override fun setRequestProperty(name: String, value: String) {
