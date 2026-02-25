@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
+import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createSpeedChangingAudioProcessor;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -25,6 +26,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
+import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -44,6 +46,7 @@ import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -363,6 +366,65 @@ public class AudioGraphInputTest {
     audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraphInput.isEnded()).isFalse();
+  }
+
+  @Test
+  public void isEnded_afterRelease_returnsTrue() throws Exception {
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(MONO_44100));
+
+    assertThat(audioGraphInput.isEnded()).isFalse();
+
+    audioGraphInput.release();
+
+    assertThat(audioGraphInput.isEnded()).isTrue();
+  }
+
+  @Test
+  public void release_resetsAudioProcessors() throws Exception {
+    AtomicBoolean isProcessorReset = new AtomicBoolean();
+    PassthroughAudioProcessor processor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onReset() {
+            isProcessorReset.set(true);
+          }
+        };
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ FAKE_ITEM
+                .buildUpon()
+                .setEffects(createAudioEffects(processor))
+                .build(),
+            /* inputFormat= */ getPcmFormat(MONO_44100));
+
+    audioGraphInput.release();
+    assertThat(isProcessorReset.get()).isTrue();
+  }
+
+  @Test
+  public void release_invalidatesInstance() throws Exception {
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(MONO_44100));
+
+    audioGraphInput.release();
+    assertThat(audioGraphInput.isReleased()).isTrue();
+
+    assertThrows(IllegalStateException.class, audioGraphInput::queueInputBuffer);
+    assertThrows(IllegalStateException.class, audioGraphInput::getInputBuffer);
+    assertThrows(IllegalStateException.class, audioGraphInput::getOutput);
+    assertThrows(
+        IllegalStateException.class, () -> audioGraphInput.flush(/* positionOffsetUs= */ 0));
+    assertThrows(IllegalStateException.class, audioGraphInput::blockInput);
+    assertThrows(IllegalStateException.class, audioGraphInput::unblockInput);
+    assertThrows(IllegalStateException.class, audioGraphInput::release);
   }
 
   @Test

@@ -627,6 +627,120 @@ public class AudioGraphTest {
     assertThat(lastPositionOffsetUs.get()).isEqualTo(500_000);
   }
 
+  @Test
+  public void isEnded_afterAllInputsReleased_returnsTrue() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput audioGraphInput =
+        audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+
+    audioGraphInput.release();
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
+  public void releaseInput_afterQueuingBuffers_endsGraph() throws Exception {
+    long outputBytes = 0;
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput audioGraphInput =
+        audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    audioGraphInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+    // Force output to be processed and handle the new configuration.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+
+    // Queue 1024 frames.
+    assertThat(
+            queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), audioGraphInput))
+        .isTrue();
+
+    // Consume all the queued input.
+    ByteBuffer output = audioGraph.getOutput();
+    assertThat(output.hasRemaining()).isTrue();
+    outputBytes += output.remaining();
+    output.position(output.limit());
+    assertThat(outputBytes).isEqualTo(1024 * STEREO_44100.bytesPerFrame);
+
+    // Queue another 1024 frames.
+    assertThat(
+            queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), audioGraphInput))
+        .isTrue();
+
+    // Release the input before the second buffer is processed.
+    audioGraphInput.release();
+
+    // Force AudioGraph to process the input's release and make sure that no more output is
+    // available.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
+  public void releaseInput_withOtherActiveInputs_graphContinuesProcessingUntilEoS()
+      throws Exception {
+    long outputBytes = 0;
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput firstInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    AudioGraphInput secondInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    firstInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+    secondInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    // Force output to be processed and handle the new configuration.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+
+    // Queue 1024 frames on first input.
+    assertThat(queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), firstInput))
+        .isTrue();
+
+    // Queue 1024 frames on second input.
+    assertThat(queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), secondInput))
+        .isTrue();
+
+    // Consume all the queued input.
+    ByteBuffer output = audioGraph.getOutput();
+    assertThat(output.hasRemaining()).isTrue();
+    outputBytes += output.remaining();
+    output.position(output.limit());
+    assertThat(outputBytes).isEqualTo(1024 * STEREO_44100.bytesPerFrame);
+
+    // Queue another 1024 frames on first input.
+    assertThat(queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), firstInput))
+        .isTrue();
+
+    // Release the input before the second buffer is processed.
+    firstInput.release();
+
+    // AudioGraph will not produce more output until second input queues a buffer.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+    assertThat(audioGraph.isEnded()).isFalse();
+
+    // Queue EoS on second input and end AudioGraph.
+    DecoderInputBuffer inputBuffer = checkNotNull(secondInput.getInputBuffer());
+    inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    assertThat(secondInput.queueInputBuffer()).isTrue();
+
+    // AudioGraph should not produce any more output.
+    assertThat(drainAudioGraph(audioGraph)).isEmpty();
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
   /** Drains the graph and returns the number of bytes output. */
   private static ImmutableList<Byte> drainAudioGraph(AudioGraph audioGraph) throws ExportException {
     ImmutableList.Builder<Byte> bytes = new ImmutableList.Builder<>();
@@ -635,5 +749,12 @@ public class AudioGraphTest {
       bytes.addAll(Bytes.asList(createByteArray(output)));
     }
     return bytes.build();
+  }
+
+  private static boolean queueBufferIntoInput(byte[] buffer, AudioGraphInput input) {
+    DecoderInputBuffer inputBuffer = checkNotNull(input.getInputBuffer());
+    inputBuffer.ensureSpaceForWrite(buffer.length);
+    inputBuffer.data.put(buffer).flip();
+    return input.queueInputBuffer();
   }
 }
