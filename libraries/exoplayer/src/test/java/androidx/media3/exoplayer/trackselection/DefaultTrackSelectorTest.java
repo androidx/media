@@ -696,13 +696,15 @@ public final class DefaultTrackSelectorTest {
   public void selectTracks_withPreferredAudioChannelCount_selectsHigherChannelCountTrack()
       throws Exception {
     Format stereoMainFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("stereo_main")
             .setChannelCount(2)
             .setRoleFlags(C.ROLE_FLAG_MAIN)
             .build();
     Format surroundAltFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("surround_alt")
             .setChannelCount(6)
             .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
@@ -739,13 +741,15 @@ public final class DefaultTrackSelectorTest {
   public void selectTracks_withPreferredAudioChannelCountNotSupported_fallsBackToSupportedTrack()
       throws Exception {
     Format stereoFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("stereo")
             .setChannelCount(2)
             .setRoleFlags(C.ROLE_FLAG_MAIN)
             .build();
     Format surroundFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("surround")
             .setChannelCount(6)
             .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
@@ -777,13 +781,15 @@ public final class DefaultTrackSelectorTest {
   public void selectTracks_withPreferredAudioChannelCount_selectsHighestSupportedChannelCount()
       throws Exception {
     Format stereoFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("stereo")
             .setChannelCount(2)
             .setRoleFlags(C.ROLE_FLAG_MAIN)
             .build();
     Format surroundFormat =
-        AUDIO_FORMAT.buildUpon()
+        AUDIO_FORMAT
+            .buildUpon()
             .setId("surround")
             .setChannelCount(6)
             .setRoleFlags(C.ROLE_FLAG_ALTERNATE)

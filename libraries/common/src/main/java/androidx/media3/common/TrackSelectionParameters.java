@@ -666,10 +666,10 @@ public class TrackSelectionParameters {
     }
 
     /**
-     * Sets the preferred audio channel count. When set to a value greater than 0, audio tracks
-     * with channel count >= this value will be preferred over tracks with lower channel count,
-     * regardless of role flags (main vs alt). This allows selecting 5.1 surround tracks over
-     * stereo tracks even when the stereo track has a main role.
+     * Sets the preferred audio channel count. When set to a value greater than 0, audio tracks with
+     * channel count >= this value will be preferred over tracks with lower channel count,
+     * regardless of role flags (main vs alt). This allows selecting 5.1 surround tracks over stereo
+     * tracks even when the stereo track has a main role.
      *
      * <p>Set to 0 to disable this preference (default behavior based on role flags).
      *

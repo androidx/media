@@ -4234,7 +4234,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
       if (this.parameters.preferredAudioChannelCount > 0) {
         comparisonChain = comparisonChain.compare(this.channelCount, other.channelCount);
       }
-      comparisonChain = comparisonChain
+      comparisonChain =
+          comparisonChain
               .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
               .compare(
                   this.preferredLabelMatchIndex,
