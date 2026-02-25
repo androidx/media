@@ -36,8 +36,10 @@ dependencies {
   compileOnly(libs.kotlin.annotations.jvm)
   implementation(libs.kotlinx.coroutines.core)
   androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)
-  androidTestImplementation(libs.ktor.client.okhttp)
+  androidTestImplementation(libs.ktor.client.android)
   api(libs.ktor.client.core)
 }
 
