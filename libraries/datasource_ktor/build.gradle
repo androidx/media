@@ -44,7 +44,7 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.linkedin.dexmaker:dexmaker-mockito:' + dexmakerVersion
     androidTestImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
-    androidTestImplementation 'io.ktor:ktor-client-okhttp:' + ktorVersion
+    androidTestImplementation 'io.ktor:ktor-client-android:' + ktorVersion
 }
 
 ext {
