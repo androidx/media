@@ -16,6 +16,7 @@
 package androidx.media3.container;
 
 import static androidx.media3.container.VorbisUtil.iLog;
+import static androidx.media3.container.VorbisUtil.readBits;
 import static androidx.media3.container.VorbisUtil.verifyVorbisHeaderCapturePattern;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
@@ -33,6 +34,18 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link VorbisUtil}. */
 @RunWith(AndroidJUnit4.class)
 public final class VorbisUtilTest {
+
+  @Test
+  public void readBits_returnsSignificantBitsFromIndex() {
+    assertThat(readBits((byte) 0x00, /* length= */ 2, /* leastSignificantBitIndex= */ 2))
+        .isEqualTo(0);
+    assertThat(readBits((byte) 0x02, /* length= */ 1, /* leastSignificantBitIndex= */ 1))
+        .isEqualTo(1);
+    assertThat(readBits((byte) 0xF0, /* length= */ 4, /* leastSignificantBitIndex= */ 4))
+        .isEqualTo(15);
+    assertThat(readBits((byte) 0x80, /* length= */ 1, /* leastSignificantBitIndex= */ 7))
+        .isEqualTo(1);
+  }
 
   @Test
   public void iLog_returnsHighestSetBit() {

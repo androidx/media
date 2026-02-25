@@ -15,6 +15,7 @@
  */
 package androidx.media3.container;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
@@ -309,6 +310,52 @@ public final class VorbisUtil {
       }
     }
     return true;
+  }
+
+  /**
+   * Returns the block size of the given packet.
+   *
+   * @param firstByteOfAudioPacket The first byte of the audio packet.
+   * @param idHeader The Vorbis identification header.
+   * @param modes The Vorbis modes.
+   * @return The block size of the packet.
+   */
+  public static int getPacketBlockSize(
+      byte firstByteOfAudioPacket, VorbisIdHeader idHeader, Mode[] modes) {
+    // Read modeNumber (https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-730004.3.1)
+    int iLogModes = iLog(modes.length - 1);
+    int modeNumber = readBits(firstByteOfAudioPacket, iLogModes, 1);
+    return modes[modeNumber].blockFlag ? idHeader.blockSize1 : idHeader.blockSize0;
+  }
+
+  /**
+   * Returns the number of samples in the given packet.
+   *
+   * @param packetBlockSize The block size of the packet.
+   * @param previousPacketBlockSize The block size of the previous packet.
+   * @param seenFirstAudioPacket Whether the first audio packet has been seen.
+   * @return The number of samples in the packet.
+   */
+  public static int getSampleCountInPacket(
+      int packetBlockSize, int previousPacketBlockSize, boolean seenFirstAudioPacket) {
+    // A packet contains samples produced from overlapping the previous and current frame data.
+    // See
+    // (https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-350001.3.2)
+    return seenFirstAudioPacket ? (packetBlockSize + previousPacketBlockSize) / 4 : 0;
+  }
+
+  /**
+   * Reads an int of {@code length} bits from {@code src} starting at {@code
+   * leastSignificantBitIndex}.
+   *
+   * @param src the {@code byte} to read from.
+   * @param length the length in bits of the int to read.
+   * @param leastSignificantBitIndex the index of the least significant bit of the int to read.
+   * @return the int value read.
+   */
+  @VisibleForTesting
+  /* package */ static int readBits(byte src, int length, int leastSignificantBitIndex) {
+    return (src >> leastSignificantBitIndex) & (255 >>> (8 - length));
   }
 
   /**
