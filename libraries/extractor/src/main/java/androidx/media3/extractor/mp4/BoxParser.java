@@ -2139,7 +2139,7 @@ public final class BoxParser {
         } else if (bitsPerSample == 32) {
           pcmEncoding = isBigEndian ? C.ENCODING_PCM_32BIT_BIG_ENDIAN : C.ENCODING_PCM_32BIT;
         }
-      } else if (bitsPerSample == 32) {
+      } else if (!isBigEndian && bitsPerSample == 32) {
         pcmEncoding = C.ENCODING_PCM_FLOAT;
       }
       parent.skipBytes(8); // constBytesPerAudioPacket, constLPCMFramesPerAudioPacket
