@@ -37,10 +37,12 @@ import androidx.media3.common.Player;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.exoplayer.BaseRenderer;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import androidx.media3.transformer.Composition;
@@ -87,7 +89,7 @@ public final class UiModuleProguard {
    * the suppression reason change and seeks happen.
    */
   public static void scrubOnTimeBarWithExoPlayerAndCheckThatSuppressionReasonChangesAndSeeksHappen(
-      Context context) throws InterruptedException {
+      Context instrumentationContext, Context applicationContext) throws InterruptedException {
     ConditionVariable playerReady = new ConditionVariable();
     List<@Player.PlaybackSuppressionReason Integer> playbackSuppressionReasons =
         Collections.synchronizedList(new ArrayList<>());
@@ -119,11 +121,20 @@ public final class UiModuleProguard {
     Handler mainHandler = new Handler(Looper.getMainLooper());
     mainHandler.post(
         () -> {
-          ExoPlayer player = new ExoPlayer.Builder(context).build();
+          ExoPlayer player =
+              new ExoPlayer.Builder(applicationContext)
+                  .setMediaSourceFactory(
+                      new DefaultMediaSourceFactory(
+                          // The asset media URI used below is accessible to the instrumentation
+                          // context, not the app context (which needs to be used for all other
+                          // purposes).
+                          /* dataSourceFactory= */ () ->
+                              new AssetDataSource(instrumentationContext)))
+                  .build();
           player.addListener(listener);
           PlayerControlView playerControlView =
               (PlayerControlView)
-                  LayoutInflater.from(context)
+                  LayoutInflater.from(applicationContext)
                       .inflate(
                           R.layout.player_control_view_with_scrubbable_timebar, /* root= */ null);
           playerControlView.setPlayer(player);

@@ -19,7 +19,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.Ignore;
+import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -46,10 +46,9 @@ public final class UiModuleProguardTest {
   }
 
   @Test
-  @Ignore("Fails on gradle: b/463675073")
   public void playerControlView_scrubbingWithExoPlayer_succeeds() throws Exception {
     UiModuleProguard.scrubOnTimeBarWithExoPlayerAndCheckThatSuppressionReasonChangesAndSeeksHappen(
-        getApplicationContext());
+        InstrumentationRegistry.getInstrumentation().getContext(), getApplicationContext());
   }
 
   @Test
