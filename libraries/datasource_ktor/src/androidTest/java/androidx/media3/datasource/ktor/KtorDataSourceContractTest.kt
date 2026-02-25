@@ -22,9 +22,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import org.junit.Rule
 import org.junit.runner.RunWith
 
@@ -41,10 +38,8 @@ class KtorDataSourceContractTest : DataSourceContractTest() {
       }
     }
 
-  private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
   override fun createDataSource(): DataSource {
-    return KtorDataSource.Factory(httpClient, coroutineScope).createDataSource()
+    return KtorDataSource.Factory(httpClient).createDataSource()
   }
 
   override fun getTestResources(): ImmutableList<TestResource> {
