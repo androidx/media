@@ -33,6 +33,7 @@ android {
 
 dependencies {
     api 'io.ktor:ktor-client-core:' + ktorVersion
+    api 'io.ktor:ktor-client-android:' + ktorVersion
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-datasource')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
@@ -44,7 +45,6 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.linkedin.dexmaker:dexmaker-mockito:' + dexmakerVersion
     androidTestImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
-    androidTestImplementation 'io.ktor:ktor-client-android:' + ktorVersion
 }
 
 ext {
