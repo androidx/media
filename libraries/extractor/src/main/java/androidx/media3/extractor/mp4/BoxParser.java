@@ -2131,7 +2131,7 @@ public final class BoxParser {
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
       if (!isFloat) {
         pcmEncoding = Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
-      } else if (!isBigEndian && bitsPerSample == 32) {
+      } else if (bitsPerSample == 32) {
         pcmEncoding = C.ENCODING_PCM_FLOAT;
       }
       if (pcmEncoding == C.ENCODING_INVALID) {
