@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static com.google.common.truth.Truth.assertThat;
@@ -145,7 +146,7 @@ public final class DecoderVideoRendererTest {
                 new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
               @Override
               protected DecoderInputBuffer createInputBuffer() {
-                return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT) {
+                return new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DIRECT) {
                   @Override
                   public void clear() {
                     super.clear();
@@ -522,7 +523,7 @@ public final class DecoderVideoRendererTest {
                 new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
               @Override
               protected DecoderInputBuffer createInputBuffer() {
-                return new DecoderInputBuffer(2) {
+                return new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DIRECT) {
                   @Override
                   public void clear() {
                     super.clear();
@@ -658,7 +659,7 @@ public final class DecoderVideoRendererTest {
                 new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
               @Override
               protected DecoderInputBuffer createInputBuffer() {
-                return new DecoderInputBuffer(2) {
+                return new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DIRECT) {
                   @Override
                   public void clear() {
                     super.clear();
@@ -839,7 +840,7 @@ public final class DecoderVideoRendererTest {
                 new DecoderInputBuffer[10], new VideoDecoderOutputBuffer[10]) {
               @Override
               protected DecoderInputBuffer createInputBuffer() {
-                return new DecoderInputBuffer(2) {
+                return new DecoderInputBuffer(BUFFER_REPLACEMENT_MODE_DIRECT) {
                   @Override
                   public void clear() {
                     super.clear();
