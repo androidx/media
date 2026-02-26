@@ -162,6 +162,8 @@ const char* GetJniErrorMessage(JniStatusCode error_code) {
       return "Decoder initialization failed.";
     case kJniStatusBufferInitError:
       return "Output buffer initialization failed.";
+    case kJniStatusANativeWindowError:
+      return "ANativeWindow error.";
     default:
       return "Unrecognized error code.";
   }
@@ -219,28 +221,36 @@ struct JniContext {
   }
 
   bool MaybeAcquireNativeWindow(JNIEnv* env, jobject new_surface) {
-    if (surface == new_surface) {
+    if (env->IsSameObject(surface, new_surface)) {
       return true;
     }
     if (native_window) {
       ANativeWindow_release(native_window);
+      native_window = nullptr;
+    }
+    if (surface) {
+      env->DeleteGlobalRef(surface);
+      surface = nullptr;
     }
     native_window_width = 0;
     native_window_height = 0;
     if (new_surface == nullptr) {
       LOGE("MaybeAcquireNativeWindow: new_surface is null.");
-      native_window = nullptr;
-      surface = nullptr;
       jni_status_code = kJniStatusANativeWindowError;
       return false;
     }
     native_window = ANativeWindow_fromSurface(env, new_surface);
     if (native_window == nullptr) {
       jni_status_code = kJniStatusANativeWindowError;
-      surface = nullptr;
       return false;
     }
-    surface = new_surface;
+    surface = env->NewGlobalRef(new_surface);
+    if (surface == nullptr) {
+      ANativeWindow_release(native_window);
+      native_window = nullptr;
+      jni_status_code = kJniStatusOutOfMemory;
+      return false;
+    }
     return true;
   }
 
@@ -598,6 +608,10 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
   }
 
   // Clean up JNI global references
+  if (context->surface) {
+    env->DeleteGlobalRef(context->surface);
+    context->surface = nullptr;
+  }
   if (context->input_buffer_class)
     env->DeleteGlobalRef(context->input_buffer_class);
   if (context->output_buffer_class)
