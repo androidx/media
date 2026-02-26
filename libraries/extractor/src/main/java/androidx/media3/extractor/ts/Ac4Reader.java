@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -33,10 +34,12 @@ import androidx.media3.extractor.Ac4Util.SyncFrameInfo;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
+import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -59,6 +62,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
   @Nullable private final String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
+  private List<AudioPresentation> audioPresentations;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -106,6 +110,11 @@ public final class Ac4Reader implements ElementaryStreamReader {
     this.language = language;
     this.roleFlags = roleFlags;
     this.containerMimeType = containerMimeType;
+    audioPresentations = ImmutableList.of();
+  }
+
+  public void setAudioPresentations(List<AudioPresentation> audioPresentations) {
+    this.audioPresentations = ImmutableList.copyOf(audioPresentations);
   }
 
   @Override
@@ -221,7 +230,8 @@ public final class Ac4Reader implements ElementaryStreamReader {
     if (format == null
         || frameInfo.channelCount != format.channelCount
         || frameInfo.sampleRate != format.sampleRate
-        || !MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)) {
+        || !MimeTypes.AUDIO_AC4.equals(format.sampleMimeType)
+        || !format.audioPresentations.equals(audioPresentations)) {
       format =
           new Format.Builder()
               .setId(formatId)
@@ -231,6 +241,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
               .setSampleRate(frameInfo.sampleRate)
               .setLanguage(language)
               .setRoleFlags(roleFlags)
+              .setAudioPresentations(audioPresentations)
               .build();
       output.format(format);
     }

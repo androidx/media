@@ -18,6 +18,7 @@ package androidx.media3.extractor.ts;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
+import android.media.AudioPresentation;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -27,6 +28,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.ExtractorOutput;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -180,6 +182,17 @@ public final class PesReader implements TsPayloadReader {
         && payloadSize == C.LENGTH_UNSET
         && !(isModeHls && reader instanceof H262Reader)
         && headerParsed;
+  }
+
+    /**
+     * Sets the audio presentation available for current AC-4 audio track.
+     *
+     * @param audioPresentations This is a collection of {@link AudioPresentation}.
+     */
+  public void setAudioPresentations(List<AudioPresentation> audioPresentations) {
+    if (reader instanceof Ac4Reader) {
+        ((Ac4Reader) reader).setAudioPresentations(audioPresentations);
+    }
   }
 
   private void setState(int state) {
