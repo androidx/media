@@ -1240,7 +1240,9 @@ public final class Transformer {
     // SpeedChangingAudioProcessor does not need to adjust them.
     preProcessors.add(
         new SpeedChangingAudioProcessor(
-            item.speedProvider, /* areInputTimestampsAdjusted= */ true));
+            item.speedProvider,
+            /* areInputTimestampsAdjusted= */ true,
+            /* shouldMaintainPitch= */ false));
     return item.buildUpon().setPreProcessingAudioProcessors(preProcessors).build();
   }
 

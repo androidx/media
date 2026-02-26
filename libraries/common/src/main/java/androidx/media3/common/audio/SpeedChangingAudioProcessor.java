@@ -71,6 +71,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   private final boolean areInputTimestampsAdjusted;
   private final SpeedProviderMapper speedProviderMapper;
+  private final boolean shouldMaintainPitch;
 
   private float currentSpeed;
   private long framesRead;
@@ -86,7 +87,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   /** Creates a new instance. */
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
-    this(speedProvider, /* areInputTimestampsAdjusted= */ false);
+    this(speedProvider, /* areInputTimestampsAdjusted= */ false, /* shouldMaintainPitch= */ false);
   }
 
   /**
@@ -95,10 +96,14 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
    * @param speedProvider The {@link SpeedProvider} to apply over the audio stream.
    * @param areInputTimestampsAdjusted Whether the timestamps fed to the processor have already been
    *     speed adjusted and the processor should not adjust them again.
+   * @param shouldMaintainPitch Whether the stream's pitch should not be adjusted when
+   *     time-stretching.
    */
   @RestrictTo(Scope.LIBRARY_GROUP)
   public SpeedChangingAudioProcessor(
-      SpeedProvider speedProvider, boolean areInputTimestampsAdjusted) {
+      SpeedProvider speedProvider,
+      boolean areInputTimestampsAdjusted,
+      boolean shouldMaintainPitch) {
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     inputAudioFormat = AudioFormat.NOT_SET;
@@ -112,6 +117,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     pendingCallbacks = new ArrayDeque<>();
     currentSpeed = 1f;
     this.areInputTimestampsAdjusted = areInputTimestampsAdjusted;
+    this.shouldMaintainPitch = shouldMaintainPitch;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -396,7 +402,9 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     if (newSpeed != currentSpeed) {
       currentSpeed = newSpeed;
       sonicAudioProcessor.setSpeed(newSpeed);
-      sonicAudioProcessor.setPitch(newSpeed);
+      if (!shouldMaintainPitch) {
+        sonicAudioProcessor.setPitch(newSpeed);
+      }
       // Invalidate any previously created buffers in SonicAudioProcessor and the base class.
       sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
       endOfStreamQueuedToSonic = false;
