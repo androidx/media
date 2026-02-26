@@ -1552,7 +1552,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codecNeedsSetOutputSurfaceWorkaround = codecNeedsSetOutputSurfaceWorkaround(name);
     codecHandlesHdr10PlusOutOfBandMetadata =
         checkNotNull(getCodecInfo()).isHdr10PlusOutOfBandMetadataSupported();
-    isDolbyVisionProfile8 = isDolbyVisionProfile8(configuration.format);
+    isDolbyVisionProfile8 =
+        isDolbyVisionProfile8(configuration.format)
+            && MimeTypes.VIDEO_DOLBY_VISION.equals(configuration.codecInfo.codecMimeType);
     maybeSetupTunnelingForFirstFrame();
   }
 
@@ -1828,10 +1830,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return;
     }
     // Workaround for https://github.com/androidx/media/issues/1895
-    // Skip HDR10+ metadata when using Dolby Vision Profile 8. The combination of DV Profile 8
-    // (which has its own dynamic metadata) with HDR10+ causes playback issues on many devices.
-    // Since DV Profile 8 already provides dynamic HDR metadata, HDR10+ is redundant and the
-    // conflicting metadata can cause severe issues (freezes, black screens).
+    // Skip HDR10+ metadata when a native Dolby Vision Profile 8 codec is active. DV Profile 8
+    // carries its own dynamic HDR metadata (RPU), so HDR10+ is redundant, and the conflicting
+    // metadata can cause severe issues (freezes, black screens). This is intentionally restricted
+    // to the native DV codec case: when falling back to HEVC base-layer decoding (e.g. on a device
+    // that doesn't support DV), the DV metadata is not processed and HDR10+ should still be used.
     if (isDolbyVisionProfile8) {
       return;
     }
