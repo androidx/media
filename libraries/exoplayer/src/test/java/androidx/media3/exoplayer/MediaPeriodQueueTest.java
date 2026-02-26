@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -48,6 +49,7 @@ import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
@@ -56,10 +58,12 @@ import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.source.ads.SinglePeriodAdTimeline;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
 import androidx.media3.test.utils.FakeShuffleOrder;
@@ -128,17 +132,12 @@ public final class MediaPeriodQueueTest {
               mediaPeriodHolderFactoryInfos.add(info);
               mediaPeriodHolderFactoryRendererPositionOffsets.add(rendererPositionOffsetUs);
               return new MediaPeriodHolder(
-                  rendererCapabilities,
+                  createRenderersCoordinator(),
                   rendererPositionOffsetUs,
                   trackSelector,
                   allocator,
                   mediaSourceList,
                   info,
-                  new TrackSelectorResult(
-                      new RendererConfiguration[0],
-                      new ExoTrackSelection[0],
-                      Tracks.EMPTY,
-                      /* info= */ null),
                   /* targetPreloadBufferDurationUs= */ 5_000_000L);
             },
             PreloadConfiguration.DEFAULT);
@@ -152,6 +151,20 @@ public final class MediaPeriodQueueTest {
     trackSelector = mock(TrackSelector.class);
     allocator = mock(Allocator.class);
     fakeMediaSources = new ArrayList<>();
+  }
+
+  private RenderersCoordinator createRenderersCoordinator() {
+    return new RenderersCoordinator(
+        PlayerId.UNSET,
+        new Handler(Looper.getMainLooper(), /* callback= */ null),
+        new DefaultTrackSelector(ApplicationProvider.getApplicationContext()),
+        Clock.DEFAULT,
+        () -> new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()),
+        new VideoRendererEventListener() {},
+        new AudioRendererEventListener() {},
+        cueGroup -> {},
+        metadata -> {}
+    );
   }
 
   @Test
