@@ -755,13 +755,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
-      if (!frameRenderedSinceLastPositionReset) {
-        super.render(positionUs, elapsedRealtimeUs);
-      }
-    }
-
-    @Override
     protected boolean processOutputBuffer(
         long positionUs,
         long elapsedRealtimeUs,

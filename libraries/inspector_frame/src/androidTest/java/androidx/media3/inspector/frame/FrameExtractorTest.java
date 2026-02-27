@@ -35,6 +35,7 @@ import android.graphics.Bitmap;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -684,5 +685,36 @@ public class FrameExtractorTest {
       assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isAtMost(1);
     }
+  }
+
+  @Test
+  public void extractFrame_withFailingEffect_reportsErrorViaFuture() {
+    ExecutionException thrown =
+        assertThrows(
+            ExecutionException.class,
+            () -> {
+              try (FrameExtractor frameExtractor =
+                  new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
+                      .setEffects(
+                          ImmutableList.of(
+                              (GlEffect)
+                                  (context, useHdr) ->
+                                      new PassthroughShaderProgram() {
+                                        @Override
+                                        public void queueInputFrame(
+                                            GlObjectsProvider glObjectsProvider,
+                                            GlTextureInfo inputTexture,
+                                            long presentationTimeUs) {
+                                          onError(
+                                              new VideoFrameProcessingException(
+                                                  "Simulated processing failure"));
+                                        }
+                                      }))
+                      .build()) {
+                frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
+              }
+            });
+
+    assertThat(thrown).hasCauseThat().isInstanceOf(ExoPlaybackException.class);
   }
 }
