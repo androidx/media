@@ -22,7 +22,6 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -652,18 +651,16 @@ public interface AudioSink {
   void disableTunneling();
 
   /**
-   * Sets audio offload mode, if possible. Enabling offload is only possible if the sink is based on
-   * a platform {@link AudioTrack}, and requires platform API version 29 onwards.
+   * Sets audio offload mode, if possible. If the sink is based on a platform {@link AudioTrack},
+   * enabling offload requires platform API version 29 onwards.
    */
-  @RequiresApi(29)
   default void setOffloadMode(@OffloadMode int offloadMode) {}
 
   /**
-   * Sets offload delay padding on the {@link AudioTrack}, if possible. Setting the offload delay
-   * padding is only possible if the sink is based on a platform {@link AudioTrack} in offload mode.
-   * Also requires platform API version 29 onwards.
+   * Sets offload delay padding on the {@link AudioTrack}, if possible. If the sink is based on a
+   * platform {@link AudioTrack}, setting the offload delay padding requires platform API version 29
+   * onwards and the {@link AudioTrack} must be in offload mode.
    */
-  @RequiresApi(29)
   default void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {}
 
   /** Sets the {@link AudioOutputProvider} to use as the output path. */
