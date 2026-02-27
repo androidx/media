@@ -673,9 +673,6 @@ public final class TsExtractor implements Extractor {
           }
         }
       }
-      if (mode != MODE_HLS) {
-        tsPayloadReaders.remove(TS_PAT_PID);
-      }
     }
   }
 
