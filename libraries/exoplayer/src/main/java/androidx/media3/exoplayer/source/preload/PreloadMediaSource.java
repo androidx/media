@@ -519,6 +519,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     private boolean prepared;
     private int continueLoadingRetryCountBeforeCallingPreloadControlAgain;
     @Nullable private Runnable maybeContinueLoadingRunnable;
+    private boolean onLoadToTheEndOfSourceNotified;
 
     public PreloadMediaPeriodCallback(long periodStartPositionUs) {
       this.periodStartPositionUs = periodStartPositionUs;
@@ -579,8 +580,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
             if (prepared) {
               long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
               if (bufferedPositionUs == C.TIME_END_OF_SOURCE) {
-                preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
-                stopPreloading();
+                onLoadToTheEndOfSource();
                 return;
               }
               if (!preloadControl.onContinueLoadingRequested(
@@ -615,6 +615,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
         mediaPeriod.continueLoading(
             new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+        if (prepared && mediaPeriod.getBufferedPositionUs() == C.TIME_END_OF_SOURCE) {
+          onLoadToTheEndOfSource();
+        }
         return;
       }
 
@@ -658,6 +661,14 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           /* rebuffering= */ false,
           /* targetLiveOffsetUs= */ C.TIME_UNSET,
           /* lastRebufferRealtimeMs= */ C.TIME_UNSET);
+    }
+
+    private void onLoadToTheEndOfSource() {
+      if (!onLoadToTheEndOfSourceNotified) {
+        preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+        onLoadToTheEndOfSourceNotified = true;
+      }
+      stopPreloading();
     }
   }
 
