@@ -2457,6 +2457,52 @@ public final class Util {
   }
 
   /**
+   * Returns the closest platform PCM encodings supported on the current API level for {@code
+   * encoding}. The results never include 16-bit PCM, which should be used if none of the suggested
+   * formats can be used for playback.
+   *
+   * @param encoding The encoding of the audio data.
+   * @return The closest platform encodings, sorted by descending order of preference. May be empty.
+   */
+  @UnstableApi
+  public static int[] getClosestPlatformPcmEncodings(@C.PcmEncoding int encoding) {
+    switch (encoding) {
+      case C.ENCODING_PCM_FLOAT:
+        return Build.VERSION.SDK_INT >= 31
+            ? new int[] {
+              AudioFormat.ENCODING_PCM_FLOAT,
+              AudioFormat.ENCODING_PCM_32BIT,
+              AudioFormat.ENCODING_PCM_24BIT_PACKED
+            }
+            : new int[] {AudioFormat.ENCODING_PCM_FLOAT};
+      case C.ENCODING_PCM_32BIT:
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+        return Build.VERSION.SDK_INT >= 31
+            ? new int[] {
+              AudioFormat.ENCODING_PCM_32BIT,
+              AudioFormat.ENCODING_PCM_FLOAT,
+              AudioFormat.ENCODING_PCM_24BIT_PACKED
+            }
+            : new int[] {AudioFormat.ENCODING_PCM_FLOAT};
+      case C.ENCODING_PCM_24BIT:
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+        return Build.VERSION.SDK_INT >= 31
+            ? new int[] {
+              AudioFormat.ENCODING_PCM_24BIT_PACKED,
+              AudioFormat.ENCODING_PCM_32BIT,
+              AudioFormat.ENCODING_PCM_FLOAT
+            }
+            : new int[] {AudioFormat.ENCODING_PCM_FLOAT};
+      case C.ENCODING_PCM_8BIT:
+        return new int[] {AudioFormat.ENCODING_PCM_8BIT};
+      case C.ENCODING_PCM_16BIT:
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      default:
+        return new int[] {};
+    }
+  }
+
+  /**
    * Returns the audio track channel configuration for the given channel count, or {@link
    * AudioFormat#CHANNEL_INVALID} if output is not possible.
    *
