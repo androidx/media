@@ -923,6 +923,24 @@ public class MediaSession {
   }
 
   /**
+   * Sets whether to opt out from media button (e.g. Bluetooth) playback resumption.
+   *
+   * <p>The default value is {@code false}.
+   *
+   * <p>This method will throw {@link IllegalStateException} if called when media button playback
+   * resumption was never opted into in the first place (by adding {@link MediaButtonReceiver} to
+   * the manifest).
+   *
+   * @param optOutOfMediaButtonPlaybackResumption Whether to opt out of media button playback
+   *     resumption.
+   */
+  @UnstableApi
+  public void setOptOutOfMediaButtonPlaybackResumption(
+      boolean optOutOfMediaButtonPlaybackResumption) {
+    impl.setOptOutOfMediaButtonPlaybackResumption(optOutOfMediaButtonPlaybackResumption);
+  }
+
+  /**
    * Sets the underlying {@link Player} for this session to dispatch incoming events to.
    *
    * @param player A player that handles actual media playback in your app.

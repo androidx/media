@@ -323,30 +323,10 @@ public class MediaSessionCompat {
   public MediaSessionCompat(
       Context context,
       String tag,
-      @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
       @Nullable Bundle sessionInfo) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
-    }
-
-    if (mbrComponent == null) {
-      mbrComponent = MediaButtonReceiver.getMediaButtonReceiverComponent(context);
-      if (mbrComponent == null) {
-        Log.i(TAG, "Couldn't find a unique registered media button receiver in the given context.");
-      }
-    }
-    if (mbrComponent != null && mbrIntent == null) {
-      // construct a PendingIntent for the media button
-      Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-      // the associated intent will be handled by the component being registered
-      mediaButtonIntent.setComponent(mbrComponent);
-      mbrIntent =
-          PendingIntent.getBroadcast(
-              context,
-              0 /* requestCode, ignored */,
-              mediaButtonIntent,
-              Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
     if (Build.VERSION.SDK_INT >= 29) {
@@ -360,7 +340,9 @@ public class MediaSessionCompat {
     Looper myLooper = Looper.myLooper();
     Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
     setCallback(new Callback() {}, handler);
-    impl.setMediaButtonReceiver(mbrIntent);
+    if (mbrIntent != null) {
+      impl.setMediaButtonReceiver(mbrIntent);
+    }
 
     controller = new MediaControllerCompat(context, this);
   }
@@ -400,7 +382,7 @@ public class MediaSessionCompat {
    *
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
-  public void setMediaButtonReceiver(PendingIntent mbr) {
+  public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
     impl.setMediaButtonReceiver(mbr);
   }
 
