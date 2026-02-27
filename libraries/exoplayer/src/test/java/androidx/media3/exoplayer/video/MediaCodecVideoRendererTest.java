@@ -21,6 +21,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30;
 import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr;
+import static android.media.MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCHighTierLevel51;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain;
@@ -102,6 +103,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -4242,6 +4244,103 @@ public class MediaCodecVideoRendererTest {
         .isEqualTo(RendererCapabilities.DECODER_SUPPORT_PRIMARY);
   }
 
+  // Tests for stripHdr10PlusSeiFromBuffer: strips in-band HDR10+ SEI NAL units from HEVC
+  // AnnexB bitstream when a native DV codec is active for DV Profile 8 content.
+
+  @Test
+  public void stripHdr10PlusSei_removesHdr10PlusSeiNalUnit() {
+    // Build AnnexB buffer: [VCL NAL][HDR10+ PREFIX_SEI NAL][VCL NAL]
+    byte[] vclNal1 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x01, 0x02}); // TRAIL_R
+    byte[] hdr10PlusSei = createHdr10PlusSeiNalUnit();
+    byte[] vclNal2 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x03, 0x04}); // TRAIL_R
+    ByteBuffer buffer = buildAnnexBBuffer(vclNal1, hdr10PlusSei, vclNal2);
+    int originalLimit = buffer.limit();
+
+    MediaCodecVideoRenderer.stripHdr10PlusSeiFromBuffer(buffer);
+
+    // The HDR10+ SEI should be removed; the two VCL NALs should be preserved.
+    ByteBuffer expected = buildAnnexBBuffer(vclNal1, vclNal2);
+    assertThat(buffer.remaining()).isEqualTo(expected.remaining());
+    byte[] actualBytes = new byte[buffer.remaining()];
+    buffer.get(actualBytes);
+    byte[] expectedBytes = new byte[expected.remaining()];
+    expected.get(expectedBytes);
+    assertThat(actualBytes).isEqualTo(expectedBytes);
+    assertThat(buffer.limit()).isLessThan(originalLimit);
+  }
+
+  @Test
+  public void stripHdr10PlusSei_preservesNonHdr10PlusSei() {
+    // Build AnnexB buffer: [VCL NAL][CEA-608 SEI NAL (not HDR10+)][VCL NAL]
+    byte[] vclNal1 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x01, 0x02});
+    // SEI with payload type 4 but non-HDR10+ country code (0x00 instead of 0xB5).
+    byte[] nonHdr10PlusSei = createNonHdr10PlusSeiNalUnit();
+    byte[] vclNal2 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x03, 0x04});
+    ByteBuffer buffer = buildAnnexBBuffer(vclNal1, nonHdr10PlusSei, vclNal2);
+    byte[] originalBytes = new byte[buffer.remaining()];
+    buffer.mark();
+    buffer.get(originalBytes);
+    buffer.reset();
+
+    MediaCodecVideoRenderer.stripHdr10PlusSeiFromBuffer(buffer);
+
+    byte[] resultBytes = new byte[buffer.remaining()];
+    buffer.get(resultBytes);
+    assertThat(resultBytes).isEqualTo(originalBytes);
+  }
+
+  @Test
+  public void stripHdr10PlusSei_noOpWhenNoSeiPresent() {
+    // Build AnnexB buffer with only VCL NAL units.
+    byte[] vclNal1 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x01, 0x02});
+    byte[] vclNal2 = annexBNalUnit(/* nalUnitType= */ 1, new byte[] {0x03, 0x04});
+    ByteBuffer buffer = buildAnnexBBuffer(vclNal1, vclNal2);
+    byte[] originalBytes = new byte[buffer.remaining()];
+    buffer.mark();
+    buffer.get(originalBytes);
+    buffer.reset();
+
+    MediaCodecVideoRenderer.stripHdr10PlusSeiFromBuffer(buffer);
+
+    byte[] resultBytes = new byte[buffer.remaining()];
+    buffer.get(resultBytes);
+    assertThat(resultBytes).isEqualTo(originalBytes);
+  }
+
+  @Test
+  public void dvProfile8_nativeDvCodec_stripsHdr10PlusSeiFromBuffer() throws Exception {
+    // Device has DV codec, TV supports DV. Native DV codec is selected, so HDR10+ SEI NAL
+    // units in the HEVC bitstream should be stripped before queueing to the codec.
+    ShadowMediaCodec.addDecoder(
+        "dvhe-codec",
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 100_000,
+            /* outputBufferSize= */ 100_000,
+            /* codec= */ (in, out) -> {}));
+    setDisplayHdrCapabilities(/* dv= */ true, /* hdr10Plus= */ true);
+
+    assertDvProfile8InBandHdr10PlusHandling(
+        createDvProfile8CodecSelector(/* hasDv= */ true, /* hasHevc= */ true),
+        /* expectHdr10PlusSeiPresent= */ false);
+  }
+
+  @Test
+  public void dvProfile8_hevcFallback_preservesHdr10PlusSeiInBuffer() throws Exception {
+    // Device has DV + HEVC codecs, but TV only supports HDR10+ (no DV) → HEVC fallback is
+    // selected. HDR10+ SEI NAL units should be preserved in the buffer.
+    ShadowMediaCodec.addDecoder(
+        "hevc-codec",
+        new ShadowMediaCodec.CodecConfig(
+            /* inputBufferSize= */ 100_000,
+            /* outputBufferSize= */ 100_000,
+            /* codec= */ (in, out) -> {}));
+    setDisplayHdrCapabilities(/* dv= */ false, /* hdr10Plus= */ true);
+
+    assertDvProfile8InBandHdr10PlusHandling(
+        createDvProfile8CodecSelector(/* hasDv= */ true, /* hasHevc= */ true),
+        /* expectHdr10PlusSeiPresent= */ true);
+  }
+
   @Test
   public void getDecoderInfo_withNonPerformantHardwareDecoder_returnsHardwareDecoderFirst()
       throws Exception {
@@ -4795,6 +4894,294 @@ public class MediaCodecVideoRendererTest {
         .setWidth(width)
         .setHeight(height)
         .build();
+  }
+
+  /**
+   * Creates an HEVC AnnexB NAL unit with a 4-byte start code, 2-byte NAL header, and the given
+   * payload. The NAL header encodes the given nalUnitType.
+   */
+  private static byte[] annexBNalUnit(int nalUnitType, byte[] payload) {
+    // 4-byte start code + 2-byte HEVC NAL header + payload
+    byte[] result = new byte[4 + 2 + payload.length];
+    result[0] = 0x00;
+    result[1] = 0x00;
+    result[2] = 0x00;
+    result[3] = 0x01;
+    // HEVC NAL header: forbidden(1) + type(6) + layerId_high(1) | layerId_low(5) + tid(3)
+    // first byte: (nalUnitType << 1) & 0x7E
+    result[4] = (byte) ((nalUnitType << 1) & 0x7E);
+    result[5] = 0x01; // nuh_temporal_id_plus1 = 1
+    System.arraycopy(payload, 0, result, 6, payload.length);
+    return result;
+  }
+
+  /** Creates a PREFIX_SEI (type 39) NAL unit containing an HDR10+ SEI message. */
+  private static byte[] createHdr10PlusSeiNalUnit() {
+    // SEI payload: type=4 (user_data_registered_itu_t_t35), size=7, then HDR10+ identifiers
+    byte[] seiPayload =
+        new byte[] {
+          0x04, // payloadType = 4
+          0x07, // payloadSize = 7
+          (byte) 0xB5, // ituTT35CountryCode (United States)
+          0x00, 0x3C, // ituTT35TerminalProviderCode
+          0x00, 0x01, // ituTT35TerminalProviderOrientedCode
+          0x04, // applicationIdentifier
+          0x00, // applicationVersion
+        };
+    return annexBNalUnit(/* nalUnitType= */ 39, seiPayload); // PREFIX_SEI
+  }
+
+  /** Creates a PREFIX_SEI (type 39) NAL unit with a non-HDR10+ SEI message. */
+  private static byte[] createNonHdr10PlusSeiNalUnit() {
+    // SEI payload: type=4 (user_data_registered_itu_t_t35), size=7, but wrong country code
+    byte[] seiPayload =
+        new byte[] {
+          0x04, // payloadType = 4
+          0x07, // payloadSize = 7
+          0x00, // ituTT35CountryCode (NOT 0xB5)
+          0x00, 0x3C, // ituTT35TerminalProviderCode
+          0x00, 0x01, // ituTT35TerminalProviderOrientedCode
+          0x04, // applicationIdentifier
+          0x00, // applicationVersion
+        };
+    return annexBNalUnit(/* nalUnitType= */ 39, seiPayload); // PREFIX_SEI
+  }
+
+  /** Concatenates AnnexB NAL unit byte arrays into a single ByteBuffer. */
+  private static ByteBuffer buildAnnexBBuffer(byte[]... nalUnits) {
+    int totalLen = 0;
+    for (byte[] nalUnit : nalUnits) {
+      totalLen += nalUnit.length;
+    }
+    ByteBuffer buffer = ByteBuffer.allocate(totalLen);
+    for (byte[] nalUnit : nalUnits) {
+      buffer.put(nalUnit);
+    }
+    buffer.flip();
+    return buffer;
+  }
+
+  private static Format createDvProfile8Format() {
+    return new Format.Builder()
+        .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+        .setCodecs("dvhe.08.01")
+        .setWidth(3840)
+        .setHeight(2160)
+        .build();
+  }
+
+  private static MediaCodecInfo createDvProfile8Codec() {
+    CodecCapabilities capabilities =
+        createCodecCapabilities(DolbyVisionProfileDvheSt, DolbyVisionLevelFhd30);
+    return MediaCodecInfo.newInstance(
+        /* name= */ "dvhe-codec",
+        /* mimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+        /* codecMimeType= */ MimeTypes.VIDEO_DOLBY_VISION,
+        /* capabilities= */ capabilities,
+        /* hardwareAccelerated= */ true,
+        /* softwareOnly= */ false,
+        /* vendor= */ false,
+        /* forceDisableAdaptive= */ false,
+        /* forceSecure= */ false);
+  }
+
+  private static MediaCodecInfo createHevcCodec() {
+    CodecCapabilities capabilities = new CodecCapabilities();
+    capabilities.profileLevels =
+        new CodecProfileLevel[] {
+          createCodecProfileLevel(HEVCProfileMain, HEVCMainTierLevel41),
+          createCodecProfileLevel(HEVCProfileMain10, HEVCHighTierLevel51)
+        };
+    return MediaCodecInfo.newInstance(
+        /* name= */ "hevc-codec",
+        /* mimeType= */ MimeTypes.VIDEO_H265,
+        /* codecMimeType= */ MimeTypes.VIDEO_H265,
+        /* capabilities= */ capabilities,
+        /* hardwareAccelerated= */ true,
+        /* softwareOnly= */ false,
+        /* vendor= */ false,
+        /* forceDisableAdaptive= */ false,
+        /* forceSecure= */ false);
+  }
+
+  /**
+   * Creates sample data containing HEVC frames with embedded HDR10+ SEI NAL units. The data is
+   * AnnexB-formatted: [VCL NAL (keyframe)][HDR10+ SEI NAL].
+   */
+  private static byte[] createHevcSampleWithHdr10PlusSei(boolean isKeyFrame) {
+    // HEVC VCL NAL unit type 19 (IDR_W_RADL) for keyframes, type 1 (TRAIL_R) otherwise.
+    int vclType = isKeyFrame ? 19 : 1;
+    byte[] vclNal = annexBNalUnit(vclType, new byte[] {0x00});
+    byte[] hdr10PlusSei = createHdr10PlusSeiNalUnit();
+    byte[] result = new byte[vclNal.length + hdr10PlusSei.length];
+    System.arraycopy(vclNal, 0, result, 0, vclNal.length);
+    System.arraycopy(hdr10PlusSei, 0, result, vclNal.length, hdr10PlusSei.length);
+    return result;
+  }
+
+  /** Returns true if the given buffer bytes contain an HDR10+ SEI NAL unit. */
+  private static boolean containsHdr10PlusSei(byte[] data) {
+    // Scan for start codes and check for PREFIX_SEI with HDR10+ payload.
+    for (int i = 0; i < data.length - 6; i++) {
+      if (data[i] == 0 && data[i + 1] == 0 && data[i + 2] == 0 && data[i + 3] == 1) {
+        int nalType = (data[i + 4] & 0x7E) >> 1;
+        // PREFIX_SEI = 39
+        if (nalType == 39 && i + 6 + 9 <= data.length) {
+          int rbspStart = i + 6; // after start code (4) + NAL header (2)
+          // Check SEI payload type = 4 and HDR10+ identifiers
+          if (data[rbspStart] == 0x04
+              && (data[rbspStart + 2] & 0xFF) == 0xB5
+              && data[rbspStart + 3] == 0x00
+              && data[rbspStart + 4] == 0x3C
+              && data[rbspStart + 5] == 0x00
+              && data[rbspStart + 6] == 0x01
+              && data[rbspStart + 7] == 0x04
+              && (data[rbspStart + 8] == 0x00 || data[rbspStart + 8] == 0x01)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  private static MediaCodecSelector createDvProfile8CodecSelector(
+      boolean hasDv, boolean hasHevc) {
+    return (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+      switch (mimeType) {
+        case MimeTypes.VIDEO_DOLBY_VISION:
+          return hasDv ? ImmutableList.of(createDvProfile8Codec()) : ImmutableList.of();
+        case MimeTypes.VIDEO_H265:
+          return hasHevc ? ImmutableList.of(createHevcCodec()) : ImmutableList.of();
+        default:
+          return ImmutableList.of();
+      }
+    };
+  }
+
+  private void setDisplayHdrCapabilities(boolean dv, boolean hdr10Plus) {
+    Context context = ApplicationProvider.getApplicationContext();
+    DisplayManager displayManager =
+        (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+    Display display = (displayManager != null) ? displayManager.getDisplay(DEFAULT_DISPLAY) : null;
+    ShadowDisplay shadowDisplay = Shadows.shadowOf(display);
+    List<Integer> types = new ArrayList<>();
+    if (dv) {
+      types.add(Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION);
+    }
+    if (hdr10Plus) {
+      types.add(Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS);
+    }
+    int[] hdrTypes = types.stream().mapToInt(Integer::intValue).toArray();
+    shadowDisplay.setDisplayHdrCapabilities(
+        display.getDisplayId(),
+        /* maxLuminance= */ 100f,
+        /* maxAverageLuminance= */ 100f,
+        /* minLuminance= */ 100f,
+        hdrTypes);
+  }
+
+  /**
+   * Asserts whether HDR10+ SEI NAL units are present or stripped from the buffer data that reaches
+   * the codec during DV Profile 8 playback.
+   */
+  private void assertDvProfile8InBandHdr10PlusHandling(
+      MediaCodecSelector codecSelector, boolean expectHdr10PlusSeiPresent) throws Exception {
+    BufferCapturingAdapterFactory capturingFactory = new BufferCapturingAdapterFactory();
+    Format dvProfile8Format = createDvProfile8Format();
+    byte[] keyFrameSample = createHevcSampleWithHdr10PlusSei(/* isKeyFrame= */ true);
+    byte[] nonKeyFrameSample = createHevcSampleWithHdr10PlusSei(/* isKeyFrame= */ false);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ dvProfile8Format,
+            ImmutableList.of(
+                sample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME, keyFrameSample),
+                sample(/* timeUs= */ 33_000, /* flags= */ 0, nonKeyFrameSample),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaCodecVideoRenderer renderer =
+        new MediaCodecVideoRenderer(
+            new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
+                .setCodecAdapterFactory(capturingFactory)
+                .setMediaCodecSelector(codecSelector)
+                .setAllowedJoiningTimeMs(0)
+                .setEnableDecoderFallback(false)
+                .setEventHandler(new Handler(testMainLooper))
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(1)) {
+          @Override
+          protected @Capabilities int supportsFormat(
+              MediaCodecSelector mediaCodecSelector, Format format) {
+            return RendererCapabilities.create(C.FORMAT_HANDLED);
+          }
+        };
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    renderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {dvProfile8Format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    int posUs = 0;
+    while (!renderer.isEnded()) {
+      renderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 10_000;
+    }
+
+    assertThat(capturingFactory.capturedBufferData).isNotEmpty();
+    boolean anyBufferContainsHdr10Plus = false;
+    for (byte[] bufferData : capturingFactory.capturedBufferData) {
+      if (containsHdr10PlusSei(bufferData)) {
+        anyBufferContainsHdr10Plus = true;
+        break;
+      }
+    }
+    assertThat(anyBufferContainsHdr10Plus).isEqualTo(expectHdr10PlusSeiPresent);
+  }
+
+  /**
+   * A {@link MediaCodecAdapter.Factory} that captures the buffer data contents when {@link
+   * MediaCodecAdapter#queueInputBuffer} is called.
+   */
+  private static final class BufferCapturingAdapterFactory implements MediaCodecAdapter.Factory {
+    final List<byte[]> capturedBufferData = new ArrayList<>();
+
+    @Override
+    public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
+        throws IOException {
+      MediaCodecAdapter delegate =
+          new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);
+      return new ForwardingMediaCodecAdapter(delegate) {
+        @Override
+        public void queueInputBuffer(
+            int index, int offset, int size, long presentationTimeUs, int flags) {
+          ByteBuffer inputBuffer = delegate.getInputBuffer(index);
+          if (inputBuffer != null && size > 0) {
+            byte[] copy = new byte[size];
+            int savedPosition = inputBuffer.position();
+            int savedLimit = inputBuffer.limit();
+            inputBuffer.position(offset);
+            inputBuffer.limit(offset + size);
+            inputBuffer.get(copy);
+            inputBuffer.position(savedPosition);
+            inputBuffer.limit(savedLimit);
+            capturedBufferData.add(copy);
+          }
+          super.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
+        }
+      };
+    }
   }
 
   private static final class ForwardingSynchronousMediaCodecAdapterWithReordering

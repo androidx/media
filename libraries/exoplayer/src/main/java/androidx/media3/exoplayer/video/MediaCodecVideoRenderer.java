@@ -67,6 +67,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.NalUnitUtil;
 import androidx.media3.container.ObuParser;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.CodecParameters;
@@ -211,7 +212,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private @MonotonicNonNull CodecMaxValues codecMaxValues;
   private boolean codecNeedsSetOutputSurfaceWorkaround;
   private boolean codecHandlesHdr10PlusOutOfBandMetadata;
-  private boolean isDolbyVisionProfile8;
+  private boolean stripHdr10PlusSeiNalUnits;
   private @MonotonicNonNull VideoSink videoSink;
   private boolean hasSetVideoSink;
   private @VideoSink.FirstFrameReleaseInstruction int nextVideoSinkFirstFrameReleaseInstruction;
@@ -1552,7 +1553,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     codecNeedsSetOutputSurfaceWorkaround = codecNeedsSetOutputSurfaceWorkaround(name);
     codecHandlesHdr10PlusOutOfBandMetadata =
         checkNotNull(getCodecInfo()).isHdr10PlusOutOfBandMetadataSupported();
-    isDolbyVisionProfile8 =
+    stripHdr10PlusSeiNalUnits =
         isDolbyVisionProfile8(configuration.format)
             && MimeTypes.VIDEO_DOLBY_VISION.equals(configuration.codecInfo.codecMimeType);
     maybeSetupTunnelingForFirstFrame();
@@ -1629,6 +1630,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
+    if (stripHdr10PlusSeiNalUnits && buffer.data != null && buffer.data.remaining() > 0) {
+      stripHdr10PlusSeiFromBuffer(buffer.data);
+    }
     if (av1SampleDependencyParser != null
         && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.isKeyFrame()
@@ -1827,15 +1831,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer)
       throws ExoPlaybackException {
     if (!codecHandlesHdr10PlusOutOfBandMetadata) {
-      return;
-    }
-    // Workaround for https://github.com/androidx/media/issues/1895
-    // Skip HDR10+ metadata when a native Dolby Vision Profile 8 codec is active. DV Profile 8
-    // carries its own dynamic HDR metadata (RPU), so HDR10+ is redundant, and the conflicting
-    // metadata can cause severe issues (freezes, black screens). This is intentionally restricted
-    // to the native DV codec case: when falling back to HEVC base-layer decoding (e.g. on a device
-    // that doesn't support DV), the DV metadata is not processed and HDR10+ should still be used.
-    if (isDolbyVisionProfile8) {
       return;
     }
     ByteBuffer data = checkNotNull(buffer.supplementalData);
@@ -2663,6 +2658,137 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     return codecProfileAndLevel != null
         && codecProfileAndLevel.first == CodecProfileLevel.DolbyVisionProfileDvheSt;
+  }
+
+  /**
+   * Strips HEVC HDR10+ SEI NAL units from an AnnexB-formatted buffer in-place.
+   *
+   * <p>Scans for NAL unit boundaries (start codes {@code 0x000001} or {@code 0x00000001}). For each
+   * PREFIX_SEI (type 39) or SUFFIX_SEI (type 40) NAL unit, parses the SEI payloads to check for
+   * HDR10+ (ITU-T T.35 payload type 4 with country code {@code 0xB5}, provider code {@code 0x003C},
+   * oriented code {@code 0x0001}, application identifier 4, and version 0 or 1). Removes matching
+   * NAL units by compacting the buffer and reducing {@link ByteBuffer#limit()}.
+   *
+   * @param data The buffer containing AnnexB-formatted HEVC data positioned at the start of the
+   *     data to scan. On return, the position is reset to the original position and the limit may be
+   *     reduced if NAL units were removed.
+   */
+  /* package */ static void stripHdr10PlusSeiFromBuffer(ByteBuffer data) {
+    int startPos = data.position();
+    int limit = data.limit();
+    // writePos tracks where we're writing compacted data to.
+    int writePos = startPos;
+    int nalStartIndex = -1;
+    int startCodeLen = 0;
+
+    int i = startPos;
+    while (i <= limit) {
+      // Find next start code or end of buffer.
+      boolean atEnd = (i == limit);
+      boolean foundStartCode = false;
+      int nextStartCodeLen = 0;
+      if (!atEnd && i + 2 < limit) {
+        if (data.get(i) == 0 && data.get(i + 1) == 0) {
+          if (data.get(i + 2) == 1) {
+            foundStartCode = true;
+            nextStartCodeLen = 3;
+          } else if (data.get(i + 2) == 0 && i + 3 < limit && data.get(i + 3) == 1) {
+            foundStartCode = true;
+            nextStartCodeLen = 4;
+          }
+        }
+      }
+
+      if (foundStartCode || atEnd) {
+        if (nalStartIndex >= 0) {
+          // We have a complete NAL unit from nalStartIndex to i.
+          int nalDataStart = nalStartIndex + startCodeLen;
+          int nalEnd = i;
+          boolean strip = false;
+
+          if (nalEnd - nalDataStart >= 2) {
+            // HEVC NAL header: first byte contains forbidden_zero_bit(1) + nal_unit_type(6) +
+            // nuh_layer_id high bit(1). NAL type = (first_byte >> 1) & 0x3F.
+            int nalUnitType = (data.get(nalDataStart) & 0x7E) >> 1;
+            if (nalUnitType == NalUnitUtil.H265_NAL_UNIT_TYPE_PREFIX_SEI
+                || nalUnitType == NalUnitUtil.H265_NAL_UNIT_TYPE_SUFFIX_SEI) {
+              strip = isHdr10PlusSeiNalUnit(data, nalDataStart + 2, nalEnd);
+            }
+          }
+
+          if (!strip) {
+            // Keep this NAL: copy from nalStartIndex to i.
+            if (writePos != nalStartIndex) {
+              for (int j = nalStartIndex; j < nalEnd; j++) {
+                data.put(writePos++, data.get(j));
+              }
+            } else {
+              writePos = nalEnd;
+            }
+          }
+          // If strip is true, we skip writing this NAL (writePos stays).
+        }
+        nalStartIndex = i;
+        startCodeLen = nextStartCodeLen;
+        i += nextStartCodeLen > 0 ? nextStartCodeLen : 1;
+      } else {
+        i++;
+      }
+    }
+
+    data.limit(writePos);
+    data.position(startPos);
+  }
+
+  /**
+   * Returns whether a SEI NAL unit's RBSP (starting after the 2-byte HEVC NAL header) contains an
+   * HDR10+ SEI message as the first payload.
+   */
+  private static boolean isHdr10PlusSeiNalUnit(ByteBuffer data, int rbspStart, int nalEnd) {
+    int pos = rbspStart;
+    if (pos >= nalEnd) {
+      return false;
+    }
+
+    // Parse SEI payload type (accumulated ff_byte values + last byte).
+    int payloadType = 0;
+    while (pos < nalEnd) {
+      int b = data.get(pos++) & 0xFF;
+      payloadType += b;
+      if (b != 0xFF) {
+        break;
+      }
+    }
+
+    // Parse SEI payload size.
+    int payloadSize = 0;
+    while (pos < nalEnd) {
+      int b = data.get(pos++) & 0xFF;
+      payloadSize += b;
+      if (b != 0xFF) {
+        break;
+      }
+    }
+
+    // Check for user_data_registered_itu_t_t35 (type 4) with HDR10+ identifiers.
+    if (payloadType != 4 || payloadSize < 7 || pos + 7 > nalEnd) {
+      return false;
+    }
+
+    // Read ITU-T T.35 fields. Note: emulation prevention bytes (0x00 0x00 0x03) could appear in
+    // the payload, but the HDR10+ identifier bytes at the start (0xB5, 0x00, 0x3C, 0x00, 0x01,
+    // 0x04, 0x00/0x01) don't contain the 0x000003 pattern, so we can read them directly.
+    byte countryCode = data.get(pos);
+    int providerCode = ((data.get(pos + 1) & 0xFF) << 8) | (data.get(pos + 2) & 0xFF);
+    int orientedCode = ((data.get(pos + 3) & 0xFF) << 8) | (data.get(pos + 4) & 0xFF);
+    byte appIdentifier = data.get(pos + 5);
+    byte appVersion = data.get(pos + 6);
+
+    return countryCode == (byte) 0xB5
+        && providerCode == 0x003C
+        && orientedCode == 0x0001
+        && appIdentifier == 4
+        && (appVersion == 0 || appVersion == 1);
   }
 
   /*
