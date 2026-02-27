@@ -636,6 +636,68 @@ public final class AdPlaybackState {
           isPlaceholder);
     }
 
+    /**
+     * Returns an instance with ads after {@code adIndexInAdGroup} removed.
+     *
+     * <p>If {@link #contentResumeOffsetUs} has a non-zero value its value is reset to the
+     * {@linkplain AdPlaybackState#sumOfDurations(long...) safe sum} of the remaining durations.
+     *
+     * @param adIndexInAdGroup The index of the last ad to keep in the ad group (non-negative).
+     * @return The updated ad group.
+     * @throws IllegalArgumentException if {@code adIndexInAdGroup} is negative.
+     */
+    @CheckResult
+    public AdGroup withRemovedAdsAfterIndex(int adIndexInAdGroup) {
+      checkArgument(adIndexInAdGroup >= 0);
+      if (count == C.LENGTH_UNSET || adIndexInAdGroup >= count - 1) {
+        return this;
+      }
+      int newCount = adIndexInAdGroup + 1;
+      long[] newDurationsUs = Arrays.copyOf(durationsUs, newCount);
+      return new AdGroup(
+          timeUs,
+          newCount,
+          originalCount,
+          Arrays.copyOf(states, newCount),
+          Arrays.copyOf(mediaItems, newCount),
+          newDurationsUs,
+          contentResumeOffsetUs != 0 ? sumOfDurations(newDurationsUs) : 0,
+          isServerSideInserted,
+          Arrays.copyOf(ids, newCount),
+          Arrays.copyOf(skipInfos, newCount),
+          isPlaceholder);
+    }
+
+    /**
+     * Returns an instance with all ads made unavailable.
+     *
+     * <p>The state of each ad is set to {@link AdPlaybackState#AD_STATE_UNAVAILABLE}, durations are
+     * reset to {@link C#TIME_UNSET} and the media item is set to {@code null}. The {@link
+     * #contentResumeOffsetUs} is reset to 0 accordingly.
+     */
+    @CheckResult
+    public AdGroup withAllAdsUnavailable() {
+      if (count == C.LENGTH_UNSET) {
+        return this;
+      }
+      @AdState int[] states = new int[this.states.length];
+      Arrays.fill(states, AD_STATE_UNAVAILABLE);
+      long[] durationsUs = new long[states.length];
+      Arrays.fill(durationsUs, C.TIME_UNSET);
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          states,
+          new MediaItem[count],
+          durationsUs,
+          /* contentResumeOffsetUs= */ 0,
+          isServerSideInserted,
+          ids,
+          skipInfos,
+          isPlaceholder);
+    }
+
     private AdGroup withIsPlaceholder(boolean isPlaceholder, boolean isServerSideInserted) {
       return new AdGroup(
           timeUs,
@@ -1507,6 +1569,41 @@ public final class AdPlaybackState {
     int adjustedIndex = adGroupIndex - removedAdGroupCount;
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
     adGroups[adjustedIndex] = adGroups[adjustedIndex].withAllAdsReset();
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
+  /**
+   * Returns an instance with ads after {@code adIndexInAdGroup} removed from the specified ad
+   * group.
+   *
+   * @param adGroupIndex The index of the ad group.
+   * @param adIndexInAdGroup The index of the last ad to keep in the ad group.
+   * @return The updated ad playback state.
+   */
+  @CheckResult
+  public AdPlaybackState withRemovedAdsAfterIndex(
+      @IntRange(from = 0) int adGroupIndex, @IntRange(from = 0) int adIndexInAdGroup) {
+    int adjustedIndex = adGroupIndex - removedAdGroupCount;
+    AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
+    adGroups[adjustedIndex] = adGroups[adjustedIndex].withRemovedAdsAfterIndex(adIndexInAdGroup);
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
+  /**
+   * Returns an instance with all ads in the specified ad group made unavailable.
+   *
+   * <p>See {@link AdGroup#withAllAdsUnavailable()} also.
+   *
+   * @param adGroupIndex The index of the ad group.
+   * @return The updated ad playback state.
+   */
+  @CheckResult
+  public AdPlaybackState withUnavailableAdGroup(@IntRange(from = 0) int adGroupIndex) {
+    int adjustedIndex = adGroupIndex - removedAdGroupCount;
+    AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
+    adGroups[adjustedIndex] = adGroups[adjustedIndex].withAllAdsUnavailable();
     return new AdPlaybackState(
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
