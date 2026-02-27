@@ -119,8 +119,6 @@ public final class DefaultAllocator implements Allocator {
   public synchronized void release(Allocation allocation) {
     availableAllocations[availableCount++] = allocation;
     allocatedCount--;
-    // Wake up threads waiting for the allocated size to drop.
-    notifyAll();
   }
 
   @Override
@@ -130,8 +128,6 @@ public final class DefaultAllocator implements Allocator {
       allocatedCount--;
       allocationNode = allocationNode.next();
     }
-    // Wake up threads waiting for the allocated size to drop.
-    notifyAll();
   }
 
   @Override
