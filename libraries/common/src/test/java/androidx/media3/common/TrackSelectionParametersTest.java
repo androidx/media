@@ -240,6 +240,16 @@ public final class TrackSelectionParametersTest {
   }
 
   @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    TrackSelectionParameters parameters =
+        new TrackSelectionParameters.Builder().setMaxVideoSizeSd().build();
+    TrackSelectionParameters unbundledParameters =
+        TrackSelectionParameters.fromBundle(parameters.toBundleForLocalProcess());
+
+    assertThat(parameters == unbundledParameters).isTrue();
+  }
+
+  @Test
   public void roundTripViaBundle_withLegacyPreferenceFields_yieldsEqualInstance() {
     TrackSelectionParameters trackSelectionParameters =
         new TrackSelectionParameters.Builder()

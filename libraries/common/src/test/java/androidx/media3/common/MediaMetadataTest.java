@@ -233,6 +233,15 @@ public class MediaMetadataTest {
     assertThat(restoredMetadata.artworkData).isNull();
   }
 
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setGenre("hi").build();
+    MediaMetadata unbundledMetadata =
+        MediaMetadata.fromBundle(
+            mediaMetadata.toBundleForLocalProcess(), MediaLibraryInfo.INTERFACE_VERSION);
+
+    assertThat(mediaMetadata == unbundledMetadata).isTrue();
+  }
+
   @SuppressWarnings("deprecation") // Testing deprecated setter.
   @Test
   public void builderSetFolderType_toNone_setsIsBrowsableToFalse() {
