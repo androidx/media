@@ -462,6 +462,15 @@ public final class TtmlParser implements SubtitleParser {
     @Nullable
     String displayAlign =
         XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_TTS_DISPLAY_ALIGN);
+    if (displayAlign == null) {
+      String styleId = XmlPullParserUtil.getAttributeValue(xmlParser, TtmlNode.ATTR_STYLE);
+      if (styleId != null) {
+        TtmlStyle style = globalStyles.get(styleId);
+        if (style != null) {
+          displayAlign = style.getDisplayAlign();
+        }
+      }
+    }
     if (displayAlign != null) {
       switch (Ascii.toLowerCase(displayAlign)) {
         case "center":
@@ -641,6 +650,9 @@ public final class TtmlParser implements SubtitleParser {
           break;
         case TtmlNode.ATTR_TTS_EXTENT:
           style = createIfNull(style).setExtent(attributeValue);
+          break;
+        case TtmlNode.ATTR_TTS_DISPLAY_ALIGN:
+          style = createIfNull(style).setDisplayAlign(attributeValue);
           break;
         default:
           // ignore
