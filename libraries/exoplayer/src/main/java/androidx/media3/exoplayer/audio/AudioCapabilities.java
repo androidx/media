@@ -421,6 +421,11 @@ public final class AudioCapabilities {
         if (channelCount > 10) {
           return null;
         }
+      } else if (format.sampleMimeType.equals(MimeTypes.AUDIO_AC4)) {
+        // AC-4 content may contain channel (or object) count that does not have a matching channel
+        // mask. Override channel count to 2 (mapped to stereo channel masK) which is supported by
+        // all AC-4 offloaded decoders to avoid this limitation and allow track to open.
+        channelCount = 2;
       } else if (!audioProfile.supportsChannelCount(channelCount)) {
         return null;
       }
