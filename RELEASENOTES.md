@@ -26,6 +26,8 @@
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.
 *   Text:
+    *   TTML: Fallback to `displayAlign` from `style` for regions
+        ([#2559](https://github.com/androidx/media/issues/2559)).
 *   Metadata:
 *   Image:
 *   DataSource:
