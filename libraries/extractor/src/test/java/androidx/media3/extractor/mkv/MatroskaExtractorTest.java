@@ -170,6 +170,27 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  // https://github.com/androidx/media/issues/1143
+  @Test
+  public void mkvSample_withRecursiveSeekHead() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_recursive_seekhead.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_recursive_seekhead.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_threeSeekHeads() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_three_seekheads.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_three_seekheads.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
   @Test
   public void mkvSample_withVorbisAudio() throws Exception {
     ExtractorAsserts.assertBehavior(

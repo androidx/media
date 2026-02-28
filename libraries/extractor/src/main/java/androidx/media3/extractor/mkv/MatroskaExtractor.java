@@ -74,6 +74,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -476,6 +477,10 @@ public class MatroskaExtractor implements Extractor {
   private long currentCueRelativePosition = C.INDEX_UNSET;
   private int primarySeekTrackNumber = C.INDEX_UNSET;
   private boolean seekForCues;
+  private boolean seekForSeekContent;
+  private final HashSet<Long> visitedSeekHeads = new HashSet<>();
+  private final ArrayList<Long> pendingSeekHeads = new ArrayList<>();
+  private long seekPositionAfterSeekingForHead = C.INDEX_UNSET;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
   private long clusterTimecodeUs = C.TIME_UNSET;
@@ -623,7 +628,7 @@ public class MatroskaExtractor implements Extractor {
     boolean continueReading = true;
     while (continueReading && !haveOutputSample) {
       continueReading = reader.read(input);
-      if (continueReading && maybeSeekForCues(seekPosition, input.getPosition())) {
+      if (maybeSeekForCues(seekPosition, input.getPosition())) {
         return Extractor.RESULT_SEEK;
       }
     }
@@ -776,6 +781,13 @@ public class MatroskaExtractor implements Extractor {
           throw ParserException.createForMalformedContainer(
               "Multiple Segment elements not supported", /* cause= */ null);
         }
+
+        // If we have to reparse due to an IO exception we also have to clear the seek head data
+        visitedSeekHeads.clear();
+        pendingSeekHeads.clear();
+        seekPositionAfterSeekingForHead = C.INDEX_UNSET;
+        seekForSeekContent = false;
+
         segmentContentPosition = contentPosition;
         segmentContentSize = contentSize;
         break;
@@ -808,6 +820,10 @@ public class MatroskaExtractor implements Extractor {
           if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
             // We know where the Cues element is located. Seek to request it.
             seekForCues = true;
+          } else if (seekForCuesEnabled && !pendingSeekHeads.isEmpty()) {
+            // We do not know where the cues are located, however we have seek-heads
+            // we have not yet visited
+            seekForSeekContent = true;
           } else {
             // We don't know where the Cues element is located. It's most likely omitted. Allow
             // playback, but disable seeking.
@@ -856,13 +872,45 @@ public class MatroskaExtractor implements Extractor {
           durationUs = scaleTimecodeToUs(durationTimecode);
         }
         break;
+      case ID_SEGMENT:
+        // We only care if we have not already sent the seek map
+        if (!sentSeekMap) {
+          // We have reached the end of the segment, however we can still decide how to handle
+          // pending seek heads.
+          //
+          // This is treated as the end as "Multiple Segment elements not supported"
+          if (!pendingSeekHeads.isEmpty() && seekForCuesEnabled) {
+            // We seek to the next seek point if we can seek and there is seek heads
+            seekForSeekContent = true;
+          } else {
+            // Otherwise, if we not found any cues nor any more seek heads then we mark
+            // this as unseekable.
+            extractorOutput.seekMap(new SeekMap.Unseekable(durationUs));
+            sentSeekMap = true;
+          }
+        }
+        break;
       case ID_SEEK:
         if (seekEntryId == UNSET_ENTRY_ID || seekEntryPosition == C.INDEX_UNSET) {
           throw ParserException.createForMalformedContainer(
               "Mandatory element SeekID or SeekPosition not found", /* cause= */ null);
-        }
-        if (seekEntryId == ID_CUES) {
+        } else if (seekEntryId == ID_SEEK_HEAD) {
+          // We have a set here to prevent inf recursion, only if this seek head is non
+          // visited we add it. VLC limits this to 10, but this should work equally as well.
+          //
+          // Note that we also need to check that we do not jump before or to the segment we are on
+          // as we do not want to clear our visitedSeekHeads
+          if (visitedSeekHeads.add(seekEntryPosition) && seekEntryPosition > segmentContentPosition) {
+            pendingSeekHeads.add(seekEntryPosition);
+          }
+        } else if (seekEntryId == ID_CUES) {
           cuesContentPosition = seekEntryPosition;
+
+          // We are currently seeking from the seek-head, so we seek again to get to the cues
+          // instead of waiting for the cluster
+          if (seekForCuesEnabled && seekPositionAfterSeekingForHead != C.INDEX_UNSET) {
+            seekForCues = true;
+          }
         }
         break;
       case ID_CUES:
@@ -2069,6 +2117,25 @@ public class MatroskaExtractor implements Extractor {
    * @return Whether the seek position was updated.
    */
   private boolean maybeSeekForCues(PositionHolder seekPosition, long currentPosition) {
+    // This seeks in a lazy manner, unlike VLC that seeks immediately when encountering a seek head.
+    // This minimizes the amount of seeking done, but also does not seek if the cues element is
+    // already found, even if seek heads exits. This might be nice to change if we need other
+    // critical information from seek heads.
+    //
+    // The nature of each recursive query becomes to consume as much content as possible
+    // (until cues or end of segment). However this also means that we only need to seek
+    // back to the top once, instead seeking back in a stack like manner.
+    if (seekForSeekContent) {
+      checkArgument(!pendingSeekHeads.isEmpty(), "Illegal value of seekForSeekContent");
+      // The exact order does not really matter, but it is easiest to just do stack (FILO)
+      seekPosition.position = pendingSeekHeads.remove(pendingSeekHeads.size()-1); // removeLast not available
+      seekForSeekContent = false;
+      if (seekPositionAfterSeekingForHead == C.INDEX_UNSET) {
+        seekPositionAfterSeekingForHead = currentPosition;
+      }
+      return true;
+    }
+
     if (seekForCues) {
       seekPositionAfterBuildingCues = currentPosition;
       seekPosition.position = cuesContentPosition;
@@ -2082,6 +2149,15 @@ public class MatroskaExtractor implements Extractor {
       seekPositionAfterBuildingCues = C.INDEX_UNSET;
       return true;
     }
+
+    // After we have seeked back from seekPositionAfterBuildingCues seek back again to parse the
+    // rest of the file.
+    if (sentSeekMap && seekPositionAfterSeekingForHead != C.INDEX_UNSET) {
+      seekPosition.position = seekPositionAfterSeekingForHead;
+      seekPositionAfterSeekingForHead = C.INDEX_UNSET;
+      return true;
+    }
+
     return false;
   }
 
