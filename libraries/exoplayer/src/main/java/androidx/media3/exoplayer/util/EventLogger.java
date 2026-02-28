@@ -823,6 +823,10 @@ public class EventLogger implements AnalyticsListener {
         return "pcm-16";
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
         return "pcm-16be";
+      case C.ENCODING_PCM_20BIT:
+        return "pcm-20";
+      case C.ENCODING_PCM_20BIT_BIG_ENDIAN:
+        return "pcm-20be";
       case C.ENCODING_PCM_24BIT:
         return "pcm-24";
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:

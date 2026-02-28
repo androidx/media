@@ -1828,6 +1828,8 @@ public final class DefaultAudioSink implements AudioSink {
         return OpusUtil.parseOggPacketAudioSampleCount(buffer);
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_20BIT:
+      case C.ENCODING_PCM_20BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_32BIT:

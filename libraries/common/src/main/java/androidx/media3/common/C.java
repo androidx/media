@@ -179,7 +179,8 @@ public final class C {
   /**
    * Represents an audio encoding, or an invalid or unset value. One of {@link Format#NO_VALUE},
    * {@link #ENCODING_INVALID}, {@link #ENCODING_PCM_8BIT}, {@link #ENCODING_PCM_16BIT}, {@link
-   * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
+   * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_20BIT}, {@link
+   * #ENCODING_PCM_20BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
    * #ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_32BIT}, {@link
    * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}, {@link #ENCODING_PCM_DOUBLE},
    * {@link #ENCODING_MP3}, {@link #ENCODING_AC3}, {@link #ENCODING_E_AC3}, {@link
@@ -195,6 +196,8 @@ public final class C {
     ENCODING_PCM_8BIT,
     ENCODING_PCM_16BIT,
     ENCODING_PCM_16BIT_BIG_ENDIAN,
+    ENCODING_PCM_20BIT,
+    ENCODING_PCM_20BIT_BIG_ENDIAN,
     ENCODING_PCM_24BIT,
     ENCODING_PCM_24BIT_BIG_ENDIAN,
     ENCODING_PCM_32BIT,
@@ -224,7 +227,8 @@ public final class C {
   /**
    * Represents a PCM audio encoding, or an invalid or unset value. One of {@link Format#NO_VALUE},
    * {@link #ENCODING_INVALID}, {@link #ENCODING_PCM_8BIT}, {@link #ENCODING_PCM_16BIT}, {@link
-   * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
+   * #ENCODING_PCM_16BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_20BIT}, {@link
+   * #ENCODING_PCM_20BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_24BIT}, {@link
    * #ENCODING_PCM_24BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_32BIT}, {@link
    * #ENCODING_PCM_32BIT_BIG_ENDIAN}, {@link #ENCODING_PCM_FLOAT}, {@link #ENCODING_PCM_DOUBLE}.
    */
@@ -237,6 +241,8 @@ public final class C {
     ENCODING_PCM_8BIT,
     ENCODING_PCM_16BIT,
     ENCODING_PCM_16BIT_BIG_ENDIAN,
+    ENCODING_PCM_20BIT,
+    ENCODING_PCM_20BIT_BIG_ENDIAN,
     ENCODING_PCM_24BIT,
     ENCODING_PCM_24BIT_BIG_ENDIAN,
     ENCODING_PCM_32BIT,
@@ -257,6 +263,26 @@ public final class C {
 
   /** Like {@link #ENCODING_PCM_16BIT}, but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_16BIT_BIG_ENDIAN = 0x10000000;
+
+  /**
+   * PCM encoding with 20 bits per sample.
+   *
+   * <p>Note that this is not generally supported or used and just exists to signal that a
+   * compressed audio track contains 20-bit PCM resolution. A decoder for said track should convert
+   * the audio to the closest higher format (such as {@link #ENCODING_PCM_24BIT}) instead of
+   * attempting to output 20-bit PCM.
+   */
+  @UnstableApi public static final int ENCODING_PCM_20BIT = 0x80000000;
+
+  /**
+   * Like {@link #ENCODING_PCM_20BIT} but with the bytes in big endian order.
+   *
+   * <p>Note that this is not generally supported or used and just exists to signal that a
+   * compressed audio track contains 20-bit PCM resolution. A decoder for said track should convert
+   * the audio to the closest higher format (such as {@link #ENCODING_PCM_24BIT}) instead of
+   * attempting to output 20-bit PCM.
+   */
+  @UnstableApi public static final int ENCODING_PCM_20BIT_BIG_ENDIAN = 0x90000000;
 
   /** PCM encoding with 24 bits per sample. */
   public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;

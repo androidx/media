@@ -2380,6 +2380,10 @@ public final class Util {
   /**
    * Converts a sample bit depth to a corresponding little-endian integer PCM encoding constant.
    *
+   * <p>Note that this method does not support encodings which are not a multiple of bytes, such as
+   * 20-bit PCM, as those cannot be handled in the same way as linear PCM encodings which are
+   * multiples of bytes. It's recommended to convert such a PCM format to the closest higher format.
+   *
    * @param bitDepth The bit depth. Supported values are 8, 16, 24 and 32.
    * @return The corresponding encoding. One of {@link C#ENCODING_PCM_8BIT}, {@link
    *     C#ENCODING_PCM_16BIT}, {@link C#ENCODING_PCM_24BIT} and {@link C#ENCODING_PCM_32BIT}. If
@@ -2392,6 +2396,10 @@ public final class Util {
 
   /**
    * Converts a sample bit depth and byte order to a corresponding integer PCM encoding constant.
+   *
+   * <p>Note that this method does not support encodings which are not a multiple of bytes, such as
+   * 20-bit PCM, as those cannot be handled in the same way as linear PCM encodings which are
+   * multiples of bytes. It's recommended to convert such a PCM format to the closest higher format.
    *
    * @param bitDepth The bit depth. Supported values are 8, 16, 24 and 32.
    * @param byteOrder The byte order.
@@ -2424,6 +2432,10 @@ public final class Util {
   /**
    * Returns whether {@code encoding} is one of the linear PCM encodings.
    *
+   * <p>Note that this will return false for encodings which are not a multiple of bytes, such as
+   * 20-bit PCM, as those cannot be handled in the same way as linear PCM encodings which are
+   * multiples of bytes. It's recommended to convert such a PCM format to the closest higher format.
+   *
    * @param encoding The encoding of the audio data.
    * @return Whether the encoding is one of the PCM encodings.
    */
@@ -2442,6 +2454,10 @@ public final class Util {
 
   /**
    * Returns whether {@code encoding} is high resolution (&gt; 16-bit) PCM.
+   *
+   * <p>Note that this will return false for encodings which are not a multiple of bytes, such as
+   * 20-bit PCM, as those cannot be handled in the same way as linear PCM encodings which are
+   * multiples of bytes. It's recommended to convert such a PCM format to the closest higher format.
    *
    * @param encoding The encoding of the audio data.
    * @return Whether the encoding is high resolution PCM.
@@ -2616,33 +2632,58 @@ public final class Util {
   }
 
   /**
-   * Returns the byte depth for audio with the specified encoding.
+   * Returns the bit depth for audio with the specified encoding.
    *
    * @param pcmEncoding The encoding of the audio data.
-   * @return The byte depth of the audio.
+   * @return The bit depth of the audio.
    */
   @UnstableApi
-  public static int getByteDepth(@C.PcmEncoding int pcmEncoding) {
+  public static int getBitDepth(@C.PcmEncoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return 1;
+        return 8;
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
-        return 2;
+        return 16;
+      case C.ENCODING_PCM_20BIT:
+      case C.ENCODING_PCM_20BIT_BIG_ENDIAN:
+        return 20;
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
-        return 3;
+        return 24;
       case C.ENCODING_PCM_32BIT:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
-        return 4;
+        return 32;
       case C.ENCODING_PCM_DOUBLE:
-        return 8;
+        return 64;
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
       default:
         throw new IllegalArgumentException();
     }
+  }
+
+  /**
+   * Returns the byte depth for audio with the specified encoding.
+   *
+   * <p>This will throw for encodings which are not a multiple of bytes, such as 20-bit PCM.
+   *
+   * @param pcmEncoding The encoding of the audio data.
+   * @return The byte depth of the audio.
+   * @see #getBitDepth(int)
+   */
+  @UnstableApi
+  public static int getByteDepth(@C.PcmEncoding int pcmEncoding) {
+    int bitDepth = getBitDepth(pcmEncoding);
+    if ((bitDepth % C.BITS_PER_BYTE) != 0) {
+      throw new IllegalArgumentException(
+          "Bit depth "
+              + bitDepth
+              + " cannot be represented as byte"
+              + " depth. Use getBitDepth() instead.");
+    }
+    return bitDepth / C.BITS_PER_BYTE;
   }
 
   /** Returns the {@link C.AudioUsage} corresponding to the specified {@link C.StreamType}. */
