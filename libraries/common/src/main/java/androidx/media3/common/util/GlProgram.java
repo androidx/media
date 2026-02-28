@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.content.Context;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
+import android.opengl.GLES30;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import java.io.IOException;
@@ -523,19 +524,33 @@ public final class GlProgram {
         case GLES20.GL_SAMPLER_2D:
         case GLES11Ext.GL_SAMPLER_EXTERNAL_OES:
         case GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT:
+        case GLES30.GL_SAMPLER_3D:
           if (texIdValue == 0) {
             throw new IllegalStateException("No call to setSamplerTexId() before bind.");
           }
           GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + texUnitIndex);
           GlUtil.checkGlError();
-          GlUtil.bindTexture(
-              type == GLES20.GL_SAMPLER_2D
-                  ? GLES20.GL_TEXTURE_2D
-                  : GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-              texIdValue,
-              type == GLES20.GL_SAMPLER_2D || !externalTexturesRequireNearestSampling
-                  ? GLES20.GL_LINEAR
-                  : GLES20.GL_NEAREST);
+          int target;
+          int samplingMode;
+          switch (type) {
+            case GLES20.GL_SAMPLER_2D:
+              target = GLES20.GL_TEXTURE_2D;
+              samplingMode = GLES20.GL_LINEAR;
+              break;
+            case GLES11Ext.GL_SAMPLER_EXTERNAL_OES:
+            case GL_SAMPLER_EXTERNAL_2D_Y2Y_EXT:
+              target = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
+              samplingMode =
+                  externalTexturesRequireNearestSampling ? GLES20.GL_NEAREST : GLES20.GL_LINEAR;
+              break;
+            case GLES30.GL_SAMPLER_3D:
+              target = GLES30.GL_TEXTURE_3D;
+              samplingMode = GLES30.GL_LINEAR;
+              break;
+            default:
+              throw new IllegalStateException("Unexpected sampler type: " + type);
+          }
+          GlUtil.bindTexture(target, texIdValue, samplingMode);
           if (type == GLES20.GL_SAMPLER_2D) {
             if (texMinFilter == TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR) {
               GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
