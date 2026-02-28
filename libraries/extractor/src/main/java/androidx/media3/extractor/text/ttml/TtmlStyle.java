@@ -98,6 +98,7 @@ import java.lang.annotation.Target;
   private float shearPercentage;
   @Nullable private String origin;
   @Nullable private String extent;
+  @Nullable private String displayAlign;
 
   public TtmlStyle() {
     linethrough = UNSPECIFIED;
@@ -411,5 +412,16 @@ import java.lang.annotation.Target;
   @Nullable
   public String getExtent() {
     return extent;
+  }
+
+  @CanIgnoreReturnValue
+  public TtmlStyle setDisplayAlign(String displayAlign) {
+    this.displayAlign = displayAlign;
+    return this;
+  }
+
+  @Nullable
+  public String getDisplayAlign() {
+    return displayAlign;
   }
 }

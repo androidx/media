@@ -76,6 +76,8 @@ public final class TtmlParserTest {
   private static final String SHEAR_FILE = "media/ttml/shear.xml";
   private static final String REGION_ATTRS_FROM_STYLE_FILE =
       "media/ttml/inherit_region_attributes_from_style.xml";
+  private static final String DISPLAY_ALIGN_ATTR_FROM_STYLE_FILE =
+      "media/ttml/fallback_display_align_from_style.xml";
 
   @Test
   public void simple_allCues() throws Exception {
@@ -1109,6 +1111,23 @@ public final class TtmlParserTest {
     assertThat(thirdCue.position).isEqualTo(30f / 100f);
     assertThat(thirdCue.line).isEqualTo(30f / 100f);
     assertThat(thirdCue.size).isEqualTo(20f / 100f);
+  }
+
+  @Test
+  public void regionDisplayAlignFromStyle() throws Exception {
+    ImmutableList<CuesWithTiming> allCues = getAllCues(DISPLAY_ALIGN_ATTR_FROM_STYLE_FILE);
+
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_START);
+
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_START);
+
+    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
+    assertThat(thirdCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_MIDDLE);
+
+    Cue fourthCue = Iterables.getOnlyElement(allCues.get(3).cues);
+    assertThat(fourthCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_END);
   }
 
   private static Spanned getOnlyCueTextAtIndex(List<CuesWithTiming> allCues, int index) {
