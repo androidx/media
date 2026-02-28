@@ -447,7 +447,21 @@ import java.util.regex.Pattern;
     int[] streamIndexToTrackGroupIndex = new int[selections.length];
     for (int i = 0; i < selections.length; i++) {
       if (selections[i] != null) {
-        streamIndexToTrackGroupIndex[i] = trackGroups.indexOf(selections[i].getTrackGroup());
+        int trackIndex = trackGroups.indexOf(selections[i].getTrackGroup());
+
+        // fallback in case we could not find map trackGroups through reference
+        if(trackIndex == C.INDEX_UNSET) {
+          for(int y = 0; y < trackGroups.length; y++) {
+            String trackFormatId = trackGroups.get(y).getFormat(0).id;
+            String selectionFormatId = selections[i].getTrackGroup().getFormat(0).id;
+
+            if(trackFormatId.equals(selectionFormatId)) {
+              trackIndex = y;
+              break;
+            }
+          }
+        }
+        streamIndexToTrackGroupIndex[i] = trackIndex;
       } else {
         streamIndexToTrackGroupIndex[i] = C.INDEX_UNSET;
       }
