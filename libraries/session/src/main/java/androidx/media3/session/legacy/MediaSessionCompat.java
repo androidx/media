@@ -58,9 +58,12 @@ import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
 import androidx.versionedparcelable.VersionedParcelable;
+import com.google.common.base.Supplier;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
@@ -105,6 +108,7 @@ public class MediaSessionCompat {
 
   private final MediaSessionImpl impl;
   private final MediaControllerCompat controller;
+  private final Handler internalHandler;
 
   @IntDef(
       flag = true,
@@ -325,7 +329,9 @@ public class MediaSessionCompat {
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo) {
+      @Nullable PendingIntent sessionActivity,
+      @Nullable Bundle sessionInfo,
+      Looper internalLooper) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
     }
@@ -357,12 +363,18 @@ public class MediaSessionCompat {
       impl = new MediaSessionImplApi23(context, tag, sessionInfo);
     }
     // Set default callback to respond to controllers' extra binder requests.
-    Looper myLooper = Looper.myLooper();
-    Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
-    setCallback(new Callback() {}, handler);
+    internalHandler = new Handler(internalLooper);
+    setCallback(new Callback() {}, internalHandler);
     impl.setMediaButtonReceiver(mbrIntent);
+    if (sessionActivity != null) {
+      impl.setSessionActivity(sessionActivity);
+    }
 
     controller = new MediaControllerCompat(context, this);
+  }
+
+  private void postOrRunOnPlatformSessionThread(Runnable r) {
+    Util.postOrRun(internalHandler, r);
   }
 
   /**
@@ -387,7 +399,7 @@ public class MediaSessionCompat {
    * @param pi The intent to launch to show UI for this Session.
    */
   public void setSessionActivity(@Nullable PendingIntent pi) {
-    impl.setSessionActivity(pi);
+    postOrRunOnPlatformSessionThread(() -> impl.setSessionActivity(pi));
   }
 
   /**
@@ -400,8 +412,8 @@ public class MediaSessionCompat {
    *
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
-  public void setMediaButtonReceiver(PendingIntent mbr) {
-    impl.setMediaButtonReceiver(mbr);
+  public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
+    postOrRunOnPlatformSessionThread(() -> impl.setMediaButtonReceiver(mbr));
   }
 
   /**
@@ -410,7 +422,7 @@ public class MediaSessionCompat {
    * @param flags The flags to set for this session.
    */
   public void setFlags(@SessionFlags int flags) {
-    impl.setFlags(flags);
+    postOrRunOnPlatformSessionThread(() -> impl.setFlags(flags));
   }
 
   /**
@@ -423,7 +435,7 @@ public class MediaSessionCompat {
    * @param audioAttributes The {@link AudioAttributes} this session is using.
    */
   public void setPlaybackToLocal(AudioAttributes audioAttributes) {
-    impl.setPlaybackToLocal(audioAttributes);
+    postOrRunOnPlatformSessionThread(() -> impl.setPlaybackToLocal(audioAttributes));
   }
 
   /**
@@ -439,7 +451,7 @@ public class MediaSessionCompat {
    * @param volumeProvider The provider that will handle volume changes. May not be null.
    */
   public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
-    impl.setPlaybackToRemote(volumeProvider);
+    postOrRunOnPlatformSessionThread(() -> impl.setPlaybackToRemote(volumeProvider));
   }
 
   /**
@@ -453,7 +465,7 @@ public class MediaSessionCompat {
    * @param active Whether this session is active or not.
    */
   public void setActive(boolean active) {
-    impl.setActive(active);
+    postOrRunOnPlatformSessionThread(() -> impl.setActive(active));
   }
 
   /**
@@ -476,7 +488,7 @@ public class MediaSessionCompat {
     if (TextUtils.isEmpty(event)) {
       throw new IllegalArgumentException("event cannot be null or empty");
     }
-    impl.sendSessionEvent(event, extras);
+    postOrRunOnPlatformSessionThread(() -> impl.sendSessionEvent(event, extras));
   }
 
   /**
@@ -485,7 +497,7 @@ public class MediaSessionCompat {
    * service is being destroyed.
    */
   public void release() {
-    impl.release();
+    postOrRunOnPlatformSessionThread(impl::release);
   }
 
   /**
@@ -518,8 +530,8 @@ public class MediaSessionCompat {
    *
    * @param state The current state of playback
    */
-  public void setPlaybackState(PlaybackStateCompat state) {
-    impl.setPlaybackState(state);
+  public ListenableFuture<Void> setPlaybackState(PlaybackStateCompat state) {
+    return Util.postOrRunWithCompletion(internalHandler, () -> impl.setPlaybackState(state), null);
   }
 
   /**
@@ -530,8 +542,8 @@ public class MediaSessionCompat {
    * @param metadata The new metadata
    * @see androidx.media3.session.legacy.MediaMetadataCompat.Builder#putBitmap
    */
-  public void setMetadata(@Nullable MediaMetadataCompat metadata) {
-    impl.setMetadata(metadata);
+  public ListenableFuture<Void> setMetadata(@Nullable MediaMetadataCompat metadata) {
+    return Util.postOrRunWithCompletion(internalHandler, () -> impl.setMetadata(metadata), null);
   }
 
   /**
@@ -542,22 +554,29 @@ public class MediaSessionCompat {
    * <p>The queue should be of reasonable size. If the play queue is unbounded within your app, it
    * is better to send a reasonable amount in a sliding window instead.
    *
-   * @param queue A list of items in the play queue.
+   * @param queueSupplier A supplier of a list of items in the play queue, which will be executed on
+   *     a background thread.
    */
-  public void setQueue(@Nullable List<QueueItem> queue) {
-    if (queue != null) {
-      Set<Long> set = new HashSet<>();
-      for (QueueItem item : queue) {
-        if (set.contains(item.getQueueId())) {
-          Log.e(
-              TAG,
-              "Found duplicate queue id: " + item.getQueueId(),
-              new IllegalArgumentException("id of each queue item should be unique"));
-        }
-        set.add(item.getQueueId());
-      }
-    }
-    impl.setQueue(queue);
+  public void computeAndSetQueue(
+      @Nullable Supplier<List<QueueItem>> queueSupplier) {
+    Util.postOrRun(
+        internalHandler,
+        () -> {
+          @Nullable List<QueueItem> queue = queueSupplier != null ? queueSupplier.get() : null;
+          if (queue != null) {
+            Set<Long> set = new HashSet<>();
+            for (QueueItem item : queue) {
+              if (set.contains(item.getQueueId())) {
+                Log.e(
+                    TAG,
+                    "Found duplicate queue id: " + item.getQueueId(),
+                    new IllegalArgumentException("id of each queue item should be unique"));
+              }
+              set.add(item.getQueueId());
+            }
+          }
+          impl.setQueue(queue);
+        });
   }
 
   /**
@@ -566,8 +585,8 @@ public class MediaSessionCompat {
    *
    * @param title The title of the play queue.
    */
-  public void setQueueTitle(CharSequence title) {
-    impl.setQueueTitle(title);
+  public void setQueueTitle(@Nullable CharSequence title) {
+    postOrRunOnPlatformSessionThread(() -> impl.setQueueTitle(title));
   }
 
   /**
@@ -585,7 +604,7 @@ public class MediaSessionCompat {
    * </ul>
    */
   public void setRatingType(@RatingCompat.Style int type) {
-    impl.setRatingType(type);
+    postOrRunOnPlatformSessionThread(() -> impl.setRatingType(type));
   }
 
   /**
@@ -599,7 +618,7 @@ public class MediaSessionCompat {
    *     PlaybackStateCompat#REPEAT_MODE_ALL}, {@link PlaybackStateCompat#REPEAT_MODE_GROUP}
    */
   public void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode) {
-    impl.setRepeatMode(repeatMode);
+    postOrRunOnPlatformSessionThread(() -> impl.setRepeatMode(repeatMode));
   }
 
   /**
@@ -613,7 +632,7 @@ public class MediaSessionCompat {
    *     {@link PlaybackStateCompat#SHUFFLE_MODE_GROUP}
    */
   public void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
-    impl.setShuffleMode(shuffleMode);
+    postOrRunOnPlatformSessionThread(() -> impl.setShuffleMode(shuffleMode));
   }
 
   /**
@@ -624,7 +643,7 @@ public class MediaSessionCompat {
    * @param extras The extras associated with the session.
    */
   public void setExtras(@Nullable Bundle extras) {
-    impl.setExtras(extras);
+    postOrRunOnPlatformSessionThread(() -> impl.setExtras(extras));
   }
 
   /**
@@ -1776,42 +1795,6 @@ public class MediaSessionCompat {
     }
   }
 
-  /**
-   * This is a wrapper for {@link ResultReceiver} for sending over aidl interfaces. The framework
-   * version was not exposed to aidls until {@link android.os.Build.VERSION_CODES#LOLLIPOP}.
-   */
-  @SuppressLint("BanParcelableUsage")
-  /* package */ static final class ResultReceiverWrapper implements Parcelable {
-    ResultReceiver resultReceiver;
-
-    ResultReceiverWrapper(Parcel in) {
-      resultReceiver = ResultReceiver.CREATOR.createFromParcel(in);
-    }
-
-    public static final Creator<ResultReceiverWrapper> CREATOR =
-        new Creator<ResultReceiverWrapper>() {
-          @Override
-          public ResultReceiverWrapper createFromParcel(Parcel p) {
-            return new ResultReceiverWrapper(p);
-          }
-
-          @Override
-          public ResultReceiverWrapper[] newArray(int size) {
-            return new ResultReceiverWrapper[size];
-          }
-        };
-
-    @Override
-    public int describeContents() {
-      return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-      resultReceiver.writeToParcel(dest, flags);
-    }
-  }
-
   interface MediaSessionImpl {
     void setCallback(@Nullable Callback callback, @Nullable Handler handler);
 
@@ -1844,7 +1827,7 @@ public class MediaSessionCompat {
 
     void setQueue(@Nullable List<QueueItem> queue);
 
-    void setQueueTitle(CharSequence title);
+    void setQueueTitle(@Nullable CharSequence title);
 
     void setRatingType(@RatingCompat.Style int type);
 
@@ -2046,7 +2029,7 @@ public class MediaSessionCompat {
     }
 
     @Override
-    public void setQueueTitle(CharSequence title) {
+    public void setQueueTitle(@Nullable CharSequence title) {
       sessionFwk.setQueueTitle(title);
     }
 

@@ -324,6 +324,8 @@ public class MediaSessionServiceTest {
     player1.release();
     player2.release();
     serviceController.destroy();
+    assertThat(getStatusBarNotification(2001)).isNull();
+    assertThat(getStatusBarNotification(2002)).isNull();
   }
 
   @Test
@@ -371,9 +373,11 @@ public class MediaSessionServiceTest {
     session2.release();
     new Handler(thread1.getLooper()).post(player1::release);
     new Handler(thread2.getLooper()).post(player2::release);
-    thread1.quit();
-    thread2.quit();
+    thread1.quitSafely();
+    thread2.quitSafely();
     serviceController.destroy();
+    assertThat(getStatusBarNotification(2001)).isNull();
+    assertThat(getStatusBarNotification(2002)).isNull();
   }
 
   @Test
