@@ -74,4 +74,10 @@ public final class WavExtractorTest {
     ExtractorAsserts.assertBehavior(
         WavExtractor::new, "media/wav/sample_wav_format_extensible.wav", simulationConfig);
   }
+
+  @Test
+  public void sample_float64() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        WavExtractor::new, "media/wav/sample_float64.wav", simulationConfig);
+  }
 }
