@@ -127,10 +127,12 @@ public final class GainProcessor extends BaseAudioProcessor {
         for (int i = 0; i < inputAudioFormat.channelCount; i++) {
           switch (inputAudioFormat.encoding) {
             case C.ENCODING_PCM_16BIT:
-              buffer.putShort((short) (inputBuffer.getShort() * gain));
+              int clampedShort = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, (short) (inputBuffer.getShort() * gain)));
+              buffer.putShort((short) clampedShort);
               break;
             case C.ENCODING_PCM_FLOAT:
-              buffer.putFloat(inputBuffer.getFloat() * gain);
+              float clampedFloat = Math.max(-1, Math.min(1f, inputBuffer.getFloat() * gain));
+              buffer.putFloat(clampedFloat);
               break;
             default:
               throw new IllegalStateException(
