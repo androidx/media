@@ -688,6 +688,127 @@ public final class DefaultTrackSelectorTest {
     assertFixedSelection(result.selections[0], trackGroups, lessRoleFlags);
   }
 
+  /**
+   * Tests that track selector will select the audio track with higher channel count when {@link
+   * Parameters#preferredAudioChannelCount} is set, even if the track has an alternate role flag.
+   */
+  @Test
+  public void selectTracks_withPreferredAudioChannelCount_selectsHigherChannelCountTrack()
+      throws Exception {
+    Format stereoMainFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("stereo_main")
+            .setChannelCount(2)
+            .setRoleFlags(C.ROLE_FLAG_MAIN)
+            .build();
+    Format surroundAltFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("surround_alt")
+            .setChannelCount(6)
+            .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
+            .build();
+    TrackGroupArray trackGroups = wrapFormats(stereoMainFormat, surroundAltFormat);
+
+    // Without preferredAudioChannelCount, main role stereo track should be selected
+    trackSelector.setParameters(defaultParameters);
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES},
+            trackGroups,
+            periodId,
+            TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, stereoMainFormat);
+
+    // With preferredAudioChannelCount=6, 5.1 surround track should be selected over stereo main
+    trackSelector.setParameters(
+        defaultParameters.buildUpon().setPreferredAudioChannelCount(6).build());
+    result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES},
+            trackGroups,
+            periodId,
+            TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, surroundAltFormat);
+  }
+
+  /**
+   * Tests that track selector falls back to lower channel count track when preferred channel count
+   * track is not supported by renderer.
+   */
+  @Test
+  public void selectTracks_withPreferredAudioChannelCountNotSupported_fallsBackToSupportedTrack()
+      throws Exception {
+    Format stereoFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("stereo")
+            .setChannelCount(2)
+            .setRoleFlags(C.ROLE_FLAG_MAIN)
+            .build();
+    Format surroundFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("surround")
+            .setChannelCount(6)
+            .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
+            .build();
+    TrackGroupArray trackGroups = wrapFormats(stereoFormat, surroundFormat);
+
+    // Renderer only supports stereo (2 channels), surround exceeds capabilities
+    Map<String, Integer> mappedCapabilities = new HashMap<>();
+    mappedCapabilities.put(stereoFormat.id, FORMAT_HANDLED);
+    mappedCapabilities.put(surroundFormat.id, FORMAT_EXCEEDS_CAPABILITIES);
+    RendererCapabilities stereoOnlyCapabilities =
+        new FakeMappedRendererCapabilities(C.TRACK_TYPE_AUDIO, mappedCapabilities);
+
+    // With preferredAudioChannelCount=6, but renderer doesn't support 6 channels,
+    // should fall back to stereo
+    trackSelector.setParameters(
+        defaultParameters.buildUpon().setPreferredAudioChannelCount(6).build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {stereoOnlyCapabilities}, trackGroups, periodId, TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, stereoFormat);
+  }
+
+  /**
+   * Tests that track selector selects the track with highest channel count among supported tracks
+   * when preferredAudioChannelCount is set, even if no track meets the threshold.
+   */
+  @Test
+  public void selectTracks_withPreferredAudioChannelCount_selectsHighestSupportedChannelCount()
+      throws Exception {
+    Format stereoFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("stereo")
+            .setChannelCount(2)
+            .setRoleFlags(C.ROLE_FLAG_MAIN)
+            .build();
+    Format surroundFormat =
+        AUDIO_FORMAT
+            .buildUpon()
+            .setId("surround")
+            .setChannelCount(6)
+            .setRoleFlags(C.ROLE_FLAG_ALTERNATE)
+            .build();
+    TrackGroupArray trackGroups = wrapFormats(stereoFormat, surroundFormat);
+
+    // With preferredAudioChannelCount=8, but only 2ch and 6ch available,
+    // should select 6ch (highest available) even though it doesn't meet the threshold
+    trackSelector.setParameters(
+        defaultParameters.buildUpon().setPreferredAudioChannelCount(8).build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES},
+            trackGroups,
+            periodId,
+            TIMELINE);
+    assertFixedSelection(result.selections[0], trackGroups, surroundFormat);
+  }
+
   @Test
   public void
       selectTracks_withPreferredTextLanguagesAndRoleFlagsFromCaptioningManager_selectsCaptioningTrack()
