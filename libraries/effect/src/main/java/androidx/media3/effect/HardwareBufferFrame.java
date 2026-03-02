@@ -19,12 +19,17 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.hardware.HardwareBuffer;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.Log;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
@@ -39,6 +44,7 @@ import java.util.concurrent.Executor;
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public final class HardwareBufferFrame implements Frame {
+  private static final String TAG = "HardwareBufferFrame";
 
   /** A callback to be invoked when the {@link HardwareBufferFrame} is released. */
   public interface ReleaseCallback {
@@ -89,11 +95,11 @@ public final class HardwareBufferFrame implements Frame {
   /** An optional internal frame type that is used when {@link #hardwareBuffer} is not supported. */
   @Nullable public final Object internalFrame;
 
-  /** The {@link Executor} on which the {@link #releaseCallback} is called. */
-  private final Executor releaseExecutor;
+  /** The shared state object managing reference counts and release orchestration. */
+  private final SharedState sharedState;
 
-  /** The {@link Runnable} to call to release the frame. */
-  private final ReleaseCallback releaseCallback;
+  @GuardedBy("this")
+  private boolean isReleased;
 
   /** A builder for {@link HardwareBufferFrame} instances. */
   public static final class Builder {
@@ -107,6 +113,7 @@ public final class HardwareBufferFrame implements Frame {
     private Metadata metadata;
     @Nullable private SyncFenceCompat acquireFence;
     @Nullable private Object internalFrame;
+    @Nullable private SharedState sharedState;
 
     /**
      * Creates a new {@link Builder}.
@@ -130,13 +137,14 @@ public final class HardwareBufferFrame implements Frame {
     }
 
     private Builder(HardwareBufferFrame frame) {
-      this(frame.hardwareBuffer, frame.releaseExecutor, frame.releaseCallback);
+      this(frame.hardwareBuffer, frame.sharedState.executor, frame.sharedState.callback);
       this.metadata = frame.metadata;
       this.presentationTimeUs = frame.presentationTimeUs;
       this.format = frame.format;
       this.releaseTimeNs = frame.releaseTimeNs;
       this.acquireFence = frame.acquireFence;
       this.internalFrame = frame.internalFrame;
+      this.sharedState = frame.sharedState;
     }
 
     /** Sets the {@link HardwareBufferFrame#presentationTimeUs}. */
@@ -204,13 +212,38 @@ public final class HardwareBufferFrame implements Frame {
     this.releaseTimeNs = builder.releaseTimeNs;
     this.format = builder.format;
     this.metadata = builder.metadata;
-    this.releaseExecutor = builder.releaseExecutor;
-    this.releaseCallback = builder.releaseCallback;
     this.acquireFence = builder.acquireFence;
     this.internalFrame = builder.internalFrame;
+    if (builder.sharedState != null) {
+      this.sharedState = builder.sharedState;
+    } else {
+      this.sharedState =
+          new SharedState(builder.releaseCallback, builder.releaseExecutor, builder.acquireFence);
+    }
+    isReleased = false;
   }
 
-  /** Returns a {@link Builder} initialized with the values of this instance. */
+  /** Private constructor for creating retained handles sharing the same state. */
+  private HardwareBufferFrame(HardwareBufferFrame original, SharedState sharedState) {
+    this.hardwareBuffer = original.hardwareBuffer;
+    this.presentationTimeUs = original.presentationTimeUs;
+    this.releaseTimeNs = original.releaseTimeNs;
+    this.format = original.format;
+    this.metadata = original.metadata;
+    this.acquireFence = original.acquireFence;
+    this.internalFrame = original.internalFrame;
+    this.sharedState = sharedState;
+    isReleased = false;
+  }
+
+  /**
+   * Returns a {@link Builder} initialized with the values of this instance. This method does not
+   * increase the reference count.
+   *
+   * <p>The returned builder creates handles that share the same underlying reference count as this
+   * instance. To create a new reference that increments the reference count, call {@link #retain()}
+   * instead.
+   */
   public Builder buildUpon() {
     return new Builder(this);
   }
@@ -222,6 +255,107 @@ public final class HardwareBufferFrame implements Frame {
 
   @Override
   public void release(@Nullable SyncFenceCompat releaseFence) {
-    releaseExecutor.execute(() -> releaseCallback.release(releaseFence));
+    synchronized (this) {
+      if (isReleased) {
+        closeFenceSilently(releaseFence);
+        return;
+      }
+      isReleased = true;
+    }
+
+    sharedState.release(releaseFence);
+  }
+
+  /**
+   * Creates a new reference to this frame.
+   *
+   * <p>For every call to this method there must be an extra {@link #release} call. The underlying
+   * buffer will only be released when the reference count drops to zero.
+   *
+   * @throws IllegalStateException if called after the frame has been released.
+   */
+  public synchronized HardwareBufferFrame retain() {
+    if (isReleased) {
+      throw new IllegalStateException("Cannot retain a frame that has already been released.");
+    }
+    sharedState.retain();
+    return new HardwareBufferFrame(this, sharedState);
+  }
+
+  private static void closeFenceSilently(@Nullable SyncFenceCompat fence) {
+    if (fence == null) {
+      return;
+    }
+    try {
+      fence.close();
+    } catch (IOException e) {
+      Log.w(TAG, "Failed to close fence on double-release", e);
+    }
+  }
+
+  /**
+   * Internal Shared State.
+   *
+   * <p>This class manages the synchronization and reference counting between multiple handles to +
+   * the same underlying frame.
+   */
+  private static final class SharedState {
+
+    private final ReleaseCallback callback;
+    private final Executor executor;
+    @Nullable private final SyncFenceCompat acquireFence;
+
+    @GuardedBy("this")
+    private int refCount = 1;
+
+    @GuardedBy("this")
+    private final List<SyncFenceCompat> releaseFences = new ArrayList<>();
+
+    private SharedState(
+        ReleaseCallback callback, Executor executor, @Nullable SyncFenceCompat acquireFence) {
+      this.callback = callback;
+      this.executor = executor;
+      this.acquireFence = acquireFence;
+    }
+
+    private synchronized void retain() {
+      if (refCount <= 0) {
+        throw new IllegalStateException("retain() called on a released HardwareBufferFrame.");
+      }
+      refCount++;
+    }
+
+    private void release(@Nullable SyncFenceCompat releaseFence) {
+      List<SyncFenceCompat> fencesToCombine;
+
+      synchronized (this) {
+        if (releaseFence != null) {
+          releaseFences.add(releaseFence);
+        }
+        refCount--;
+        if (refCount != 0) {
+          // The buffer is still retained by other references, do nothing further.
+          return;
+        }
+
+        // Collect all fences for the final release signal.
+        // The acquire fence should have signaled before the release fences, but we combine it
+        // here anyway to be safe.
+        fencesToCombine = new ArrayList<>(releaseFences);
+        if (acquireFence != null) {
+          fencesToCombine.add(acquireFence);
+        }
+        releaseFences.clear();
+      }
+
+      // Execute the callback without the extra nesting
+      executor.execute(
+          () -> {
+            @Nullable
+            SyncFenceCompat combinedFence =
+                fencesToCombine.isEmpty() ? null : SyncFenceCompat.combine(fencesToCombine);
+            callback.release(combinedFence);
+          });
+    }
   }
 }
