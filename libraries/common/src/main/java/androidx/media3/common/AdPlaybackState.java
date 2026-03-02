@@ -538,7 +538,10 @@ public final class AdPlaybackState {
           isPlaceholder);
     }
 
-    /** Removes the last ad from the ad group. */
+    /**
+     * @deprecated Use {@link #withRemovedAdsAfterIndex(int)} instead.
+     */
+    @Deprecated
     public AdGroup withLastAdRemoved() {
       int newCount = states.length - 1;
       @AdState int[] newStates = Arrays.copyOf(states, newCount);
@@ -556,7 +559,7 @@ public final class AdPlaybackState {
           newStates,
           newMediaItems,
           newDurationsUs,
-          /* contentResumeOffsetUs= */ Util.sum(newDurationsUs),
+          contentResumeOffsetUs == 0 ? 0 : sumOfDurations(newDurationsUs),
           isServerSideInserted,
           newIds,
           newSkipInfos,
@@ -1336,8 +1339,11 @@ public final class AdPlaybackState {
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
-  /** Returns an instance with the last ad of the given ad group removed. */
+  /**
+   * @deprecated Use {@link #withRemovedAdsAfterIndex(int, int)} instead.
+   */
   @CheckResult
+  @Deprecated
   public AdPlaybackState withLastAdRemoved(@IntRange(from = 0) int adGroupIndex) {
     int adjustedIndex = adGroupIndex - removedAdGroupCount;
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);

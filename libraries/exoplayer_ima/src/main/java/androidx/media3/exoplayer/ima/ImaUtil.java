@@ -1041,9 +1041,9 @@ import java.util.Set;
       AdGroup adGroup, int adGroupIndex, int splitIndexExclusive, AdPlaybackState adPlaybackState) {
     checkArgument(splitIndexExclusive > 0 && splitIndexExclusive < adGroup.count);
     // Remove the ads from the ad group.
-    for (int i = 0; i < adGroup.count - splitIndexExclusive; i++) {
-      adPlaybackState = adPlaybackState.withLastAdRemoved(adGroupIndex);
-    }
+    adPlaybackState =
+        adPlaybackState.withRemovedAdsAfterIndex(
+            adGroupIndex, /* adIndexInAdGroup= */ splitIndexExclusive - 1);
     AdGroup previousAdGroup = adPlaybackState.getAdGroup(adGroupIndex);
     long newAdGroupTimeUs = previousAdGroup.timeUs + previousAdGroup.contentResumeOffsetUs;
     // Replicate ad events for each available ad that has been removed.
