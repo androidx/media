@@ -612,10 +612,10 @@
         "name": "Change in crop b/409036359",
         "playlist": [
           {
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_25fps_hevc.mp4"
           },
           {
-            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc_pad.mp4"
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_25fps_hevc_pad.mp4"
           }
         ]
       }
