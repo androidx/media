@@ -56,6 +56,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer-rtsp')
     implementation project(modulePrefix + 'lib-exoplayer-smoothstreaming')
     implementation project(modulePrefix + 'lib-inspector')
+    implementation project(modulePrefix + 'lib-inspector-frame')
     implementation project(modulePrefix + 'lib-muxer')
     implementation project(modulePrefix + 'lib-session')
     implementation project(modulePrefix + 'lib-transformer')
