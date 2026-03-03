@@ -39,6 +39,39 @@
             "uri": "https://storage.googleapis.com/exoplayer-test-media-0/shortform_3.mp4"
           }
         ]
+      },
+      {
+        "name": "Audios (w/ artwork)",
+        "playlist": [
+          {
+            "name": "The Way Of Waking Up",
+            "album": "Wake Up",
+            "artist": "The Kyoto Connection",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/The_Kyoto_Connection_-_Wake_Up/01_-_Intro_-_The_Way_Of_Waking_Up_feat_Alan_Watts.mp3",
+            "artwork_uri": "artwork/album_kyoto_connection.png"
+          },
+          {
+            "name": "Intro",
+            "album": "Irsen's Tale",
+            "artist": "Kai Engel",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Kai_Engel_-_Irsens_Tale/01_-_Intro_udonthear.mp3",
+            "artwork_uri": "artwork/album_kai_engel.png"
+          },
+          {
+            "name": "Jazz in Paris",
+            "album": "Jazz & Blues",
+            "artist": "Media Right Productions",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/Jazz_In_Paris.mp3",
+            "artwork_uri": "artwork/album_sea.png"
+          },
+          {
+            "name": "On the Bach",
+            "album": "Cinematic",
+            "artist": "Jingle Punks",
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp3/On_the_Bach.mp3",
+            "artwork_uri": "artwork/album_drinks.png"
+          }
+        ]
       }
     ]
   },
@@ -104,6 +137,13 @@
       {
         "name": "MPEG-H HD (MP4, H265)",
         "uri": "https://media.githubusercontent.com/media/Fraunhofer-IIS/mpegh-test-content/main/TRI_Fileset_17_514H_D1_D2_D3_O1_24bit1080p50.mp4"
+      },
+      {
+        "name": "Subtitles (TTML)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-avc-baseline-480.mp4",
+        "subtitle_uri": "https://storage.googleapis.com/exoplayer-test-media-1/ttml/netflix_ttml_sample.xml",
+        "subtitle_mime_type": "application/ttml+xml",
+        "subtitle_language": "en"
       }
     ]
   }

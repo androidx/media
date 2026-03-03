@@ -96,7 +96,13 @@ private fun readPlaylistGroup(reader: JsonReader, groups: MutableList<PlaylistGr
 private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHolder {
   lateinit var uri: Uri
   var title = ""
+  var album: String? = null
+  var artist: String? = null
   var children: MutableList<PlaylistHolder>? = null
+  var artworkUri: Uri? = null
+  var subtitleUri: Uri? = null
+  var subtitleMimeType: String? = null
+  var subtitleLanguage: String? = null
 
   val mediaItem = MediaItem.Builder()
   reader.beginObject()
@@ -104,6 +110,12 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     when (val name = reader.nextName()) {
       "name" -> title = reader.nextString()
       "uri" -> uri = reader.nextString().toUri()
+      "album" -> album = reader.nextString()
+      "artist" -> artist = reader.nextString()
+      "artwork_uri" -> artworkUri = reader.nextString().toUri()
+      "subtitle_uri" -> subtitleUri = reader.nextString().toUri()
+      "subtitle_mime_type" -> subtitleMimeType = reader.nextString()
+      "subtitle_language" -> subtitleLanguage = reader.nextString()
       "playlist" -> {
         checkState(!insidePlaylist, "Invalid nesting of playlists")
         children = mutableListOf()
@@ -125,15 +137,31 @@ private fun readEntry(reader: JsonReader, insidePlaylist: Boolean): PlaylistHold
     }
     return PlaylistHolder(title, mediaItems.toList())
   } else {
-    return PlaylistHolder(
-      title,
-      mutableListOf(
-        mediaItem
-          .setUri(uri)
-          .setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
+    val metadata = MediaMetadata.Builder().setTitle(title).setAlbumTitle(album).setArtist(artist)
+    artworkUri?.let { metadata.setArtworkUri(it) }
+
+    mediaItem.setUri(uri).setMediaMetadata(metadata.build())
+
+    if (subtitleUri != null && subtitleMimeType == null) {
+      Log.w("parser", "Subtitle URI provided but MIME type is missing for item: $title")
+    } else if (subtitleUri == null && subtitleMimeType != null) {
+      Log.w("parser", "Subtitle MIME type provided but URI is missing for item: $title")
+    } else if (subtitleUri != null && subtitleMimeType != null) {
+      if (subtitleLanguage == null) {
+        Log.w(
+          "parser",
+          "Subtitle URI and MIME type provided but language is missing for item: $title",
+        )
+      }
+      val subtitleConfig =
+        MediaItem.SubtitleConfiguration.Builder(subtitleUri)
+          .setMimeType(subtitleMimeType)
+          .setLanguage(subtitleLanguage)
           .build()
-      ),
-    )
+      mediaItem.setSubtitleConfigurations(listOf(subtitleConfig))
+    }
+
+    return PlaylistHolder(title, mutableListOf(mediaItem.build()))
   }
 }
 
