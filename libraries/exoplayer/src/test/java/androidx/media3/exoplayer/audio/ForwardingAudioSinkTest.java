@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethods;
+import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
 import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -32,6 +33,7 @@ public final class ForwardingAudioSinkTest {
 
   @Test
   public void forwardsAllMethods() throws Exception {
-    assertForwardingClassForwardsAllMethods(AudioSink.class, ForwardingAudioSink::new);
+    assertForwardingClassForwardsAllMethodsExcept(
+        AudioSink.class, ForwardingAudioSink::new, ImmutableSet.of("configure"));
   }
 }

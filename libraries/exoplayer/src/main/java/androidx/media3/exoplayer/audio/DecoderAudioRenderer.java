@@ -63,6 +63,7 @@ import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -499,7 +500,12 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
-      audioSink.configure(outputFormat, /* specifiedBufferSize= */ 0, getChannelMapping(decoder));
+      int[] channelMapping = getChannelMapping(decoder);
+      audioSink.configure(
+          new AudioSink.AudioSinkConfig.Builder(outputFormat)
+              .setOutputChannelMapping(
+                  channelMapping == null ? null : ImmutableIntArray.copyOf(channelMapping))
+              .build());
       audioTrackNeedsConfigure = false;
     }
 

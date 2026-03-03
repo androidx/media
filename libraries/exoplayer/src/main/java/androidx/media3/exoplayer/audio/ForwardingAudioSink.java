@@ -25,6 +25,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
 
 /** An overridable {@link AudioSink} implementation forwarding all methods to another sink. */
@@ -72,10 +73,24 @@ public class ForwardingAudioSink implements AudioSink {
     return sink.getCurrentPositionUs(sourceEnded);
   }
 
+  // Implementing deprecated method to force implementors to switch to the new method so their
+  // current implementation isn't accidentally bypassed.
+  @SuppressWarnings("deprecation")
   @Override
-  public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+  public final void configure(
+      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
       throws ConfigurationException {
-    sink.configure(inputFormat, specifiedBufferSize, outputChannels);
+    configure(
+        new AudioSinkConfig.Builder(inputFormat)
+            .setPreferredBufferSizeOverride(specifiedBufferSize)
+            .setOutputChannelMapping(
+                outputChannels == null ? null : ImmutableIntArray.copyOf(outputChannels))
+            .build());
+  }
+
+  @Override
+  public void configure(AudioSinkConfig audioSinkConfig) throws ConfigurationException {
+    sink.configure(audioSinkConfig);
   }
 
   @Override

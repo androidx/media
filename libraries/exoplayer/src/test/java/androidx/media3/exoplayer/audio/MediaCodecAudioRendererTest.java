@@ -234,16 +234,11 @@ public class MediaCodecAudioRendererTest {
     } while (!mediaCodecAudioRenderer.isEnded());
 
     verify(audioSink)
-        .configure(
-            getAudioSinkFormat(AUDIO_AAC),
-            /* specifiedBufferSize= */ 0,
-            /* outputChannels= */ null);
+        .configure(new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(AUDIO_AAC)).build());
 
     verify(audioSink)
         .configure(
-            getAudioSinkFormat(changedFormat),
-            /* specifiedBufferSize= */ 0,
-            /* outputChannels= */ null);
+            new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(changedFormat)).build());
   }
 
   @Test
@@ -292,16 +287,11 @@ public class MediaCodecAudioRendererTest {
     } while (!mediaCodecAudioRenderer.isEnded());
 
     verify(audioSink)
-        .configure(
-            getAudioSinkFormat(AUDIO_AAC),
-            /* specifiedBufferSize= */ 0,
-            /* outputChannels= */ null);
+        .configure(new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(AUDIO_AAC)).build());
 
     verify(audioSink)
         .configure(
-            getAudioSinkFormat(changedFormat),
-            /* specifiedBufferSize= */ 0,
-            /* outputChannels= */ null);
+            new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(changedFormat)).build());
   }
 
   @Test

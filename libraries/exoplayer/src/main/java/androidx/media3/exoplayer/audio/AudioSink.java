@@ -34,24 +34,27 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import com.google.common.primitives.ImmutableIntArray;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 /**
  * A sink that consumes audio data.
  *
- * <p>Before starting playback, specify the input audio format by calling {@link #configure(Format,
- * int, int[])}.
+ * <p>Before starting playback, specify the input audio format by calling {@link
+ * #configure(AudioSinkConfig)}.
  *
  * <p>Call {@link #handleBuffer(ByteBuffer, long, int)} to write data, and {@link
  * #handleDiscontinuity()} when the data being fed is discontinuous. Call {@link #play()} to start
  * playing the written data.
  *
- * <p>Call {@link #configure(Format, int, int[])} whenever the input format changes. The sink will
- * be reinitialized on the next call to {@link #handleBuffer(ByteBuffer, long, int)}.
+ * <p>Call {@link #configure(AudioSinkConfig)} whenever the input format changes. The sink will be
+ * reinitialized on the next call to {@link #handleBuffer(ByteBuffer, long, int)}.
  *
  * <p>Call {@link #flush()} to prepare the sink to receive audio data from a new playback position.
  *
@@ -166,6 +169,135 @@ public interface AudioSink {
      * @param audioSessionId The new audio session ID.
      */
     default void onAudioSessionIdChanged(int audioSessionId) {}
+  }
+
+  /**
+   * Configuration parameters for {@linkplain #configure(AudioSinkConfig) configuring} the audio
+   * sink.
+   */
+  final class AudioSinkConfig {
+    /** The format of audio data provided in the input buffers. */
+    public final Format format;
+
+    /**
+     * A specific size for the playback buffer in bytes, or 0 to infer a suitable buffer size
+     * automatically.
+     *
+     * @deprecated Use similar config values on lower-level components like {@link
+     *     AudioOutputProvider.FormatConfig#preferredBufferSize} instead.
+     */
+    @Deprecated public final int preferredBufferSizeOverride;
+
+    /**
+     * A mapping from input to output channels that is applied to this sink's input as a
+     * preprocessing step, if handling PCM input. {@code null} leaves the input unchanged.
+     * Otherwise, the element at index {@code i} specifies index of the input channel to map to
+     * output channel {@code i} when preprocessing input buffers. After the map is applied the audio
+     * data will have {@code outputChannels.length} channels.
+     */
+    @Nullable public final ImmutableIntArray outputChannelMapping;
+
+    private AudioSinkConfig(
+        Format format,
+        int preferredBufferSizeOverride,
+        @Nullable ImmutableIntArray outputChannelMapping) {
+      this.format = format;
+      this.preferredBufferSizeOverride = preferredBufferSizeOverride;
+      this.outputChannelMapping = outputChannelMapping;
+    }
+
+    /** Creates a {@link Builder} from the current values. */
+    public Builder buildUpon() {
+      return new Builder(this);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof AudioSinkConfig)) {
+        return false;
+      }
+      AudioSinkConfig that = (AudioSinkConfig) o;
+      return preferredBufferSizeOverride == that.preferredBufferSizeOverride
+          && format.equals(that.format)
+          && Objects.equals(outputChannelMapping, that.outputChannelMapping);
+    }
+
+    @Override
+    public int hashCode() {
+      int result = format.hashCode();
+      result = 31 * result + preferredBufferSizeOverride;
+      result = 31 * result + (outputChannelMapping == null ? 0 : outputChannelMapping.hashCode());
+      return result;
+    }
+
+    /** Builder for {@link AudioSinkConfig}. */
+    public static final class Builder {
+      private final Format format;
+      private int preferredBufferSizeOverride;
+      @Nullable private ImmutableIntArray outputChannelMapping;
+
+      /**
+       * Creates a new builder.
+       *
+       * @param format The format of audio data provided in the input buffers.
+       */
+      public Builder(Format format) {
+        this.format = format;
+        this.preferredBufferSizeOverride = 0;
+        this.outputChannelMapping = null;
+      }
+
+      @SuppressWarnings("deprecation") // Copying deprecated value.
+      private Builder(AudioSinkConfig audioSinkConfig) {
+        this.format = audioSinkConfig.format;
+        this.preferredBufferSizeOverride = audioSinkConfig.preferredBufferSizeOverride;
+        this.outputChannelMapping = audioSinkConfig.outputChannelMapping;
+      }
+
+      /**
+       * Sets a specific size for the playback buffer in bytes.
+       *
+       * <p>This method should not be needed as the buffer size is only applicable to lower-level
+       * components like the {@link AudioOutput} and should be set there.
+       *
+       * @param preferredBufferSizeOverride A specific size for the playback buffer in bytes, or 0
+       *     to infer a suitable buffer size automatically.
+       * @return This builder.
+       * @deprecated Use similar setters on lower-level components like {@link AudioOutput} instead,
+       *     e.g. by modifying {@link AudioOutputProvider.FormatConfig#preferredBufferSize}.
+       */
+      @Deprecated
+      @CanIgnoreReturnValue
+      public Builder setPreferredBufferSizeOverride(int preferredBufferSizeOverride) {
+        this.preferredBufferSizeOverride = preferredBufferSizeOverride;
+        return this;
+      }
+
+      /**
+       * Sets a mapping from input to output channels.
+       *
+       * @param outputChannelMapping A mapping from input to output channels that is applied to this
+       *     sink's input as a preprocessing step, if handling PCM input. Specify {@code null} to
+       *     leave the input unchanged. Otherwise, the element at index {@code i} specifies index of
+       *     the input channel to map to output channel {@code i} when preprocessing input buffers.
+       *     After the map is applied the audio data will have {@code outputChannels.length}
+       *     channels.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setOutputChannelMapping(@Nullable ImmutableIntArray outputChannelMapping) {
+        this.outputChannelMapping = outputChannelMapping;
+        return this;
+      }
+
+      /** Builds an {@link AudioSinkConfig} instance. */
+      public AudioSinkConfig build() {
+        return new AudioSinkConfig(format, preferredBufferSizeOverride, outputChannelMapping);
+      }
+    }
   }
 
   /** Configuration parameters used for an {@link AudioTrack}. */
@@ -496,20 +628,34 @@ public interface AudioSink {
   long getCurrentPositionUs(boolean sourceEnded);
 
   /**
+   * @deprecated Call and implement {@link #configure(AudioSinkConfig)} instead.
+   */
+  @Deprecated
+  default void configure(
+      Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
+      throws ConfigurationException {
+    configure(
+        new AudioSinkConfig.Builder(inputFormat)
+            .setPreferredBufferSizeOverride(specifiedBufferSize)
+            .setOutputChannelMapping(
+                outputChannels == null ? null : ImmutableIntArray.copyOf(outputChannels))
+            .build());
+  }
+
+  /**
    * Configures (or reconfigures) the sink.
    *
-   * @param inputFormat The format of audio data provided in the input buffers.
-   * @param specifiedBufferSize A specific size for the playback buffer in bytes, or 0 to infer a
-   *     suitable buffer size.
-   * @param outputChannels A mapping from input to output channels that is applied to this sink's
-   *     input as a preprocessing step, if handling PCM input. Specify {@code null} to leave the
-   *     input unchanged. Otherwise, the element at index {@code i} specifies index of the input
-   *     channel to map to output channel {@code i} when preprocessing input buffers. After the map
-   *     is applied the audio data will have {@code outputChannels.length} channels.
+   * @param audioSinkConfig The {@link AudioSinkConfig}.
    * @throws ConfigurationException If an error occurs configuring the sink.
    */
-  void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-      throws ConfigurationException;
+  default void configure(AudioSinkConfig audioSinkConfig) throws ConfigurationException {
+    configure(
+        audioSinkConfig.format,
+        audioSinkConfig.preferredBufferSizeOverride,
+        audioSinkConfig.outputChannelMapping == null
+            ? null
+            : audioSinkConfig.outputChannelMapping.toArray());
+  }
 
   /** Starts or resumes consuming audio if initialized. */
   void play();
@@ -525,8 +671,8 @@ public interface AudioSink {
    *
    * <p>Returns whether the data was handled in full. If the data was not handled in full then the
    * same {@link ByteBuffer} must be provided to subsequent calls until it has been fully consumed,
-   * except in the case of an intervening call to {@link #flush()} (or to {@link #configure(Format,
-   * int, int[])} that causes the sink to be flushed).
+   * except in the case of an intervening call to {@link #flush()} (or to {@link
+   * #configure(AudioSinkConfig)} that causes the sink to be flushed).
    *
    * @param buffer The buffer containing audio data.
    * @param presentationTimeUs The presentation timestamp of the buffer in microseconds.

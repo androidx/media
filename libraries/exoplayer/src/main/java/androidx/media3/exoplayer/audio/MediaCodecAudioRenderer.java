@@ -71,6 +71,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
 import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -679,7 +680,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           audioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_DISABLED);
         }
       }
-      audioSink.configure(audioSinkInputFormat, /* specifiedBufferSize= */ 0, channelMap);
+      audioSink.configure(
+          new AudioSink.AudioSinkConfig.Builder(audioSinkInputFormat)
+              .setOutputChannelMapping(
+                  channelMap == null ? null : ImmutableIntArray.copyOf(channelMap))
+              .build());
     } catch (AudioSink.ConfigurationException e) {
       throw createRendererException(
           e, e.format, PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED);

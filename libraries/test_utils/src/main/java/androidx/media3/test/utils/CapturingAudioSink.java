@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.test.core.app.ApplicationProvider;
+import com.google.common.primitives.ImmutableIntArray;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -96,11 +97,11 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   }
 
   @Override
-  public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-      throws ConfigurationException {
-    this.format = inputFormat;
-    interceptedData.add(new DumpableConfiguration(inputFormat, outputChannels));
-    super.configure(inputFormat, specifiedBufferSize, outputChannels);
+  public void configure(AudioSinkConfig audioSinkConfig) throws ConfigurationException {
+    this.format = audioSinkConfig.format;
+    interceptedData.add(
+        new DumpableConfiguration(audioSinkConfig.format, audioSinkConfig.outputChannelMapping));
+    super.configure(audioSinkConfig);
   }
 
   @Override
@@ -206,9 +207,9 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
   private static final class DumpableConfiguration implements Dumper.Dumpable {
 
     private final Format inputFormat;
-    @Nullable private final int[] outputChannels;
+    @Nullable private final ImmutableIntArray outputChannels;
 
-    public DumpableConfiguration(Format inputFormat, @Nullable int[] outputChannels) {
+    public DumpableConfiguration(Format inputFormat, @Nullable ImmutableIntArray outputChannels) {
       this.inputFormat = inputFormat;
       this.outputChannels = outputChannels;
     }
@@ -226,7 +227,7 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
           .addIfNonDefault("channelCount", inputFormat.channelCount, Format.NO_VALUE)
           .addIfNonDefault("sampleRate", inputFormat.sampleRate, Format.NO_VALUE);
       if (outputChannels != null) {
-        dumper.add("outputChannels", Arrays.toString(outputChannels));
+        dumper.add("outputChannels", outputChannels.toString());
       }
       dumper.endBlock();
     }

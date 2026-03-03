@@ -50,7 +50,24 @@ public class DefaultAudioSinkTest {
     while (true) {
       runOnMainSync(
           () -> {
-            DefaultAudioSink audioSink = new DefaultAudioSink.Builder(context).build();
+            AudioOutputProvider defaultProvider =
+                new AudioTrackAudioOutputProvider.Builder(context).build();
+            // Use large enough buffer size to quickly reach the device limit while still being able
+            // to create multiple sinks.
+            DefaultAudioSink audioSink =
+                new DefaultAudioSink.Builder(context)
+                    .setAudioOutputProvider(
+                        new ForwardingAudioOutputProvider(defaultProvider) {
+                          @Override
+                          public OutputConfig getOutputConfig(FormatConfig formatConfig)
+                              throws ConfigurationException {
+                            return super.getOutputConfig(formatConfig)
+                                .buildUpon()
+                                .setBufferSize(2_000_000)
+                                .build();
+                          }
+                        })
+                    .build();
             audioSinks.add(audioSink);
           });
       try {
@@ -86,9 +103,25 @@ public class DefaultAudioSinkTest {
   @Test
   @SdkSuppress(minSdkVersion = 24) // The test depends on AudioTrack#getUnderrunCount() (API 24+).
   public void audioTrackUnderruns_callsOnUnderrun() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
     AtomicInteger underrunCount = new AtomicInteger();
+    // Set buffer size of ~1.1ms. The tiny size helps cause an underrun.
+    AudioOutputProvider defaultProvider =
+        new AudioTrackAudioOutputProvider.Builder(context).build();
     DefaultAudioSink sink =
-        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
+        new DefaultAudioSink.Builder(context)
+            .setAudioOutputProvider(
+                new ForwardingAudioOutputProvider(defaultProvider) {
+                  @Override
+                  public OutputConfig getOutputConfig(FormatConfig formatConfig)
+                      throws ConfigurationException {
+                    return super.getOutputConfig(formatConfig)
+                        .buildUpon()
+                        .setBufferSize(100)
+                        .build();
+                  }
+                })
+            .build();
     sink.setListener(
         new AudioSink.Listener() {
           @Override
@@ -122,8 +155,7 @@ public class DefaultAudioSinkTest {
     runOnMainSync(
         () -> {
           try {
-            // Set buffer size of ~1.1ms. The tiny size helps cause an underrun.
-            sink.configure(format, /* specifiedBufferSize= */ 100, /* outputChannels= */ null);
+            sink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
 
             // Prime AudioTrack with buffer larger than start threshold. Otherwise, AudioTrack
             // won't start playing.
@@ -161,8 +193,7 @@ public class DefaultAudioSinkTest {
                   .setChannelCount(2)
                   .setSampleRate(44_100)
                   .build();
-          audioSink.configure(
-              format, /* specifiedBufferSize= */ 2_000_000, /* outputChannels= */ null);
+          audioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
           audioSink.play();
         });
     AtomicBoolean handledBuffer = new AtomicBoolean();

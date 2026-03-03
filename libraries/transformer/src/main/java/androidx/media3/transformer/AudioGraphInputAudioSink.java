@@ -133,12 +133,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // AudioSink methods
 
   @Override
-  public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-      throws ConfigurationException {
-    checkArgument(supportsFormat(inputFormat));
+  public void configure(AudioSinkConfig audioSinkConfig) {
+    checkArgument(supportsFormat(audioSinkConfig.format));
     // TODO: b/303029969 - Evaluate throwing vs ignoring for null outputChannels.
-    checkArgument(outputChannels == null);
-    currentInputFormat = inputFormat;
+    checkArgument(audioSinkConfig.outputChannelMapping == null);
+    currentInputFormat = audioSinkConfig.format;
     isConfigurationPending = true;
   }
 

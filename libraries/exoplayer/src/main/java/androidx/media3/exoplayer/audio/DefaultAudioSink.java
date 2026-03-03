@@ -732,9 +732,9 @@ public final class DefaultAudioSink implements AudioSink {
     return applySkipping(applyMediaPositionParameters(positionUs));
   }
 
+  @SuppressWarnings("deprecation") // Supporting deprecated preferredBufferSizeOverride config
   @Override
-  public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
-      throws ConfigurationException {
+  public void configure(AudioSinkConfig audioSinkConfig) throws ConfigurationException {
     AudioProcessingPipeline audioProcessingPipeline;
     int inputPcmFrameSize;
     int outputPcmFrameSize;
@@ -742,6 +742,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     maybeAddAudioOutputProviderListener();
 
+    Format inputFormat = audioSinkConfig.format;
     if (MimeTypes.AUDIO_RAW.equals(inputFormat.sampleMimeType)) {
       checkArgument(Util.isEncodingLinearPcm(inputFormat.pcmEncoding));
 
@@ -766,7 +767,10 @@ public final class DefaultAudioSink implements AudioSink {
       trimmingAudioProcessor.setTrimFrameCount(
           inputFormat.encoderDelay, inputFormat.encoderPadding);
 
-      channelMappingAudioProcessor.setChannelMap(outputChannels);
+      channelMappingAudioProcessor.setChannelMap(
+          audioSinkConfig.outputChannelMapping == null
+              ? null
+              : audioSinkConfig.outputChannelMapping.toArray());
 
       AudioProcessor.AudioFormat outputFormat = new AudioProcessor.AudioFormat(inputFormat);
       try {
@@ -792,7 +796,10 @@ public final class DefaultAudioSink implements AudioSink {
     }
 
     OutputConfig outputConfig;
-    int preferredBufferSize = specifiedBufferSize != 0 ? specifiedBufferSize : C.LENGTH_UNSET;
+    int preferredBufferSize =
+        audioSinkConfig.preferredBufferSizeOverride != 0
+            ? audioSinkConfig.preferredBufferSizeOverride
+            : C.LENGTH_UNSET;
     FormatConfig formatConfig = getFormatConfig(afterProcessingFormat, preferredBufferSize);
     try {
       outputConfig = audioOutputProvider.getOutputConfig(formatConfig);

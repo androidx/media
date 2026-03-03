@@ -23,7 +23,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
@@ -44,7 +43,7 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
    * Resets the channel mapping. After calling this method, call {@link #configure(AudioFormat)} to
    * start using the new channel map.
    *
-   * <p>See {@link AudioSink#configure(Format, int, int[])}.
+   * <p>See {@link AudioSink#configure(AudioSink.AudioSinkConfig)}.
    *
    * @param outputChannels The mapping from input to output channel indices, or {@code null} to
    *     leave the input unchanged.

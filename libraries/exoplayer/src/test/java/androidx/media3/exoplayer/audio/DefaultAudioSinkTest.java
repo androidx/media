@@ -536,7 +536,7 @@ public final class DefaultAudioSinkTest {
             .setChannelCount(CHANNEL_COUNT_STEREO)
             .setSampleRate(SAMPLE_RATE_44_1)
             .build();
-    audioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+    audioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
     retryUntilTrue(
         () ->
             audioSink.handleBuffer(
@@ -770,7 +770,7 @@ public final class DefaultAudioSinkTest {
             .setChannelCount(2)
             .setSampleRate(44100)
             .build();
-    audioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+    audioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
     ByteBuffer silenceBuffer =
         ByteBuffer.allocateDirect(/* sample rate * bit depth * channels */ 44100 * 2 * 2)
             .order(ByteOrder.nativeOrder());
@@ -858,8 +858,7 @@ public final class DefaultAudioSinkTest {
         Assert.assertThrows(
             AudioSink.ConfigurationException.class,
             () ->
-                defaultAudioSink.configure(
-                    format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null));
+                defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build()));
     assertThat(thrown.format).isEqualTo(format);
   }
 
@@ -897,6 +896,12 @@ public final class DefaultAudioSinkTest {
         new ForwardingAudioOutputProvider(
             new AudioTrackAudioOutputProvider.Builder(context).build()) {
           @Override
+          public OutputConfig getOutputConfig(FormatConfig formatConfig)
+              throws ConfigurationException {
+            return super.getOutputConfig(formatConfig).buildUpon().setBufferSize(2_822_400).build();
+          }
+
+          @Override
           public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
             outputBufferSizes.add(config.bufferSize);
             if (outputBufferSizes.size() >= 3) {
@@ -911,7 +916,7 @@ public final class DefaultAudioSinkTest {
             .setEnableAudioOutputPlaybackParameters(true)
             .build();
     // Specifies a large buffer size.
-    configureDefaultAudioSink(/* channelCount= */ 8, /* specifiedBufferSize= */ 2_822_400);
+    configureDefaultAudioSink(/* channelCount= */ 8);
 
     assertThat(
             defaultAudioSink.handleBuffer(
@@ -932,6 +937,12 @@ public final class DefaultAudioSinkTest {
         new ForwardingAudioOutputProvider(
             new AudioTrackAudioOutputProvider.Builder(context).build()) {
           @Override
+          public OutputConfig getOutputConfig(FormatConfig formatConfig)
+              throws ConfigurationException {
+            return super.getOutputConfig(formatConfig).buildUpon().setBufferSize(2_822_400).build();
+          }
+
+          @Override
           public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
             outputBufferSizes.add(config.bufferSize);
             throw new InitializationException();
@@ -943,7 +954,7 @@ public final class DefaultAudioSinkTest {
             .setEnableAudioOutputPlaybackParameters(true)
             .build();
     // Specifies a large buffer size.
-    configureDefaultAudioSink(/* channelCount= */ 8, /* specifiedBufferSize= */ 2_822_400);
+    configureDefaultAudioSink(/* channelCount= */ 8);
 
     assertThat(
             defaultAudioSink.handleBuffer(
@@ -1150,21 +1161,6 @@ public final class DefaultAudioSinkTest {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }
 
-  private void configureDefaultAudioSink(int channelCount, int specifiedBufferSize)
-      throws AudioSink.ConfigurationException {
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_16BIT)
-            .setChannelCount(channelCount)
-            .setSampleRate(SAMPLE_RATE_44_1)
-            .setEncoderDelay(0)
-            .setEncoderPadding(0)
-            .build();
-    defaultAudioSink.configure(
-        format, /* specifiedBufferSize= */ specifiedBufferSize, /* outputChannels= */ null);
-  }
-
   private void configureDefaultAudioSink(int channelCount, int trimStartFrames, int trimEndFrames)
       throws AudioSink.ConfigurationException {
     Format format =
@@ -1176,7 +1172,7 @@ public final class DefaultAudioSinkTest {
             .setEncoderDelay(trimStartFrames)
             .setEncoderPadding(trimEndFrames)
             .build();
-    defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
   }
 
   private void configureDefaultAudioSinkWithOffload() throws AudioSink.ConfigurationException {
@@ -1189,7 +1185,7 @@ public final class DefaultAudioSinkTest {
             .build();
 
     defaultAudioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
-    defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+    defaultAudioSink.configure(new AudioSink.AudioSinkConfig.Builder(format).build());
   }
 
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.

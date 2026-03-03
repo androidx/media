@@ -126,9 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       finalAudioSink.configure(
-          Util.getPcmFormat(audioGraphAudioFormat),
-          /* specifiedBufferSize= */ 0,
-          /* outputChannels= */ null);
+          new AudioSink.AudioSinkConfig.Builder(Util.getPcmFormat(audioGraphAudioFormat)).build());
       outputAudioFormat = audioGraphAudioFormat;
     }
 

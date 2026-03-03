@@ -19,7 +19,6 @@ import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPrefer
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -158,8 +157,7 @@ public final class OggOpusPlaybackTest {
     }
 
     @Override
-    public void configure(
-        Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels) {
+    public void configure(AudioSinkConfig audioSinkConfig) {
       // Bypass configure of base DefaultAudioSink
     }
 
