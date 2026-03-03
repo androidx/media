@@ -158,6 +158,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final Object LOCK = new Object();
 
+  private static final MatrixTransformation MIRROR_Y_TRANSFORMATION =
+      presentationTimeUs -> {
+        Matrix mirrorY = new Matrix();
+        mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
+        return mirrorY;
+      };
+
   @SuppressWarnings("NonFinalStaticField") // Required for lazy initialization.
   @GuardedBy("LOCK")
   @Nullable
@@ -390,13 +397,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       List<Effect> effects, FrameReader frameReader) {
     ImmutableList.Builder<Effect> listBuilder = new ImmutableList.Builder<>();
     listBuilder.addAll(effects);
-    listBuilder.add(
-        (MatrixTransformation)
-            presentationTimeUs -> {
-              Matrix mirrorY = new Matrix();
-              mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
-              return mirrorY;
-            });
+    listBuilder.add(MIRROR_Y_TRANSFORMATION);
     listBuilder.add(frameReader);
     return listBuilder.build();
   }
@@ -444,6 +445,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
         throws VideoFrameProcessingException {
       return new FrameReadingGlShaderProgram(context, useHdr, internal);
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj == null || getClass() != obj.getClass()) {
+        return false;
+      }
+      FrameReader that = (FrameReader) obj;
+      return internal.equals(that.internal);
+    }
+
+    @Override
+    public int hashCode() {
+      return internal.hashCode();
     }
   }
 
