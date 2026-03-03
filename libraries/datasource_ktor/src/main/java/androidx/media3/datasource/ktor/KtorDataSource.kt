@@ -28,6 +28,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.HttpUtil
 import androidx.media3.datasource.TransferListener
 import com.google.common.base.Predicate
+import com.google.common.collect.Maps
 import com.google.common.net.HttpHeaders
 import io.ktor.client.HttpClient
 import io.ktor.client.request.headers
@@ -66,7 +67,7 @@ private constructor(
   private val defaultRequestProperties: HttpDataSource.RequestProperties?,
   private val contentTypePredicate: Predicate<String>?,
   private val requestProperties: HttpDataSource.RequestProperties,
-) : BaseDataSource(true), HttpDataSource {
+) : BaseDataSource(/* isNetwork= */ true), HttpDataSource {
 
   companion object {
     private const val TAG = "KtorDataSource"
@@ -186,13 +187,7 @@ private constructor(
   private var bytesRead: Long = 0
 
   override fun getUri(): Uri? {
-    return if (response != null) {
-      Uri.parse(response!!.request.url.toString())
-    } else if (dataSpec != null) {
-      dataSpec!!.uri
-    } else {
-      null
-    }
+    return this.response?.request?.url?.let { Uri.parse(it.toString()) } ?: this.dataSpec?.uri
   }
 
   override fun getResponseCode(): Int {
@@ -200,13 +195,10 @@ private constructor(
   }
 
   override fun getResponseHeaders(): Map<String, List<String>> {
-    val httpResponse = response ?: return emptyMap()
-    // ordered map use case-insensitive comparator to support case-insensitive lookup
-    val result = TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER)
-    for (name in httpResponse.headers.names()) {
-      result[name] = httpResponse.headers.getAll(name) ?: emptyList()
+    val headers = response?.headers ?: return emptyMap()
+    return Maps.asMap<String, List<String>>(headers.names()) {
+      name -> headers.getAll(name) as List<String>
     }
-    return result
   }
 
   override fun setRequestProperty(name: String, value: String) {
@@ -241,9 +233,9 @@ private constructor(
     }
 
     val mergedHeaders = HashMap<String, String>()
-    defaultRequestProperties?.snapshot?.forEach { (key, value) -> mergedHeaders[key] = value }
-    requestProperties.snapshot.forEach { (key, value) -> mergedHeaders[key] = value }
-    dataSpec.httpRequestHeaders.forEach { (key, value) -> mergedHeaders[key] = value }
+    defaultRequestProperties?.snapshot?.let { properties -> mergedHeaders.putAll(properties) }
+    mergedHeaders.putAll(requestProperties.snapshot)
+    mergedHeaders.putAll(dataSpec.httpRequestHeaders)
 
     val httpResponse: HttpResponse
     val channel: ByteReadChannel
@@ -255,24 +247,20 @@ private constructor(
               url(urlString)
 
               headers {
-                mergedHeaders.forEach { (key, value) -> append(key, value) }
+                mergedHeaders.forEach { (key, value) -> set(key, value) }
 
                 val rangeHeader =
                   HttpUtil.buildRangeRequestHeader(dataSpec.position, dataSpec.length)
-                if (rangeHeader != null) {
-                  append(HttpHeaders.RANGE, rangeHeader)
-                }
+                rangeHeader?.let { set(HttpHeaders.RANGE, rangeHeader) }
 
-                if (userAgent != null) {
-                  append(HttpHeaders.USER_AGENT, userAgent)
-                }
+                userAgent?.let { set(HttpHeaders.USER_AGENT, userAgent) }
 
-                if (cacheControl != null) {
-                  append(HttpHeaders.CACHE_CONTROL, cacheControl)
+                cacheControl?.let {
+                  set(HttpHeaders.CACHE_CONTROL, cacheControl)
                 }
 
                 if (!dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP)) {
-                  append(HttpHeaders.ACCEPT_ENCODING, "identity")
+                  set(HttpHeaders.ACCEPT_ENCODING, "identity")
                 }
               }
 
