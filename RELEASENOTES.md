@@ -40,6 +40,8 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Hide playback position from the accessibility service to prevent
+        continuous announcement update when `PlayerControlView` is visible.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
