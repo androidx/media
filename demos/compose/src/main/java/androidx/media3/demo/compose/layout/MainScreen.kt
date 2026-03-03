@@ -18,6 +18,7 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,14 +54,19 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.compose.material3.buttons.trackselection.TrackSelectionDialogButton
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedToggleButton
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
 
+private const val TAG = "MainScreen"
+
 @Composable
 fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
+  Log.d(TAG, "MainScreen: mediaItems=$mediaItems")
+
   val context = LocalContext.current
   var player by remember { mutableStateOf<Player?>(null) }
 
@@ -163,6 +169,7 @@ private fun BottomControlsWithLabeledProgress(
       ) {
         PositionAndDurationText(player, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.weight(1f))
+        TrackSelectionDialogButton(player)
         PlaybackSpeedToggleButton(
           player,
           colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
