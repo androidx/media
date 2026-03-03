@@ -1,5 +1,13 @@
 # Release notes
 
+### Unreleased changes
+
+*   UI:
+    *   Hide playback position from the accessibility service to prevent
+        continuous announcement update when `PlayerControlView` is visible.
+
+## 1.10
+
 ### 1.10.0-beta01 (2026-02-23)
 
 This release includes the following changes since
