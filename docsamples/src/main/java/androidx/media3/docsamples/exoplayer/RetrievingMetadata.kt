@@ -17,18 +17,12 @@
 
 package androidx.media3.docsamples.exoplayer
 
-import android.content.Context
 import androidx.annotation.OptIn
-import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
-import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.source.TrackGroupArray
 import androidx.media3.extractor.metadata.MotionPhotoMetadata
-import androidx.media3.inspector.MetadataRetriever
-import java.io.IOException
-import kotlinx.coroutines.guava.await
 
 // Code snippets for the Retrieving metadata guide.
 
@@ -44,27 +38,6 @@ object RetrievingMetadataKt {
       }
       // [END on_media_metadata_changed]
     }
-  }
-
-  @OptIn(UnstableApi::class)
-  private fun handleMetadata(trackGroups: TrackGroupArray, timeline: Timeline, durationUs: Long) {}
-
-  private fun handleFailure(throwable: Throwable) {}
-
-  @OptIn(UnstableApi::class)
-  suspend fun retrieveMetadataWithoutPlayback(context: Context, mediaItem: MediaItem) {
-    // [START retrieve_metadata_without_playback]
-    try {
-      MetadataRetriever.Builder(context, mediaItem).build().use { metadataRetriever ->
-        val trackGroups = metadataRetriever.retrieveTrackGroups().await()
-        val timeline = metadataRetriever.retrieveTimeline().await()
-        val durationUs = metadataRetriever.retrieveDurationUs().await()
-        handleMetadata(trackGroups, timeline, durationUs)
-      }
-    } catch (e: IOException) {
-      handleFailure(e)
-    }
-    // [END retrieve_metadata_without_playback]
   }
 
   @OptIn(UnstableApi::class)

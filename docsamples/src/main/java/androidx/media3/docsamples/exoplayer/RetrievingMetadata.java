@@ -15,9 +15,7 @@
  */
 package androidx.media3.docsamples.exoplayer;
 
-import android.content.Context;
 import androidx.annotation.OptIn;
-import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.Player;
@@ -26,12 +24,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
-import androidx.media3.inspector.MetadataRetriever;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import java.util.List;
-import java.util.concurrent.Executor;
 
 /** Code snippets for the Retrieving metadata guide. */
 @SuppressWarnings({
@@ -63,38 +55,6 @@ public final class RetrievingMetadata {
       TrackGroupArray trackGroups, Timeline timeline, Long durationUs) {}
 
   private static void handleFailure(Throwable throwable) {}
-
-  @OptIn(markerClass = UnstableApi.class)
-  public static void retrieveMetadataWithoutPlayback(
-      Context context, MediaItem mediaItem, Executor executor) {
-    // [START retrieve_metadata_without_playback]
-    try (MetadataRetriever metadataRetriever =
-        new MetadataRetriever.Builder(context, mediaItem).build()) {
-      ListenableFuture<TrackGroupArray> trackGroupsFuture = metadataRetriever.retrieveTrackGroups();
-      ListenableFuture<Timeline> timelineFuture = metadataRetriever.retrieveTimeline();
-      ListenableFuture<Long> durationUsFuture = metadataRetriever.retrieveDurationUs();
-      ListenableFuture<List<Object>> allFutures =
-          Futures.allAsList(trackGroupsFuture, timelineFuture, durationUsFuture);
-      Futures.addCallback(
-          allFutures,
-          new FutureCallback<List<Object>>() {
-            @Override
-            public void onSuccess(List<Object> result) {
-              handleMetadata(
-                  Futures.getUnchecked(trackGroupsFuture),
-                  Futures.getUnchecked(timelineFuture),
-                  Futures.getUnchecked(durationUsFuture));
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              handleFailure(t);
-            }
-          },
-          executor);
-    }
-    // [END retrieve_metadata_without_playback]
-  }
 
   @OptIn(markerClass = UnstableApi.class)
   private static void handleMotionPhotoMetadata(MotionPhotoMetadata motionPhotoMetadata) {}
