@@ -39,6 +39,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Period;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -941,6 +942,98 @@ public final class AdsMediaSourceTest {
 
     assertThrows(
         IllegalStateException.class, () -> setAdPlaybackState(withoutLivePostRollPlaceholder));
+  }
+
+  @Test
+  public void onAdPlaybackState_mediaItemChangedForAvailableAd_throwsIllegalStateException() {
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withAdDurationsUs(/* adGroupIndex= */ 0, 1_000L)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://example.com/ad0-0"));
+    setAdPlaybackState(adPlaybackState);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            setAdPlaybackState(
+                adPlaybackState.withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    MediaItem.fromUri("https://example.com/ad0-1"))));
+  }
+
+  @Test
+  public void onAdPlaybackState_mediaItemChangedForPlayedAd_passesValidationWithoutException() {
+    AdPlaybackState adPlaybackStateWithPlayedAd =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://example.com/ad0-0"))
+            .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+
+    assertUpdatingAdPlaybackStateWithDifferentMediaItem(adPlaybackStateWithPlayedAd);
+  }
+
+  @Test
+  public void onAdPlaybackState_mediaItemChangedForSkippedAd_passesValidationWithoutException() {
+    AdPlaybackState adPlaybackStateWithSkippedAd =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://example.com/ad0-0"))
+            .withSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+
+    assertUpdatingAdPlaybackStateWithDifferentMediaItem(adPlaybackStateWithSkippedAd);
+  }
+
+  @Test
+  public void onAdPlaybackState_mediaItemChangedForFailedAd_passesValidationWithoutException() {
+    AdPlaybackState adPlaybackStateWithFailedAd =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                MediaItem.fromUri("https://example.com/ad0-0"))
+            .withAdLoadError(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+
+    assertUpdatingAdPlaybackStateWithDifferentMediaItem(adPlaybackStateWithFailedAd);
+  }
+
+  private void assertUpdatingAdPlaybackStateWithDifferentMediaItem(
+      AdPlaybackState initialAdPlaybackState) {
+    setAdPlaybackState(initialAdPlaybackState);
+    AdPlaybackState adPlaybackStateWithDifferentMediaItem =
+        initialAdPlaybackState.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            MediaItem.fromUri("https://example.com/ad0-new"));
+
+    setAdPlaybackState(adPlaybackStateWithDifferentMediaItem);
+
+    ArgumentCaptor<Timeline> timeline = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(2)).onSourceInfoRefreshed(any(), timeline.capture());
+    assertThat(
+            timeline.getAllValues().stream()
+                .map((t) -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
+        .containsExactly(initialAdPlaybackState, adPlaybackStateWithDifferentMediaItem)
+        .inOrder();
   }
 
   @Test

@@ -448,8 +448,9 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       checkState(oldAdGroup.count <= newAdGroup.count);
       checkState(oldAdGroup.timeUs == newAdGroup.timeUs);
       for (int j = 0; j < oldAdGroup.count; j++) {
-        if (oldAdGroup.mediaItems[j] != null) {
-          checkState(oldAdGroup.mediaItems[j].equals(newAdGroup.mediaItems[j]));
+        MediaItem oldMediaItem = oldAdGroup.mediaItems[j];
+        if (oldMediaItem != null && oldAdGroup.states[j] == AdPlaybackState.AD_STATE_AVAILABLE) {
+          checkState(oldMediaItem.equals(newAdGroup.mediaItems[j]));
         }
       }
     }
