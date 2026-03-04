@@ -31,4 +31,12 @@
   <string name="text_color">Text color</string>
   <string name="unknown_color">Unknown color</string>
   <string name="alpha">Alpha</string>
+  <string name="lottie_overlay">Lottie Overlay</string>
+  <string name="lottie_asset">Asset</string>
+  <string name="lottie_effect_name_counter">10s Counter</string>
+  <string name="lottie_effect_name_counter_fast">10s Counter (2x Speed)</string>
+  <string name="lottie_effect_name_swoosh">Swoosh</string>
+  <string name="lottie_effect_name_heart">Heart</string>
+  <string name="lottie_effect_name_asset_folder">Asset from folder</string>
+  <string name="lottie_effect_name_asset_encoded">Assets encoded</string>
 </resources>

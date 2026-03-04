@@ -55,7 +55,6 @@ import androidx.media3.demo.composition.data.OverlayAsset
 import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
-import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
@@ -129,10 +128,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         RgbFilter.createGrayscaleFilter(),
       )
       put(application.resources.getString(R.string.effect_name_dizzy_crop), createDizzyCropEffect())
-
-      LottieEffectFactory.buildAvailableEffects(getApplication()).forEach { (name, effect) ->
-        put(name, effect)
-      }
     }
   }
 

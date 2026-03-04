@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.demo.composition.effect
+package androidx.media3.demo.effect
 
 import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.Effect
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.demo.composition.R
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.lottie.LottieOverlay

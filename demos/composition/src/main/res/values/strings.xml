@@ -45,12 +45,6 @@
   <string name="title_activity_main">MainActivity</string>
   <string name="effect_name_grayscale">Grayscale</string>
   <string name="effect_name_dizzy_crop">Dizzy Crop</string>
-  <string name="lottie_effect_name_counter">Lottie: 10s Counter</string>
-  <string name="lottie_effect_name_counter_fast">Lottie: 10s Counter (2x Speed)</string>
-  <string name="lottie_effect_name_swoosh">Lottie: Swoosh</string>
-  <string name="lottie_effect_name_heart">Lottie: Heart</string>
-  <string name="lottie_effect_name_asset_folder">Lottie: Asset from folder</string>
-  <string name="lottie_effect_name_asset_encoded">Lottie: Assets encoded</string>
   <string name="end_placement_mode">End Placement Mode</string>
   <string name="overlay_preview">Overlay Preview</string>
   <string name="placed_overlays">Placed Overlays</string>

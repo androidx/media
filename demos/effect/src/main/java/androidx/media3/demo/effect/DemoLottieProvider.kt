@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.demo.composition.effect
+package androidx.media3.demo.effect
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -87,9 +87,10 @@ internal class DemoLottieProvider(
    * Creates a map of font names to [Typeface] objects for the loaded composition.
    *
    * <p>This method iterates through the fonts defined in the Lottie JSON. It expects to find
-   * corresponding font files in the `assets/fonts/` directory. The filename is derived from the
-   * font's name by removing all spaces and appending ".ttf" (e.g., "Custom Font" becomes
-   * "CustomFont.ttf").
+   * corresponding font files in the `assets/fonts/` directory. The filename is constructed by
+   * taking the font's name, removing all space characters, and appending ".ttf" (e.g., "Custom
+   * Font" becomes "CustomFont.ttf"). This mapping is basic and may not work for font names
+   * containing characters other than letters, numbers, and spaces.
    *
    * <p>If a font cannot be loaded from the assets, this method will fall back to creating a system
    * font that matches the family name and style as closely as possible.
@@ -100,6 +101,8 @@ internal class DemoLottieProvider(
       var typeface: Typeface
 
       try {
+        // Note: This filename derivation is basic. It only removes spaces. Font names with other
+        // special characters may not be resolved correctly.
         val fontFileName = font.replace(" ", "") + ".ttf"
         typeface = Typeface.createFromAsset(context.assets, "$FONT_PATH/$fontFileName")
       } catch (e: Exception) {

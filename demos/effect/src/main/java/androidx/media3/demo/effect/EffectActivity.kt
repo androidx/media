@@ -82,6 +82,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.demo.effect.ui.DropdownControlItem
 import androidx.media3.effect.Contrast
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.StaticOverlaySettings
@@ -293,7 +294,11 @@ class EffectActivity : ComponentActivity() {
   @OptIn(UnstableApi::class)
   @Composable
   private fun EffectControls(enabled: Boolean, onApplyEffectsClicked: (List<Effect>) -> Unit) {
-    var effectControlsState by remember { mutableStateOf(EffectControlsState()) }
+    var effectControlsState by remember {
+      mutableStateOf(
+        EffectControlsState(lottieOverlayName = getString(R.string.lottie_effect_name_counter))
+      )
+    }
 
     Button(
       enabled = enabled && effectControlsState.effectsChanged,
@@ -308,9 +313,16 @@ class EffectActivity : ComponentActivity() {
         if (effectControlsState.confettiOverlayChecked) {
           overlaysBuilder.add(ConfettiOverlay())
         }
+
         if (effectControlsState.clockOverlayChecked) {
           overlaysBuilder.add(ClockOverlay())
         }
+
+        if (effectControlsState.lottieOverlayChecked) {
+          val lottieEffect = lottieOverlayOptions[effectControlsState.lottieOverlayName]
+          lottieEffect?.let { effectsList += lottieEffect }
+        }
+
         val textOverlayText = effectControlsState.textOverlayText
         if (effectControlsState.textOverlayChecked && textOverlayText != null) {
           val spannableOverlayText = SpannableString(textOverlayText)
@@ -406,6 +418,33 @@ class EffectActivity : ComponentActivity() {
       }
       item {
         EffectItem(
+          name = stringResource(R.string.lottie_overlay),
+          enabled = enabled,
+          onCheckedChange = { checked ->
+            onEffectControlsStateChange(
+              effectControlsState.copy(effectsChanged = true, lottieOverlayChecked = checked)
+            )
+          },
+        ) {
+          Column {
+            Row {
+              DropdownControlItem(
+                title = stringResource(R.string.lottie_asset),
+                value =
+                  effectControlsState.lottieOverlayName ?: lottieOverlayOptions.keys.toList()[0],
+                options = lottieOverlayOptions.keys.toList(),
+                onValueChange = { value ->
+                  onEffectControlsStateChange(
+                    effectControlsState.copy(effectsChanged = true, lottieOverlayName = value)
+                  )
+                },
+              )
+            }
+          }
+        }
+      }
+      item {
+        EffectItem(
           name = stringResource(R.string.custom_text_overlay),
           enabled = enabled,
           onCheckedChange = { checked ->
@@ -470,48 +509,10 @@ class EffectActivity : ComponentActivity() {
     }
   }
 
-  @kotlin.OptIn(ExperimentalMaterial3Api::class)
-  @Composable
-  fun ColorsDropDownMenu(color: Color, onItemSelected: (Color) -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-      expanded = expanded,
-      onExpandedChange = { expanded = it },
-      modifier = Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
-    ) {
-      OutlinedTextField(
-        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
-        value = COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
-        onValueChange = {},
-        readOnly = true,
-        singleLine = true,
-        label = { Text(stringResource(R.string.text_color)) },
-        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-        colors = ExposedDropdownMenuDefaults.textFieldColors(),
-      )
-      ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        for (color in COLORS) {
-          DropdownMenuItem(
-            text = {
-              Text(
-                COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
-                style = MaterialTheme.typography.bodyLarge,
-              )
-            },
-            onClick = {
-              onItemSelected(color)
-              expanded = false
-            },
-            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
-            leadingIcon = {
-              Box(
-                modifier =
-                  Modifier.size(dimensionResource(R.dimen.color_circle_size))
-                    .background(color, CircleShape)
-              )
-            },
-          )
-        }
+  private val lottieOverlayOptions: Map<String, Effect> by lazy {
+    buildMap {
+      LottieEffectFactory.buildAvailableEffects(application).forEach { (name, effect) ->
+        put(name, effect)
       }
     }
   }
@@ -559,15 +560,63 @@ class EffectActivity : ComponentActivity() {
     }
   }
 
+  @kotlin.OptIn(ExperimentalMaterial3Api::class)
+  @Composable
+  fun ColorsDropDownMenu(color: Color, onItemSelected: (Color) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+      expanded = expanded,
+      onExpandedChange = { expanded = it },
+      modifier = Modifier.fillMaxWidth().padding(bottom = dimensionResource(R.dimen.large_padding)),
+    ) {
+      OutlinedTextField(
+        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        value = COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
+        onValueChange = {},
+        readOnly = true,
+        singleLine = true,
+        label = { Text(stringResource(R.string.text_color)) },
+        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+        colors = ExposedDropdownMenuDefaults.textFieldColors(),
+      )
+      ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        for (color in COLORS) {
+          DropdownMenuItem(
+            text = {
+              Text(
+                COLOR_NAMES[color] ?: stringResource(R.string.unknown_color),
+                style = MaterialTheme.typography.bodyLarge,
+              )
+            },
+            onClick = {
+              onItemSelected(color)
+              expanded = false
+            },
+            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+            leadingIcon = {
+              Box(
+                modifier =
+                  Modifier.size(dimensionResource(R.dimen.color_circle_size))
+                    .background(color, CircleShape)
+              )
+            },
+          )
+        }
+      }
+    }
+  }
+
   private data class EffectControlsState(
     val effectsChanged: Boolean = false,
     val contrastValue: Float = 0f,
     val confettiOverlayChecked: Boolean = false,
     val textOverlayChecked: Boolean = false,
     val clockOverlayChecked: Boolean = false,
+    val lottieOverlayChecked: Boolean = false,
     val textOverlayText: String? = null,
     val textOverlayColor: Color = COLORS[0],
     val textOverlayAlpha: Float = 1f,
+    val lottieOverlayName: String? = null,
   )
 
   private companion object {
