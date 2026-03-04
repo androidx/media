@@ -914,7 +914,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       throws ExoPlaybackException {
     super.onEnabled(joining, mayRenderStartOfStream);
     boolean tunneling = getConfiguration().tunneling;
-    checkState(!tunneling || tunnelingAudioSessionId != C.AUDIO_SESSION_ID_UNSET);
+    if (tunneling && tunnelingAudioSessionId == C.AUDIO_SESSION_ID_UNSET) {
+      Log.w(TAG, "MediaCodecVideoRenderer onEnabled in tunneling mode, but the tunnelingAudioSessionId has not yet been set.");
+    }
     if (this.tunneling != tunneling) {
       this.tunneling = tunneling;
       releaseCodec();
