@@ -42,6 +42,8 @@
         describes.
 *   IMA extension:
 *   Session:
+    *   Fix notification artwork icon scaling on Android Q
+        ([#3084](https://github.com/androidx/media/issues/3084)).
 *   UI:
     *   Hide playback position from the accessibility service to prevent
         continuous announcement update when `PlayerControlView` is visible.
