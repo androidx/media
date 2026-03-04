@@ -28,6 +28,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.primitives.ImmutableIntArray;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,9 +61,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withPcmFloatSamples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {2, 1, 0});
+    processor.setChannelMap(ImmutableIntArray.of(2, 1, 0));
     processor.configure(PCM_FLOAT_LCR_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new float[] {1f, 2f, 3f, 4f, 5f, 6f}));
     float[] output = createFloatArray(processor.getOutput());
@@ -73,9 +74,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withPcm32Samples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0));
     processor.configure(PCM_32BIT_STEREO_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new int[] {1, 2, 3, 4, 5, 6}));
     int[] output = createIntArray(processor.getOutput());
@@ -86,9 +87,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withPcm24Samples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0));
     processor.configure(PCM_24BIT_STEREO_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createInt24ByteBuffer(new int[] {0xff0001, 0x00ff02, 0x0300ff, 0x40ff00}));
     int[] output = createInt24Array(processor.getOutput());
@@ -99,9 +100,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withPcm16Samples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0));
     processor.configure(PCM_16BIT_STEREO_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new short[] {1, 2, 3, 4, 5, 6}));
     short[] output = createShortArray(processor.getOutput());
@@ -112,9 +113,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withPcm8Samples_mapsOutputCorrectly()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0));
     processor.configure(PCM_8BIT_STEREO_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new byte[] {1, 2, 3, 4, 5, 6}));
     byte[] output = createByteArray(processor.getOutput());
@@ -125,9 +126,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withMoreOutputChannels_duplicatesSamples()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0, 1});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0, 1));
     processor.configure(PCM_16BIT_STEREO_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new short[] {1, 2, 3, 4}));
     short[] output = createShortArray(processor.getOutput());
@@ -138,9 +139,9 @@ public class ChannelMappingAudioProcessorTest {
   public void channelMap_withLessOutputChannels_ignoresSamples()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {0, 1});
+    processor.setChannelMap(ImmutableIntArray.of(0, 1));
     processor.configure(PCM_FLOAT_LCR_FORMAT);
-    processor.flush();
+    processor.flush(AudioProcessor.StreamMetadata.DEFAULT);
 
     processor.queueInput(createByteBuffer(new float[] {1f, 2f, 3f, 4f, 5f, 6f}));
     float[] output = createFloatArray(processor.getOutput());
@@ -148,10 +149,9 @@ public class ChannelMappingAudioProcessorTest {
   }
 
   @Test
-  public void setChannelMap_withNonExistentInputChannels_throwsInConfigure()
-      throws AudioProcessor.UnhandledAudioFormatException {
+  public void setChannelMap_withNonExistentInputChannels_throwsInConfigure() {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {1, 0, 2});
+    processor.setChannelMap(ImmutableIntArray.of(1, 0, 2));
     Assert.assertThrows(
         AudioProcessor.UnhandledAudioFormatException.class,
         () -> processor.configure(PCM_16BIT_STEREO_FORMAT));
@@ -168,7 +168,7 @@ public class ChannelMappingAudioProcessorTest {
   public void configure_withDifferentInputAndOutputChannelCounts_returnsOutputChannelCount()
       throws AudioProcessor.UnhandledAudioFormatException {
     ChannelMappingAudioProcessor processor = new ChannelMappingAudioProcessor();
-    processor.setChannelMap(new int[] {0});
+    processor.setChannelMap(ImmutableIntArray.of(0));
     assertThat(processor.configure(PCM_FLOAT_LCR_FORMAT).channelCount).isEqualTo(1);
   }
 }

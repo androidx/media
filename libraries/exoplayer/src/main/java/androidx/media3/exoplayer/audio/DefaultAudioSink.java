@@ -767,10 +767,7 @@ public final class DefaultAudioSink implements AudioSink {
       trimmingAudioProcessor.setTrimFrameCount(
           inputFormat.encoderDelay, inputFormat.encoderPadding);
 
-      channelMappingAudioProcessor.setChannelMap(
-          audioSinkConfig.outputChannelMapping == null
-              ? null
-              : audioSinkConfig.outputChannelMapping.toArray());
+      channelMappingAudioProcessor.setChannelMap(audioSinkConfig.outputChannelMapping);
 
       AudioProcessor.AudioFormat outputFormat = new AudioProcessor.AudioFormat(inputFormat);
       try {
