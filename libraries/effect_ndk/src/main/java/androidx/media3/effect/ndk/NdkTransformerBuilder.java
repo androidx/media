@@ -19,6 +19,7 @@ import android.content.Context;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
+import androidx.media3.effect.HardwareBufferSurfaceRenderer;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.transformer.Transformer;
 
@@ -43,7 +44,11 @@ public class NdkTransformerBuilder {
    */
   public static Transformer.Builder create(Context context) {
     HardwareBufferSurfaceRenderer hardwareBufferRenderer =
-        HardwareBufferSurfaceRenderer.create(context, NO_OP.INSTANCE, /* errorConsumer= */ e -> {});
+        HardwareBufferSurfaceRenderer.create(
+            context,
+            /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE,
+            /* listener= */ NO_OP.INSTANCE,
+            /* errorConsumer= */ e -> {});
     return new Transformer.Builder(context).setHardwareBufferRenderer(hardwareBufferRenderer);
   }
 

@@ -66,6 +66,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;

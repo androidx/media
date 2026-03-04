@@ -82,6 +82,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
@@ -606,6 +607,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   // CompositionPlayer only receives events when frames are rendered on screen when media3
   // components are used.
   private final boolean packetConsumerReportsRenderingEvents;
+
   @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
   /** Maps from input index to whether the video track is selected in that sequence. */

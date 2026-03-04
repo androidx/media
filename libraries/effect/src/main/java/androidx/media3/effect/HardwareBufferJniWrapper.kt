@@ -13,24 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk
+package androidx.media3.effect
 
 import android.graphics.Bitmap
 import android.hardware.HardwareBuffer
 import androidx.annotation.RequiresApi
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.effect.HardwareBufferJniWrapper
 
-/** JNI methods for HardwareBuffer interaction. */
+/** Wrapper for [HardwareBuffer] JNI methods. */
 @RequiresApi(26)
-@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-object HardwareBufferJni : HardwareBufferJniWrapper {
-  init {
-    System.loadLibrary("hardwareBufferJNI")
-  }
-
+@ExperimentalApi // TODO: b/474075198: Remove once FrameConsumer API is stable.
+interface HardwareBufferJniWrapper {
   /** Creates an EGLImage from a [HardwareBuffer]. */
-  external override fun nativeCreateEglImageFromHardwareBuffer(
+  fun nativeCreateEglImageFromHardwareBuffer(
     displayHandle: Long,
     hardwareBuffer: HardwareBuffer,
   ): Long
@@ -38,14 +33,11 @@ object HardwareBufferJni : HardwareBufferJniWrapper {
   /**
    * Binds an EGLImage to the specified texture target. Returns whether the binding is successful.
    */
-  external override fun nativeBindEGLImage(target: Int, eglImageHandle: Long): Boolean
+  fun nativeBindEGLImage(target: Int, eglImageHandle: Long): Boolean
 
   /** Destroys an EGLImage. Returns whether the deletion is successful. */
-  external override fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
+  fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
 
   /** Copies a bitmap to a HardwareBuffer. Returns whether the copy is successful. */
-  external override fun nativeCopyBitmapToHardwareBuffer(
-    bitmap: Bitmap,
-    hb: HardwareBuffer,
-  ): Boolean
+  fun nativeCopyBitmapToHardwareBuffer(bitmap: Bitmap, hb: HardwareBuffer): Boolean
 }

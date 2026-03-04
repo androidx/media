@@ -37,7 +37,7 @@ class HardwareBufferJniTest {
 
   @Test
   fun nativeCopyBitmapToHardwareBuffer_isCorrect() {
-    val inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
     val hardwareBuffer =
       HardwareBuffer.create(
         inputBitmap.width,
@@ -70,7 +70,7 @@ class HardwareBufferJniTest {
 
   @Test
   fun nativeCopyBitmapToHardwareBuffer_mismatchedDimensions_returnsFalse() {
-    val inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
     val hardwareBuffer =
       HardwareBuffer.create(
         inputBitmap.width * 2,
@@ -90,7 +90,7 @@ class HardwareBufferJniTest {
 
   @Test
   fun nativeCopyBitmapToHardwareBuffer_incorrectUsage_returnsFalse() {
-    val inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
     val hardwareBuffer =
       HardwareBuffer.create(
         inputBitmap.width,
@@ -110,7 +110,7 @@ class HardwareBufferJniTest {
 
   @Test
   fun nativeCopyBitmapToHardwareBuffer_incorrectFormat_returnsFalse() {
-    val inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
     val hardwareBuffer =
       HardwareBuffer.create(
         inputBitmap.width,
@@ -126,5 +126,9 @@ class HardwareBufferJniTest {
     } finally {
       hardwareBuffer.close()
     }
+  }
+
+  private companion object {
+    const val FILE_PATH = "media/png/first_frame_1920x1080.png"
   }
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,46 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk
+package androidx.media3.effect
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.PixelFormat
-import android.media.Image
+import android.graphics.ImageFormat
+import android.graphics.PixelFormat.RGBA_8888
+import android.hardware.HardwareBuffer
 import android.media.ImageReader
+import android.media.MediaFormat
 import androidx.media3.common.Format
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.GlUtil
+import androidx.media3.common.util.MediaFormatUtil
 import androidx.media3.common.util.Util
-import androidx.media3.common.util.Util.isRunningOnEmulator
-import androidx.media3.effect.GlTextureFrame
-import androidx.media3.effect.GlTextureFrameRenderer
-import androidx.media3.effect.HardwareBufferFrame
-import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
-import androidx.media3.effect.SingleContextGlObjectsProvider
-import androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS
+import androidx.media3.effect.ndk.HardwareBufferJni
+import androidx.media3.test.utils.AssetInfo
 import androidx.media3.test.utils.BitmapPixelTestUtil
-import androidx.media3.transformer.Composition
-import androidx.media3.transformer.CompositionPlayer
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.EditedMediaItemSequence
+import androidx.media3.test.utils.DecodeOneFrameUtil
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
-import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
-import com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -65,7 +55,7 @@ import org.junit.rules.TestName
 import org.junit.runner.RunWith
 
 /** Tests for [HardwareBufferToGlTextureFrameProcessor]. */
-@SdkSuppress(minSdkVersion = 26)
+@SdkSuppress(minSdkVersion = 29)
 @RunWith(AndroidJUnit4::class)
 class HardwareBufferToGlTextureFrameProcessorTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
@@ -77,8 +67,6 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     HardwareBufferToGlTextureFrameProcessor
   private var renderedBitmapDeferred: CompletableDeferred<Bitmap>? = null
   private var toBitmapConsumer: PacketConsumer<GlTextureFrame>? = null
-  private var glTextureFrameRenderer: GlTextureFrameRenderer? = null
-  private var outputImageReader: ImageReader? = null
 
   @get:Rule val testName = TestName()
 
@@ -89,6 +77,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
         context,
         glExecutorService,
         glObjectsProvider,
+        HardwareBufferJni,
         errorConsumer,
       )
   }
@@ -99,11 +88,9 @@ class HardwareBufferToGlTextureFrameProcessorTest {
       withContext(glDispatcher) {
         toBitmapConsumer?.release()
         hardwareBufferToGlTextureFrameProcessor?.release()
-        glTextureFrameRenderer?.release()
         glObjectsProvider.release(GlUtil.getDefaultEglDisplay())
       }
     }
-    outputImageReader?.close()
     glExecutorService.shutdown()
   }
 
@@ -114,7 +101,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     toBitmapConsumer = ConvertToBitmapConsumer(glDispatcher, renderedBitmapDeferred!!)
     hardwareBufferToGlTextureFrameProcessor.setOutput(toBitmapConsumer!!)
 
-    val argb8888Bitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val argb8888Bitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png")
     val hardwareBitmap = argb8888Bitmap.copy(Bitmap.Config.HARDWARE, false)
     val argb8888HardwareBuffer = hardwareBitmap.hardwareBuffer
 
@@ -151,84 +138,59 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     argb8888HardwareBufferFrame.release(/* releaseFence= */ null)
   }
 
-  @SdkSuppress(minSdkVersion = 28)
+  @SdkSuppress(minSdkVersion = 29)
   @Test
   fun queuePacket_withFirstFrameAsYuv420HardwareBuffer_outputsCorrectGlTexture() = runBlocking {
-    glTextureFrameRenderer =
-      GlTextureFrameRenderer.create(
-        context,
-        listeningDecorator(glExecutorService),
-        glObjectsProvider,
-        { e -> errorConsumer.accept(e) },
-        GlTextureFrameRenderer.Listener.NO_OP,
+    val inputImageReader =
+      ImageReader.newInstance(
+        TEST_VIDEO_WIDTH,
+        TEST_VIDEO_HEIGHT,
+        ImageFormat.YUV_420_888,
+        /* maxImages= */ 1,
+        HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
       )
-    outputImageReader =
-      ImageReader.newInstance(TEST_VIDEO_WIDTH, TEST_VIDEO_HEIGHT, PixelFormat.RGBA_8888, 1)
-    glTextureFrameRenderer?.setRenderOutput(
-      SurfaceInfo(
-        outputImageReader!!.surface,
-        outputImageReader!!.width,
-        outputImageReader!!.height,
-      )
-    )
-    val composition =
-      Composition.Builder(
-          EditedMediaItemSequence.withVideoFrom(
-            listOf(
-              EditedMediaItem.Builder(
-                  MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri)
-                    .buildUpon()
-                    .setClippingConfiguration(
-                      // One frame
-                      MediaItem.ClippingConfiguration.Builder().setEndPositionMs(500).build()
-                    )
-                    .build()
-                )
-                .setDurationUs(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoDurationUs)
-                .build()
-            )
-          )
-        )
-        .build()
-    val imageAcquiredDeferred = CompletableDeferred<Image>()
-    outputImageReader?.setOnImageAvailableListener(
-      { reader ->
-        if (!imageAcquiredDeferred.isCompleted) {
-          imageAcquiredDeferred.complete(checkNotNull(reader).acquireNextImage())
+    val inputMediaFormatRef = AtomicReference<MediaFormat>()
+    DecodeOneFrameUtil.decodeOneMediaItemFrame(
+      MediaItem.fromUri(AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri),
+      object : DecodeOneFrameUtil.Listener {
+        override fun onContainerExtracted(mediaFormat: MediaFormat) {}
+
+        override fun onFrameDecoded(mediaFormat: MediaFormat) {
+          inputMediaFormatRef.set(mediaFormat)
         }
       },
-      Util.createHandlerForCurrentOrMainLooper(),
+      inputImageReader.surface,
     )
-    hardwareBufferToGlTextureFrameProcessor.setOutput(checkNotNull(glTextureFrameRenderer))
-    val compositionPlayer =
-      CompositionPlayer.Builder(context)
-        .setPacketConsumerFactory {
-          PassthroughPacketConsumer(hardwareBufferToGlTextureFrameProcessor)
-        }
-        .setGlObjectsProvider(glObjectsProvider)
+    renderedBitmapDeferred = CompletableDeferred()
+    toBitmapConsumer = ConvertToBitmapConsumer(glDispatcher, renderedBitmapDeferred!!)
+    hardwareBufferToGlTextureFrameProcessor.setOutput(toBitmapConsumer!!)
+    val inputImage = inputImageReader.acquireLatestImage()
+    val inputHardwareBuffer = inputImage.hardwareBuffer!!
+    assertThat(inputHardwareBuffer.format).isNotEqualTo(RGBA_8888)
+    // Override the input format to force it to be 1920x1080 rather than 1920x1088.
+    val inputFormat =
+      MediaFormatUtil.createFormatFromMediaFormat(inputMediaFormatRef.get())
+        .buildUpon()
+        .setWidth(TEST_VIDEO_WIDTH)
+        .setHeight(TEST_VIDEO_HEIGHT)
         .build()
-    withContext(Dispatchers.Main) {
-      compositionPlayer.setComposition(composition)
-      compositionPlayer.addListener(
-        object : Player.Listener {
-          override fun onRenderedFirstFrame() {
-            compositionPlayer.stop()
-          }
+    val inputHardwareBufferFrame =
+      HardwareBufferFrame.Builder(
+          inputHardwareBuffer,
+          glExecutorService,
+          {
+            inputHardwareBuffer.close()
+            inputImage.close()
+          },
+        )
+        .setFormat(inputFormat)
+        .build()
 
-          override fun onPlayerError(exception: PlaybackException) {
-            throw exception
-          }
-        }
-      )
-      compositionPlayer.prepare()
-      compositionPlayer.play()
-    }
+    hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(inputHardwareBufferFrame))
 
-    val renderedImage = withTimeout(timeMillis = TEST_TIMEOUT_MS) { imageAcquiredDeferred.await() }
-    val renderedBitmap = BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image(renderedImage)
-    renderedImage.close()
-
-    val expectedBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png")
+    val renderedBitmap =
+      withTimeout(timeMillis = TEST_TIMEOUT_MS) { renderedBitmapDeferred!!.await() }
+    val expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png")
     assertThat(
         BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
           expectedBitmap,
@@ -238,7 +200,7 @@ class HardwareBufferToGlTextureFrameProcessorTest {
       )
       .isLessThan(MAX_AVG_PIXEL_DIFFERENCE)
 
-    withContext(Dispatchers.Main) { compositionPlayer.release() }
+    inputImageReader.close()
   }
 
   private class ConvertToBitmapConsumer(
@@ -268,24 +230,10 @@ class HardwareBufferToGlTextureFrameProcessorTest {
     override suspend fun release() {}
   }
 
-  private class PassthroughPacketConsumer(
-    private val hardwareBufferToGlTextureFrameProcessor: HardwareBufferToGlTextureFrameProcessor
-  ) : PacketConsumer<ImmutableList<HardwareBufferFrame>> {
-    override suspend fun queuePacket(packet: Packet<ImmutableList<HardwareBufferFrame>>) {
-      when (packet) {
-        is Packet.EndOfStream -> hardwareBufferToGlTextureFrameProcessor.queuePacket(packet)
-        is Packet.Payload<ImmutableList<HardwareBufferFrame>> ->
-          hardwareBufferToGlTextureFrameProcessor.queuePacket(Packet.of(packet.payload[0]))
-      }
-    }
-
-    override suspend fun release() {}
-  }
-
   companion object {
-    val TEST_TIMEOUT_MS = if (isRunningOnEmulator()) 20_000L else 10_000L
-    val TEST_VIDEO_WIDTH = MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.width
-    val TEST_VIDEO_HEIGHT = MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.height
+    val TEST_TIMEOUT_MS = if (Util.isRunningOnEmulator()) 20_000L else 10_000L
+    val TEST_VIDEO_WIDTH = AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.width
+    val TEST_VIDEO_HEIGHT = AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat!!.height
     // TODO: b/474075198 - Calculate the transformation matrix from MediaFormat. The current
     //  transformation matrix is hardcoded, and causing the output bitmap to be a bit misaligned.
     const val MAX_AVG_PIXEL_DIFFERENCE = 10F

@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.media3.effect.ndk;
 
 import android.content.Context;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.transformer.CompositionPlayer;
 
 /**
@@ -45,7 +45,9 @@ public class NdkCompositionPlayerBuilder {
     return new CompositionPlayer.Builder(context)
         .setHardwareBufferPostProcessor(
             new BitmapToHardwareBufferProcessor(
-                Util.newSingleThreadExecutor("BitmapToHardwareBufferProcessor::Thread")));
+                /* releaseBufferExecutor= */ Util.newSingleThreadExecutor(
+                    "BitmapToHardwareBufferProcessor::Thread"),
+                /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE));
   }
 
   private NdkCompositionPlayerBuilder() {}

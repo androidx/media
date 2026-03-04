@@ -66,7 +66,6 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')
-    androidTestImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:" + kotlinxCoroutinesVersion
 }
 
 ext {

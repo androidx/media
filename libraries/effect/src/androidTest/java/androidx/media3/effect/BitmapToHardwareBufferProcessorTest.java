@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk;
+package androidx.media3.effect;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.Matrix;
 import android.hardware.HardwareBuffer;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
@@ -31,7 +32,7 @@ import android.opengl.GLES20;
 import android.os.Build;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -49,6 +50,7 @@ import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link BitmapToHardwareBufferProcessor}. */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 26)
 public final class BitmapToHardwareBufferProcessorTest {
   private static final float MAX_AVG_PIXEL_DIFFERENCE = 1.0f;
 
@@ -60,7 +62,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Before
   public void setUp() {
     executorService = Executors.newSingleThreadExecutor();
-    processor = new BitmapToHardwareBufferProcessor(directExecutor());
+    processor = new BitmapToHardwareBufferProcessor(directExecutor(), HardwareBufferJni.INSTANCE);
   }
 
   @After
@@ -76,7 +78,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   @SdkSuppress(minSdkVersion = 26)
   public void process_withBitmap_copiesPixelsCorrectly() throws Exception {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png");
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     HardwareBufferFrame inputFrame =
         new HardwareBufferFrame.Builder(
                 /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
@@ -104,7 +106,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   @SdkSuppress(minSdkVersion = 26)
   public void process_invalidBitmap_throwsIllegalStateException() throws Exception {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png");
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     HardwareBufferFrame inputFrame =
         new HardwareBufferFrame.Builder(
                 /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
@@ -150,26 +152,9 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  @SdkSuppress(maxSdkVersion = 25)
-  public void process_sdkBelow26_returnsOriginalFrame() {
-    Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
-    HardwareBufferFrame inputFrame =
-        new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
-            .setInternalFrame(bitmap)
-            .build();
-
-    HardwareBufferFrame outputFrame = processor.process(inputFrame);
-
-    assertThat(outputFrame).isSameInstanceAs(inputFrame);
-
-    outputFrame.release(null);
-  }
-
-  @Test
   @SdkSuppress(minSdkVersion = 26)
   public void process_repeatedBitmap_reusesSameBuffer() throws IOException {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png");
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -186,7 +171,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   @SdkSuppress(minSdkVersion = 26)
   public void process_repeatedBitmapAfterRelease_reusesSameBuffer() throws IOException {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png");
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -272,7 +257,7 @@ public final class BitmapToHardwareBufferProcessorTest {
   @Test
   @SdkSuppress(minSdkVersion = 26)
   public void releaseOutputFrame_sharedBuffer_doesNotCloseSharedBuffer() throws Exception {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("first_frame.png");
+    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -340,7 +325,11 @@ public final class BitmapToHardwareBufferProcessorTest {
     GlUtil.destroyEglSurface(eglDisplay, eglSurface);
     GlUtil.destroyEglContext(eglDisplay, eglContext);
 
-    return bitmap;
+    // OpenGL returns an upside down bitmap due to coordinate system differences, flip it before
+    // returning.
+    Matrix matrix = new Matrix();
+    matrix.postScale(1, -1, bitmap.getWidth() / 2f, bitmap.getHeight() / 2f);
+    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
   }
 
   private static HardwareBufferFrame createBitmapFrame(Bitmap bitmap) {

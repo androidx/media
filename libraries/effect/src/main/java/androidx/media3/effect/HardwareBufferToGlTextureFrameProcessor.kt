@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk
+package androidx.media3.effect
 
 import android.content.Context
 import android.graphics.Matrix
@@ -34,19 +34,8 @@ import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.Log
-import androidx.media3.effect.DefaultShaderProgram
-import androidx.media3.effect.DefaultVideoFrameProcessor
-import androidx.media3.effect.GlShaderProgramPacketProcessor
-import androidx.media3.effect.GlTextureFrame
-import androidx.media3.effect.HardwareBufferFrame
-import androidx.media3.effect.MatrixUtils
-import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
-import androidx.media3.effect.PacketProcessor
-import androidx.media3.effect.ndk.HardwareBufferJni.nativeBindEGLImage
-import androidx.media3.effect.ndk.HardwareBufferJni.nativeCreateEglImageFromHardwareBuffer
-import androidx.media3.effect.ndk.HardwareBufferJni.nativeDestroyEGLImage
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -59,6 +48,7 @@ class HardwareBufferToGlTextureFrameProcessor(
   private val context: Context,
   private val glExecutorService: ExecutorService,
   private val glObjectsProvider: GlObjectsProvider,
+  private val hardwareBufferJniWrapper: HardwareBufferJniWrapper,
   private var errorConsumer: Consumer<Exception>,
 ) : PacketProcessor<HardwareBufferFrame, GlTextureFrame> {
 
@@ -122,7 +112,7 @@ class HardwareBufferToGlTextureFrameProcessor(
    */
   private fun sampleToGlTexture(hardwareBuffer: HardwareBuffer, target: Int): Pair<Long, Int> {
     val eglImageHandle =
-      nativeCreateEglImageFromHardwareBuffer(
+      hardwareBufferJniWrapper.nativeCreateEglImageFromHardwareBuffer(
         GlUtil.getDefaultEglDisplay().nativeHandle,
         hardwareBuffer,
       )
@@ -134,7 +124,7 @@ class HardwareBufferToGlTextureFrameProcessor(
     val texture = GlUtil.generateTexture()
     GLES20.glBindTexture(target, texture)
     GlUtil.checkGlError()
-    check(nativeBindEGLImage(target, eglImageHandle))
+    check(hardwareBufferJniWrapper.nativeBindEGLImage(target, eglImageHandle))
     return eglImageHandle to texture
   }
 
@@ -198,7 +188,12 @@ class HardwareBufferToGlTextureFrameProcessor(
           // TODO: b/474075198 - Use a more efficient sync method.
           GLES20.glFinish()
           GlUtil.deleteTexture(glTextureInfo.texId)
-          if (!nativeDestroyEGLImage(GlUtil.getDefaultEglDisplay().nativeHandle, eglImage)) {
+          if (
+            !hardwareBufferJniWrapper.nativeDestroyEGLImage(
+              GlUtil.getDefaultEglDisplay().nativeHandle,
+              eglImage,
+            )
+          ) {
             errorConsumer.accept(
               VideoFrameProcessingException(
                 "eglDestroyImageKHR",
@@ -244,10 +239,6 @@ class HardwareBufferToGlTextureFrameProcessor(
   }
 
   companion object {
-    init {
-      System.loadLibrary("hardwareBufferJNI")
-    }
-
     private const val TAG = "HBToGlTexture"
 
     fun constructTransformationMatrix(hardwareBufferFrame: HardwareBufferFrame): FloatArray {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk;
+package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,9 +26,6 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
-import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.SyncFenceCompat;
-import androidx.media3.transformer.HardwareBufferFrameProcessor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +33,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+// TODO: b/475511306 - Restrict this to SDK 26+.
 /**
  * A {@link HardwareBufferFrameProcessor} that converts {@link Bitmap}-backed {@link
  * HardwareBufferFrame} instances into {@link android.hardware.HardwareBuffer}-backed ones.
@@ -55,6 +53,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
   private static final int RELEASE_TIMEOUT_MS = 500;
 
   private final Executor releaseBufferExecutor;
+  private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @GuardedBy("this")
   @Nullable
@@ -72,9 +71,13 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
    *
    * @param releaseBufferExecutor The {@link Executor} on which the hardware buffer release and
    *     fence waiting logic will be executed.
+   * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} that supplies the native
+   *     helpers needed by this class.
    */
-  public BitmapToHardwareBufferProcessor(Executor releaseBufferExecutor) {
+  public BitmapToHardwareBufferProcessor(
+      Executor releaseBufferExecutor, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     this.releaseBufferExecutor = releaseBufferExecutor;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
   }
 
   @Override
@@ -108,7 +111,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
                     | HardwareBuffer.USAGE_CPU_READ_RARELY
                     | HardwareBuffer.USAGE_CPU_WRITE_OFTEN);
 
-        checkState(HardwareBufferJni.INSTANCE.nativeCopyBitmapToHardwareBuffer(nextBitmap, buffer));
+        checkState(hardwareBufferJniWrapper.nativeCopyBitmapToHardwareBuffer(nextBitmap, buffer));
 
         currentBuffer = new ReferenceCountedBuffer(buffer);
         currentBitmap = nextBitmap;

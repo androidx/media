@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect.ndk
+package androidx.media3.effect
 
 import android.content.Context
 import androidx.annotation.RequiresApi
@@ -22,11 +22,7 @@ import androidx.media3.common.SurfaceInfo
 import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.Util
-import androidx.media3.effect.GlTextureFrameRenderer
-import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.PacketConsumer.Packet
-import androidx.media3.effect.RenderingPacketConsumer
-import androidx.media3.effect.SingleContextGlObjectsProvider
 import com.google.common.util.concurrent.ListeningExecutorService
 import com.google.common.util.concurrent.MoreExecutors
 
@@ -74,6 +70,7 @@ private constructor(
     @JvmStatic
     fun create(
       context: Context,
+      hardwareBufferJniWrapper: HardwareBufferJniWrapper,
       listener: GlTextureFrameRenderer.Listener,
       errorConsumer: Consumer<Exception>,
     ): HardwareBufferSurfaceRenderer {
@@ -82,7 +79,14 @@ private constructor(
           Util.newSingleThreadExecutor("DefaultHardwareBufferSurfaceRenderer::GlThread")
         )
       val glObjectsProvider = SingleContextGlObjectsProvider()
-      return create(context, glExecutorService, glObjectsProvider, listener, errorConsumer)
+      return create(
+        context,
+        glExecutorService,
+        glObjectsProvider,
+        hardwareBufferJniWrapper,
+        listener,
+        errorConsumer,
+      )
     }
 
     /**
@@ -95,6 +99,7 @@ private constructor(
       context: Context,
       glExecutorService: ListeningExecutorService,
       glObjectsProvider: GlObjectsProvider,
+      hardwareBufferJniWrapper: HardwareBufferJniWrapper,
       listener: GlTextureFrameRenderer.Listener,
       errorConsumer: Consumer<Exception>,
     ): HardwareBufferSurfaceRenderer {
@@ -103,6 +108,7 @@ private constructor(
           context,
           glExecutorService,
           glObjectsProvider,
+          hardwareBufferJniWrapper,
           errorConsumer,
         )
       val renderer =
