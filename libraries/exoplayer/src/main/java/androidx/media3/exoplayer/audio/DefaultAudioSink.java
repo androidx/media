@@ -619,6 +619,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Nullable private AudioDeviceInfo preferredDevice;
   private int virtualDeviceId;
   private boolean tunneling;
+  private boolean pendingTunnelingRequest;
   private long lastFeedElapsedRealtimeMs;
   private boolean offloadDisabledUntilNextConfiguration;
   private boolean isWaitingForOffloadEndOfStreamHandled;
@@ -1382,6 +1383,11 @@ public final class DefaultAudioSink implements AudioSink {
     if (this.audioSessionId != audioSessionId) {
       this.audioSessionId = audioSessionId;
       externalAudioSessionIdProvided = audioSessionId != C.AUDIO_SESSION_ID_UNSET;
+      // If audio session ID is now available and tunneling was pending, enable it now
+      if (externalAudioSessionIdProvided && pendingTunnelingRequest && !tunneling) {
+        tunneling = true;
+        pendingTunnelingRequest = false;
+      }
       reconfigureAndFlush();
     }
   }
@@ -1438,10 +1444,16 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void enableTunnelingV21() {
-    checkState(externalAudioSessionIdProvided);
-    if (!tunneling) {
-      tunneling = true;
-      reconfigureAndFlush();
+    if (externalAudioSessionIdProvided) {
+      // Audio session ID is available, enable tunneling immediately
+      if (!tunneling) {
+        tunneling = true;
+        reconfigureAndFlush();
+      }
+      pendingTunnelingRequest = false;
+    } else {
+      // Audio session ID is not yet available, defer tunneling request
+      pendingTunnelingRequest = true;
     }
   }
 
@@ -1451,6 +1463,7 @@ public final class DefaultAudioSink implements AudioSink {
       tunneling = false;
       reconfigureAndFlush();
     }
+    pendingTunnelingRequest = false;
   }
 
   @RequiresApi(29)
