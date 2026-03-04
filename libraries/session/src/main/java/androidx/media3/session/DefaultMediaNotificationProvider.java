@@ -25,6 +25,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Integer.max;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -646,11 +647,23 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
   private static int getMaxNotificationIconSize() {
     Resources res = Resources.getSystem();
     try {
-      int id = res.getIdentifier("notification_right_icon_size", "dimen", "android");
-      return res.getDimensionPixelSize(id);
+      int rightIconSizeId = res.getIdentifier("notification_right_icon_size", "dimen", "android");
+      int iconSize = res.getDimensionPixelSize(rightIconSizeId);
+      if (SDK_INT < 31) {
+        int mediaImageMaxHeightId =
+            res.getIdentifier("notification_media_image_max_height", "dimen", "android");
+        int mediaImageMaxHeight = res.getDimensionPixelSize(mediaImageMaxHeightId);
+        int mediaImageMaxWidthId =
+            res.getIdentifier("notification_media_image_max_width", "dimen", "android");
+        int mediaImageMaxWidth = res.getDimensionPixelSize(mediaImageMaxWidthId);
+        iconSize = max(max(iconSize, mediaImageMaxWidth), mediaImageMaxHeight);
+      }
+      return iconSize;
     } catch (Resources.NotFoundException e) {
-      // Fallback to assumed icon size of 48dp if the system property is missing.
-      return (int) (48 * res.getDisplayMetrics().density);
+      // Fallback to default AOSP icon size if the system property is missing (48dp for right icon
+      // size and 280dp for media image max width used before API 31).
+      int assumedSizeDp = SDK_INT < 31 ? 280 : 48;
+      return (int) (assumedSizeDp * res.getDisplayMetrics().density);
     }
   }
 
