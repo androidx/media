@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -64,6 +65,7 @@ import org.junit.runner.RunWith;
  * CompositionPlayer.Builder#setPacketConsumerFactory(PacketConsumer.Factory)} when outputting to a
  * {@link android.view.SurfaceView}.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 

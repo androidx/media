@@ -55,6 +55,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -64,6 +65,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** Checks transcoding quality. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(Parameterized.class)
 public final class TranscodeQualityTest {
   private static final String TAG = "TranscodeQualityTest";

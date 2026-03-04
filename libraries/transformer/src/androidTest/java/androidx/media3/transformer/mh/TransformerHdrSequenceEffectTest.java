@@ -59,6 +59,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -68,6 +69,7 @@ import org.junit.runner.RunWith;
  * Tests for using different {@linkplain Effect effects} for {@link MediaItem MediaItems} in one
  * {@link EditedMediaItemSequence}, with HDR assets.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class TransformerHdrSequenceEffectTest {
 

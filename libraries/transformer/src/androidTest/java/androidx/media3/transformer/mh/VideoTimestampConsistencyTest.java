@@ -50,6 +50,7 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -59,6 +60,7 @@ import org.junit.runner.RunWith;
  * A test that guarantees the timestamp is handled identically between {@link CompositionPlayer} and
  * {@link Transformer}.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class VideoTimestampConsistencyTest {
 

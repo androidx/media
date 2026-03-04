@@ -84,6 +84,7 @@ import org.junit.runner.RunWith;
  * output matches expected output, either from a golden file or from another edit.
  */
 // TODO: b/263395272 - Move this test to effects/mh tests, and remove @TestOnly dependencies.
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   private static final String ORIGINAL_PNG_ASSET_PATH =

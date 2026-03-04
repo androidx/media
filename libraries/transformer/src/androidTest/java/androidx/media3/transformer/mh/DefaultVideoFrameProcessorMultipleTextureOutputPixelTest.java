@@ -38,6 +38,7 @@ import java.util.Set;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -49,6 +50,7 @@ import org.junit.runner.RunWith;
  * <p>Confirms that the output timestamps are correct for each frame, and that the output pixels are
  * correct for the first frame of each bitmap.
  */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class DefaultVideoFrameProcessorMultipleTextureOutputPixelTest {
 
