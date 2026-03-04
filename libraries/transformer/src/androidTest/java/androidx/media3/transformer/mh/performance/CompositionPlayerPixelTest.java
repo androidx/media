@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -67,6 +68,7 @@ import org.junit.runner.RunWith;
 // These tests are in the performance package even though they are not performance tests so that
 // they are not run on all devices. This is because they use ImageReader, which has a tendency to
 // drop frames.
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerPixelTest {
 

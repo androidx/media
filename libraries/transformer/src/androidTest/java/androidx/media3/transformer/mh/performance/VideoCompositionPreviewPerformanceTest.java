@@ -52,6 +52,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Performance tests for the composition previewing pipeline in {@link CompositionPlayer}. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class VideoCompositionPreviewPerformanceTest {
 

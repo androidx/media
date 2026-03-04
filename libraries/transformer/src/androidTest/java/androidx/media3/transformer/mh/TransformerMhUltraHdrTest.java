@@ -50,12 +50,14 @@ import java.util.Set;
 import org.json.JSONException;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Tests for Ultra HDR support in Transformer that should only run in mobile harness. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public final class TransformerMhUltraHdrTest {
 

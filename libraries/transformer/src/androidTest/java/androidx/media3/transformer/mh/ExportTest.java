@@ -64,12 +64,14 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import org.junit.AssumptionViolatedException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** {@link Transformer} instrumentation tests. */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class ExportTest {
   private static final String TAG = "ExportTest";

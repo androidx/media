@@ -68,6 +68,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for frame replaying (dynamic effect update). */
+@Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
 public class ReplayCacheTest {
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
