@@ -39,17 +39,17 @@ public class ToFloatPcmAudioProcessorTest {
    * <p>Can be one of:
    *
    * <ul>
-   *   <li>{@link C#ENCODING_PCM_16BIT}
-   *   <li>{@link C#ENCODING_PCM_32BIT}
-   *   <li>{@link C#ENCODING_PCM_24BIT}
    *   <li>{@link C#ENCODING_PCM_8BIT}
-   *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
-   *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_16BIT}
    *   <li>{@link C#ENCODING_PCM_16BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_24BIT}
+   *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_32BIT}
+   *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_DOUBLE}
    * </ul>
    */
-  @TestParameter({"2", "22", "21", "3", "1610612736", "1342177280", "268435456", "1879048192"})
+  @TestParameter({"3", "2", "268435456", "21", "1342177280", "22", "1610612736", "1879048192"})
   private int pcmEncoding;
 
   @Test
@@ -66,13 +66,18 @@ public class ToFloatPcmAudioProcessorTest {
   }
 
   @Test
-  public void queueInput_withZero_returnsZero() throws Exception {
+  public void queueInput_withSilence_returnsZero() throws Exception {
     ToFloatPcmAudioProcessor processor = new ToFloatPcmAudioProcessor();
     processor.configure(
         new AudioFormat(/* sampleRate= */ 44100, /* channelCount= */ 1, pcmEncoding));
     processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer buffer = ByteBuffer.allocateDirect(getByteDepth(pcmEncoding));
+    if (pcmEncoding == C.ENCODING_PCM_8BIT) {
+      // 8-bit PCM is unsigned with a neutral midpoint of 128 (representing silence).
+      buffer.put((byte) 128);
+      buffer.flip();
+    }
 
     processor.queueInput(buffer);
     assertThat(createFloatArray(processor.getOutput())).isEqualTo(new float[] {0f});
@@ -113,8 +118,7 @@ public class ToFloatPcmAudioProcessorTest {
   private static ByteBuffer getTestSamplesForEncoding(int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return createByteBuffer(
-            new short[] {Byte.MAX_VALUE, Byte.MIN_VALUE, Byte.MAX_VALUE / 2, Byte.MIN_VALUE / 2});
+        return createByteBuffer(new byte[] {(byte) 0xFF, 0, (byte) 0xC0, 0x40});
       case C.ENCODING_PCM_16BIT:
         return createByteBuffer(
             new short[] {Short.MAX_VALUE, Short.MIN_VALUE, 0x4000, (short) 0xC000});

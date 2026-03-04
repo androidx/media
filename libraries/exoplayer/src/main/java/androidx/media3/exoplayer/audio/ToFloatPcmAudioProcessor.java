@@ -24,8 +24,8 @@ import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
 
 /**
- * An {@link AudioProcessor} that converts high resolution PCM audio to 32-bit float. The following
- * encodings are supported as input:
+ * An {@link AudioProcessor} that converts different PCM audio encodings to 32-bit float. The
+ * following encodings are supported as input:
  *
  * <ul>
  *   <li>{@link C#ENCODING_PCM_8BIT}
@@ -68,8 +68,8 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
     switch (inputAudioFormat.encoding) {
       case C.ENCODING_PCM_8BIT:
         buffer = replaceOutputBuffer(size * 4);
-        for (int i = position; i < limit; i += 2) {
-          int pcm32BitInteger = ((inputBuffer.get(i) & 0xFF) << 24);
+        for (int i = position; i < limit; i++) {
+          int pcm32BitInteger = (((inputBuffer.get(i) & 0xFF) - 128) << 24);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
