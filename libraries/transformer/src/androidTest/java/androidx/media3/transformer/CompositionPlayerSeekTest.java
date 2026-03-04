@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -72,6 +73,7 @@ import org.junit.runner.RunWith;
  * seeking}.
  */
 @RunWith(AndroidJUnit4.class)
+@Ignore("Flaky: b/362905994")
 public class CompositionPlayerSeekTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
