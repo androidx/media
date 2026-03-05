@@ -710,7 +710,7 @@ public final class DefaultAudioSink implements AudioSink {
     // For PCM formats, convert the format to what our audio processors will produce.
     boolean transcodingViaAudioProcessors = false;
     if (Util.isEncodingLinearPcm(format.pcmEncoding)) {
-      boolean usesFloatPcm = shouldUseFloatOutput(format.pcmEncoding);
+      boolean usesFloatPcm = shouldUseFloatOutput(format);
       if (usesFloatPcm && format.pcmEncoding != C.ENCODING_PCM_FLOAT) {
         format = format.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build();
         transcodingViaAudioProcessors = true;
@@ -775,7 +775,7 @@ public final class DefaultAudioSink implements AudioSink {
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
       Format chainInputFormat;
       pipelineProcessors.addAll(availableAudioProcessors);
-      if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
+      if (shouldUseFloatOutput(inputFormat)) {
         pipelineProcessors.add(toFloatPcmAudioProcessor);
         chainInputFormat = inputFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build();
       } else {
@@ -1772,11 +1772,25 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * Returns whether audio in the specified PCM encoding should be written to the audio output as
+   * Returns whether audio in the specified PCM format should be written to the audio output as
    * float PCM.
    */
-  private boolean shouldUseFloatOutput(@C.PcmEncoding int pcmEncoding) {
-    return enableFloatOutput && Util.isEncodingHighResolutionPcm(pcmEncoding);
+  private boolean shouldUseFloatOutput(Format format) {
+    boolean supportsFloat =
+        audioOutputProvider.getFormatSupport(
+                    getFormatConfig(
+                        format.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build()))
+                .supportLevel
+            != AudioOutputProvider.FORMAT_UNSUPPORTED;
+    boolean preferFloat = Util.isEncodingHighResolutionPcm(format.pcmEncoding);
+    // If the AudioOutputProvider cannot output 16-bit PCM, we should use float output.
+    boolean supportsInt16 =
+        audioOutputProvider.getFormatSupport(
+                    getFormatConfig(
+                        format.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build()))
+                .supportLevel
+            != AudioOutputProvider.FORMAT_UNSUPPORTED;
+    return supportsFloat && enableFloatOutput && (preferFloat || !supportsInt16);
   }
 
   /**
