@@ -26,6 +26,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +36,14 @@ public final class VorbisUtil {
 
   private static final String TAG = "VorbisUtil";
 
+  private static final ImmutableIntArray VORBIS_MAPPING_3 = ImmutableIntArray.of(0, 2, 1);
+  private static final ImmutableIntArray VORBIS_MAPPING_5 = ImmutableIntArray.of(0, 2, 1, 3, 4);
+  private static final ImmutableIntArray VORBIS_MAPPING_6 = ImmutableIntArray.of(0, 2, 1, 5, 3, 4);
+  private static final ImmutableIntArray VORBIS_MAPPING_7 =
+      ImmutableIntArray.of(0, 2, 1, 6, 5, 3, 4);
+  private static final ImmutableIntArray VORBIS_MAPPING_8 =
+      ImmutableIntArray.of(0, 2, 1, 7, 5, 6, 3, 4);
+
   /**
    * Returns the mapping from VORBIS channel layout to the channel layout expected by Android, or
    * null if the mapping is unchanged.
@@ -43,18 +52,18 @@ public final class VorbisUtil {
    * https://developer.android.com/reference/android/media/AudioFormat#channelMask.
    */
   @Nullable
-  public static int[] getVorbisToAndroidChannelLayoutMapping(int channelCount) {
+  public static ImmutableIntArray getVorbisToAndroidChannelLayoutMapping(int channelCount) {
     switch (channelCount) {
       case 3:
-        return new int[] {0, 2, 1};
+        return VORBIS_MAPPING_3;
       case 5:
-        return new int[] {0, 2, 1, 3, 4};
+        return VORBIS_MAPPING_5;
       case 6:
-        return new int[] {0, 2, 1, 5, 3, 4};
+        return VORBIS_MAPPING_6;
       case 7:
-        return new int[] {0, 2, 1, 6, 5, 3, 4};
+        return VORBIS_MAPPING_7;
       case 8:
-        return new int[] {0, 2, 1, 7, 5, 6, 3, 4};
+        return VORBIS_MAPPING_8;
       default:
         return null;
     }

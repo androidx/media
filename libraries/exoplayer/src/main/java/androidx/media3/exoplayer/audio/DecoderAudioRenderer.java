@@ -424,7 +424,7 @@ public abstract class DecoderAudioRenderer<
    */
   @ForOverride
   @Nullable
-  protected int[] getChannelMapping(T decoder) {
+  protected ImmutableIntArray getChannelMapping(T decoder) {
     return null;
   }
 
@@ -500,11 +500,9 @@ public abstract class DecoderAudioRenderer<
               .setSelectionFlags(inputFormat.selectionFlags)
               .setRoleFlags(inputFormat.roleFlags)
               .build();
-      int[] channelMapping = getChannelMapping(decoder);
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(outputFormat)
-              .setOutputChannelMapping(
-                  channelMapping == null ? null : ImmutableIntArray.copyOf(channelMapping))
+              .setOutputChannelMapping(getChannelMapping(decoder))
               .build());
       audioTrackNeedsConfigure = false;
     }

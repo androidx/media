@@ -32,6 +32,8 @@
     *   Enhance `ToFloatPcmAudioProcessor` to support converting 8-bit PCM,
         16-bit big-endian PCM, and 64-bit floating point PCM to 32-bit floating
         point PCM ([#3090](https://github.com/androidx/media/pull/3090)).
+    *   Change return value of `DecoderAudioRenderer.getChannelMapping` to
+        `ImmutableIntArray`.
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.

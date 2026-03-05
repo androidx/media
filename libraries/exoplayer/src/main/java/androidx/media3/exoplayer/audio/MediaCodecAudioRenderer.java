@@ -620,7 +620,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat)
       throws ExoPlaybackException {
     Format audioSinkInputFormat;
-    @Nullable int[] channelMap = null;
+    @Nullable ImmutableIntArray channelMap = null;
     if (decryptOnlyCodecFormat != null) { // Direct playback with a codec for decryption.
       audioSinkInputFormat = decryptOnlyCodecFormat;
     } else if (getCodec() == null) { // Direct playback with codec bypass.
@@ -660,10 +660,12 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       if (codecNeedsDiscardChannelsWorkaround
           && audioSinkInputFormat.channelCount == 6
           && format.channelCount < 6) {
-        channelMap = new int[format.channelCount];
+        ImmutableIntArray.Builder channelMapBuilder =
+            ImmutableIntArray.builder(format.channelCount);
         for (int i = 0; i < format.channelCount; i++) {
-          channelMap[i] = i;
+          channelMapBuilder.add(i);
         }
+        channelMap = channelMapBuilder.build();
       } else if (codecNeedsVorbisToAndroidChannelMappingWorkaround) {
         channelMap =
             VorbisUtil.getVorbisToAndroidChannelLayoutMapping(audioSinkInputFormat.channelCount);
@@ -682,8 +684,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       }
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(audioSinkInputFormat)
-              .setOutputChannelMapping(
-                  channelMap == null ? null : ImmutableIntArray.copyOf(channelMap))
+              .setOutputChannelMapping(channelMap)
               .build());
     } catch (AudioSink.ConfigurationException e) {
       throw createRendererException(
