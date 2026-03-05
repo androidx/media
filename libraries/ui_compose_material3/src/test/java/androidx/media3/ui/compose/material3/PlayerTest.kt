@@ -17,14 +17,16 @@
 package androidx.media3.ui.compose.material3
 
 import android.content.Context
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
@@ -33,7 +35,6 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.core.app.ApplicationProvider
@@ -70,8 +71,8 @@ class PlayerTest {
     )
 
   @Test
-  fun player_controlsVisibleInitially() {
-    composeTestRule.setContent { Player(player = FakePlayer()) }
+  fun player_controlsVisible() {
+    composeTestRule.setContent { Player(player = FakePlayer(), showControls = true) }
 
     findTopControls().assertIsDisplayed()
     findCenterControls().assertIsDisplayed()
@@ -79,20 +80,8 @@ class PlayerTest {
   }
 
   @Test
-  fun player_controlsHideAfterTimeout() {
-    composeTestRule.setContent { Player(player = FakePlayer(), controlsTimeoutMs = 3000) }
-
-    findTopControls().assertIsDisplayed()
-    findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
-
-    composeTestRule.mainClock.advanceTimeBy(500)
-
-    findTopControls().assertIsDisplayed()
-    findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
-
-    composeTestRule.mainClock.advanceTimeBy(2600)
+  fun player_controlsHidden() {
+    composeTestRule.setContent { Player(player = FakePlayer(), showControls = false) }
 
     findTopControls().assertDoesNotExist()
     findCenterControls().assertDoesNotExist()
@@ -102,10 +91,11 @@ class PlayerTest {
   @Test
   fun player_tapShowsHiddenControls() {
     composeTestRule.setContent {
+      var showControls by remember { mutableStateOf(false) }
       Player(
         player = FakePlayer(),
-        modifier = Modifier.testTag(playerTestTag),
-        controlsTimeoutMs = 3000,
+        showControls = showControls,
+        modifier = Modifier.testTag(playerTestTag).clickable { showControls = !showControls },
       )
     }
     composeTestRule.mainClock.advanceTimeBy(3100)
@@ -121,46 +111,6 @@ class PlayerTest {
   }
 
   @Test
-  fun player_interactionPreventsHiding() {
-    val timeoutMs = 1000L
-    composeTestRule.setContent {
-      Player(
-        player = FakePlayer(),
-        modifier = Modifier.testTag(playerTestTag),
-        controlsTimeoutMs = timeoutMs,
-      )
-    }
-
-    composeTestRule.onNodeWithTag(playerTestTag).performTouchInput { down(Offset(0f, 0f)) }
-    composeTestRule.mainClock.advanceTimeBy(timeoutMs + 500)
-
-    findTopControls().assertIsDisplayed()
-    findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
-
-    composeTestRule.onNodeWithTag(playerTestTag).performTouchInput { up() }
-    composeTestRule.mainClock.advanceTimeBy(timeoutMs + 500)
-
-    findTopControls().assertDoesNotExist()
-    findCenterControls().assertDoesNotExist()
-    findBottomControls().assertDoesNotExist()
-  }
-
-  @Test
-  fun player_controlsTimeoutZero_controlsAlwaysVisible() {
-    composeTestRule.setContent { Player(player = FakePlayer(), controlsTimeoutMs = 0L) }
-    findTopControls().assertIsDisplayed()
-    findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
-
-    composeTestRule.mainClock.advanceTimeBy(5000)
-
-    findTopControls().assertIsDisplayed()
-    findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
-  }
-
-  @Test
   fun player_customControls_areDisplayedAndAlignedCorrectly() {
     val player = FakePlayer()
     var tolerance = 1f
@@ -169,7 +119,6 @@ class PlayerTest {
       Player(
         player,
         Modifier.testTag(playerTestTag),
-        controlsTimeoutMs = 1000000,
         topControls = { _, _ -> Box(Modifier.testTag("topControls")) { BasicText("Top") } },
         centerControls = { _, _ ->
           Box(Modifier.testTag("centerControls")) { BasicText("Center") }
