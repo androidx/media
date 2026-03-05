@@ -96,6 +96,7 @@ public class TrackSelectionParameters {
     private ImmutableList<String> preferredAudioLabels;
     private @C.RoleFlags int preferredAudioRoleFlags;
     private int maxAudioChannelCount;
+    private int preferredAudioChannelCount;
     private int maxAudioBitrate;
     private ImmutableList<String> preferredAudioMimeTypes;
     private AudioOffloadPreferences audioOffloadPreferences;
@@ -135,6 +136,7 @@ public class TrackSelectionParameters {
       preferredAudioLabels = ImmutableList.of();
       preferredAudioRoleFlags = 0;
       maxAudioChannelCount = Integer.MAX_VALUE;
+      preferredAudioChannelCount = 0;
       maxAudioBitrate = Integer.MAX_VALUE;
       preferredAudioMimeTypes = ImmutableList.of();
       audioOffloadPreferences = AudioOffloadPreferences.DEFAULT;
@@ -215,6 +217,8 @@ public class TrackSelectionParameters {
           bundle.getInt(FIELD_PREFERRED_AUDIO_ROLE_FLAGS, DEFAULT.preferredAudioRoleFlags);
       maxAudioChannelCount =
           bundle.getInt(FIELD_MAX_AUDIO_CHANNEL_COUNT, DEFAULT.maxAudioChannelCount);
+      preferredAudioChannelCount =
+          bundle.getInt(FIELD_PREFERRED_AUDIO_CHANNEL_COUNT, DEFAULT.preferredAudioChannelCount);
       maxAudioBitrate = bundle.getInt(FIELD_MAX_AUDIO_BITRATE, DEFAULT.maxAudioBitrate);
       preferredAudioMimeTypes =
           ImmutableList.copyOf(
@@ -331,6 +335,7 @@ public class TrackSelectionParameters {
       preferredAudioRoleFlags = parameters.preferredAudioRoleFlags;
       preferredAudioLabels = parameters.preferredAudioLabels;
       maxAudioChannelCount = parameters.maxAudioChannelCount;
+      preferredAudioChannelCount = parameters.preferredAudioChannelCount;
       maxAudioBitrate = parameters.maxAudioBitrate;
       preferredAudioMimeTypes = parameters.preferredAudioMimeTypes;
       audioOffloadPreferences = parameters.audioOffloadPreferences;
@@ -657,6 +662,23 @@ public class TrackSelectionParameters {
     @CanIgnoreReturnValue
     public Builder setMaxAudioChannelCount(int maxAudioChannelCount) {
       this.maxAudioChannelCount = maxAudioChannelCount;
+      return this;
+    }
+
+    /**
+     * Sets the preferred audio channel count. When set to a value greater than 0, audio tracks with
+     * channel count >= this value will be preferred over tracks with lower channel count,
+     * regardless of role flags (main vs alt). This allows selecting 5.1 surround tracks over stereo
+     * tracks even when the stereo track has a main role.
+     *
+     * <p>Set to 0 to disable this preference (default behavior based on role flags).
+     *
+     * @param preferredAudioChannelCount Preferred audio channel count, or 0 to disable.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPreferredAudioChannelCount(int preferredAudioChannelCount) {
+      this.preferredAudioChannelCount = preferredAudioChannelCount;
       return this;
     }
 
@@ -1300,6 +1322,13 @@ public class TrackSelectionParameters {
   public final int maxAudioChannelCount;
 
   /**
+   * Preferred audio channel count. When set to a value greater than 0, audio tracks with channel
+   * count >= this value will be preferred over tracks with lower channel count, regardless of role
+   * flags. The default value is {@code 0} (disabled).
+   */
+  public final int preferredAudioChannelCount;
+
+  /**
    * Maximum allowed audio bitrate in bits per second. The default value is {@link
    * Integer#MAX_VALUE} (i.e. no constraint).
    */
@@ -1422,6 +1451,7 @@ public class TrackSelectionParameters {
     this.preferredAudioLanguages = builder.preferredAudioLanguages;
     this.preferredAudioRoleFlags = builder.preferredAudioRoleFlags;
     this.maxAudioChannelCount = builder.maxAudioChannelCount;
+    this.preferredAudioChannelCount = builder.preferredAudioChannelCount;
     this.preferredAudioLabels = builder.preferredAudioLabels;
     this.maxAudioBitrate = builder.maxAudioBitrate;
     this.preferredAudioMimeTypes = builder.preferredAudioMimeTypes;
@@ -1481,6 +1511,7 @@ public class TrackSelectionParameters {
         && preferredAudioLanguages.equals(other.preferredAudioLanguages)
         && preferredAudioRoleFlags == other.preferredAudioRoleFlags
         && maxAudioChannelCount == other.maxAudioChannelCount
+        && preferredAudioChannelCount == other.preferredAudioChannelCount
         && preferredAudioLabels.equals(other.preferredAudioLabels)
         && maxAudioBitrate == other.maxAudioBitrate
         && preferredAudioMimeTypes.equals(other.preferredAudioMimeTypes)
@@ -1527,6 +1558,7 @@ public class TrackSelectionParameters {
     result = 31 * result + preferredAudioLanguages.hashCode();
     result = 31 * result + preferredAudioRoleFlags;
     result = 31 * result + maxAudioChannelCount;
+    result = 31 * result + preferredAudioChannelCount;
     result = 31 * result + preferredAudioLabels.hashCode();
     result = 31 * result + maxAudioBitrate;
     result = 31 * result + preferredAudioMimeTypes.hashCode();
@@ -1591,6 +1623,7 @@ public class TrackSelectionParameters {
   private static final String FIELD_PREFERRED_VIDEO_LABELS = Util.intToStringMaxRadix(36);
   private static final String FIELD_PREFERRED_AUDIO_LABELS = Util.intToStringMaxRadix(37);
   private static final String FIELD_PREFERRED_TEXT_LABELS = Util.intToStringMaxRadix(38);
+  private static final String FIELD_PREFERRED_AUDIO_CHANNEL_COUNT = Util.intToStringMaxRadix(39);
 
   /**
    * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
@@ -1633,6 +1666,7 @@ public class TrackSelectionParameters {
         FIELD_PREFERRED_AUDIO_LANGUAGES, preferredAudioLanguages.toArray(new String[0]));
     bundle.putInt(FIELD_PREFERRED_AUDIO_ROLE_FLAGS, preferredAudioRoleFlags);
     bundle.putInt(FIELD_MAX_AUDIO_CHANNEL_COUNT, maxAudioChannelCount);
+    bundle.putInt(FIELD_PREFERRED_AUDIO_CHANNEL_COUNT, preferredAudioChannelCount);
     bundle.putInt(FIELD_MAX_AUDIO_BITRATE, maxAudioBitrate);
     bundle.putStringArray(
         FIELD_PREFERRED_AUDIO_LABELS, preferredAudioLabels.toArray(new String[0]));

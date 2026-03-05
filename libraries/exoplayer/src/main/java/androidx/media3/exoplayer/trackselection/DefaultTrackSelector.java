@@ -416,6 +416,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @SuppressWarnings("deprecation") // Intentionally returning deprecated type
     @CanIgnoreReturnValue
     @Override
+    public ParametersBuilder setPreferredAudioChannelCount(int preferredAudioChannelCount) {
+      delegate.setPreferredAudioChannelCount(preferredAudioChannelCount);
+      return this;
+    }
+
+    @SuppressWarnings("deprecation") // Intentionally returning deprecated type
+    @CanIgnoreReturnValue
+    @Override
     public ParametersBuilder setMaxAudioBitrate(int maxAudioBitrate) {
       delegate.setMaxAudioBitrate(maxAudioBitrate);
       return this;
@@ -1270,6 +1278,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
       @Override
       public Builder setMaxAudioChannelCount(int maxAudioChannelCount) {
         super.setMaxAudioChannelCount(maxAudioChannelCount);
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setPreferredAudioChannelCount(int preferredAudioChannelCount) {
+        super.setPreferredAudioChannelCount(preferredAudioChannelCount);
         return this;
       }
 
@@ -4214,7 +4229,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
                   this.preferredLanguageIndex,
                   other.preferredLanguageIndex,
                   Ordering.natural().reverse())
-              .compare(this.preferredLanguageScore, other.preferredLanguageScore)
+              .compare(this.preferredLanguageScore, other.preferredLanguageScore);
+      // Compare preferred channel count (when set, higher channel count wins over role)
+      if (this.parameters.preferredAudioChannelCount > 0) {
+        comparisonChain = comparisonChain.compare(this.channelCount, other.channelCount);
+      }
+      comparisonChain =
+          comparisonChain
               .compare(this.preferredRoleFlagsScore, other.preferredRoleFlagsScore)
               .compare(
                   this.preferredLabelMatchIndex,
