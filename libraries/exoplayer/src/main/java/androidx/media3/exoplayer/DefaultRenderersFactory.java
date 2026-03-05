@@ -120,7 +120,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private long allowedVideoJoiningTimeMs;
   private boolean enableDecoderFallback;
   private MediaCodecSelector mediaCodecSelector;
-  private boolean enableFloatOutput;
+  private boolean enableHighResolutionPcmOutput;
   private boolean enableAudioOutputPlaybackParameters;
   private boolean enableMediaCodecVideoRendererPrewarming;
   private boolean parseAv1SampleDependencies;
@@ -231,19 +231,19 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * Sets whether floating point audio should be output when possible.
+   * Sets whether to enable high resolution PCM output with more than 16 bits.
    *
-   * <p>Enabling floating point output disables audio processing, but may allow for higher quality
-   * audio output.
+   * <p>Parts of the default audio processing chain (for example, speed adjustment) will not be
+   * available when output formats other than 16-bit integer are in use.
    *
    * <p>The default value is {@code false}.
    *
-   * @param enableFloatOutput Whether to enable use of floating point audio output, if available.
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public final DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
-    this.enableFloatOutput = enableFloatOutput;
+  public final DefaultRenderersFactory setEnableHighResolutionPcmOutput(
+      boolean enableHighResolutionPcmOutput) {
+    this.enableHighResolutionPcmOutput = enableHighResolutionPcmOutput;
     return this;
   }
 
@@ -436,7 +436,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         renderersList);
     @Nullable
     AudioSink audioSink =
-        buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParameters);
+        buildAudioSink(context, enableHighResolutionPcmOutput, enableAudioOutputPlaybackParameters);
     if (audioSink != null) {
       buildAudioRenderers(
           context,
@@ -884,7 +884,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * Builds an {@link AudioSink} to which the audio renderers will output.
    *
    * @param context The {@link Context} associated with the player.
-   * @param enableFloatOutput Whether to enable use of floating point audio output, if available.
+   * @param enableHighResolutionPcmOutput Whether to enable high resolution PCM output with more
+   *     than 16 bits.
    * @param enableAudioOutputPlaybackParams Whether to enable setting playback speed via the {@link
    *     AudioOutput}, using {@link android.media.AudioTrack#setPlaybackParams(PlaybackParams)} by
    *     default, if supported. The {@link AudioOutput} speed adjustment is lower latency, but
@@ -895,9 +896,11 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   @Nullable
   protected AudioSink buildAudioSink(
-      Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+      Context context,
+      boolean enableHighResolutionPcmOutput,
+      boolean enableAudioOutputPlaybackParams) {
     return new DefaultAudioSink.Builder(context)
-        .setEnableFloatOutput(enableFloatOutput)
+        .setEnableHighResolutionPcmOutput(enableHighResolutionPcmOutput)
         .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
         .build();
   }
