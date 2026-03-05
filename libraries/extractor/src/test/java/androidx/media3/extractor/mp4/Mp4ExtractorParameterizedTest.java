@@ -296,6 +296,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_fpcm_32le.mp4", /* peekLimit= */ 50);
   }
 
+  @Test
+  public void mp4SampleWith64leFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_64le.mp4", /* peekLimit= */ 50);
+  }
+
   // Only the rotation part of the transformation matrix is resolved (b/390422593 tracks supporting
   // reflection too).
   @Test

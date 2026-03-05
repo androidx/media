@@ -2422,6 +2422,25 @@ public final class Util {
   }
 
   /**
+   * Converts a sample bit depth to a corresponding little-endian float PCM encoding constant.
+   *
+   * @param bitDepth The bit depth. Supported values are 32 and 64.
+   * @return The corresponding float PCM encoding. If the bit depth is unsupported then {@link
+   *     C#ENCODING_INVALID} is returned.
+   */
+  @UnstableApi
+  public static @C.PcmEncoding int getFloatPcmEncoding(int bitDepth) {
+    switch (bitDepth) {
+      case 32:
+        return C.ENCODING_PCM_FLOAT;
+      case 64:
+        return C.ENCODING_PCM_DOUBLE;
+      default:
+        return C.ENCODING_INVALID;
+    }
+  }
+
+  /**
    * Returns whether {@code encoding} is one of the linear PCM encodings.
    *
    * @param encoding The encoding of the audio data.
