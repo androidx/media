@@ -38,6 +38,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,7 @@ import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedToggleButton
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import kotlinx.coroutines.delay
 
 @Composable
 fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
@@ -94,22 +96,35 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
   MainScreen(player, modifier = modifier.fillMaxSize())
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
 
+  var showControls by remember { mutableStateOf(true) }
+  var anyPointerDown by remember { mutableStateOf(false) }
+  LaunchedEffect(showControls, anyPointerDown) {
+    if (showControls && !anyPointerDown) {
+      delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
+      showControls = false
+    }
+  }
+
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
     Player(
       player = player,
+      showControls = showControls,
+      modifier =
+        Modifier.noRippleClickable { showControls = !showControls }
+          .reportPointerDown { anyPointerDown = it },
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
-      controlsTimeoutMs = CONTROLS_VISIBILITY_TIMEOUT_MS,
       bottomControls = { player, showControls ->
         BottomControlsWithLabeledProgress(
           player,
           showControls,
-          Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp),
         )
       },
     )
