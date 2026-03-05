@@ -2,8 +2,8 @@
 <resources>
   <string name="playpause_button_play">Пусти</string>
   <string name="playpause_button_pause">Паузирај</string>
-  <string name="next_button">Следеће</string>
-  <string name="previous_button">Претходно</string>
+  <string name="next_button">Даље</string>
+  <string name="previous_button">Назад</string>
   <string name="seek_back_button">Премотај уназад</string>
   <plurals name="seek_back_by_amount_button">
     <item quantity="one">Премотајте %d секунду уназад</item>
