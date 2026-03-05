@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +36,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -125,6 +127,12 @@ fun PlaybackSpeedBottomSheetButton(
  *   to calculate the number of steps in the slider, by dividing the [speedRange] by this value.
  * @param speedRange The range of available speeds for the slider. The size of this range combined
  *   with [speedStep] determines the number of steps in the slider.
+ * @param containerColor The color used for the background of this bottom sheet.
+ * @param contentColor The preferred color for content inside this bottom sheet. Defaults to either
+ *   the matching content color for [containerColor], or to the current
+ *   [androidx.compose.material3.LocalContentColor] if [containerColor] is not a color from the
+ *   theme.
+ * @param scrimColor Color of the scrim that obscures content when the bottom sheet is open.
  * @param header A slot for the sheet header (default: current speed text).
  * @param controls A slot for the slider and adjusters (default: slider with +/- buttons).
  * @param presets A slot for preset buttons (default: row of preset speed buttons).
@@ -140,6 +148,9 @@ fun PlaybackSpeedBottomSheet(
   presetSpeeds: List<Float> = listOf(0.25f, 1.0f, 1.25f, 1.5f, 2.0f),
   speedStep: Float = 0.05f,
   speedRange: ClosedFloatingPointRange<Float> = 0.25f..2.0f,
+  containerColor: Color = BottomSheetDefaults.ContainerColor,
+  contentColor: Color = contentColorFor(containerColor),
+  scrimColor: Color = BottomSheetDefaults.ScrimColor,
   header: @Composable PlaybackSpeedState.() -> Unit = defaultPlaybackSpeedText,
   controls: @Composable PlaybackSpeedState.() -> Unit = {
     PlaybackSpeedSliderWithAdjusters(state = this, speedStep, speedRange)
@@ -152,6 +163,9 @@ fun PlaybackSpeedBottomSheet(
     onDismissRequest = onDismissRequest,
     sheetState = sheetState,
     modifier = modifier,
+    containerColor = containerColor,
+    contentColor = contentColor,
+    scrimColor = scrimColor,
   ) {
     Column(
       modifier = Modifier.fillMaxWidth().padding(8.dp),
