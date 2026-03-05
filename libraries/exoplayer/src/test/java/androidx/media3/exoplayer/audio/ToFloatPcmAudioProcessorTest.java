@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.common.util.Util.getByteDepth;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createByteBuffer;
 import static androidx.media3.test.utils.TestUtil.createFloatArray;
 import static com.google.common.truth.Truth.assertThat;
@@ -118,7 +119,7 @@ public class ToFloatPcmAudioProcessorTest {
   private static ByteBuffer getTestSamplesForEncoding(int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:
-        return createByteBuffer(new byte[] {(byte) 0xFF, 0, (byte) 0xC0, 0x40});
+        return createByteBuffer(createByteArray(0xFF, 0, 0xC0, 0x40));
       case C.ENCODING_PCM_16BIT:
         return createByteBuffer(
             new short[] {Short.MAX_VALUE, Short.MIN_VALUE, 0x4000, (short) 0xC000});

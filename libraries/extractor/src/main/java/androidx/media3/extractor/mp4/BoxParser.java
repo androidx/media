@@ -2393,6 +2393,9 @@ public final class BoxParser {
           // Only little-endian floating point PCM is supported.
           pcmEncoding = Util.getFloatPcmEncoding(sampleSize);
         }
+        if (pcmEncoding == C.ENCODING_INVALID) {
+          pcmEncoding = Format.NO_VALUE;
+        }
         if (pcmEncoding != Format.NO_VALUE) {
           mimeType = MimeTypes.AUDIO_RAW;
         }
