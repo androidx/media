@@ -21,6 +21,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
 
 /**
@@ -76,16 +77,14 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
       case C.ENCODING_PCM_16BIT:
         buffer = replaceOutputBuffer(size * 2);
         for (int i = position; i < limit; i += 2) {
-          int pcm32BitInteger =
-              ((inputBuffer.get(i) & 0xFF) << 16) | ((inputBuffer.get(i + 1) & 0xFF) << 24);
+          int pcm32BitInteger = inputBuffer.getShort(i) << 16;
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
         buffer = replaceOutputBuffer(size * 2);
         for (int i = position; i < limit; i += 2) {
-          int pcm32BitInteger =
-              ((inputBuffer.get(i + 1) & 0xFF) << 16) | ((inputBuffer.get(i) & 0xFF) << 24);
+          int pcm32BitInteger = Short.reverseBytes(inputBuffer.getShort(i)) << 16;
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
@@ -93,9 +92,8 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
         buffer = replaceOutputBuffer((size / 3) * 4);
         for (int i = position; i < limit; i += 3) {
           int pcm32BitInteger =
-              ((inputBuffer.get(i) & 0xFF) << 8)
-                  | ((inputBuffer.get(i + 1) & 0xFF) << 16)
-                  | ((inputBuffer.get(i + 2) & 0xFF) << 24);
+              Ints.fromBytes(
+                  inputBuffer.get(i + 2), inputBuffer.get(i + 1), inputBuffer.get(i), (byte) 0);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
@@ -103,31 +101,22 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
         buffer = replaceOutputBuffer((size / 3) * 4);
         for (int i = position; i < limit; i += 3) {
           int pcm32BitInteger =
-              ((inputBuffer.get(i + 2) & 0xFF) << 8)
-                  | ((inputBuffer.get(i + 1) & 0xFF) << 16)
-                  | ((inputBuffer.get(i) & 0xFF) << 24);
+              Ints.fromBytes(
+                  inputBuffer.get(i), inputBuffer.get(i + 1), inputBuffer.get(i + 2), (byte) 0);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
       case C.ENCODING_PCM_32BIT:
         buffer = replaceOutputBuffer(size);
         for (int i = position; i < limit; i += 4) {
-          int pcm32BitInteger =
-              (inputBuffer.get(i) & 0xFF)
-                  | ((inputBuffer.get(i + 1) & 0xFF) << 8)
-                  | ((inputBuffer.get(i + 2) & 0xFF) << 16)
-                  | ((inputBuffer.get(i + 3) & 0xFF) << 24);
+          int pcm32BitInteger = inputBuffer.getInt(i);
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
         buffer = replaceOutputBuffer(size);
         for (int i = position; i < limit; i += 4) {
-          int pcm32BitInteger =
-              (inputBuffer.get(i + 3) & 0xFF)
-                  | ((inputBuffer.get(i + 2) & 0xFF) << 8)
-                  | ((inputBuffer.get(i + 1) & 0xFF) << 16)
-                  | ((inputBuffer.get(i) & 0xFF) << 24);
+          int pcm32BitInteger = Integer.reverseBytes(inputBuffer.getInt(i));
           writePcm32BitFloat(pcm32BitInteger, buffer);
         }
         break;
