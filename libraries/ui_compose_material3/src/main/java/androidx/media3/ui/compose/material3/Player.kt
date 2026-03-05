@@ -30,10 +30,38 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
+
+/**
+ * A composable that provides a basic player UI layout, combining a [ContentFrame] for displaying
+ * player content with customizable controls and a shutter.
+ *
+ * This composable consists of a [ContentFrame] that handles the rendering of the player's video,
+ * overlaid with some default controls and a shutter.
+ *
+ * @param player The [Player] instance to be controlled and whose content is displayed.
+ * @param modifier The [Modifier] to be applied to the outer [Box].
+ */
+@UnstableApi
+@Composable
+fun Player(player: Player?, modifier: Modifier = Modifier) {
+  Player(
+    player,
+    modifier,
+    surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+    contentScale = ContentScale.Fit,
+    keepContentOnReset = false,
+    shutter = { PlayerDefaults.Shutter() },
+    showControls = true,
+    topControls = defaultTopControls,
+    centerControls = defaultCenterControls,
+    bottomControls = defaultBottomControls,
+  )
+}
 
 /**
  * A composable that provides a basic player UI layout, combining a [ContentFrame] for displaying
@@ -58,7 +86,7 @@ import androidx.media3.ui.compose.SurfaceType
  * @param bottomControls A composable aligned with [Alignment.BottomCenter], receiving the [player]
  *   and [showControls].
  */
-@UnstableApi
+@ExperimentalApi // TODO: b/490015547 - Move to stable/unstable
 @Composable
 fun Player(
   player: Player?,

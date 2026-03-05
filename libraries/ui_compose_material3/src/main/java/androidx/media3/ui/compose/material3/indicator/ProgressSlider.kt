@@ -31,9 +31,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.media3.common.Player
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.indicators.ProgressIndicator
 import kotlinx.coroutines.CoroutineScope
+
+/**
+ * A Material3 [Slider] that displays the current position of the player.
+ *
+ * @param player The [Player] to get the progress from.
+ * @param modifier The [Modifier] to be applied to the slider.
+ */
+@UnstableApi
+@Composable
+fun ProgressSlider(player: Player?, modifier: Modifier = Modifier) {
+  ProgressSlider(
+    player,
+    modifier,
+    onValueChangeFinished = null,
+    scope = rememberCoroutineScope(),
+    colors = SliderDefaults.colors(),
+    interactionSource = remember { MutableInteractionSource() },
+  )
+}
 
 /**
  * A Material3 [Slider] that displays the current position of the player.
@@ -55,7 +75,7 @@ import kotlinx.coroutines.CoroutineScope
  *   create and pass in your own `remember`ed instance to observe `Interactions` and customize the
  *   appearance / behavior of this slider in different states.
  */
-@UnstableApi
+@ExperimentalApi // TODO: b/490019662 - Move to stable/unstable
 @Composable
 fun ProgressSlider(
   player: Player?,

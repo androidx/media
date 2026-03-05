@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
@@ -97,6 +98,7 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
 internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
