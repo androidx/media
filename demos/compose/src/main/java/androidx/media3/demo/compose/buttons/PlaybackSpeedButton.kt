@@ -73,6 +73,8 @@ import kotlin.math.round
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
+ * @param sheetModifier The [Modifier] to be applied to the sheet.
+ * @param sheetContentModifier The [Modifier] to be applied to the content of the sheet.
  * @param colors [ButtonColors] to be used for the button.
  * @param interactionSource The [MutableInteractionSource] for the button.
  * @param content The composable content to be displayed inside the [ModalBottomSheet]. The content
@@ -85,9 +87,15 @@ import kotlin.math.round
 fun PlaybackSpeedBottomSheetButton(
   player: Player?,
   modifier: Modifier = Modifier,
+  sheetModifier: Modifier = Modifier,
+  sheetContentModifier: Modifier = Modifier,
   colors: ButtonColors = ButtonDefaults.textButtonColors(),
   interactionSource: MutableInteractionSource? = null,
-  content: @Composable PlaybackSpeedState.(onDismissRequest: () -> Unit) -> Unit =
+  content:
+    @Composable
+    PlaybackSpeedState.(
+      onDismissRequest: () -> Unit, modifier: Modifier, contentModifier: Modifier,
+    ) -> Unit =
     defaultPlaybackSpeedBottomSheet,
 ) {
   var showBottomSheet by remember { mutableStateOf(false) }
@@ -103,7 +111,7 @@ fun PlaybackSpeedBottomSheetButton(
     }
 
     if (showBottomSheet) {
-      content { showBottomSheet = false }
+      content({ showBottomSheet = false }, sheetModifier, sheetContentModifier)
     }
   }
 }
@@ -121,6 +129,7 @@ fun PlaybackSpeedBottomSheetButton(
  * @param state The [PlaybackSpeedState] that holds the current playback speed.
  * @param onDismissRequest A lambda to be executed to dismiss the sheet.
  * @param modifier The [Modifier] to be applied to the sheet.
+ * @param contentModifier The [Modifier] to be applied to the content of the sheet.
  * @param sheetState The state of the bottom sheet.
  * @param presetSpeeds A list of floating-point values for the preset speed buttons.
  * @param speedStep The increment/decrement value for the plus and minus buttons. This is also used
@@ -144,6 +153,7 @@ fun PlaybackSpeedBottomSheet(
   state: PlaybackSpeedState,
   onDismissRequest: () -> Unit,
   modifier: Modifier = Modifier,
+  contentModifier: Modifier = Modifier,
   sheetState: SheetState = rememberModalBottomSheetState(),
   presetSpeeds: List<Float> = listOf(0.25f, 1.0f, 1.25f, 1.5f, 2.0f),
   speedStep: Float = 0.05f,
@@ -168,7 +178,7 @@ fun PlaybackSpeedBottomSheet(
     scrimColor = scrimColor,
   ) {
     Column(
-      modifier = Modifier.fillMaxWidth().padding(8.dp),
+      modifier = contentModifier.fillMaxWidth().padding(8.dp),
       horizontalAlignment = Alignment.CenterHorizontally,
     ) {
       state.header()
@@ -179,8 +189,17 @@ fun PlaybackSpeedBottomSheet(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-private val defaultPlaybackSpeedBottomSheet: @Composable PlaybackSpeedState.(() -> Unit) -> Unit =
-  @Composable { onDismiss -> PlaybackSpeedBottomSheet(state = this, onDismissRequest = onDismiss) }
+private val defaultPlaybackSpeedBottomSheet:
+  @Composable
+  PlaybackSpeedState.((() -> Unit), Modifier, Modifier) -> Unit =
+  @Composable { onDismiss, modifier, contentModifier ->
+    PlaybackSpeedBottomSheet(
+      state = this,
+      onDismissRequest = onDismiss,
+      modifier = modifier,
+      contentModifier = contentModifier,
+    )
+  }
 
 private val defaultPlaybackSpeedText: @Composable PlaybackSpeedState.() -> Unit =
   @Composable {
