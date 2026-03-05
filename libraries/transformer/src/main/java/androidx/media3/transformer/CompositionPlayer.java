@@ -1220,7 +1220,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new SpeedChangingAudioProcessor(
             item.speedProvider,
             /* areInputTimestampsAdjusted= */ true,
-            /* shouldMaintainPitch= */ false));
+            item.speedParameters.shouldMaintainPitch));
     return item.buildUpon().setPreProcessingAudioProcessors(preProcessors).build();
   }
 

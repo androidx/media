@@ -26,8 +26,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
+import androidx.media3.common.SpeedParameters;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SpeedProviderUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -56,7 +58,7 @@ public final class EditedMediaItem {
     private long durationUs;
     private int frameRate;
     private Effects effects;
-    private SpeedProvider speedProvider;
+    private SpeedParameters speedParameters;
     private ImmutableList<AudioProcessor> preProcessingAudioProcessors;
 
     /**
@@ -83,7 +85,7 @@ public final class EditedMediaItem {
               : Util.msToUs(mediaItem.localConfiguration.imageDurationMs);
       frameRate = C.RATE_UNSET_INT;
       effects = Effects.EMPTY;
-      speedProvider = SpeedProvider.DEFAULT;
+      speedParameters = SpeedParameters.DEFAULT;
       preProcessingAudioProcessors = ImmutableList.of();
     }
 
@@ -95,7 +97,7 @@ public final class EditedMediaItem {
       this.durationUs = editedMediaItem.durationUs;
       this.frameRate = editedMediaItem.frameRate;
       this.effects = editedMediaItem.effects;
-      this.speedProvider = editedMediaItem.speedProvider;
+      this.speedParameters = editedMediaItem.speedParameters;
       this.preProcessingAudioProcessors = editedMediaItem.preProcessingAudioProcessors;
     }
 
@@ -245,13 +247,32 @@ public final class EditedMediaItem {
      * <p>If a {@link SpeedProvider} is set, speed changing {@linkplain #setEffects effects} are not
      * allowed.
      *
+     * <p>This method is identical to {@code setSpeed(new SpeedParameters(provider, false))}.
+     *
      * <p>The default value is {@link SpeedProvider#DEFAULT}, which represents an unmodified speed.
      *
      * @return This builder.
      */
     @CanIgnoreReturnValue
     public Builder setSpeed(SpeedProvider provider) {
-      this.speedProvider = provider;
+      this.speedParameters = new SpeedParameters(provider, /* shouldMaintainPitch= */ false);
+      return this;
+    }
+
+    /**
+     * Sets a {@link SpeedParameters} instance to control the presentation speed of the {@link
+     * EditedMediaItem}.
+     *
+     * <p>If a {@link SpeedParameters} instance is set, speed changing {@linkplain #setEffects
+     * effects} are not allowed.
+     *
+     * @return This builder.
+     */
+    // TODO: b/489655531 - Remove experimental annotation.
+    @ExperimentalApi
+    @CanIgnoreReturnValue
+    public Builder setSpeed(SpeedParameters parameters) {
+      this.speedParameters = parameters;
       return this;
     }
 
@@ -331,7 +352,10 @@ public final class EditedMediaItem {
   /** The {@link Effects} to apply to the {@link #mediaItem}. */
   public final Effects effects;
 
+  // TODO: b/489655531 - Deprecate once SpeedParameters becomes not experimental.
   public final SpeedProvider speedProvider;
+  // TODO: b/489655531 - Remove experimental annotation.
+  @ExperimentalApi public final SpeedParameters speedParameters;
 
   /* package */ final ImmutableList<AudioProcessor> preProcessingAudioProcessors;
 
@@ -346,10 +370,10 @@ public final class EditedMediaItem {
       checkArgument(!builder.removeAudio);
       checkArgument(!builder.flattenForSlowMotion);
       checkArgument(builder.effects.audioProcessors.isEmpty());
-      checkArgument(builder.speedProvider == SpeedProvider.DEFAULT);
+      checkArgument(builder.speedParameters == SpeedParameters.DEFAULT);
     }
 
-    if (builder.speedProvider != SpeedProvider.DEFAULT) {
+    if (builder.speedParameters.speedProvider != SpeedProvider.DEFAULT) {
       checkState(!containsSpeedChangingEffects(builder.effects, /* ignoreFirstEffect= */ false));
     }
 
@@ -360,7 +384,8 @@ public final class EditedMediaItem {
     this.durationUs = builder.durationUs;
     this.frameRate = builder.frameRate;
     this.effects = builder.effects;
-    this.speedProvider = builder.speedProvider;
+    this.speedProvider = builder.speedParameters.speedProvider;
+    this.speedParameters = builder.speedParameters;
     this.preProcessingAudioProcessors = builder.preProcessingAudioProcessors;
     presentationDurationUs = C.TIME_UNSET;
   }

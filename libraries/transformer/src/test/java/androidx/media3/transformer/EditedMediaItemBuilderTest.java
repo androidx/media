@@ -23,6 +23,7 @@ import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.SpeedParameters;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
@@ -282,6 +283,24 @@ public final class EditedMediaItemBuilderTest {
                 .setSpeed(SPEED_PROVIDER_2X)
                 .setEffects(effects)
                 .build());
+  }
+
+  @Test
+  public void setSpeed_withSpeedProvider_setsSpeedParametersWithoutMaintainingPitch() {
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(SPEED_PROVIDER_2X).build();
+    assertThat(item.speedParameters.speedProvider).isSameInstanceAs(SPEED_PROVIDER_2X);
+    assertThat(item.speedParameters.shouldMaintainPitch).isFalse();
+  }
+
+  @Test
+  public void setSpeed_withSpeedParameters_setsSpeedProviderAndParameters() {
+    SpeedParameters speedParameters =
+        new SpeedParameters(SPEED_PROVIDER_2X, /* shouldMaintainPitch= */ true);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY).setSpeed(speedParameters).build();
+    assertThat(item.speedProvider).isSameInstanceAs(SPEED_PROVIDER_2X);
+    assertThat(item.speedParameters).isSameInstanceAs(speedParameters);
   }
 
   @Test

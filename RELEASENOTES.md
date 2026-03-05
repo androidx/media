@@ -25,6 +25,8 @@
     *   Convert parameters of `AudioSink.configure` to data class. Custom
         overrides of `ForwardingAudioSink.configure` need to be migrated to the
         new method signature.
+    *   Add support for maintaining pitch when time-stretching an audio stream
+        with `EditedMediaItem.Builder#setSpeed(SpeedParameters)`.
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.
