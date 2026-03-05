@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Before;
@@ -1033,7 +1034,7 @@ public class BoxesTest {
 
   @Test
   public void createTrefBox_withMultipleTrackReferences_matchesExpected() throws IOException {
-    Map<Integer, List<Integer>> trackReferences = new HashMap<>();
+    Map<Integer, List<Integer>> trackReferences = new LinkedHashMap<>();
     trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));
     trackReferences.put(Util.getIntegerCodeForString("hind"), ImmutableList.of(1, 2));
 
