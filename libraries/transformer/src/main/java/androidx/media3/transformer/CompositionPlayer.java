@@ -2249,8 +2249,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setClock(clock)
               // Use dynamic scheduling to show the first video/image frame more promptly when the
               // player is paused (which is common in editing applications).
-              .experimentalSetDynamicSchedulingEnabled(true);
-      playerBuilder.setTrackSelector(trackSelector);
+              .experimentalSetDynamicSchedulingEnabled(true)
+              .setTrackSelector(trackSelector)
+              // TODO: b/489733731 - Reenable stuck player detection.
+              .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
+              .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+              .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
       this.hardwareBufferFrameReader = hardwareBufferFrameReader;
