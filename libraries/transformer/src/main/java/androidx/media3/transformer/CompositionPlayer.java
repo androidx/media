@@ -47,8 +47,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -78,12 +76,14 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.RenderingPacketConsumer;
@@ -178,7 +178,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor;
 
-    @Nullable private HardwareBufferFrameProcessor hardwareBufferPostProcessor;
+    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -504,20 +504,21 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
-     * Sets optional processing on all {@link HardwareBufferFrame}s before entering the {@linkplain
-     * #setPacketConsumerFactory effects pipeline}.
+     * Sets the {@link HardwareBufferJniWrapper} used to provide native helpers.
      *
-     * <p>This should only be used to improve backwards compatibility with older API versions, and
-     * is not intended for application use.
+     * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>Only used if {@link #setPacketConsumerFactory} is set.
+     * <p>This will only be used if {@link #setHardwareBufferEffectsPipeline} is set.
      *
-     * <p>The default value is {@code null}.
+     * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} to provide native
+     *     helpers.
+     * @return This builder.
      */
-    @RestrictTo(Scope.LIBRARY_GROUP)
     @CanIgnoreReturnValue
-    public Builder setHardwareBufferPostProcessor(HardwareBufferFrameProcessor processor) {
-      this.hardwareBufferPostProcessor = processor;
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    public Builder setNativeHardwareBufferHelpers(
+        HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
       return this;
     }
 
@@ -687,8 +688,18 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor = builder.packetProcessor;
+    HardwareBufferJniWrapper hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
     if (packetProcessor != null || builder.packetConsumerFactory != null) {
-      hardwareBufferPostProcessor = builder.hardwareBufferPostProcessor;
+      // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
+      if (hardwareBufferJniWrapper != null && SDK_INT >= 26) {
+        hardwareBufferPostProcessor =
+            new BitmapToHardwareBufferProcessor(
+                /* releaseBufferExecutor= */ Util.newSingleThreadExecutor(
+                    "BitmapToHardwareBufferProcessor::Thread"),
+                hardwareBufferJniWrapper);
+      } else {
+        hardwareBufferPostProcessor = null;
+      }
       if (packetProcessor != null && SDK_INT >= 33) {
         packetConsumer = packetProcessor;
         surfaceHolderHardwareBufferFrameQueue =

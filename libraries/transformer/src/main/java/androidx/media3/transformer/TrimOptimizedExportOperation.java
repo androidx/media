@@ -43,7 +43,6 @@ import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -51,6 +50,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
@@ -97,7 +97,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
-  @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+  @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @Nullable private final LogSessionId logSessionId;
   private final Muxer.Factory muxerFactory;
@@ -131,7 +131,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
-      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
       Muxer.Factory muxerFactory,
@@ -151,7 +151,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.packetRenderer = packetRenderer;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     this.muxerFactory = muxerFactory;
     this.outputFilePath = outputFilePath;
@@ -391,7 +391,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             debugViewProvider,
             clock,
             packetProcessor,
-            packetRenderer,
+            hardwareBufferJniWrapper,
             initialTimestampOffsetUs,
             logSessionId,
             applyMp4EditListTrim,

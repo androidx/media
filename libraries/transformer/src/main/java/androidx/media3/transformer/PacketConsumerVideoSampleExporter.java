@@ -24,6 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.content.Context;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
 import android.os.Looper;
@@ -37,8 +38,11 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.effect.HardwareBufferSurfaceRenderer;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
@@ -89,12 +93,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull VideoEncoderWrapper encoderWrapper;
 
   public PacketConsumerVideoSampleExporter(
+      Context context,
       Composition composition,
       Format firstInputFormat,
       TransformationRequest transformationRequest,
       RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
           packetProcessor,
-      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       EncoderFactory encoderFactory,
       MuxerWrapper muxerWrapper,
       Consumer<ExportException> errorConsumer,
@@ -131,7 +136,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     componentListener = new ComponentListener();
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
-    if (packetRenderer != null) {
+    if (hardwareBufferJniWrapper != null) {
+      HardwareBufferSurfaceRenderer packetRenderer =
+          HardwareBufferSurfaceRenderer.create(
+              context,
+              hardwareBufferJniWrapper,
+              GlTextureFrameRenderer.Listener.NO_OP.INSTANCE,
+              (e) ->
+                  errorConsumer.accept(
+                      ExportException.createForVideoFrameProcessingException(
+                          VideoFrameProcessingException.from(e))));
       hardwareBufferFrameQueue =
           new PacketConsumerHardwareBufferFrameQueue(
               /* releaseFrameExecutor= */ handlerWrapper::post, packetRenderer, componentListener);

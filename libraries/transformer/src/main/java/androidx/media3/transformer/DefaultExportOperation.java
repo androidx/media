@@ -23,12 +23,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Format;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
@@ -58,7 +58,7 @@ import com.google.common.collect.ImmutableList;
           ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
-  @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+  @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @Nullable private final LogSessionId logSessionId;
   private final boolean applyMp4EditListTrim;
@@ -88,7 +88,7 @@ import com.google.common.collect.ImmutableList;
       @Nullable
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
-      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
       Muxer.Factory muxerFactory,
@@ -109,7 +109,7 @@ import com.google.common.collect.ImmutableList;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.packetRenderer = packetRenderer;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     this.muxerFactory = muxerFactory;
     this.outputFilePath = outputFilePath;
@@ -147,7 +147,7 @@ import com.google.common.collect.ImmutableList;
             debugViewProvider,
             clock,
             packetProcessor,
-            packetRenderer,
+            hardwareBufferJniWrapper,
             /* videoSampleTimestampOffsetUs= */ 0,
             logSessionId,
             applyMp4EditListTrim,

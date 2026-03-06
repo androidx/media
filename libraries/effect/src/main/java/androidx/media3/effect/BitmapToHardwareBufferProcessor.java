@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -24,6 +23,7 @@ import android.hardware.HardwareBuffer;
 import android.system.ErrnoException;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import java.io.IOException;
@@ -33,7 +33,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-// TODO: b/475511306 - Restrict this to SDK 26+.
 /**
  * A {@link HardwareBufferFrameProcessor} that converts {@link Bitmap}-backed {@link
  * HardwareBufferFrame} instances into {@link android.hardware.HardwareBuffer}-backed ones.
@@ -46,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * it is only closed once all consumer frames and the processor itself have released their
  * references.
  */
+@RequiresApi(26)
 @ExperimentalApi // TODO: b/479415385 - remove when packet consumer is production-ready.
 public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProcessor {
 
@@ -82,9 +82,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
 
   @Override
   public HardwareBufferFrame process(HardwareBufferFrame inputFrame) {
-    if (SDK_INT < 26
-        || inputFrame.hardwareBuffer != null
-        || !(inputFrame.internalFrame instanceof Bitmap)) {
+    if (inputFrame.hardwareBuffer != null || !(inputFrame.internalFrame instanceof Bitmap)) {
       return inputFrame;
     }
     Bitmap nextBitmap = checkNotNull((Bitmap) inputFrame.internalFrame);
@@ -201,9 +199,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
       for (SyncFenceCompat fence : fencesToWait) {
         waitAndClose(fence);
       }
-      if (SDK_INT >= 26) {
-        hardwareBuffer.close();
-      }
+      hardwareBuffer.close();
     }
 
     private static void waitAndClose(@Nullable SyncFenceCompat fence) {

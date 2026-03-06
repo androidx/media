@@ -18,9 +18,6 @@ package androidx.media3.effect.ndk;
 import android.content.Context;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.effect.GlTextureFrameRenderer.Listener.NO_OP;
-import androidx.media3.effect.HardwareBufferSurfaceRenderer;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.transformer.Transformer;
 
 /**
@@ -36,20 +33,15 @@ public class NdkTransformerBuilder {
    * androidx.media3.effect.ndk} dependencies injected.
    *
    * <p>Callers must set {@link
-   * androidx.media3.transformer.Transformer.Builder#setHardwareBufferEffectsPipeline(RenderingPacketConsumer)}
-   * on the returned builder before using it, in order to inject the effects processing pipeline.
+   * androidx.media3.transformer.Transformer.Builder#setHardwareBufferEffectsPipeline} on the
+   * returned builder before using it, in order to inject the effects processing pipeline.
    *
    * @param context The {@link Context}.
    * @return A {@link androidx.media3.transformer.Transformer.Builder} that can be built upon.
    */
   public static Transformer.Builder create(Context context) {
-    HardwareBufferSurfaceRenderer hardwareBufferRenderer =
-        HardwareBufferSurfaceRenderer.create(
-            context,
-            /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE,
-            /* listener= */ NO_OP.INSTANCE,
-            /* errorConsumer= */ e -> {});
-    return new Transformer.Builder(context).setHardwareBufferRenderer(hardwareBufferRenderer);
+    return new Transformer.Builder(context)
+        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
   }
 
   private NdkTransformerBuilder() {}

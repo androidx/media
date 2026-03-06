@@ -18,8 +18,6 @@ package androidx.media3.effect.ndk;
 import android.content.Context;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.Util;
-import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.transformer.CompositionPlayer;
 
 /**
@@ -35,19 +33,15 @@ public class NdkCompositionPlayerBuilder {
    * androidx.media3.effect.ndk} dependencies injected.
    *
    * <p>Callers must set {@link
-   * androidx.media3.transformer.CompositionPlayer.Builder#setPacketConsumerFactory} on the returned
-   * builder before using it, in order to inject the effects processing pipeline.
+   * androidx.media3.transformer.CompositionPlayer.Builder#setHardwareBufferEffectsPipeline} on the
+   * returned builder before using it, in order to inject the effects processing pipeline.
    *
    * @param context The {@link Context}.
    * @return A {@link androidx.media3.transformer.CompositionPlayer.Builder} that can be built upon.
    */
   public static CompositionPlayer.Builder create(Context context) {
     return new CompositionPlayer.Builder(context)
-        .setHardwareBufferPostProcessor(
-            new BitmapToHardwareBufferProcessor(
-                /* releaseBufferExecutor= */ Util.newSingleThreadExecutor(
-                    "BitmapToHardwareBufferProcessor::Thread"),
-                /* hardwareBufferJniWrapper= */ HardwareBufferJni.INSTANCE));
+        .setNativeHardwareBufferHelpers(HardwareBufferJni.INSTANCE);
   }
 
   private NdkCompositionPlayerBuilder() {}

@@ -37,7 +37,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
@@ -54,6 +53,7 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
@@ -130,7 +130,7 @@ public final class Transformer {
     private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor;
 
-    @Nullable private RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
     /**
      * Creates a builder with default values.
@@ -187,7 +187,7 @@ public final class Transformer {
       this.clock = transformer.clock;
       this.metricsReporterFactory = transformer.metricsReporterFactory;
       this.packetProcessor = transformer.packetProcessor;
-      this.packetRenderer = transformer.packetRenderer;
+      this.hardwareBufferJniWrapper = transformer.hardwareBufferJniWrapper;
     }
 
     /**
@@ -339,26 +339,21 @@ public final class Transformer {
     }
 
     /**
-     * Sets the {@link RenderingPacketConsumer} used to render {@link HardwareBufferFrame}s to the
-     * encoder.
-     *
-     * <p>This parameter has no effect when transmuxing video, or when processing audio.
+     * Sets the {@link HardwareBufferJniWrapper} used to provide native helpers.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>If using this method, {@link #setHardwareBufferEffectsPipeline} must also be set. Do not
-     * {@linkplain #setVideoFrameProcessorFactory set} a {@link VideoFrameProcessor.Factory}.
+     * <p>This will only be used if {@link #setHardwareBufferEffectsPipeline} is set.
      *
-     * @param packetRenderer The {@link RenderingPacketConsumer} to render frames output from the
-     *     {@linkplain #setHardwareBufferEffectsPipeline effects pipeline} to the encoder's input
-     *     {@link android.view.Surface}.
+     * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} to provide native
+     *     helpers.
      * @return This builder.
      */
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-    public Builder setHardwareBufferRenderer(
-        RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
-      this.packetRenderer = packetRenderer;
+    public Builder setNativeHardwareBufferHelpers(
+        HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
       return this;
     }
 
@@ -369,8 +364,8 @@ public final class Transformer {
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * <p>If using this method, {@link #setHardwareBufferRenderer} must also be set. Do not
-     * {@linkplain #setVideoFrameProcessorFactory set} a {@link VideoFrameProcessor.Factory}.
+     * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
+     * VideoFrameProcessor.Factory}.
      *
      * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
      * @return This builder.
@@ -692,7 +687,7 @@ public final class Transformer {
           "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
           muxerFactory);
       if (packetProcessor != null) {
-        checkState(packetRenderer != null || SDK_INT >= 33);
+        checkState(hardwareBufferJniWrapper != null || SDK_INT >= 33);
       }
       return new Transformer(
           context,
@@ -719,7 +714,7 @@ public final class Transformer {
           clock,
           metricsReporterFactory,
           packetProcessor,
-          packetRenderer);
+          hardwareBufferJniWrapper);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -848,7 +843,7 @@ public final class Transformer {
           ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
-  @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   @Nullable private ExportOperation currentExportOperation;
   private boolean exportResumed;
@@ -886,7 +881,7 @@ public final class Transformer {
       @Nullable
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
-      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer) {
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -911,7 +906,7 @@ public final class Transformer {
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.packetRenderer = packetRenderer;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.metricsReporterFactory = metricsReporterFactory;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     exportOperationListener = new ExportOperationListener();
@@ -1357,7 +1352,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              packetRenderer,
+              hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
@@ -1381,7 +1376,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              packetRenderer,
+              hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,
@@ -1404,7 +1399,7 @@ public final class Transformer {
               debugViewProvider,
               clock,
               packetProcessor,
-              packetRenderer,
+              hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
               muxerFactory,

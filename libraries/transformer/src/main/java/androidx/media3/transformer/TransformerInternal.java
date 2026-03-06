@@ -60,7 +60,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -70,6 +69,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
@@ -139,7 +139,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
       packetProcessor;
 
-  @Nullable private final RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
   /**
    * The presentation timestamp offset for all the video samples. It will be set when resuming video
@@ -220,7 +220,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
-      @Nullable RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
@@ -234,7 +234,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
     this.packetProcessor = packetProcessor;
-    this.packetRenderer = packetRenderer;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
@@ -796,11 +796,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           }
           PacketConsumerVideoSampleExporter videoSampleExporter =
               new PacketConsumerVideoSampleExporter(
+                  context,
                   composition,
                   firstFormat,
                   transformationRequest,
                   checkNotNull(packetProcessor),
-                  packetRenderer,
+                  hardwareBufferJniWrapper,
                   encoderFactory,
                   muxerWrapper,
                   /* errorConsumer= */ this::onError,
