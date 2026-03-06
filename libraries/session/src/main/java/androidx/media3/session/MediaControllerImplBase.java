@@ -83,8 +83,10 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
@@ -219,17 +221,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public void connect(@UnderInitialization MediaControllerImplBase this) {
-    boolean connectionRequested;
+    Consumer<Boolean> onConnectionRequested =
+        connectionRequested -> {
+          if (!connectionRequested) {
+            getInstance().runOnApplicationLooper(getInstance()::release);
+          }
+        };
     if (this.token.getType() == SessionToken.TYPE_SESSION) {
       // Session
       serviceConnection = null;
-      connectionRequested = requestConnectToSession(connectionHints);
+      requestConnectToSession(connectionHints, onConnectionRequested);
     } else {
       serviceConnection = new SessionServiceConnection(connectionHints);
-      connectionRequested = requestConnectToService();
-    }
-    if (!connectionRequested) {
-      getInstance().runOnApplicationLooper(getInstance()::release);
+      requestConnectToService(onConnectionRequested);
     }
   }
 
@@ -2674,7 +2678,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     listeners.flushEvents();
   }
 
-  private boolean requestConnectToService() {
+  private void requestConnectToService(Consumer<Boolean> onConnectionRequested) {
     int flags =
         SDK_INT >= 29
             ? Context.BIND_AUTO_CREATE | Context.BIND_INCLUDE_CAPABILITIES
@@ -2698,34 +2702,49 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     //    If a service wants to keep running, it should be either foreground service or
     //    bound service. But there had been request for the feature for system apps
     //    and using bindService() will be better fit with it.
-    try {
-      if (context.bindService(intent, serviceConnection, flags)) {
-        return true;
-      }
-      Log.w(TAG, "bind to " + token + " failed");
-    } catch (SecurityException e) {
-      Log.w(TAG, "bind to " + token + " not allowed", e);
-    }
-    return false;
+    BackgroundExecutor.get()
+        .execute(
+            () -> {
+              try {
+                if (context.bindService(intent, serviceConnection, flags)) {
+                  onConnectionRequested.accept(true);
+                  return;
+                }
+                Log.w(TAG, "bind to " + token + " failed");
+              } catch (SecurityException e) {
+                Log.w(TAG, "bind to " + token + " not allowed", e);
+              }
+              onConnectionRequested.accept(false);
+            });
   }
 
-  private boolean requestConnectToSession(Bundle connectionHints) {
-    IMediaSession iSession =
-        IMediaSession.Stub.asInterface((IBinder) checkNotNull(token.getBinder()));
-    int seq = sequencedFutureManager.obtainNextSequenceNumber();
-    ConnectionRequest request =
-        new ConnectionRequest(
-            context.getPackageName(),
-            Process.myPid(),
-            connectionHints,
-            instance.getMaxCommandsForMediaItems());
-    try {
-      iSession.connect(controllerStub, seq, request.toBundle());
-    } catch (RemoteException e) {
-      Log.w(TAG, "Failed to call connection request.", e);
-      return false;
-    }
-    return true;
+  private void requestConnectToSession(
+      Bundle connectionHints, Consumer<Boolean> onConnectionRequested) {
+    // If the session is not remote, it will answer swiftly. In order to support creating a media
+    // controller in the media session service onCreate, connect in-place if not remote.
+    (token.getBinder() instanceof MediaSessionStub
+            ? MoreExecutors.directExecutor()
+            : BackgroundExecutor.get())
+        .execute(
+            () -> {
+              IMediaSession iSession =
+                  IMediaSession.Stub.asInterface((IBinder) checkNotNull(token.getBinder()));
+              int seq = sequencedFutureManager.obtainNextSequenceNumber();
+              ConnectionRequest request =
+                  new ConnectionRequest(
+                      context.getPackageName(),
+                      Process.myPid(),
+                      connectionHints,
+                      instance.getMaxCommandsForMediaItems());
+              try {
+                iSession.connect(controllerStub, seq, request.toBundle());
+              } catch (RemoteException e) {
+                Log.w(TAG, "Failed to call connection request.", e);
+                onConnectionRequested.accept(false);
+                return;
+              }
+              onConnectionRequested.accept(true);
+            });
   }
 
   private void clearSurfacesAndCallbacks() {
