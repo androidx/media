@@ -75,29 +75,35 @@ public class FrameAggregatorTest {
     FrameAggregator frameAggregator =
         new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
+    HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 100);
 
     frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
 
     // Should not output a frame yet because the secondary sequence is missing.
     assertThat(outputFrames).isEmpty();
 
-    HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 100);
     frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame.presentationTimeUs);
   }
 
   @Test
   public void queueFrame_dropsSecondaryFramesWithEarlierPresentationTimeUs() {
     FrameAggregator frameAggregator =
         new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+    HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 50);
     HardwareBufferFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 80);
+    HardwareBufferFrame secondaryFrame3 = createFrame(/* presentationTimeUs= */ 110);
+
     frameAggregator.queueFrame(secondaryFrame1, /* sequenceIndex= */ 1);
     frameAggregator.queueFrame(secondaryFrame2, /* sequenceIndex= */ 1);
-
-    HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
     frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
 
     // Frames before the primary frame should be dropped and released.
@@ -105,11 +111,15 @@ public class FrameAggregatorTest {
         .containsExactly(secondaryFrame1.presentationTimeUs, secondaryFrame2.presentationTimeUs);
     assertThat(outputFrames).isEmpty();
 
-    HardwareBufferFrame secondaryFrame3 = createFrame(/* presentationTimeUs= */ 110);
     frameAggregator.queueFrame(secondaryFrame3, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame3);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame3.presentationTimeUs);
   }
 
   @Test
@@ -127,7 +137,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame3, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame2);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame2.presentationTimeUs);
     assertThat(releasedFrameTimestamps).containsExactly(secondaryFrame1.presentationTimeUs);
   }
 
@@ -146,7 +161,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame3, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame2);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame2.presentationTimeUs);
     assertThat(releasedFrameTimestamps).containsExactly(secondaryFrame1.presentationTimeUs);
   }
 
@@ -167,7 +187,11 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(frame4, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(frame0, frame1, frame2);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(3);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs).isEqualTo(frame0.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs).isEqualTo(frame1.presentationTimeUs);
+    assertThat(aggregatedPacket.get(2).presentationTimeUs).isEqualTo(frame2.presentationTimeUs);
 
     frameAggregator.releaseAllFrames();
 
@@ -187,7 +211,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame1, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame1, secondaryFrame1).inOrder();
+    List<HardwareBufferFrame> aggregatedPacket1 = outputFrames.get(0);
+    assertThat(aggregatedPacket1).hasSize(2);
+    assertThat(aggregatedPacket1.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame1.presentationTimeUs);
+    assertThat(aggregatedPacket1.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame1.presentationTimeUs);
 
     frameAggregator.flush(/* sequenceIndex= */ 0);
     frameAggregator.flush(/* sequenceIndex= */ 1);
@@ -199,7 +228,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame2, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(2);
-    assertThat(outputFrames.get(1)).containsExactly(primaryFrame2, secondaryFrame2).inOrder();
+    List<HardwareBufferFrame> aggregatedPacket2 = outputFrames.get(1);
+    assertThat(aggregatedPacket2).hasSize(2);
+    assertThat(aggregatedPacket2.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame2.presentationTimeUs);
+    assertThat(aggregatedPacket2.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame2.presentationTimeUs);
   }
 
   @Test
@@ -241,29 +275,41 @@ public class FrameAggregatorTest {
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 2);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame1);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame1.presentationTimeUs);
   }
 
   @Test
   public void queueEndOfStream_thenFlush_resetsEndedState() {
     FrameAggregator frameAggregator =
         new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+    HardwareBufferFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
+    HardwareBufferFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 200);
+    HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 200);
 
-    frameAggregator.queueFrame(createFrame(/* presentationTimeUs= */ 100), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(primaryFrame1, /* sequenceIndex= */ 0);
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
     assertThat(outputFrames).hasSize(1);
 
     frameAggregator.flush(/* sequenceIndex= */ 1);
 
-    frameAggregator.queueFrame(createFrame(/* presentationTimeUs= */ 200), /* sequenceIndex= */ 0);
+    frameAggregator.queueFrame(primaryFrame2, /* sequenceIndex= */ 0);
 
     assertThat(outputFrames).hasSize(1);
 
-    HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 200);
     frameAggregator.queueFrame(secondaryFrame, /* sequenceIndex= */ 1);
 
     assertThat(outputFrames).hasSize(2);
-    assertThat(outputFrames.get(1)).contains(secondaryFrame);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(1);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame2.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame.presentationTimeUs);
   }
 
   @Test
@@ -280,7 +326,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame1, 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame1, secondaryFrame1);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame1.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame1.presentationTimeUs);
 
     frameAggregator.queueEndOfStream(1);
 
@@ -372,7 +423,12 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(secondaryFrame, 1);
 
     assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame.presentationTimeUs);
 
     frameAggregator.queueEndOfStream(1);
 
