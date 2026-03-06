@@ -15,6 +15,16 @@
   ~ limitations under the License.
   -->
 
-<manifest package="androidx.media3.datasource.okhttp.test">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="androidx.media3.datasource.okhttp.test">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-sdk/>
+
+    <application android:usesCleartextTraffic="true"/>
+
+    <instrumentation
+        android:targetPackage="androidx.media3.datasource.okhttp.test"
+        android:name="androidx.test.runner.AndroidJUnitRunner"/>
+
 </manifest>
