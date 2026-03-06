@@ -94,6 +94,8 @@ public class SubtitleExtractor implements Extractor {
 
   private byte[] subtitleData;
   private @MonotonicNonNull TrackOutput trackOutput;
+  private @MonotonicNonNull ExtractorOutput extractorOutput;
+  private @MonotonicNonNull IndexSeekMap seekMap;
   private int bytesRead;
   private @State int state;
   private long[] timestamps;
@@ -141,15 +143,18 @@ public class SubtitleExtractor implements Extractor {
   @Override
   public void init(ExtractorOutput output) {
     checkState(state == STATE_CREATED);
+    this.extractorOutput = output;
     trackOutput = output.track(TRACK_ID, C.TRACK_TYPE_TEXT);
     if (format != null) {
       trackOutput.format(format);
       output.endTracks();
-      output.seekMap(
+      IndexSeekMap seekMap =
           new IndexSeekMap(
               /* positions= */ new long[] {0},
               /* timesUs= */ new long[] {0},
-              /* durationUs= */ C.TIME_UNSET));
+              /* durationUs= */ C.TIME_UNSET);
+      this.seekMap = seekMap;
+      output.seekMap(seekMap);
     }
     state = STATE_INITIALIZED;
   }
@@ -248,6 +253,7 @@ public class SubtitleExtractor implements Extractor {
           seekTimeUs != C.TIME_UNSET
               ? SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(seekTimeUs)
               : SubtitleParser.OutputOptions.allCues();
+      long[] maxEndTimeUs = {C.TIME_UNSET};
       subtitleParser.parse(
           subtitleData,
           /* offset= */ 0,
@@ -259,6 +265,9 @@ public class SubtitleExtractor implements Extractor {
                     cuesWithTiming.startTimeUs,
                     cueEncoder.encode(cuesWithTiming.cues, cuesWithTiming.durationUs));
             samples.add(sample);
+            if (cuesWithTiming.endTimeUs != C.TIME_UNSET) {
+              maxEndTimeUs[0] = Math.max(maxEndTimeUs[0], cuesWithTiming.endTimeUs);
+            }
             if (seekTimeUs == C.TIME_UNSET || cuesWithTiming.endTimeUs >= seekTimeUs) {
               writeToOutput(sample);
             }
@@ -267,6 +276,11 @@ public class SubtitleExtractor implements Extractor {
       timestamps = new long[samples.size()];
       for (int i = 0; i < samples.size(); i++) {
         timestamps[i] = samples.get(i).timeUs;
+      }
+      // Duration is exact after parsing all subtitle cues.
+      if (maxEndTimeUs[0] != C.TIME_UNSET && seekMap != null) {
+        seekMap.setDurationUs(maxEndTimeUs[0]);
+        checkNotNull(extractorOutput).seekMap(seekMap);
       }
       subtitleData = Util.EMPTY_BYTE_ARRAY;
     } catch (RuntimeException e) {
