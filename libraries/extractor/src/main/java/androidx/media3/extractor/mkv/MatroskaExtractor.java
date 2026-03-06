@@ -830,9 +830,6 @@ public class MatroskaExtractor implements Extractor {
         currentTrack = new Track();
         currentTrack.isWebm = isWebm;
         break;
-      case ID_MASTERING_METADATA:
-        getCurrentTrack(id).hasColorInfo = true;
-        break;
       default:
         break;
     }
@@ -1248,32 +1245,30 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_COLOUR_PRIMARIES:
         assertInTrackEntry(id);
-        currentTrack.hasColorInfo = true;
         int colorSpace = ColorInfo.isoColorPrimariesToColorSpace((int) value);
         if (colorSpace != Format.NO_VALUE) {
-          currentTrack.colorSpace = colorSpace;
+          currentTrack.containerColorSpace = colorSpace;
         }
         break;
       case ID_COLOUR_TRANSFER:
         assertInTrackEntry(id);
         int colorTransfer = ColorInfo.isoTransferCharacteristicsToColorTransfer((int) value);
         if (colorTransfer != Format.NO_VALUE) {
-          currentTrack.colorTransfer = colorTransfer;
+          currentTrack.containerColorTransfer = colorTransfer;
         }
         break;
       case ID_COLOUR_BITS_PER_CHANNEL:
         assertInTrackEntry(id);
-        currentTrack.hasColorInfo = true;
         currentTrack.bitsPerChannel = (int) value;
         break;
       case ID_COLOUR_RANGE:
         assertInTrackEntry(id);
         switch ((int) value) {
           case 1: // Broadcast range.
-            currentTrack.colorRange = C.COLOR_RANGE_LIMITED;
+            currentTrack.containerColorRange = C.COLOR_RANGE_LIMITED;
             break;
           case 2:
-            currentTrack.colorRange = C.COLOR_RANGE_FULL;
+            currentTrack.containerColorRange = C.COLOR_RANGE_FULL;
             break;
           default:
             break;
@@ -2253,10 +2248,9 @@ public class MatroskaExtractor implements Extractor {
     public float projectionPoseRoll = 0f;
     public byte @MonotonicNonNull [] projectionData = null;
     public @C.StereoMode int stereoMode = Format.NO_VALUE;
-    public boolean hasColorInfo = false;
-    public @C.ColorSpace int colorSpace = Format.NO_VALUE;
-    public @C.ColorTransfer int colorTransfer = Format.NO_VALUE;
-    public @C.ColorRange int colorRange = Format.NO_VALUE;
+    public @C.ColorSpace int containerColorSpace = Format.NO_VALUE;
+    public @C.ColorTransfer int containerColorTransfer = Format.NO_VALUE;
+    public @C.ColorRange int containerColorRange = Format.NO_VALUE;
     public int maxContentLuminance = DEFAULT_MAX_CLL;
     public int maxFrameAverageLuminance = DEFAULT_MAX_FALL;
     public float primaryRChromaticityX = Format.NO_VALUE;
@@ -2300,6 +2294,11 @@ public class MatroskaExtractor implements Extractor {
       @C.PcmEncoding int pcmEncoding = Format.NO_VALUE;
       @Nullable List<byte[]> initializationData = null;
       @Nullable String codecs = null;
+      @C.ColorSpace int bitstreamColorSpace = Format.NO_VALUE;
+      @C.ColorTransfer int bitstreamColorTransfer = Format.NO_VALUE;
+      @C.ColorRange int bitstreamColorRange = Format.NO_VALUE;
+      int bitstreamLumaBitdepth = Format.NO_VALUE;
+      int bitstreamChromaBitdepth = Format.NO_VALUE;
       switch (codecId) {
         case CODEC_ID_VP8:
           mimeType = MimeTypes.VIDEO_VP8;
@@ -2328,6 +2327,11 @@ public class MatroskaExtractor implements Extractor {
           initializationData = avcConfig.initializationData;
           nalUnitLengthFieldLength = avcConfig.nalUnitLengthFieldLength;
           codecs = avcConfig.codecs;
+          bitstreamColorSpace = avcConfig.colorSpace;
+          bitstreamColorTransfer = avcConfig.colorTransfer;
+          bitstreamColorRange = avcConfig.colorRange;
+          bitstreamLumaBitdepth = avcConfig.bitdepthLuma;
+          bitstreamChromaBitdepth = avcConfig.bitdepthChroma;
           break;
         case CODEC_ID_H265:
           mimeType = MimeTypes.VIDEO_H265;
@@ -2335,6 +2339,11 @@ public class MatroskaExtractor implements Extractor {
           initializationData = hevcConfig.initializationData;
           nalUnitLengthFieldLength = hevcConfig.nalUnitLengthFieldLength;
           codecs = hevcConfig.codecs;
+          bitstreamColorSpace = hevcConfig.colorSpace;
+          bitstreamColorTransfer = hevcConfig.colorTransfer;
+          bitstreamColorRange = hevcConfig.colorRange;
+          bitstreamLumaBitdepth = hevcConfig.bitdepthLuma;
+          bitstreamChromaBitdepth = hevcConfig.bitdepthChroma;
           break;
         case CODEC_ID_FOURCC:
           Pair<String, @NullableType List<byte[]>> pair =
@@ -2524,19 +2533,47 @@ public class MatroskaExtractor implements Extractor {
         if (displayWidth != Format.NO_VALUE && displayHeight != Format.NO_VALUE) {
           pixelWidthHeightRatio = ((float) (height * displayWidth)) / (width * displayHeight);
         }
-        @Nullable ColorInfo colorInfo = null;
-        if (hasColorInfo) {
-          @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
-          colorInfo =
-              new ColorInfo.Builder()
-                  .setColorSpace(colorSpace)
-                  .setColorRange(colorRange)
-                  .setColorTransfer(colorTransfer)
-                  .setHdrStaticInfo(hdrStaticInfo)
-                  .setLumaBitdepth(bitsPerChannel)
-                  .setChromaBitdepth(bitsPerChannel)
-                  .build();
+
+        @C.ColorSpace int colorSpace;
+        @C.ColorTransfer int colorTransfer;
+        @C.ColorRange int colorRange;
+
+        // Bitstream color space/transfer override container values as a block.
+        if (bitstreamColorSpace != Format.NO_VALUE || bitstreamColorTransfer != Format.NO_VALUE) {
+          colorSpace = bitstreamColorSpace;
+          colorTransfer = bitstreamColorTransfer;
+          colorRange = bitstreamColorRange;
+        } else if (bitstreamColorRange != Format.NO_VALUE
+            && this.containerColorRange == Format.NO_VALUE) {
+          colorSpace = this.containerColorSpace;
+          colorTransfer = this.containerColorTransfer;
+          colorRange = bitstreamColorRange;
+        } else {
+          colorSpace = this.containerColorSpace;
+          colorTransfer = this.containerColorTransfer;
+          colorRange = this.containerColorRange;
         }
+
+        // Set default luma and chroma bit depths to 8 as old codecs might not even signal them.
+        int lumaBitdepth =
+            bitstreamLumaBitdepth != Format.NO_VALUE
+                ? bitstreamLumaBitdepth
+                : (this.bitsPerChannel != Format.NO_VALUE ? this.bitsPerChannel : 8);
+        int chromaBitdepth =
+            bitstreamChromaBitdepth != Format.NO_VALUE
+                ? bitstreamChromaBitdepth
+                : (this.bitsPerChannel != Format.NO_VALUE ? this.bitsPerChannel : 8);
+
+        @Nullable byte[] hdrStaticInfo = getHdrStaticInfo();
+        ColorInfo colorInfo =
+            new ColorInfo.Builder()
+                .setColorSpace(colorSpace)
+                .setColorRange(colorRange)
+                .setColorTransfer(colorTransfer)
+                .setHdrStaticInfo(hdrStaticInfo)
+                .setLumaBitdepth(lumaBitdepth)
+                .setChromaBitdepth(chromaBitdepth)
+                .build();
         int rotationDegrees = Format.NO_VALUE;
 
         if (name != null && TRACK_NAME_TO_ROTATION_DEGREES.containsKey(name)) {

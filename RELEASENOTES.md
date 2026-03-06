@@ -22,6 +22,7 @@
 *   Extractors:
     *   WAV, Matroska, and MP4: Add support for 64-bit floating point PCM audio
         ([#3090](https://github.com/androidx/media/pull/3090)).
+    *   Matroska: Use codec bitstream metadata to populate accurate `ColorInfo`.
 *   Inspector:
 *   Audio:
     *   Convert parameters of `AudioSink.configure` to data class. Custom

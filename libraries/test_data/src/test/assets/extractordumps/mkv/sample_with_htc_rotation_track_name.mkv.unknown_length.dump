@@ -17,6 +17,9 @@ track 1:
     width = 1080
     height = 720
     rotationDegrees = 90
+    colorInfo:
+      lumaBitdepth = 8
+      chromaBitdepth = 8
     selectionFlags = [default]
     language = und
     metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]

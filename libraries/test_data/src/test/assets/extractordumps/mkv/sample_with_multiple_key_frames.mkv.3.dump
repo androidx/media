@@ -16,6 +16,10 @@ track 1:
     codecs = avc1.640020
     width = 1080
     height = 720
+    colorInfo:
+      colorRange = 2
+      lumaBitdepth = 8
+      chromaBitdepth = 8
     selectionFlags = [default]
     language = und
     metadata = entries=[ThumbnailMetadata: presentationTimeUs=333000]

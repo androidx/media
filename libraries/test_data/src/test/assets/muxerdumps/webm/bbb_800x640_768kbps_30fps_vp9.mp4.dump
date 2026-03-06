@@ -19,6 +19,8 @@ track 1:
       colorSpace = 1
       colorRange = 1
       colorTransfer = 3
+      lumaBitdepth = 8
+      chromaBitdepth = 8
     selectionFlags = [default]
     language = und
     metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]
