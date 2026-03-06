@@ -17,6 +17,7 @@
 package androidx.media3.demo.compose.layout
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -50,68 +51,101 @@ import androidx.media3.demo.compose.data.loadDurationsForMediaItems
 import androidx.media3.demo.compose.data.loadPlaylistHolderGroups
 import kotlinx.coroutines.launch
 
+private const val TAG = "SampleChooserScreen"
+
 @Composable
 fun SampleChooserScreen(
-  onPlaylistClick: suspend (List<MediaItem>) -> Unit,
-  modifier: Modifier = Modifier,
-  context: Context = LocalContext.current,
+    onPlaylistClick: suspend (List<MediaItem>) -> Unit,
+    modifier: Modifier = Modifier,
+    context: Context = LocalContext.current,
 ) {
-  var playlistGroups by remember { mutableStateOf<List<PlaylistGroup>>(emptyList()) }
-  var isLoading by remember { mutableStateOf(true) }
-  val coroutineScope = rememberCoroutineScope()
+    var playlistGroups by remember { mutableStateOf<List<PlaylistGroup>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val coroutineScope = rememberCoroutineScope()
 
-  LaunchedEffect(context) {
-    playlistGroups = context.loadPlaylistHolderGroups()
-    isLoading = false
-  }
-
-  Box(modifier = modifier.background(MaterialTheme.colorScheme.background).fillMaxSize()) {
-    if (isLoading) {
-      Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-      ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-        Text(
-          "Loading samples...",
-          modifier = Modifier.padding(top = 16.dp),
-          color = MaterialTheme.colorScheme.primary,
-        )
-      }
-    } else {
-      LazyColumn(modifier = Modifier.fillMaxSize()) {
-        playlistGroups.forEach { group ->
-          item {
-            Text(
-              text = group.title,
-              fontWeight = FontWeight.Bold,
-              modifier =
-                Modifier.fillMaxWidth()
-                  .background(MaterialTheme.colorScheme.primaryContainer)
-                  .padding(16.dp),
-              color = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-          }
-          items(group.playlists) { playlist ->
-            ListItem(
-              headlineContent = { Text(playlist.name) },
-              modifier =
-                Modifier.clickable(enabled = !isLoading) {
-                  coroutineScope.launch {
-                    isLoading = true
-                    onPlaylistClick(loadDurationsForMediaItems(context, playlist.mediaItems))
-                  }
-                },
-              colors =
-                ListItemDefaults.colors(
-                  containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                  headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
-          }
-        }
-      }
+    LaunchedEffect(context) {
+        playlistGroups = context.loadPlaylistHolderGroups()
+        isLoading = false
     }
-  }
+
+    Box(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.background)
+            .fillMaxSize()
+    ) {
+        if (isLoading) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Loading samples...",
+                    modifier = Modifier.padding(top = 16.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    Text(
+                        text = "Testing",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                item {
+                    ListItem(
+                        headlineContent = { Text("Video (Resolution tracks)") },
+                        modifier = Modifier.clickable {
+                            coroutineScope.launch {
+                                onPlaylistClick(listOf(MediaItem.fromUri("file:///sdcard/Download/output_multi_track.mp4")))
+                            }
+                        },
+                    )
+                }
+                item {
+                    ListItem(
+                        headlineContent = { Text("Audio (Language tracks)") },
+                        modifier = Modifier.clickable {
+                            coroutineScope.launch {
+                                onPlaylistClick(listOf(MediaItem.fromUri("file:///sdcard/Download/output_multi_audio.mp4")))
+                            }
+                        },
+                    )
+                }
+//        playlistGroups.forEach { group ->
+//          item {
+//            Text(
+//              text = group.title,
+//              fontWeight = FontWeight.Bold,
+//              modifier =
+//                Modifier.fillMaxWidth()
+//                  .background(MaterialTheme.colorScheme.primaryContainer)
+//                  .padding(16.dp),
+//              color = MaterialTheme.colorScheme.onPrimaryContainer,
+//            )
+//          }
+//          items(group.playlists) { playlist ->
+//            ListItem(
+//              headlineContent = { Text(playlist.name) },
+//              modifier =
+//                Modifier.clickable(enabled = !isLoading) {
+//                  coroutineScope.launch {
+//                    isLoading = true
+//                    onPlaylistClick(loadDurationsForMediaItems(context, playlist.mediaItems))
+//                  }
+//                },
+//              colors =
+//                ListItemDefaults.colors(
+//                  containerColor = MaterialTheme.colorScheme.surfaceVariant,
+//                  headlineColor = MaterialTheme.colorScheme.onSurfaceVariant,
+//                ),
+//            )
+//          }
+//        }
+            }
+        }
+    }
 }
