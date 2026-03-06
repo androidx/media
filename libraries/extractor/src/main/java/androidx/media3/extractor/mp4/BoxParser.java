@@ -2371,7 +2371,13 @@ public final class BoxParser {
         sampleRate = parsedAlacConfig[0];
         channelCount = parsedAlacConfig[1];
         int bitDepth = parsedAlacConfig[2];
-        pcmEncoding = Util.getPcmEncoding(bitDepth);
+        // getPcmEncoding() does not support encodings which are not a multiple of bytes, such as
+        // 20-bit PCM, as those cannot be handled in the same way as linear PCM encodings which are
+        // multiples of bytes. These formats are also not supported by any part of media3's PCM
+        // handling pipeline. The reason this constant exists is to be able to signal that the
+        // compressed audio (in this case, ALAC) has 20-bit PCM precision, but a decoder is expected
+        // to output a supported format such as 24-bit PCM instead.
+        pcmEncoding = bitDepth == 20 ? C.ENCODING_PCM_20BIT : Util.getPcmEncoding(bitDepth);
         initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Mp4Box.TYPE_iacb) {
         parent.setPosition(
