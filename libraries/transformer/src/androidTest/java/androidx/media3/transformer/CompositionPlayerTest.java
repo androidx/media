@@ -97,6 +97,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -715,6 +716,7 @@ public class CompositionPlayerTest {
     assertThat(frameQueuedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
+  @Ignore("TODO: b/489332361 - Reimplement mechanism to force frame drops.")
   @Test
   public void videoPlayback_dropsFrames() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -771,6 +773,7 @@ public class CompositionPlayerTest {
     assertThat(droppedFramesCounter.get()).isGreaterThan(0);
   }
 
+  @Ignore("TODO: b/489332361 - Reimplement mechanism to force frame drops.")
   @Test
   public void videoPlayback_withoutLateThresholdToDropInputUs_dropsFrames() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);

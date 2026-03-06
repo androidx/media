@@ -1160,6 +1160,7 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.prepare();
     player.play();
     advance(player).untilState(Player.STATE_ENDED);
+    assertThat(capturingAudioSink.getCurrentPositionUs(true)).isAtLeast(1_000_000);
     assertThat(capturingAudioSink.isEnded()).isTrue();
   }
 

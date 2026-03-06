@@ -1143,6 +1143,36 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void scrubbing_seekPastOneSequenceDuration_transitionsToReady() throws Exception {
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setScrubbingModeEnabled(true);
+    EditedMediaItemSequence normalSequence =
+        withAudioFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                    .setDurationUs(1_000_000L)
+                    .build()));
+    MediaItem clippedMediaItem =
+        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionUs(500_000L).build())
+            .build();
+    EditedMediaItemSequence clippedSequence =
+        withAudioFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(clippedMediaItem).setDurationUs(1_000_000L).build()));
+    player.setComposition(new Composition.Builder(normalSequence, clippedSequence).build());
+
+    player.prepare();
+    player.seekTo(800);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    player.release();
+  }
+
+  @Test
   public void setComposition_withNonFirstSpeedChangingAudioProcessor_throws() {
     CompositionPlayer player = createTestCompositionPlayer();
     Effects effects =
