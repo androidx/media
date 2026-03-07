@@ -66,6 +66,7 @@ project.ext {
     desugarJdkLibsVersion = '2.1.5'
     lottieVersion = '6.6.0'
     truthVersion = '1.4.0'
+    ktorVersion = '3.0.3'
     okhttpVersion = '4.12.0'
     testParameterInjectorVersion = '1.18'
     modulePrefix = ':'
