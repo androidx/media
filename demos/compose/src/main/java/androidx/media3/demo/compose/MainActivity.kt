@@ -36,6 +36,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.Util
 import androidx.media3.demo.compose.layout.MainScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
 import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
@@ -45,12 +47,27 @@ import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
   private val sharedViewModel: ComposeDemoViewModel by viewModels()
+  private val mediaFolderPath = "/sdcard/Download/"
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    requestMediaPermission()
     enableEdgeToEdge()
     setContent { ComposeDemoApp(modifier = Modifier.fillMaxSize(), viewModel = sharedViewModel) }
   }
+
+    private fun requestMediaPermission() {
+        while (true) {
+            val permissionRequested = Util.maybeRequestReadStoragePermission(
+                this, MediaItem.fromUri(mediaFolderPath)
+            )
+            if (permissionRequested) {
+                Thread.sleep(5000)
+            } else {
+                break
+            }
+        }
+    }
 }
 
 @Composable
