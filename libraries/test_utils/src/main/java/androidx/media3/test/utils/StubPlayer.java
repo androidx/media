@@ -312,6 +312,16 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
+  public void setSubtitleOffsetMs(long subtitleOffsetMs) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public long getSubtitleOffsetMs() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void clearVideoSurface() {
     throw new UnsupportedOperationException();
   }

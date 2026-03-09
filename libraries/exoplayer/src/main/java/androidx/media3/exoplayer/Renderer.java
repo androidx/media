@@ -200,8 +200,8 @@ public interface Renderer extends PlayerMessage.Target {
    * #MSG_SET_VIDEO_OUTPUT_RESOLUTION}, {@link #MSG_SET_IMAGE_OUTPUT}, {@link #MSG_SET_PRIORITY},
    * {@link #MSG_TRANSFER_RESOURCES}, {@link #MSG_SET_SCRUBBING_MODE}, {@link
    * #MSG_SET_VIRTUAL_DEVICE_ID}, {@link #MSG_SET_AUDIO_OUTPUT_PROVIDER}, {@link
-   * #MSG_SET_CODEC_PARAMETERS} or {@link #MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS}. May also be an
-   * app-defined value (see {@link #MSG_CUSTOM_BASE}).
+   * #MSG_SET_CODEC_PARAMETERS}, {@link #MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS} or {@link
+   * #MSG_SET_SUBTITLE_OFFSET}. May also be an app-defined value (see {@link #MSG_CUSTOM_BASE}).
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -230,7 +230,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_VIRTUAL_DEVICE_ID,
         MSG_SET_AUDIO_OUTPUT_PROVIDER,
         MSG_SET_CODEC_PARAMETERS,
-        MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS
+        MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        MSG_SET_SUBTITLE_OFFSET
       })
   public @interface MessageType {}
 
@@ -408,6 +409,13 @@ public interface Renderer extends PlayerMessage.Target {
    * payload will be an {@code ImmutableSet<String>} of keys.
    */
   int MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS = 22;
+
+  /**
+   * A type of a message that can be passed to a text renderer. The message payload should be a
+   * {@link Long} representing the subtitle offset in milliseconds. Positive values delay
+   * subtitles; negative values show them earlier.
+   */
+  int MSG_SET_SUBTITLE_OFFSET = 23;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

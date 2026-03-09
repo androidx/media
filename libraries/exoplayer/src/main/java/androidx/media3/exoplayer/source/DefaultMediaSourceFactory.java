@@ -590,15 +590,19 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSources[0] = mediaSource;
       for (int i = 0; i < subtitleConfigurations.size(); i++) {
         if (parseSubtitlesDuringExtraction) {
-          Format format =
+          MediaItem.SubtitleConfiguration subtitleConfig = subtitleConfigurations.get(i);
+          Format.Builder formatBuilder =
               new Format.Builder()
-                  .setSampleMimeType(subtitleConfigurations.get(i).mimeType)
-                  .setLanguage(subtitleConfigurations.get(i).language)
-                  .setSelectionFlags(subtitleConfigurations.get(i).selectionFlags)
-                  .setRoleFlags(subtitleConfigurations.get(i).roleFlags)
-                  .setLabel(subtitleConfigurations.get(i).label)
-                  .setId(subtitleConfigurations.get(i).id)
-                  .build();
+                  .setSampleMimeType(subtitleConfig.mimeType)
+                  .setLanguage(subtitleConfig.language)
+                  .setSelectionFlags(subtitleConfig.selectionFlags)
+                  .setRoleFlags(subtitleConfig.roleFlags)
+                  .setLabel(subtitleConfig.label)
+                  .setId(subtitleConfig.id);
+          if (subtitleConfig.subtitleOffsetMs != 0) {
+            formatBuilder.setSubsampleOffsetUs(msToUs(subtitleConfig.subtitleOffsetMs));
+          }
+          Format format = formatBuilder.build();
           ExtractorsFactory extractorsFactory =
               () ->
                   new Extractor[] {

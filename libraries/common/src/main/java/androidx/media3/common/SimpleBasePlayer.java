@@ -2856,6 +2856,50 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   @Override
+  public final void setSubtitleOffsetMs(long subtitleOffsetMs) {
+    verifyApplicationThreadAndInitState();
+    if (!shouldHandleCommand(Player.COMMAND_SET_SUBTITLE_OFFSET)) {
+      return;
+    }
+    State state = this.state;
+    updateStateForPendingOperation(
+        /* pendingOperation= */ handleSetSubtitleOffsetMs(subtitleOffsetMs),
+        /* placeholderStateSupplier= */ () -> state.buildUpon().build());
+  }
+
+  @Override
+  public long getSubtitleOffsetMs() {
+    verifyApplicationThreadAndInitState();
+    return state.availableCommands.contains(Player.COMMAND_GET_SUBTITLE_OFFSET)
+        ? getSubtitleOffsetMsFromState()
+        : 0;
+  }
+
+  /**
+   * Returns the subtitle offset from state. Override in subclasses that forward to a delegate.
+   *
+   * @return The current subtitle offset in milliseconds.
+   */
+  protected long getSubtitleOffsetMsFromState() {
+    return 0;
+  }
+
+  /**
+   * Handles calls to {@link Player#setSubtitleOffsetMs(long)}.
+   *
+   * <p>Will only be called if {@link Player#COMMAND_SET_SUBTITLE_OFFSET} is available.
+   *
+   * @param subtitleOffsetMs The requested subtitle offset in milliseconds.
+   * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
+   *     changes caused by this call.
+   */
+  @ForOverride
+  protected ListenableFuture<?> handleSetSubtitleOffsetMs(long subtitleOffsetMs) {
+    throw new IllegalStateException(
+        "Missing implementation to handle COMMAND_SET_SUBTITLE_OFFSET");
+  }
+
+  @Override
   public final void mute() {
     verifyApplicationThreadAndInitState();
     State state = this.state;

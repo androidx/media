@@ -265,6 +265,17 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
     return Futures.immediateVoidFuture();
   }
 
+  @Override
+  protected ListenableFuture<?> handleSetSubtitleOffsetMs(long subtitleOffsetMs) {
+    player.setSubtitleOffsetMs(subtitleOffsetMs);
+    return Futures.immediateVoidFuture();
+  }
+
+  @Override
+  protected long getSubtitleOffsetMsFromState() {
+    return player.getSubtitleOffsetMs();
+  }
+
   @SuppressWarnings("deprecation") // Calling deprecated method if updated command not available.
   @Override
   protected ListenableFuture<?> handleSetDeviceVolume(int deviceVolume, int flags) {

@@ -181,6 +181,7 @@ import java.util.Objects;
   private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
   private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
   private static final int MSG_SET_SCRUBBING_MODE_PARAMETERS = 38;
+  private static final int MSG_SET_SUBTITLE_OFFSET = 39;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -520,6 +521,10 @@ import java.util.Objects;
     handler.obtainMessage(MSG_SET_VOLUME, volume).sendToTarget();
   }
 
+  public void setSubtitleOffsetMs(long subtitleOffsetMs) {
+    handler.obtainMessage(MSG_SET_SUBTITLE_OFFSET, 0, 0, Long.valueOf(subtitleOffsetMs)).sendToTarget();
+  }
+
   private void handleAudioFocusPlayerCommandInternal(
       @AudioFocusManager.PlayerCommand int playerCommand) throws ExoPlaybackException {
     updatePlayWhenReadyWithAudioFocus(
@@ -812,6 +817,9 @@ import java.util.Objects;
         case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
           setVideoFrameMetadataListenerInternal((VideoFrameMetadataListener) msg.obj);
           break;
+        case MSG_SET_SUBTITLE_OFFSET:
+          setSubtitleOffsetMsInternal(((Long) checkNotNull(msg.obj)).longValue());
+          break;
         case MSG_RELEASE:
           releaseInternal(/* processedCondition= */ (ConditionVariable) msg.obj);
           // Return immediately to not send playback info updates after release.
@@ -1060,6 +1068,12 @@ import java.util.Objects;
     float scaledVolume = volume * audioFocusManager.getVolumeMultiplier();
     for (RendererHolder renderer : renderers) {
       renderer.setVolume(scaledVolume);
+    }
+  }
+
+  private void setSubtitleOffsetMsInternal(long subtitleOffsetMs) throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setSubtitleOffsetMs(subtitleOffsetMs);
     }
   }
 

@@ -26,6 +26,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
@@ -202,15 +203,18 @@ public final class SingleSampleMediaSource extends BaseMediaSource {
             .setSubtitleConfigurations(ImmutableList.of(subtitleConfiguration))
             .setTag(tag)
             .build();
-    this.format =
+    Format.Builder formatBuilder =
         new Format.Builder()
             .setSampleMimeType(firstNonNull(subtitleConfiguration.mimeType, MimeTypes.TEXT_UNKNOWN))
             .setLanguage(subtitleConfiguration.language)
             .setSelectionFlags(subtitleConfiguration.selectionFlags)
             .setRoleFlags(subtitleConfiguration.roleFlags)
             .setLabel(subtitleConfiguration.label)
-            .setId(subtitleConfiguration.id != null ? subtitleConfiguration.id : trackId)
-            .build();
+            .setId(subtitleConfiguration.id != null ? subtitleConfiguration.id : trackId);
+    if (subtitleConfiguration.subtitleOffsetMs != 0) {
+      formatBuilder.setSubsampleOffsetUs(Util.msToUs(subtitleConfiguration.subtitleOffsetMs));
+    }
+    this.format = formatBuilder.build();
     this.dataSpec =
         new DataSpec.Builder()
             .setUri(subtitleConfiguration.uri)

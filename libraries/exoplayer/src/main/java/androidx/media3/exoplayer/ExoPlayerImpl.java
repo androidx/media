@@ -227,6 +227,7 @@ import java.util.function.IntConsumer;
   private AudioAttributes audioAttributes;
   private float volume;
   private float unmuteVolume;
+  private long subtitleOffsetMs;
   private boolean skipSilenceEnabled;
   private CueGroup currentCueGroup;
   @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
@@ -352,6 +353,8 @@ import java.util.function.IntConsumer;
                   COMMAND_SET_VOLUME,
                   COMMAND_SET_VIDEO_SURFACE,
                   COMMAND_GET_TEXT,
+                  COMMAND_GET_SUBTITLE_OFFSET,
+                  COMMAND_SET_SUBTITLE_OFFSET,
                   COMMAND_RELEASE)
               .addIf(
                   COMMAND_SET_TRACK_SELECTION_PARAMETERS, trackSelector.isSetParametersSupported())
@@ -1669,6 +1672,22 @@ import java.util.function.IntConsumer;
   public float getVolume() {
     verifyApplicationThread();
     return volume;
+  }
+
+  @Override
+  public void setSubtitleOffsetMs(long subtitleOffsetMs) {
+    verifyApplicationThread();
+    if (this.subtitleOffsetMs == subtitleOffsetMs) {
+      return;
+    }
+    this.subtitleOffsetMs = subtitleOffsetMs;
+    internalPlayer.setSubtitleOffsetMs(subtitleOffsetMs);
+  }
+
+  @Override
+  public long getSubtitleOffsetMs() {
+    verifyApplicationThread();
+    return subtitleOffsetMs;
   }
 
   @Override

@@ -36,6 +36,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.BaseRenderer;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
@@ -125,6 +126,7 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;
+  private volatile long dynamicSubtitleOffsetUs;
 
   /**
    * @param output The output.
@@ -199,6 +201,16 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   public void setFinalStreamEndPositionUs(long streamEndPositionUs) {
     checkState(isCurrentStreamFinal());
     this.finalStreamEndPositionUs = streamEndPositionUs;
+  }
+
+  @Override
+  public void handleMessage(@Renderer.MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    if (messageType == Renderer.MSG_SET_SUBTITLE_OFFSET) {
+      dynamicSubtitleOffsetUs = Util.msToUs(((Long) checkNotNull(message)).longValue());
+      return;
+    }
+    super.handleMessage(messageType, message);
   }
 
   @Override
@@ -334,9 +346,14 @@ public final class TextRenderer extends BaseRenderer implements Callback {
         }
         cueDecoderInputBuffer.flip();
         ByteBuffer cueData = checkNotNull(cueDecoderInputBuffer.data);
+        long decodeTimeUs = cueDecoderInputBuffer.timeUs;
+        if (streamFormat.subsampleOffsetUs != Format.OFFSET_SAMPLE_RELATIVE) {
+          decodeTimeUs += streamFormat.subsampleOffsetUs;
+        }
+        decodeTimeUs += dynamicSubtitleOffsetUs;
         CuesWithTiming cuesWithTiming =
             cueDecoder.decode(
-                cueDecoderInputBuffer.timeUs,
+                decodeTimeUs,
                 cueData.array(),
                 cueData.arrayOffset(),
                 cueData.limit());
@@ -442,7 +459,11 @@ public final class TextRenderer extends BaseRenderer implements Callback {
               // We haven't received a format yet.
               return;
             }
-            nextInputBuffer.subsampleOffsetUs = format.subsampleOffsetUs;
+            long baseOffsetUs =
+                format.subsampleOffsetUs == Format.OFFSET_SAMPLE_RELATIVE
+                    ? 0
+                    : format.subsampleOffsetUs;
+            nextInputBuffer.subsampleOffsetUs = baseOffsetUs + dynamicSubtitleOffsetUs;
             nextInputBuffer.flip();
             waitingForKeyFrame &= !nextInputBuffer.isKeyFrame();
           }

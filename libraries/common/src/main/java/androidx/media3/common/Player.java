@@ -598,6 +598,8 @@ public interface Player {
         COMMAND_GET_TEXT,
         COMMAND_SET_TRACK_SELECTION_PARAMETERS,
         COMMAND_GET_TRACKS,
+        COMMAND_GET_SUBTITLE_OFFSET,
+        COMMAND_SET_SUBTITLE_OFFSET,
         COMMAND_RELEASE
       };
 
@@ -1808,6 +1810,8 @@ public interface Player {
     COMMAND_GET_TEXT,
     COMMAND_SET_TRACK_SELECTION_PARAMETERS,
     COMMAND_GET_TRACKS,
+    COMMAND_GET_SUBTITLE_OFFSET,
+    COMMAND_SET_SUBTITLE_OFFSET,
     COMMAND_RELEASE,
   })
   @interface Command {}
@@ -2207,6 +2211,25 @@ public interface Player {
    * #isCommandAvailable(int) available}.
    */
   int COMMAND_GET_TRACKS = 30;
+
+  /**
+   * Command to get the current subtitle offset applied at runtime.
+   *
+   * <p>The {@link #getSubtitleOffsetMs()} method must only be called if this command is
+   * {@linkplain #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  int COMMAND_GET_SUBTITLE_OFFSET = 36;
+
+  /**
+   * Command to set the subtitle offset applied at runtime. Positive values delay subtitles;
+   * negative values show them earlier.
+   *
+   * <p>The {@link #setSubtitleOffsetMs(long)} method must only be called if this command is
+   * {@linkplain #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  int COMMAND_SET_SUBTITLE_OFFSET = 37;
 
   /**
    * Command to release the player.
@@ -3302,6 +3325,30 @@ public interface Player {
    */
   @FloatRange(from = 0, to = 1.0)
   float getVolume();
+
+  /**
+   * Sets the subtitle offset in milliseconds applied at runtime. Positive values delay subtitles;
+   * negative values show them earlier. This is applied in addition to any offset set on the
+   * {@link MediaItem.SubtitleConfiguration}.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_SUBTITLE_OFFSET} is {@linkplain
+   * #getAvailableCommands() available}.
+   *
+   * @param subtitleOffsetMs Offset in milliseconds.
+   */
+  @UnstableApi
+  void setSubtitleOffsetMs(long subtitleOffsetMs);
+
+  /**
+   * Returns the current subtitle offset in milliseconds applied at runtime.
+   *
+   * <p>This method must only be called if {@link #COMMAND_GET_SUBTITLE_OFFSET} is {@linkplain
+   * #getAvailableCommands() available}.
+   *
+   * @return The subtitle offset in milliseconds.
+   */
+  @UnstableApi
+  long getSubtitleOffsetMs();
 
   /**
    * Sets the audio volume to 0.

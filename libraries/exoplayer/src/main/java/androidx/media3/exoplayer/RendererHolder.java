@@ -17,6 +17,7 @@ package androidx.media3.exoplayer;
 
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
+import static androidx.media3.common.C.TRACK_TYPE_TEXT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.exoplayer.Renderer.MSG_TRANSFER_RESOURCES;
 import static androidx.media3.exoplayer.Renderer.STATE_DISABLED;
@@ -852,6 +853,17 @@ import java.util.Objects;
     primaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
     if (secondaryRenderer != null) {
       secondaryRenderer.handleMessage(Renderer.MSG_SET_VOLUME, volume);
+    }
+  }
+
+  /** Sets the subtitle offset in milliseconds on the text renderer. */
+  public void setSubtitleOffsetMs(long subtitleOffsetMs) throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_TEXT) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_SUBTITLE_OFFSET, Long.valueOf(subtitleOffsetMs));
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(Renderer.MSG_SET_SUBTITLE_OFFSET, Long.valueOf(subtitleOffsetMs));
     }
   }
 

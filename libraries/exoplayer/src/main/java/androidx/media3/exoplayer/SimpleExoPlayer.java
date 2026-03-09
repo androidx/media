@@ -609,6 +609,18 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setSubtitleOffsetMs(long subtitleOffsetMs) {
+    blockUntilConstructorFinished();
+    player.setSubtitleOffsetMs(subtitleOffsetMs);
+  }
+
+  @Override
+  public long getSubtitleOffsetMs() {
+    blockUntilConstructorFinished();
+    return player.getSubtitleOffsetMs();
+  }
+
+  @Override
   public void mute() {
     blockUntilConstructorFinished();
     player.mute();
