@@ -1,6 +1,7 @@
-# Release notes
+### 1.10.0-rc01 (2026-03-10)
 
-### Unreleased changes
+This release includes the following changes since
+[1.10.0-beta01 release](#1100-beta01-2026-02-23):
 
 *   Session:
     *   Fix notification artwork icon scaling on Android Q
@@ -8,8 +9,6 @@
 *   UI:
     *   Hide playback position from the accessibility service to prevent
         continuous announcement update when `PlayerControlView` is visible.
-
-## 1.10
 
 ### 1.10.0-beta01 (2026-02-23)
 
