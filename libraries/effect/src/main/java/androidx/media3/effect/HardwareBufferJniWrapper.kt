@@ -38,6 +38,29 @@ interface HardwareBufferJniWrapper {
   /** Destroys an EGLImage. Returns whether the deletion is successful. */
   fun nativeDestroyEGLImage(displayHandle: Long, imageHandle: Long): Boolean
 
-  /** Copies a bitmap to a HardwareBuffer. Returns whether the copy is successful. */
+  /**
+   * Copies a [Bitmap] to a [HardwareBuffer]. Returns whether the copy is successful.
+   *
+   * The destination [HardwareBuffer] must have [HardwareBuffer.USAGE_CPU_WRITE_OFTEN] usage.
+   *
+   * The source [Bitmap.Config] must match the destination [HardwareBuffer.getFormat], and be either
+   * [Bitmap.Config.ARGB_8888] and [HardwareBuffer.RGBA_8888] or [Bitmap.Config.RGBA_1010102] and
+   * [HardwareBuffer.RGBA_1010102].
+   */
   fun nativeCopyBitmapToHardwareBuffer(bitmap: Bitmap, hb: HardwareBuffer): Boolean
+
+  /**
+   * Copies the contents of a source [HardwareBuffer] to a destination [HardwareBuffer]. Returns
+   * whether the copy is successful.
+   *
+   * The source [HardwareBuffer] must have [HardwareBuffer.USAGE_CPU_READ_OFTEN] usage, and the
+   * destination [HardwareBuffer] must have [HardwareBuffer.USAGE_CPU_WRITE_OFTEN] usage.
+   *
+   * The formats of the source and destination buffers must match, and be either
+   * [HardwareBuffer.RGBA_8888] or [HardwareBuffer.RGBA_1010102].
+   */
+  fun nativeCopyHardwareBufferToHardwareBuffer(
+    srcHb: HardwareBuffer,
+    dstHb: HardwareBuffer,
+  ): Boolean
 }

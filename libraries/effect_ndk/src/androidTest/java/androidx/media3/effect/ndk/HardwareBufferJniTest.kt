@@ -36,7 +36,7 @@ class HardwareBufferJniTest {
   @get:Rule val testName = TestName()
 
   @Test
-  fun nativeCopyBitmapToHardwareBuffer_isCorrect() {
+  fun nativeCopyBitmapToHardwareBuffer_sdr_matchesInputBitmap() {
     val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
     val hardwareBuffer =
       HardwareBuffer.create(
@@ -47,7 +47,7 @@ class HardwareBufferJniTest {
         /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
       )
 
-    try {
+    hardwareBuffer.use { hardwareBuffer ->
       assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, hardwareBuffer))
         .isTrue()
       if (SDK_INT >= 29) {
@@ -63,8 +63,38 @@ class HardwareBufferJniTest {
           )
           .isZero()
       }
-    } finally {
-      hardwareBuffer.close()
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  fun nativeCopyBitmapToHardwareBuffer_hdr_matchesInputBitmap() {
+    val inputBitmap =
+      BitmapPixelTestUtil.readBitmap(FILE_PATH)
+        .copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false)
+    val hardwareBuffer =
+      HardwareBuffer.create(
+        inputBitmap.width,
+        inputBitmap.height,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+
+    hardwareBuffer.use { hardwareBuffer ->
+      assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, hardwareBuffer))
+        .isTrue()
+      val hardwareBitmap =
+        Bitmap.wrapHardwareBuffer(hardwareBuffer, ColorSpace.get(ColorSpace.Named.SRGB))!!
+      val outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_1010102, false)
+      assertThat(
+          BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+            inputBitmap,
+            outputBitmap,
+            testName.methodName,
+          )
+        )
+        .isZero()
     }
   }
 
@@ -80,11 +110,9 @@ class HardwareBufferJniTest {
         /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
       )
 
-    try {
+    hardwareBuffer.use { hardwareBuffer ->
       assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, hardwareBuffer))
         .isFalse()
-    } finally {
-      hardwareBuffer.close()
     }
   }
 
@@ -100,11 +128,9 @@ class HardwareBufferJniTest {
         /* usage= */ HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
       )
 
-    try {
+    hardwareBuffer.use { hardwareBuffer ->
       assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, hardwareBuffer))
         .isFalse()
-    } finally {
-      hardwareBuffer.close()
     }
   }
 
@@ -120,15 +146,272 @@ class HardwareBufferJniTest {
         /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
       )
 
-    try {
+    hardwareBuffer.use { hardwareBuffer ->
       assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, hardwareBuffer))
         .isFalse()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_sdr_matchesInputBuffer() {
+    val inputBitmap = BitmapPixelTestUtil.readBitmap(FILE_PATH)
+    val srcHb =
+      HardwareBuffer.create(
+        inputBitmap.width,
+        inputBitmap.height,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+    val dstHb =
+      HardwareBuffer.create(
+        inputBitmap.width,
+        inputBitmap.height,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, srcHb)).isTrue()
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb)).isTrue()
+
+      if (SDK_INT >= 29) {
+        val hardwareBitmap =
+          Bitmap.wrapHardwareBuffer(dstHb, ColorSpace.get(ColorSpace.Named.SRGB))!!
+        val outputBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
+        assertThat(
+            BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+              inputBitmap,
+              outputBitmap,
+              testName.methodName,
+            )
+          )
+          .isZero()
+      }
     } finally {
-      hardwareBuffer.close()
+      srcHb.close()
+      dstHb.close()
+    }
+  }
+
+  @Test
+  @SdkSuppress(maxSdkVersion = 32)
+  fun nativeCopyHardwareBufferToHardwareBuffer_hdrBelowApi33_returnsTrue() {
+    // The methods to access the HDR bitmap do not exist below API 33, so just assert copying the
+    // buffer formats succeeds.
+    val srcHb =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+    val dstHb =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb)).isTrue()
+    } finally {
+      srcHb.close()
+      dstHb.close()
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  fun nativeCopyHardwareBufferToHardwareBuffer_hdr_matchesInputBuffer() {
+    val inputBitmap =
+      BitmapPixelTestUtil.readBitmap(FILE_PATH)
+        .copy(Bitmap.Config.RGBA_1010102, /* isMutable= */ false)
+    val srcHb =
+      HardwareBuffer.create(
+        inputBitmap.width,
+        inputBitmap.height,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+    val dstHb =
+      HardwareBuffer.create(
+        inputBitmap.width,
+        inputBitmap.height,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyBitmapToHardwareBuffer(inputBitmap, srcHb)).isTrue()
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(srcHb, dstHb)).isTrue()
+
+      val hardwareBitmap = Bitmap.wrapHardwareBuffer(dstHb, ColorSpace.get(ColorSpace.Named.SRGB))!!
+      val outputBitmap = hardwareBitmap.copy(Bitmap.Config.RGBA_1010102, false)
+      assertThat(
+          BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
+            inputBitmap,
+            outputBitmap,
+            testName.methodName,
+          )
+        )
+        .isZero()
+    } finally {
+      srcHb.close()
+      dstHb.close()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_sameSourceAndDestination_returnsTrue() {
+    val hardwareBuffer =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN or
+          HardwareBuffer.USAGE_CPU_READ_OFTEN or
+          HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+      )
+
+    hardwareBuffer.use { hardwareBuffer ->
+      assertThat(
+          HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hardwareBuffer, hardwareBuffer)
+        )
+        .isTrue()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedDimensions_returnsFalse() {
+    val hb1 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
+      )
+    val hb2 =
+      HardwareBuffer.create(
+        WIDTH * 2,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
+    } finally {
+      hb1.close()
+      hb2.close()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedFormats_returnsFalse() {
+    val hb1 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
+      )
+    val hb2 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_1010102,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
+    } finally {
+      hb1.close()
+      hb2.close()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedReadUsage_returnsFalse() {
+    val hb1 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
+      )
+    val hb2 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
+    } finally {
+      hb1.close()
+      hb2.close()
+    }
+  }
+
+  @Test
+  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedWriteUsage_returnsFalse() {
+    val hb1 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
+      )
+    val hb2 =
+      HardwareBuffer.create(
+        WIDTH,
+        HEIGHT,
+        /* format= */ HardwareBuffer.RGBA_8888,
+        /* layers= */ 1,
+        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
+      )
+
+    try {
+      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
+    } finally {
+      hb1.close()
+      hb2.close()
     }
   }
 
   private companion object {
     const val FILE_PATH = "media/png/first_frame_1920x1080.png"
+    const val WIDTH = 100
+    const val HEIGHT = 100
   }
 }
