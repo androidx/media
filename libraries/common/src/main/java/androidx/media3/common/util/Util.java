@@ -161,7 +161,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.PolyNull;
-import org.checkerframework.dataflow.qual.Pure;
 
 /** Miscellaneous utility methods. */
 public final class Util {
@@ -1734,7 +1733,6 @@ public final class Util {
    * @return The total duration, in microseconds, of {@code sampleCount} samples.
    */
   @UnstableApi
-  @Pure
   public static long sampleCountToDurationUs(long sampleCount, int sampleRate) {
     return scaleLargeValue(sampleCount, C.MICROS_PER_SECOND, sampleRate, RoundingMode.DOWN);
   }
@@ -2632,7 +2630,6 @@ public final class Util {
    * @return The size of one audio frame in bytes.
    */
   @UnstableApi
-  @Pure
   public static int getPcmFrameSize(@C.PcmEncoding int pcmEncoding, int channelCount) {
     return getByteDepth(pcmEncoding) * channelCount;
   }

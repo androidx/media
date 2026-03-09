@@ -32,11 +32,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.audio.AudioSink;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * An {@link AudioSink} implementation that feeds an {@link AudioGraphInput}.
@@ -62,9 +61,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
      * <p>Data {@linkplain #handleBuffer written} to the sink will be {@linkplain
      * AudioGraphInput#queueInputBuffer() queued} to the {@link AudioGraphInput}.
      *
-     * <p>Call {@link #onAudioGraphInputReleased()} once the input has been {@linkplain
-     * AudioGraphInput#release() released}.
-     *
      * @param editedMediaItem The first {@link EditedMediaItem} queued to the {@link
      *     AudioGraphInput}.
      * @param format The {@link Format} used to {@linkplain AudioGraphInputAudioSink#configure
@@ -78,12 +74,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
         throws ExportException;
 
     /**
-     * Notifies that this {@link AudioGraphInputAudioSink}'s {@link AudioGraphInput} has been
-     * {@linkplain AudioGraphInput#release() released} and is no longer in use.
-     */
-    void onAudioGraphInputReleased();
-
-    /**
      * Returns the position (in microseconds) that should be {@linkplain
      * AudioSink#getCurrentPositionUs returned} by this sink.
      *
@@ -93,20 +83,18 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     long getCurrentPositionUs(boolean sourceEnded);
 
     /**
-     * Returns whether global audio pipeline state allows this sink to signal {@link #isEnded()}.
+     * Returns whether this sink should {@linkplain AudioGraphInputAudioSink#hasPendingData()
+     * return} that it has pending data that has not been consumed.
      *
-     * <p>{@link PlaybackAudioGraphWrapper} requires calls to {@link Renderer#render} to push output
-     * from the {@link AudioGraph} into the final audio sink. Therefore, one {@link
-     * AudioGraphInputAudioSink} needs to stay alive until all buffers have been queued into the
-     * final sink, even if that {@link AudioGraphInputAudioSink} instance has finished queuing data
-     * onto its {@link AudioGraphInput}.
+     * <p>Normally, this signal corresponds to whether the last item in the audio pipeline has
+     * pending frames waiting to be output.
      */
-    boolean shouldEnd();
+    boolean hasPendingData();
   }
 
   private final Controller controller;
 
-  @Nullable private AudioGraphInput outputGraphInput;
+  private @MonotonicNonNull AudioGraphInput outputGraphInput;
   @Nullable private Format currentInputFormat;
   private boolean inputStreamEnded;
   private boolean signalledEndOfStream;
@@ -155,9 +143,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public boolean isEnded() {
-    // Controller can keep renderer alive if needed.
-    return !isOutputInitialized()
-        || (inputStreamEnded && outputGraphInput.isEnded() && controller.shouldEnd());
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
+      return inputStreamEnded;
+    }
+
+    return inputStreamEnded && getCompositionPlayerPositionUs() >= inputPositionUs;
   }
 
   @Override
@@ -212,11 +203,11 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public void playToEndOfStream() {
-    if (!isOutputInitialized()) {
+    inputStreamEnded = true;
+    if (currentInputFormat == null || outputGraphInput == null) {
       // AudioGraphInput has not been set up yet.
       return;
     }
-    inputStreamEnded = true;
     // Queue end-of-stream only if playing the last media item in the sequence.
     if (!signalledEndOfStream && checkNotNull(currentEditedMediaItemInfo).isLastInSequence) {
       signalledEndOfStream =
@@ -242,22 +233,11 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public boolean hasPendingData() {
-    // TODO: b/487191706 - Investigate whether we can just check for pending data on AudioGraphInput
-    //  without stalling progress downstream. CompositionPlayer should check whether all renderers
-    //  are ready before starting playback.
-
-    // This is a best-effort approach that signals whether there are in-flight buffers between this
-    // instance and the final audio sink. However, this does not guarantee that those buffers are
-    // ready for immediate playback.
-    return isOutputInitialized() && getCompositionPlayerPositionUs() < inputPositionUs;
+    return controller.hasPendingData();
   }
 
   @Override
   public long getCurrentPositionUs(boolean sourceEnded) {
-    if (!isOutputInitialized()) {
-      return CURRENT_POSITION_NOT_SET;
-    }
-
     if (isEnded()) {
       return inputPositionUs;
     }
@@ -279,11 +259,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public void reset() {
-    if (outputGraphInput != null) {
-      outputGraphInput.release();
-      outputGraphInput = null;
-      controller.onAudioGraphInputReleased();
-    }
     inputStreamEnded = false;
     signalledEndOfStream = false;
     currentInputFormat = null;
@@ -349,13 +324,6 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   // Internal methods
 
-  @EnsuresNonNullIf(
-      expression = {"outputGraphInput"},
-      result = true)
-  private boolean isOutputInitialized() {
-    return outputGraphInput != null;
-  }
-
   private long getCompositionPlayerPositionUs() {
     long currentPositionUs = controller.getCurrentPositionUs(/* sourceEnded= */ inputStreamEnded);
     if (currentPositionUs != CURRENT_POSITION_NOT_SET) {
@@ -366,9 +334,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   }
 
   private boolean handleBufferInternal(ByteBuffer buffer, long presentationTimeUs, int flags) {
-    checkState(isOutputInitialized());
+    checkNotNull(currentInputFormat);
     checkState(!signalledEndOfStream);
-    AudioGraphInput outputGraphInput = this.outputGraphInput;
+    AudioGraphInput outputGraphInput = checkNotNull(this.outputGraphInput);
 
     @Nullable DecoderInputBuffer outputBuffer = outputGraphInput.getInputBuffer();
     if (outputBuffer == null) {
@@ -386,13 +354,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
     boolean bufferQueued = outputGraphInput.queueInputBuffer();
     if (bufferQueued) {
-      checkNotNull(currentInputFormat);
-      int framesToWrite =
-          bytesToWrite
-              / getPcmFrameSize(currentInputFormat.pcmEncoding, currentInputFormat.channelCount);
+      Format currentInputFormat = checkNotNull(this.currentInputFormat);
       inputPositionUs =
           presentationTimeUs
-              + sampleCountToDurationUs(framesToWrite, currentInputFormat.sampleRate);
+              + sampleCountToDurationUs(
+                  /* sampleCount= */ bytesToWrite
+                      / getPcmFrameSize(
+                          currentInputFormat.pcmEncoding, currentInputFormat.channelCount),
+                  /* sampleRate= */ currentInputFormat.sampleRate);
     }
     return bufferQueued;
   }

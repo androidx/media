@@ -214,7 +214,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final class SinkController implements AudioGraphInputAudioSink.Controller {
     private final boolean isSequencePrimary;
-    private boolean isAudioGraphInputActive;
 
     public SinkController(int inputIndex) {
       this.isSequencePrimary = inputIndex == PRIMARY_SEQUENCE_INDEX;
@@ -226,7 +225,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public AudioGraphInput getAudioGraphInput(EditedMediaItem editedMediaItem, Format format)
         throws ExportException {
       checkThread();
-      checkState(!isAudioGraphInputActive);
       if (!isSequencePrimary && !hasRegisteredPrimaryFormat) {
         // Make sure the format corresponding to the primary sequence is registered first to the
         // AudioGraph.
@@ -239,17 +237,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (isSequencePrimary) {
         hasRegisteredPrimaryFormat = true;
       }
-      isAudioGraphInputActive = true;
       return audioGraphInput;
-    }
-
-    @Override
-    public void onAudioGraphInputReleased() {
-      checkThread();
-      checkState(audioGraphInputsCreated > 0);
-      checkState(isAudioGraphInputActive);
-      audioGraphInputsCreated--;
-      isAudioGraphInputActive = false;
     }
 
     @Override
@@ -259,15 +247,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public boolean shouldEnd() {
-      // TODO: b/487191706 - Investigate whether PlaybackAudioGraphWrapper can keep track of active
-      //  sinks and return based on whether the caller is the last active sink, instead of keeping
-      //  primary sequence renderer alive.
+    public boolean hasPendingData() {
       checkThread();
-      if (isSequencePrimary) {
-        return finalAudioSink.isEnded();
-      }
-      return true;
+      return finalAudioSink.hasPendingData();
     }
   }
 }
