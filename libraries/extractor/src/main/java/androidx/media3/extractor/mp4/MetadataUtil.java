@@ -242,7 +242,12 @@ import com.google.common.collect.ImmutableList;
         int dataSize = atomSize - 16;
         byte[] value = new byte[dataSize];
         ilst.readBytes(value, 0, dataSize);
-        return new MdtaMetadataEntry(key, value, localeIndicator, typeIndicator);
+        try {
+          return new MdtaMetadataEntry(key, value, localeIndicator, typeIndicator);
+        } catch (Exception e) {
+          Log.w(TAG, "Failed to parse metadata entry with key: " + key);
+          break;
+        }
       }
       ilst.setPosition(atomPosition + atomSize);
     }
