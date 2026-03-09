@@ -2239,6 +2239,9 @@ public final class BoxParser {
         channelCount = parsedAlacConfig[1];
         int bitDepth = parsedAlacConfig[2];
         pcmEncoding = Util.getPcmEncoding(bitDepth);
+        if (pcmEncoding == C.ENCODING_INVALID) {
+          pcmEncoding = Format.NO_VALUE;
+        }
         initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Mp4Box.TYPE_iacb) {
         parent.setPosition(
