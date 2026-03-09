@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Runtime.getRuntime;
 
 import android.content.ContentResolver;
 import android.text.TextUtils;
@@ -555,6 +556,8 @@ public class DefaultLoadControl implements LoadControl {
     }
   }
 
+  private static final String TAG = "DefaultLoadControl";
+
   private final Timeline.Window window;
   private final Timeline.Period period;
   private final DefaultAllocator allocator;
@@ -782,11 +785,22 @@ public class DefaultLoadControl implements LoadControl {
     minBufferUs = max(minBufferUs, 500_000);
     if (parameters.bufferedDurationUs < minBufferUs) {
       boolean prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds(isLocalPlayback);
-      playerLoadingState.isLoading = prioritizeTimeOverSizeThresholds || !targetBufferSizeReached;
+      boolean heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold =
+          heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold();
+      playerLoadingState.isLoading =
+          (prioritizeTimeOverSizeThresholds
+                  && heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold)
+              || !targetBufferSizeReached;
+      if (!playerLoadingState.isLoading
+          && prioritizeTimeOverSizeThresholds
+          && !heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold) {
+        Log.i(
+            TAG,
+            "Stopped loading before minBufferUs reached due to memory pressure, despite "
+                + "prioritizeTimeOverSizeThresholds=true.");
+      }
       if (!playerLoadingState.isLoading && parameters.bufferedDurationUs < 500_000) {
-        Log.w(
-            "DefaultLoadControl",
-            "Target buffer size reached with less than 500ms of buffered media data.");
+        Log.w(TAG, "Target buffer size reached with less than 500ms of buffered media data.");
       }
     } else if (parameters.bufferedDurationUs >= maxBufferUs || targetBufferSizeReached) {
       playerLoadingState.isLoading = false;
@@ -981,6 +995,24 @@ public class DefaultLoadControl implements LoadControl {
 
   private int getTargetBufferBytes(PlayerId playerId) {
     return checkNotNull(loadingStates.get(playerId)).targetBufferBytes;
+  }
+
+  /**
+   * Determine whether the heap has enough free space to respect {@link
+   * #prioritizeTimeOverSizeThresholds(boolean)}.
+   *
+   * <p>Ignoring {@link #prioritizeTimeOverSizeThresholds(boolean)} when heap space is very limited
+   * helps to avoid {@link OutOfMemoryError} when playing extremely high bitrate content.
+   *
+   * <p>'Enough space' is defined as 4% of the max heap size, because the system will start throwing
+   * {@link OutOfMemoryError} when available heap space drops below 1%.
+   */
+  private static boolean heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold() {
+    Runtime runtime = getRuntime();
+    long maxMemory = runtime.maxMemory();
+    // Either the heap still has space to grow (total < max), or it is at max size but there is
+    // still at least 4% free.
+    return runtime.totalMemory() < maxMemory || runtime.freeMemory() >= (maxMemory / 25);
   }
 
   private static class PlayerLoadingState {

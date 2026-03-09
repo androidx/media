@@ -19,6 +19,9 @@
     *   Fix race condition related to audio session id generation that could
         lead to an `IllegalStateException` with tunneling mode.
         ([#3099](https://github.com/androidx/media/issues/3099)).
+    *   Reduce the OOM risk of
+        `DefaultLoadControl.prioritizeTimeOverSizeThresholds` by falling back to
+        buffer byte size limits if available heap memory seems tight.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
