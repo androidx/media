@@ -422,15 +422,22 @@ import java.util.function.IntConsumer;
 
       audioSessionIdState =
           new BackgroundThreadStateHandler<>(
-              AUDIO_SESSION_ID_UNSET,
-              playbackLooper,
-              applicationLooper,
+              /* initialState= */ AUDIO_SESSION_ID_UNSET,
+              /* backgroundLooper= */ playbackLooper,
+              /* foregroundLooper= */ applicationLooper,
               clock,
               /* onStateChanged= */ this::onAudioSessionIdChanged);
       audioSessionIdState.runInBackground(
-          () ->
-              audioSessionIdState.setStateInBackground(
-                  Util.generateAudioSessionIdV21(applicationContext)));
+          () -> {
+            int newAudioSessionId = Util.generateAudioSessionIdV21(applicationContext);
+            if (audioSessionIdState.get() != newAudioSessionId) {
+              audioSessionIdState.setStateInBackground(newAudioSessionId);
+              // Provide the audio session ID to the renderers on playback thread to prevent race
+              // condition with player preparation.
+              sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+              sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+            }
+          });
       audioBecomingNoisyManager =
           new AudioBecomingNoisyManager(
               builder.context, playbackLooper, builder.looper, componentListener, clock);

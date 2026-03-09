@@ -1,5 +1,45 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common library:
+*   ExoPlayer:
+    *   Fix race condition related to audio session id generation that could
+        lead to an `IllegalStateException` with tunneling mode.
+        ([#3099](https://github.com/androidx/media/issues/3099)).
+*   CompositionPlayer:
+*   Transformer:
+*   Track selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Effect Lottie:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test utilities:
+*   Remove deprecated symbols:
+
 ## 1.10
 
 ### 1.10.0 (2026-03-25)
