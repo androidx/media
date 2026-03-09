@@ -294,7 +294,11 @@ public final class AssetInfo {
                   .build())
           .build();
 
-  public static final AssetInfo MP4_ASSET =
+  /**
+   * An advanced MP4 test asset with edit lists, B-frames, non-standard 1080x720 video resolution.
+   * Consider using {@link #MP4_SIMPLE_ASSET} instead.
+   */
+  public static final AssetInfo MP4_ADVANCED_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/sample.mp4")
           .setVideoFormat(
               new Format.Builder()
@@ -303,6 +307,32 @@ public final class AssetInfo {
                   .setHeight(720)
                   .setFrameRate(29.97f)
                   .setCodecs("avc1.64001F")
+                  .build())
+          .setTrackCount(2)
+          .setVideoDurationUs(1_024_000L)
+          .setVideoFrameCount(30)
+          .setAudioSampleCount(45)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
+                  300_300L, 333_666L, 367_033L, 400_400L, 433_766L, 467_133L, 500_500L, 533_866L,
+                  567_233L, 600_600L, 633_966L, 667_333L, 700_700L, 734_066L, 767_433L, 800_800L,
+                  834_166L, 867_533L, 900_900L, 934_266L, 967_633L))
+          .build();
+
+  /**
+   * A simple MP4 test asset with standard QVGA resolution, and constrained baseline H.264 profile
+   * which should be widely supported on devices and emulators.
+   */
+  public static final AssetInfo MP4_SIMPLE_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/sample_simple.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(29.97f)
+                  .setCodecs("avc1.42400D")
                   .build())
           .setTrackCount(2)
           .setVideoDurationUs(1_024_000L)

@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.transformer.AndroidTestUtil.getVideoSampleTimesUs;
 import static com.google.common.truth.Truth.assertThat;
@@ -118,7 +118,7 @@ public class TransformerSpeedAdjustmentTest {
   public void setSpeed_singleAssetWith1xSpeedProvider_doesNotModifyTimestamps() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_CONSTANT)
             .build();
 
@@ -126,14 +126,16 @@ public class TransformerSpeedAdjustmentTest {
         new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
 
     ImmutableList<Long> timestamps = getTimestampsFromFile(result.filePath, context, testId);
-    assertThat(timestamps).containsExactlyElementsIn(MP4_ASSET.videoTimestampsUs).inOrder();
+    assertThat(timestamps)
+        .containsExactlyElementsIn(MP4_ADVANCED_ASSET.videoTimestampsUs)
+        .inOrder();
   }
 
   @Test
   public void setSpeed_singleAssetAtDoubleSpeed_halvesAllTimestamps() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
 
@@ -157,7 +159,7 @@ public class TransformerSpeedAdjustmentTest {
   public void setSpeed_twoItemsWithConstantSpeed_doesNotModifyTimestamps() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_CONSTANT)
             .build();
     Composition composition =
@@ -188,7 +190,7 @@ public class TransformerSpeedAdjustmentTest {
   public void setSpeed_twoItemsWith2xSpeed_halvesTimestamps() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
     Composition composition =
@@ -220,7 +222,7 @@ public class TransformerSpeedAdjustmentTest {
   public void setSpeed_twoVideoOnlyItemsWith2xSpeed_halvesTimestamps() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
     Composition composition =
@@ -254,7 +256,7 @@ public class TransformerSpeedAdjustmentTest {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(configuration)
                     .build())
@@ -286,7 +288,7 @@ public class TransformerSpeedAdjustmentTest {
   public void setSpeed_twoItemsWithVariableSpeed_modifiesTimestampsAsExpected() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setSpeed(SPEED_PROVIDER_MULTIPLE_SPEEDS)
             .build();
     Composition composition =
@@ -320,7 +322,7 @@ public class TransformerSpeedAdjustmentTest {
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(750).build())

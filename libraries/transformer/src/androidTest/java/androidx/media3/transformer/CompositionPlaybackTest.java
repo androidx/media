@@ -21,7 +21,7 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
@@ -66,9 +66,10 @@ import org.junit.runner.RunWith;
 public class CompositionPlaybackTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
-  private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ASSET.uri);
-  private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
-  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
+  private static final MediaItem VIDEO_MEDIA_ITEM = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
+  private static final long VIDEO_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
+  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US =
+      MP4_ADVANCED_ASSET.videoTimestampsUs;
   private static final SpeedProvider SPEED_PROVIDER_2X =
       new SpeedProvider() {
         @Override
@@ -103,8 +104,8 @@ public class CompositionPlaybackTest {
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
     Composition composition =
@@ -123,12 +124,12 @@ public class CompositionPlaybackTest {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(500).build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
     Composition composition =
@@ -146,8 +147,8 @@ public class CompositionPlaybackTest {
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
@@ -168,12 +169,12 @@ public class CompositionPlaybackTest {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(500).build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
@@ -191,8 +192,8 @@ public class CompositionPlaybackTest {
   public void seek_withEncodedAudioStream_signalsNextFrameAfterSeekPosition() throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
     Composition composition =
@@ -221,12 +222,12 @@ public class CompositionPlaybackTest {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(500).build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
     Composition composition =
@@ -255,8 +256,8 @@ public class CompositionPlaybackTest {
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
@@ -286,17 +287,17 @@ public class CompositionPlaybackTest {
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item1 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     EditedMediaItem item2 =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(2).build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .build();
     // Use video-only sequence to generate silence.
@@ -318,12 +319,12 @@ public class CompositionPlaybackTest {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();
     EditedMediaItem item =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new ClippingConfiguration.Builder().setStartPositionMs(500).build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
             .setSpeed(SPEED_PROVIDER_2X)
             .build();
@@ -624,9 +625,9 @@ public class CompositionPlaybackTest {
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setFrameRate(15)
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),

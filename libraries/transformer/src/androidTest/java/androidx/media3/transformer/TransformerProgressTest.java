@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
@@ -117,7 +117,8 @@ public class TransformerProgressTest {
                 new Composition.Builder(
                         EditedMediaItemSequence.withAudioAndVideoFrom(
                             ImmutableList.of(
-                                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                new EditedMediaItem.Builder(
+                                        MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                                     .setEffects(
                                         new Effects(
                                             /* audioProcessors= */ ImmutableList.of(),

@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -47,7 +47,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerGapsTest {
   private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
-      new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+      new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
   private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
       AUDIO_VIDEO_MEDIA_ITEM.buildUpon().setRemoveVideo(true).build();
   private static final EditedMediaItem VIDEO_ONLY_MEDIA_ITEM =
@@ -70,7 +70,10 @@ public class TransformerGapsTest {
     int outputWidth = 320;
     int outputHeight = 240;
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -104,7 +107,10 @@ public class TransformerGapsTest {
   public void export_withThreeItemsHavingNoAudio_inAudioVideoSequence_insertsSilenceForAllItems()
       throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -139,8 +145,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET
             .videoFormat
             .buildUpon()
             .setWidth(outputWidth)
@@ -149,8 +155,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer =
         new Transformer.Builder(context).setVideoMimeType(MimeTypes.VIDEO_H264).build();
     Composition composition =
@@ -179,7 +185,7 @@ public class TransformerGapsTest {
     // The video gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -187,7 +193,10 @@ public class TransformerGapsTest {
       export_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_inAudioVideoSequence_insertsBlankFramesForSecondMediaItem()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -209,7 +218,7 @@ public class TransformerGapsTest {
     // The gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -217,7 +226,10 @@ public class TransformerGapsTest {
       export_withThreeMediaItemsAndLastMediaItemHavingNoVideo_inAudioVideoSequence_insertsBlankFramesForLastMediaItem()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -239,7 +251,7 @@ public class TransformerGapsTest {
     // The gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -247,7 +259,10 @@ public class TransformerGapsTest {
       export_withThreeMediaItemsAndFirstMediaItemHavingNoAudio_inAudioVideoSequence_insertsSilenceForFirstMediaItem()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -278,7 +293,10 @@ public class TransformerGapsTest {
       export_withThreeMediaItemsAndSecondMediaItemHavingNoAudio_inAudioVideoSequence_insertsSilenceForSecondMediaItem()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -309,7 +327,10 @@ public class TransformerGapsTest {
       export_withThreeMediaItemsAndLastMediaItemHavingNoAudio_inAudioVideoSequence_insertsSilenceForLastMediaItem()
           throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -344,8 +365,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET
             .videoFormat
             .buildUpon()
             .setWidth(outputWidth)
@@ -382,7 +403,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -392,8 +413,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -417,7 +438,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -427,8 +448,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -452,7 +473,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
   }
 
   @Test
@@ -464,8 +485,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET
             .videoFormat
             .buildUpon()
             .setWidth(outputWidth)
@@ -503,7 +524,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
     FakeTrackOutput audioTrackOutput =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     long lastAudioSampleTimestampUs =
@@ -519,8 +540,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -545,7 +566,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
     FakeTrackOutput audioTrackOutput =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     long lastAudioSampleTimestampUs =
@@ -561,8 +582,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -587,7 +608,7 @@ public class TransformerGapsTest {
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
-        .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
+        .isEqualTo(2 * MP4_ADVANCED_ASSET.videoFrameCount + expectedBlankFrames);
     FakeTrackOutput audioTrackOutput =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     long lastAudioSampleTimestampUs =
@@ -603,8 +624,8 @@ public class TransformerGapsTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
@@ -633,9 +654,9 @@ public class TransformerGapsTest {
     int expectedBlankFramesForOneSecGap = 30;
     assertThat(videoTrackOutput.getSampleCount())
         .isEqualTo(
-            MP4_ASSET.videoFrameCount
+            MP4_ADVANCED_ASSET.videoFrameCount
                 + expectedBlankFramesForAudioOnlyItem
-                + MP4_ASSET.videoFrameCount
+                + MP4_ADVANCED_ASSET.videoFrameCount
                 + expectedBlankFramesForOneSecGap);
     FakeTrackOutput audioTrackOutput =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));

@@ -19,7 +19,7 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -63,7 +63,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -73,15 +72,14 @@ import org.junit.runner.RunWith;
  * seeking}.
  */
 @RunWith(AndroidJUnit4.class)
-@Ignore("Flaky: b/362905994")
 public class CompositionPlayerSeekTest {
 
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 40_000 : 10_000;
 
-  private static final long VIDEO_DURATION_US = MP4_ASSET.videoDurationUs;
+  private static final long VIDEO_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final MediaItemConfig VIDEO_MEDIA_ITEM =
-      new MediaItemConfig(MediaItem.fromUri(MP4_ASSET.uri), VIDEO_DURATION_US);
-  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_ASSET.videoTimestampsUs;
+      new MediaItemConfig(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri), VIDEO_DURATION_US);
+  private static final ImmutableList<Long> VIDEO_TIMESTAMPS_US = MP4_SIMPLE_ASSET.videoTimestampsUs;
   private static final long IMAGE_DURATION_US = 200_000;
   private static final MediaItemConfig IMAGE_MEDIA_ITEM =
       new MediaItemConfig(
@@ -93,7 +91,6 @@ public class CompositionPlayerSeekTest {
   // 200 ms at 30 fps (default frame rate)
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
-  private static final long VIDEO_GRAPH_END_TIMEOUT_MS = 1_000;
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -910,7 +907,7 @@ public class CompositionPlayerSeekTest {
             });
     playerTestListener.waitUntilPlayerEnded();
 
-    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
     if (playbackException.get() != null
@@ -1199,7 +1196,7 @@ public class CompositionPlayerSeekTest {
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
 
-    assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
     if (playbackException.get() != null

@@ -17,7 +17,7 @@ package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE;
@@ -153,7 +153,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
     videoFrameProcessorTestRunner = getDefaultFrameProcessorTestRunnerBuilder(testId).build();
     Bitmap expectedBitmap = readBitmap(ORIGINAL_PNG_ASSET_PATH);
@@ -173,7 +173,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
     TextureBitmapReader consumersBitmapReader = new TextureBitmapReader();
     VideoFrameProcessorTestRunner texIdProducingVideoFrameProcessorTestRunner =
@@ -201,7 +201,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId)
@@ -219,7 +219,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
     Bitmap overlayBitmap = readBitmap(OVERLAY_PNG_ASSET_PATH);
     BitmapOverlay bitmapOverlay = BitmapOverlay.createStaticBitmapOverlay(overlayBitmap);
@@ -243,7 +243,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
     assumeFormatsSupported(
         getApplicationContext(),
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
         /* outputFormat= */ null);
     Bitmap overlayBitmap = readBitmap(OVERLAY_PNG_ASSET_PATH);
     BitmapOverlay bitmapOverlay = BitmapOverlay.createStaticBitmapOverlay(overlayBitmap);

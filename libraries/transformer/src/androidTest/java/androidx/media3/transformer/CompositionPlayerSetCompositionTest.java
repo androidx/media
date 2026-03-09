@@ -17,7 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
@@ -92,8 +92,8 @@ public class CompositionPlayerSetCompositionTest {
   public void composition_changeNumberOfItemsInAComposition_playbackCompletes() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicInteger numberOfTimelineUpdates = new AtomicInteger();
@@ -128,8 +128,8 @@ public class CompositionPlayerSetCompositionTest {
 
   @Test
   public void setComposition_withChangedSpeed_playbackCompletes() throws Exception {
-    EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 3.f);
-    EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 1 / 3.f);
+    EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ADVANCED_ASSET, 3.f);
+    EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ADVANCED_ASSET, 1 / 3.f);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     CopyOnWriteArrayList<Long> playerDurations = new CopyOnWriteArrayList<>();
 
@@ -169,7 +169,7 @@ public class CompositionPlayerSetCompositionTest {
     long trimEndPositionMs = 600;
     EditedMediaItem clippedEditedMediaItem =
         createEditedMediaItemWithClippingConfiguration(
-                MP4_ASSET,
+                MP4_ADVANCED_ASSET,
                 new ClippingConfiguration.Builder().setEndPositionMs(trimEndPositionMs).build())
             .buildUpon()
             .setRemoveAudio(true)
@@ -192,8 +192,8 @@ public class CompositionPlayerSetCompositionTest {
   @Test
   public void setComposition_withSameComposition_playbackCompletes() throws Exception {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     Composition composition =
         createSingleAudioVideoSequenceComposition(ImmutableList.of(editedMediaItem));
@@ -224,8 +224,8 @@ public class CompositionPlayerSetCompositionTest {
   public void setComposition_withSameCompositionDifferentStartPosition_playbackCompletes()
       throws Exception {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     CopyOnWriteArraySet<Object> audioProcessorFlushOffsets = new CopyOnWriteArraySet<>();
     PassthroughAudioProcessor passthroughAudioProcessor =
@@ -271,10 +271,12 @@ public class CompositionPlayerSetCompositionTest {
   public void setComposition_twiceWithClippingConfigurationChange_playbackCompletes()
       throws Exception {
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     EditedMediaItem clippedMediaItem =
         createEditedMediaItemWithClippingConfiguration(
-            MP4_ASSET, new ClippingConfiguration.Builder().setStartPositionMs(1_000).build());
+            MP4_ADVANCED_ASSET,
+            new ClippingConfiguration.Builder().setStartPositionMs(1_000).build());
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean secondTimelineUpdated = new AtomicBoolean();
 
@@ -313,7 +315,8 @@ public class CompositionPlayerSetCompositionTest {
   @Test
   public void setComposition_sameMediaItemAndChangedClipping_playbackCompletes() throws Exception {
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
 
     instrumentation.runOnMainSync(
@@ -345,7 +348,8 @@ public class CompositionPlayerSetCompositionTest {
   public void setComposition_twiceAndSettingVideoFrameMetadataListenerAfter_playbackCompletes()
       throws Exception {
     EditedMediaItem fullMediaItem =
-        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+        createEditedMediaItemWithClippingConfiguration(
+            MP4_ADVANCED_ASSET, ClippingConfiguration.UNSET);
     AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
     AtomicBoolean videoFrameMetadataListenerCalled = new AtomicBoolean();
 
@@ -578,8 +582,8 @@ public class CompositionPlayerSetCompositionTest {
   private long getFirstVideoFrameTimestampUsWithStartPosition(
       long startPositionUs, int numberOfItemsInSequence) throws Exception {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     AtomicLong firstFrameTimestampUs = new AtomicLong(C.TIME_UNSET);
 

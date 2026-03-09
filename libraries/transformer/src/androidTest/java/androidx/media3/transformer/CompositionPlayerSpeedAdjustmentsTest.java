@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
@@ -89,7 +89,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
             TestSpeedProvider.createWithStartTimes(
                 new long[] {0, 300_000L, 600_000L}, new float[] {2f, 1f, 0.5f}));
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setDurationUs(1_000_000)
             .setEffects(
                 new Effects(ImmutableList.of(effects.first), ImmutableList.of(effects.second)))
@@ -217,7 +217,7 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   @Test
   public void setSpeed_withVideoOnly_modifiesOutputCorrectly() throws Exception {
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setDurationUs(1_000_000)
             .setRemoveAudio(true)
             .setSpeed(

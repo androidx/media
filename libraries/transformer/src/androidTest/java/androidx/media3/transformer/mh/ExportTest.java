@@ -19,7 +19,7 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_4K60_PORTRAIT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_8K24;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_BT2020_SDR;
@@ -282,7 +282,7 @@ public class ExportTest {
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET.uri)))
+        new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ADVANCED_ASSET.uri)))
             .setRemoveVideo(true)
             .build();
 

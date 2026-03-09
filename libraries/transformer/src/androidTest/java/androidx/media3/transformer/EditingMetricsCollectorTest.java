@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static com.google.common.truth.Truth.assertThat;
@@ -100,7 +100,7 @@ public class EditingMetricsCollectorTest {
                     }))
             .build();
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
 
     new TransformerAndroidTestRunner.Builder(context, transformer)
         .build()
@@ -115,8 +115,8 @@ public class EditingMetricsCollectorTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -133,7 +133,7 @@ public class EditingMetricsCollectorTest {
                     }))
             .build();
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(),
@@ -149,7 +149,7 @@ public class EditingMetricsCollectorTest {
     EditedMediaItemSequence audioSequence =
         EditedMediaItemSequence.withAudioFrom(
             ImmutableList.of(
-                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
                     .setRemoveVideo(true)
                     .build()));
     Composition composition = new Composition.Builder(videoImageSequence, audioSequence).build();
@@ -259,8 +259,8 @@ public class EditingMetricsCollectorTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -280,7 +280,7 @@ public class EditingMetricsCollectorTest {
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setPitch(/* pitch= */ 2f);
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
             .setEffects(
                 new Effects(
                     /* audioProcessors= */ ImmutableList.of(sonicAudioProcessor),
@@ -314,8 +314,8 @@ public class EditingMetricsCollectorTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     SettableFuture<EditingEndedEvent> editingEndedEventFuture = SettableFuture.create();
     CountDownLatch countDownLatch = new CountDownLatch(1);
     Transformer transformer =
@@ -336,7 +336,7 @@ public class EditingMetricsCollectorTest {
                     PRESENTATION_TIME_US_TO_BLOCK_FRAME, countDownLatch::countDown))
             .build();
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
     String outputPath = temporaryFolder.newFile("output.mp4").getAbsolutePath();
 
     InstrumentationRegistry.getInstrumentation()
@@ -360,8 +360,8 @@ public class EditingMetricsCollectorTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     AtomicReference<LogSessionId> logSessionIdAtomicReference = new AtomicReference<>();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -377,7 +377,7 @@ public class EditingMetricsCollectorTest {
                     }))
             .build();
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
 
     TransformerAndroidTestRunner transformerAndroidTestRunner =
         new TransformerAndroidTestRunner.Builder(context, transformer).build();

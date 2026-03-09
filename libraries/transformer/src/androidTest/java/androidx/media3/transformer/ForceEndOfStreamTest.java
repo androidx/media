@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
@@ -81,17 +81,19 @@ public class ForceEndOfStreamTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
     int framesToSkip = 4;
 
     ExportTestResult testResult =
         new TransformerAndroidTestRunner.Builder(context, buildTransformer(context, framesToSkip))
             .build()
-            .run(testId, createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ASSET.uri)));
+            .run(
+                testId,
+                createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)));
 
     assertThat(testResult.exportResult.videoFrameCount)
-        .isEqualTo(MP4_ASSET.videoFrameCount - framesToSkip);
+        .isEqualTo(MP4_ADVANCED_ASSET.videoFrameCount - framesToSkip);
     assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
   }
 
@@ -100,16 +102,19 @@ public class ForceEndOfStreamTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
 
     ExportTestResult testResult =
         new TransformerAndroidTestRunner.Builder(
                 context, buildTransformer(context, /* framesToSkip= */ 0))
             .build()
-            .run(testId, createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ASSET.uri)));
+            .run(
+                testId,
+                createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)));
 
-    assertThat(testResult.exportResult.videoFrameCount).isEqualTo(MP4_ASSET.videoFrameCount);
+    assertThat(testResult.exportResult.videoFrameCount)
+        .isEqualTo(MP4_ADVANCED_ASSET.videoFrameCount);
     assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
   }
 
@@ -163,7 +168,8 @@ public class ForceEndOfStreamTest {
         .setAssetLoaderFactory(
             new DefaultAssetLoaderFactory(
                 context,
-                new FrameDroppingDecoderFactory(context, MP4_ASSET.videoFrameCount, framesToSkip),
+                new FrameDroppingDecoderFactory(
+                    context, MP4_ADVANCED_ASSET.videoFrameCount, framesToSkip),
                 Clock.DEFAULT,
                 /* logSessionId= */ null))
         .build();

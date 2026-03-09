@@ -17,7 +17,7 @@ package androidx.media3.inspector.frame;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -475,9 +475,12 @@ public class FrameExtractorTest {
   @Test
   public void extractFrame_oneFrame_decodesReferenceFramesOnly() throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     try (FrameExtractor frameExtractor =
-        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET.uri)).build()) {
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
       int initialSkippedInputBufferCount =
@@ -608,9 +611,12 @@ public class FrameExtractorTest {
   public void extractThumbnail_whenThumbnailMetadataTimestampIsZero_returnsCorrectFrame()
       throws Exception {
     assumeFormatsSupported(
-        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ null);
     try (FrameExtractor frameExtractor =
-        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET.uri)).build()) {
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build()) {
       DecoderCounters initialCounters =
           frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
       int initialRenderedOutputBufferCount =

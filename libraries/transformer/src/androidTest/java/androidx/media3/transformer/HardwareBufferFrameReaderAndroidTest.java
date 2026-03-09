@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -73,7 +73,7 @@ public class HardwareBufferFrameReaderAndroidTest {
   @Before
   public void setUp() {
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)).build();
     EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
     composition = new Composition.Builder(sequence).build();
     handlerThread = new HandlerThread("HardwareBufferFrameReaderTest");

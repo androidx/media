@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer.mh.performance;
 
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -101,8 +101,9 @@ public class VideoCompositionPreviewPerformanceTest {
               new Composition.Builder(
                       EditedMediaItemSequence.withAudioAndVideoFrom(
                           ImmutableList.of(
-                              getClippedEditedMediaItem(MP4_ASSET.uri, new Contrast(.2f)),
-                              getClippedEditedMediaItem(MP4_ASSET.uri, new Contrast(-.2f)))))
+                              getClippedEditedMediaItem(MP4_ADVANCED_ASSET.uri, new Contrast(.2f)),
+                              getClippedEditedMediaItem(
+                                  MP4_ADVANCED_ASSET.uri, new Contrast(-.2f)))))
                   .build());
           player.prepare();
         });

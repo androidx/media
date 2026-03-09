@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SRGB;
 import static androidx.media3.test.utils.AssetInfo.MP4_VIDEO_ONLY_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
@@ -136,13 +136,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setName("Image")
           .build();
 
-  /** An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ASSET}. */
+  /** An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ADVANCED_ASSET}. */
   public static final EditedMediaItemAssetInfo VIDEO =
       new EditedMediaItemAssetInfo.Builder()
-          .setOriginalAssetInfo(MP4_ASSET)
+          .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
           .setEditedMediaItem(
-              new EditedMediaItem.Builder(new MediaItem.Builder().setUri(MP4_ASSET.uri).build())
-                  .setDurationUs(MP4_ASSET.videoDurationUs)
+              new EditedMediaItem.Builder(
+                      new MediaItem.Builder().setUri(MP4_ADVANCED_ASSET.uri).build())
+                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                   .build())
           .setName("Video")
           .build();
@@ -160,15 +161,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .build();
 
   /**
-   * An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ASSET} with the audio
-   * track removed.
+   * An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ADVANCED_ASSET} with
+   * the audio track removed.
    */
   public static final EditedMediaItemAssetInfo VIDEO_WITHOUT_AUDIO =
       new EditedMediaItemAssetInfo.Builder()
-          .setOriginalAssetInfo(MP4_ASSET)
+          .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
           .setEditedMediaItem(
-              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                  .setDurationUs(MP4_ASSET.videoDurationUs)
+              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                   .setRemoveAudio(true)
                   .build())
           .setName("Video_no_audio")
@@ -264,15 +265,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .build();
 
   /**
-   * An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ASSET} with the video
-   * track removed.
+   * An {@link EditedMediaItemAssetInfo} wrapper around {@link AssetInfo#MP4_ADVANCED_ASSET} with
+   * the video track removed.
    */
   public static final EditedMediaItemAssetInfo VIDEO_WITH_REMOVE_VIDEO =
       new EditedMediaItemAssetInfo.Builder()
-          .setOriginalAssetInfo(MP4_ASSET)
+          .setOriginalAssetInfo(MP4_ADVANCED_ASSET)
           .setEditedMediaItem(
-              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-                  .setDurationUs(MP4_ASSET.videoDurationUs)
+              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
                   .setRemoveVideo(true)
                   .build())
           .setVideoTimestampsUs(

@@ -17,7 +17,7 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.Player.STATE_ENDED;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
@@ -108,8 +108,8 @@ public class EffectPlaybackPixelTest {
     // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET.videoFormat.width,
-            MP4_ASSET.videoFormat.height,
+            MP4_ADVANCED_ASSET.videoFormat.width,
+            MP4_ADVANCED_ASSET.videoFormat.height,
             PixelFormat.RGBA_8888,
             // Use a larger count to avoid ImageReader dropping frames
             /* maxImages= */ 10);
@@ -143,14 +143,15 @@ public class EffectPlaybackPixelTest {
               player,
               checkNotNull(findVideoRenderer(player)),
               outputImageReader.getSurface(),
-              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
 
           player.setPlayWhenReady(false);
           player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
 
           // Adding an EventLogger to use its log output in case the test fails.
           player.addAnalyticsListener(new EventLogger());
-          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 
@@ -212,7 +213,7 @@ public class EffectPlaybackPixelTest {
                 try (Image image = imageReader.acquireNextImage()) {
                   readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
                 }
-                if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
+                if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
                   readAllOutputFrames.open();
                 }
               },
@@ -222,7 +223,8 @@ public class EffectPlaybackPixelTest {
               player,
               videoRenderer,
               outputImageReader.getSurface(),
-              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
           player.setPlayWhenReady(true);
           player.setVideoEffects(ImmutableList.of(createTimestampOverlay()));
 
@@ -237,7 +239,7 @@ public class EffectPlaybackPixelTest {
                   }
                 }
               });
-          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 
@@ -333,7 +335,8 @@ public class EffectPlaybackPixelTest {
               player,
               videoRenderer,
               outputImageReader.getSurface(),
-              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
           player.setPlayWhenReady(false);
           AdjustableContrast contrast = new AdjustableContrast();
           player.setVideoEffects(ImmutableList.of(createTimestampOverlay(), contrast));
@@ -375,7 +378,7 @@ public class EffectPlaybackPixelTest {
                 }
                 firstFrameRenderedCount.getAndIncrement();
               });
-          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 
@@ -432,8 +435,8 @@ public class EffectPlaybackPixelTest {
     // VideoFrameProcessor. Using maxImages=10 runs successfully on a Pixel3.
     outputImageReader =
         ImageReader.newInstance(
-            MP4_ASSET.videoFormat.width,
-            MP4_ASSET.videoFormat.height,
+            MP4_ADVANCED_ASSET.videoFormat.width,
+            MP4_ADVANCED_ASSET.videoFormat.height,
             PixelFormat.RGBA_8888,
             /* maxImages= */ 10);
 
@@ -467,7 +470,7 @@ public class EffectPlaybackPixelTest {
                 try (Image image = imageReader.acquireNextImage()) {
                   readImageBuffers.add(BitmapPixelTestUtil.copyByteBufferFromRbga8888Image(image));
                 }
-                if (renderedFramesCount.incrementAndGet() == MP4_ASSET.videoFrameCount) {
+                if (renderedFramesCount.incrementAndGet() == MP4_ADVANCED_ASSET.videoFrameCount) {
                   readAllOutputFrames.open();
                 }
               },
@@ -477,7 +480,8 @@ public class EffectPlaybackPixelTest {
               player,
               videoRenderer,
               outputImageReader.getSurface(),
-              new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
+              new Size(
+                  MP4_ADVANCED_ASSET.videoFormat.width, MP4_ADVANCED_ASSET.videoFormat.height));
           player.setPlayWhenReady(true);
           player.setVideoEffects(
               ImmutableList.of(
@@ -495,7 +499,7 @@ public class EffectPlaybackPixelTest {
                   }
                 }
               });
-          player.setMediaItem(MediaItem.fromUri(MP4_ASSET.uri));
+          player.setMediaItem(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri));
           player.prepare();
         });
 

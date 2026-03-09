@@ -18,7 +18,7 @@ package androidx.media3.transformer.mh;
 
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
-import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -119,8 +119,8 @@ public class VideoTimestampConsistencyTest {
   @Test
   public void oneVideoComposition_timestampsAreConsistent() throws Exception {
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     compareTimestamps(
@@ -132,19 +132,19 @@ public class VideoTimestampConsistencyTest {
     long clippedStartUs = 500_000L;
     EditedMediaItem video1 =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionUs(clippedStartUs)
                             .build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     EditedMediaItem video2 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     ImmutableList<Long> expectedTimestamps =
@@ -153,7 +153,8 @@ public class VideoTimestampConsistencyTest {
             .addAll(
                 Lists.transform(
                     MP4_ASSET_FRAME_TIMESTAMPS_US,
-                    timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
+                    timestampUs ->
+                        ((MP4_ADVANCED_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
             .build();
 
     compareTimestamps(
@@ -165,21 +166,21 @@ public class VideoTimestampConsistencyTest {
     long clippedStartUs1 = 500_000L;
     EditedMediaItem video1 =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionUs(clippedStartUs1)
                             .build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     long clippedStartUs2 = 300_000L;
     long clippedEndUs2 = 600_000L;
     EditedMediaItem video2 =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
@@ -187,7 +188,7 @@ public class VideoTimestampConsistencyTest {
                             .setEndPositionUs(clippedEndUs2)
                             .build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     ImmutableList<Long> expectedTimestamps =
@@ -197,7 +198,8 @@ public class VideoTimestampConsistencyTest {
                 Lists.transform(
                     getClippedTimestamps(
                         MP4_ASSET_FRAME_TIMESTAMPS_US, clippedStartUs2, clippedEndUs2),
-                    timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs1) + timestampUs)))
+                    timestampUs ->
+                        ((MP4_ADVANCED_ASSET.videoDurationUs - clippedStartUs1) + timestampUs)))
             .build();
 
     compareTimestamps(
@@ -207,13 +209,13 @@ public class VideoTimestampConsistencyTest {
   @Test
   public void twoVideosComposition_timestampsAreConsistent() throws Exception {
     EditedMediaItem video1 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     EditedMediaItem video2 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     ImmutableList<Long> expectedTimestamps =
@@ -222,7 +224,7 @@ public class VideoTimestampConsistencyTest {
             .addAll(
                 Lists.transform(
                     MP4_ASSET_FRAME_TIMESTAMPS_US,
-                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
+                    timestampUs -> (MP4_ADVANCED_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     compareTimestamps(
@@ -277,8 +279,8 @@ public class VideoTimestampConsistencyTest {
             .setFrameRate(30)
             .build();
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
 
     ImmutableList<Long> expectedTimestamps =
@@ -298,8 +300,8 @@ public class VideoTimestampConsistencyTest {
     long imageDurationUs = 500_000L;
 
     EditedMediaItem video =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
@@ -316,7 +318,7 @@ public class VideoTimestampConsistencyTest {
             .addAll(
                 Lists.transform(
                     IMAGE_TIMESTAMPS_US_500_MS_30_FPS,
-                    timestampUs -> (MP4_ASSET.videoDurationUs + timestampUs)))
+                    timestampUs -> (MP4_ADVANCED_ASSET.videoDurationUs + timestampUs)))
             .build();
 
     compareTimestamps(
@@ -330,14 +332,14 @@ public class VideoTimestampConsistencyTest {
 
     EditedMediaItem video =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(MP4_ASSET.uri)
+                MediaItem.fromUri(MP4_ADVANCED_ASSET.uri)
                     .buildUpon()
                     .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                             .setStartPositionMs(usToMs(clippedStartUs))
                             .build())
                     .build())
-            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
             .build();
     EditedMediaItem image =
         new EditedMediaItem.Builder(
@@ -354,7 +356,8 @@ public class VideoTimestampConsistencyTest {
             .addAll(
                 Lists.transform(
                     IMAGE_TIMESTAMPS_US_500_MS_30_FPS,
-                    timestampUs -> ((MP4_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
+                    timestampUs ->
+                        ((MP4_ADVANCED_ASSET.videoDurationUs - clippedStartUs) + timestampUs)))
             .build();
 
     compareTimestamps(
