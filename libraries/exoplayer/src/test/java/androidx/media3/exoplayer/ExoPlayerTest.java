@@ -13834,6 +13834,63 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void builderBuild_propagatesAudioSessionIdToRenderersBeforeOnEnabled() throws Exception {
+    ArrayList<Integer> configuredAudioSessionIdsOnVideoRenderer = new ArrayList<>();
+    AtomicBoolean audioSessionIdReceivedBeforeOnEnabled = new AtomicBoolean();
+    AtomicBoolean isRendererEnabled = new AtomicBoolean();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildVideoRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              Handler eventHandler,
+              VideoRendererEventListener eventListener,
+              long allowedVideoJoiningTimeMs,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+                      configuredAudioSessionIdsOnVideoRenderer.add((int) message);
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+
+                  @Override
+                  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+                      throws ExoPlaybackException {
+                    super.onEnabled(joining, mayRenderStartOfStream);
+                    if (!configuredAudioSessionIdsOnVideoRenderer.isEmpty()) {
+                      audioSessionIdReceivedBeforeOnEnabled.set(true);
+                    }
+                    isRendererEnabled.set(true);
+                  }
+                });
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    MediaSource source =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    player.setMediaSource(source);
+    player.prepare();
+    advance(player).untilBackgroundThreadCondition(isRendererEnabled::get);
+    int audioSessionIdAfterInit = player.getAudioSessionId();
+
+    assertThat(audioSessionIdReceivedBeforeOnEnabled.get()).isTrue();
+    assertThat(audioSessionIdAfterInit).isNotEqualTo(C.AUDIO_SESSION_ID_UNSET);
+    // Audio Session ID will be provided twice, sent by both the Playback and Application Threads.
+    assertThat(configuredAudioSessionIdsOnVideoRenderer)
+        .containsExactly(audioSessionIdAfterInit, audioSessionIdAfterInit);
+  }
+
+  @Test
   public void setVideoScalingMode_isSetOnPrimaryAndSecondaryVideoRenderers() throws Exception {
     AtomicBoolean videoScalingSetOnAudioRenderer = new AtomicBoolean();
     AtomicBoolean videoScalingSetOnVideoRenderer1 = new AtomicBoolean();

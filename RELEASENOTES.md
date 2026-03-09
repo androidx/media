@@ -16,6 +16,9 @@
         can override its `compare(Integer, Integer)` method if a more fine-tuned
         comparison logic is needed. The custom `SimpleRankingDataComparator` can
         be injected via a new constructor of `DefaultPreloadManager.Builder`.
+    *   Fix race condition related to audio session id generation that could
+        lead to an `IllegalStateException` with tunneling mode.
+        ([#3099](https://github.com/androidx/media/issues/3099)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
