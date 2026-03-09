@@ -367,6 +367,11 @@ public final class Transformer {
      * <p>If using this method, do not {@linkplain #setVideoFrameProcessorFactory set} a {@link
      * VideoFrameProcessor.Factory}.
      *
+     * <p>For multi-sequence compositions, the index of a frame in the aggregated {@link
+     * HardwareBufferFrame} list is not guaranteed to correspond to its originating sequence's
+     * index. An input sequence that has finished outputting frames will no longer contribute to the
+     * aggregated packet.
+     *
      * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
      * @return This builder.
      */

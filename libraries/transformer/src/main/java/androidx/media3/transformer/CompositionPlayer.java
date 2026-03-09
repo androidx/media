@@ -488,6 +488,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
+     * <p>For multi-sequence compositions, the index of a frame in the aggregated {@link
+     * HardwareBufferFrame} list is not guaranteed to correspond to its originating sequence's
+     * index. An input sequence that has finished outputting frames will no longer contribute to the
+     * aggregated packet.
+     *
      * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
      * @return This builder.
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
