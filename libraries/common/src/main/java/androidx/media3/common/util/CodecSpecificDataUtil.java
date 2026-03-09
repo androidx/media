@@ -897,9 +897,6 @@ public final class CodecSpecificDataUtil {
         // Android versions, but we still map to Main10 for backwards compatibility.
         profile = MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10;
       }
-    } else if ("6".equals(profileString)) {
-      // Framework does not have profileLevel.HEVCProfileMultiviewMain defined.
-      profile = 6;
     } else {
       Log.w(TAG, "Unknown HEVC profile string: " + profileString);
       return MediaCodecProfileAndLevel.UNSUPPORTABLE;

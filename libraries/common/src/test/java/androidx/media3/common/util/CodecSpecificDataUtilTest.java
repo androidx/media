@@ -252,15 +252,6 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
-  public void getCodecProfileAndLevel_handlesMvHevcCodecString() {
-    assertCodecProfileAndLevelForCodecsString(
-        MimeTypes.VIDEO_MV_HEVC,
-        "hvc1.6.40.L120.BF.80",
-        /* profile= */ 6,
-        MediaCodecInfo.CodecProfileLevel.HEVCMainTierLevel4);
-  }
-
-  @Test
   public void getCodecProfileAndLevel_handlesIamfCodecString_forSimpleProfileOpus() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.AUDIO_IAMF,
@@ -330,6 +321,16 @@ public class CodecSpecificDataUtilTest {
         "iamf.001.000.ipcm",
         MediaCodecInfo.CodecProfileLevel.IAMFProfileBasePcm,
         0);
+  }
+
+  @Test
+  public void getMediaCodecProfileAndLevel_mvHevcWithNoMatchingMediaCodecConstant_unsupportable() {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_MV_HEVC)
+            .setCodecs("hvc1.6.40.L120.BF.80")
+            .build();
+    assertThat(getMediaCodecProfileAndLevel(format).isSupportableByMediaCodec()).isFalse();
   }
 
   private static void assertCodecProfileAndLevelForCodecsString(
