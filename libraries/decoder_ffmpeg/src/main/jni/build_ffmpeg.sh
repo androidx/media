@@ -32,12 +32,13 @@ COMMON_OPTIONS="
     --target-os=android
     --enable-static
     --disable-shared
+    --enable-pthreads
     --disable-doc
     --disable-programs
     --disable-everything
     --disable-avdevice
     --disable-avformat
-    --disable-swscale
+    --enable-swscale
     --disable-postproc
     --disable-avfilter
     --disable-symver
@@ -73,18 +74,22 @@ then
     ANDROID_ABI_64BIT=21
 fi
 
+SYSROOT="${NDK_PATH}/toolchains/llvm/prebuilt/${HOST_PLATFORM}/sysroot"
+echo "Using sysroot: ${SYSROOT}"
+
 cd "${FFMPEG_MODULE_PATH}/jni/ffmpeg"
 ./configure \
     --libdir=android-libs/armeabi-v7a \
     --arch=arm \
     --cpu=armv7-a \
     --cross-prefix="${TOOLCHAIN_PREFIX}/armv7a-linux-androideabi${ANDROID_ABI}-" \
+    --sysroot="${SYSROOT}" \
     --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
     --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
-    --extra-cflags="-march=armv7-a -mfloat-abi=softfp" \
-    --extra-ldflags="-Wl,--fix-cortex-a8" \
+    --extra-cflags="-march=armv7-a -mfloat-abi=softfp -fPIC --sysroot=${SYSROOT}" \
+    --extra-ldflags="-Wl,--fix-cortex-a8 --sysroot=${SYSROOT}" \
     ${COMMON_OPTIONS}
 make -j$JOBS
 make install-libs
@@ -94,10 +99,13 @@ make clean
     --arch=aarch64 \
     --cpu=armv8-a \
     --cross-prefix="${TOOLCHAIN_PREFIX}/aarch64-linux-android${ANDROID_ABI_64BIT}-" \
+    --sysroot="${SYSROOT}" \
     --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
     --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
+    --extra-cflags="-fPIC --sysroot=${SYSROOT}" \
+    --extra-ldflags="--sysroot=${SYSROOT}" \
     ${COMMON_OPTIONS}
 make -j$JOBS
 make install-libs
@@ -107,10 +115,13 @@ make clean
     --arch=x86 \
     --cpu=i686 \
     --cross-prefix="${TOOLCHAIN_PREFIX}/i686-linux-android${ANDROID_ABI}-" \
+    --sysroot="${SYSROOT}" \
     --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
     --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
+    --extra-cflags="-fPIC --sysroot=${SYSROOT}" \
+    --extra-ldflags="--sysroot=${SYSROOT}" \
     --disable-asm \
     ${COMMON_OPTIONS}
 make -j$JOBS
@@ -121,10 +132,13 @@ make clean
     --arch=x86_64 \
     --cpu=x86-64 \
     --cross-prefix="${TOOLCHAIN_PREFIX}/x86_64-linux-android${ANDROID_ABI_64BIT}-" \
+    --sysroot="${SYSROOT}" \
     --nm="${TOOLCHAIN_PREFIX}/llvm-nm" \
     --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
+    --extra-cflags="-fPIC --sysroot=${SYSROOT}" \
+    --extra-ldflags="--sysroot=${SYSROOT}" \
     --disable-asm \
     ${COMMON_OPTIONS}
 make -j$JOBS

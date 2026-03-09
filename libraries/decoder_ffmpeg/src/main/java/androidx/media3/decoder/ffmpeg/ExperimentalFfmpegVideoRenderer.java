@@ -26,6 +26,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.TraceUtil;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -38,33 +42,95 @@ import java.util.Objects;
 
 // TODO: Merge actual implementation in https://github.com/androidx/media/pull/1591.
 /**
- * <b>NOTE: This class if under development and is not yet functional.</b>
+ * Decodes and renders video using FFmpeg.
  *
- * <p>Decodes and renders video using FFmpeg.
+ * <p>
+ * Implementation based on
+ * <a href="https://github.com/androidx/media/pull/1591">PR #1591</a>.
  */
 @ExperimentalApi // TODO: b/470357054 - Merge pull request and publish FfmpegVideoRenderer.
 public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer {
 
   private static final String TAG = "ExperimentalFfmpegVideoRenderer";
 
+  private static final int DEFAULT_NUM_OF_INPUT_BUFFERS = 4;
+  private static final int DEFAULT_NUM_OF_OUTPUT_BUFFERS = 4;
+
+  /* Default size based on 720p resolution video compressed by a factor of two. */
+  private static final int DEFAULT_INPUT_BUFFER_SIZE = Util.ceilDivide(1280, 64) * Util.ceilDivide(720, 64)
+      * (64 * 64 * 3 / 2) / 2;
+
+  private final int numInputBuffers;
+  private final int numOutputBuffers;
+  private final int threads;
+
+  @Nullable
+  private ExperimentalFfmpegVideoDecoder decoder;
+
   /**
    * Creates a new instance.
    *
-   * @param allowedJoiningTimeMs The maximum duration in milliseconds for which this video renderer
-   *     can attempt to seamlessly join an ongoing playback.
-   * @param eventHandler A handler to use when delivering events to {@code eventListener}. May be
-   *     null if delivery of events is not required.
-   * @param eventListener A listener of events. May be null if delivery of events is not required.
-   * @param maxDroppedFramesToNotify The maximum number of frames that can be dropped between
-   *     invocations of {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param allowedJoiningTimeMs     The maximum duration in milliseconds for
+   *                                 which this video renderer
+   *                                 can attempt to seamlessly join an ongoing
+   *                                 playback.
+   * @param eventHandler             A handler to use when delivering events to
+   *                                 {@code eventListener}. May be
+   *                                 null if delivery of events is not required.
+   * @param eventListener            A listener of events. May be null if delivery
+   *                                 of events is not required.
+   * @param maxDroppedFramesToNotify The maximum number of frames that can be
+   *                                 dropped between
+   *                                 invocations of
+   *                                 {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
    */
   public ExperimentalFfmpegVideoRenderer(
       long allowedJoiningTimeMs,
       @Nullable Handler eventHandler,
       @Nullable VideoRendererEventListener eventListener,
       int maxDroppedFramesToNotify) {
+    this(
+        allowedJoiningTimeMs,
+        eventHandler,
+        eventListener,
+        maxDroppedFramesToNotify,
+        /* threads= */ Runtime.getRuntime().availableProcessors(),
+        DEFAULT_NUM_OF_INPUT_BUFFERS,
+        DEFAULT_NUM_OF_OUTPUT_BUFFERS);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param allowedJoiningTimeMs     The maximum duration in milliseconds for
+   *                                 which this video renderer
+   *                                 can attempt to seamlessly join an ongoing
+   *                                 playback.
+   * @param eventHandler             A handler to use when delivering events to
+   *                                 {@code eventListener}. May be
+   *                                 null if delivery of events is not required.
+   * @param eventListener            A listener of events. May be null if delivery
+   *                                 of events is not required.
+   * @param maxDroppedFramesToNotify The maximum number of frames that can be
+   *                                 dropped between
+   *                                 invocations of
+   *                                 {@link VideoRendererEventListener#onDroppedFrames(int, long)}.
+   * @param threads                  Number of threads for FFmpeg decoding.
+   * @param numInputBuffers          The number of input buffers.
+   * @param numOutputBuffers         The number of output buffers.
+   */
+  public ExperimentalFfmpegVideoRenderer(
+      long allowedJoiningTimeMs,
+      @Nullable Handler eventHandler,
+      @Nullable VideoRendererEventListener eventListener,
+      int maxDroppedFramesToNotify,
+      int threads,
+      int numInputBuffers,
+      int numOutputBuffers) {
     super(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify);
-    // TODO: Implement.
+    this.threads = threads;
+    this.numInputBuffers = numInputBuffers;
+    this.numOutputBuffers = numOutputBuffers;
   }
 
   @Override
@@ -73,59 +139,59 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   }
 
   @Override
-  public final @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-    // TODO: Remove this line and uncomment the implementation below.
-    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-    /*
-    String mimeType = Assertions.checkNotNull(format.sampleMimeType);
+  public @RendererCapabilities.Capabilities int supportsFormat(Format format) {
+    String mimeType = format.sampleMimeType;
     if (!FfmpegLibrary.isAvailable() || !MimeTypes.isVideo(mimeType)) {
-      return FORMAT_UNSUPPORTED_TYPE;
-    } else if (!FfmpegLibrary.supportsFormat(format.sampleMimeType)) {
-      return RendererCapabilities.create(FORMAT_UNSUPPORTED_SUBTYPE);
-    } else if (format.exoMediaCryptoType != null) {
-      return RendererCapabilities.create(FORMAT_UNSUPPORTED_DRM);
+      return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+    } else if (!FfmpegLibrary.supportsFormat(mimeType)) {
+      return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE);
+    } else if (format.cryptoType != C.CRYPTO_TYPE_NONE) {
+      return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_DRM);
     } else {
       return RendererCapabilities.create(
-          FORMAT_HANDLED,
-          ADAPTIVE_SEAMLESS,
-          TUNNELING_NOT_SUPPORTED);
+          C.FORMAT_HANDLED,
+          RendererCapabilities.ADAPTIVE_SEAMLESS,
+          RendererCapabilities.TUNNELING_NOT_SUPPORTED);
     }
-    */
-  }
-
-  @SuppressWarnings("nullness:return")
-  @Override
-  protected Decoder<DecoderInputBuffer, VideoDecoderOutputBuffer, FfmpegDecoderException>
-      createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
-          throws FfmpegDecoderException {
-    TraceUtil.beginSection("createFfmpegVideoDecoder");
-    // TODO: Implement, remove the SuppressWarnings annotation, and update the return type to use
-    // the concrete type of the decoder (probably FfmepgVideoDecoder).
-    TraceUtil.endSection();
-    return null;
   }
 
   @Override
-  protected void renderOutputBufferToSurface(VideoDecoderOutputBuffer outputBuffer, Surface surface)
+  protected Decoder<DecoderInputBuffer, VideoDecoderOutputBuffer, FfmpegDecoderException> createDecoder(Format format,
+      @Nullable CryptoConfig cryptoConfig)
       throws FfmpegDecoderException {
-    // TODO: Implement.
+    TraceUtil.beginSection("createFfmpegVideoDecoder");
+    int initialInputBufferSize = format.maxInputSize != Format.NO_VALUE ? format.maxInputSize
+        : DEFAULT_INPUT_BUFFER_SIZE;
+    int threads = Math.min(Math.max(this.threads, 4), 8);
+    ExperimentalFfmpegVideoDecoder decoder = new ExperimentalFfmpegVideoDecoder(
+        numInputBuffers, numOutputBuffers, initialInputBufferSize, threads, format);
+    this.decoder = decoder;
+    TraceUtil.endSection();
+    return decoder;
+  }
+
+  @Override
+  protected void renderOutputBufferToSurface(
+      VideoDecoderOutputBuffer outputBuffer, Surface surface) throws FfmpegDecoderException {
+    if (decoder == null) {
+      throw new FfmpegDecoderException(
+          "Failed to render output buffer to surface: decoder is not initialized.");
+    }
+    decoder.renderToSurface(outputBuffer, surface);
+    outputBuffer.release();
   }
 
   @Override
   protected void setDecoderOutputMode(@C.VideoOutputMode int outputMode) {
-    // TODO: Uncomment the implementation below.
-    /*
     if (decoder != null) {
       decoder.setOutputMode(outputMode);
     }
-    */
   }
 
   @Override
   protected DecoderReuseEvaluation canReuseDecoder(
       String decoderName, Format oldFormat, Format newFormat) {
     boolean sameMimeType = Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType);
-    // TODO: Ability to reuse the decoder may be MIME type dependent.
     return new DecoderReuseEvaluation(
         decoderName,
         oldFormat,

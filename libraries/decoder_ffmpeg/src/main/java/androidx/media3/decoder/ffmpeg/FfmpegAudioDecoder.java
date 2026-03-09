@@ -77,7 +77,10 @@ public final class FfmpegAudioDecoder
     nativeContext =
         ffmpegInitialize(codecName, extraData, outputFloat, format.sampleRate, format.channelCount);
     if (nativeContext == 0) {
-      throw new FfmpegDecoderException("Initialization failed.");
+      throw new FfmpegDecoderException(
+          "Initialization failed (codec: "
+              + codecName
+              + "). Add the decoder to your FFmpeg build (build_ffmpeg.sh ENABLED_DECODERS).");
     }
     setInitialInputBufferSize(initialInputBufferSize);
   }
