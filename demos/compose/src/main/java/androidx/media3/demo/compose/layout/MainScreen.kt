@@ -54,9 +54,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
+import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
-import androidx.media3.ui.compose.material3.buttons.PlaybackSpeedToggleButton
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
@@ -127,6 +127,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           player,
           showControls,
           modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+          interactionModifier = Modifier.reportPointerDown { anyPointerDown = it },
         )
       },
     )
@@ -169,6 +170,7 @@ private fun BottomControlsWithLabeledProgress(
   player: Player?,
   showControls: Boolean,
   modifier: Modifier = Modifier,
+  interactionModifier: Modifier = Modifier,
 ) {
   AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
     Column(modifier) {
@@ -180,9 +182,11 @@ private fun BottomControlsWithLabeledProgress(
       ) {
         PositionAndDurationText(player, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.weight(1f))
-        PlaybackSpeedToggleButton(
+        PlaybackSpeedBottomSheetButton(
           player,
-          colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+          colors =
+            ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+          sheetContentModifier = interactionModifier,
         )
         ShuffleButton(
           player,
