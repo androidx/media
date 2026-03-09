@@ -58,11 +58,7 @@
         describes.
 *   IMA extension:
 *   Session:
-    *   Fix notification artwork icon scaling on Android Q
-        ([#3084](https://github.com/androidx/media/issues/3084)).
 *   UI:
-    *   Hide playback position from the accessibility service to prevent
-        continuous announcement update when `PlayerControlView` is visible.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
@@ -88,6 +84,18 @@
         `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
 
 ## 1.10
+
+### 1.10.0-rc01 (2026-03-10)
+
+This release includes the following changes since
+[1.10.0-beta01 release](#1100-beta01-2026-02-23):
+
+*   Session:
+    *   Fix notification artwork icon scaling on Android Q
+        ([#3084](https://github.com/androidx/media/issues/3084)).
+*   UI:
+    *   Hide playback position from the accessibility service to prevent
+        continuous announcement update when `PlayerControlView` is visible.
 
 ### 1.10.0-beta01 (2026-02-23)
 
