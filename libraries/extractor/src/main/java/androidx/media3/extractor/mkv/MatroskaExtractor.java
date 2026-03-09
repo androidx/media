@@ -43,6 +43,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
+import androidx.media3.extractor.Av1Config;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.ChunkIndexProvider;
@@ -2309,7 +2310,16 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_AV1:
           mimeType = MimeTypes.VIDEO_AV1;
-          initializationData = codecPrivate == null ? null : ImmutableList.of(codecPrivate);
+          if (codecPrivate != null) {
+            Av1Config av1Config = Av1Config.parse(codecPrivate);
+            initializationData = av1Config.initializationData;
+
+            bitstreamColorSpace = av1Config.colorSpace;
+            bitstreamColorTransfer = av1Config.colorTransfer;
+            bitstreamColorRange = av1Config.colorRange;
+            bitstreamLumaBitdepth = av1Config.bitdepthLuma;
+            bitstreamChromaBitdepth = av1Config.bitdepthChroma;
+          }
           break;
         case CODEC_ID_MPEG2:
           mimeType = MimeTypes.VIDEO_MPEG2;
