@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Generic extractor for extracting subtitles from various subtitle formats. */
@@ -148,12 +149,11 @@ public class SubtitleExtractor implements Extractor {
     if (format != null) {
       trackOutput.format(format);
       output.endTracks();
-      IndexSeekMap seekMap =
+      seekMap =
           new IndexSeekMap(
               /* positions= */ new long[] {0},
               /* timesUs= */ new long[] {0},
               /* durationUs= */ C.TIME_UNSET);
-      this.seekMap = seekMap;
       output.seekMap(seekMap);
     }
     state = STATE_INITIALIZED;
@@ -253,7 +253,7 @@ public class SubtitleExtractor implements Extractor {
           seekTimeUs != C.TIME_UNSET
               ? SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(seekTimeUs)
               : SubtitleParser.OutputOptions.allCues();
-      long[] maxEndTimeUs = {C.TIME_UNSET};
+      AtomicLong maxEndTimeUs = new AtomicLong(C.TIME_UNSET);
       subtitleParser.parse(
           subtitleData,
           /* offset= */ 0,
@@ -266,7 +266,10 @@ public class SubtitleExtractor implements Extractor {
                     cueEncoder.encode(cuesWithTiming.cues, cuesWithTiming.durationUs));
             samples.add(sample);
             if (cuesWithTiming.endTimeUs != C.TIME_UNSET) {
-              maxEndTimeUs[0] = Math.max(maxEndTimeUs[0], cuesWithTiming.endTimeUs);
+              maxEndTimeUs.set(
+                  maxEndTimeUs.get() == C.TIME_UNSET
+                      ? cuesWithTiming.endTimeUs
+                      : Math.max(maxEndTimeUs.get(), cuesWithTiming.endTimeUs));
             }
             if (seekTimeUs == C.TIME_UNSET || cuesWithTiming.endTimeUs >= seekTimeUs) {
               writeToOutput(sample);
@@ -278,9 +281,12 @@ public class SubtitleExtractor implements Extractor {
         timestamps[i] = samples.get(i).timeUs;
       }
       // Duration is exact after parsing all subtitle cues.
-      if (maxEndTimeUs[0] != C.TIME_UNSET && seekMap != null) {
-        seekMap.setDurationUs(maxEndTimeUs[0]);
-        checkNotNull(extractorOutput).seekMap(seekMap);
+      if (maxEndTimeUs.get() != C.TIME_UNSET) {
+        checkNotNull(trackOutput).durationUs(maxEndTimeUs.get());
+        if (seekMap != null) {
+          seekMap.setDurationUs(maxEndTimeUs.get());
+          checkNotNull(extractorOutput).seekMap(seekMap);
+        }
       }
       subtitleData = Util.EMPTY_BYTE_ARRAY;
     } catch (RuntimeException e) {
