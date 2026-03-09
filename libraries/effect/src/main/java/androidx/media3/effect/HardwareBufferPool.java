@@ -1,0 +1,240 @@
+/*
+ * Copyright 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package androidx.media3.effect;
+
+import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
+import android.hardware.HardwareBuffer;
+import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.util.Consumer;
+import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.concurrent.Executor;
+
+/**
+ * A pool of {@link HardwareBuffer}s.
+ *
+ * <p>This class manages a fixed-capacity pool of {@link HardwareBuffer}s that can be dequeued with
+ * a specific {@link HardwareBufferFrameQueue.FrameFormat}. Dequeued buffers should be returned to
+ * the pool using {@link #recycle(HardwareBuffer, SyncFenceCompat)} for reuse.
+ *
+ * <p>Methods can be called from any thread.
+ */
+@RequiresApi(26)
+/* package */ final class HardwareBufferPool {
+
+  /** Wrapper around a {@link HardwareBuffer} and an {@linkplain SyncFenceCompat acquireFence}. */
+  public static final class HardwareBufferWithFence {
+    public final HardwareBuffer hardwareBuffer;
+
+    /**
+     * The fence that must be waited on before writing to the {@link #hardwareBuffer}. If {@code
+     * null} the buffer can be accessed immediately.
+     */
+    @Nullable public final SyncFenceCompat acquireFence;
+
+    /** Creates a new instance. */
+    public HardwareBufferWithFence(
+        HardwareBuffer hardwareBuffer, @Nullable SyncFenceCompat acquireFence) {
+      this.hardwareBuffer = hardwareBuffer;
+      this.acquireFence = acquireFence;
+    }
+  }
+
+  private final Executor errorExecutor;
+  private final Consumer<Exception> errorCallback;
+  private final int capacity;
+  private final Object lock = new Object();
+
+  @GuardedBy("lock")
+  private final Queue<HardwareBufferWithFence> pool;
+
+  @GuardedBy("lock")
+  private int allocatedBufferCount;
+
+  @GuardedBy("lock")
+  private boolean isReleased;
+
+  @GuardedBy("lock")
+  @Nullable
+  private Runnable wakeupListener;
+
+  /**
+   * Creates a new instance.
+   *
+   * @param capacity The maximum number of buffers allowed to exist (pooled + in-flight).
+   * @param errorExecutor The {@link Executor} to call {@code errorCallback} on.
+   * @param errorCallback A callback to accept {@link Exception}s if errors occur.
+   */
+  public HardwareBufferPool(
+      int capacity, Executor errorExecutor, Consumer<Exception> errorCallback) {
+    this.capacity = capacity;
+    this.errorExecutor = errorExecutor;
+    this.errorCallback = errorCallback;
+    this.pool = new ArrayDeque<>(capacity);
+  }
+
+  /**
+   * Attempts to fetch a {@link HardwareBufferWithFence} matching the specified {@code format}.
+   *
+   * <p>If the pool has reached its capacity and no buffers are available for reuse, this method
+   * returns {@code null}. In this case, the {@code wakeupListener} will be invoked when a buffer is
+   * eventually returned to the pool.
+   *
+   * <p>If this method is called multiple times without returning a buffer, only the most recent
+   * {@code wakeupListener} is guaranteed to be invoked.
+   *
+   * @param format The required format for the dequeued buffer.
+   * @param wakeupListener A callback to notify the caller when a buffer becomes available.
+   * @return A {@link HardwareBufferWithFence}, or {@code null} if the pool is currently full.
+   */
+  @Nullable
+  public HardwareBufferWithFence get(
+      HardwareBufferFrameQueue.FrameFormat format, Runnable wakeupListener) {
+    synchronized (lock) {
+      if (isReleased) {
+        return null;
+      }
+      @Nullable HardwareBufferWithFence hardwareBufferWithFence;
+      while ((hardwareBufferWithFence = pool.poll()) != null) {
+        HardwareBuffer buffer = hardwareBufferWithFence.hardwareBuffer;
+        if (isCompatible(buffer, format)) {
+          return hardwareBufferWithFence;
+        } else {
+          buffer.close();
+          closeFence(hardwareBufferWithFence.acquireFence);
+          allocatedBufferCount--;
+        }
+      }
+      if (allocatedBufferCount >= capacity) {
+        this.wakeupListener = wakeupListener;
+        return null;
+      }
+      allocatedBufferCount++;
+    }
+    return createNewBufferWithFence(format);
+  }
+
+  /**
+   * Returns a {@link HardwareBuffer} to the pool.
+   *
+   * @param buffer The {@link HardwareBuffer} to return.
+   * @param fence An optional {@link SyncFenceCompat} that must be reached before the buffer can be
+   *     reused.
+   * @throws IllegalArgumentException if the {@code buffer} is {@linkplain HardwareBuffer#isClosed()
+   *     closed}.
+   */
+  public void recycle(HardwareBuffer buffer, @Nullable SyncFenceCompat fence) {
+    checkArgument(!buffer.isClosed());
+    @Nullable Runnable listenerToRun = null;
+    // TODO: b/479415385 - Do not close the fence here, reuse it as the acquire fence for this
+    // buffer.
+    closeFence(fence);
+    synchronized (lock) {
+      if (isReleased) {
+        buffer.close();
+        closeFence(fence);
+        return;
+      }
+      // Ensure the same buffer is not added to the pool multiple times.
+      if (!poolContainsBuffer(buffer)) {
+        // TODO: b/479415385 - Handle combining fences if the same buffer is returned multiple
+        // times.
+        pool.add(new HardwareBufferWithFence(buffer, /* acquireFence= */ null));
+        if (wakeupListener != null) {
+          listenerToRun = wakeupListener;
+          wakeupListener = null;
+        }
+      }
+    }
+    if (listenerToRun != null) {
+      listenerToRun.run();
+    }
+  }
+
+  /**
+   * Releases the pool and all its buffers.
+   *
+   * <p>This should be called when the pool is no longer needed to ensure all resources are cleaned
+   * up.
+   */
+  public void release() {
+    synchronized (lock) {
+      if (isReleased) {
+        return;
+      }
+      isReleased = true;
+      @Nullable HardwareBufferWithFence hardwareBufferWithFence;
+      while ((hardwareBufferWithFence = pool.poll()) != null) {
+        hardwareBufferWithFence.hardwareBuffer.close();
+        closeFence(hardwareBufferWithFence.acquireFence);
+      }
+    }
+  }
+
+  private static HardwareBufferWithFence createNewBufferWithFence(
+      HardwareBufferFrameQueue.FrameFormat format) {
+    HardwareBuffer buffer =
+        HardwareBuffer.create(
+            format.width,
+            format.height,
+            format.pixelFormat,
+            /* layers= */ 1,
+            adjustUsageFlags(format.usageFlags));
+    checkState(!buffer.isClosed());
+    return new HardwareBufferWithFence(buffer, /* acquireFence= */ null);
+  }
+
+  @GuardedBy("lock")
+  private boolean poolContainsBuffer(HardwareBuffer target) {
+    for (HardwareBufferWithFence hardwareBufferWithFence : pool) {
+      if (hardwareBufferWithFence.hardwareBuffer == target) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private void closeFence(@Nullable SyncFenceCompat fence) {
+    if (SDK_INT >= 33) {
+      if (fence != null) {
+        try {
+          fence.close();
+        } catch (IOException e) {
+          errorExecutor.execute(() -> errorCallback.accept(e));
+        }
+      }
+    }
+  }
+
+  private static boolean isCompatible(
+      HardwareBuffer buffer, HardwareBufferFrameQueue.FrameFormat format) {
+    return buffer.getWidth() == format.width
+        && buffer.getHeight() == format.height
+        && buffer.getFormat() == format.pixelFormat
+        && buffer.getUsage() == adjustUsageFlags(format.usageFlags);
+  }
+
+  private static long adjustUsageFlags(long requestedUsageFlags) {
+    // Ensure usage flags required by the consumer of this buffer are added.
+    return requestedUsageFlags | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+  }
+}

@@ -147,8 +147,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       ExportException.createForVideoFrameProcessingException(
                           VideoFrameProcessingException.from(e))));
       hardwareBufferFrameQueue =
-          new PacketConsumerHardwareBufferFrameQueue(
-              /* releaseFrameExecutor= */ handlerWrapper::post, packetRenderer, componentListener);
+          new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
     } else if (SDK_INT >= 33) {
       hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
     } else {
