@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_GET;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -39,6 +40,7 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceException;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.datasource.DataSpec.HttpMethod;
 import androidx.media3.datasource.TransferListener;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
@@ -172,7 +174,7 @@ public abstract class DataSourceContractTest {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
-            long length = dataSource.open(new DataSpec(resource.getUri()));
+            long length = dataSource.open(dataSpecBuilderFromTestResource(resource).build());
             byte[] data =
                 unboundedReadsAreIndefinite()
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
@@ -193,7 +195,7 @@ public abstract class DataSourceContractTest {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
-            dataSource.open(new DataSpec.Builder().setUri(resource.getUri()).build());
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
             int offset = 2;
             byte[] data = new byte[resource.getExpectedBytes().length + offset];
             // Initialize the first two bytes with non-zero values.
@@ -229,8 +231,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           try {
             long length =
-                dataSource.open(
-                    new DataSpec.Builder().setUri(resource.getUri()).setPosition(3).build());
+                dataSource.open(dataSpecBuilderFromTestResource(resource).setPosition(3).build());
             byte[] data =
                 unboundedReadsAreIndefinite()
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length - 3)
@@ -255,8 +256,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           try {
             long length =
-                dataSource.open(
-                    new DataSpec.Builder().setUri(resource.getUri()).setLength(4).build());
+                dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(4).build());
             byte[] data = DataSourceUtil.readToEnd(dataSource);
 
             assertThat(length).isEqualTo(4);
@@ -274,8 +274,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           try {
             int length = resource.getExpectedBytes().length;
-            dataSource.open(
-                new DataSpec.Builder().setUri(resource.getUri()).setLength(length).build());
+            dataSource.open(dataSpecBuilderFromTestResource(resource).setLength(length).build());
 
             byte[] firstPartData = DataSourceUtil.readExactly(dataSource, length / 2);
             byte[] secondPartData = DataSourceUtil.readToEnd(dataSource);
@@ -298,11 +297,7 @@ public abstract class DataSourceContractTest {
           try {
             long length =
                 dataSource.open(
-                    new DataSpec.Builder()
-                        .setUri(resource.getUri())
-                        .setPosition(2)
-                        .setLength(2)
-                        .build());
+                    dataSpecBuilderFromTestResource(resource).setPosition(2).setLength(2).build());
             byte[] data = DataSourceUtil.readToEnd(dataSource);
 
             assertThat(length).isEqualTo(2);
@@ -320,7 +315,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           int resourceLength = resource.getExpectedBytes().length;
           DataSpec dataSpec =
-              new DataSpec.Builder().setUri(resource.getUri()).setPosition(resourceLength).build();
+              dataSpecBuilderFromTestResource(resource).setPosition(resourceLength).build();
           try {
             long length = dataSource.open(dataSpec);
             byte[] data =
@@ -347,8 +342,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           int resourceLength = resource.getExpectedBytes().length;
           DataSpec dataSpec =
-              new DataSpec.Builder()
-                  .setUri(resource.getUri())
+              dataSpecBuilderFromTestResource(resource)
                   .setPosition(resourceLength)
                   .setLength(1)
                   .build();
@@ -376,10 +370,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           int resourceLength = resource.getExpectedBytes().length;
           DataSpec dataSpec =
-              new DataSpec.Builder()
-                  .setUri(resource.getUri())
-                  .setPosition(resourceLength + 1)
-                  .build();
+              dataSpecBuilderFromTestResource(resource).setPosition(resourceLength + 1).build();
           try {
             IOException exception =
                 assertThrows(IOException.class, () -> dataSource.open(dataSpec));
@@ -396,8 +387,7 @@ public abstract class DataSourceContractTest {
         (resource, dataSource) -> {
           int resourceLength = resource.getExpectedBytes().length;
           DataSpec dataSpec =
-              new DataSpec.Builder()
-                  .setUri(resource.getUri())
+              dataSpecBuilderFromTestResource(resource)
                   .setPosition(resourceLength - 1)
                   .setLength(2)
                   .build();
@@ -431,8 +421,7 @@ public abstract class DataSourceContractTest {
           try {
             long length =
                 dataSource.open(
-                    new DataSpec.Builder()
-                        .setUri(resource.getUri())
+                    dataSpecBuilderFromTestResource(resource)
                         .setFlags(DataSpec.FLAG_ALLOW_GZIP)
                         .build());
             byte[] data =
@@ -459,14 +448,19 @@ public abstract class DataSourceContractTest {
             // No scheme for which to check case-insensitivity.
             return;
           }
-          Uri uri =
+          TestResource modifiedResource =
               resource
-                  .getUri()
                   .buildUpon()
-                  .scheme(invertAsciiCaseOfEveryOtherCharacter(scheme))
+                  .setUri(
+                      resource
+                          .getUri()
+                          .buildUpon()
+                          .scheme(invertAsciiCaseOfEveryOtherCharacter(scheme))
+                          .build())
                   .build();
           try {
-            long length = dataSource.open(new DataSpec.Builder().setUri(uri).build());
+            long length =
+                dataSource.open(dataSpecBuilderFromTestResource(modifiedResource).build());
             byte[] data =
                 unboundedReadsAreIndefinite()
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
@@ -506,7 +500,7 @@ public abstract class DataSourceContractTest {
           DataSpec reportedDataSpec = null;
           boolean reportedNetwork = false;
 
-          DataSpec dataSpec = new DataSpec.Builder().setUri(resource.getUri()).build();
+          DataSpec dataSpec = dataSpecBuilderFromTestResource(resource).build();
           try {
             dataSource.open(dataSpec);
 
@@ -577,7 +571,7 @@ public abstract class DataSourceContractTest {
           try {
             assertThat(dataSource.getUri()).isNull();
 
-            dataSource.open(new DataSpec(resource.getUri()));
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
             assertThat(dataSource.getUri()).isEqualTo(resource.getResolvedUri());
           } finally {
@@ -604,7 +598,7 @@ public abstract class DataSourceContractTest {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
-            dataSource.open(new DataSpec(resource.getUri()));
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
             // Iterate over the expected headers (instead of using Truth's batch
             // containsAtLeastEntriesIn() method) in order to leverage the case-insensitivity of
             // the DataSource.getResponseHeaders() implementation.
@@ -629,7 +623,7 @@ public abstract class DataSourceContractTest {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
-            dataSource.open(new DataSpec(resource.getUri()));
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
             Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
             assertThat(responseHeaders).doesNotContainKey(null);
@@ -648,7 +642,7 @@ public abstract class DataSourceContractTest {
     forAllTestResourcesAndDataSources(
         (resource, dataSource) -> {
           try {
-            dataSource.open(new DataSpec(resource.getUri()));
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
 
             Map<String, List<String>> responseHeaders = dataSource.getResponseHeaders();
             for (String key : responseHeaders.keySet()) {
@@ -670,7 +664,7 @@ public abstract class DataSourceContractTest {
           try {
             assertThat(dataSource.getResponseHeaders()).isEmpty();
 
-            dataSource.open(new DataSpec(resource.getUri()));
+            dataSource.open(dataSpecBuilderFromTestResource(resource).build());
           } finally {
             dataSource.close();
           }
@@ -766,6 +760,18 @@ public abstract class DataSourceContractTest {
     }
   }
 
+  private static DataSpec.Builder dataSpecBuilderFromTestResource(TestResource resource) {
+    DataSpec.Builder dataSpec =
+        new DataSpec.Builder()
+            .setUri(resource.getUri())
+            .setHttpMethod(resource.getHttpMethod())
+            .setHttpRequestHeaders(resource.getRequestHeaders());
+    if (resource.requestBody.length > 0) {
+      dataSpec.setHttpBody(resource.requestBody);
+    }
+    return dataSpec;
+  }
+
   /**
    * Build a label to make it clear which not-found resource and data source caused a given test
    * failure.
@@ -850,6 +856,9 @@ public abstract class DataSourceContractTest {
     @Nullable private final String name;
     private final Uri uri;
     private final Uri resolvedUri;
+    private final @HttpMethod int httpMethod;
+    private final byte[] requestBody;
+    private final ImmutableMap<String, String> requestHeaders;
     private final Map<String, List<String>> responseHeaders;
     private final Set<String> unexpectedResponseHeaderKeys;
     private final byte[] expectedBytes;
@@ -858,12 +867,18 @@ public abstract class DataSourceContractTest {
         @Nullable String name,
         Uri uri,
         Uri resolvedUri,
+        @HttpMethod int httpMethod,
+        ImmutableMap<String, String> requestHeaders,
+        byte[] requestBody,
         Map<String, List<String>> responseHeaders,
         Set<String> unexpectedResponseHeaderKeys,
         byte[] expectedBytes) {
       this.name = name;
       this.uri = uri;
       this.resolvedUri = resolvedUri;
+      this.requestHeaders = requestHeaders;
+      this.httpMethod = httpMethod;
+      this.requestBody = requestBody;
       this.responseHeaders = responseHeaders;
       this.unexpectedResponseHeaderKeys = unexpectedResponseHeaderKeys;
       this.expectedBytes = expectedBytes;
@@ -886,6 +901,29 @@ public abstract class DataSourceContractTest {
      */
     public Uri getResolvedUri() {
       return resolvedUri;
+    }
+
+    /** The HTTP method that should be used to request the resource. */
+    public @HttpMethod int getHttpMethod() {
+      return httpMethod;
+    }
+
+    /**
+     * The body that should be included in a request for the resource.
+     *
+     * <p>This will be empty if {@link #getHttpMethod()} is {@link DataSpec#HTTP_METHOD_GET}.
+     */
+    public byte[] getRequestBody() {
+      return requestBody.clone();
+    }
+
+    /**
+     * The headers that should be included in a request for the resource.
+     *
+     * <p>This is not an exhaustive list, extra headers may be included.
+     */
+    public ImmutableMap<String, String> getRequestHeaders() {
+      return requestHeaders;
     }
 
     /**
@@ -912,19 +950,42 @@ public abstract class DataSourceContractTest {
       return expectedBytes;
     }
 
+    /** Returns a {@link Builder} initialized with the values of this instance. */
+    public Builder buildUpon() {
+      return new Builder(this);
+    }
+
     /** Builder for {@link TestResource} instances. */
     public static final class Builder {
       private @MonotonicNonNull String name;
       private @MonotonicNonNull Uri uri;
       private @MonotonicNonNull Uri resolvedUri;
+      private @HttpMethod int httpMethod;
+      private ImmutableMap<String, String> requestHeaders;
+      private byte[] requestBody;
       private Map<String, List<String>> responseHeaders;
       private Set<String> unexpectedResponseHeaderKeys;
       private byte[] expectedBytes;
 
       public Builder() {
+        httpMethod = HTTP_METHOD_GET;
+        requestHeaders = ImmutableMap.of();
+        requestBody = Util.EMPTY_BYTE_ARRAY;
         responseHeaders = ImmutableMap.of();
         unexpectedResponseHeaderKeys = ImmutableSet.of();
         expectedBytes = Util.EMPTY_BYTE_ARRAY;
+      }
+
+      private Builder(TestResource resource) {
+        this.name = resource.getName();
+        this.uri = resource.getUri();
+        this.resolvedUri = resource.getResolvedUri();
+        this.httpMethod = resource.getHttpMethod();
+        this.requestBody = resource.getRequestBody();
+        this.requestHeaders = resource.getRequestHeaders();
+        this.responseHeaders = resource.getResponseHeaders();
+        this.unexpectedResponseHeaderKeys = resource.getUnexpectedResponseHeaderKeys();
+        this.expectedBytes = resource.getExpectedBytes();
       }
 
       /**
@@ -969,6 +1030,49 @@ public abstract class DataSourceContractTest {
       }
 
       /**
+       * Sets the HTTP method that should be used for the request for this resource.
+       *
+       * <p>Tests will fail if the wrong method is used.
+       *
+       * <p>Defaults to {@link DataSpec#HTTP_METHOD_GET}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setHttpMethod(@HttpMethod int httpMethod) {
+        this.httpMethod = httpMethod;
+        return this;
+      }
+
+      /**
+       * Sets the headers that should be included when making a request for this resource.
+       *
+       * <p>Tests will fail if a request is made without including these headers.
+       *
+       * <p>This doesn't have to be an exhaustive list, extra headers included in the request will
+       * not cause a failure. Defaults to an empty map.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestHeaders(Map<String, String> requestHeaders) {
+        this.requestHeaders = ImmutableMap.copyOf(requestHeaders);
+        return this;
+      }
+
+      /**
+       * Sets the body that should be included in a request for this resource.
+       *
+       * <p>Tests will fail if a request is made without including this body.
+       *
+       * <p>Must only be set if {@link #setHttpMethod(int)} is {@link DataSpec#HTTP_METHOD_POST} or
+       * {@link DataSpec#HTTP_METHOD_HEAD}.
+       *
+       * <p>Defaults to an empty array.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestBody(byte[] requestBody) {
+        this.requestBody = requestBody;
+        return this;
+      }
+
+      /**
        * Sets the headers associated with this resource that are expected to be present in {@link
        * DataSource#getResponseHeaders()}.
        *
@@ -999,10 +1103,16 @@ public abstract class DataSourceContractTest {
       }
 
       public TestResource build() {
+        if (requestBody.length > 0) {
+          checkState(httpMethod != HTTP_METHOD_GET, "requestBody must be empty for a GET request.");
+        }
         return new TestResource(
             name,
             checkNotNull(uri),
             resolvedUri != null ? resolvedUri : uri,
+            httpMethod,
+            requestHeaders,
+            requestBody,
             ImmutableMap.copyOf(responseHeaders),
             ImmutableSet.copyOf(unexpectedResponseHeaderKeys),
             expectedBytes);

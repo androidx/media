@@ -15,6 +15,10 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Util.EMPTY_BYTE_ARRAY;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_GET;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_HEAD;
+import static androidx.media3.datasource.DataSpec.HTTP_METHOD_POST;
 import static androidx.media3.test.utils.WebServerDispatcher.Resource.GZIP_SUPPORT_DISABLED;
 import static androidx.media3.test.utils.WebServerDispatcher.Resource.GZIP_SUPPORT_FORCED;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,14 +30,17 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.util.Pair;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSpec.HttpMethod;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.net.HttpHeaders;
@@ -43,10 +50,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import okhttp3.Headers;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -105,6 +115,9 @@ public final class WebServerDispatcher extends Dispatcher {
     /** Builder for {@link Resource}. */
     public static final class Builder {
       private @MonotonicNonNull String path;
+      private @HttpMethod int httpMethod;
+      private ImmutableListMultimap<String, String> requestHeaders;
+      private byte[] requestBody;
       private byte @MonotonicNonNull [] data;
       private boolean supportsRangeRequests;
       private boolean resolvesToUnknownLength;
@@ -113,12 +126,18 @@ public final class WebServerDispatcher extends Dispatcher {
 
       /** Constructs an instance. */
       public Builder() {
+        this.httpMethod = HTTP_METHOD_GET;
+        this.requestHeaders = ImmutableListMultimap.of();
+        this.requestBody = EMPTY_BYTE_ARRAY;
         this.gzipSupport = GZIP_SUPPORT_DISABLED;
         this.extraResponseHeaders = ImmutableListMultimap.of();
       }
 
       private Builder(Resource resource) {
         this.path = resource.getPath();
+        this.httpMethod = resource.getHttpMethod();
+        this.requestHeaders = resource.getRequestHeaders();
+        this.requestBody = resource.getRequestBody();
         this.data = resource.getData();
         this.supportsRangeRequests = resource.supportsRangeRequests();
         this.resolvesToUnknownLength = resource.resolvesToUnknownLength();
@@ -134,6 +153,52 @@ public final class WebServerDispatcher extends Dispatcher {
       @CanIgnoreReturnValue
       public Builder setPath(String path) {
         this.path = path.startsWith("/") ? path : "/" + path;
+        return this;
+      }
+
+      /**
+       * Sets the HTTP method that is expected to be used to access the resource.
+       *
+       * <p>Defaults to {@link androidx.media3.datasource.DataSpec#HTTP_METHOD_GET}.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setHttpMethod(@HttpMethod int httpMethod) {
+        this.httpMethod = httpMethod;
+        return this;
+      }
+
+      /**
+       * Sets the request headers that are expected to be included in a request for the resource.
+       *
+       * <p>This is non-exhaustive, additional headers are permitted, but if any headers in this map
+       * are missing from a request (or have mismatched values), {@link WebServerDispatcher} will
+       * return a {@code 400 Bad Request} error response.
+       *
+       * <p>Defaults to an empty map.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestHeaders(ImmutableListMultimap<String, String> requestHeaders) {
+        this.requestHeaders = requestHeaders;
+        return this;
+      }
+
+      /**
+       * The request body that is expected to be included in a request for the resource.
+       *
+       * <p>If a request is made with a mismatched body, {@link WebServerDispatcher} will return a
+       * {@code 400 Bad Request} error response.
+       *
+       * <p>Defaults to an empty array.
+       *
+       * @return this builder, for convenience.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRequestBody(byte[] requestBody) {
+        this.requestBody = requestBody;
         return this;
       }
 
@@ -198,12 +263,18 @@ public final class WebServerDispatcher extends Dispatcher {
 
       /** Builds the {@link Resource}. */
       public Resource build() {
+        if (requestBody.length > 0) {
+          checkState(httpMethod != HTTP_METHOD_GET, "requestBody must be empty for a GET request.");
+        }
         if (gzipSupport != GZIP_SUPPORT_DISABLED) {
           checkState(!supportsRangeRequests, "Can't enable compression & range requests.");
           checkState(!resolvesToUnknownLength, "Can't enable compression if length isn't known.");
         }
         return new Resource(
             checkNotNull(path),
+            httpMethod,
+            requestHeaders,
+            requestBody,
             checkNotNull(data),
             supportsRangeRequests,
             resolvesToUnknownLength,
@@ -213,6 +284,9 @@ public final class WebServerDispatcher extends Dispatcher {
     }
 
     private final String path;
+    private final @HttpMethod int httpMethod;
+    private final ImmutableListMultimap<String, String> requestHeaders;
+    private final byte[] requestBody;
     private final byte[] data;
     private final boolean supportsRangeRequests;
     private final boolean resolvesToUnknownLength;
@@ -221,12 +295,18 @@ public final class WebServerDispatcher extends Dispatcher {
 
     private Resource(
         String path,
+        @HttpMethod int httpMethod,
+        ImmutableListMultimap<String, String> requestHeaders,
+        byte[] requestBody,
         byte[] data,
         boolean supportsRangeRequests,
         boolean resolvesToUnknownLength,
         @GzipSupport int gzipSupport,
         ImmutableListMultimap<String, String> extraResponseHeaders) {
       this.path = path;
+      this.httpMethod = httpMethod;
+      this.requestHeaders = requestHeaders;
+      this.requestBody = requestBody;
       this.data = data;
       this.supportsRangeRequests = supportsRangeRequests;
       this.resolvesToUnknownLength = resolvesToUnknownLength;
@@ -237,6 +317,21 @@ public final class WebServerDispatcher extends Dispatcher {
     /** Returns the path this resource is available at. */
     public String getPath() {
       return path;
+    }
+
+    /** The HTTP method that should be used to request the resource. */
+    public @HttpMethod int getHttpMethod() {
+      return httpMethod;
+    }
+
+    /** The headers that should be included in a request for the resource. */
+    public ImmutableListMultimap<String, String> getRequestHeaders() {
+      return requestHeaders;
+    }
+
+    /** The body that should be included in a request for the resource. */
+    public byte[] getRequestBody() {
+      return requestBody.clone();
     }
 
     /** Returns the data served by this resource. */
@@ -270,6 +365,8 @@ public final class WebServerDispatcher extends Dispatcher {
     }
   }
 
+  private static final String TAG = "WebServerDispatcher";
+
   /** Matches an Accept-Encoding header value (format defined in RFC 2616 section 14.3). */
   private static final Pattern ACCEPT_ENCODING_PATTERN =
       Pattern.compile("\\W*(\\w+|\\*)(?:;q=(\\d+\\.?\\d*))?\\W*");
@@ -300,6 +397,42 @@ public final class WebServerDispatcher extends Dispatcher {
       return response.setBody(NOT_FOUND_BODY).setResponseCode(404);
     }
     Resource resource = checkNotNull(resourcesByPath.get(requestPath));
+    String expectedMethod = httpMethodString(resource.getHttpMethod());
+    if (!Objects.equals(request.getMethod(), expectedMethod)) {
+      Log.e(
+          TAG,
+          "Rejecting request for "
+              + requestPath
+              + "\nWrong method. Expected: "
+              + expectedMethod
+              + ", Received: "
+              + request.getMethod());
+      return response
+          .setResponseCode(405)
+          .setHeader(HttpHeaders.ALLOW, expectedMethod)
+          .setBody("Wrong method");
+    }
+
+    if (!expectedHeadersArePresent(request.getHeaders(), resource.getRequestHeaders())) {
+      return response
+          .setResponseCode(400)
+          .setBody("Request headers don't contain expected headers.");
+    }
+
+    if (resource.getHttpMethod() != HTTP_METHOD_GET) {
+      byte[] requestBody = request.getBody().readByteArray();
+      if (!Arrays.equals(requestBody, resource.getRequestBody())) {
+        String errorMessage =
+            "Request body doesn't match.\nReceived: "
+                + (requestBody.length > 0 ? "0x" + Util.toHexString(requestBody) : "<empty>")
+                + "\nExpected: "
+                + (resource.getRequestBody().length > 0
+                    ? "0x" + Util.toHexString(resource.getRequestBody())
+                    : "<empty>");
+        Log.e(TAG, "Rejecting request for " + requestPath + "\n" + errorMessage);
+        return response.setResponseCode(400).setBody(errorMessage);
+      }
+    }
     for (Map.Entry<String, String> extraHeader : resource.getExtraResponseHeaders().entries()) {
       response.addHeader(extraHeader.getKey(), extraHeader.getValue());
     }
@@ -519,5 +652,35 @@ public final class WebServerDispatcher extends Dispatcher {
       return null;
     }
     return result;
+  }
+
+  private static String httpMethodString(@HttpMethod int httpMethod) {
+    switch (httpMethod) {
+      case HTTP_METHOD_GET:
+        return "GET";
+      case HTTP_METHOD_HEAD:
+        return "HEAD";
+      case HTTP_METHOD_POST:
+        return "POST";
+      default:
+        throw new IllegalArgumentException("Unrecognized @HttpMethod value: " + httpMethod);
+    }
+  }
+
+  private static boolean expectedHeadersArePresent(
+      Headers actualHeaders, Multimap<String, String> expectedHeaders) {
+    for (String expectedHeaderName : expectedHeaders.keySet()) {
+      ImmutableSet<List<String>> actualValues =
+          ImmutableSet.of(actualHeaders.values(expectedHeaderName));
+      ImmutableSet<Collection<String>> expectedValues =
+          ImmutableSet.of(expectedHeaders.get(expectedHeaderName));
+      if (!actualValues.equals(expectedValues)) {
+        Log.e(
+            TAG,
+            "Mismatched headers.\nExpected: " + expectedValues + "\nReceived: " + actualValues);
+        return false;
+      }
+    }
+    return true;
   }
 }

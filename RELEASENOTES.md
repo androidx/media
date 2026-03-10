@@ -72,6 +72,10 @@
 *   Leanback extension:
 *   Cast extension:
 *   Test utilities:
+    *   Expand `DataSourceContractTest` to include support for `POST` requests
+        with headers & bodies, add some `POST` resources to
+        `HttpDataSourceTestEnv`, and add assertions for the expected HTTP
+        method, headers & body in `WebServerDispatcher`.
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.exoplayer.MetadataRetriever`. Use
         `androidx.media3.inspector.MetadataRetriever` instead.
