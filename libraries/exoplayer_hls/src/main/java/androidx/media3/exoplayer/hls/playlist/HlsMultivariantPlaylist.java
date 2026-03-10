@@ -45,7 +45,8 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
           /* muxedCaptionFormats= */ Collections.emptyList(),
           /* hasIndependentSegments= */ false,
           /* variableDefinitions= */ Collections.emptyMap(),
-          /* sessionKeyDrmInitData= */ Collections.emptyList());
+          /* sessionKeyDrmInitData= */ Collections.emptyList(),
+          /* contentSteeringInfo= */ null);
 
   // These constants must not be changed because they are persisted in offline stream keys.
   public static final int GROUP_INDEX_VARIANT = 0;
@@ -181,6 +182,31 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     }
   }
 
+  /** Content Steering information derived from an #EXT-X-CONTENT-STEERING tag. */
+  public static final class ContentSteeringInfo {
+
+    /** A URI to a Steering Manifest. */
+    public final Uri serverUri;
+
+    /**
+     * The ID of a pathway that must be used until the initial Steering Manifest has been obtained,
+     * or {@code null} which suggests that any available pathway can be used until the initial
+     * Steering Manifest has been obtained.
+     */
+    @Nullable public final String pathwayId;
+
+    /**
+     * Creates a new instance.
+     *
+     * @param serverUri See {@link #serverUri}.
+     * @param pathwayId See {@link #pathwayId}.
+     */
+    public ContentSteeringInfo(Uri serverUri, @Nullable String pathwayId) {
+      this.serverUri = serverUri;
+      this.pathwayId = pathwayId;
+    }
+  }
+
   /** All of the media playlist URLs referenced by the playlist. */
   public final List<Uri> mediaPlaylistUrls;
 
@@ -218,6 +244,9 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
   /** DRM initialization data derived from #EXT-X-SESSION-KEY tags. */
   public final List<DrmInitData> sessionKeyDrmInitData;
 
+  /** Content Steering information derived from #EXT-X-CONTENT-STEERING tag. */
+  @Nullable public final ContentSteeringInfo contentSteeringInfo;
+
   /**
    * @param baseUri See {@link #baseUri}.
    * @param tags See {@link #tags}.
@@ -231,6 +260,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
    * @param hasIndependentSegments See {@link #hasIndependentSegments}.
    * @param variableDefinitions See {@link #variableDefinitions}.
    * @param sessionKeyDrmInitData See {@link #sessionKeyDrmInitData}.
+   * @param contentSteeringInfo See {@link #contentSteeringInfo}.
    */
   public HlsMultivariantPlaylist(
       String baseUri,
@@ -244,7 +274,8 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
       @Nullable List<Format> muxedCaptionFormats,
       boolean hasIndependentSegments,
       Map<String, String> variableDefinitions,
-      List<DrmInitData> sessionKeyDrmInitData) {
+      List<DrmInitData> sessionKeyDrmInitData,
+      @Nullable ContentSteeringInfo contentSteeringInfo) {
     super(baseUri, tags, hasIndependentSegments);
     this.mediaPlaylistUrls =
         Collections.unmodifiableList(
@@ -259,6 +290,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
         muxedCaptionFormats != null ? Collections.unmodifiableList(muxedCaptionFormats) : null;
     this.variableDefinitions = Collections.unmodifiableMap(variableDefinitions);
     this.sessionKeyDrmInitData = Collections.unmodifiableList(sessionKeyDrmInitData);
+    this.contentSteeringInfo = contentSteeringInfo;
   }
 
   @Override
@@ -277,7 +309,8 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
         muxedCaptionFormats,
         hasIndependentSegments,
         variableDefinitions,
-        sessionKeyDrmInitData);
+        sessionKeyDrmInitData,
+        contentSteeringInfo);
   }
 
   /**
@@ -301,7 +334,8 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
         /* muxedCaptionFormats= */ null,
         /* hasIndependentSegments= */ false,
         /* variableDefinitions= */ Collections.emptyMap(),
-        /* sessionKeyDrmInitData= */ Collections.emptyList());
+        /* sessionKeyDrmInitData= */ Collections.emptyList(),
+        /* contentSteeringInfo= */ null);
   }
 
   private static List<Uri> getMediaPlaylistUrls(

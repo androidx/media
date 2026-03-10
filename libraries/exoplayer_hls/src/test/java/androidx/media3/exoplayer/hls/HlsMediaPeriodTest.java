@@ -259,7 +259,8 @@ public final class HlsMediaPeriodTest {
         muxedCaptionFormats,
         /* hasIndependentSegments= */ true,
         /* variableDefinitions= */ Collections.emptyMap(),
-        /* sessionKeyDrmInitData= */ Collections.emptyList());
+        /* sessionKeyDrmInitData= */ Collections.emptyList(),
+        /* contentSteeringInfo= */ null);
   }
 
   private static Variant createMuxedVideoAudioVariant(Uri url, int peakBitrate) {

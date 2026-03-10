@@ -2472,7 +2472,8 @@ public class HlsMediaPlaylistParserTest {
             /* muxedCaptionFormats= */ null,
             /* hasIndependentSegments= */ true,
             /* variableDefinitions= */ Collections.emptyMap(),
-            /* sessionKeyDrmInitData= */ Collections.emptyList());
+            /* sessionKeyDrmInitData= */ Collections.emptyList(),
+            /* contentSteeringInfo= */ null);
     HlsMediaPlaylist playlistWithInheritance =
         (HlsMediaPlaylist)
             new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
@@ -2536,7 +2537,8 @@ public class HlsMediaPlaylistParserTest {
             /* muxedCaptionFormats= */ Collections.emptyList(),
             /* hasIndependentSegments= */ false,
             variableDefinitions,
-            /* sessionKeyDrmInitData= */ Collections.emptyList());
+            /* sessionKeyDrmInitData= */ Collections.emptyList(),
+            /* contentSteeringInfo= */ null);
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist)
             new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)

@@ -46,6 +46,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Part;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.RenditionReport;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Segment;
+import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.ContentSteeringInfo;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Rendition;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
@@ -113,6 +114,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final String TAG_PRELOAD_HINT = "#EXT-X-PRELOAD-HINT";
   private static final String TAG_RENDITION_REPORT = "#EXT-X-RENDITION-REPORT";
   private static final String TAG_DATERANGE = "#EXT-X-DATERANGE";
+  private static final String TAG_CONTENT_STEERING = "#EXT-X-CONTENT-STEERING";
 
   private static final String TYPE_AUDIO = "AUDIO";
   private static final String TYPE_VIDEO = "VIDEO";
@@ -162,6 +164,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("SUPPLEMENTAL-CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SERVER_URI =
+      Pattern.compile("SERVER-URI=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_PATHWAY_ID =
       Pattern.compile("PATHWAY-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_STABLE_VARIANT_ID =
@@ -446,6 +450,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     List<Format> muxedCaptionFormats = null;
     boolean noClosedCaptions = false;
     boolean hasIndependentSegmentsTag = false;
+    ContentSteeringInfo contentSteeringInfo = null;
 
     String line;
     while (iterator.hasNext()) {
@@ -494,6 +499,20 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           String scheme = parseEncryptionScheme(method);
           sessionKeyDrmInitData.add(new DrmInitData(scheme, schemeData));
         }
+      } else if (line.startsWith(TAG_CONTENT_STEERING)) {
+        if (contentSteeringInfo != null) {
+          throw ParserException.createForMalformedManifest(
+              "The #EXT-X-CONTENT-STEERING tag must not appear more than once in a multivariant"
+                  + " playlist",
+              /* cause= */ null);
+        }
+        String serverUriString =
+            parseStringAttr(line, REGEX_SERVER_URI, variableDefinitions, matcherCache);
+        Uri serverUri = UriUtil.resolveToUri(baseUri, serverUriString);
+        @Nullable
+        String pathwayId =
+            parseOptionalStringAttr(line, REGEX_PATHWAY_ID, variableDefinitions, matcherCache);
+        contentSteeringInfo = new ContentSteeringInfo(serverUri, pathwayId);
       } else if (line.startsWith(TAG_STREAM_INF) || isIFrameOnlyVariant) {
         noClosedCaptions |= line.contains(ATTR_CLOSED_CAPTIONS_NONE);
         int roleFlags = isIFrameOnlyVariant ? C.ROLE_FLAG_TRICK_PLAY : 0;
@@ -775,7 +794,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         muxedCaptionFormats,
         hasIndependentSegmentsTag,
         variableDefinitions,
-        sessionKeyDrmInitData);
+        sessionKeyDrmInitData,
+        contentSteeringInfo);
   }
 
   @Nullable
