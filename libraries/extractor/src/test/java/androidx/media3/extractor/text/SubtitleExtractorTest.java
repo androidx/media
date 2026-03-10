@@ -294,7 +294,7 @@ public class SubtitleExtractorTest {
   }
 
   @Test
-  public void extractor_seekMapDuration_updatedToMaxEndTimeUs() throws Exception {
+  public void extractor_seekMapAndTrackDuration_updatedToMaxEndTimeUs() throws Exception {
     FakeExtractorOutput output = new FakeExtractorOutput();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -310,8 +310,10 @@ public class SubtitleExtractorTest {
 
     while (extractor.read(input, null) != Extractor.RESULT_END_OF_INPUT) {}
 
-    // The seekMap's durationUs should be updated to the maximum endTimeUs (4_567_000) across all
-    // subtitle cues, not left as C.TIME_UNSET.
+    // The seekMap and track durationUs should be updated to the maximum endTimeUs (4_567_000)
+    // across all subtitle cues, not left as C.TIME_UNSET.
+    assertThat(output.trackOutputs.size()).isEqualTo(1);
+    assertThat(output.trackOutputs.valueAt(0).getDurationUs()).isEqualTo(4_567_000);
     assertThat(output.seekMap.getDurationUs()).isEqualTo(4_567_000);
   }
 
@@ -332,10 +334,9 @@ public class SubtitleExtractorTest {
 
     // The seekMap and track durationUs should reflect the long-duration cue's endTimeUs (1 hour),
     // not the largest sample startTimeUs (10 seconds).
-    long expectedDurationUs = 3_600_000_000L;
     assertThat(output.trackOutputs.size()).isEqualTo(1);
-    assertThat(output.trackOutputs.valueAt(0).getDurationUs()).isEqualTo(expectedDurationUs);
-    assertThat(output.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
+    assertThat(output.trackOutputs.valueAt(0).getDurationUs()).isEqualTo(3_600_000_000L);
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(3_600_000_000L);
   }
 
   private CuesWithTiming decodeSample(FakeTrackOutput trackOutput, int sampleIndex) {
