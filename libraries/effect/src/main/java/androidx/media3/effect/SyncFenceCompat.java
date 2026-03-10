@@ -15,7 +15,10 @@
  */
 package androidx.media3.effect;
 
+import static android.system.OsConstants.POLLERR;
+import static android.system.OsConstants.POLLHUP;
 import static android.system.OsConstants.POLLIN;
+import static android.system.OsConstants.POLLNVAL;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.hardware.SyncFence;
@@ -29,6 +32,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.ExperimentalApi;
 import com.google.common.collect.ImmutableList;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +40,9 @@ import java.util.List;
 /**
  * A helper class that allows duplicating a {@link SyncFence}, and wrapping a fence file descriptor
  * on earlier API levels.
+ *
+ * <p>This class is not thread safe. Simultaneously calling {@link #await} and {@link #close} on
+ * different threads is undefined.
  */
 @ExperimentalApi // TODO: b/479415385 - remove when packet consumer is production-ready.
 public class SyncFenceCompat implements AutoCloseable {
@@ -111,6 +118,13 @@ public class SyncFenceCompat implements AutoCloseable {
     }
     long startTimeMs = SystemClock.elapsedRealtime();
     List<ParcelFileDescriptor> remaining = new ArrayList<>(parcelFileDescriptors);
+    // Remove any invalid file descriptors to avoid hanging in Os.Poll.
+    for (int i = remaining.size() - 1; i >= 0; i--) {
+      FileDescriptor fd = remaining.get(i).getFileDescriptor();
+      if (fd == null || !fd.valid()) {
+        remaining.remove(i);
+      }
+    }
     // Os.poll() returns as soon as any of the provided file descriptors signal. We loop and retry
     // with the remaining unsignaled fences until all have signaled or the timeout is reached.
     while (!remaining.isEmpty()) {
@@ -131,7 +145,12 @@ public class SyncFenceCompat implements AutoCloseable {
       }
 
       for (int i = remaining.size() - 1; i >= 0; i--) {
-        if ((structPollfds[i].revents & POLLIN) != 0) {
+        short revents = structPollfds[i].revents;
+        // Remove the file descriptor if it signaled (POLLIN) or if an error occurred.
+        if (((revents & POLLIN) != 0)
+            || ((revents & POLLERR) != 0)
+            || ((revents & POLLHUP) != 0)
+            || ((revents & POLLNVAL) != 0)) {
           remaining.remove(i);
         }
       }
