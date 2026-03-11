@@ -1104,9 +1104,9 @@ AudioSink:
     channel[5] = -1408232484
   buffer #137:
     time = 1000002741000
-    channel[0] = 952522854
-    channel[1] = 1778779272
-    channel[2] = -1175220346
-    channel[3] = -331236254
-    channel[4] = -760412648
-    channel[5] = -1871361845
+    channel[0] = -819954008
+    channel[1] = -1441539024
+    channel[2] = 430645157
+    channel[3] = -2106051906
+    channel[4] = 1301968014
+    channel[5] = 1354064639

@@ -123,8 +123,7 @@ public final class OpusDecoderTest {
   }
 
   @Test
-  public void decode_whenDiscardPaddingDisabled_returnsDiscardPadding()
-      throws OpusDecoderException {
+  public void decode_withPaddingInSupplementalData_removesPadding() throws OpusDecoderException {
     assertThat(OpusLibrary.isAvailable()).isTrue();
     OpusDecoder decoder =
         new OpusDecoder(
@@ -134,28 +133,6 @@ public final class OpusDecoderTest {
             createInitializationData(/* preSkipNanos= */ 0),
             /* cryptoConfig= */ null,
             /* outputFloat= */ false);
-    DecoderInputBuffer input =
-        createInputBuffer(
-            decoder,
-            ENCODED_DATA,
-            /* supplementalData= */ buildNativeOrderByteArray(DISCARD_PADDING_NANOS));
-    SimpleDecoderOutputBuffer output = decoder.createOutputBuffer();
-    assertThat(decoder.decode(input, output, false)).isNull();
-    assertThat(output.data.remaining()).isEqualTo(DECODED_DATA_SIZE);
-  }
-
-  @Test
-  public void decode_whenDiscardPaddingEnabled_removesDiscardPadding() throws OpusDecoderException {
-    assertThat(OpusLibrary.isAvailable()).isTrue();
-    OpusDecoder decoder =
-        new OpusDecoder(
-            /* numInputBuffers= */ 0,
-            /* numOutputBuffers= */ 0,
-            /* initialInputBufferSize= */ 0,
-            createInitializationData(/* preSkipNanos= */ 0),
-            /* cryptoConfig= */ null,
-            /* outputFloat= */ false);
-    decoder.experimentalSetDiscardPaddingEnabled(true);
     DecoderInputBuffer input =
         createInputBuffer(
             decoder,

@@ -21,7 +21,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -120,7 +119,6 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
             format.initializationData,
             cryptoConfig,
             outputFloat);
-    decoder.experimentalSetDiscardPaddingEnabled(experimentalGetDiscardPaddingEnabled());
 
     TraceUtil.endSection();
     return decoder;
@@ -137,16 +135,5 @@ public class LibopusAudioRenderer extends DecoderAudioRenderer<OpusDecoder> {
   @Override
   protected ImmutableIntArray getChannelMapping(OpusDecoder decoder) {
     return VorbisUtil.getVorbisToAndroidChannelLayoutMapping(decoder.channelCount);
-  }
-
-  /**
-   * Returns true if support for padding removal from the end of decoder output buffer should be
-   * enabled.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   */
-  @ExperimentalApi // TODO: b/470358402 - Remove method and default to true.
-  protected boolean experimentalGetDiscardPaddingEnabled() {
-    return false;
   }
 }

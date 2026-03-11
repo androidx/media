@@ -57,7 +57,6 @@ public final class OpusDecoder
   private final int preSkipSamples;
   private final int seekPreRollSamples;
   private final long nativeDecoderContext;
-  private boolean experimentalDiscardPaddingEnabled;
 
   private int skipSamples;
 
@@ -144,17 +143,6 @@ public final class OpusDecoder
     }
   }
 
-  /**
-   * Sets whether discard padding is enabled. When enabled, discard padding samples (provided as
-   * supplemental data on the input buffer) will be removed from the end of the decoder output.
-   *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   */
-  // TODO: b/470358402 - Remove method and default to true.
-  public void experimentalSetDiscardPaddingEnabled(boolean enabled) {
-    this.experimentalDiscardPaddingEnabled = enabled;
-  }
-
   @Override
   public String getName() {
     return "libopus" + OpusLibrary.getVersion();
@@ -234,7 +222,7 @@ public final class OpusDecoder
         skipSamples = 0;
         outputData.position(skipBytes);
       }
-    } else if (experimentalDiscardPaddingEnabled && inputBuffer.hasSupplementalData()) {
+    } else if (inputBuffer.hasSupplementalData()) {
       int discardPaddingSamples = getDiscardPaddingSamples(inputBuffer.supplementalData);
       if (discardPaddingSamples > 0) {
         int discardBytes = samplesToBytes(discardPaddingSamples, channelCount, outputFloat);
