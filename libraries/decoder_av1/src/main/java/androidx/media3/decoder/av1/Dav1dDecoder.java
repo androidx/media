@@ -58,6 +58,9 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private final VideoDecoderOutputBuffer[] availableOutputBuffers;
 
+  // The context is volatile to allow fast-path checks in renderToSurface and access by the decode
+  // thread without holding the lock during potentially long-running native calls. All writes to
+  // this variable are guarded by 'lock'.
   private volatile long dav1dDecoderContext;
 
   private volatile @C.VideoOutputMode int outputMode;
@@ -136,25 +139,41 @@ public final class Dav1dDecoder
         new Thread("ExoPlayer:Dav1dDecoder") {
           @Override
           public void run() {
-            Dav1dDecoder.this.dav1dDecoderContext =
-                dav1dInit(threads, maxFrameDelay, useCustomAllocator);
-            if (dav1dCheckError(Dav1dDecoder.this.dav1dDecoderContext) == DAV1D_ERROR) {
-              synchronized (lock) {
+            synchronized (lock) {
+              Dav1dDecoder.this.dav1dDecoderContext =
+                  dav1dInit(threads, maxFrameDelay, useCustomAllocator);
+              if (dav1dCheckError(Dav1dDecoder.this.dav1dDecoderContext) == DAV1D_ERROR) {
                 Dav1dDecoder.this.exception =
                     new Dav1dDecoderException(
                         "Failed to initialize decoder. Error: "
                             + dav1dGetErrorMessage(Dav1dDecoder.this.dav1dDecoderContext));
+                releaseDecoderContext();
+                lock.notify();
+                return;
               }
-              dav1dClose(Dav1dDecoder.this.dav1dDecoderContext);
-              return;
+              lock.notify();
             }
-            Dav1dDecoder.this.run();
-            releaseUnusedInputBuffers(Dav1dDecoder.this.dav1dDecoderContext, Dav1dDecoder.this);
-            dav1dClose(Dav1dDecoder.this.dav1dDecoderContext);
+            try {
+              Dav1dDecoder.this.run();
+            } finally {
+              releaseDecoderContext();
+            }
           }
         };
     decodeThread.start();
-    maybeThrowException();
+    synchronized (lock) {
+      while (dav1dDecoderContext == 0 && exception == null && !released) {
+        try {
+          lock.wait();
+        } catch (InterruptedException e) {
+          released = true;
+          lock.notifyAll();
+          Thread.currentThread().interrupt();
+          throw new Dav1dDecoderException("Interrupted during initialization", e);
+        }
+      }
+      maybeThrowException();
+    }
   }
 
   @Override
@@ -247,7 +266,18 @@ public final class Dav1dDecoder
    */
   public void renderToSurface(VideoDecoderOutputBuffer outputBuffer, Surface surface)
       throws Dav1dDecoderException {
+    // dav1dDecoderContext is volatile, so this check is thread-safe. This initial check avoids
+    // lock acquisition in the common case where the decoder has already been released.
+    if (dav1dDecoderContext == 0) {
+      throw new Dav1dDecoderException("Decoder is released.");
+    }
     synchronized (lock) {
+      maybeThrowException();
+      // Re-check inside the synchronized block, as the decoder could have been released between
+      // the first check and acquiring the lock.
+      if (dav1dDecoderContext == 0) {
+        throw new Dav1dDecoderException("Decoder is released.");
+      }
       if (outputMode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
         throw new Dav1dDecoderException("Unsupported Output Mode.");
       }
@@ -261,7 +291,9 @@ public final class Dav1dDecoder
   /* package */
   void releaseOutputBuffer(VideoDecoderOutputBuffer outputBuffer) {
     synchronized (lock) {
-      dav1dReleaseFrame(dav1dDecoderContext, outputBuffer);
+      if (dav1dDecoderContext != 0) {
+        dav1dReleaseFrame(dav1dDecoderContext, outputBuffer);
+      }
       releaseOutputBufferInternal(outputBuffer);
       maybeNotifyDecodeLoop();
     }
@@ -481,6 +513,30 @@ public final class Dav1dDecoder
     } catch (InterruptedException e) {
       // Not expected.
       throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Releases the native decoder context and any associated resources. This method can be called
+   * from both the initialization path (on failure) and the standard shutdown path.
+   */
+  private void releaseDecoderContext() {
+    long context = 0;
+    synchronized (lock) {
+      if (this.dav1dDecoderContext != 0) {
+        context = this.dav1dDecoderContext;
+        // Release any queued output buffers before closing the decoder context, as their release
+        // method depends on a valid context.
+        while (!queuedOutputBuffers.isEmpty()) {
+          queuedOutputBuffers.removeFirst().release();
+        }
+        this.dav1dDecoderContext = 0;
+      }
+    }
+    // dav1dClose can be a long-running call, so we call it outside the synchronized block.
+    if (context != 0) {
+      releaseUnusedInputBuffers(context, this);
+      dav1dClose(context);
     }
   }
 
