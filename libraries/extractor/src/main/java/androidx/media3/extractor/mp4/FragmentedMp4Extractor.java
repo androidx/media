@@ -56,7 +56,9 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.emsg.EventMessageEncoder;
@@ -94,7 +96,8 @@ public class FragmentedMp4Extractor implements Extractor {
    * #FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME}, {@link #FLAG_WORKAROUND_IGNORE_TFDT_BOX},
    * {@link #FLAG_ENABLE_EMSG_TRACK}, {@link #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link
    * #FLAG_EMIT_RAW_SUBTITLE_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
-   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link #FLAG_MERGE_FRAGMENTED_SIDX}.
+   * #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}, {@link #FLAG_MERGE_FRAGMENTED_SIDX} and {@link
+   * #FLAG_READ_MFRA_FOR_SEEK_MAP}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -109,7 +112,8 @@ public class FragmentedMp4Extractor implements Extractor {
         FLAG_EMIT_RAW_SUBTITLE_DATA,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
-        FLAG_MERGE_FRAGMENTED_SIDX
+        FLAG_MERGE_FRAGMENTED_SIDX,
+        FLAG_READ_MFRA_FOR_SEEK_MAP
       })
   public @interface Flags {}
 
@@ -165,6 +169,9 @@ public class FragmentedMp4Extractor implements Extractor {
   /** Flag to enable reading and merging of all sidx boxes before continuing extraction. */
   public static final int FLAG_MERGE_FRAGMENTED_SIDX = 1 << 8;
 
+  /** Flag to enable reading the 'mfra' box for seeking in fragmented MP4s. */
+  public static final int FLAG_READ_MFRA_FOR_SEEK_MAP = 1 << 9;
+
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
    */
@@ -195,6 +202,10 @@ public class FragmentedMp4Extractor implements Extractor {
   private static final int STATE_READING_ENCRYPTION_DATA = 2;
   private static final int STATE_READING_SAMPLE_START = 3;
   private static final int STATE_READING_SAMPLE_CONTINUE = 4;
+  private static final int STATE_READING_MFRO = 5;
+  private static final int STATE_READING_MFRA = 6;
+
+  private static final int MFRO_FIXED_BOX_SIZE = 16;
 
   private final SubtitleParser.Factory subtitleParserFactory;
   private final @Flags int flags;
@@ -259,6 +270,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private boolean haveOutputSeekMapFromMultipleSidx;
 
   private long seekPositionBeforeSidxProcessing;
+  private long seekPositionBeforeMfraProcessing;
 
   /**
    * @deprecated Use {@link #FragmentedMp4Extractor(SubtitleParser.Factory)} instead
@@ -444,6 +456,7 @@ public class FragmentedMp4Extractor implements Extractor {
                 CeaUtil.consume(presentationTimeUs, buffer, ceaTrackOutputs));
     chunkIndexMerger = new ChunkIndexMerger();
     seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+    seekPositionBeforeMfraProcessing = C.INDEX_UNSET;
   }
 
   /**
@@ -522,6 +535,7 @@ public class FragmentedMp4Extractor implements Extractor {
     reorderingBufferQueue.clear();
     pendingSeekTimeUs = timeUs;
     containerAtoms.clear();
+    seekPositionBeforeMfraProcessing = C.INDEX_UNSET;
     enterReadingAtomHeaderState();
   }
 
@@ -535,7 +549,7 @@ public class FragmentedMp4Extractor implements Extractor {
     while (true) {
       switch (parserState) {
         case STATE_READING_ATOM_HEADER:
-          if (!readAtomHeader(input)) {
+          if (!readAtomHeader(input, seekPosition)) {
             if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
               seekPosition.position = seekPositionBeforeSidxProcessing;
               seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
@@ -546,6 +560,21 @@ public class FragmentedMp4Extractor implements Extractor {
               reorderingBufferQueue.flush();
               return Extractor.RESULT_END_OF_INPUT;
             }
+          }
+          if (parserState == STATE_READING_MFRO) {
+            return Extractor.RESULT_SEEK;
+          }
+          break;
+        case STATE_READING_MFRO:
+          readMfro(input, seekPosition);
+          if (parserState == STATE_READING_MFRA || parserState == STATE_READING_ATOM_HEADER) {
+            return Extractor.RESULT_SEEK;
+          }
+          break;
+        case STATE_READING_MFRA:
+          readMfra(input, seekPosition);
+          if (parserState == STATE_READING_ATOM_HEADER) {
+            return Extractor.RESULT_SEEK;
           }
           break;
         case STATE_READING_ATOM_PAYLOAD:
@@ -567,7 +596,8 @@ public class FragmentedMp4Extractor implements Extractor {
     atomHeaderBytesRead = 0;
   }
 
-  private boolean readAtomHeader(ExtractorInput input) throws IOException {
+  private boolean readAtomHeader(ExtractorInput input, PositionHolder seekPosition)
+      throws IOException {
     if (atomHeaderBytesRead == 0) {
       // Read the standard length atom header.
       if (!input.readFully(atomHeader.getData(), 0, Mp4Box.HEADER_SIZE, true)) {
@@ -629,8 +659,17 @@ public class FragmentedMp4Extractor implements Extractor {
     if (atomType == Mp4Box.TYPE_moof || atomType == Mp4Box.TYPE_mdat) {
       if (!haveOutputSeekMap) {
         // This must be the first moof or mdat in the stream.
-        extractorOutput.seekMap(new SeekMap.Unseekable(durationUs, atomPosition));
-        haveOutputSeekMap = true;
+        if (input.getLength() != C.LENGTH_UNSET
+            && seekPositionBeforeMfraProcessing == C.INDEX_UNSET
+            && (flags & FLAG_READ_MFRA_FOR_SEEK_MAP) != 0) {
+          seekPositionBeforeMfraProcessing = atomPosition;
+          seekPosition.position = input.getLength() - MFRO_FIXED_BOX_SIZE;
+          parserState = STATE_READING_MFRO;
+          return true;
+        } else {
+          extractorOutput.seekMap(new SeekMap.Unseekable(durationUs, atomPosition));
+          haveOutputSeekMap = true;
+        }
       }
     }
 
@@ -1981,6 +2020,241 @@ public class FragmentedMp4Extractor implements Extractor {
       this.sampleTimeUs = sampleTimeUs;
       this.sampleTimeIsRelative = sampleTimeIsRelative;
       this.size = size;
+    }
+  }
+
+  /** Parses an mfro box (defined in 14496-12). */
+  private void readMfro(ExtractorInput input, PositionHolder seekPosition) throws IOException {
+    // An mfro box is always exactly 16 bytes long.
+    scratch.reset(MFRO_FIXED_BOX_SIZE);
+    if (!input.readFully(scratch.getData(), 0, MFRO_FIXED_BOX_SIZE, true)) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+    scratch.setPosition(0);
+    int size = scratch.readInt();
+    int type = scratch.readInt();
+    if (size != MFRO_FIXED_BOX_SIZE || type != Mp4Box.TYPE_mfro) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+    scratch.skipBytes(4); // version and flags
+    long mfraSize = scratch.readUnsignedInt();
+    long mfraOffset = input.getLength() - mfraSize;
+    if (mfraSize <= 0
+        || mfraSize > Integer.MAX_VALUE
+        || mfraOffset < 0
+        || mfraOffset < seekPositionBeforeMfraProcessing) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+    seekPosition.position = mfraOffset;
+    parserState = STATE_READING_MFRA;
+  }
+
+  /** Parses an mfra box (defined in 14496-12). */
+  private void readMfra(ExtractorInput input, PositionHolder seekPosition) throws IOException {
+    long mfraSize = input.getLength() - input.getPosition();
+    ParsableByteArray mfra = new ParsableByteArray((int) mfraSize);
+    input.readFully(mfra.getData(), 0, (int) mfraSize);
+
+    mfra.setPosition(0);
+    int mfraBoxSize = mfra.readInt();
+    mfra.setPosition(mfraBoxSize == 1 ? Mp4Box.LONG_HEADER_SIZE : Mp4Box.HEADER_SIZE);
+
+    SparseArray<long[]> trackTimesUs = new SparseArray<>();
+    SparseArray<long[]> trackOffsets = new SparseArray<>();
+
+    while (mfra.bytesLeft() >= Mp4Box.HEADER_SIZE) {
+      int boxStartPosition = mfra.getPosition();
+      long boxSize = mfra.readUnsignedInt();
+      int boxType = mfra.readInt();
+      long actualBoxSize = boxSize;
+
+      if (boxSize == 1) {
+        if (mfra.bytesLeft() < Mp4Box.HEADER_SIZE) {
+          break;
+        }
+        actualBoxSize = mfra.readLong();
+      } else if (boxSize == 0) {
+        actualBoxSize = (long) mfra.limit() - boxStartPosition;
+      }
+
+      int headerSize = boxSize == 1 ? Mp4Box.LONG_HEADER_SIZE : Mp4Box.HEADER_SIZE;
+      if (actualBoxSize < headerSize || actualBoxSize > (long) mfra.limit() - boxStartPosition) {
+        break;
+      }
+
+      if (boxType == Mp4Box.TYPE_tfra) {
+        // Protect against malformed tfra boxes. We need at least 16 bytes for the
+        // basic fields (versionAndFlags, trackId, lengthFields, numberOfEntry).
+        if (actualBoxSize < headerSize + 16) {
+          mfra.setPosition((int) (boxStartPosition + actualBoxSize));
+          continue;
+        }
+
+        int versionAndFlags = mfra.readInt();
+        int version = BoxParser.parseFullBoxVersion(versionAndFlags);
+        int trackId = mfra.readInt();
+
+        TrackBundle trackBundle = trackBundles.get(trackId);
+        if (trackBundle == null) {
+          mfra.setPosition((int) (boxStartPosition + actualBoxSize));
+          continue;
+        }
+        long timescale = trackBundle.moovSampleTable.track.timescale;
+
+        int lengthFields = mfra.readInt();
+        int lengthSizeOfTrafNum = (lengthFields >> 4) & 3;
+        int lengthSizeOfTrunNum = (lengthFields >> 2) & 3;
+        int lengthSizeOfSampleNum = lengthFields & 3;
+        long numberOfEntry = mfra.readUnsignedInt();
+
+        // The time and moof_offset fields are 8 bytes each for version 1, and 4 bytes each for
+        // version 0.
+        long entrySize =
+            (version == 1 ? 16L : 8L)
+                + (lengthSizeOfTrafNum + 1)
+                + (lengthSizeOfTrunNum + 1)
+                + (lengthSizeOfSampleNum + 1);
+
+        if (numberOfEntry * entrySize > mfra.bytesLeft()) {
+          mfra.setPosition((int) (boxStartPosition + actualBoxSize));
+          continue;
+        }
+
+        long[] timesUs = new long[(int) numberOfEntry];
+        long[] offsets = new long[(int) numberOfEntry];
+
+        for (int i = 0; i < (int) numberOfEntry; i++) {
+          long time = version == 1 ? mfra.readUnsignedLongToLong() : mfra.readUnsignedInt();
+          long moofOffset = version == 1 ? mfra.readUnsignedLongToLong() : mfra.readUnsignedInt();
+
+          mfra.skipBytes(
+              (lengthSizeOfTrafNum + 1) + (lengthSizeOfTrunNum + 1) + (lengthSizeOfSampleNum + 1));
+
+          timesUs[i] =
+              timescale != C.TIME_UNSET
+                  ? Util.scaleLargeTimestamp(time, C.MICROS_PER_SECOND, timescale)
+                  : time;
+          offsets[i] = moofOffset;
+        }
+        trackTimesUs.put(trackId, timesUs);
+        trackOffsets.put(trackId, offsets);
+      }
+      mfra.setPosition((int) (boxStartPosition + actualBoxSize));
+    }
+
+    if (trackTimesUs.size() == 0) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+
+    int firstVideoTrackId = C.INDEX_UNSET;
+    int firstAudioTrackId = C.INDEX_UNSET;
+    for (int i = 0; i < trackTimesUs.size(); i++) {
+      int trackId = trackTimesUs.keyAt(i);
+      TrackBundle trackBundle = trackBundles.get(trackId);
+      if (trackBundle == null) {
+        continue;
+      }
+      int trackType = trackBundle.moovSampleTable.track.type;
+      if (firstVideoTrackId == C.INDEX_UNSET && trackType == C.TRACK_TYPE_VIDEO) {
+        firstVideoTrackId = trackId;
+      } else if (firstAudioTrackId == C.INDEX_UNSET && trackType == C.TRACK_TYPE_AUDIO) {
+        firstAudioTrackId = trackId;
+      }
+    }
+    int primaryTrackId =
+        firstVideoTrackId != C.INDEX_UNSET
+            ? firstVideoTrackId
+            : firstAudioTrackId != C.INDEX_UNSET ? firstAudioTrackId : trackTimesUs.keyAt(0);
+
+    onMfraProcessingFinished(
+        new MfraSeekMap(
+            trackTimesUs,
+            trackOffsets,
+            durationUs,
+            seekPositionBeforeMfraProcessing,
+            primaryTrackId),
+        seekPosition);
+  }
+
+  private void onMfraProcessingFinished(SeekMap seekMap, PositionHolder seekPosition) {
+    extractorOutput.seekMap(seekMap);
+    haveOutputSeekMap = true;
+    seekPosition.position = seekPositionBeforeMfraProcessing;
+    enterReadingAtomHeaderState();
+  }
+
+  private static final class MfraSeekMap implements TrackAwareSeekMap {
+    private final SparseArray<long[]> trackTimesUs;
+    private final SparseArray<long[]> trackOffsets;
+    private final long durationUs;
+    private final long firstMediaDataPosition;
+    private final int primaryTrackId;
+
+    private MfraSeekMap(
+        SparseArray<long[]> trackTimesUs,
+        SparseArray<long[]> trackOffsets,
+        long durationUs,
+        long firstMediaDataPosition,
+        int primaryTrackId) {
+      this.trackTimesUs = trackTimesUs;
+      this.trackOffsets = trackOffsets;
+      this.durationUs = durationUs;
+      this.firstMediaDataPosition = firstMediaDataPosition;
+      this.primaryTrackId = primaryTrackId;
+    }
+
+    @Override
+    public boolean isSeekable() {
+      return true;
+    }
+
+    @Override
+    public boolean isSeekable(int trackId) {
+      return trackTimesUs.indexOfKey(trackId) >= 0;
+    }
+
+    @Override
+    public long getDurationUs() {
+      return durationUs;
+    }
+
+    @Override
+    public SeekMap.SeekPoints getSeekPoints(long timeUs) {
+      return getSeekPoints(timeUs, primaryTrackId);
+    }
+
+    @Override
+    public SeekMap.SeekPoints getSeekPoints(long timeUs, int trackId) {
+      @Nullable long[] timesUs = trackTimesUs.get(trackId);
+      @Nullable long[] offsets = trackOffsets.get(trackId);
+
+      // Fallback safely if the requested track is missing
+      if (timesUs == null || offsets == null) {
+        timesUs = trackTimesUs.get(primaryTrackId);
+        offsets = trackOffsets.get(primaryTrackId);
+        if (timesUs == null || offsets == null) {
+          timesUs = trackTimesUs.valueAt(0);
+          offsets = trackOffsets.valueAt(0);
+        }
+      }
+
+      // If the requested time is before the first indexed fragment, jump to the absolute start of
+      // the media data.
+      if (timesUs.length == 0 || timeUs < timesUs[0]) {
+        return new SeekMap.SeekPoints(new SeekPoint(0, firstMediaDataPosition));
+      }
+
+      int index =
+          Util.binarySearchFloor(timesUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ true);
+      return new SeekMap.SeekPoints(new SeekPoint(timesUs[index], offsets[index]));
     }
   }
 

@@ -523,6 +523,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
             new FragmentedMp4Extractor(
                 subtitleParserFactory,
                 fragmentedMp4Flags
+                    | FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP
                     | FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
                         codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled

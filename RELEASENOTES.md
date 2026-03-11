@@ -29,6 +29,11 @@
     *   WAV, Matroska, and MP4: Add support for 64-bit floating point PCM audio
         ([#3090](https://github.com/androidx/media/pull/3090)).
     *   Matroska: Use codec bitstream metadata to populate accurate `ColorInfo`.
+    *   MP4: Add support for seeking in fragmented MP4 files using the `mfra`
+        box when a `sidx` box is not present. To enable this, provide
+        `FLAG_READ_MFRA_FOR_SEEK_MAP` to the `FragmentedMp4Extractor`, which is
+        now done by default in `DefaultExtractorsFactory`
+        ([#3088](https://github.com/androidx/media/issues/3088)).
 *   Inspector:
 *   Audio:
     *   Convert parameters of `AudioSink.configure` to data class. Custom

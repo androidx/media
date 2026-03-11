@@ -99,7 +99,7 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         () ->
             new FragmentedMp4Extractor(
                 /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
-                /* flags= */ 0,
+                /* flags= */ FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP,
                 /* timestampAdjuster= */ null,
                 /* sideloadedTrack= */ null,
                 /* closedCaptionFormats= */ ImmutableList.of(),
@@ -120,7 +120,8 @@ public final class FragmentedMp4ExtractorParameterizedTest {
         () ->
             new FragmentedMp4Extractor(
                 /* subtitleParserFactory= */ new DefaultSubtitleParserFactory(),
-                /* flags= */ FragmentedMp4Extractor.FLAG_MERGE_FRAGMENTED_SIDX,
+                /* flags= */ FragmentedMp4Extractor.FLAG_MERGE_FRAGMENTED_SIDX
+                    | FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP,
                 /* timestampAdjuster= */ null,
                 /* sideloadedTrack= */ null,
                 /* closedCaptionFormats= */ ImmutableList.of(),
@@ -323,6 +324,8 @@ public final class FragmentedMp4ExtractorParameterizedTest {
       flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
       flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265;
     }
+
+    flags |= FragmentedMp4Extractor.FLAG_READ_MFRA_FOR_SEEK_MAP;
 
     @FragmentedMp4Extractor.Flags int finalFlags = flags;
     return () ->
