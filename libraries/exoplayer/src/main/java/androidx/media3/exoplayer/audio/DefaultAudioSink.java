@@ -1939,7 +1939,13 @@ public final class DefaultAudioSink implements AudioSink {
         // Stale event.
         return;
       }
-      handledOffloadOnPresentationEnded = true;
+      // Without checking `stoppedAudioOutput`, during playlist playback with offloaded audio,
+      // `hasPendingData` could return false prematurely. We only update
+      // `handledOffloadOnPresentationEnded` to true if the audio output has actually finished
+      // playing.
+      if (stoppedAudioOutput) {
+        handledOffloadOnPresentationEnded = true;
+      }
     }
 
     @Override
