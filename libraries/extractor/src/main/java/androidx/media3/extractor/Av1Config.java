@@ -31,11 +31,33 @@ public final class Av1Config {
 
   private static final String TAG = "Av1Config";
 
+  /**
+   * List of buffers containing the codec-specific data to be provided to the decoder.
+   *
+   * <p>See {@link Format#initializationData}.
+   */
   public final List<byte[]> initializationData;
+
+  /** The bit depth of the luma samples, or {@link Format#NO_VALUE} if unknown. */
   public final int bitdepthLuma;
+
+  /** The bit depth of the chroma samples, or {@link Format#NO_VALUE} if unknown. */
   public final int bitdepthChroma;
+
+  /**
+   * The {@link C.ColorSpace} of the video, or {@link Format#NO_VALUE} if unknown or not applicable.
+   */
   public final @C.ColorSpace int colorSpace;
+
+  /**
+   * The {@link C.ColorRange} of the video, or {@link Format#NO_VALUE} if unknown or not applicable.
+   */
   public final @C.ColorRange int colorRange;
+
+  /**
+   * The {@link C.ColorTransfer} of the video, or {@link Format#NO_VALUE} if unknown or not
+   * applicable.
+   */
   public final @C.ColorTransfer int colorTransfer;
 
   /**
