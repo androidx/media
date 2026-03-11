@@ -44,16 +44,18 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -72,7 +74,7 @@ import org.junit.runner.RunWith;
  * Instrumentation tests for {@link CompositionPlayer} {@linkplain CompositionPlayer#seekTo(long)
  * seeking}.
  */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 public class CompositionPlayerSeekTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 40_000 : 10_000;
@@ -96,6 +98,8 @@ public class CompositionPlayerSeekTest {
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
       new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
+  @TestParameter boolean isScrubbingModeEnabled;
 
   private final Context applicationContext =
       getInstrumentation().getContext().getApplicationContext();
@@ -225,10 +229,14 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
-  public void seekToEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
+  public void seekToEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos_showsLastFrame()
+      throws Exception {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse(
+        "Scrubbing mode does not show last frame because it tries to seek forward.",
+        isScrubbingModeEnabled);
     // Seeks to the end of the second video
     long seekTimeMs = usToMs(2 * VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -249,10 +257,14 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
-  public void seekToAfterEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos() throws Exception {
+  public void seekToAfterEndOfSecondVideo_afterPlayingSingleSequenceOfTwoVideos_showsLastFrame()
+      throws Exception {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse(
+        "Scrubbing mode does not show last frame because it tries to seek forward.",
+        isScrubbingModeEnabled);
     long seekTimeMs = usToMs(3 * VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -806,6 +818,12 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    // TODO: b/491766108 - Remove assumption once race condition with image renderer and scrubbing
+    // mode is fixed.
+    assumeFalse(
+        "Skipped due to race condition with image renderer receiving position beyond image duration"
+            + " when scrubbing mode is enabled",
+        isScrubbingModeEnabled);
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 3;
@@ -884,28 +902,40 @@ public class CompositionPlayerSeekTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               compositionPlayer.get().seekTo(1020);
               compositionPlayer.get().seekTo(150);
-            });
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
               compositionPlayer.get().seekTo(150);
               compositionPlayer.get().seekTo(1020);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
             });
-    Thread.sleep(/* millis= */ 50);
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(500));
-    Thread.sleep(/* millis= */ 50);
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(1100));
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(500));
     Thread.sleep(/* millis= */ 50);
     getInstrumentation()
         .runOnMainSync(
             () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              compositionPlayer.get().seekTo(500);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
+            });
+    Thread.sleep(/* millis= */ 50);
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              compositionPlayer.get().seekTo(1100);
+              compositionPlayer.get().seekTo(500);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
+            });
+    Thread.sleep(/* millis= */ 50);
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
               compositionPlayer.get().seekTo(1100);
               compositionPlayer.get().seekTo(1199);
               compositionPlayer.get().seekTo(500);
               compositionPlayer.get().seekTo(499);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
             });
     playerTestListener.waitUntilPlayerEnded();
 
@@ -952,13 +982,15 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToMidClip_withSingleAudioClipSequence_reportsCorrectAudioProcessorPositionOffset()
-      throws PlaybackException, TimeoutException {
-    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+      throws PlaybackException, TimeoutException, InterruptedException {
+    ConditionVariable receivedExpectedPosition = new ConditionVariable();
     PassthroughAudioProcessor fakeProcessor =
         new PassthroughAudioProcessor() {
           @Override
           protected void onFlush(StreamMetadata streamMetadata) {
-            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+            if (streamMetadata.positionOffsetUs == 500_000) {
+              receivedExpectedPosition.open();
+            }
           }
         };
     EditedMediaItem item =
@@ -981,10 +1013,20 @@ public class CompositionPlayerSeekTest {
     playerTestListener.waitUntilPlayerReady();
 
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 500));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 500);
+              player.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerReady();
 
-    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 500_000);
+    // Use ConditionVariable because there is a race condition between player being ready and
+    // position offset being propagated downstream.
+    assertWithMessage("AudioProcessor never received expected position offset.")
+        .that(receivedExpectedPosition.block(1_000))
+        .isTrue();
   }
 
   @Test
@@ -1018,7 +1060,13 @@ public class CompositionPlayerSeekTest {
     playerTestListener.waitUntilPlayerReady();
 
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 300));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 300);
+              player.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerReady();
 
     assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 300_000);
@@ -1062,7 +1110,13 @@ public class CompositionPlayerSeekTest {
     playerTestListener.waitUntilPlayerReady();
 
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 1200));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 1200);
+              player.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerReady();
 
     assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 200_000);
@@ -1120,7 +1174,13 @@ public class CompositionPlayerSeekTest {
     playerTestListener.waitUntilPlayerReady();
 
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 400));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 400);
+              player.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerReady();
 
     assertThat(lastPositionOffsetUsFirstSequence.get()).isEqualTo(/* positionOffsetUs */ 400_000);
@@ -1195,7 +1255,13 @@ public class CompositionPlayerSeekTest {
     if (playbackException.get() != null) {
       throw playbackException.get();
     }
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              compositionPlayer.get().seekTo(seekTimeMs);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerEnded();
 
     assertThat(videoGraphEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1276,7 +1342,13 @@ public class CompositionPlayerSeekTest {
             });
     playerTestListener.waitUntilPlayerEnded();
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              compositionPlayer.get().seekTo(seekTimeMs);
+              compositionPlayer.get().setScrubbingModeEnabled(false);
+            });
     playerTestListener.waitUntilPlayerEnded();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
     if (playbackException.get() != null

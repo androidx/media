@@ -23,6 +23,7 @@ import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -97,6 +98,44 @@ public class CompositionPlaybackTest {
                 player.release();
               }
             });
+  }
+
+  @Test
+  public void seek_withScrubbingModeDuringPlayback_doesNotCrash()
+      throws PlaybackException, TimeoutException {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(item)))
+            .build();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new CompositionPlayer.Builder(context)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                      .build();
+              player.addListener(listener);
+              player.addAnalyticsListener(listener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    listener.waitUntilPlayerReady();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.setScrubbingModeEnabled(true);
+              player.seekTo(500);
+              player.setScrubbingModeEnabled(false);
+            });
+
+    listener.waitUntilPlayerEnded();
   }
 
   @Test
