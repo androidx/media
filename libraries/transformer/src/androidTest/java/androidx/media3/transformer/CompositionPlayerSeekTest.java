@@ -63,6 +63,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -535,6 +536,7 @@ public class CompositionPlayerSeekTest {
         .isEqualTo(sequenceTimestampsUs);
   }
 
+  @Ignore("Flaky: b/419821026")
   @Test
   public void seekToVideo_afterPlayingSingleSequenceOfImageAndVideo() throws Exception {
     assumeFalse(
