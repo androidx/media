@@ -413,6 +413,9 @@ public abstract class Mp4Box {
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_smta = 0x736d7461;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_chpl = 0x6368706c;
+
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_saut = 0x73617574;
 

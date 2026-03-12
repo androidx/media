@@ -16,13 +16,17 @@
 package androidx.media3.extractor.mp4;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.Mp4Box;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -286,6 +290,79 @@ public final class BoxParserTest {
         .isNotNull();
     assertThat(vexuData).isNotNull();
     assertThat(vexuData.hasBothEyeViews()).isTrue();
+  }
+
+  @Test
+  public void chplParsing() {
+    byte[] data =
+        ByteBuffer.allocate(100)
+            .put(new byte[5]) // version (1), flags (3), reserved byte (1)
+            .putInt(3) // chapter count
+            // first chapter
+            .putLong(5_000_000) // start time in 100-nanoseconds resolution
+            .put((byte) 9) // Title length
+            .put("Chapter 1".getBytes(UTF_8))
+            // second chapter
+            .putLong(10_000_000) // start time in 100-nanoseconds resolution
+            .put((byte) 9) // Title length
+            .put("Chapter 2".getBytes(UTF_8))
+            // third chapter
+            .putLong(30_000_000_000L) // start time in 100-nanoseconds resolution
+            .put((byte) 9) // Title length
+            .put("Chapter 3".getBytes(UTF_8))
+            .array();
+
+    Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
+
+    assertThat(metadata.length()).isEqualTo(3);
+    Chapter chapter1 = (Chapter) metadata.get(0);
+    assertThat(chapter1.getStartTimeMs()).isEqualTo(500);
+    assertThat(chapter1.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(chapter1.getTitle()).isEqualTo("Chapter 1");
+    Chapter chapter2 = (Chapter) metadata.get(1);
+    assertThat(chapter2.getStartTimeMs()).isEqualTo(1000);
+    assertThat(chapter2.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(chapter2.getTitle()).isEqualTo("Chapter 2");
+    Chapter chapter3 = (Chapter) metadata.get(2);
+    assertThat(chapter3.getStartTimeMs()).isEqualTo(3_000_000);
+    assertThat(chapter3.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(chapter3.getTitle()).isEqualTo("Chapter 3");
+  }
+
+  @Test
+  public void parseChpl_negativeStartTime_returnsTimeUnset() {
+    byte[] data =
+        ByteBuffer.allocate(50)
+            .put(new byte[5]) // version (1), flags (3), reserved byte (1)
+            .putInt(1) // chapter count
+            // first chapter
+            .putLong(-10_000L) // start time in 100-nanoseconds resolution
+            .put((byte) 9) // Title length
+            .put("Chapter 1".getBytes(UTF_8))
+            .array();
+
+    Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
+
+    assertThat(metadata.length()).isEqualTo(1);
+    Chapter chapter = (Chapter) metadata.get(0);
+    assertThat(chapter.getStartTimeMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(chapter.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
+    assertThat(chapter.getTitle()).isEqualTo("Chapter 1");
+  }
+
+  @Test
+  public void parseChpl_truncatedData_returnsNull() {
+    byte[] data =
+        ByteBuffer.allocate(23)
+            .put(new byte[5]) // version (1), flags (3), reserved byte (1)
+            .putInt(2) // Claims 2 chapters, but only has data for 1
+            .putLong(1000)
+            .put((byte) 5)
+            .put("Title".getBytes(UTF_8))
+            .array();
+
+    Metadata metadata = BoxParser.parseChpl(new ParsableByteArray(data));
+    assertThat(metadata).isNull();
   }
 
   private static void verifyStz2Parsing(Mp4Box.LeafBox stz2Atom) {

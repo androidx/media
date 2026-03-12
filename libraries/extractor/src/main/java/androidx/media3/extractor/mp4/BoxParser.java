@@ -57,6 +57,7 @@ import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.VorbisUtil;
 import androidx.media3.extractor.VvcConfig;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.text.vobsub.VobsubParser;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -222,6 +223,8 @@ public final class BoxParser {
                 SmtaAtomUtil.parseSmta(udtaData, atomPosition + atomSize));
       } else if (atomType == Mp4Box.TYPE_xyz) {
         metadata = metadata.copyWithAppendedEntriesFrom(parseXyz(udtaData));
+      } else if (atomType == Mp4Box.TYPE_chpl) {
+        metadata = metadata.copyWithAppendedEntriesFrom(parseChpl(udtaData));
       }
       udtaData.setPosition(atomPosition + atomSize);
     }
@@ -1025,6 +1028,29 @@ public final class BoxParser {
           Float.parseFloat(location.substring(latitudeEndIndex, location.length() - 1));
       return new Metadata(new Mp4LocationData(latitude, longitude));
     } catch (IndexOutOfBoundsException | NumberFormatException exception) {
+      // Invalid input.
+      return null;
+    }
+  }
+
+  /** Parses the Nero chapters from the chpl atom. */
+  @Nullable
+  /* package */ static Metadata parseChpl(ParsableByteArray chplData) {
+    try {
+      chplData.skipBytes(5); // 1 byte version + 3 bytes flags + 1 byte reserved.
+      int chapterCount = chplData.readInt();
+      List<Metadata.Entry> chapters = new ArrayList<>();
+      for (int i = 0; i < chapterCount; i++) {
+        long startTimeMs = chplData.readLong() / 10000; // Start time in 100-nanoseconds resolution
+        if (startTimeMs < 0) {
+          startTimeMs = C.TIME_UNSET;
+        }
+        int titleLength = chplData.readUnsignedByte();
+        String title = chplData.readString(titleLength);
+        chapters.add(Chapter.create(startTimeMs, C.TIME_UNSET, title));
+      }
+      return chapters.isEmpty() ? null : new Metadata(chapters);
+    } catch (IndexOutOfBoundsException e) {
       // Invalid input.
       return null;
     }
