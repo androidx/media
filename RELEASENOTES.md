@@ -1,5 +1,11 @@
 # Release notes
 
+### Unreleased changes
+
+*   Audio:
+    *   Fix bug where playback gets stuck when playing a playlist of gapless
+        audio in compressed offload mode.
+
 ## 1.9
 
 ### 1.9.2 (2026-02-06)
