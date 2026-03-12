@@ -852,6 +852,10 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    // TODO: b/491821186 - Reenable once NPE in MediaCodecRenderer is fixed.
+    assumeFalse(
+        "Skipped due to race condition in renderer that causes test to crash.",
+        isScrubbingModeEnabled);
     ImmutableList<EditedMediaItem> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM.editedMediaItem(), IMAGE_MEDIA_ITEM.editedMediaItem());
 
