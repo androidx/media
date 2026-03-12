@@ -43,10 +43,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -55,11 +58,15 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
+import androidx.media3.demo.compose.text.SeekOverlay
+import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.state.rememberSeekBackButtonState
+import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
 import kotlinx.coroutines.delay
 
 @Composable
@@ -113,13 +120,28 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
     }
   }
 
+  var size by remember { mutableStateOf(IntSize.Zero) }
+  val scope = rememberCoroutineScope()
+  val seekOverlayState = remember { SeekOverlayState(scope) }
+
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
     Player(
       player = player,
       showControls = showControls,
       modifier =
-        Modifier.noRippleClickable { showControls = !showControls }
-          .reportPointerDown { anyPointerDown = it },
+        Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
+          .playerGestures(
+            onPointerDownChange = { anyPointerDown = it },
+            onToggleControls = { showControls = !showControls },
+            seekBackButtonState = rememberSeekBackButtonState(player),
+            seekForwardButtonState = rememberSeekForwardButtonState(player),
+            seekBackActionArea = { offset -> offset.x < size.width / 2 },
+            seekForwardActionArea = { offset -> offset.x >= size.width / 2 },
+            onSeek = {
+              showControls = false
+              seekOverlayState.show(it)
+            },
+          ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       keepContentOnReset = keepContentOnReset,
       bottomControls = { player, showControls ->
@@ -130,6 +152,14 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           interactionModifier = Modifier.reportPointerDown { anyPointerDown = it },
         )
       },
+    )
+    SeekOverlay(
+      state = seekOverlayState,
+      modifier =
+        Modifier.align(
+            if (seekOverlayState.seekAmountMs < 0) Alignment.CenterStart else Alignment.CenterEnd
+          )
+          .padding(horizontal = 20.dp),
     )
     ContentScaleButton(
       currentContentScaleIndex,
