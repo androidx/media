@@ -324,6 +324,15 @@ This release includes the following changes since
 
 ## 1.9
 
+### 1.9.3 (2026-03-13)
+
+This release includes the following changes since
+[1.9.2 release](#192-2026-02-06):
+
+*   Audio:
+    *   Fix bug where playback gets stuck when playing a playlist of gapless
+        audio in compressed offload mode.
+
 ### 1.9.2 (2026-02-06)
 
 This release includes the following changes since
