@@ -699,9 +699,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       if (hardwareBufferJniWrapper != null && SDK_INT >= 26) {
         hardwareBufferPostProcessor =
             new BitmapToHardwareBufferProcessor(
-                /* releaseBufferExecutor= */ Util.newSingleThreadExecutor(
+                hardwareBufferJniWrapper,
+                /* internalExecutor= */ Util.newSingleThreadExecutor(
                     "BitmapToHardwareBufferProcessor::Thread"),
-                hardwareBufferJniWrapper);
+                /* errorExecutor= */ directExecutor(),
+                /* errorCallback= */ internalListener::onError);
       } else {
         hardwareBufferPostProcessor = null;
       }
