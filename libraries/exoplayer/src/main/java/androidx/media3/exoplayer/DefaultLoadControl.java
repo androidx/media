@@ -1007,12 +1007,14 @@ public class DefaultLoadControl implements LoadControl {
    * <p>'Enough space' is defined as 4% of the max heap size, because the system will start throwing
    * {@link OutOfMemoryError} when available heap space drops below 1%.
    */
-  private static boolean heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold() {
+  private boolean heapHasEnoughHeadroomForPrioritizeTimeOverSizeThreshold() {
     Runtime runtime = getRuntime();
     long maxMemory = runtime.maxMemory();
     // Either the heap still has space to grow (total < max), or it is at max size but there is
-    // still at least 4% free.
-    return runtime.totalMemory() < maxMemory || runtime.freeMemory() >= (maxMemory / 25);
+    // still at least 4% free, including unused allocations inside DefaultAllocator (which are
+    // already taking up heap space).
+    return runtime.totalMemory() < maxMemory
+        || runtime.freeMemory() + allocator.getUnusedBytesAllocated() >= (maxMemory / 25);
   }
 
   private static class PlayerLoadingState {

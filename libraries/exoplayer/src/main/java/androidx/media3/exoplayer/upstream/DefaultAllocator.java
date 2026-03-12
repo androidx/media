@@ -181,4 +181,9 @@ public final class DefaultAllocator implements Allocator {
   public int getIndividualAllocationLength() {
     return individualAllocationSize;
   }
+
+  /** Returns the total number of bytes currently occupied by unused allocations. */
+  public synchronized int getUnusedBytesAllocated() {
+    return availableCount * individualAllocationSize;
+  }
 }
