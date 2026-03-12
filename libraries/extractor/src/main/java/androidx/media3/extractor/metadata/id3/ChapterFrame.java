@@ -20,12 +20,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.extractor.metadata.Chapter;
 import java.util.Arrays;
 import java.util.Objects;
 
 /** Chapter information ID3 frame. */
 @UnstableApi
-public final class ChapterFrame extends Id3Frame {
+public final class ChapterFrame extends Id3Frame implements Chapter {
 
   public static final String ID = "CHAP";
 
@@ -66,6 +67,33 @@ public final class ChapterFrame extends Id3Frame {
   /** Returns the sub-frame at {@code index}. */
   public Id3Frame getSubFrame(int index) {
     return subFrames[index];
+  }
+
+  // Chapter implementation.
+
+  @Override
+  public long getStartTimeMs() {
+    return startTimeMs;
+  }
+
+  @Override
+  public long getEndTimeMs() {
+    return endTimeMs;
+  }
+
+  @Override
+  @Nullable
+  public String getTitle() {
+    for (Id3Frame frame : subFrames) {
+      if (frame instanceof TextInformationFrame
+          && ((TextInformationFrame) frame).id.equals("TIT2")) {
+        TextInformationFrame textFrame = (TextInformationFrame) frame;
+        if (!textFrame.values.isEmpty()) {
+          return textFrame.values.get(0);
+        }
+      }
+    }
+    return null;
   }
 
   @Override
