@@ -44,11 +44,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -58,6 +61,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
+import androidx.media3.demo.compose.text.CurrentItemInfo
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
@@ -67,6 +71,7 @@ import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
+import androidx.media3.ui.compose.text.CurrentMediaItemBox
 import kotlinx.coroutines.delay
 
 @Composable
@@ -108,8 +113,10 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
 @androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
 internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
+  val density = LocalDensity.current
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
-  var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
+  var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
+  var bottomControlsHeight by remember { mutableStateOf(0.dp) }
 
   var showControls by remember { mutableStateOf(true) }
   var anyPointerDown by remember { mutableStateOf(false) }
@@ -143,15 +150,27 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
             },
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
-      keepContentOnReset = keepContentOnReset,
       bottomControls = { player, showControls ->
         BottomControlsWithLabeledProgress(
           player,
           showControls,
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp),
+          modifier =
+            Modifier.fillMaxWidth().padding(horizontal = 15.dp).onSizeChanged {
+              bottomControlsHeight = with(density) { it.height.toDp() }
+            },
           interactionModifier = Modifier.reportPointerDown { anyPointerDown = it },
         )
       },
+    )
+    PlayingNowButton(
+      showCurrentMediaItemInfo,
+      Modifier.align(Alignment.TopStart),
+      onClick = { showCurrentMediaItemInfo = !showCurrentMediaItemInfo },
+    )
+    ContentScaleButton(
+      currentContentScaleIndex,
+      Modifier.align(Alignment.TopCenter),
+      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
     )
     SeekOverlay(
       state = seekOverlayState,
@@ -161,26 +180,24 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           )
           .padding(horizontal = 20.dp),
     )
-    ContentScaleButton(
-      currentContentScaleIndex,
-      Modifier.align(Alignment.TopCenter),
-      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
-    )
-    ShutterToggleButton(
-      keepContentOnReset,
-      Modifier.align(Alignment.TopStart),
-      onClick = { keepContentOnReset = !keepContentOnReset },
-    )
+    if (showCurrentMediaItemInfo) {
+      CurrentMediaItemBox(player) {
+        Box(
+          Modifier.align(Alignment.BottomCenter)
+            .padding(bottom = bottomControlsHeight + 10.dp)
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+        ) {
+          CurrentItemInfo(meta = mediaMetadata, Modifier.padding(8.dp))
+        }
+      }
+    }
   }
 }
 
 @Composable
-private fun ShutterToggleButton(
-  keepContentOnReset: Boolean,
-  modifier: Modifier,
-  onClick: () -> Unit,
-) {
-  Button(onClick, modifier) { Text("Shutter ${if (keepContentOnReset) "OFF" else "ON"}") }
+private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+  Button(onClick, modifier) { Text("Playing\nNow" + if (visible) " <<" else " >>") }
 }
 
 @Composable

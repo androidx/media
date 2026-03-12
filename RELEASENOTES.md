@@ -64,6 +64,10 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Add `CurrentMediaItemState` class and the corresponding
+        `rememberCurrentMediaItemState` Composable to `media3-ui-compose`
+        module. This state holder is used in `demo-compose` to display various
+        metadata information about the currently playing `MediaItem`.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
