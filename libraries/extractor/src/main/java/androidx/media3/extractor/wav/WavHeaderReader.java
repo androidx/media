@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.wav;
 
-import static androidx.media3.extractor.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
+import static androidx.media3.common.util.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
@@ -24,8 +24,8 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WavUtil;
 import androidx.media3.extractor.ExtractorInput;
-import androidx.media3.extractor.WavUtil;
 import java.io.IOException;
 import java.util.Arrays;
 
