@@ -372,7 +372,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
       frameSize = removeUnsynchronization(id3Data, frameSize);
     }
 
-    Id3Frame frame = null;
+    @Nullable Id3Frame frame = null;
     Throwable error = null;
     try {
       if (frameId0 == 'T'
@@ -647,6 +647,7 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
     return new CommentFrame(language, description, text);
   }
 
+  @Nullable
   private static ChapterFrame decodeChapterFrame(
       ParsableByteArray id3Data,
       int frameSize,
@@ -666,6 +667,9 @@ public final class Id3Decoder extends SimpleMetadataDecoder {
 
     int startTime = id3Data.readInt();
     int endTime = id3Data.readInt();
+    if (startTime > endTime) {
+      return null;
+    }
     long startOffset = id3Data.readUnsignedInt();
     if (startOffset == 0xFFFFFFFFL) {
       startOffset = C.INDEX_UNSET;

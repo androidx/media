@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
@@ -47,6 +49,7 @@ public final class ChapterFrame extends Id3Frame {
       long endOffset,
       Id3Frame[] subFrames) {
     super(ID);
+    checkArgument(startTimeMs <= endTimeMs);
     this.chapterId = chapterId;
     this.startTimeMs = startTimeMs;
     this.endTimeMs = endTimeMs;
