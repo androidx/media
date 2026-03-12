@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
@@ -35,7 +36,6 @@ import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererL
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutorService;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
@@ -59,12 +59,13 @@ import java.util.concurrent.ExecutorService;
   public CompositionVideoPacketReleaseControl(
       VideoFrameReleaseControl videoFrameReleaseControl,
       PacketConsumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
-      ExecutorService glExecutorService,
       Consumer<Exception> exceptionConsumer) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
+    // Call the downstream PacketConsumer on the calling thread to reduce unnecessary thread hops.
     this.downstreamConsumer =
-        PacketConsumerCaller.create(downstreamConsumer, glExecutorService, exceptionConsumer);
+        PacketConsumerCaller.create(
+            downstreamConsumer, newDirectExecutorService(), exceptionConsumer);
     this.downstreamConsumer.run();
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();

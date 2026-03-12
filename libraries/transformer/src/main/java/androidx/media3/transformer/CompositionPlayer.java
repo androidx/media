@@ -601,8 +601,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final long lateThresholdToDropInputUs;
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
-  private final boolean shouldShutdownExecutorService;
-  @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
   @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
 
@@ -732,21 +730,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                       : C.TIME_UNSET),
               /* allowedJoiningTimeMs= */ 0);
       videoFrameReleaseControl.setClock(clock);
-      executorService =
-          builder.glExecutorService != null
-              ? builder.glExecutorService
-              : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
-      shouldShutdownExecutorService = builder.glExecutorService == null;
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
               videoFrameReleaseControl,
               packetConsumer,
-              executorService,
               e -> internalListener.onError(VideoFrameProcessingException.from(e)));
     } else {
       hardwareBufferPostProcessor = null;
-      executorService = builder.glExecutorService;
-      shouldShutdownExecutorService = false;
       packetConsumer = null;
       surfaceHolderHardwareBufferFrameQueue = null;
       packetConsumerReportsRenderingEvents = false;
@@ -1028,7 +1018,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     // TODO: b/449956936 - Sequence releasing PacketConsumer with other internal objects.
     ListenableFuture<Void> releaseFuture;
     if (packetConsumer != null) {
-      releaseFuture = PacketConsumerUtil.release(packetConsumer, checkNotNull(executorService));
+      releaseFuture = PacketConsumerUtil.release(packetConsumer, directExecutor());
     } else {
       releaseFuture = immediateVoidFuture();
     }
@@ -1054,9 +1044,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* cause= */ null,
               PlaybackException.ERROR_CODE_TIMEOUT);
       updatePlaybackState();
-    }
-    if (shouldShutdownExecutorService && executorService != null) {
-      executorService.shutdown();
     }
     analyticsCollector.release();
     return releaseFuture;

@@ -20,7 +20,6 @@ import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import android.content.Context;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -70,7 +69,6 @@ public class CompositionVideoPacketReleaseControlTest {
         new CompositionVideoPacketReleaseControl(
             videoFrameReleaseControl,
             outputConsumer,
-            newDirectExecutorService(),
             exception -> {
               throw new IllegalStateException(exception);
             });
