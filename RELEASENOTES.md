@@ -46,6 +46,8 @@
         point PCM ([#3090](https://github.com/androidx/media/pull/3090)).
     *   Change return value of `DecoderAudioRenderer.getChannelMapping` to
         `ImmutableIntArray`.
+    *   Fix bug where playback gets stuck when playing a playlist of gapless
+        audio in compressed offload mode.
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.
