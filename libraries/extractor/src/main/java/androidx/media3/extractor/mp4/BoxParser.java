@@ -1646,8 +1646,8 @@ public final class BoxParser {
 
         Av1Config av1Config = Av1Config.parse(initializationDataChunk);
         initializationData = av1Config.initializationData;
-        bitdepthLuma = av1Config.bitdepthLuma;
-        bitdepthChroma = av1Config.bitdepthChroma;
+        bitdepthLuma = av1Config.bitdepth;
+        bitdepthChroma = av1Config.bitdepth;
         colorSpace = av1Config.colorSpace;
         colorRange = av1Config.colorRange;
         colorTransfer = av1Config.colorTransfer;

@@ -38,11 +38,8 @@ public final class Av1Config {
    */
   public final List<byte[]> initializationData;
 
-  /** The bit depth of the luma samples, or {@link Format#NO_VALUE} if unknown. */
-  public final int bitdepthLuma;
-
-  /** The bit depth of the chroma samples, or {@link Format#NO_VALUE} if unknown. */
-  public final int bitdepthChroma;
+  /** The bit depth of the samples, or {@link Format#NO_VALUE} if unknown. */
+  public final int bitdepth;
 
   /**
    * The {@link C.ColorSpace} of the video, or {@link Format#NO_VALUE} if unknown or not applicable.
@@ -77,8 +74,7 @@ public final class Av1Config {
    */
   public static Av1Config parse(byte[] initializationData) throws ParserException {
     try {
-      int bitdepthLuma = Format.NO_VALUE;
-      int bitdepthChroma = Format.NO_VALUE;
+      int bitdepth = Format.NO_VALUE;
       int colorSpace = Format.NO_VALUE;
       int colorRange = Format.NO_VALUE;
       int colorTransfer = Format.NO_VALUE;
@@ -94,11 +90,9 @@ public final class Av1Config {
       boolean highBitdepth = bitArray.readBit(); // high_bitdepth
       boolean twelveBit = bitArray.readBit(); // twelve_bit
       if (seqProfile == 2 && highBitdepth) {
-        bitdepthLuma = twelveBit ? 12 : 10;
-        bitdepthChroma = twelveBit ? 12 : 10;
+        bitdepth = twelveBit ? 12 : 10;
       } else if (seqProfile <= 2) {
-        bitdepthLuma = highBitdepth ? 10 : 8;
-        bitdepthChroma = highBitdepth ? 10 : 8;
+        bitdepth = highBitdepth ? 10 : 8;
       }
       // Skip monochrome, chroma_subsampling_x, chroma_subsampling_y, chroma_sample_position,
       // reserved and initial_presentation_delay.
@@ -107,12 +101,7 @@ public final class Av1Config {
       // The configOBUs array is optional. If the payload is exactly 4 bytes, we are done.
       if (bitArray.bitsLeft() <= 0) {
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
 
       // 5.3.1. General OBU syntax
@@ -121,22 +110,12 @@ public final class Av1Config {
       if (obuType != 1) { // obu_type != OBU_SEQUENCE_HEADER
         Log.i(TAG, "Unsupported obu_type: " + obuType);
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       if (bitArray.readBit()) { // obu_extension_flag
         Log.i(TAG, "Unsupported obu_extension_flag");
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       boolean obuHasSizeField = bitArray.readBit(); // obu_has_size_field
       bitArray.skipBit(); // obu_reserved_1bit
@@ -145,12 +124,7 @@ public final class Av1Config {
       if (obuHasSizeField && bitArray.readBits(8) > 127) { // obu_size
         Log.i(TAG, "Excessive obu_size");
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       // 5.5.1. General OBU sequence header syntax
       int obuSeqHeaderSeqProfile = bitArray.readBits(3); // seq_profile
@@ -158,32 +132,17 @@ public final class Av1Config {
       if (bitArray.readBit()) { // reduced_still_picture_header
         Log.i(TAG, "Unsupported reduced_still_picture_header");
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       if (bitArray.readBit()) { // timing_info_present_flag
         Log.i(TAG, "Unsupported timing_info_present_flag");
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       if (bitArray.readBit()) { // initial_display_delay_present_flag
         Log.i(TAG, "Unsupported initial_display_delay_present_flag");
         return new Av1Config(
-            ImmutableList.of(initializationData),
-            bitdepthLuma,
-            bitdepthChroma,
-            colorSpace,
-            colorRange,
-            colorTransfer);
+            ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
       }
       int operatingPointsCountMinus1 = bitArray.readBits(5); // operating_points_cnt_minus_1
       for (int i = 0; i <= operatingPointsCountMinus1; i++) {
@@ -244,12 +203,7 @@ public final class Av1Config {
       }
 
       return new Av1Config(
-          ImmutableList.of(initializationData),
-          bitdepthLuma,
-          bitdepthChroma,
-          colorSpace,
-          colorRange,
-          colorTransfer);
+          ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
 
     } catch (ArrayIndexOutOfBoundsException e) {
       throw ParserException.createForMalformedContainer("Error parsing AV1 config", e);
@@ -258,14 +212,12 @@ public final class Av1Config {
 
   private Av1Config(
       List<byte[]> initializationData,
-      int bitdepthLuma,
-      int bitdepthChroma,
+      int bitdepth,
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer) {
     this.initializationData = initializationData;
-    this.bitdepthLuma = bitdepthLuma;
-    this.bitdepthChroma = bitdepthChroma;
+    this.bitdepth = bitdepth;
     this.colorSpace = colorSpace;
     this.colorRange = colorRange;
     this.colorTransfer = colorTransfer;

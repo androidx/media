@@ -2317,8 +2317,8 @@ public class MatroskaExtractor implements Extractor {
             bitstreamColorSpace = av1Config.colorSpace;
             bitstreamColorTransfer = av1Config.colorTransfer;
             bitstreamColorRange = av1Config.colorRange;
-            bitstreamLumaBitdepth = av1Config.bitdepthLuma;
-            bitstreamChromaBitdepth = av1Config.bitdepthChroma;
+            bitstreamLumaBitdepth = av1Config.bitdepth;
+            bitstreamChromaBitdepth = av1Config.bitdepth;
           }
           break;
         case CODEC_ID_MPEG2:
