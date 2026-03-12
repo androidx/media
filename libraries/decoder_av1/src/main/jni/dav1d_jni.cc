@@ -915,6 +915,9 @@ DECODER_FUNC(void, dav1dReleaseFrame, jlong jContext, jobject jOutputBuffer) {
     dav1d_picture_unref(dav1d_picture);
     delete dav1d_picture;
   }
+  if (context->use_custom_allocator) {
+    CleanUpAllocatorData(jContext, env);
+  }
 }
 
 DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
@@ -956,6 +959,9 @@ DECODER_FUNC(void, dav1dFlush, jlong jContext) {
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   dav1d_flush(context->decoder);
+  if (context->use_custom_allocator) {
+    CleanUpAllocatorData(jContext, env);
+  }
 }
 
 DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
@@ -981,5 +987,8 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
     env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
     env->DeleteGlobalRef(cookie->global_ref_input_buffer);
     cookies_to_release.pop_back();
+  }
+  if (context->use_custom_allocator) {
+    CleanUpAllocatorData(jContext, env);
   }
 }
