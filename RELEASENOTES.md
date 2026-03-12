@@ -1,12 +1,11 @@
-# Release notes
+### 1.10.0-rc02 (2026-03-16)
 
-### Unreleased changes
+This release includes the following changes since
+[1.10.0-rc01 release](#1100-rc01-2026-03-10):
 
 *   Audio:
     *   Fix bug where playback gets stuck when playing a playlist of gapless
         audio in compressed offload mode.
-
-## 1.10
 
 ### 1.10.0-rc01 (2026-03-10)
 
