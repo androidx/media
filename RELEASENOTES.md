@@ -51,6 +51,9 @@
     *   Forward `Timeline` and period UID to `AudioSink.configure` and
         `AudioProcessor.StreamMetadata` to provide playlist context to the audio
         processors ([#418](https://github.com/androidx/media/issues/418)).
+    *   Set correct `AudioProcessor.StreamMetadata.positionOffsetUs` to allow
+        time-based audio processing
+        ([#418](https://github.com/androidx/media/issues/418)).
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.

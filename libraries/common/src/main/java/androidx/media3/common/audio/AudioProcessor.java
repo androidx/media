@@ -168,7 +168,7 @@ public interface AudioProcessor {
        * but might change due to updates to the media structure. In that case, the offset value will
        * not be updated until the next call to {@link #flush(StreamMetadata)}.
        *
-       * @param positionOffsetUs The stream position offset in microseconds. Must be non-negative.
+       * @param positionOffsetUs The stream position offset in microseconds.
        * @return This builder.
        */
       @CanIgnoreReturnValue

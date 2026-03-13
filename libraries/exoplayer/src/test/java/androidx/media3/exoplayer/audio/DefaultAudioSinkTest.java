@@ -177,6 +177,71 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
+  public void setOutputStreamOffset_withTimeline_updatesStreamMetadata() throws Exception {
+    AtomicReference<AudioProcessor.StreamMetadata> streamMetadataReference =
+        new AtomicReference<>();
+
+    long windowPositionInFirstPeriodUs = 5_000_000;
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setWindowPositionInFirstPeriodUs(windowPositionInFirstPeriodUs)
+                .build());
+    Object periodUid = timeline.getUidOfPeriod(0);
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(periodUid);
+
+    AudioProcessor capturingProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+            return inputAudioFormat;
+          }
+
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            inputBuffer.position(inputBuffer.limit());
+          }
+
+          @Override
+          protected void onFlush(AudioProcessor.StreamMetadata streamMetadata) {
+            streamMetadataReference.set(streamMetadata);
+          }
+        };
+
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain(capturingProcessor))
+            .build();
+
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(format)
+            .setTimeline(timeline)
+            .setMediaPeriodId(mediaPeriodId)
+            .build());
+
+    long presentationTimeUs = 10_000_000;
+    long outputStreamOffsetUs = 8_000_000;
+    defaultAudioSink.setOutputStreamOffsetUs(outputStreamOffsetUs);
+
+    retryUntilTrue(
+        () ->
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                presentationTimeUs,
+                /* encodedAccessUnitCount= */ 1));
+
+    // positionOffsetUs = presentationTimeUs - outputStreamOffsetUs + period.getPositionInWindowUs()
+    // positionOffsetUs = 10s - 8s + (-5s) = -3_000_000
+    assertThat(streamMetadataReference.get().positionOffsetUs).isEqualTo(-3_000_000);
+  }
+
+  @Test
   public void handlesBufferAfterReset() throws Exception {
     configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
     assertThat(

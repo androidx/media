@@ -603,6 +603,7 @@ public final class DefaultAudioSink implements AudioSink {
   private boolean startMediaTimeUsNeedsSync;
   private boolean startMediaTimeUsNeedsInit;
   private long startMediaTimeUs;
+  private long outputStreamOffsetUs;
   private float volume;
 
   @Nullable private ByteBuffer inputBuffer;
@@ -834,12 +835,24 @@ public final class DefaultAudioSink implements AudioSink {
     }
   }
 
-  private void setupAudioProcessors() {
+  private void setupAudioProcessors(long nextPresentationTimeUs) {
     audioProcessingPipeline = configuration.audioProcessingPipeline;
+    long positionOffsetUs;
+    if (nextPresentationTimeUs == C.TIME_UNSET) {
+      positionOffsetUs = 0;
+    } else {
+      positionOffsetUs = nextPresentationTimeUs - outputStreamOffsetUs;
+      if (configuration.timeline != Timeline.EMPTY && configuration.periodUid != null) {
+        Timeline.Period period = new Timeline.Period();
+        configuration.timeline.getPeriodByUid(configuration.periodUid, period);
+        positionOffsetUs += period.getPositionInWindowUs();
+      }
+    }
     audioProcessingPipeline.flush(
         new AudioProcessor.StreamMetadata.Builder()
             .setTimeline(configuration.timeline)
             .setPeriodUid(configuration.periodUid)
+            .setPositionOffsetUs(positionOffsetUs)
             .build());
   }
 
@@ -1378,6 +1391,11 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   @Override
+  public void setOutputStreamOffsetUs(long outputStreamOffsetUs) {
+    this.outputStreamOffsetUs = outputStreamOffsetUs;
+  }
+
+  @Override
   public void setAudioSessionId(int audioSessionId) {
     if (pendingAudioSessionIdChangeConfirmation) {
       if (this.audioSessionId == audioSessionId) {
@@ -1601,7 +1619,7 @@ public final class DefaultAudioSink implements AudioSink {
     handledEndOfStream = false;
     handledOffloadOnPresentationEnded = false;
     trimmingAudioProcessor.resetTrimmedFrameCount();
-    setupAudioProcessors();
+    setupAudioProcessors(/* nextPresentationTimeUs= */ C.TIME_UNSET);
   }
 
   private void setAudioOutputPlaybackParameters() {
@@ -1649,7 +1667,7 @@ public final class DefaultAudioSink implements AudioSink {
             audioProcessorPlaybackParameters,
             /* mediaTimeUs= */ max(0, presentationTimeUs),
             /* audioOutputPositionUs= */ configuration.framesToDurationUs(getWrittenFrames())));
-    setupAudioProcessors();
+    setupAudioProcessors(presentationTimeUs);
     if (listener != null) {
       listener.onSkipSilenceEnabledChanged(skipSilenceEnabled);
     }
