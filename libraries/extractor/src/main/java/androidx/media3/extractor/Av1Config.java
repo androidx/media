@@ -205,7 +205,7 @@ public final class Av1Config {
       return new Av1Config(
           ImmutableList.of(initializationData), bitdepth, colorSpace, colorRange, colorTransfer);
 
-    } catch (ArrayIndexOutOfBoundsException e) {
+    } catch (RuntimeException e) {
       throw ParserException.createForMalformedContainer("Error parsing AV1 config", e);
     }
   }
