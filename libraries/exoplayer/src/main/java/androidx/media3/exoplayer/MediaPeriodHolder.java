@@ -38,7 +38,7 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import java.io.IOException;
 
 /** Holds a {@link MediaPeriod} with information required to play it as part of a timeline. */
-/* package */ final class MediaPeriodHolder {
+/* package */ final class MediaPeriodHolder implements RenderersCoordinator.OnRenderersReevaluated {
 
   private static final String TAG = "MediaPeriodHolder";
 
@@ -51,7 +51,7 @@ import java.io.IOException;
   /**
    * The sample streams for each renderer associated with this period. May contain null elements.
    */
-  public final @NullableType SampleStream[] sampleStreams;
+  public @NullableType SampleStream[] sampleStreams;
 
   /** The target buffer duration to preload. */
   public final long targetPreloadBufferDurationUs;
@@ -80,8 +80,8 @@ import java.io.IOException;
    */
   public boolean allRenderersInCorrectState;
 
-  private final boolean[] mayRetainStreamFlags;
-  private final RendererCapabilities[] rendererCapabilities;
+  private boolean[] mayRetainStreamFlags;
+  private final RenderersCoordinator renderersCoordinator;
   private final TrackSelector trackSelector;
   private final MediaSourceList mediaSourceList;
 
@@ -93,25 +93,22 @@ import java.io.IOException;
   /**
    * Creates a new holder with information required to play it as part of a timeline.
    *
-   * @param rendererCapabilities The renderer capabilities.
+   * @param renderersCoordinator A coordinator that allows dynamic allocation of renderers.
    * @param rendererPositionOffsetUs The renderer time of the start of the period, in microseconds.
    * @param trackSelector The track selector.
    * @param allocator The allocator.
    * @param mediaSourceList The playlist.
    * @param info Information used to identify this media period in its timeline period.
-   * @param emptyTrackSelectorResult A {@link TrackSelectorResult} with empty selections for each
-   *     renderer.
    */
   public MediaPeriodHolder(
-      RendererCapabilities[] rendererCapabilities,
+      RenderersCoordinator renderersCoordinator,
       long rendererPositionOffsetUs,
       TrackSelector trackSelector,
       Allocator allocator,
       MediaSourceList mediaSourceList,
       MediaPeriodInfo info,
-      TrackSelectorResult emptyTrackSelectorResult,
       long targetPreloadBufferDurationUs) {
-    this.rendererCapabilities = rendererCapabilities;
+    this.renderersCoordinator = renderersCoordinator;
     this.rendererPositionOffsetUs = rendererPositionOffsetUs;
     this.trackSelector = trackSelector;
     this.mediaSourceList = mediaSourceList;
@@ -119,7 +116,8 @@ import java.io.IOException;
     this.info = info;
     this.targetPreloadBufferDurationUs = targetPreloadBufferDurationUs;
     this.trackGroups = TrackGroupArray.EMPTY;
-    this.trackSelectorResult = emptyTrackSelectorResult;
+    this.trackSelectorResult = renderersCoordinator.emptyTrackSelectorResult;
+    final RendererCapabilities[] rendererCapabilities = renderersCoordinator.rendererCapabilities;
     sampleStreams = new SampleStream[rendererCapabilities.length];
     mayRetainStreamFlags = new boolean[rendererCapabilities.length];
     mediaPeriod =
@@ -130,6 +128,7 @@ import java.io.IOException;
             info.startPositionUs,
             info.endPositionUs,
             info.isPrecededByTransitionFromSameStream);
+    renderersCoordinator.addListener(this);
   }
 
   /**
@@ -268,6 +267,7 @@ import java.io.IOException;
    */
   public TrackSelectorResult selectTracks(
       float playbackSpeed, Timeline timeline, boolean playWhenReady) throws ExoPlaybackException {
+    final RendererCapabilities[] rendererCapabilities = renderersCoordinator.rendererCapabilities;
     TrackSelectorResult selectorResult =
         trackSelector.selectTracks(rendererCapabilities, getTrackGroups(), info.id, timeline);
     for (int i = 0; i < selectorResult.length; i++) {
@@ -304,7 +304,19 @@ import java.io.IOException;
         trackSelectorResult,
         positionUs,
         forceRecreateStreams,
-        new boolean[rendererCapabilities.length]);
+        new boolean[renderersCoordinator.rendererCapabilities.length]);
+  }
+
+  @Override
+  public void onRenderersReevaluated() {
+    int size = renderersCoordinator.renderers.length;
+    SampleStream[] newSampleStreams = new SampleStream[size];
+    boolean[] newMayRetainStreamFlags = new boolean[size];
+    System.arraycopy(sampleStreams, 0, newSampleStreams, 0, sampleStreams.length);
+    System.arraycopy(
+        mayRetainStreamFlags, 0, newMayRetainStreamFlags, 0, mayRetainStreamFlags.length);
+    sampleStreams = newSampleStreams;
+    mayRetainStreamFlags = newMayRetainStreamFlags;
   }
 
   /**
@@ -326,7 +338,9 @@ import java.io.IOException;
       boolean[] streamResetFlags) {
     for (int i = 0; i < newTrackSelectorResult.length; i++) {
       mayRetainStreamFlags[i] =
-          !forceRecreateStreams && newTrackSelectorResult.isEquivalent(trackSelectorResult, i);
+          !forceRecreateStreams
+              && i < trackSelectorResult.length
+              && newTrackSelectorResult.isEquivalent(trackSelectorResult, i);
     }
 
     // Undo the effect of previous call to associate no-sample renderers with empty tracks
@@ -351,10 +365,10 @@ import java.io.IOException;
       if (sampleStreams[i] != null) {
         checkState(newTrackSelectorResult.isRendererEnabled(i));
         // hasEnabledTracks should be true only when non-empty streams exists.
-        if (rendererCapabilities[i].getTrackType() != C.TRACK_TYPE_NONE) {
+        if (renderersCoordinator.rendererCapabilities[i].getTrackType() != C.TRACK_TYPE_NONE) {
           hasEnabledTracks = true;
         }
-      } else {
+      } else if (newTrackSelectorResult.selections.length > 0) {
         checkState(newTrackSelectorResult.selections[i] == null);
       }
     }
@@ -363,6 +377,7 @@ import java.io.IOException;
 
   /** Releases the media period. No other method should be called after the release. */
   public void release() {
+    renderersCoordinator.removeListener(this);
     disableTrackSelectionsInResult();
     releaseMediaPeriod(mediaSourceList, mediaPeriod);
   }
@@ -463,6 +478,7 @@ import java.io.IOException;
    */
   private void disassociateNoSampleRenderersWithEmptySampleStream(
       @NullableType SampleStream[] sampleStreams) {
+    final RendererCapabilities[] rendererCapabilities = renderersCoordinator.rendererCapabilities;
     for (int i = 0; i < rendererCapabilities.length; i++) {
       if (rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE) {
         sampleStreams[i] = null;
@@ -476,6 +492,7 @@ import java.io.IOException;
    */
   private void associateNoSampleRenderersWithEmptySampleStream(
       @NullableType SampleStream[] sampleStreams) {
+    final RendererCapabilities[] rendererCapabilities = renderersCoordinator.rendererCapabilities;
     for (int i = 0; i < rendererCapabilities.length; i++) {
       if (rendererCapabilities[i].getTrackType() == C.TRACK_TYPE_NONE
           && trackSelectorResult.isRendererEnabled(i)) {
