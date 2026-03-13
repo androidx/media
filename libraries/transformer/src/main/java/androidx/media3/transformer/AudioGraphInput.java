@@ -307,8 +307,10 @@ import java.util.concurrent.atomic.AtomicLong;
     checkState(availableInputBuffers.size() == MAX_INPUT_BUFFER_COUNT);
     // positionOffsetUs and the output of preProcessingPipeline should be congruent, so we don't
     // allow preProcessingPipeline to modify the position offset.
-    preProcessingPipeline.flush(new StreamMetadata(positionOffsetUs));
-    userPipeline.flush(new StreamMetadata(positionOffsetUs));
+    StreamMetadata streamMetadata =
+        new StreamMetadata.Builder().setPositionOffsetUs(positionOffsetUs).build();
+    preProcessingPipeline.flush(streamMetadata);
+    userPipeline.flush(streamMetadata);
     receivedEndOfStreamFromInput = false;
     startTimeUs.set(C.TIME_UNSET);
     currentItemExpectedInputDurationUs = C.TIME_UNSET;
@@ -519,8 +521,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
     // positionOffsetUs and the output of preProcessingPipeline should be congruent, so we don't
     // allow preProcessingPipeline to modify the position offset.
-    preProcessingPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
-    userPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
+    StreamMetadata streamMetadata =
+        new StreamMetadata.Builder().setPositionOffsetUs(pendingChange.positionOffsetUs).build();
+    preProcessingPipeline.flush(streamMetadata);
+    userPipeline.flush(streamMetadata);
     receivedEndOfStreamFromInput = false;
     processedFirstMediaItemChange = true;
     if (onlyGenerateSilence) {

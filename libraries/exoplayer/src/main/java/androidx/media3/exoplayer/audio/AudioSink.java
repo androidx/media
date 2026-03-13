@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.companion.virtual.VirtualDevice;
@@ -30,10 +31,12 @@ import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -197,13 +200,30 @@ public interface AudioSink {
      */
     @Nullable public final ImmutableIntArray outputChannelMapping;
 
-    private AudioSinkConfig(
-        Format format,
-        int preferredBufferSizeOverride,
-        @Nullable ImmutableIntArray outputChannelMapping) {
-      this.format = format;
-      this.preferredBufferSizeOverride = preferredBufferSizeOverride;
-      this.outputChannelMapping = outputChannelMapping;
+    /**
+     * The {@link Timeline} of the playback this audio sink is configured for, or {@link
+     * Timeline#EMPTY} if undefined.
+     *
+     * <p>Can be used together with the {@link MediaPeriodId} to identify the concrete item in the
+     * playlist.
+     */
+    public final Timeline timeline;
+
+    /**
+     * The {@link MediaPeriodId} of the playback this audio sink is configured for, or {@code null}
+     * if undefined.
+     *
+     * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
+     * playlist.
+     */
+    @Nullable public final MediaPeriodId mediaPeriodId;
+
+    private AudioSinkConfig(Builder builder) {
+      format = builder.format;
+      preferredBufferSizeOverride = builder.preferredBufferSizeOverride;
+      outputChannelMapping = builder.outputChannelMapping;
+      timeline = builder.timeline;
+      mediaPeriodId = builder.mediaPeriodId;
     }
 
     /** Creates a {@link Builder} from the current values. */
@@ -222,7 +242,9 @@ public interface AudioSink {
       AudioSinkConfig that = (AudioSinkConfig) o;
       return preferredBufferSizeOverride == that.preferredBufferSizeOverride
           && format.equals(that.format)
-          && Objects.equals(outputChannelMapping, that.outputChannelMapping);
+          && Objects.equals(outputChannelMapping, that.outputChannelMapping)
+          && timeline.equals(that.timeline)
+          && Objects.equals(mediaPeriodId, that.mediaPeriodId);
     }
 
     @Override
@@ -230,6 +252,8 @@ public interface AudioSink {
       int result = format.hashCode();
       result = 31 * result + preferredBufferSizeOverride;
       result = 31 * result + (outputChannelMapping == null ? 0 : outputChannelMapping.hashCode());
+      result = 31 * result + timeline.hashCode();
+      result = 31 * result + (mediaPeriodId == null ? 0 : mediaPeriodId.hashCode());
       return result;
     }
 
@@ -238,6 +262,8 @@ public interface AudioSink {
       private final Format format;
       private int preferredBufferSizeOverride;
       @Nullable private ImmutableIntArray outputChannelMapping;
+      private Timeline timeline;
+      @Nullable private MediaPeriodId mediaPeriodId;
 
       /**
        * Creates a new builder.
@@ -248,6 +274,8 @@ public interface AudioSink {
         this.format = format;
         this.preferredBufferSizeOverride = 0;
         this.outputChannelMapping = null;
+        this.timeline = Timeline.EMPTY;
+        this.mediaPeriodId = null;
       }
 
       @SuppressWarnings("deprecation") // Copying deprecated value.
@@ -255,6 +283,8 @@ public interface AudioSink {
         this.format = audioSinkConfig.format;
         this.preferredBufferSizeOverride = audioSinkConfig.preferredBufferSizeOverride;
         this.outputChannelMapping = audioSinkConfig.outputChannelMapping;
+        this.timeline = audioSinkConfig.timeline;
+        this.mediaPeriodId = audioSinkConfig.mediaPeriodId;
       }
 
       /**
@@ -293,9 +323,45 @@ public interface AudioSink {
         return this;
       }
 
+      /**
+       * Sets the {@link Timeline} of the playback this audio sink is configured for.
+       *
+       * <p>Can be used together with the {@link MediaPeriodId} to identify the concrete item in the
+       * playlist.
+       *
+       * @param timeline The {@link Timeline}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimeline(Timeline timeline) {
+        this.timeline = timeline;
+        return this;
+      }
+
+      /**
+       * Sets the {@link MediaPeriodId} of the playback this audio sink is configured for.
+       *
+       * <p>Can be used together with the {@link Timeline} to identify the concrete item in the
+       * playlist.
+       *
+       * <p>If the {@link MediaPeriodId} is non-null and the provided {@link Timeline} non-empty,
+       * the value must refer to a valid period in the provided {@link Timeline}.
+       *
+       * @param mediaPeriodId The {@link MediaPeriodId}, or null to leave it undefined.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMediaPeriodId(@Nullable MediaPeriodId mediaPeriodId) {
+        this.mediaPeriodId = mediaPeriodId;
+        return this;
+      }
+
       /** Builds an {@link AudioSinkConfig} instance. */
       public AudioSinkConfig build() {
-        return new AudioSinkConfig(format, preferredBufferSizeOverride, outputChannelMapping);
+        if (!timeline.isEmpty() && mediaPeriodId != null) {
+          checkArgument(timeline.getIndexOfPeriod(mediaPeriodId.periodUid) != C.INDEX_UNSET);
+        }
+        return new AudioSinkConfig(this);
       }
     }
   }

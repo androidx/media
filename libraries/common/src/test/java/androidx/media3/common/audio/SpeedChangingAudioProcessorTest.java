@@ -693,7 +693,8 @@ public class SpeedChangingAudioProcessorTest {
     ByteBuffer input = getNonRandomByteBuffer(4410, AUDIO_FORMAT_44_100HZ.bytesPerFrame);
 
     // Flush to start of second speed region.
-    speedChangingAudioProcessor.flush(new StreamMetadata(/* positionOffsetUs= */ 100_000L));
+    speedChangingAudioProcessor.flush(
+        new StreamMetadata.Builder().setPositionOffsetUs(100_000L).build());
     int outputFrameCount = 0;
     while (input.hasRemaining()) {
       speedChangingAudioProcessor.queueInput(input);
@@ -722,7 +723,8 @@ public class SpeedChangingAudioProcessorTest {
             /* shouldMaintainPitch= */ false);
     speedChangingAudioProcessor.configure(AUDIO_FORMAT_44_100HZ);
     // 50_000us is the start of the 10x speed region.
-    speedChangingAudioProcessor.flush(new StreamMetadata(/* positionOffsetUs= */ 50_000));
+    speedChangingAudioProcessor.flush(
+        new StreamMetadata.Builder().setPositionOffsetUs(50_000).build());
     ByteBuffer input =
         getNonRandomByteBuffer(/* frameCount= */ 4410, AUDIO_FORMAT_44_100HZ.bytesPerFrame);
 

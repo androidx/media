@@ -503,6 +503,8 @@ public abstract class DecoderAudioRenderer<
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(outputFormat)
               .setOutputChannelMapping(getChannelMapping(decoder))
+              .setTimeline(getTimeline())
+              .setMediaPeriodId(getMediaPeriodId())
               .build());
       audioTrackNeedsConfigure = false;
     }

@@ -186,21 +186,21 @@ public class SilenceAppendingAudioProcessorTest {
     AudioFormat unused = generator.configure(INPUT_AUDIO_FORMAT);
     assertThrows(
         IllegalStateException.class,
-        () -> generator.flush(new StreamMetadata(/* positionOffsetUs= */ 50_000)));
+        () -> generator.flush(new StreamMetadata.Builder().setPositionOffsetUs(50_000).build()));
   }
 
   @Test
   public void flush_withUnsetDurationAndNonZeroPositionOffset_doesNotThrow() throws Exception {
     SilenceAppendingAudioProcessor generator = new SilenceAppendingAudioProcessor();
     AudioFormat unused = generator.configure(INPUT_AUDIO_FORMAT);
-    generator.flush(new StreamMetadata(/* positionOffsetUs= */ 50_000));
+    generator.flush(new StreamMetadata.Builder().setPositionOffsetUs(50_000).build());
     assertThat(generator.isActive()).isFalse();
   }
 
   @Test
   public void flush_withUnsetInputFormatAndNonZeroPositionOffset_doesNotThrow() throws Exception {
     SilenceAppendingAudioProcessor generator = new SilenceAppendingAudioProcessor();
-    generator.flush(new StreamMetadata(/* positionOffsetUs= */ 50_000));
+    generator.flush(new StreamMetadata.Builder().setPositionOffsetUs(50_000).build());
     assertThat(generator.isActive()).isFalse();
   }
 

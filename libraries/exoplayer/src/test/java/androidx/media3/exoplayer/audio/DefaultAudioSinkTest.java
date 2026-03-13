@@ -44,10 +44,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessorChain;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.DefaultAudioProcessorChain;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -849,6 +853,102 @@ public final class DefaultAudioSinkTest {
                     .setChannelCount(DEFAULT_MAX_CHANNEL_COUNT)
                     .build()))
         .isFalse();
+  }
+
+  @Test
+  public void configure_withTimelineAndMediaPeriodId_passesMetadataToAudioProcessor()
+      throws Exception {
+    Timeline timeline = new FakeTimeline();
+    Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(periodUid);
+    AtomicReference<AudioProcessor.StreamMetadata> capturedMetadata = new AtomicReference<>();
+    @SuppressWarnings("SameNameButDifferent") // Using Media3 AudioFormat.
+    AudioProcessor capturingProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+            return inputAudioFormat;
+          }
+
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            inputBuffer.position(inputBuffer.limit());
+          }
+
+          @Override
+          protected void onFlush(AudioProcessor.StreamMetadata streamMetadata) {
+            capturedMetadata.set(streamMetadata);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain(capturingProcessor))
+            .build();
+
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(format)
+            .setTimeline(timeline)
+            .setMediaPeriodId(mediaPeriodId)
+            .build());
+    defaultAudioSink.handleBuffer(
+        create1Sec44100HzSilenceBuffer(),
+        /* presentationTimeUs= */ 0,
+        /* encodedAccessUnitCount= */ 1);
+
+    assertThat(capturedMetadata.get().timeline).isEqualTo(timeline);
+    assertThat(capturedMetadata.get().periodUid).isEqualTo(periodUid);
+  }
+
+  @Test
+  public void configure_withEmptyTimeline_passesEmptyTimelineToAudioProcessor() throws Exception {
+    AtomicReference<AudioProcessor.StreamMetadata> capturedMetadata = new AtomicReference<>();
+    @SuppressWarnings("SameNameButDifferent") // Using Media3 AudioFormat.
+    AudioProcessor capturingProcessor =
+        new BaseAudioProcessor() {
+          @Override
+          protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+            return inputAudioFormat;
+          }
+
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            inputBuffer.position(inputBuffer.limit());
+          }
+
+          @Override
+          protected void onFlush(AudioProcessor.StreamMetadata streamMetadata) {
+            capturedMetadata.set(streamMetadata);
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain(capturingProcessor))
+            .build();
+
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .build();
+    defaultAudioSink.configure(
+        new AudioSink.AudioSinkConfig.Builder(format)
+            .setTimeline(Timeline.EMPTY)
+            .setMediaPeriodId(null)
+            .build());
+    defaultAudioSink.handleBuffer(
+        create1Sec44100HzSilenceBuffer(),
+        /* presentationTimeUs= */ 0,
+        /* encodedAccessUnitCount= */ 1);
+
+    assertThat(capturedMetadata.get().timeline).isEqualTo(Timeline.EMPTY);
+    assertThat(capturedMetadata.get().periodUid).isNull();
   }
 
   @Test

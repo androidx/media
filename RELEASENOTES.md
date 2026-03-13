@@ -46,6 +46,11 @@
         point PCM ([#3090](https://github.com/androidx/media/pull/3090)).
     *   Change return value of `DecoderAudioRenderer.getChannelMapping` to
         `ImmutableIntArray`.
+    *   Fix bug where playback gets stuck when playing a playlist of gapless
+        audio in compressed offload mode.
+    *   Forward `Timeline` and period UID to `AudioSink.configure` and
+        `AudioProcessor.StreamMetadata` to provide playlist context to the audio
+        processors ([#418](https://github.com/androidx/media/issues/418)).
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.

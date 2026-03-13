@@ -98,7 +98,8 @@ import java.util.Objects;
       if (Objects.equals(mixerAudioFormat, AudioFormat.NOT_SET)) {
         this.mixerAudioFormat = audioGraphInput.getOutputAudioFormat();
         audioProcessingPipeline.configure(mixerAudioFormat);
-        audioProcessingPipeline.flush(new StreamMetadata(pendingStartTimeUs));
+        audioProcessingPipeline.flush(
+            new StreamMetadata.Builder().setPositionOffsetUs(pendingStartTimeUs).build());
       }
     } catch (UnhandledAudioFormatException e) {
       throw ExportException.createForAudioProcessing(
@@ -183,7 +184,8 @@ import java.util.Objects;
     isMixerConfigured = false;
     isMixerReady = false;
     mixerOutput = EMPTY_BUFFER;
-    audioProcessingPipeline.flush(new StreamMetadata(pendingStartTimeUs));
+    audioProcessingPipeline.flush(
+        new StreamMetadata.Builder().setPositionOffsetUs(pendingStartTimeUs).build());
     finishedInputs = 0;
   }
 

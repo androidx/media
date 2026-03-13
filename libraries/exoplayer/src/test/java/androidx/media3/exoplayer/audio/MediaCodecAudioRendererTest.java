@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
@@ -233,12 +234,12 @@ public class MediaCodecAudioRendererTest {
       positionUs += 250;
     } while (!mediaCodecAudioRenderer.isEnded());
 
-    verify(audioSink)
-        .configure(new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(AUDIO_AAC)).build());
-
-    verify(audioSink)
-        .configure(
-            new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(changedFormat)).build());
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configs =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, times(2)).configure(configs.capture());
+    assertThat(configs.getAllValues().stream().map(config -> config.format))
+        .containsExactly(getAudioSinkFormat(AUDIO_AAC), getAudioSinkFormat(changedFormat))
+        .inOrder();
   }
 
   @Test
@@ -286,12 +287,12 @@ public class MediaCodecAudioRendererTest {
       positionUs += 250;
     } while (!mediaCodecAudioRenderer.isEnded());
 
-    verify(audioSink)
-        .configure(new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(AUDIO_AAC)).build());
-
-    verify(audioSink)
-        .configure(
-            new AudioSink.AudioSinkConfig.Builder(getAudioSinkFormat(changedFormat)).build());
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configs =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, times(2)).configure(configs.capture());
+    assertThat(configs.getAllValues().stream().map(config -> config.format))
+        .containsExactly(getAudioSinkFormat(AUDIO_AAC), getAudioSinkFormat(changedFormat))
+        .inOrder();
   }
 
   @Test

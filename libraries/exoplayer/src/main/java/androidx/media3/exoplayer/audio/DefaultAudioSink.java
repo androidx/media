@@ -43,6 +43,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
@@ -823,7 +824,9 @@ public final class DefaultAudioSink implements AudioSink {
             inputPcmFrameSize,
             outputPcmFrameSize,
             outputConfig,
-            audioProcessingPipeline);
+            audioProcessingPipeline,
+            audioSinkConfig.timeline,
+            audioSinkConfig.mediaPeriodId != null ? audioSinkConfig.mediaPeriodId.periodUid : null);
     if (isAudioOutputInitialized()) {
       this.pendingConfiguration = pendingConfiguration;
     } else {
@@ -833,7 +836,11 @@ public final class DefaultAudioSink implements AudioSink {
 
   private void setupAudioProcessors() {
     audioProcessingPipeline = configuration.audioProcessingPipeline;
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(
+        new AudioProcessor.StreamMetadata.Builder()
+            .setTimeline(configuration.timeline)
+            .setPeriodUid(configuration.periodUid)
+            .build());
   }
 
   private boolean initializeAudioOutput() throws InitializationException {
@@ -1569,14 +1576,7 @@ public final class DefaultAudioSink implements AudioSink {
         // Shouldn't usually happen if the configuration succeeded with same setup before.
         throw new IllegalStateException(new ConfigurationException(e, configuration.inputFormat));
       }
-      configuration =
-          new Configuration(
-              configuration.inputFormat,
-              configuration.afterProcessingInputFormat,
-              configuration.inputPcmFrameSize,
-              configuration.outputPcmFrameSize,
-              outputConfig,
-              configuration.audioProcessingPipeline);
+      configuration = configuration.copyWithOutputConfig(outputConfig);
     }
     flush();
   }
@@ -2022,6 +2022,8 @@ public final class DefaultAudioSink implements AudioSink {
     private final int outputPcmFrameSize;
     private final OutputConfig outputConfig;
     private final AudioProcessingPipeline audioProcessingPipeline;
+    private final Timeline timeline;
+    @Nullable private final Object periodUid;
 
     private Configuration(
         Format inputFormat,
@@ -2029,13 +2031,17 @@ public final class DefaultAudioSink implements AudioSink {
         int inputPcmFrameSize,
         int outputPcmFrameSize,
         OutputConfig outputConfig,
-        AudioProcessingPipeline audioProcessingPipeline) {
+        AudioProcessingPipeline audioProcessingPipeline,
+        Timeline timeline,
+        @Nullable Object periodUid) {
       this.inputFormat = inputFormat;
       this.afterProcessingInputFormat = afterProcessingInputFormat;
       this.inputPcmFrameSize = inputPcmFrameSize;
       this.outputPcmFrameSize = outputPcmFrameSize;
       this.outputConfig = outputConfig;
       this.audioProcessingPipeline = audioProcessingPipeline;
+      this.timeline = timeline;
+      this.periodUid = periodUid;
     }
 
     private Configuration copyWithOutputConfig(OutputConfig outputConfig) {
@@ -2045,7 +2051,9 @@ public final class DefaultAudioSink implements AudioSink {
           inputPcmFrameSize,
           outputPcmFrameSize,
           outputConfig,
-          audioProcessingPipeline);
+          audioProcessingPipeline,
+          timeline,
+          periodUid);
     }
 
     private long inputFramesToDurationUs(long frameCount) {

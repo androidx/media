@@ -685,6 +685,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       audioSink.configure(
           new AudioSink.AudioSinkConfig.Builder(audioSinkInputFormat)
               .setOutputChannelMapping(channelMap)
+              .setTimeline(getTimeline())
+              .setMediaPeriodId(getMediaPeriodId())
               .build());
     } catch (AudioSink.ConfigurationException e) {
       throw createRendererException(
