@@ -29,22 +29,64 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
+import androidx.media3.common.Player.EVENT_AVAILABLE_COMMANDS_CHANGED
+import androidx.media3.common.listen
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.PlayerSurface
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
 import androidx.media3.ui.compose.buttons.PlayPauseButton
+import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPresentationState
+
+// Code snippets for the Compose customization guide.
+
+fun Player.actionA() {}
+
+var Player.someField
+  get() = 0
+  set(value) {}
+val COMMAND_ACTION_A = 0
+val EVENT_B_CHANGED = 0
+val EVENT_C_CHANGED = 0
+val someFieldDefault = 0
+
+@OptIn(UnstableApi::class)
+// [START android_compose_some_button_state]
+class SomeButtonState(private val player: Player) {
+  var isEnabled by mutableStateOf(player.isCommandAvailable(COMMAND_ACTION_A))
+    private set
+
+  var someFieldValue by mutableStateOf(someFieldDefault)
+    private set
+
+  fun onClick() {
+    player.actionA()
+  }
+
+  suspend fun observe(): Nothing =
+    player.listen { events ->
+      if (events.containsAny(EVENT_B_CHANGED, EVENT_C_CHANGED, EVENT_AVAILABLE_COMMANDS_CHANGED)) {
+        someFieldValue = this.someField
+        isEnabled = this.isCommandAvailable(COMMAND_ACTION_A)
+      }
+    }
+}
+
+// [END android_compose_some_button_state]
 
 @OptIn(UnstableApi::class)
 class ComposeCustomization {
@@ -58,9 +100,8 @@ class ComposeCustomization {
       Icon(
         imageVector = if (state.showPlay) Icons.Default.PlayArrow else Icons.Default.Pause,
         contentDescription =
-          if (state.showPlay)
-            stringResource(androidx.media3.ui.compose.material3.R.string.playpause_button_play)
-          else stringResource(androidx.media3.ui.compose.material3.R.string.playpause_button_pause),
+          if (state.showPlay) stringResource(R.string.playpause_button_play)
+          else stringResource(R.string.playpause_button_pause),
       )
     }
     // [END android_compose_custom_play_pause_button]
@@ -80,7 +121,7 @@ class ComposeCustomization {
     val scaledModifier =
       modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
 
-    // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
+    // Always leave PlayerSurface to be part of the Compose tree because it will be initialized in
     // the process. If this composable is guarded by some condition, it might never become visible
     // because the Player won't emit the relevant event, e.g. the first frame being ready.
     PlayerSurface(player, scaledModifier, surfaceType)
