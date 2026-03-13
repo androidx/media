@@ -92,7 +92,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private final OutputConfig config;
   private final float maxPlaybackSpeed;
   @Nullable private final CapabilityChangeListener capabilityChangeListener;
-  @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
+  @Nullable private OnRoutingChangedListener onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
   private final int pcmFrameSize;
@@ -165,9 +165,8 @@ public final class AudioTrackAudioOutput implements AudioOutput {
             pcmFrameSize,
             config.bufferSize);
 
-    if (SDK_INT >= 24 && capabilityChangeListener != null) {
-      onRoutingChangedListener =
-          new OnRoutingChangedListenerApi24(audioTrack, capabilityChangeListener);
+    if (capabilityChangeListener != null) {
+      onRoutingChangedListener = new OnRoutingChangedListener(audioTrack, capabilityChangeListener);
     }
     offloadStreamEventCallbackV29 = isOffloadedPlayback() ? new StreamEventCallbackV29() : null;
   }
@@ -311,7 +310,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     if (SDK_INT >= 29 && isOffloadedPlayback()) {
       checkNotNull(offloadStreamEventCallbackV29).unregister();
     }
-    if (SDK_INT >= 24 && onRoutingChangedListener != null) {
+    if (onRoutingChangedListener != null) {
       onRoutingChangedListener.release();
       onRoutingChangedListener = null;
     }
@@ -597,31 +596,46 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     }
   }
 
-  @RequiresApi(24)
-  private static final class OnRoutingChangedListenerApi24 {
+  private static final class OnRoutingChangedListener {
 
     private final AudioTrack audioTrack;
     private final CapabilityChangeListener capabilityChangeListener;
     private final Handler playbackThreadHandler;
 
+    @Nullable private AudioTrack.OnRoutingChangedListener listenerApi23;
     @Nullable private AudioRouting.OnRoutingChangedListener listener;
 
-    private OnRoutingChangedListenerApi24(
+    private OnRoutingChangedListener(
         AudioTrack audioTrack, CapabilityChangeListener capabilityChangeListener) {
       this.audioTrack = audioTrack;
       this.capabilityChangeListener = capabilityChangeListener;
       this.playbackThreadHandler = Util.createHandlerForCurrentLooper();
-      this.listener = this::onRoutingChanged;
-      audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
+      if (SDK_INT >= 24) {
+        this.listener = this::onRoutingChanged;
+        audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
+      } else {
+        this.listenerApi23 = this::onRoutingChanged;
+        audioTrack.addOnRoutingChangedListener(listenerApi23, playbackThreadHandler);
+      }
     }
 
     private void release() {
-      audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
-      listener = null;
+      if (SDK_INT >= 24) {
+        audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
+        listener = null;
+      } else {
+        audioTrack.removeOnRoutingChangedListener(checkNotNull(listenerApi23));
+        listenerApi23 = null;
+      }
     }
 
+    @RequiresApi(24)
     private void onRoutingChanged(AudioRouting router) {
-      if (listener == null) {
+      onRoutingChanged((AudioTrack) router);
+    }
+
+    private void onRoutingChanged(AudioTrack router) {
+      if (listener == null && listenerApi23 == null) {
         // Stale event.
         return;
       }
@@ -632,7 +646,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
                 if (routedDevice != null) {
                   playbackThreadHandler.post(
                       () -> {
-                        if (listener == null) {
+                        if (listener == null && listenerApi23 == null) {
                           // Stale event.
                           return;
                         }
