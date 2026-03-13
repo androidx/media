@@ -2027,7 +2027,7 @@ public class FragmentedMp4Extractor implements Extractor {
   private void readMfro(ExtractorInput input, PositionHolder seekPosition) throws IOException {
     // An mfro box is always exactly 16 bytes long.
     scratch.reset(MFRO_FIXED_BOX_SIZE);
-    if (!input.readFully(scratch.getData(), 0, MFRO_FIXED_BOX_SIZE, true)) {
+    if (!input.readFully(scratch.getData(), 0, MFRO_FIXED_BOX_SIZE, /* allowEndOfInput= */ true)) {
       onMfraProcessingFinished(
           new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
       return;
@@ -2058,11 +2058,24 @@ public class FragmentedMp4Extractor implements Extractor {
   /** Parses an mfra box (defined in 14496-12). */
   private void readMfra(ExtractorInput input, PositionHolder seekPosition) throws IOException {
     long mfraSize = input.getLength() - input.getPosition();
+    scratch.reset(Mp4Box.HEADER_SIZE);
+    if (!input.peekFully(scratch.getData(), 0, Mp4Box.HEADER_SIZE, /* allowEndOfInput= */ true)) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+    scratch.setPosition(0);
+    int mfraBoxSize = scratch.readInt();
+    int mfraBoxType = scratch.readInt();
+    if (mfraBoxType != Mp4Box.TYPE_mfra) {
+      onMfraProcessingFinished(
+          new SeekMap.Unseekable(durationUs, seekPositionBeforeMfraProcessing), seekPosition);
+      return;
+    }
+
     ParsableByteArray mfra = new ParsableByteArray((int) mfraSize);
     input.readFully(mfra.getData(), 0, (int) mfraSize);
 
-    mfra.setPosition(0);
-    int mfraBoxSize = mfra.readInt();
     mfra.setPosition(mfraBoxSize == 1 ? Mp4Box.LONG_HEADER_SIZE : Mp4Box.HEADER_SIZE);
 
     SparseArray<long[]> trackTimesUs = new SparseArray<>();
