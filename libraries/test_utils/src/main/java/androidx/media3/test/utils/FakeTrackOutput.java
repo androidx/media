@@ -198,6 +198,10 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     return sampleTimesUs.build();
   }
 
+  public long getDurationUs() {
+    return durationUs;
+  }
+
   @Override
   public void dump(Dumper dumper) {
     dumper.add("total output bytes", sampleData.length);
