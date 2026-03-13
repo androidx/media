@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -98,6 +99,9 @@ public final class ClippingProgressivePlaybackTest {
 
   @Test
   public void playback_clippedWithSeek() throws Exception {
+    assumeTrue(
+        "This test is flaky with enableMediaPeriodClipping=false: b/491840995",
+        enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
