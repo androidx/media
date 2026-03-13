@@ -153,10 +153,14 @@ public final class DefaultAudioSink implements AudioSink {
   /**
    * The default audio processor chain, which applies a (possibly empty) chain of user-defined audio
    * processors followed by {@link SilenceSkippingAudioProcessor} and {@link SonicAudioProcessor}.
+   *
+   * <p>For backwards compatibility, no audio processors will be applied for PCM encodings other
+   * than 16-bit integer.
    */
   @SuppressWarnings("deprecation")
   public static class DefaultAudioProcessorChain implements AudioProcessorChain {
 
+    private boolean formatSupported = false;
     private final AudioProcessor[] audioProcessors;
     private final SilenceSkippingAudioProcessor silenceSkippingAudioProcessor;
     private final SonicAudioProcessor sonicAudioProcessor;
@@ -193,12 +197,22 @@ public final class DefaultAudioSink implements AudioSink {
     }
 
     @Override
-    public AudioProcessor[] getAudioProcessors() {
+    public AudioProcessor[] getAudioProcessors(Format inputFormat) {
+      if (inputFormat.pcmEncoding != C.ENCODING_PCM_16BIT) {
+        formatSupported = false;
+        return new AudioProcessor[0];
+      }
+      formatSupported = true;
       return audioProcessors;
     }
 
     @Override
     public PlaybackParameters applyPlaybackParameters(PlaybackParameters playbackParameters) {
+      if (!formatSupported) {
+        // We don't apply speed/pitch adjustment using an audio processor when outputting
+        // high-resolution PCM audio, because SonicAudioProcessor outputs 16-bit integer PCM.
+        return PlaybackParameters.DEFAULT;
+      }
       sonicAudioProcessor.setSpeed(playbackParameters.speed);
       sonicAudioProcessor.setPitch(playbackParameters.pitch);
       return playbackParameters;
@@ -206,6 +220,11 @@ public final class DefaultAudioSink implements AudioSink {
 
     @Override
     public boolean applySkipSilenceEnabled(boolean skipSilenceEnabled) {
+      if (!formatSupported) {
+        // We don't skip silence using an audio processor when outputting high-resolution PCM audio,
+        // because SilenceSkippingAudioProcessor only supports 16-bit integer PCM.
+        return false;
+      }
       silenceSkippingAudioProcessor.setEnabled(skipSilenceEnabled);
       return skipSilenceEnabled;
     }
@@ -751,13 +770,16 @@ public final class DefaultAudioSink implements AudioSink {
       inputPcmFrameSize = Util.getPcmFrameSize(inputFormat.pcmEncoding, inputFormat.channelCount);
 
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
+      Format chainInputFormat;
       pipelineProcessors.addAll(availableAudioProcessors);
       if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
         pipelineProcessors.add(toFloatPcmAudioProcessor);
+        chainInputFormat = inputFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_FLOAT).build();
       } else {
         pipelineProcessors.add(toInt16PcmAudioProcessor);
-        pipelineProcessors.add(audioProcessorChain.getAudioProcessors());
+        chainInputFormat = inputFormat.buildUpon().setPcmEncoding(C.ENCODING_PCM_16BIT).build();
       }
+      pipelineProcessors.add(audioProcessorChain.getAudioProcessors(chainInputFormat));
       audioProcessingPipeline = new AudioProcessingPipeline(pipelineProcessors.build());
 
       // If the underlying processors of the new pipeline are the same as the existing pipeline,
@@ -1681,13 +1703,10 @@ public final class DefaultAudioSink implements AudioSink {
     // We don't apply speed/pitch adjustment using an audio processor in the following cases:
     // - in tunneling mode, because audio processing can change the duration of audio yet the video
     //   frame presentation times are currently not modified (see also
-    //   https://github.com/google/ExoPlayer/issues/4803);
+    //   https://github.com/google/ExoPlayer/issues/4803); and
     // - when playing encoded audio via passthrough/offload, because modifying the audio stream
-    //   would require decoding/re-encoding; and
-    // - when outputting float PCM audio, because SonicAudioProcessor outputs 16-bit integer PCM.
-    return !tunneling
-        && configuration.isPcm()
-        && !shouldUseFloatOutput(configuration.inputFormat.pcmEncoding);
+    //   would require decoding/re-encoding.
+    return !tunneling && configuration.isPcm();
   }
 
   private boolean useAudioOutputPlaybackParams() {
