@@ -88,8 +88,9 @@ cd "${FFMPEG_MODULE_PATH}/jni/ffmpeg"
     --ar="${TOOLCHAIN_PREFIX}/llvm-ar" \
     --ranlib="${TOOLCHAIN_PREFIX}/llvm-ranlib" \
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
-    --extra-cflags="-march=armv7-a -mfloat-abi=softfp -fPIC --sysroot=${SYSROOT}" \
+    --extra-cflags="-march=armv7-a -mfpu=neon -mfloat-abi=softfp -fPIC --sysroot=${SYSROOT}" \
     --extra-ldflags="-Wl,--fix-cortex-a8 --sysroot=${SYSROOT}" \
+    --enable-neon \
     ${COMMON_OPTIONS}
 make -j$JOBS
 make install-libs
@@ -106,6 +107,7 @@ make clean
     --strip="${TOOLCHAIN_PREFIX}/llvm-strip" \
     --extra-cflags="-fPIC --sysroot=${SYSROOT}" \
     --extra-ldflags="--sysroot=${SYSROOT}" \
+    --enable-neon \
     ${COMMON_OPTIONS}
 make -j$JOBS
 make install-libs

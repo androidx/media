@@ -527,6 +527,26 @@ static int cvtColorspace(AVColorSpace colorSpace) {
 static AVFrame* cvtFormat(VideoJniContext* ctx, AVFrame* src,
                           AVPixelFormat dstFormat, int dstWidth, int dstHeight) {
   AVPixelFormat srcFormat = (AVPixelFormat)src->format;
+  if (srcFormat == dstFormat && src->width == dstWidth && src->height == dstHeight) {
+    AVFrame* dst = av_frame_alloc();
+    if (!dst) return nullptr;
+    av_frame_copy_props(dst, src);
+    dst->width = dstWidth;
+    dst->height = dstHeight;
+    dst->format = dstFormat;
+    if (av_frame_get_buffer(dst, 0) != 0) {
+      av_frame_free(&dst);
+      return nullptr;
+    }
+    for (int i = 0; i < 3; ++i) {
+      int h = (i == 0) ? src->height : (src->height + 1) / 2;
+      int linesize = src->linesize[i];
+      if (linesize > dst->linesize[i]) linesize = dst->linesize[i];
+      for (int y = 0; y < h; ++y)
+        memcpy(dst->data[i] + y * dst->linesize[i], src->data[i] + y * src->linesize[i], (size_t)linesize);
+    }
+    return dst;
+  }
   ctx->swsContext = sws_getCachedContext(ctx->swsContext,
       src->width, src->height, srcFormat,
       dstWidth, dstHeight, dstFormat,
@@ -577,9 +597,10 @@ static VideoJniContext* createVideoContext(JNIEnv* env, const AVCodec* codec,
 
   ctx->codecContext->skip_loop_filter = AVDISCARD_ALL;
   ctx->codecContext->skip_frame = AVDISCARD_DEFAULT;
-  ctx->codecContext->thread_count = threads;
+  ctx->codecContext->thread_count = (threads > 0) ? threads : 0;  // 0 = auto
   ctx->codecContext->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
   ctx->codecContext->err_recognition = AV_EF_IGNORE_ERR;
+  ctx->codecContext->flags |= AV_CODEC_FLAG_LOW_DELAY;
   if (width > 0 && height > 0) {
     ctx->codecContext->width = width;
     ctx->codecContext->height = height;
