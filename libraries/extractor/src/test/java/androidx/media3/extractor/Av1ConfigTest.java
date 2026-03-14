@@ -33,7 +33,7 @@ public final class Av1ConfigTest {
   @Test
   public void parse_8bit_noOptionalObus() throws ParserException {
     // 0x81: marker = 1, version = 1
-    // 0x00: seq_profile = 0, seq_level_idx_0 = 0
+    // 0x01: seq_profile = 0, seq_level_idx_0 = 1
     // 0x00: seq_tier_0 = 0 (Main), high_bitdepth = 0, twelve_bit = 0, monochrome = 0
     //       chroma_subsampling_x = 0, chroma_subsampling_y = 0, chroma_sample_position = 0
     // 0x00: reserved | initial_presentation_delay_present
@@ -42,6 +42,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -50,15 +51,16 @@ public final class Av1ConfigTest {
   @Test
   public void parse_10bit_noOptionalObus() throws ParserException {
     // 0x81: marker = 1, version = 1
-    // 0x00: seq_profile = 0, seq_level_idx_0 = 0
-    // 0x40: seq_tier_0 = 0 (Main), high_bitdepth = 1, twelve_bit = 0, monochrome = 0
+    // 0x04: seq_profile = 0, seq_level_idx_0 = 4
+    // 0xC0: seq_tier_0 = 1 (High), high_bitdepth = 1, twelve_bit = 0, monochrome = 0
     //       chroma_subsampling_x = 0, chroma_subsampling_y = 0, chroma_sample_position = 0
     // 0x00: reserved | initial_presentation_delay_present
-    byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x40, 0x00);
+    byte[] initializationData = TestUtil.createByteArray(0x81, 0x04, 0xC0, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(10);
+    assertThat(config.codecs).isEqualTo("av01.0.04H.10");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -67,15 +69,16 @@ public final class Av1ConfigTest {
   @Test
   public void parse_12bit_noOptionalObus() throws ParserException {
     // 0x81: marker = 1, version = 1
-    // 0x40: seq_profile = 2, seq_level_idx_0 = 0
+    // 0x48: seq_profile = 2, seq_level_idx_0 = 8
     // 0x60: seq_tier_0 = 0 (Main), high_bitdepth = 1, twelve_bit = 1, monochrome = 0
     //       chroma_subsampling_x = 0, chroma_subsampling_y = 0, chroma_sample_position = 0
     // 0x00: reserved | initial_presentation_delay_present
-    byte[] initializationData = TestUtil.createByteArray(0x81, 0x40, 0x60, 0x00);
+    byte[] initializationData = TestUtil.createByteArray(0x81, 0x48, 0x60, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(12);
+    assertThat(config.codecs).isEqualTo("av01.2.08M.12");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -92,6 +95,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -108,6 +112,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -125,6 +130,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -142,6 +148,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -158,6 +165,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -174,6 +182,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorRange).isEqualTo(Format.NO_VALUE);
     assertThat(config.colorTransfer).isEqualTo(Format.NO_VALUE);
@@ -196,6 +205,7 @@ public final class Av1ConfigTest {
 
     assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
+    assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
     assertThat(config.colorTransfer).isEqualTo(C.COLOR_TRANSFER_ST2084);
     assertThat(config.colorRange).isEqualTo(C.COLOR_RANGE_LIMITED);

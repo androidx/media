@@ -1677,6 +1677,7 @@ public final class BoxParser {
         colorSpace = av1Config.colorSpace;
         colorRange = av1Config.colorRange;
         colorTransfer = av1Config.colorTransfer;
+        codecs = av1Config.codecs;
       } else if (childAtomType == Mp4Box.TYPE_clli) {
         if (hdrStaticInfo == null) {
           hdrStaticInfo = allocateHdrStaticInfo();
