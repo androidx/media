@@ -68,6 +68,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -829,7 +830,7 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 34)
+  @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_outputsFrameBeforeEnding() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -837,7 +838,8 @@ public class CompositionPlayerTest {
     instrumentation.runOnMainSync(
         () -> {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
-              new DefaultHardwareBufferEffectsPipeline();
+              DefaultHardwareBufferEffectsPipeline.create(
+                  applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
               new CompositionPlayer.Builder(applicationContext)
                   .setHardwareBufferEffectsPipeline(packetProcessor)

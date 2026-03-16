@@ -26,6 +26,7 @@ import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
@@ -78,7 +79,7 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
 
   // TODO: b/479415308 - Expand API versions below 34 once supported.
   @Test
-  @SdkSuppress(minSdkVersion = 34)
+  @SdkSuppress(minSdkVersion = 33)
   public void export_withPacketProcessor_completesSuccessfully(
       @TestParameter(valuesProvider = TestConfigProvider.class) CompositionAssetInfo testConfig)
       throws Exception {
@@ -91,7 +92,8 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
         /* outputFormat= */ testConfig.getVideoEncoderInputFormat());
     Transformer transformer =
         NdkTransformerBuilder.create(context)
-            .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
+            .setHardwareBufferEffectsPipeline(
+                DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
             .build();
 
     ExportTestResult result =

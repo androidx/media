@@ -108,6 +108,7 @@ import androidx.media3.effect.RgbFilter;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampWrapper;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -2317,7 +2318,7 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 34)
+  @SdkSuppress(minSdkVersion = 33)
   public void transcode_withOutputVideoMimeTypeAv1_andPacketConsumer_completesSuccessfully()
       throws Exception {
     assumeFormatsSupported(
@@ -2334,7 +2335,8 @@ public class TransformerEndToEndTest {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
     Transformer transformer =
         NdkTransformerBuilder.create(context)
-            .setHardwareBufferEffectsPipeline(new DefaultHardwareBufferEffectsPipeline())
+            .setHardwareBufferEffectsPipeline(
+                DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
             .setVideoMimeType(MimeTypes.VIDEO_AV1)
             .build();
 

@@ -185,6 +185,9 @@ public interface HardwareBufferFrameQueue {
    * <p>If this method is called multiple times without returning a frame, only the most recent
    * {@code wakeupListener} is guaranteed to be invoked.
    *
+   * <p>If a dequeued {@link HardwareBufferFrame} cannot be filled and {@linkplain #queue queued}
+   * back for any reason, it must be {@linkplain HardwareBufferFrame#release released}.
+   *
    * @param format The required format for the dequeued buffer.
    * @param wakeupListener A callback to notify the caller when a buffer becomes available.
    * @return A {@link HardwareBufferFrame}, or {@code null} if the queue is currently full.

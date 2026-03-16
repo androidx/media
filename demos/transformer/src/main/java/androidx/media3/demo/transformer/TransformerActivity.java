@@ -64,6 +64,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
@@ -80,6 +81,7 @@ import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DrawableOverlay;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HslAdjustment;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -92,10 +94,12 @@ import androidx.media3.effect.SingleColorLut;
 import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
 import androidx.media3.transformer.Composition;
+import androidx.media3.transformer.CompositionFrameMetadata;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
@@ -366,11 +370,14 @@ public final class TransformerActivity extends AppCompatActivity {
     Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
 
     if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-      if (SDK_INT < 34) {
+      if (SDK_INT < 33) {
         throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
       }
       transformerBuilder.setHardwareBufferEffectsPipeline(
-          new DefaultHardwareBufferEffectsPipeline());
+          DefaultHardwareBufferEffectsPipeline.create(
+              this,
+              HardwareBufferJni.INSTANCE,
+              /* overlaySettingsProvider= */ TransformerActivity::getOverlaySettings));
     }
     transformerBuilder.addListener(
         new Transformer.Listener() {
@@ -939,6 +946,14 @@ public final class TransformerActivity extends AppCompatActivity {
       oldOutputFile.delete();
     }
     oldOutputFile = outputFile;
+  }
+
+  @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
+  private static OverlaySettings getOverlaySettings(HardwareBufferFrame frame) {
+    CompositionFrameMetadata metadata =
+        checkNotNull((CompositionFrameMetadata) frame.getMetadata());
+    return metadata.composition.videoCompositorSettings.getOverlaySettings(
+        metadata.sequenceIndex, frame.presentationTimeUs);
   }
 
   private boolean isUsingMediaProjection() {

@@ -155,12 +155,22 @@ public final class SurfaceHolderHardwareBufferFrameQueue
       if (format.equals(currentFormat) && imageWriter != null) {
         try {
           Image image = imageWriter.dequeueInputImage();
+          ImageWriter currentImageWriter = imageWriter;
           HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
           return new HardwareBufferFrame.Builder(
                   hardwareBuffer,
                   directExecutor(),
                   /* releaseCallback= */ (releaseFence) -> {
-                    throw new UnsupportedOperationException();
+                    // This frame will only be released by the dequeuing class, if it encounters an
+                    // error before queueing it back. Close the ImageWriter if it is still the
+                    // active one, to ensure no images are leaked or corrupted images rendered. The
+                    // ImageWriter will be recreated on the next dequeue.
+                    synchronized (lock) {
+                      if (currentImageWriter == imageWriter) {
+                        imageWriter.close();
+                        imageWriter = null;
+                      }
+                    }
                   })
               .setInternalFrame(new ImageWithImageWriter(image, checkNotNull(imageWriter)))
               .build();

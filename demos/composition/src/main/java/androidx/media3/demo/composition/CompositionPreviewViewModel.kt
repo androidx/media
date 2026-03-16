@@ -58,15 +58,18 @@ import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
+import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.effect.ndk.HardwareBufferJni
 import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
 import androidx.media3.effect.ndk.NdkTransformerBuilder
 import androidx.media3.transformer.Composition
+import androidx.media3.transformer.CompositionFrameMetadata
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -482,16 +485,19 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
     val transformerBuilder =
       if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-        if (SDK_INT < 34) {
+        if (SDK_INT < 33) {
           _uiState.update {
-            it.copy(snackbarMessage = "API 34+ required to export with PacketConsumer")
+            it.copy(snackbarMessage = "API 33+ required to export with PacketConsumer")
           }
           return
         }
         NdkTransformerBuilder.create(getApplication())
           .setHardwareBufferEffectsPipeline(
-            // TODO: b/449957627 - Implement HardwareBuffer compositing.
-            DefaultHardwareBufferEffectsPipeline()
+            DefaultHardwareBufferEffectsPipeline.create(
+              getApplication(),
+              hardwareBufferJniWrapper = HardwareBufferJni,
+              overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
+            )
           )
       } else {
         Transformer.Builder(/* context= */ getApplication())
@@ -768,9 +774,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder: CompositionPlayer.Builder
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 34) {
+    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 33) {
       playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
-      playerBuilder.setHardwareBufferEffectsPipeline(DefaultHardwareBufferEffectsPipeline())
+      playerBuilder.setHardwareBufferEffectsPipeline(
+        DefaultHardwareBufferEffectsPipeline.create(
+          getApplication(),
+          hardwareBufferJniWrapper = HardwareBufferJni,
+          overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
+        )
+      )
       playerBuilder.setGlThreadExecutorService(glExecutorService)
     } else {
       playerBuilder = CompositionPlayer.Builder(getApplication())
@@ -857,6 +869,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         .addItem(audioItem)
         .setIsLooping(true)
         .build()
+    }
+
+    fun getOverlaySettings(frame: HardwareBufferFrame): OverlaySettings {
+      val metadata =
+        (frame.metadata as? CompositionFrameMetadata) ?: throw IllegalArgumentException()
+      return metadata.composition.videoCompositorSettings.getOverlaySettings(
+        metadata.sequenceIndex,
+        frame.presentationTimeUs,
+      )
     }
   }
 }

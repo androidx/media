@@ -49,6 +49,18 @@ public class SyncFenceCompat implements AutoCloseable {
   private final ImmutableList<ParcelFileDescriptor> parcelFileDescriptors;
 
   /**
+   * Creates an instance that duplicates a {@link SyncFenceCompat}. Both fences must be {@linkplain
+   * #close() closed} independently.
+   */
+  public static SyncFenceCompat duplicate(SyncFenceCompat syncFence) throws IOException {
+    ImmutableList.Builder<ParcelFileDescriptor> pfdsBuilder = ImmutableList.builder();
+    for (ParcelFileDescriptor pfd : syncFence.parcelFileDescriptors) {
+      pfdsBuilder.add(pfd.dup());
+    }
+    return new SyncFenceCompat(pfdsBuilder.build());
+  }
+
+  /**
    * Creates an instance that duplicates a {@link SyncFence}. Both fences must be {@linkplain
    * #close() closed} independently.
    */
