@@ -531,7 +531,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       prepared = true;
       preloadHandler.post(
           () -> {
-            if (isUsedByPlayer()) {
+            if (preloadingMediaPeriodAndKey == null || isUsedByPlayer()) {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
@@ -573,7 +573,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     public void onContinueLoadingRequested(MediaPeriod mediaPeriod) {
       preloadHandler.post(
           () -> {
-            if (isUsedByPlayer()) {
+            if (preloadingMediaPeriodAndKey == null || isUsedByPlayer()) {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;

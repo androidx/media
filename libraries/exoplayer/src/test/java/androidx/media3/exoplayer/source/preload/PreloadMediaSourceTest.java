@@ -509,7 +509,7 @@ public final class PreloadMediaSourceTest {
                     startPositionUs,
                     new MediaSourceEventListener.EventDispatcher()) {
                   @Override
-                  public void prepare(Callback callback, long positionUs) {
+                  public synchronized void prepare(Callback callback, long positionUs) {
                     // Do nothing to simulate that something wrong happens and onPrepared will not
                     // be called.
                   }
@@ -984,6 +984,116 @@ public final class PreloadMediaSourceTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(preloadingMediaPeriodReleased.get()).isTrue();
+  }
+
+  @Test
+  public void clear_whenContentPeriodJustPrepared_preloadTerminatesWithoutException() {
+    AtomicReference<FakeMediaPeriod> fakeMediaPeriodReference = new AtomicReference<>();
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenReturn(
+            new FakeMediaSource() {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod fakeMediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeTimeline.TimelineWindowDefinition
+                            .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                        mediaSourceEventDispatcher,
+                        DrmSessionManager.DRM_UNSUPPORTED,
+                        new DrmSessionEventListener.EventDispatcher(),
+                        /* deferOnPrepared= */ true);
+                fakeMediaPeriodReference.set(fakeMediaPeriod);
+                return fakeMediaPeriod;
+              }
+            });
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mockMediaSourceFactory,
+            mockPreloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    fakeMediaPeriodReference.get().setPreparationComplete();
+    preloadMediaSource.clear();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockPreloadControl, never()).onTracksSelected(eq(preloadMediaSource));
+  }
+
+  @Test
+  public void
+      clear_whenContentPeriodJustRequestedContinueLoading_preloadTerminatesWithoutException() {
+    AtomicReference<MediaPeriod.Callback> capturedCallback = new AtomicReference<>();
+    AtomicReference<FakeMediaPeriod> fakeMediaPeriodReference = new AtomicReference<>();
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenReturn(
+            new FakeMediaSource() {
+              @Override
+              protected MediaPeriod createMediaPeriod(
+                  MediaPeriodId id,
+                  TrackGroupArray trackGroupArray,
+                  Allocator allocator,
+                  MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+                  DrmSessionManager drmSessionManager,
+                  DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+                  @Nullable TransferListener transferListener) {
+                FakeMediaPeriod fakeMediaPeriod =
+                    new FakeMediaPeriod(
+                        trackGroupArray,
+                        allocator,
+                        FakeTimeline.TimelineWindowDefinition
+                            .DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                        mediaSourceEventDispatcher) {
+                      @Override
+                      public synchronized void prepare(Callback callback, long positionUs) {
+                        capturedCallback.set(callback);
+                        super.prepare(callback, positionUs);
+                      }
+                    };
+                fakeMediaPeriodReference.set(fakeMediaPeriod);
+                return fakeMediaPeriod;
+              }
+            });
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mockMediaSourceFactory,
+            mockPreloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+    shadowOf(Looper.getMainLooper()).idle();
+
+    capturedCallback.get().onContinueLoadingRequested(fakeMediaPeriodReference.get());
+    preloadMediaSource.clear();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    verify(mockPreloadControl, never())
+        .onContinueLoadingRequested(eq(preloadMediaSource), anyLong());
   }
 
   @Test
