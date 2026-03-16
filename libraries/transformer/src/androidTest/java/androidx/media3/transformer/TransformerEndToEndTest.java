@@ -2287,6 +2287,7 @@ public class TransformerEndToEndTest {
   @Test
   @SdkSuppress(minSdkVersion = 29) // c2.android.opus.encoder was added in newer android versions.
   public void transcode_withOutputAudioMimeTypeOpus_completesSuccessfully() throws Exception {
+    assumeTrue(EncoderUtil.getSupportedMimeTypes().contains(MimeTypes.AUDIO_OPUS));
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
     Transformer transformer =
