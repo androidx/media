@@ -17,6 +17,7 @@ package androidx.media3.extractor.mp3;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
@@ -38,55 +39,66 @@ public final class XingSeekerTest {
           "00000007000008dd000e7919000205080a0d0f1214171a1c1e212426292c2e303336383b3d404245484a4c4f5254"
               + "575a5c5e616466696b6e707376787a7d808285878a8c8f929496999c9ea1a4a6a8abaeb0b3b5b8babdc0c2c4c7"
               + "cacccfd2d4d6d9dcdee1e3e6e8ebeef0f2f5f8fafd");
-  private static final int XING_FRAME_POSITION = 157;
+  private static final XingFrame XING_FRAME =
+      createXingFrame(XING_FRAME_HEADER_DATA, XING_FRAME_PAYLOAD);
 
-  /** Data size, as encoded in {@link #XING_FRAME_PAYLOAD}. */
-  private static final int DATA_SIZE_BYTES = 948505;
+  private static final int XING_FRAME_POSITION = 157;
 
   /**
    * Duration of the audio stream in microseconds, encoded as a frame count in {@link
    * #XING_FRAME_PAYLOAD}.
    */
-  private static final int STREAM_DURATION_US = 59271814;
+  private static final int XING_STREAM_DURATION_US = 59271814;
 
-  /** The length of the stream in bytes. */
-  private static final int STREAM_LENGTH = XING_FRAME_POSITION + DATA_SIZE_BYTES;
+  /**
+   * The position of the start of the audio data in the stream, as encoded by {@link #XING_FRAME}.
+   */
+  private static final long XING_AUDIO_START_POSITION =
+      XING_FRAME_POSITION + XING_FRAME.header.frameSize;
+
+  /** The position of the end of the audio data in the stream, as encoded by {@link #XING_FRAME}. */
+  private static final long XING_AUDIO_END_POSITION = XING_FRAME_POSITION + XING_FRAME.dataSize;
 
   private XingSeeker seeker;
-  private XingSeeker seekerWithInputLength;
-  private int xingFrameSize;
 
   @Before
   public void setUp() throws Exception {
-    MpegAudioUtil.Header xingFrameHeader = new MpegAudioUtil.Header();
-    xingFrameHeader.setForHeaderData(XING_FRAME_HEADER_DATA);
     seeker =
         XingSeeker.create(
-            XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
-            XING_FRAME_POSITION);
-    seekerWithInputLength =
-        XingSeeker.create(
-            XingFrame.parse(xingFrameHeader, new ParsableByteArray(XING_FRAME_PAYLOAD)),
-            XING_FRAME_POSITION);
-    xingFrameSize = xingFrameHeader.frameSize;
+            XING_FRAME,
+            XING_FRAME_POSITION,
+            // Simulate 1000 bytes of non-MP3 junk at the end of the stream.
+            /* streamLength= */ XING_AUDIO_END_POSITION + 1000);
   }
 
   @Test
   public void getTimeUsBeforeFirstAudioFrame() {
-    assertThat(seeker.getTimeUs(-1)).isEqualTo(0);
-    assertThat(seekerWithInputLength.getTimeUs(-1)).isEqualTo(0);
+    assertThat(seeker.getTimeUs(XING_AUDIO_START_POSITION - 1)).isEqualTo(0);
   }
 
   @Test
   public void getTimeUsAtFirstAudioFrame() {
-    assertThat(seeker.getTimeUs(XING_FRAME_POSITION + xingFrameSize)).isEqualTo(0);
-    assertThat(seekerWithInputLength.getTimeUs(XING_FRAME_POSITION + xingFrameSize)).isEqualTo(0);
+    assertThat(seeker.getTimeUs(XING_AUDIO_START_POSITION)).isEqualTo(0);
   }
 
   @Test
   public void getTimeUsAtEndOfStream() {
-    assertThat(seeker.getTimeUs(STREAM_LENGTH)).isEqualTo(STREAM_DURATION_US);
-    assertThat(seekerWithInputLength.getTimeUs(STREAM_LENGTH)).isEqualTo(STREAM_DURATION_US);
+    assertThat(seeker.getTimeUs(XING_AUDIO_END_POSITION)).isEqualTo(XING_STREAM_DURATION_US);
+  }
+
+  // https://github.com/androidx/media/issues/3117#issuecomment-4046538506
+  @Test
+  public void getTimeUsAtEndOfStream_xingLengthLongerThanStream() {
+    long streamLength = XING_AUDIO_END_POSITION - 1000;
+    XingSeeker seeker = XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, streamLength);
+    assertThat(seeker.getTimeUs(streamLength)).isEqualTo(XING_STREAM_DURATION_US);
+  }
+
+  @Test
+  public void getTimeUsAtEndOfStream_streamLengthNotKnown() {
+    XingSeeker seeker =
+        XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, /* streamLength= */ C.LENGTH_UNSET);
+    assertThat(seeker.getTimeUs(XING_AUDIO_END_POSITION)).isEqualTo(XING_STREAM_DURATION_US);
   }
 
   @Test
@@ -95,34 +107,86 @@ public final class XingSeekerTest {
     SeekPoint seekPoint = seekPoints.first;
     assertThat(seekPoint).isEqualTo(seekPoints.second);
     assertThat(seekPoint.timeUs).isEqualTo(0);
-    assertThat(seekPoint.position).isEqualTo(XING_FRAME_POSITION + xingFrameSize);
+    assertThat(seekPoint.position).isEqualTo(XING_AUDIO_START_POSITION);
   }
 
   @Test
   public void getSeekPointsAtEndOfStream() {
-    SeekPoints seekPoints = seeker.getSeekPoints(STREAM_DURATION_US);
+    SeekPoints seekPoints = seeker.getSeekPoints(XING_STREAM_DURATION_US);
     SeekPoint seekPoint = seekPoints.first;
     assertThat(seekPoint).isEqualTo(seekPoints.second);
-    assertThat(seekPoint.timeUs).isEqualTo(STREAM_DURATION_US);
-    assertThat(seekPoint.position).isEqualTo(STREAM_LENGTH - 1);
+    assertThat(seekPoint.timeUs).isEqualTo(XING_STREAM_DURATION_US);
+    assertThat(seekPoint.position).isEqualTo(XING_AUDIO_END_POSITION - 1);
+  }
+
+  // https://github.com/androidx/media/issues/3117#issuecomment-4046538506
+  @Test
+  public void getSeekPointsAtEndOfStream_xingLengthLongerThanStream() {
+    long streamLength = XING_AUDIO_END_POSITION - 1000;
+    XingSeeker seeker = XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, streamLength);
+    SeekPoints seekPoints = seeker.getSeekPoints(XING_STREAM_DURATION_US);
+    SeekPoint seekPoint = seekPoints.first;
+    assertThat(seekPoint).isEqualTo(seekPoints.second);
+    assertThat(seekPoint.timeUs).isEqualTo(XING_STREAM_DURATION_US);
+    assertThat(seekPoint.position).isEqualTo(streamLength - 1);
+  }
+
+  @Test
+  public void getSeekPointsAtEndOfStream_streamLengthNotKnown() {
+    XingSeeker seeker =
+        XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, /* streamLength= */ C.LENGTH_UNSET);
+    SeekPoints seekPoints = seeker.getSeekPoints(XING_STREAM_DURATION_US);
+    SeekPoint seekPoint = seekPoints.first;
+    assertThat(seekPoint).isEqualTo(seekPoints.second);
+    assertThat(seekPoint.timeUs).isEqualTo(XING_STREAM_DURATION_US);
+    assertThat(seekPoint.position).isEqualTo(XING_AUDIO_END_POSITION - 1);
   }
 
   @Test
   public void getTimeForAllPositions() {
-    for (int offset = xingFrameSize; offset < DATA_SIZE_BYTES; offset++) {
-      int position = XING_FRAME_POSITION + offset;
-      // Test seeker.
+    for (long position = XING_AUDIO_START_POSITION;
+        position < XING_AUDIO_END_POSITION;
+        position++) {
       long timeUs = seeker.getTimeUs(position);
       SeekPoints seekPoints = seeker.getSeekPoints(timeUs);
       SeekPoint seekPoint = seekPoints.first;
       assertThat(seekPoint).isEqualTo(seekPoints.second);
       assertThat(seekPoint.position).isEqualTo(position);
-      // Test seekerWithInputLength.
-      timeUs = seekerWithInputLength.getTimeUs(position);
-      seekPoints = seekerWithInputLength.getSeekPoints(timeUs);
-      seekPoint = seekPoints.first;
+    }
+  }
+
+  // https://github.com/androidx/media/issues/3117#issuecomment-4046538506
+  @Test
+  public void getTimeForAllPositions_xingLengthLongerThanStream() {
+    long streamLength = XING_AUDIO_END_POSITION - 1000;
+    XingSeeker seeker = XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, streamLength);
+    for (long position = XING_AUDIO_START_POSITION; position < streamLength; position++) {
+      long timeUs = seeker.getTimeUs(position);
+      SeekPoints seekPoints = seeker.getSeekPoints(timeUs);
+      SeekPoint seekPoint = seekPoints.first;
       assertThat(seekPoint).isEqualTo(seekPoints.second);
       assertThat(seekPoint.position).isEqualTo(position);
     }
+  }
+
+  @Test
+  public void getTimeForAllPositions_streamLengthNotKnown() {
+    XingSeeker seeker =
+        XingSeeker.create(XING_FRAME, XING_FRAME_POSITION, /* streamLength= */ C.LENGTH_UNSET);
+    for (long position = XING_AUDIO_START_POSITION;
+        position < XING_AUDIO_END_POSITION;
+        position++) {
+      long timeUs = seeker.getTimeUs(position);
+      SeekPoints seekPoints = seeker.getSeekPoints(timeUs);
+      SeekPoint seekPoint = seekPoints.first;
+      assertThat(seekPoint).isEqualTo(seekPoints.second);
+      assertThat(seekPoint.position).isEqualTo(position);
+    }
+  }
+
+  private static XingFrame createXingFrame(int header, byte[] payload) {
+    MpegAudioUtil.Header xingFrameHeader = new MpegAudioUtil.Header();
+    xingFrameHeader.setForHeaderData(header);
+    return XingFrame.parse(xingFrameHeader, new ParsableByteArray(payload));
   }
 }
