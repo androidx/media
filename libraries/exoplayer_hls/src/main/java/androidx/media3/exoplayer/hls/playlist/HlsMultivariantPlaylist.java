@@ -375,7 +375,7 @@ public final class HlsMultivariantPlaylist extends HlsPlaylist {
     //    trackIndex so as to avoid breaking stream keys that have been persisted for offline. All
     //    duplicates should be copied if the first variant is copied, or discarded otherwise.
     // 2. When renditions with null URLs are permitted, they must not increment trackIndex so as to
-    //    avoid breaking stream keys that have been persisted for offline. All renitions with null
+    //    avoid breaking stream keys that have been persisted for offline. All renditions with null
     //    URLs should be copied. They may become unreachable if all variants that reference them are
     //    removed, but this is OK.
     // 3. Renditions with URLs matching copied variants should always themselves be copied, even if
