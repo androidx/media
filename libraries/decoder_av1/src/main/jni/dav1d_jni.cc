@@ -831,6 +831,13 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
     return kStatusError;
   }
 
+  Dav1dPicture* dav1d_picture = reinterpret_cast<Dav1dPicture*>(
+      env->GetLongField(jOutputBuffer, context->decoder_private_field));
+  if (dav1d_picture == nullptr) {
+    LOGE("Failed to get dav1d picture.");
+    return kStatusError;
+  }
+
   int64_t width = env->GetIntField(jOutputBuffer, context->display_width_field);
   int64_t height =
       env->GetIntField(jOutputBuffer, context->display_height_field);
@@ -855,12 +862,6 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
     return kStatusError;
   }
 
-  Dav1dPicture* dav1d_picture = reinterpret_cast<Dav1dPicture*>(
-      env->GetLongField(jOutputBuffer, context->decoder_private_field));
-  if (dav1d_picture == nullptr) {
-    LOGE("Failed to get dav1d picture.");
-    return kStatusError;
-  }
   // Y plane
   CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneY]),
             dav1d_picture->stride[kPlaneY],
