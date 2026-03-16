@@ -838,8 +838,9 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
     return kStatusError;
   }
 
-  int64_t width = env->GetIntField(jOutputBuffer, context->display_width_field);
-  int64_t height =
+  // Get the display width and height metadata from the output buffer.
+  int32_t width = env->GetIntField(jOutputBuffer, context->display_width_field);
+  int32_t height =
       env->GetIntField(jOutputBuffer, context->display_height_field);
   if (context->native_window_width != width ||
       context->native_window_height != height) {
@@ -862,11 +863,20 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
     return kStatusError;
   }
 
+  // Calculate the clamped copy dimensions to avoid out-of-bounds access.
+  int32_t y_copy_height = std::min((int32_t)dav1d_picture->p.h,
+                                   (int32_t)native_window_buffer.height);
+  y_copy_height = std::min(y_copy_height, (int32_t)height);
+
+  int32_t y_copy_width = std::min((int32_t)dav1d_picture->p.w,
+                                  (int32_t)native_window_buffer.stride);
+  y_copy_width = std::min(y_copy_width, (int32_t)width);
+
   // Y plane
   CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneY]),
             dav1d_picture->stride[kPlaneY],
             reinterpret_cast<uint8_t*>(native_window_buffer.bits),
-            native_window_buffer.stride, width, height);
+            native_window_buffer.stride, y_copy_width, y_copy_height);
 
   const int y_plane_size =
       native_window_buffer.stride * native_window_buffer.height;
@@ -875,7 +885,12 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
   const int native_window_buffer_uv_stride =
       AlignTo16(native_window_buffer.stride / 2);
 
-  const int uv_plane_height = native_window_buffer_uv_height;
+  // UV planes
+  const int uv_copy_height = (y_copy_height + 1) / 2;
+  const int v_plane_size =
+      native_window_buffer_uv_height * native_window_buffer_uv_stride;
+
+  const int uv_copy_width = (y_copy_width + 1) / 2;
 
   // TODO(b/140606738): Handle monochrome videos.
   // V plane
@@ -885,16 +900,14 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
       reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneV]),
       dav1d_picture->stride[kPlaneU],
       reinterpret_cast<uint8_t*>(native_window_buffer.bits) + y_plane_size,
-      native_window_buffer_uv_stride, width / 2, uv_plane_height);
-
-  const int v_plane_size = uv_plane_height * native_window_buffer_uv_stride;
+      native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
 
   // U plane
   CopyPlane(reinterpret_cast<const uint8_t*>(dav1d_picture->data[kPlaneU]),
             dav1d_picture->stride[kPlaneU],
             reinterpret_cast<uint8_t*>(native_window_buffer.bits) +
                 y_plane_size + v_plane_size,
-            native_window_buffer_uv_stride, width / 2, uv_plane_height);
+            native_window_buffer_uv_stride, uv_copy_width, uv_copy_height);
 
   if (ANativeWindow_unlockAndPost(context->native_window)) {
     context->jni_status_code = kJniStatusANativeWindowError;
