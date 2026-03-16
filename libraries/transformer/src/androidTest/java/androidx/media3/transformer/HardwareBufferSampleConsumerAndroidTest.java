@@ -32,7 +32,6 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,9 +69,8 @@ public class HardwareBufferSampleConsumerAndroidTest {
     handlerThread.quit();
   }
 
-  @SdkSuppress(minSdkVersion = 31)
   @Test
-  public void queueInputARGB888Bitmap_aboveApi31_outputsHardwareBufferFrame()
+  public void queueInputARGB888Bitmap_outputsHardwareBufferFrameWithBitmap()
       throws InterruptedException {
     CountDownLatch framesReceivedLatch = new CountDownLatch(2);
     sampleConsumer =
@@ -99,40 +97,10 @@ public class HardwareBufferSampleConsumerAndroidTest {
 
     assertThat(framesReceivedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(receivedFrames).hasSize(2);
-    assertThat(receivedFrames.get(0).hardwareBuffer).isNotNull();
-    assertThat(receivedFrames.get(1).hardwareBuffer).isNotNull();
-  }
-
-  @SdkSuppress(maxSdkVersion = 30)
-  @Test
-  public void queueInputARGB888Bitmap_belowApi31_outputsBitmapFrame() throws InterruptedException {
-    CountDownLatch framesReceivedLatch = new CountDownLatch(2);
-    sampleConsumer =
-        createSampleConsumer(
-            /* onFrame= */ (frame) -> {
-              receivedFrames.add(frame);
-              framesReceivedLatch.countDown();
-            });
-    Format format = new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build();
-    sampleConsumer.onMediaItemChanged(
-        /* editedMediaItem= */ null,
-        /* durationUs= */ 100_000,
-        /* decodedFormat= */ format,
-        /* isLast= */ true,
-        /* positionOffsetUs= */ 0);
-
-    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-    // 30fps constant rate for 100ms: frames at 0, 33333, 66666
-    ConstantRateTimestampIterator timestampIterator =
-        new ConstantRateTimestampIterator(/* durationUs= */ 100_000, /* frameRate= */ 30f);
-
-    assertThat(sampleConsumer.queueInputBitmap(bitmap, timestampIterator))
-        .isEqualTo(GraphInput.INPUT_RESULT_SUCCESS);
-
-    assertThat(framesReceivedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(receivedFrames).hasSize(2);
     assertThat(receivedFrames.get(0).hardwareBuffer).isNull();
+    assertThat(receivedFrames.get(0).internalFrame).isSameInstanceAs(bitmap);
     assertThat(receivedFrames.get(1).hardwareBuffer).isNull();
+    assertThat(receivedFrames.get(1).internalFrame).isSameInstanceAs(bitmap);
   }
 
   private HardwareBufferSampleConsumer createSampleConsumer(Consumer<HardwareBufferFrame> onFrame) {

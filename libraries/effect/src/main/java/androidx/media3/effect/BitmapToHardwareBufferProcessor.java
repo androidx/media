@@ -15,11 +15,13 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.hardware.HardwareBuffer;
 import android.system.ErrnoException;
 import androidx.annotation.GuardedBy;
@@ -33,6 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
+// TODO: b/475511702 - Handle HDR bitmaps.
 /**
  * A {@link HardwareBufferFrameProcessor} that converts {@link Bitmap}-backed {@link
  * HardwareBufferFrame} instances into {@link android.hardware.HardwareBuffer}-backed ones.
@@ -113,21 +116,31 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
       if (currentFrame == null) {
         HardwareBuffer buffer = null;
         try {
-          HardwareBuffer currentBuffer =
-              HardwareBuffer.create(
-                  nextBitmap.getWidth(),
-                  nextBitmap.getHeight(),
-                  /* pixelFormat= */ HardwareBuffer.RGBA_8888,
-                  /* layers= */ 1,
-                  /* usageFlags= */ HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
-                      | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
-                      | HardwareBuffer.USAGE_CPU_READ_RARELY
-                      | HardwareBuffer.USAGE_CPU_WRITE_OFTEN);
-          buffer = currentBuffer;
+          if (SDK_INT >= 31) {
+            if (nextBitmap.getConfig() == Config.HARDWARE) {
+              // Input is HARDWARE and API >= 31: Direct access to HardwareBuffer is possible.
+              buffer = nextBitmap.getHardwareBuffer();
+            } else {
+              // Input is not HARDWARE and API >= 31: We can create a HARDWARE Bitmap copy
+              // and get its HardwareBuffer.
+              buffer = nextBitmap.copy(Config.HARDWARE, /* isMutable= */ false).getHardwareBuffer();
+            }
+          } else { // SDK_INT < 31
+            if (nextBitmap.getConfig() == Config.HARDWARE) {
+              // Input is HARDWARE but API < 31: HardwareBuffer is not directly accessible.
+              // We must first copy to a software Bitmap (e.g., ARGB_8888)
+              // and then copy that to a new HardwareBuffer via JNI.
+              Bitmap softwareBitmap = nextBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
+              buffer = copyCpuBitmapToHardwareBuffer(softwareBitmap, hardwareBufferJniWrapper);
+            } else {
+              // Input is not HARDWARE and API < 31: Copy the software Bitmap
+              // to a new HardwareBuffer via JNI.
+              buffer = copyCpuBitmapToHardwareBuffer(nextBitmap, hardwareBufferJniWrapper);
+            }
+          }
 
-          // The input frame is backed by a CPU bitmap so can be immediately read.
-          checkState(hardwareBufferJniWrapper.nativeCopyBitmapToHardwareBuffer(nextBitmap, buffer));
           currentBitmap = nextBitmap;
+          HardwareBuffer currentBuffer = buffer;
           currentFrame =
               new HardwareBufferFrame.Builder(
                       buffer,
@@ -135,8 +148,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
                       /* releaseCallback= */ (fence) -> releaseBuffer(currentBuffer, fence))
                   .build();
           // Save the generationId from after the native copy, as AndroidBitmap_unlockPixels can
-          // cause
-          // the generationId to increment.
+          // cause the generationId to increment.
           currentBitmapGenerationId = nextBitmap.getGenerationId();
         } catch (IllegalStateException e) {
           // If the native copy failed, the buffer is not wrapped in a HardwareBufferFrame, so
@@ -175,6 +187,33 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
         internalExecutor.shutdown();
       }
     }
+  }
+
+  /**
+   * Copies a {@link Bitmap.Config#ARGB_8888}, {@link Bitmap.Config#RGBA_F16} or {@link
+   * Bitmap.Config#RGBA_1010102} {@link Bitmap} to a {@link HardwareBuffer} using JNI.
+   *
+   * <p>The created buffer will have {@linkplain HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE GPU read},
+   * {@linkplain HardwareBuffer#USAGE_GPU_COLOR_OUTPUT GPU write}, {@linkplain
+   * HardwareBuffer#USAGE_CPU_READ_OFTEN CPU read} and {@linkplain
+   * HardwareBuffer#USAGE_CPU_WRITE_OFTEN CPU write} usage flags set, and pixelFormat of {@link
+   * HardwareBuffer#RGBA_8888}.
+   */
+  private static HardwareBuffer copyCpuBitmapToHardwareBuffer(
+      Bitmap bitmap, HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    HardwareBuffer buffer =
+        HardwareBuffer.create(
+            bitmap.getWidth(),
+            bitmap.getHeight(),
+            /* pixelFormat= */ HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            /* usageFlags= */ HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE
+                | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT
+                | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                | HardwareBuffer.USAGE_CPU_WRITE_OFTEN);
+
+    checkState(hardwareBufferJniWrapper.nativeCopyBitmapToHardwareBuffer(bitmap, buffer));
+    return buffer;
   }
 
   private void releaseBuffer(HardwareBuffer buffer, @Nullable SyncFenceCompat releaseFence) {

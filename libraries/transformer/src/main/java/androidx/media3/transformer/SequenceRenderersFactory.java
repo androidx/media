@@ -1143,13 +1143,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       checkNotNull(timestampIterator);
       int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
-      if (SDK_INT >= 26) {
-        Bitmap hardwareOutputImage =
-            outputImage.copy(Bitmap.Config.HARDWARE, /* isMutable= */ false);
-        hardwareBufferFrameReader.outputBitmap(hardwareOutputImage, timestampIterator, indexOfItem);
-      } else {
-        hardwareBufferFrameReader.outputBitmap(outputImage, timestampIterator, indexOfItem);
-      }
+      hardwareBufferFrameReader.outputBitmap(outputImage, timestampIterator, indexOfItem);
       if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
         hardwareBufferFrameReader.queueEndOfStream();
       }

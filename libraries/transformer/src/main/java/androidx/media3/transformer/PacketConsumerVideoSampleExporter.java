@@ -21,6 +21,7 @@ import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,7 +38,9 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
@@ -79,6 +82,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final FallbackListener fallbackListener;
   private final TransformationRequest transformationRequest;
   @Nullable private final LogSessionId logSessionId;
+  @Nullable private final BitmapToHardwareBufferProcessor hardwareBufferPostProcessor;
 
   /**
    * The timestamp of the last buffer processed before {@linkplain
@@ -137,6 +141,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
     if (hardwareBufferJniWrapper != null) {
+      // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
+      hardwareBufferPostProcessor =
+          new BitmapToHardwareBufferProcessor(
+              hardwareBufferJniWrapper,
+              /* internalExecutor= */ Util.newSingleThreadExecutor(
+                  "BitmapToHardwareBufferProcessor::Thread"),
+              /* errorExecutor= */ directExecutor(),
+              /* errorCallback= */ (e) ->
+                  errorConsumer.accept(
+                      ExportException.createForVideoFrameProcessingException(
+                          VideoFrameProcessingException.from(e))));
       HardwareBufferSurfaceRenderer packetRenderer =
           HardwareBufferSurfaceRenderer.create(
               context,
@@ -149,6 +164,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       hardwareBufferFrameQueue =
           new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
     } else if (SDK_INT >= 33) {
+      hardwareBufferPostProcessor = null;
       hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
     } else {
       throw new UnsupportedOperationException();
@@ -184,6 +200,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   () -> {
                     if (frame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
                       checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                    } else if (hardwareBufferPostProcessor != null) {
+                      HardwareBufferFrame processedFrame =
+                          hardwareBufferPostProcessor.process(frame);
+                      checkNotNull(frameAggregator).queueFrame(processedFrame, sequenceIndex);
                     } else {
                       checkNotNull(frameAggregator).queueFrame(frame, sequenceIndex);
                     }
@@ -224,7 +244,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Wait until the frame renderer and packet processors are released.
     ListenableFuture<Void> releasePacketProcessorFuture =
         PacketConsumerUtil.release(packetProcessor, newDirectExecutorService());
-
+    if (hardwareBufferPostProcessor != null) {
+      hardwareBufferPostProcessor.close();
+    }
     hardwareBufferFrameQueue.release();
     if (encoderWrapper != null) {
       encoderWrapper.release();

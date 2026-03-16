@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.Matrix;
@@ -35,8 +36,9 @@ import android.system.Os;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,9 +57,16 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link BitmapToHardwareBufferProcessor}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(TestParameterInjector.class)
 @SdkSuppress(minSdkVersion = 26)
 public final class BitmapToHardwareBufferProcessorTest {
+
+  // TODO: b/475511702 - Update with HDR bitmap formats once supported.
+  private enum BitmapType {
+    HARDWARE,
+    ARGB_8888,
+  }
+
   private static final float MAX_AVG_PIXEL_DIFFERENCE = 1.0f;
   private static final String INPUT_PATH = "media/png/first_frame_1920x1080.png";
   private static final long TEST_TIMEOUT_MS = 1000L;
@@ -96,8 +105,15 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_withBitmap_copiesPixelsCorrectly() throws Exception {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+  public void process_validBitmap_copiesPixelsCorrectly(@TestParameter BitmapType bitmapType)
+      throws Exception {
+    Bitmap inputBitmap = readBitmap(bitmapType);
+    // The pixel comparison can only run on ARGB_8888 bitmaps, if the input is HARDWARE, copy it to
+    // a ARGB_8888 for the assertion.
+    Bitmap expectedBitmap =
+        bitmapType == BitmapType.ARGB_8888
+            ? inputBitmap
+            : inputBitmap.copy(Config.ARGB_8888, /* isMutable= */ false);
     HardwareBufferFrame inputFrame =
         new HardwareBufferFrame.Builder(
                 /* hardwareBuffer= */ null, directExecutor(), /* releaseCallback= */ (fence) -> {})
@@ -116,14 +132,14 @@ public final class BitmapToHardwareBufferProcessorTest {
 
     assertThat(
             BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888(
-                inputBitmap, outputBitmap, testName.getMethodName()))
+                expectedBitmap, outputBitmap, testName.getMethodName()))
         .isLessThan(MAX_AVG_PIXEL_DIFFERENCE);
 
     outputFrame.release(/* releaseFence= */ null);
   }
 
   @Test
-  public void process_invalidBitmap_throwsIllegalStateException() throws Exception {
+  public void process_recycledBitmap_throwsIllegalStateException() throws Exception {
     Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
     HardwareBufferFrame inputFrame =
         new HardwareBufferFrame.Builder(
@@ -168,8 +184,9 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_repeatedBitmap_reusesSameBuffer() throws IOException {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+  public void process_repeatedBitmap_reusesSameBuffer(@TestParameter BitmapType bitmapType)
+      throws IOException {
+    Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -184,8 +201,9 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_repeatedBitmapAfterRelease_reusesSameBuffer() throws IOException {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+  public void process_repeatedBitmapAfterRelease_reusesSameBuffer(
+      @TestParameter BitmapType bitmapType) throws IOException {
+    Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -200,10 +218,11 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void process_differentBitmap_createsNewBufferAndRemovesReferenceToOldBuffer()
-      throws ExecutionException, InterruptedException, TimeoutException {
-    Bitmap bitmap1 = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
-    Bitmap bitmap2 = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+  public void process_differentBitmap_createsNewBufferAndRemovesReferenceToOldBuffer(
+      @TestParameter BitmapType bitmapType)
+      throws IOException, ExecutionException, InterruptedException, TimeoutException {
+    Bitmap bitmap1 = readBitmap(bitmapType);
+    Bitmap bitmap2 = readBitmap(bitmapType);
 
     HardwareBufferFrame outputFrame1 = processor.process(createBitmapFrame(bitmap1));
     HardwareBufferFrame outputFrame2 = processor.process(createBitmapFrame(bitmap2));
@@ -225,6 +244,7 @@ public final class BitmapToHardwareBufferProcessorTest {
 
   @Test
   public void process_differentGenerationId_createsNewBuffer() {
+    // Cannot be tested with Config.Hardware because hardware backed bitmaps are immutable.
     Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
 
     HardwareBufferFrame outputFrame1 = processor.process(createBitmapFrame(bitmap));
@@ -256,8 +276,9 @@ public final class BitmapToHardwareBufferProcessorTest {
   }
 
   @Test
-  public void releaseOutputFrame_sharedBuffer_doesNotCloseSharedBuffer() throws Exception {
-    Bitmap inputBitmap = BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+  public void releaseOutputFrame_sharedBuffer_doesNotCloseSharedBuffer(
+      @TestParameter BitmapType bitmapType) throws Exception {
+    Bitmap inputBitmap = readBitmap(bitmapType);
     HardwareBufferFrame inputFrame1 = createBitmapFrame(inputBitmap);
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
@@ -357,6 +378,17 @@ public final class BitmapToHardwareBufferProcessorTest {
     Matrix matrix = new Matrix();
     matrix.postScale(1, -1, bitmap.getWidth() / 2f, bitmap.getHeight() / 2f);
     return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+  }
+
+  private static Bitmap readBitmap(BitmapType bitmapType) throws IOException {
+    switch (bitmapType) {
+      case ARGB_8888:
+        return BitmapPixelTestUtil.readBitmap(INPUT_PATH);
+      case HARDWARE:
+        return BitmapPixelTestUtil.readBitmap(INPUT_PATH)
+            .copy(Config.HARDWARE, /* isMutable= */ false);
+    }
+    throw new IllegalArgumentException();
   }
 
   private static HardwareBufferFrame createBitmapFrame(Bitmap bitmap) {
