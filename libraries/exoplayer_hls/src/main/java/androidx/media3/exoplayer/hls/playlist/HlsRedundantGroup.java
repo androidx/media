@@ -22,6 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import android.net.Uri;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
@@ -149,6 +150,7 @@ public final class HlsRedundantGroup {
   public final GroupKey groupKey;
 
   private final HashMap<String, Uri> pathwayIdToPlaylistUrl;
+  private final List<Integer> indicesInMultivariantPlaylist;
   private String currentPathwayId;
 
   /**
@@ -159,10 +161,30 @@ public final class HlsRedundantGroup {
    * @param playlistUrl The playlist url that is associated with the default current pathway.
    */
   public HlsRedundantGroup(GroupKey groupKey, String pathwayId, Uri playlistUrl) {
+    this(groupKey, pathwayId, playlistUrl, C.INDEX_UNSET);
+  }
+
+  /**
+   * Creates a {@link HlsRedundantGroup}.
+   *
+   * @param groupKey See {@link #groupKey}.
+   * @param pathwayId The ID of the default current pathway.
+   * @param playlistUrl The playlist url that is associated with the default current pathway.
+   * @param indexInMultivariantPlaylist The index of the {@code playlistUrl} in either {@link
+   *     HlsMultivariantPlaylist#variants}, {@link HlsMultivariantPlaylist#videos}, {@link
+   *     HlsMultivariantPlaylist#audios} or {@link HlsMultivariantPlaylist#subtitles}. May be {@link
+   *     C#INDEX_UNSET} if the {@code playlistUrl} is not declared in the multivariant playlist.
+   */
+  public HlsRedundantGroup(
+      GroupKey groupKey, String pathwayId, Uri playlistUrl, int indexInMultivariantPlaylist) {
     this.groupKey = groupKey;
     this.pathwayIdToPlaylistUrl = new HashMap<>();
     this.pathwayIdToPlaylistUrl.put(pathwayId, playlistUrl);
     this.currentPathwayId = pathwayId;
+    this.indicesInMultivariantPlaylist = new ArrayList<>();
+    if (indexInMultivariantPlaylist != C.INDEX_UNSET) {
+      indicesInMultivariantPlaylist.add(indexInMultivariantPlaylist);
+    }
   }
 
   /**
@@ -170,7 +192,25 @@ public final class HlsRedundantGroup {
    * HlsRedundantGroup}.
    */
   public void put(String pathwayId, Uri playlistUrl) {
+    put(pathwayId, playlistUrl, C.INDEX_UNSET);
+  }
+
+  /**
+   * Puts a {@code playlistUrl} and its associated {@code pathwayId} to the {@link
+   * HlsRedundantGroup}.
+   *
+   * @param pathwayId The ID of the pathway to add.
+   * @param playlistUrl The playlist url to add.
+   * @param indexInMultivariantPlaylist The index of the {@code playlistUrl} in either {@link
+   *     HlsMultivariantPlaylist#variants}, {@link HlsMultivariantPlaylist#videos}, {@link
+   *     HlsMultivariantPlaylist#audios} or {@link HlsMultivariantPlaylist#subtitles}. May be {@link
+   *     C#INDEX_UNSET} if the {@code playlistUrl} is not declared in the multivariant playlist.
+   */
+  public void put(String pathwayId, Uri playlistUrl, int indexInMultivariantPlaylist) {
     pathwayIdToPlaylistUrl.put(pathwayId, playlistUrl);
+    if (indexInMultivariantPlaylist != C.INDEX_UNSET) {
+      indicesInMultivariantPlaylist.add(indexInMultivariantPlaylist);
+    }
   }
 
   /** Returns the size of the {@link HlsRedundantGroup}. */
@@ -214,6 +254,16 @@ public final class HlsRedundantGroup {
   }
 
   /**
+   * Returns the indices of the {@linkplain Variant variants} or {@linkplain Rendition renditions}
+   * belonging to this {@link HlsRedundantGroup} in either {@link HlsMultivariantPlaylist#variants},
+   * {@link HlsMultivariantPlaylist#videos}, {@link HlsMultivariantPlaylist#audios} or {@link
+   * HlsMultivariantPlaylist#subtitles}.
+   */
+  public ImmutableList<Integer> getIndicesInMultivariantPlaylist() {
+    return ImmutableList.copyOf(indicesInMultivariantPlaylist);
+  }
+
+  /**
    * Creates a list of {@linkplain HlsRedundantGroup redundant groups} for {@linkplain Variant
    * variants}.
    *
@@ -234,11 +284,13 @@ public final class HlsRedundantGroup {
     HashMap<GroupKey, Integer> redundantGroupIndices = new HashMap<>();
     HashMap<GroupKey, Integer> generatedPathwayIdCounts = new HashMap<>();
 
-    for (Variant variant : variants) {
+    for (int i = 0; i < variants.size(); i++) {
+      Variant variant = variants.get(i);
       GroupKey groupKey = new GroupKey(variant.format, variant.stableVariantId);
       propagateRedundantGroupList(
           variant.url,
           variant.pathwayId,
+          /* indexInMultivariantPlaylist= */ i,
           redundantGroupList,
           groupKey,
           redundantGroupIndices,
@@ -263,7 +315,8 @@ public final class HlsRedundantGroup {
     ArrayList<HlsRedundantGroup> redundantGroupList = new ArrayList<>();
     HashMap<GroupKey, Integer> redundantGroupIndices = new HashMap<>();
     HashMap<GroupKey, Integer> generatedPathwayIdCounts = new HashMap<>();
-    for (Rendition rendition : renditions) {
+    for (int i = 0; i < renditions.size(); i++) {
+      Rendition rendition = renditions.get(i);
       if (rendition.url == null) {
         continue;
       }
@@ -273,6 +326,7 @@ public final class HlsRedundantGroup {
         propagateRedundantGroupList(
             rendition.url,
             /* knownPathwayId= */ null,
+            /* indexInMultivariantPlaylist= */ i,
             redundantGroupList,
             groupKey,
             redundantGroupIndices,
@@ -299,6 +353,10 @@ public final class HlsRedundantGroup {
    *     ID will be used. The first is '.', and the subsequent ones for the same group are '..',
    *     '...', according to the order of the corresponding {@link Variant} or {@link Rendition} in
    *     the {@link HlsMultivariantPlaylist}.
+   * @param indexInMultivariantPlaylist The index of the {@code playlistUrl} in either {@link
+   *     HlsMultivariantPlaylist#variants}, {@link HlsMultivariantPlaylist#videos}, {@link
+   *     HlsMultivariantPlaylist#audios} or {@link HlsMultivariantPlaylist#subtitles}. May be {@link
+   *     C#INDEX_UNSET} if the {@code playlistUrl} is not declared in the multivariant playlist.
    * @param redundantGroupList The list of {@link HlsRedundantGroup} to be propagated.
    * @param groupKey The {@link GroupKey} to look up the existing {@link HlsRedundantGroup}.
    * @param redundantGroupIndices A map to look up an existing {@link HlsRedundantGroup} for a
@@ -315,6 +373,7 @@ public final class HlsRedundantGroup {
   private static void propagateRedundantGroupList(
       Uri url,
       @Nullable String knownPathwayId,
+      int indexInMultivariantPlaylist,
       List<HlsRedundantGroup> redundantGroupList,
       GroupKey groupKey,
       Map<GroupKey, Integer> redundantGroupIndices,
@@ -329,7 +388,8 @@ public final class HlsRedundantGroup {
         pathwayId = ".";
         generatedPathwayIdCounts.put(groupKey, 1);
       }
-      HlsRedundantGroup newRedundantGroup = new HlsRedundantGroup(groupKey, pathwayId, url);
+      HlsRedundantGroup newRedundantGroup =
+          new HlsRedundantGroup(groupKey, pathwayId, url, indexInMultivariantPlaylist);
       redundantGroupIndices.put(groupKey, redundantGroupList.size());
       redundantGroupList.add(newRedundantGroup);
     } else {
@@ -349,7 +409,7 @@ public final class HlsRedundantGroup {
                 pathwayId),
             /* cause= */ null);
       }
-      redundantGroup.put(pathwayId, url);
+      redundantGroup.put(pathwayId, url, indexInMultivariantPlaylist);
     }
   }
 }
