@@ -1890,6 +1890,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
                 .setAdPlaybackState(period.adPlaybackState)
                 .setDurationUs(period.durationUs)
                 .setIsPlaceholder(period.isPlaceholder)
+                .setIsDurationStrict(period.isDurationStrict)
                 .build());
       }
       return new MediaItemData.Builder(window.uid)
@@ -1942,7 +1943,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             /* durationUs= */ positionInFirstPeriodUs + durationUs,
             /* positionInWindowUs= */ -positionInFirstPeriodUs,
             AdPlaybackState.NONE,
-            isPlaceholder);
+            isPlaceholder,
+            /* isDurationStrict= */ false);
       } else {
         PeriodData periodData = periods.get(periodIndexInMediaItem);
         Object periodId = periodData.uid;
@@ -1954,7 +1956,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             periodData.durationUs,
             periodPositionInWindowUs[periodIndexInMediaItem],
             periodData.adPlaybackState,
-            periodData.isPlaceholder);
+            periodData.isPlaceholder,
+            periodData.isDurationStrict);
       }
       return period;
     }
@@ -1978,6 +1981,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private long durationUs;
       private AdPlaybackState adPlaybackState;
       private boolean isPlaceholder;
+      private boolean isDurationStrict;
 
       /**
        * Creates the builder.
@@ -1996,6 +2000,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.durationUs = periodData.durationUs;
         this.adPlaybackState = periodData.adPlaybackState;
         this.isPlaceholder = periodData.isPlaceholder;
+        this.isDurationStrict = periodData.isDurationStrict;
       }
 
       /**
@@ -2053,6 +2058,18 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         return this;
       }
 
+      /**
+       * Sets whether playback should stop when the duration is reached.
+       *
+       * @param isDurationStrict Whether playback should stop when the duration is reached.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setIsDurationStrict(boolean isDurationStrict) {
+        this.isDurationStrict = isDurationStrict;
+        return this;
+      }
+
       /** Builds the {@link PeriodData}. */
       public PeriodData build() {
         return new PeriodData(this);
@@ -2080,11 +2097,15 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      */
     public final boolean isPlaceholder;
 
+    /** Whether playback should stop when the duration is reached. */
+    public final boolean isDurationStrict;
+
     private PeriodData(Builder builder) {
       this.uid = builder.uid;
       this.durationUs = builder.durationUs;
       this.adPlaybackState = builder.adPlaybackState;
       this.isPlaceholder = builder.isPlaceholder;
+      this.isDurationStrict = builder.isDurationStrict;
     }
 
     /** Returns a {@link Builder} pre-populated with the current values. */
@@ -2104,7 +2125,8 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return this.uid.equals(periodData.uid)
           && this.durationUs == periodData.durationUs
           && this.adPlaybackState.equals(periodData.adPlaybackState)
-          && this.isPlaceholder == periodData.isPlaceholder;
+          && this.isPlaceholder == periodData.isPlaceholder
+          && this.isDurationStrict == periodData.isDurationStrict;
     }
 
     @Override
@@ -2114,6 +2136,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + (int) (durationUs ^ (durationUs >>> 32));
       result = 31 * result + adPlaybackState.hashCode();
       result = 31 * result + (isPlaceholder ? 1 : 0);
+      result = 31 * result + (isDurationStrict ? 1 : 0);
       return result;
     }
   }

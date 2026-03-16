@@ -391,7 +391,8 @@ public final class MaskingMediaSource extends WrappingMediaSource {
           /* durationUs= */ C.TIME_UNSET,
           /* positionInWindowUs= */ 0,
           /* adPlaybackState= */ AdPlaybackState.NONE,
-          /* isPlaceholder= */ true);
+          /* isPlaceholder= */ true,
+          /* isDurationStrict= */ false);
       return period;
     }
 

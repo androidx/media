@@ -1114,7 +1114,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
           durationUs,
           positionInWindowUs,
           adPlaybackState,
-          period.isPlaceholder);
+          period.isPlaceholder,
+          period.isDurationStrict);
       return period;
     }
   }

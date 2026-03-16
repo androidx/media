@@ -152,7 +152,8 @@ import java.util.List;
                     period.durationUs,
                     period.positionInWindowUs,
                     AdPlaybackState.NONE,
-                    /* isPlaceholder= */ true);
+                    /* isPlaceholder= */ true,
+                    period.isDurationStrict);
               } else {
                 superPeriod.isPlaceholder = true;
               }
