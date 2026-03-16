@@ -172,8 +172,12 @@ import java.util.Objects;
   public void flush(@IntRange(from = 0) long positionOffsetUs) {
     this.pendingStartTimeUs = positionOffsetUs;
 
-    for (InputInfo info : getActiveInputs()) {
+    for (InputInfo info : inputInfos) {
+      // Remove all mixer IDs even if input is released, as we are resetting mixer below.
       info.mixerSourceId = C.INDEX_UNSET;
+      if (info.audioGraphInput.isReleased()) {
+        continue;
+      }
       // AudioGraph does not know the exact position offset of each AudioGraphInput. Each holder of
       // AudioGraphInput must call AudioGraphInput#flush() or AudioGraphInput#onMediaItemChanged()
       // once the renderer resolves the seek position, which might be slightly different than

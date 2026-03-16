@@ -408,6 +408,55 @@ public class AudioGraphTest {
   }
 
   @Test
+  public void flush_withReleasedInput_doesNotCauseSubsequentInputsToCollide() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput firstInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    firstInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(STEREO_44100),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+    firstInput.getOutput(); // Force the media item change to be processed.
+
+    // Queue buffer to populate input start time and allow AudioGraph to register input in
+    // AudioMixer.
+    DecoderInputBuffer inputBuffer = firstInput.getInputBuffer();
+    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    inputBuffer.ensureSpaceForWrite(inputData.length);
+    inputBuffer.data.put(inputData).flip();
+    checkState(firstInput.queueInputBuffer());
+
+    // Force AudioGraph to configure mixer and register first input.
+    assertThat(audioGraph.getOutput().hasRemaining()).isTrue();
+
+    firstInput.release();
+    // AudioGraph should move back firstInput to unregistered state after flush(), regardless of
+    // whether it has been released.
+    audioGraph.flush(/* positionOffsetUs= */ 0);
+
+    AudioGraphInput secondInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    secondInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(STEREO_44100),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+    secondInput.getOutput(); // Force the media item change to be processed.
+    // Queue buffer to populate input start time and allow AudioGraph to register input in
+    // AudioMixer.
+    inputBuffer = secondInput.getInputBuffer();
+    inputBuffer.ensureSpaceForWrite(inputData.length);
+    inputBuffer.data.put(inputData).flip();
+    checkState(secondInput.queueInputBuffer());
+
+    // Force AudioGraph to configure mixer and register second input. Second input should be only
+    // registered input and call should not crash because of mixer id collision (b/491099076).
+    assertThat(audioGraph.getOutput().hasRemaining()).isTrue();
+  }
+
+  @Test
   public void flush_withNonZeroPositionOffset_doesNotDiscardFollowingData() throws Exception {
     AudioGraph audioGraph =
         new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
