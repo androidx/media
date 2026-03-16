@@ -27,7 +27,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -595,24 +594,13 @@ public final class Mp3Extractor implements Extractor {
         }
         xingMetadata = xingFrame.getMetadata();
         long startPosition = input.getPosition();
-        if (input.getLength() != C.LENGTH_UNSET
-            && xingFrame.dataSize != C.LENGTH_UNSET
-            && input.getLength() != startPosition + xingFrame.dataSize) {
-          Log.i(
-              TAG,
-              "Data size mismatch between stream ("
-                  + input.getLength()
-                  + ") and Xing frame ("
-                  + (startPosition + xingFrame.dataSize)
-                  + "), using Xing value.");
-        }
         input.skipFully(synchronizedHeader.frameSize);
         // An Xing frame indicates the file is VBR (so we have to use the seek header for seeking)
         // while an Info header indicates the file is CBR, in which case ConstantBitrateSeeker will
         // give more accurate seeking than the low-resolution seek table in the Info header. We can
         // still use the length from the Info frame if we don't know the stream length directly.
         if (seekHeader == SEEK_HEADER_XING) {
-          seeker = XingSeeker.create(xingFrame, startPosition);
+          seeker = XingSeeker.create(xingFrame, startPosition, input.getLength());
         } else { // seekHeader == SEEK_HEADER_INFO
           seeker = getConstantBitrateSeeker(startPosition, xingFrame, input.getLength());
         }

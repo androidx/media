@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
 
@@ -34,21 +35,38 @@ import androidx.media3.extractor.SeekPoint;
    *
    * @param xingFrame The parsed Xing data from this audio frame.
    * @param position The position of the start of this frame in the stream.
+   * @param streamLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @return A {@link XingSeeker} for seeking in the stream, or {@code null} if the required
    *     information is not present.
    */
   @Nullable
-  public static XingSeeker create(XingFrame xingFrame, long position) {
+  public static XingSeeker create(XingFrame xingFrame, long position, long streamLength) {
     long durationUs = xingFrame.computeDurationUs();
     if (durationUs == C.TIME_UNSET) {
       return null;
+    }
+    long dataSize;
+    if (xingFrame.dataSize != C.LENGTH_UNSET
+        && streamLength != C.LENGTH_UNSET
+        && position + xingFrame.dataSize != streamLength) {
+      long dataSizeFromStreamLength = streamLength - position;
+      Log.i(
+          TAG,
+          "Data size mismatch between stream ("
+              + dataSizeFromStreamLength
+              + ") and Xing frame ("
+              + xingFrame.dataSize
+              + "), using smaller value.");
+      dataSize = Math.min(xingFrame.dataSize, dataSizeFromStreamLength);
+    } else {
+      dataSize = xingFrame.dataSize;
     }
     return new XingSeeker(
         position,
         xingFrame.header.frameSize,
         durationUs,
         xingFrame.header.bitrate,
-        xingFrame.dataSize,
+        dataSize,
         xingFrame.tableOfContents);
   }
 

@@ -11,6 +11,8 @@
 *   Transformer:
 *   Track selection:
 *   Extractors:
+    *   MP3: Ignore Xing data length if it's longer than the known stream length
+        ([#3117](https://github.com/androidx/media/issues/3117)).
 *   Inspector:
 *   Audio:
 *   Video:
