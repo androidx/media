@@ -72,6 +72,9 @@
         between tracks, such as linking a metadata track to the video track it
         describes.
 *   IMA extension:
+    *   Add
+        `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
+        to allow providing an ad slot to use for pause ads.
 *   Session:
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding

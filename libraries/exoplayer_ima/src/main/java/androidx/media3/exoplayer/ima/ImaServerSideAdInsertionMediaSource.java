@@ -87,6 +87,7 @@ import com.google.ads.interactivemedia.v3.api.AdErrorEvent.AdErrorListener;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
 import com.google.ads.interactivemedia.v3.api.AdEvent.AdEventListener;
 import com.google.ads.interactivemedia.v3.api.AdPodInfo;
+import com.google.ads.interactivemedia.v3.api.AdSlot;
 import com.google.ads.interactivemedia.v3.api.AdsLoader.AdsLoadedListener;
 import com.google.ads.interactivemedia.v3.api.AdsManagerLoadedEvent;
 import com.google.ads.interactivemedia.v3.api.AdsRenderingSettings;
@@ -229,6 +230,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       @Nullable private AdErrorEvent.AdErrorListener adErrorListener;
       private State state;
       private ImmutableList<CompanionAdSlot> companionAdSlots;
+      @Nullable private AdSlot pauseAdSlot;
       private boolean focusSkipButtonWhenAvailable;
       private boolean enableCustomTabs;
 
@@ -334,6 +336,19 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       }
 
       /**
+       * Sets the slot to use for pause ads.
+       *
+       * @param pauseAdSlot The slot to use for pause ads.
+       * @return This builder, for convenience.
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      public AdsLoader.Builder setPauseAdSlot(AdSlot pauseAdSlot) {
+        this.pauseAdSlot = checkNotNull(pauseAdSlot);
+        return this;
+      }
+
+      /**
        * Sets the optional state to resume with.
        *
        * <p>The state can be received when {@link #release() releasing} the {@link AdsLoader}.
@@ -394,6 +409,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
                 adEventListener,
                 adErrorListener,
                 companionAdSlots,
+                pauseAdSlot,
                 focusSkipButtonWhenAvailable,
                 enableCustomTabs,
                 imaSdkSettings.isDebugMode());
@@ -1478,6 +1494,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         ImaSdkFactory.createStreamDisplayContainer(
             checkNotNull(config.adViewProvider.getAdViewGroup()), streamPlayer);
     container.setCompanionSlots(config.companionAdSlots);
+    if (config.pauseAdSlot != null) {
+      container.setPauseAdSlot(config.pauseAdSlot);
+    }
     registerFriendlyObstructions(imaSdkFactory, container, config.adViewProvider);
     return container;
   }
