@@ -40,7 +40,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -58,7 +57,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x04, 0xC0, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(10);
     assertThat(config.codecs).isEqualTo("av01.0.04H.10");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -76,7 +74,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x48, 0x60, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(12);
     assertThat(config.codecs).isEqualTo("av01.2.08M.12");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -93,7 +90,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x20);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -110,7 +106,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x0c);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -128,7 +123,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x0a, 0x80);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -146,7 +140,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x08, 0x08);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -163,7 +156,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x08, 0x04);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -180,7 +172,6 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x08, 0x02);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(Format.NO_VALUE);
@@ -203,7 +194,6 @@ public final class Av1ConfigTest {
             0x09, 0x00);
     Av1Config config = Av1Config.parse(initializationData);
 
-    assertThat(config.initializationData).containsExactly(initializationData);
     assertThat(config.bitdepth).isEqualTo(8);
     assertThat(config.codecs).isEqualTo("av01.0.00M.08");
     assertThat(config.colorSpace).isEqualTo(C.COLOR_SPACE_BT2020);
@@ -231,5 +221,13 @@ public final class Av1ConfigTest {
     byte[] initializationData = TestUtil.createByteArray(0x81, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00);
 
     assertThrows(ParserException.class, () -> Av1Config.parse(initializationData));
+  }
+
+  @Test
+  public void parse_withUnsupportedVersion_returnsNull() throws Exception {
+    // 0x82: marker = 1, version = 2
+    byte[] initializationData = TestUtil.createByteArray(0x82, 0x00, 0x00, 0x00);
+
+    assertThat(Av1Config.parse(initializationData)).isNull();
   }
 }

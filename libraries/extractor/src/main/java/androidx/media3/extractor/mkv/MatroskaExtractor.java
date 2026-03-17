@@ -2310,17 +2310,20 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_AV1:
           mimeType = MimeTypes.VIDEO_AV1;
-          if (codecPrivate != null) {
-            Av1Config av1Config = Av1Config.parse(codecPrivate);
-            initializationData = av1Config.initializationData;
-
-            bitstreamColorSpace = av1Config.colorSpace;
-            bitstreamColorTransfer = av1Config.colorTransfer;
-            bitstreamColorRange = av1Config.colorRange;
-            bitstreamLumaBitdepth = av1Config.bitdepth;
-            bitstreamChromaBitdepth = av1Config.bitdepth;
-            codecs = av1Config.codecs;
+          if (codecPrivate == null) {
+            break;
           }
+          initializationData = ImmutableList.of(codecPrivate);
+          Av1Config av1Config = Av1Config.parse(codecPrivate);
+          if (av1Config == null) {
+            break;
+          }
+          bitstreamColorSpace = av1Config.colorSpace;
+          bitstreamColorTransfer = av1Config.colorTransfer;
+          bitstreamColorRange = av1Config.colorRange;
+          bitstreamLumaBitdepth = av1Config.bitdepth;
+          bitstreamChromaBitdepth = av1Config.bitdepth;
+          codecs = av1Config.codecs;
           break;
         case CODEC_ID_MPEG2:
           mimeType = MimeTypes.VIDEO_MPEG2;

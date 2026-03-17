@@ -1693,14 +1693,16 @@ public final class BoxParser {
         byte[] initializationDataChunk = new byte[childAtomBodySize];
         parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
 
+        initializationData = ImmutableList.of(initializationDataChunk);
         Av1Config av1Config = Av1Config.parse(initializationDataChunk);
-        initializationData = av1Config.initializationData;
-        bitdepthLuma = av1Config.bitdepth;
-        bitdepthChroma = av1Config.bitdepth;
-        colorSpace = av1Config.colorSpace;
-        colorRange = av1Config.colorRange;
-        colorTransfer = av1Config.colorTransfer;
-        codecs = av1Config.codecs;
+        if (av1Config != null) {
+          bitdepthLuma = av1Config.bitdepth;
+          bitdepthChroma = av1Config.bitdepth;
+          colorSpace = av1Config.colorSpace;
+          colorRange = av1Config.colorRange;
+          colorTransfer = av1Config.colorTransfer;
+          codecs = av1Config.codecs;
+        }
       } else if (childAtomType == Mp4Box.TYPE_clli) {
         if (hdrStaticInfo == null) {
           hdrStaticInfo = allocateHdrStaticInfo();

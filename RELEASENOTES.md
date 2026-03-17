@@ -42,6 +42,7 @@
         ([#3088](https://github.com/androidx/media/issues/3088)).
     *   MP3: Ignore Xing data length if it's longer than the known stream length
         ([#3117](https://github.com/androidx/media/issues/3117)).
+    *   Ignore `av1C` data with unsupported version.
 *   Inspector:
 *   Audio:
     *   Convert parameters of `AudioSink.configure` to data class. Custom

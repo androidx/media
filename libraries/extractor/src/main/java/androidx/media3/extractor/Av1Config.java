@@ -17,6 +17,7 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.util.Util.formatInvariant;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.ColorRange;
 import androidx.media3.common.C.ColorSpace;
@@ -27,21 +28,12 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /** AV1 configuration data. */
 @UnstableApi
 public final class Av1Config {
 
   private static final String TAG = "Av1Config";
-
-  /**
-   * List of buffers containing the codec-specific data to be provided to the decoder.
-   *
-   * <p>See {@link Format#initializationData}.
-   */
-  public final List<byte[]> initializationData;
 
   /** The bit depth of the samples, or {@link Format#NO_VALUE} if unknown. */
   public final int bitdepth;
@@ -82,17 +74,20 @@ public final class Av1Config {
    * href="https://aomediacodec.github.io/av1-spec/av1-spec.pdf">AV1 Bitstream spec</a>.
    *
    * @param initializationData The exact bytes of the AV1 configuration data to parse.
-   * @return A parsed representation of the AV1 configuration data.
+   * @return A parsed representation of the AV1 configuration data, or {@code null} if the version
+   *     isn't supported.
    * @throws ParserException If an error occurred parsing the data.
    */
+  @Nullable
   public static Av1Config parse(byte[] initializationData) throws ParserException {
     try {
-      // We can wrap the raw bytes directly in a ParsableBitArray, starting at position 0!
       ParsableBitArray bitArray = new ParsableBitArray(initializationData);
-
-      // Parse av1C config record for bitdepth info.
-      // See https://aomediacodec.github.io/av1-isobmff/#av1codecconfigurationbox-syntax.
-      bitArray.skipBytes(1); // marker, version
+      bitArray.skipBit(); // marker
+      int version = bitArray.readBits(7);
+      if (version != 1) {
+        Log.w(TAG, "Unsupported av1C version: " + version);
+        return null;
+      }
       int seqProfile = bitArray.readBits(3);
       int seqLevelIdx0 = bitArray.readBits(5);
       boolean seqTier0 = bitArray.readBit();
@@ -110,7 +105,7 @@ public final class Av1Config {
       String codecs = buildCodecString(seqProfile, seqLevelIdx0, seqTier0, bitdepth);
       // The configOBUs array is optional. If the payload is exactly 4 bytes, we are done.
       if (bitArray.bitsLeft() <= 0) {
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
 
       // 5.3.1. General OBU syntax
@@ -118,11 +113,11 @@ public final class Av1Config {
       int obuType = bitArray.readBits(4); // obu_type
       if (obuType != 1) { // obu_type != OBU_SEQUENCE_HEADER
         Log.i(TAG, "Unsupported obu_type: " + obuType);
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       if (bitArray.readBit()) { // obu_extension_flag
         Log.i(TAG, "Unsupported obu_extension_flag");
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       boolean obuHasSizeField = bitArray.readBit(); // obu_has_size_field
       bitArray.skipBit(); // obu_reserved_1bit
@@ -130,22 +125,22 @@ public final class Av1Config {
       // readBits(8).
       if (obuHasSizeField && bitArray.readBits(8) > 127) { // obu_size
         Log.i(TAG, "Excessive obu_size");
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       // 5.5.1. General OBU sequence header syntax
       int obuSeqHeaderSeqProfile = bitArray.readBits(3); // seq_profile
       bitArray.skipBit(); // still_picture
       if (bitArray.readBit()) { // reduced_still_picture_header
         Log.i(TAG, "Unsupported reduced_still_picture_header");
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       if (bitArray.readBit()) { // timing_info_present_flag
         Log.i(TAG, "Unsupported timing_info_present_flag");
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       if (bitArray.readBit()) { // initial_display_delay_present_flag
         Log.i(TAG, "Unsupported initial_display_delay_present_flag");
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       int operatingPointsCountMinus1 = bitArray.readBits(5); // operating_points_cnt_minus_1
       for (int i = 0; i <= operatingPointsCountMinus1; i++) {
@@ -189,7 +184,7 @@ public final class Av1Config {
       boolean monochrome = (obuSeqHeaderSeqProfile != 1) && bitArray.readBit(); // mono_chrome
 
       if (!bitArray.readBit()) { // color_description_present_flag
-        return new Av1Config(initializationData, bitdepth, codecs);
+        return new Av1Config(bitdepth, codecs);
       }
       int colorPrimaries = bitArray.readBits(8); // color_primaries
       int transferCharacteristics = bitArray.readBits(8); // transfer_characteristics
@@ -207,8 +202,7 @@ public final class Av1Config {
       @ColorTransfer
       int colorTransfer =
           ColorInfo.isoTransferCharacteristicsToColorTransfer(transferCharacteristics);
-      return new Av1Config(
-          initializationData, bitdepth, codecs, colorSpace, colorRange, colorTransfer);
+      return new Av1Config(bitdepth, codecs, colorSpace, colorRange, colorTransfer);
 
     } catch (RuntimeException e) {
       throw ParserException.createForMalformedContainer("Error parsing AV1 config", e);
@@ -231,9 +225,8 @@ public final class Av1Config {
         + formatInvariant("%02d", bitdepth);
   }
 
-  private Av1Config(byte[] initializationData, int bitdepth, String codecs) {
+  private Av1Config(int bitdepth, String codecs) {
     this(
-        initializationData,
         bitdepth,
         codecs,
         /* colorSpace= */ Format.NO_VALUE,
@@ -242,13 +235,11 @@ public final class Av1Config {
   }
 
   private Av1Config(
-      byte[] initializationData,
       int bitdepth,
       String codecs,
       @C.ColorSpace int colorSpace,
       @C.ColorRange int colorRange,
       @C.ColorTransfer int colorTransfer) {
-    this.initializationData = ImmutableList.of(initializationData);
     this.bitdepth = bitdepth;
     this.codecs = codecs;
     this.colorSpace = colorSpace;
