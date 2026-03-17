@@ -16,8 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP3_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
@@ -26,7 +26,6 @@ import android.content.Context;
 import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -57,11 +56,7 @@ public final class CompositionPlayerGapsTest {
           .setDurationUs(AUDIO_VIDEO_MEDIA_ITEM_DURATION_US)
           .build();
   private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
-      new EditedMediaItem.Builder(
-              new MediaItem.Builder()
-                  .setUri(MP3_ASSET.uri)
-                  .setMimeType(MimeTypes.BASE_TYPE_AUDIO)
-                  .build())
+      new EditedMediaItem.Builder(new MediaItem.Builder().setUri(WAV_ASSET.uri).build())
           .setDurationUs(AUDIO_ONLY_MEDIA_ITEM_DURATION_US)
           .build();
 
