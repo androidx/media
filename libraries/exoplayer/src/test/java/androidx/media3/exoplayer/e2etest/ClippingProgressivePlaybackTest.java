@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -53,6 +52,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.List;
 import java.util.Map;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -98,10 +98,8 @@ public final class ClippingProgressivePlaybackTest {
   }
 
   @Test
+  @Ignore("Flaky: b/491840995")
   public void playback_clippedWithSeek() throws Exception {
-    assumeTrue(
-        "This test is flaky with enableMediaPeriodClipping=false: b/491840995",
-        enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
