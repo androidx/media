@@ -19,13 +19,16 @@ import android.Manifest
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -110,6 +113,7 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MimeTypes
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
+import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MEDIA_TYPES
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SAME_AS_INPUT_OPTION
@@ -305,6 +309,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
             onAddItem = { index -> viewModel.addItem(index) },
             onRemoveItem = { index -> viewModel.removeItem(index) },
             onUpdateEffects = { index, effects -> viewModel.updateEffectsForItem(index, effects) },
+            onAddLocalItem = { uri -> viewModel.addLocalItem(uri) },
           )
         }
         if (isOverlayPlacementActive) {
@@ -637,9 +642,16 @@ class CompositionPreviewActivity : AppCompatActivity() {
     onAddItem: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onUpdateEffects: (index: Int, effects: Set<String>) -> Unit,
+    onAddLocalItem: (Uri) -> Unit,
   ) {
     var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
     var showEditMediaItemsDialog by remember { mutableStateOf(false) }
+
+    val filePickerLauncher =
+      rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {
+        uri: Uri? ->
+        uri?.let { onAddLocalItem(it) }
+      }
 
     if (showEditMediaItemsDialog) {
       VideoSequenceDialog(
@@ -706,12 +718,16 @@ class CompositionPreviewActivity : AppCompatActivity() {
           }
         }
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
-        ElevatedButton(
-          onClick = { showEditMediaItemsDialog = true },
-          enabled = isEnabled,
-          modifier = Modifier.align(Alignment.CenterHorizontally),
-        ) {
-          Text(text = stringResource(R.string.edit))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+          ElevatedButton(onClick = { showEditMediaItemsDialog = true }, enabled = isEnabled) {
+            Text(text = stringResource(R.string.edit))
+          }
+          ElevatedButton(
+            onClick = { filePickerLauncher.launch(MEDIA_TYPES) },
+            enabled = isEnabled,
+          ) {
+            Text(text = stringResource(R.string.add_local_file))
+          }
         }
       }
     }

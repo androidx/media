@@ -18,8 +18,10 @@ package androidx.media3.demo.composition
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
+import android.provider.OpenableColumns
 import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -68,6 +70,7 @@ import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.ndk.HardwareBufferJni
 import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder
 import androidx.media3.effect.ndk.NdkTransformerBuilder
+import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionFrameMetadata
 import androidx.media3.transformer.CompositionPlayer
@@ -95,6 +98,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONException
@@ -430,6 +434,85 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       val itemToAdd = currentState.mediaState.availableItems[index].copy()
       val newSelectedItems = currentState.mediaState.selectedItems + itemToAdd
       currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+    }
+  }
+
+  /**
+   * Adds a local item represented by [uri] to the main sequence.
+   *
+   * This method extracts the [display name][OpenableColumns.DISPLAY_NAME] of the file, and then
+   * uses [MetadataRetriever] to extract the file type and duration.
+   */
+  fun addLocalItem(uri: Uri) {
+    viewModelScope.launch(Dispatchers.IO) {
+      val context = getApplication<Application>()
+      // Use last path segment as default value if content resolver can't get one.
+      var displayName = uri.lastPathSegment!!
+
+      // Try to get display name.
+      try {
+        context.contentResolver
+          .query(
+            uri,
+            /* projection= */ arrayOf(OpenableColumns.DISPLAY_NAME),
+            /* selection= */ null,
+            /* selectionArgs= */ null,
+            /* sortOrder= */ null,
+          )
+          ?.use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+            if (cursor.moveToFirst()) {
+              displayName = cursor.getString(nameIndex)
+            }
+          }
+      } catch (e: IllegalArgumentException) {
+        Log.e(TAG, "Failed to get display name", e)
+      }
+
+      // Default duration for images.
+      var durationUs = DEFAULT_IMAGE_DURATION_US
+      val mediaItem = MediaItem.fromUri(uri)
+      try {
+        // Try to get file type and duration.
+        MetadataRetriever.Builder(context, mediaItem).build().use {
+          val trackGroups = it.retrieveTrackGroups().await()
+          // Don't retrieve duration for images.
+          if (trackGroups[0].type != C.TRACK_TYPE_IMAGE) {
+            durationUs = it.retrieveDurationUs().await()
+          }
+        }
+      } catch (e: Exception) {
+        Log.e(TAG, "Failed to retrieve metadata", e)
+        withContext(Dispatchers.Main) {
+          _uiState.update { currentState ->
+            currentState.copy(snackbarMessage = "Failed to load media item.")
+          }
+        }
+        return@launch
+      }
+      if (durationUs == C.TIME_UNSET) {
+        _uiState.update { currentState ->
+          currentState.copy(snackbarMessage = "Failed to get duration.")
+        }
+        return@launch
+      }
+
+      val newItem =
+        Item(
+          title = displayName,
+          uri = uri.toString(),
+          durationUs = durationUs,
+          selectedEffects = emptySet(),
+        )
+
+      withContext(Dispatchers.Main) {
+        _uiState.update { currentState ->
+          val newSelectedItems = currentState.mediaState.selectedItems + newItem
+          currentState.copy(
+            mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems)
+          )
+        }
+      }
     }
   }
 
@@ -843,6 +926,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
     private const val DEFAULT_FRAME_RATE_FPS = 30
+    private const val DEFAULT_IMAGE_DURATION_US = 1_000_000L
+    val MEDIA_TYPES = arrayOf("video/*", "image/*", "audio/*")
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),

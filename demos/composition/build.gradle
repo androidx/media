@@ -67,6 +67,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer-dash')
     implementation project(modulePrefix + 'lib-muxer')
     implementation project(modulePrefix + 'lib-transformer')
+    implementation project(modulePrefix + 'lib-inspector')
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-ui-compose')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
@@ -80,6 +81,7 @@ dependencies {
     implementation 'androidx.compose.material3.adaptive:adaptive'
     implementation 'androidx.compose.material3.adaptive:adaptive-layout'
     implementation 'androidx.compose.material3.adaptive:adaptive-navigation'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-guava:" + kotlinxCoroutinesVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
