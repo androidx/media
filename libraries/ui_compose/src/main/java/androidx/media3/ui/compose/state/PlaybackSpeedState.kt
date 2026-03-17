@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 
@@ -60,6 +61,10 @@ class PlaybackSpeedState(private val player: Player?) {
   var playbackSpeed by mutableFloatStateOf(1f)
     private set
 
+  private var isSpeedTemporarilyOverridden = false
+
+  private var originalSpeedBeforeOverride by mutableFloatStateOf(C.RATE_UNSET)
+
   private val playerStateObserver: PlayerStateObserver? =
     player?.observeState(
       Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
@@ -82,6 +87,33 @@ class PlaybackSpeedState(private val player: Player?) {
       if (it.isCommandAvailable(Player.COMMAND_SET_SPEED_AND_PITCH)) {
         it.playbackParameters = it.playbackParameters.withSpeed(speed)
       }
+    }
+  }
+
+  /**
+   * Starts a temporary speed override, i.e. fast-forward or slow motion.
+   *
+   * If there isn't an ongoing override, remembers the current speed to restore later.
+   */
+  fun temporarilyOverrideSpeedWith(speed: Float) {
+    if (!isSpeedTemporarilyOverridden) {
+      originalSpeedBeforeOverride = playbackSpeed
+      isSpeedTemporarilyOverridden = true
+    }
+    updatePlaybackSpeed(speed)
+  }
+
+  /**
+   * Restores the playback speed to the value it had before the first call to
+   * [temporarilyOverrideSpeedWith].
+   *
+   * If the playback speed is changed while a temporary override is active, this method will still
+   * restore the speed to the value that was current *before* the override began.
+   */
+  fun restoreOverriddenSpeed() {
+    if (isSpeedTemporarilyOverridden) {
+      isSpeedTemporarilyOverridden = false
+      updatePlaybackSpeed(originalSpeedBeforeOverride)
     }
   }
 

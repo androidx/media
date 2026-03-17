@@ -20,7 +20,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -29,8 +32,10 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.media3.ui.compose.material3.R
+import androidx.media3.ui.compose.state.PlaybackSpeedState
 import androidx.media3.ui.compose.state.SeekBackButtonState
 import androidx.media3.ui.compose.state.SeekForwardButtonState
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
@@ -75,28 +80,43 @@ internal fun Modifier.reportPointerDown(onPointerDownChange: (Boolean) -> Unit):
  *   tap.
  * @param seekBackButtonState State object for handling seek back actions and providing seek
  *   increment.
- * @param seekForwardButtonState State object for handling seek forward actions and providing seek
- *   increment.
  * @param seekBackActionArea A function that takes the [Offset] of the tap and returns `true` if the
  *   tap is within the seek back region.
+ * @param seekForwardButtonState State object for handling seek forward actions and providing seek
+ *   increment.
  * @param seekForwardActionArea A function that takes the [Offset] of the tap and returns `true` if
  *   the tap is within the seek forward region.
  * @param onSeek Lambda invoked when a seek is performed, providing the seek amount in milliseconds
  *   (negative for seek back, positive for seek forward).
+ * @param playbackSpeedState State for setting the playback speed.
+ * @param fastForwardActionArea A function that takes the [Offset] of the press and returns `true`
+ *   if the press is within the fast-forward long press region.
+ * @param onFastForward Lambda invoked with whether fast-forwarding is performed or not.
  */
 @Composable
 internal fun Modifier.playerGestures(
   onPointerDownChange: ((Boolean) -> Unit)?,
   onToggleControls: () -> Unit,
   seekBackButtonState: SeekBackButtonState?,
-  seekForwardButtonState: SeekForwardButtonState?,
   seekBackActionArea: (Offset) -> Boolean = { false },
+  seekForwardButtonState: SeekForwardButtonState?,
   seekForwardActionArea: (Offset) -> Boolean = { false },
   onSeek: (seekIncrementMillis: Long) -> Unit = {},
+  playbackSpeedState: PlaybackSpeedState? = null,
+  fastForwardActionArea: (Offset) -> Boolean = { false },
+  onFastForward: (Boolean) -> Unit = {},
+  fastForwardSpeed: Float = 2f,
 ): Modifier {
   val seekBackButtonDescription = stringResource(R.string.seek_back_button)
   val seekForwardButtonDescription = stringResource(R.string.seek_forward_button)
-  return this.pointerInput(onPointerDownChange, seekBackButtonState, seekForwardButtonState) {
+  var isFastForwarding by remember { mutableStateOf(false) }
+
+  return this.pointerInput(
+      onPointerDownChange,
+      seekBackButtonState,
+      seekForwardButtonState,
+      playbackSpeedState,
+    ) {
       coroutineScope {
         launch {
           awaitPointerEventScope {
@@ -108,28 +128,45 @@ internal fun Modifier.playerGestures(
           }
         }
 
-        launch {
-          detectTapGestures(
-            onTap = { onToggleControls() },
-            onDoubleTap = { offset ->
-              when {
-                seekBackActionArea(offset) -> {
-                  seekBackButtonState?.let {
-                    onSeek(-it.seekBackAmountMs)
-                    it.onClick()
-                  }
-                }
-                seekForwardActionArea(offset) -> {
-                  seekForwardButtonState?.let {
-                    onSeek(it.seekForwardAmountMs)
-                    it.onClick()
-                  }
+        detectTapGestures(
+          onTap = { onToggleControls() },
+          onDoubleTap = { offset ->
+            when {
+              seekBackActionArea(offset) -> {
+                seekBackButtonState?.let {
+                  onSeek(-it.seekBackAmountMs)
+                  it.onClick()
                 }
               }
-            },
-            // onPress = { offset -> }, TODO: implement fast forwarding
-          )
-        }
+              seekForwardActionArea(offset) -> {
+                seekForwardButtonState?.let {
+                  onSeek(it.seekForwardAmountMs)
+                  it.onClick()
+                }
+              }
+            }
+          },
+          onLongPress = { offset ->
+            if (fastForwardActionArea(offset) && !isFastForwarding) {
+              isFastForwarding = true
+              onFastForward(true)
+              playbackSpeedState?.temporarilyOverrideSpeedWith(fastForwardSpeed)
+            }
+          },
+          onPress = {
+            try {
+              // Waits for the pointer to be released or the gesture to be canceled.
+              tryAwaitRelease()
+            } catch (c: CancellationException) {} finally {
+              // Pointer is up
+              if (isFastForwarding) {
+                playbackSpeedState?.restoreOverriddenSpeed()
+                onFastForward(false)
+                isFastForwarding = false
+              }
+            }
+          },
+        )
       }
     }
     .semantics {

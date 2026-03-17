@@ -81,6 +81,9 @@
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display various
         metadata information about the currently playing `MediaItem`.
+    *   Add fastforwarding/slow motion API to `PlaybackSpeedState`. Use this
+        functionality in `demo-compose` to showcase fastforwarding with a long
+        press.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

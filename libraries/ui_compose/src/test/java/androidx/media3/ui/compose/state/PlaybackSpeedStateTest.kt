@@ -21,11 +21,14 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.media3.common.ForwardingSimpleBasePlayer
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -199,5 +202,145 @@ class PlaybackSpeedStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
+  }
+
+  @Test
+  fun startFastForward_setsPlayerSpeedToFastForwardSpeed() {
+    val player = createReadyPlayerWithTwoItems()
+    val fastForwardSpeed = 2.0f
+
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    state.temporarilyOverrideSpeedWith(fastForwardSpeed)
+    composeTestRule.waitForIdle()
+
+    assertThat(player.playbackParameters.speed).isEqualTo(fastForwardSpeed)
+    assertThat(state.playbackSpeed).isEqualTo(fastForwardSpeed)
+  }
+
+  @Test
+  fun stopFastForward_restoresOriginalSpeed() {
+    val player = createReadyPlayerWithTwoItems()
+    val originalSpeed = 1.25f
+    val fastForwardSpeed = 2.0f
+    player.setPlaybackSpeed(originalSpeed)
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    state.temporarilyOverrideSpeedWith(fastForwardSpeed)
+    composeTestRule.waitForIdle()
+
+    assertThat(state.playbackSpeed).isEqualTo(fastForwardSpeed)
+    assertThat(player.playbackParameters.speed).isEqualTo(fastForwardSpeed)
+
+    state.restoreOverriddenSpeed()
+    composeTestRule.waitForIdle()
+
+    assertThat(player.playbackParameters.speed).isEqualTo(originalSpeed)
+    assertThat(state.playbackSpeed).isEqualTo(originalSpeed)
+  }
+
+  @Test
+  fun stopFastForward_afterMultipleStarts_restoresCorrectOriginalSpeed() {
+    val player = createReadyPlayerWithTwoItems()
+    player.setPlaybackSpeed(1.25f)
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    state.temporarilyOverrideSpeedWith(2.0f)
+    composeTestRule.waitForIdle()
+
+    state.temporarilyOverrideSpeedWith(3.0f)
+    composeTestRule.waitForIdle()
+
+    state.restoreOverriddenSpeed()
+    composeTestRule.waitForIdle()
+
+    assertThat(player.playbackParameters.speed).isEqualTo(1.25f)
+    assertThat(state.playbackSpeed).isEqualTo(1.25f)
+  }
+
+  @Test
+  fun stopFastForward_afterExternalSpeedChange_restoresOriginalSpeed() {
+    val player = createReadyPlayerWithTwoItems()
+    val originalSpeed = 1.0f
+    val fastForwardSpeed = 2.0f
+    val externalSpeed = 1.5f
+    player.setPlaybackSpeed(originalSpeed)
+
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    // Start override (e.g. user holds down finger for 2x speed)
+    state.temporarilyOverrideSpeedWith(fastForwardSpeed)
+    composeTestRule.waitForIdle()
+    assertThat(player.playbackParameters.speed).isEqualTo(fastForwardSpeed)
+
+    // External change happens while override is active (e.g. via MediaSession/Watch)
+    player.setPlaybackSpeed(externalSpeed)
+    composeTestRule.waitForIdle()
+
+    // The state holder observes the external change but remains in "override" mode
+    assertThat(state.playbackSpeed).isEqualTo(externalSpeed)
+
+    // Stop override (e.g. user releases finger)
+    state.restoreOverriddenSpeed()
+    composeTestRule.waitForIdle()
+
+    // The speed is restored to the original 1.0f, overwriting the external 1.5f change
+    assertThat(player.playbackParameters.speed).isEqualTo(originalSpeed)
+    assertThat(state.playbackSpeed).isEqualTo(originalSpeed)
+  }
+
+  @Test
+  fun restoreOriginalSpeed_onItemWithSpeedRestriction_staysAtRestrictedSpeed() {
+    val player =
+      object : ForwardingSimpleBasePlayer(createReadyPlayerWithTwoItems()) {
+        override fun handleSetPlaybackParameters(
+          playbackParameters: PlaybackParameters
+        ): ListenableFuture<*> {
+          // Enforce 1x speed for one of two the items
+          val enforcedParameters =
+            if (player.currentMediaItemIndex == 1) {
+              playbackParameters.withSpeed(1.0f)
+            } else {
+              playbackParameters
+            }
+          return super.handleSetPlaybackParameters(enforcedParameters)
+        }
+
+        /** Simulates the player's internal drop to 1x (e.g. on item transition) */
+        fun simulateInternalSpeedDrop() {
+          player.setPlaybackSpeed(1.0f)
+        }
+      }
+
+    // Initial speed is 1.5x on the unrestricted item
+    player.setPlaybackSpeed(1.5f)
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    // Start override (e.g., user long-presses for 2x)
+    state.temporarilyOverrideSpeedWith(2.0f)
+    composeTestRule.waitForIdle()
+    assertThat(player.playbackParameters.speed).isEqualTo(2.0f)
+
+    // Transition to the restricted item and simulate the player's internal drop to 1x
+    player.seekToNext()
+    player.simulateInternalSpeedDrop()
+    composeTestRule.waitForIdle()
+
+    // The UI state correctly observes the 1x speed drop from the player
+    assertThat(state.playbackSpeed).isEqualTo(1.0f)
+
+    // End override (e.g., user releases finger)
+    state.restoreOverriddenSpeed()
+    composeTestRule.waitForIdle()
+
+    // The state holder attempts to restore 1.5x, but the player enforces 1.0x.
+    // This verifies that the player remains the source of truth for speed constraints.
+    assertThat(player.playbackParameters.speed).isEqualTo(1.0f)
+    assertThat(state.playbackSpeed).isEqualTo(1.0f)
   }
 }

@@ -29,8 +29,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +64,7 @@ import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
 import androidx.media3.demo.compose.text.CurrentItemInfo
+import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
@@ -69,6 +72,7 @@ import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
 import androidx.media3.ui.compose.text.CurrentMediaItemBox
@@ -130,7 +134,9 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var size by remember { mutableStateOf(IntSize.Zero) }
   val scope = rememberCoroutineScope()
   val seekOverlayState = remember { SeekOverlayState(scope) }
+  var showFastForward by remember { mutableStateOf(false) }
 
+  val playbackSpeedState = rememberPlaybackSpeedState(player)
   Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
     Player(
       player = player,
@@ -140,6 +146,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           .playerGestures(
             onPointerDownChange = { anyPointerDown = it },
             onToggleControls = { showControls = !showControls },
+            playbackSpeedState = playbackSpeedState,
             seekBackButtonState = rememberSeekBackButtonState(player),
             seekForwardButtonState = rememberSeekForwardButtonState(player),
             seekBackActionArea = { offset -> offset.x < size.width / 2 },
@@ -147,6 +154,11 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
             onSeek = {
               showControls = false
               seekOverlayState.show(it)
+            },
+            fastForwardActionArea = { offset -> offset.x >= size.width / 2 },
+            onFastForward = {
+              showControls = false
+              showFastForward = it
             },
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
@@ -180,6 +192,18 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           )
           .padding(horizontal = 20.dp),
     )
+    if (showFastForward) {
+      FastForwardOverlay(
+        speed = playbackSpeedState.playbackSpeed,
+        Modifier.navigationBarsPadding()
+          .align(Alignment.BottomCenter)
+          .background(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            shape = RoundedCornerShape(4.dp),
+          )
+          .padding(4.dp),
+      )
+    }
     if (showCurrentMediaItemInfo) {
       CurrentMediaItemBox(player) {
         Box(
