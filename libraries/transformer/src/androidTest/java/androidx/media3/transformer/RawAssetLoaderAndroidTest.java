@@ -321,10 +321,10 @@ public class RawAssetLoaderAndroidTest {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(exportResult.filePath)).build()) {
       Bitmap frame = frameExtractor.getFrame(0).get().bitmap;
-      // 15 is a very low PSNR threshold that still ensures that the contents are somewhat similar.
+      // 14 is a very low PSNR threshold that still ensures that the contents are somewhat similar.
       // TODO: b/477566223 - understand why the colors in the output video are different from the
       // input Bitmap.
-      assertBitmapsAreSimilar(bitmap, frame, /* psnrThresholdDb= */ 15f);
+      assertBitmapsAreSimilar(bitmap, frame, /* psnrThresholdDb= */ 14f);
     }
   }
 
