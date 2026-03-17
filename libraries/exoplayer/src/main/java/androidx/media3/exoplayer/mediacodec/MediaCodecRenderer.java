@@ -1032,7 +1032,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   protected boolean shouldReleaseCodecInsteadOfFlushing() {
     if (codecDrainAction == DRAIN_ACTION_REINITIALIZE
         || (codecNeedsSosFlushWorkaround && !codecHasOutputMediaFormat)
-        || (codecNeedsEosFlushWorkaround && codecReceivedEos)) {
+        || (codecNeedsEosFlushWorkaround
+            && (codecReceivedEos || codecDrainState == DRAIN_STATE_SIGNAL_END_OF_STREAM))) {
       return true;
     }
     if (codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION) {
@@ -2146,7 +2147,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean drainAndFlushCodec() {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
-      if (codecNeedsEosFlushWorkaround) {
+      if (shouldReleaseCodecInsteadOfFlushing()) {
         codecDrainAction = DRAIN_ACTION_REINITIALIZE;
         return false;
       } else {
@@ -2168,7 +2169,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean drainAndUpdateCodecDrmSession() throws ExoPlaybackException {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
-      if (codecNeedsEosFlushWorkaround) {
+      if (shouldReleaseCodecInsteadOfFlushing()) {
         codecDrainAction = DRAIN_ACTION_REINITIALIZE;
         return false;
       } else {
