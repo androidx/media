@@ -25,7 +25,14 @@ internal class ComposeDemoViewModel : ViewModel() {
   private val _mediaItems = MutableStateFlow<List<MediaItem>>(emptyList())
   val mediaItems = _mediaItems.asStateFlow()
 
+  private val _playlistName = MutableStateFlow("")
+  val playlistName = _playlistName.asStateFlow()
+
   fun selectMediaItems(mediaItems: List<MediaItem>) {
     _mediaItems.value = mediaItems
+  }
+
+  fun selectPlaylistName(playlistName: String) {
+    _playlistName.value = playlistName
   }
 }

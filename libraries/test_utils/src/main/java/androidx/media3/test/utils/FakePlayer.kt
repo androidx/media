@@ -20,6 +20,7 @@ import android.os.Looper
 import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
@@ -180,6 +181,10 @@ class FakePlayer(
     handleStateUpdate {
       setVolume(volume)
     }
+
+  override fun handleSetPlaylistMetadata(playlistMetadata: MediaMetadata) = handleStateUpdate {
+    setPlaylistMetadata(playlistMetadata)
+  }
 
   /**
    * Sets the {@linkplain Player.State state} of the player.

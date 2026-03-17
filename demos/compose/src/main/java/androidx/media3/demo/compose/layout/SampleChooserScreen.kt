@@ -52,7 +52,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SampleChooserScreen(
-  onPlaylistClick: suspend (List<MediaItem>) -> Unit,
+  onPlaylistClick: suspend (String, List<MediaItem>) -> Unit,
   modifier: Modifier = Modifier,
   context: Context = LocalContext.current,
 ) {
@@ -100,7 +100,10 @@ fun SampleChooserScreen(
                 Modifier.clickable(enabled = !isLoading) {
                   coroutineScope.launch {
                     isLoading = true
-                    onPlaylistClick(loadDurationsForMediaItems(context, playlist.mediaItems))
+                    onPlaylistClick(
+                      playlist.name,
+                      loadDurationsForMediaItems(context, playlist.mediaItems),
+                    )
                   }
                 },
               colors =

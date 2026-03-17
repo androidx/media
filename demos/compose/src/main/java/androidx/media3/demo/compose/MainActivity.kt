@@ -77,7 +77,8 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
     ) {
       composable(ROUTE_SAMPLE_CHOOSER) {
         SampleChooserScreen(
-          onPlaylistClick = { selectedMedia ->
+          onPlaylistClick = { selectedPlaylistName, selectedMedia ->
+            viewModel.selectPlaylistName(selectedPlaylistName)
             viewModel.selectMediaItems(selectedMedia)
             navController.navigate(ROUTE_PLAYER)
           },
@@ -86,7 +87,8 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
       }
       composable(ROUTE_PLAYER) {
         val mediaItems by viewModel.mediaItems.collectAsState()
-        MainScreen(mediaItems)
+        val playlistName by viewModel.playlistName.collectAsState()
+        MainScreen(playlistName, mediaItems)
       }
     }
   }

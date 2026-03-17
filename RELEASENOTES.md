@@ -88,6 +88,10 @@
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display various
         metadata information about the currently playing `MediaItem`.
+    *   Add `PlaylistState` class and the corresponding `rememberPlaylistState`
+        Composable to `media3-ui-compose` module. This state holder is used in
+        `demo-compose` to display various metadata information about the
+        `MediaItems` set on the Player.
     *   Add fastforwarding/slow motion API to `PlaybackSpeedState`. Use this
         functionality in `demo-compose` to showcase fastforwarding with a long
         press.

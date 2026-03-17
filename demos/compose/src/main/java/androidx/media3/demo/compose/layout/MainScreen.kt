@@ -59,12 +59,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
 import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
 import androidx.media3.demo.compose.text.CurrentItemInfo
 import androidx.media3.demo.compose.text.FastForwardOverlay
+import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
 import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
@@ -79,7 +81,7 @@ import androidx.media3.ui.compose.text.CurrentMediaItemBox
 import kotlinx.coroutines.delay
 
 @Composable
-fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
+fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
   val context = LocalContext.current
   var player by remember { mutableStateOf<Player?>(null) }
 
@@ -92,8 +94,8 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
     // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
     // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
     // playback should continue.
-    LifecycleStartEffect(Unit) {
-      player = initializePlayer(context, mediaItems)
+    LifecycleStartEffect(mediaItems, playlistName) {
+      player = initializePlayer(context, playlistName, mediaItems)
       onStopOrDispose {
         player?.apply { release() }
         player = null
@@ -101,8 +103,8 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
     }
   } else {
     // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-    LifecycleResumeEffect(Unit) {
-      player = initializePlayer(context, mediaItems)
+    LifecycleResumeEffect(mediaItems, playlistName) {
+      player = initializePlayer(context, playlistName, mediaItems)
       onPauseOrDispose {
         player?.apply { release() }
         player = null
@@ -119,6 +121,7 @@ fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
 internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   val density = LocalDensity.current
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
+  var showPlaylist by rememberSaveable { mutableStateOf(false) }
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
 
@@ -174,11 +177,13 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
         )
       },
     )
-    PlayingNowButton(
-      showCurrentMediaItemInfo,
-      Modifier.align(Alignment.TopStart),
-      onClick = { showCurrentMediaItemInfo = !showCurrentMediaItemInfo },
-    )
+    Column(Modifier.align(Alignment.TopStart)) {
+      PlaylistButton(onClick = { showPlaylist = true })
+      PlayingNowButton(
+        showCurrentMediaItemInfo,
+        onClick = { showCurrentMediaItemInfo = !showCurrentMediaItemInfo },
+      )
+    }
     ContentScaleButton(
       currentContentScaleIndex,
       Modifier.align(Alignment.TopCenter),
@@ -216,7 +221,19 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
         }
       }
     }
+    if (showPlaylist) {
+      PlaylistInfoBottomSheet(
+        player = player,
+        onDismissRequest = { showPlaylist = false },
+        modifier = Modifier.fillMaxWidth(),
+      )
+    }
   }
+}
+
+@Composable
+private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+  Button(onClick, modifier) { Text("Playlist") }
 }
 
 @Composable
@@ -274,9 +291,14 @@ private fun BottomControlsWithLabeledProgress(
   }
 }
 
-private fun initializePlayer(context: Context, mediaItems: List<MediaItem>): Player =
+private fun initializePlayer(
+  context: Context,
+  playlistName: String,
+  mediaItems: List<MediaItem>,
+): Player =
   ExoPlayer.Builder(context).build().apply {
     setMediaItems(mediaItems)
+    setPlaylistMetadata(MediaMetadata.Builder().setTitle(playlistName).build())
     prepare()
   }
 
