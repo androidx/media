@@ -51,7 +51,9 @@ public class FragmentedMp4ExtractorNoSniffingTest {
           /* sampleDescriptionEncryptionBoxes= */ null,
           /* nalUnitLengthFieldLength= */ 4,
           /* editListDurations= */ null,
-          /* editListMediaTimes= */ null);
+          /* editListMediaTimes= */ null,
+          /* shouldBeExposed= */ true,
+          /* chapterTrackId= */ C.INDEX_UNSET);
 
   @Parameters(name = "{0}")
   public static List<Object[]> params() {

@@ -38,6 +38,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4Box;
 import androidx.media3.container.Mp4Box.ContainerBox;
@@ -56,6 +57,7 @@ import androidx.media3.extractor.SniffFailure;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -192,6 +194,7 @@ public final class Mp4Extractor implements Extractor {
     STATE_READING_ATOM_PAYLOAD,
     STATE_READING_SAMPLE,
     STATE_READING_SEF,
+    STATE_READING_QUICKTIME_CHAPTERS,
   })
   private @interface State {}
 
@@ -199,6 +202,7 @@ public final class Mp4Extractor implements Extractor {
   private static final int STATE_READING_ATOM_PAYLOAD = 1;
   private static final int STATE_READING_SAMPLE = 2;
   private static final int STATE_READING_SEF = 3;
+  private static final int STATE_READING_QUICKTIME_CHAPTERS = 4;
 
   /** Supported file types. */
   @Documented
@@ -235,6 +239,8 @@ public final class Mp4Extractor implements Extractor {
   private final ArrayDeque<ContainerBox> containerAtoms;
   private final SefReader sefReader;
   private final List<Metadata.Entry> slowMotionMetadataEntries;
+  private final List<TrackSampleTable> chapterSampleTables;
+  private final List<Chapter> quickTimeChapters;
 
   private ImmutableList<SniffFailure> lastSniffFailures;
   private @State int parserState;
@@ -253,6 +259,8 @@ public final class Mp4Extractor implements Extractor {
   private long axteAtomOffset;
   private boolean readingAuxiliaryTracks;
   private boolean moovAtomProcessed;
+  private int chapterTrackIndex;
+  private int chapterSampleIndex;
 
   // Used when auxiliary tracks samples are in the auxiliary tracks MP4 (inside axte atom).
   private long sampleOffsetForAuxiliaryTracks;
@@ -315,6 +323,8 @@ public final class Mp4Extractor implements Extractor {
     sampleTrackIndex = C.INDEX_UNSET;
     extractorOutput = ExtractorOutput.PLACEHOLDER;
     tracks = new Mp4Track[0];
+    chapterSampleTables = new ArrayList<>();
+    quickTimeChapters = new ArrayList<>();
   }
 
   /**
@@ -364,6 +374,10 @@ public final class Mp4Extractor implements Extractor {
     sampleCurrentNalBytesRemaining = 0;
     isSampleDependedOn = false;
     moovAtomProcessed = false;
+    chapterTrackIndex = 0;
+    chapterSampleIndex = 0;
+    chapterSampleTables.clear();
+    quickTimeChapters.clear();
     if (position == 0) {
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
@@ -409,6 +423,8 @@ public final class Mp4Extractor implements Extractor {
           return readSample(input, seekPosition);
         case STATE_READING_SEF:
           return readSefData(input, seekPosition);
+        case STATE_READING_QUICKTIME_CHAPTERS:
+          return readQuickTimeChapters(input, seekPosition);
         default:
           throw new IllegalStateException();
       }
@@ -570,13 +586,16 @@ public final class Mp4Extractor implements Extractor {
         containerAtoms.clear();
         moovAtomProcessed = true;
         if (!seekToAxteAtom && !omitTrackSampleTable) {
-          parserState = STATE_READING_SAMPLE;
+          parserState =
+              !chapterSampleTables.isEmpty()
+                  ? STATE_READING_QUICKTIME_CHAPTERS
+                  : STATE_READING_SAMPLE;
         }
       } else if (!containerAtoms.isEmpty()) {
         containerAtoms.peek().add(containerAtom);
       }
     }
-    if (parserState != STATE_READING_SAMPLE) {
+    if (parserState != STATE_READING_QUICKTIME_CHAPTERS && parserState != STATE_READING_SAMPLE) {
       enterReadingAtomHeaderState();
     }
   }
@@ -643,6 +662,22 @@ public final class Mp4Extractor implements Extractor {
               auxiliaryTrackTypesForAuxiliaryTracks.size(),
               trackSampleTables.size()));
     }
+
+    List<Integer> chapterTrackIds = new ArrayList<>();
+    for (TrackSampleTable table : trackSampleTables) {
+      if (table.track.chapterTrackId != C.INDEX_UNSET
+          && !chapterTrackIds.contains(table.track.chapterTrackId)) {
+        chapterTrackIds.add(table.track.chapterTrackId);
+      }
+    }
+
+    chapterSampleTables.clear();
+    for (TrackSampleTable table : trackSampleTables) {
+      if (chapterTrackIds.contains(table.track.id)) {
+        chapterSampleTables.add(table);
+      }
+    }
+
     int trackIndex = 0;
     String containerMimeType = getContainerMimeType(trackSampleTables);
     for (int i = 0; i < trackSampleTables.size(); i++) {
@@ -651,6 +686,9 @@ public final class Mp4Extractor implements Extractor {
         continue;
       }
       Track track = trackSampleTable.track;
+      if (!track.shouldBeExposed) {
+        continue;
+      }
       Mp4Track mp4Track =
           new Mp4Track(track, trackSampleTable, extractorOutput.track(trackIndex++, track.type));
       long trackDurationUs =
@@ -701,16 +739,27 @@ public final class Mp4Extractor implements Extractor {
           mvhdMetadata,
           thumbnailMetadata);
       formatBuilder.setContainerMimeType(containerMimeType);
-      if (Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
-        // The moov and esds boxes don't contain enough information to distinguish between MPEG
-        // audio layers 1, 2 and 3, but the distinction is important to select the right MIME type
-        // for MediaCodec decoders (and other decoders that handle the same audio/mpeg-L1 and
-        // audio/mpeg-L2 MIME types). So we store the format with audio/mpeg for now, and then
-        // update the MIME type and pass it to TrackOutput.format(...) based on the layer info in
-        // the first sample.
-        mp4Track.pendingFormat = formatBuilder.build();
+      Format format = formatBuilder.build();
+      // The moov and esds boxes don't contain enough information to distinguish between MPEG
+      // audio layers 1, 2 and 3, but the distinction is important to select the right MIME type
+      // for MediaCodec decoders (and other decoders that handle the same audio/mpeg-L1 and
+      // audio/mpeg-L2 MIME types). So we store the format with audio/mpeg for now, and then
+      // update the MIME type and pass it to TrackOutput.format(...) based on the layer info in
+      // the first sample.
+      boolean isMpegAudio = Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG);
+      boolean needsChapterMetadata = false;
+      if (!omitTrackSampleTable && track.chapterTrackId != C.INDEX_UNSET) {
+        for (TrackSampleTable chapterSampleTable : chapterSampleTables) {
+          if (chapterSampleTable.track.id == track.chapterTrackId) {
+            needsChapterMetadata = true;
+            break;
+          }
+        }
+      }
+      if (isMpegAudio || needsChapterMetadata) {
+        mp4Track.pendingFormat = format;
       } else {
-        mp4Track.trackOutput.format(formatBuilder.build());
+        mp4Track.trackOutput.format(format);
       }
 
       if (track.type == C.TRACK_TYPE_VIDEO && firstVideoTrackIndex == C.INDEX_UNSET) {
@@ -1000,6 +1049,76 @@ public final class Mp4Extractor implements Extractor {
   }
 
   /**
+   * Reads QuickTime chapter lists.
+   *
+   * <p>See the <a
+   * href="https://developer.apple.com/documentation/quicktime-file-format/chapter_lists">QuickTime
+   * File Format Chapter Lists specification</a>.
+   */
+  private int readQuickTimeChapters(ExtractorInput input, PositionHolder seekPosition)
+      throws IOException {
+    TrackSampleTable chapterSampleTable = chapterSampleTables.get(chapterTrackIndex);
+    if (chapterSampleIndex < chapterSampleTable.sampleCount) {
+      long offset = chapterSampleTable.offsets[chapterSampleIndex];
+      if (input.getPosition() != offset) {
+        seekPosition.position = offset;
+        return Extractor.RESULT_SEEK;
+      }
+      int size = chapterSampleTable.sizes[chapterSampleIndex];
+      scratch.reset(size);
+      input.readFully(scratch.getData(), 0, size);
+      int length = scratch.readUnsignedShort();
+      int stringLength = Math.min(length, scratch.bytesLeft());
+      String text = scratch.readString(stringLength);
+
+      long startTimeMs = Util.usToMs(chapterSampleTable.timestampsUs[chapterSampleIndex]);
+      long endTimeMs =
+          chapterSampleIndex + 1 < chapterSampleTable.sampleCount
+              ? Util.usToMs(chapterSampleTable.timestampsUs[chapterSampleIndex + 1])
+              : Util.usToMs(chapterSampleTable.durationUs);
+      quickTimeChapters.add(Chapter.create(startTimeMs, endTimeMs, text));
+      chapterSampleIndex++;
+      return Extractor.RESULT_CONTINUE;
+    }
+
+    for (Mp4Track track : tracks) {
+      if (track.track.chapterTrackId == chapterSampleTable.track.id) {
+        Format currentFormat = checkNotNull(track.pendingFormat);
+        Metadata currentMetadata = currentFormat.metadata;
+        List<Metadata.Entry> filteredEntries = new ArrayList<>();
+        if (currentMetadata != null) {
+          filteredEntries.addAll(
+              currentMetadata.getMatchingEntries(
+                  Metadata.Entry.class, entry -> !(entry instanceof Chapter)));
+        }
+        filteredEntries.addAll(quickTimeChapters);
+        Format updatedFormat =
+            currentFormat.buildUpon().setMetadata(new Metadata(filteredEntries)).build();
+
+        // The format was kept pending in processMoovAtom either because it was waiting for chapter
+        // metadata, or because it is MPEG audio (which needs to wait for the first sample to
+        // determine the exact MIME type). We have now applied the chapter metadata, so we can
+        // output the format, unless it is also MPEG audio.
+        if (Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
+          track.pendingFormat = updatedFormat;
+        } else {
+          track.trackOutput.format(updatedFormat);
+          track.pendingFormat = null;
+        }
+      }
+    }
+
+    chapterTrackIndex++;
+    chapterSampleIndex = 0;
+    quickTimeChapters.clear();
+
+    if (chapterTrackIndex == chapterSampleTables.size()) {
+      parserState = STATE_READING_SAMPLE;
+    }
+    return Extractor.RESULT_CONTINUE;
+  }
+
+  /**
    * Returns the index of the track that contains the next sample to be read, or {@link
    * C#INDEX_UNSET} if no samples remain.
    *
@@ -1214,7 +1333,8 @@ public final class Mp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_ftyp
         || atom == Mp4Box.TYPE_udta
         || atom == Mp4Box.TYPE_keys
-        || atom == Mp4Box.TYPE_ilst;
+        || atom == Mp4Box.TYPE_ilst
+        || atom == Mp4Box.TYPE_chap;
   }
 
   /** Returns whether the extractor should decode a container atom with type {@code atom}. */
@@ -1226,7 +1346,8 @@ public final class Mp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_stbl
         || atom == Mp4Box.TYPE_edts
         || atom == Mp4Box.TYPE_meta
-        || atom == Mp4Box.TYPE_axte;
+        || atom == Mp4Box.TYPE_axte
+        || atom == Mp4Box.TYPE_tref;
   }
 
   private static final class Mp4Track {

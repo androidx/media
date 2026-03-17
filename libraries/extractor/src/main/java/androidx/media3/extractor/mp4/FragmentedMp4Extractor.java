@@ -840,6 +840,9 @@ public class FragmentedMp4Extractor implements Extractor {
       for (int i = 0; i < trackCount; i++) {
         TrackSampleTable sampleTable = sampleTables.get(i);
         Track track = sampleTable.track;
+        if (!track.shouldBeExposed) {
+          continue;
+        }
         TrackOutput output = extractorOutput.track(i, track.type);
         output.durationUs(track.durationUs);
         Format.Builder formatBuilder = track.format.buildUpon();
@@ -863,10 +866,19 @@ public class FragmentedMp4Extractor implements Extractor {
       }
       extractorOutput.endTracks();
     } else {
-      checkState(trackBundles.size() == trackCount);
+      int exposedTrackCount = 0;
+      for (int i = 0; i < trackCount; i++) {
+        if (sampleTables.get(i).track.shouldBeExposed) {
+          exposedTrackCount++;
+        }
+      }
+      checkState(trackBundles.size() == exposedTrackCount);
       for (int i = 0; i < trackCount; i++) {
         TrackSampleTable sampleTable = sampleTables.get(i);
         Track track = sampleTable.track;
+        if (!track.shouldBeExposed) {
+          continue;
+        }
         trackBundles
             .get(track.id)
             .reset(sampleTable, getDefaultSampleValues(defaultSampleValuesArray, track.id));

@@ -389,6 +389,20 @@ public final class BoxParser {
       return null;
     }
     StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
+
+    int chapterTrackId = C.INDEX_UNSET;
+    @Nullable Mp4Box.ContainerBox tref = trak.getContainerBoxOfType(Mp4Box.TYPE_tref);
+    if (tref != null) {
+      @Nullable Mp4Box.LeafBox chap = tref.getLeafBoxOfType(Mp4Box.TYPE_chap);
+      if (chap != null) {
+        ParsableByteArray chapData = chap.data;
+        chapData.setPosition(Mp4Box.HEADER_SIZE);
+        if (chapData.bytesLeft() >= 4) {
+          chapterTrackId = chapData.readInt();
+        }
+      }
+    }
+
     @Nullable long[] editListDurations = null;
     @Nullable long[] editListMediaTimes = null;
     if (!ignoreEditLists) {
@@ -420,6 +434,7 @@ public final class BoxParser {
     } else {
       format = stsdData.format;
     }
+    boolean shouldBeExposed = !Objects.equals(format.sampleMimeType, MimeTypes.TEXT_UNKNOWN);
     return new Track(
         tkhdData.id,
         trackType,
@@ -432,7 +447,9 @@ public final class BoxParser {
         stsdData.trackEncryptionBoxes,
         stsdData.nalUnitLengthFieldLength,
         editListDurations,
-        editListMediaTimes);
+        editListMediaTimes,
+        shouldBeExposed,
+        chapterTrackId);
   }
 
   /**
@@ -1315,7 +1332,8 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_wvtt
           || childAtomType == Mp4Box.TYPE_stpp
           || childAtomType == Mp4Box.TYPE_c608
-          || childAtomType == Mp4Box.TYPE_mp4s) {
+          || childAtomType == Mp4Box.TYPE_mp4s
+          || childAtomType == TYPE_text) {
         parseTextSampleEntry(
             stsd, childAtomType, childStartPosition, childAtomSize, tkhdData, language, out);
       } else if (childAtomType == Mp4Box.TYPE_mett) {
@@ -1377,6 +1395,11 @@ public final class BoxParser {
         String idx = formatVobsubIdx(esds.initializationData, tkhdData.width, tkhdData.height);
         initializationData = ImmutableList.of(Util.getUtf8Bytes(idx));
       }
+    } else if (atomType == TYPE_text) {
+      // The TYPE_text track is a generic fallback text format. We assign a placeholder MIME type so
+      // the track is not discarded. This preserves the track's sample table for downstream
+      // extractors to use (e.g., for QuickTime chapters).
+      mimeType = MimeTypes.TEXT_UNKNOWN;
     } else {
       // Never happens.
       throw new IllegalStateException();

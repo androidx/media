@@ -208,8 +208,10 @@ public class DefaultSsChunkSource implements SsChunkSource {
               Track.TRANSFORMATION_NONE,
               trackEncryptionBoxes,
               nalUnitLengthFieldLength,
-              null,
-              null);
+              /* editListDurations= */ null,
+              /* editListMediaTimes= */ null,
+              /* shouldBeExposed= */ true,
+              /* chapterTrackId= */ C.INDEX_UNSET);
       @FragmentedMp4Extractor.Flags
       int flags =
           FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME

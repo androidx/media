@@ -26,6 +26,12 @@
 *   Transformer:
 *   Track selection:
 *   Extractors:
+    *   MP4: Add support for extracting chapter metadata (both Nero and
+        QuickTime formats). QuickTime chapters are preferred if both are
+        present. The extracted chapter information is exposed as `Chapter`
+        entries within the track's `Metadata`, allowing for native chapter
+        navigation in MP4, M4A, and M4B files (such as audiobooks and podcasts)
+        ([#2803](https://github.com/androidx/media/issues/2803)).
     *   WAV, Matroska, and MP4: Add support for 64-bit floating point PCM audio
         ([#3090](https://github.com/androidx/media/pull/3090)).
     *   Matroska: Use codec bitstream metadata to populate accurate `ColorInfo`.

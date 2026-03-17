@@ -88,6 +88,12 @@ public final class Track {
    */
   public final int nalUnitLengthFieldLength;
 
+  /** The identifier of the associated chapter track, or {@link C#INDEX_UNSET} if there is none. */
+  public final int chapterTrackId;
+
+  /** Whether the track should be exposed to the player. */
+  public final boolean shouldBeExposed;
+
   @Nullable private final TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
 
   public Track(
@@ -102,7 +108,9 @@ public final class Track {
       @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes,
       int nalUnitLengthFieldLength,
       @Nullable long[] editListDurations,
-      @Nullable long[] editListMediaTimes) {
+      @Nullable long[] editListMediaTimes,
+      boolean shouldBeExposed,
+      int chapterTrackId) {
     this.id = id;
     this.type = type;
     this.timescale = timescale;
@@ -115,6 +123,8 @@ public final class Track {
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
     this.editListDurations = editListDurations;
     this.editListMediaTimes = editListMediaTimes;
+    this.shouldBeExposed = shouldBeExposed;
+    this.chapterTrackId = chapterTrackId;
   }
 
   /**
@@ -144,7 +154,9 @@ public final class Track {
         sampleDescriptionEncryptionBoxes,
         nalUnitLengthFieldLength,
         editListDurations,
-        editListMediaTimes);
+        editListMediaTimes,
+        shouldBeExposed,
+        chapterTrackId);
   }
 
   public Track copyWithoutEditLists() {
@@ -160,6 +172,8 @@ public final class Track {
         sampleDescriptionEncryptionBoxes,
         nalUnitLengthFieldLength,
         /* editListDurations= */ null,
-        /* editListMediaTimes= */ null);
+        /* editListMediaTimes= */ null,
+        shouldBeExposed,
+        chapterTrackId);
   }
 }
