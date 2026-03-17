@@ -221,6 +221,7 @@ public final class AssetInfo {
                   .setSampleMimeType(VIDEO_H264)
                   .setWidth(1920)
                   .setHeight(1080)
+                  .setCodecs("avc1.42C028")
                   .setFrameRate(30.f)
                   .build())
           .build();
@@ -332,7 +333,7 @@ public final class AssetInfo {
                   .setWidth(320)
                   .setHeight(240)
                   .setFrameRate(29.97f)
-                  .setCodecs("avc1.42400D")
+                  .setCodecs("avc1.42C00D")
                   .build())
           .setTrackCount(2)
           .setVideoDurationUs(1_024_000L)

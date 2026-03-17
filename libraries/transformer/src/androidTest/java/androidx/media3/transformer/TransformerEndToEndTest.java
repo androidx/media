@@ -1094,8 +1094,13 @@ public class TransformerEndToEndTest {
 
   @Test
   public void
-      clippedMediaWithPositiveEditList_trimOptimizationDisbled_setsFirstVideoTimestampToZero()
+      clippedMediaWithPositiveEditList_trimOptimizationDisabled_setsFirstVideoTimestampToZero()
           throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_POSITIVE_SHIFT_EDIT_LIST.videoFormat,
+        /* outputFormat= */ MP4_POSITIVE_SHIFT_EDIT_LIST.videoFormat);
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(MP4_POSITIVE_SHIFT_EDIT_LIST.uri)
@@ -1395,6 +1400,11 @@ public class TransformerEndToEndTest {
 
   @Test
   public void setSpeed_withAudioAndVideo_completesWithCorrectDuration() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MOV_WITH_PCM_AUDIO.videoFormat,
+        /* outputFormat= */ MOV_WITH_PCM_AUDIO.videoFormat);
     AtomicInteger bytes = new AtomicInteger();
     AudioProcessor byteCountingAudioProcessor = createByteCountingAudioProcessor(bytes);
     Transformer transformer = new Transformer.Builder(context).build();
@@ -1613,8 +1623,8 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
-        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     ImmutableList<AudioProcessor> audioProcessors = ImmutableList.of(createSonic(1.2f));
     ImmutableList<Effect> videoEffects = ImmutableList.of(RgbFilter.createGrayscaleFilter());
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri));
