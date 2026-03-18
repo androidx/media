@@ -1317,18 +1317,19 @@ public class FragmentedMp4Extractor implements Extractor {
     // duration == 0 or (editListDurationUs + editListMediaTimeUs) >= track duration.
     // Other uses of edit lists are uncommon and unsupported.
     if (track.editListDurations == null
-        || track.editListDurations.length != 1
+        || track.editListDurations.length() != 1
         || track.editListMediaTimes == null) {
       return false;
     }
-    if (track.editListDurations[0] == 0) {
+    if (track.editListDurations.get(0) == 0) {
       return true;
     }
     long editListDurationUs =
         Util.scaleLargeTimestamp(
-            track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
+            track.editListDurations.get(0), C.MICROS_PER_SECOND, track.movieTimescale);
     long editListMediaTimeUs =
-        Util.scaleLargeTimestamp(track.editListMediaTimes[0], C.MICROS_PER_SECOND, track.timescale);
+        Util.scaleLargeTimestamp(
+            track.editListMediaTimes.get(0), C.MICROS_PER_SECOND, track.timescale);
     return editListDurationUs + editListMediaTimeUs >= track.durationUs;
   }
 
@@ -1381,7 +1382,7 @@ public class FragmentedMp4Extractor implements Extractor {
 
     // Currently we only support a single edit that moves the entire media timeline.
     if (isEdtsListDurationForEntireMediaTimeline(track)) {
-      edtsOffset = castNonNull(track.editListMediaTimes)[0];
+      edtsOffset = castNonNull(track.editListMediaTimes).get(0);
     }
 
     int[] sampleSizeTable = fragment.sampleSizeTable;

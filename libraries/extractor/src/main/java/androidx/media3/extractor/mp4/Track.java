@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.primitives.ImmutableLongArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -46,8 +47,8 @@ public final class Track {
     private @Transformation int sampleTransformation;
     @Nullable private TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
     private int nalUnitLengthFieldLength;
-    @Nullable private long[] editListDurations;
-    @Nullable private long[] editListMediaTimes;
+    @Nullable private ImmutableLongArray editListDurations;
+    @Nullable private ImmutableLongArray editListMediaTimes;
     private boolean shouldBeExposed;
     private int chapterTrackId;
 
@@ -184,7 +185,10 @@ public final class Track {
     @CanIgnoreReturnValue
     public Builder setSampleDescriptionEncryptionBoxes(
         @Nullable TrackEncryptionBox[] sampleDescriptionEncryptionBoxes) {
-      this.sampleDescriptionEncryptionBoxes = sampleDescriptionEncryptionBoxes;
+      this.sampleDescriptionEncryptionBoxes =
+          sampleDescriptionEncryptionBoxes == null
+              ? null
+              : sampleDescriptionEncryptionBoxes.clone();
       return this;
     }
 
@@ -207,7 +211,7 @@ public final class Track {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    public Builder setEditListDurations(@Nullable long[] editListDurations) {
+    public Builder setEditListDurations(@Nullable ImmutableLongArray editListDurations) {
       this.editListDurations = editListDurations;
       return this;
     }
@@ -219,7 +223,7 @@ public final class Track {
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    public Builder setEditListMediaTimes(@Nullable long[] editListMediaTimes) {
+    public Builder setEditListMediaTimes(@Nullable ImmutableLongArray editListMediaTimes) {
       this.editListMediaTimes = editListMediaTimes;
       return this;
     }
@@ -255,21 +259,7 @@ public final class Track {
      */
     public Track build() {
       checkNotNull(format);
-      return new Track(
-          id,
-          type,
-          timescale,
-          movieTimescale,
-          durationUs,
-          mediaDurationUs,
-          format,
-          sampleTransformation,
-          sampleDescriptionEncryptionBoxes,
-          nalUnitLengthFieldLength,
-          editListDurations,
-          editListMediaTimes,
-          shouldBeExposed,
-          chapterTrackId);
+      return new Track(this);
     }
   }
 
@@ -328,13 +318,13 @@ public final class Track {
    * Durations of edit list segments in the {@linkplain #movieTimescale movie timescale}, or {@code
    * null} if there is no edit list.
    */
-  @Nullable public final long[] editListDurations;
+  @Nullable public final ImmutableLongArray editListDurations;
 
   /**
    * Media times for edit list segments in the {@linkplain #timescale track timescale}, or {@code
    * null} if there is no edit list.
    */
-  @Nullable public final long[] editListMediaTimes;
+  @Nullable public final ImmutableLongArray editListMediaTimes;
 
   /**
    * The length in bytes of the NALUnitLength field in each sample. 0 for tracks that don't use
@@ -350,10 +340,26 @@ public final class Track {
 
   @Nullable private final TrackEncryptionBox[] sampleDescriptionEncryptionBoxes;
 
+  private Track(Builder builder) {
+    this.id = builder.id;
+    this.type = builder.type;
+    this.timescale = builder.timescale;
+    this.movieTimescale = builder.movieTimescale;
+    this.durationUs = builder.durationUs;
+    this.mediaDurationUs = builder.mediaDurationUs;
+    this.format = checkNotNull(builder.format);
+    this.sampleTransformation = builder.sampleTransformation;
+    this.sampleDescriptionEncryptionBoxes = builder.sampleDescriptionEncryptionBoxes;
+    this.nalUnitLengthFieldLength = builder.nalUnitLengthFieldLength;
+    this.editListDurations = builder.editListDurations;
+    this.editListMediaTimes = builder.editListMediaTimes;
+    this.shouldBeExposed = builder.shouldBeExposed;
+    this.chapterTrackId = builder.chapterTrackId;
+  }
+
   /**
    * @deprecated Use {@link Builder} instead.
    */
-  // TODO: b/493608660 - Make this private once deprecation is removed.
   @Deprecated
   public Track(
       int id,
@@ -381,8 +387,10 @@ public final class Track {
     this.sampleDescriptionEncryptionBoxes =
         sampleDescriptionEncryptionBoxes == null ? null : sampleDescriptionEncryptionBoxes.clone();
     this.nalUnitLengthFieldLength = nalUnitLengthFieldLength;
-    this.editListDurations = editListDurations == null ? null : editListDurations.clone();
-    this.editListMediaTimes = editListMediaTimes == null ? null : editListMediaTimes.clone();
+    this.editListDurations =
+        editListDurations == null ? null : ImmutableLongArray.copyOf(editListDurations);
+    this.editListMediaTimes =
+        editListMediaTimes == null ? null : ImmutableLongArray.copyOf(editListMediaTimes);
     this.shouldBeExposed = shouldBeExposed;
     this.chapterTrackId = chapterTrackId;
   }

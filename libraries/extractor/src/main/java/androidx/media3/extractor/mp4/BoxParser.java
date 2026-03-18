@@ -62,6 +62,7 @@ import androidx.media3.extractor.text.vobsub.VobsubParser;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableLongArray;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
@@ -403,12 +404,12 @@ public final class BoxParser {
       }
     }
 
-    @Nullable long[] editListDurations = null;
-    @Nullable long[] editListMediaTimes = null;
+    @Nullable ImmutableLongArray editListDurations = null;
+    @Nullable ImmutableLongArray editListMediaTimes = null;
     if (!ignoreEditLists) {
       @Nullable Mp4Box.ContainerBox edtsAtom = trak.getContainerBoxOfType(Mp4Box.TYPE_edts);
       if (edtsAtom != null) {
-        @Nullable Pair<long[], long[]> edtsData = parseEdts(edtsAtom);
+        @Nullable Pair<ImmutableLongArray, ImmutableLongArray> edtsData = parseEdts(edtsAtom);
         if (edtsData != null) {
           editListDurations = edtsData.first;
           editListMediaTimes = edtsData.second;
@@ -754,17 +755,17 @@ public final class BoxParser {
 
     if (omitTrackSampleTable) {
       long editedDurationUs;
-      long[] editListMediaTimes = checkNotNull(track.editListMediaTimes);
-      if (track.editListDurations.length == 1 && track.editListDurations[0] == 0) {
-        long editStartTime = editListMediaTimes[0];
+      ImmutableLongArray editListMediaTimes = checkNotNull(track.editListMediaTimes);
+      if (track.editListDurations.length() == 1 && track.editListDurations.get(0) == 0) {
+        long editStartTime = editListMediaTimes.get(0);
         editedDurationUs =
             Util.scaleLargeTimestamp(
                 duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
       } else {
         long pts = 0;
-        for (int i = 0; i < track.editListDurations.length; i++) {
-          if (editListMediaTimes[i] != -1) {
-            pts += track.editListDurations[i];
+        for (int i = 0; i < track.editListDurations.length(); i++) {
+          if (editListMediaTimes.get(i) != -1) {
+            pts += track.editListDurations.get(i);
           }
         }
         editedDurationUs = Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
@@ -789,14 +790,14 @@ public final class BoxParser {
     // handles simple discarding/delaying of samples. The extractor may place further restrictions
     // on what edited streams are playable.
 
-    if (track.editListDurations.length == 1
+    if (track.editListDurations.length() == 1
         && track.type == C.TRACK_TYPE_AUDIO
         && timestamps.length >= 2) {
-      long editStartTime = checkNotNull(track.editListMediaTimes)[0];
+      long editStartTime = checkNotNull(track.editListMediaTimes).get(0);
       long editEndTime =
           editStartTime
               + Util.scaleLargeTimestamp(
-                  track.editListDurations[0], track.timescale, track.movieTimescale);
+                  track.editListDurations.get(0), track.timescale, track.movieTimescale);
       if (canApplyEditWithGaplessInfo(timestamps, duration, editStartTime, editEndTime)) {
         // Clamp padding to 0 to account for rounding errors where editEndTime is slightly
         // greater than duration.
@@ -814,7 +815,7 @@ public final class BoxParser {
           Util.scaleLargeTimestampsInPlace(timestamps, C.MICROS_PER_SECOND, track.timescale);
           long editedDurationUs =
               Util.scaleLargeTimestamp(
-                  track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
+                  track.editListDurations.get(0), C.MICROS_PER_SECOND, track.movieTimescale);
           return new TrackSampleTable(
               track,
               offsets,
@@ -830,11 +831,11 @@ public final class BoxParser {
       }
     }
 
-    if (track.editListDurations.length == 1 && track.editListDurations[0] == 0) {
+    if (track.editListDurations.length() == 1 && track.editListDurations.get(0) == 0) {
       // The current version of the spec leaves handling of an edit with zero segment_duration in
       // unfragmented files open to interpretation. We handle this as a special case and include all
       // samples in the edit.
-      long editStartTime = checkNotNull(track.editListMediaTimes)[0];
+      long editStartTime = checkNotNull(track.editListMediaTimes).get(0);
       for (int i = 0; i < timestamps.length; i++) {
         timestamps[i] =
             Util.scaleLargeTimestamp(
@@ -865,15 +866,15 @@ public final class BoxParser {
     int editedSampleCount = 0;
     int nextSampleIndex = 0;
     boolean copyMetadata = false;
-    int[] startIndices = new int[track.editListDurations.length];
-    int[] endIndices = new int[track.editListDurations.length];
-    long[] editListMediaTimes = checkNotNull(track.editListMediaTimes);
-    for (int i = 0; i < track.editListDurations.length; i++) {
-      long editMediaTime = editListMediaTimes[i];
+    int[] startIndices = new int[track.editListDurations.length()];
+    int[] endIndices = new int[track.editListDurations.length()];
+    ImmutableLongArray editListMediaTimes = checkNotNull(track.editListMediaTimes);
+    for (int i = 0; i < track.editListDurations.length(); i++) {
+      long editMediaTime = editListMediaTimes.get(i);
       if (editMediaTime != -1) {
         long editDuration =
             Util.scaleLargeTimestamp(
-                track.editListDurations[i], track.timescale, track.movieTimescale);
+                track.editListDurations.get(i), track.timescale, track.movieTimescale);
         long editEndTime = editMediaTime + editDuration;
 
         // The timestamps array is in the order read from the media, which might not be strictly
@@ -950,8 +951,8 @@ public final class BoxParser {
     long pts = 0;
     int sampleIndex = 0;
     boolean hasPrerollSamples = false;
-    for (int i = 0; i < track.editListDurations.length; i++) {
-      long editMediaTime = track.editListMediaTimes[i];
+    for (int i = 0; i < track.editListDurations.length(); i++) {
+      long editMediaTime = track.editListMediaTimes.get(i);
       int startIndex = startIndices[i];
       int endIndex = endIndices[i];
       if (copyMetadata) {
@@ -979,7 +980,7 @@ public final class BoxParser {
         }
         sampleIndex++;
       }
-      pts += track.editListDurations[i];
+      pts += track.editListDurations.get(i);
     }
     long editedDurationUs =
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
@@ -1963,7 +1964,8 @@ public final class BoxParser {
    *     present.
    */
   @Nullable
-  private static Pair<long[], long[]> parseEdts(Mp4Box.ContainerBox edtsAtom) {
+  private static Pair<ImmutableLongArray, ImmutableLongArray> parseEdts(
+      Mp4Box.ContainerBox edtsAtom) {
     @Nullable LeafBox elstAtom = edtsAtom.getLeafBoxOfType(Mp4Box.TYPE_elst);
     if (elstAtom == null) {
       return null;
@@ -1973,12 +1975,12 @@ public final class BoxParser {
     int fullAtom = elstData.readInt();
     int version = parseFullBoxVersion(fullAtom);
     int entryCount = elstData.readUnsignedIntToInt();
-    long[] editListDurations = new long[entryCount];
-    long[] editListMediaTimes = new long[entryCount];
+    ImmutableLongArray.Builder editListDurations = ImmutableLongArray.builder(entryCount);
+    ImmutableLongArray.Builder editListMediaTimes = ImmutableLongArray.builder(entryCount);
     for (int i = 0; i < entryCount; i++) {
-      editListDurations[i] =
-          version == 1 ? elstData.readUnsignedLongToLong() : elstData.readUnsignedInt();
-      editListMediaTimes[i] = version == 1 ? elstData.readLong() : elstData.readInt();
+      editListDurations.add(
+          version == 1 ? elstData.readUnsignedLongToLong() : elstData.readUnsignedInt());
+      editListMediaTimes.add(version == 1 ? elstData.readLong() : elstData.readInt());
       int mediaRateInteger = elstData.readShort();
       if (mediaRateInteger != 1) {
         // The extractor does not handle dwell edits (mediaRateInteger == 0).
@@ -1986,7 +1988,7 @@ public final class BoxParser {
       }
       elstData.skipBytes(2);
     }
-    return Pair.create(editListDurations, editListMediaTimes);
+    return Pair.create(editListDurations.build(), editListMediaTimes.build());
   }
 
   private static float parsePaspFromParent(ParsableByteArray parent, int position) {
