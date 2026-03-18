@@ -108,7 +108,9 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-@SuppressWarnings("FutureReturnValueIgnored") // TODO(b/138091975): Not to ignore if feasible
+// TODO: b/138091975 - Don't ignore future return values if feasible.
+// TODO: b/78934030 - Add missing nullness checks to this class.
+@SuppressWarnings({"FutureReturnValueIgnored", "nullness"})
 /* package */ class MediaControllerImplBase implements MediaControllerImpl {
 
   public static final String TAG = "MCImplBase";

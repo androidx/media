@@ -41,6 +41,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** Base implementation of MediaBrowser. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaBrowserImplBase extends MediaControllerImplBase
     implements MediaBrowser.MediaBrowserImpl {
 

@@ -141,6 +141,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.IntConsumer;
 
 /** The default implementation of {@link ExoPlayer}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ final class ExoPlayerImpl extends BasePlayer implements ExoPlayer {
 
   static {

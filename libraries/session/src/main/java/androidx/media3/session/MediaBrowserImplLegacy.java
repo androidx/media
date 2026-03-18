@@ -46,6 +46,7 @@ import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** Implementation of MediaBrowser with the {@link MediaBrowserCompat} for legacy support. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaBrowserImplLegacy extends MediaControllerImplLegacy
     implements MediaBrowser.MediaBrowserImpl {
 

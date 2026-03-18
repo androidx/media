@@ -38,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /** A queue of media sample data. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class SampleDataQueue {
 
   private static final int INITIAL_SCRATCH_SIZE = 32;

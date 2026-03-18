@@ -67,6 +67,7 @@ import org.xmlpull.v1.XmlPullParserFactory;
 import org.xmlpull.v1.XmlSerializer;
 
 /** A parser of media presentation description files. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public class DashManifestParser extends DefaultHandler
     implements ParsingLoadable.Parser<DashManifest> {

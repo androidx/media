@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** A SmoothStreaming {@link MediaSource}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class SsMediaSource extends BaseMediaSource
     implements Loader.Callback<ParsingLoadable<SsManifest>> {

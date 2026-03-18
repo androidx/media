@@ -89,6 +89,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ final class ExoPlayerImplInternal
     implements Handler.Callback,
         MediaPeriod.Callback,

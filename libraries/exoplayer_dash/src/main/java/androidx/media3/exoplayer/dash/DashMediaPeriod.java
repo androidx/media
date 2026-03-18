@@ -80,6 +80,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** A DASH {@link MediaPeriod}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ final class DashMediaPeriod
     implements MediaPeriod,
         SequenceableLoader.Callback<ChunkSampleStream<DashChunkSource>>,

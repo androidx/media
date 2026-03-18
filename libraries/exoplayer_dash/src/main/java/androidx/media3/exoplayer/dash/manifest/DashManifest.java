@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.dash.manifest;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -147,7 +149,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
     ArrayList<Period> copyPeriods = new ArrayList<>();
     long shiftMs = 0;
     for (int periodIndex = 0; periodIndex < getPeriodCount(); periodIndex++) {
-      if (keys.peek().periodIndex != periodIndex) {
+      if (checkNotNull(keys.peek()).periodIndex != periodIndex) {
         // No representations selected in this period.
         long periodDurationMs = getPeriodDurationMs(periodIndex);
         if (periodDurationMs != C.TIME_UNSET) {
@@ -182,7 +184,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
 
   private static ArrayList<AdaptationSet> copyAdaptationSets(
       List<AdaptationSet> adaptationSets, LinkedList<StreamKey> keys) {
-    StreamKey key = keys.poll();
+    StreamKey key = checkNotNull(keys.poll());
     int periodIndex = key.periodIndex;
     ArrayList<AdaptationSet> copyAdaptationSets = new ArrayList<>();
     do {
@@ -194,7 +196,7 @@ public class DashManifest implements FilterableManifest<DashManifest> {
       do {
         Representation representation = representations.get(key.streamIndex);
         copyRepresentations.add(representation);
-        key = keys.poll();
+        key = checkNotNull(keys.poll());
       } while (key.periodIndex == periodIndex && key.groupIndex == adaptationSetIndex);
 
       copyAdaptationSets.add(

@@ -103,6 +103,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** A DASH {@link MediaSource}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class DashMediaSource extends BaseMediaSource {
 

@@ -70,6 +70,7 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} that loads an HLS stream. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ final class HlsMediaPeriod
     implements MediaPeriod, HlsPlaylistTracker.PlaylistEventListener {
 

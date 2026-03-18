@@ -32,6 +32,7 @@ import java.util.List;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
 /** An approximate representation of a SegmentBase manifest element. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public abstract class SegmentBase {
 

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
+import static androidx.media3.common.util.Util.nullSafeListToArray;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
@@ -164,7 +165,7 @@ import java.util.List;
       }
     }
     sampleStreams = newSampleStreamArray(sampleStreamsList.size());
-    sampleStreamsList.toArray(sampleStreams);
+    nullSafeListToArray(sampleStreamsList, sampleStreams);
     compositeSequenceableLoader =
         compositeSequenceableLoaderFactory.create(
             sampleStreamsList,

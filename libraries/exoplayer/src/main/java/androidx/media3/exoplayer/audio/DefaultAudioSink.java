@@ -91,6 +91,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  * corresponding to their last input immediately after that input is queued. This means that, for
  * example, speed adjustment is not possible while using tunneling.
  */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class DefaultAudioSink implements AudioSink {
 

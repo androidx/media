@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Default implementation for {@link HlsPlaylistTracker}. */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public final class DefaultHlsPlaylistTracker
     implements HlsPlaylistTracker, Loader.Callback<ParsingLoadable<HlsPlaylist>> {

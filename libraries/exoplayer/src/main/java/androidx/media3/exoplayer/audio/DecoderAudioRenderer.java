@@ -98,6 +98,7 @@ import java.lang.annotation.RetentionPolicy;
  *       The message payload must be an {@link AudioOutputProvider} instance.
  * </ul>
  */
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 @UnstableApi
 public abstract class DecoderAudioRenderer<
         T extends

@@ -87,6 +87,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
+@SuppressWarnings("nullness") // TODO: b/78934030 - Add missing nullness checks to this class.
 /* package */ class MediaControllerImplLegacy implements MediaController.MediaControllerImpl {
 
   private static final String TAG = "MCImplLegacy";
