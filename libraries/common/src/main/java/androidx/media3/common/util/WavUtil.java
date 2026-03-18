@@ -66,6 +66,7 @@ public final class WavUtil {
    * @throws IllegalArgumentException If {@code pcmEncoding} is not a {@link C.PcmEncoding}, or if
    *     it's {@link C#ENCODING_INVALID} or {@link Format#NO_VALUE}.
    */
+  // TODO: b/474575207 - Consider returning short value.
   public static int getTypeForPcmEncoding(@C.PcmEncoding int pcmEncoding) {
     switch (pcmEncoding) {
       case C.ENCODING_PCM_8BIT:

@@ -2145,6 +2145,22 @@ public final class Util {
   }
 
   /**
+   * Converts a long to an int, checking that the long value fits within the range of an unsigned
+   * 32-bit integer.
+   *
+   * @param x The long value to convert.
+   * @return The integer result.
+   * @throws IllegalStateException if {@code x} is greater than the maximum value of an unsigned
+   *     32-bit integer (2^32 - 1).
+   */
+  @UnstableApi
+  public static int toUnsignedInt(long x) {
+    long unsignedIntMaxValue = 4_294_967_295L;
+    checkState(x <= unsignedIntMaxValue);
+    return (int) x;
+  }
+
+  /**
    * Returns the long that is composed of the bits of the 2 specified integers.
    *
    * @param mostSignificantBits The 32 most significant bits of the long to return.
