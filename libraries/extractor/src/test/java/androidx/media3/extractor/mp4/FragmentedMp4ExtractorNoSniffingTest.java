@@ -39,21 +39,14 @@ public class FragmentedMp4ExtractorNoSniffingTest {
 
   private static final String FMP4_SIDELOADED = "media/mp4/sample_fragmented_sideloaded_track.mp4";
   private static final Track SIDELOADED_TRACK =
-      new Track(
-          /* id= */ 1,
-          /* type= */ C.TRACK_TYPE_VIDEO,
-          /* timescale= */ 30_000,
-          /* movieTimescale= */ 1000,
-          /* durationUs= */ C.TIME_UNSET,
-          /* mediaDurationUs= */ C.TIME_UNSET,
-          new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build(),
-          /* sampleTransformation= */ Track.TRANSFORMATION_NONE,
-          /* sampleDescriptionEncryptionBoxes= */ null,
-          /* nalUnitLengthFieldLength= */ 4,
-          /* editListDurations= */ null,
-          /* editListMediaTimes= */ null,
-          /* shouldBeExposed= */ true,
-          /* chapterTrackId= */ C.INDEX_UNSET);
+      new Track.Builder()
+          .setId(1)
+          .setType(C.TRACK_TYPE_VIDEO)
+          .setTimescale(30_000)
+          .setMovieTimescale(1000)
+          .setFormat(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build())
+          .setNalUnitLengthFieldLength(4)
+          .build();
 
   @Parameters(name = "{0}")
   public static List<Object[]> params() {

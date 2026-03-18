@@ -197,21 +197,16 @@ public class DefaultSsChunkSource implements SsChunkSource {
               : null;
       int nalUnitLengthFieldLength = streamElement.type == C.TRACK_TYPE_VIDEO ? 4 : 0;
       Track track =
-          new Track(
-              manifestTrackIndex,
-              streamElement.type,
-              streamElement.timescale,
-              C.TIME_UNSET,
-              manifest.durationUs,
-              /* mediaDurationUs= */ manifest.durationUs,
-              format,
-              Track.TRANSFORMATION_NONE,
-              trackEncryptionBoxes,
-              nalUnitLengthFieldLength,
-              /* editListDurations= */ null,
-              /* editListMediaTimes= */ null,
-              /* shouldBeExposed= */ true,
-              /* chapterTrackId= */ C.INDEX_UNSET);
+          new Track.Builder()
+              .setId(manifestTrackIndex)
+              .setType(streamElement.type)
+              .setTimescale(streamElement.timescale)
+              .setDurationUs(manifest.durationUs)
+              .setMediaDurationUs(manifest.durationUs)
+              .setFormat(format)
+              .setSampleDescriptionEncryptionBoxes(trackEncryptionBoxes)
+              .setNalUnitLengthFieldLength(nalUnitLengthFieldLength)
+              .build();
       @FragmentedMp4Extractor.Flags
       int flags =
           FragmentedMp4Extractor.FLAG_WORKAROUND_EVERY_VIDEO_FRAME_IS_SYNC_FRAME

@@ -435,21 +435,22 @@ public final class BoxParser {
       format = stsdData.format;
     }
     boolean shouldBeExposed = !Objects.equals(format.sampleMimeType, MimeTypes.TEXT_UNKNOWN);
-    return new Track(
-        tkhdData.id,
-        trackType,
-        mdhdData.timescale,
-        movieTimescale,
-        durationUs,
-        mdhdData.mediaDurationUs,
-        format,
-        stsdData.requiredSampleTransformation,
-        stsdData.trackEncryptionBoxes,
-        stsdData.nalUnitLengthFieldLength,
-        editListDurations,
-        editListMediaTimes,
-        shouldBeExposed,
-        chapterTrackId);
+    return new Track.Builder()
+        .setId(tkhdData.id)
+        .setType(trackType)
+        .setTimescale(mdhdData.timescale)
+        .setMovieTimescale(movieTimescale)
+        .setDurationUs(durationUs)
+        .setMediaDurationUs(mdhdData.mediaDurationUs)
+        .setFormat(format)
+        .setSampleTransformation(stsdData.requiredSampleTransformation)
+        .setSampleDescriptionEncryptionBoxes(stsdData.trackEncryptionBoxes)
+        .setNalUnitLengthFieldLength(stsdData.nalUnitLengthFieldLength)
+        .setEditListDurations(editListDurations)
+        .setEditListMediaTimes(editListMediaTimes)
+        .setShouldBeExposed(shouldBeExposed)
+        .setChapterTrackId(chapterTrackId)
+        .build();
   }
 
   /**
@@ -500,7 +501,7 @@ public final class BoxParser {
     if (track.type == C.TRACK_TYPE_VIDEO && track.mediaDurationUs > 0) {
       float frameRate = sampleCount / (track.mediaDurationUs / 1000000f);
       Format format = track.format.buildUpon().setFrameRate(frameRate).build();
-      track = track.copyWithFormat(format);
+      track = track.buildUpon().setFormat(format).build();
     }
 
     // Entries are byte offsets of chunks.
@@ -727,7 +728,7 @@ public final class BoxParser {
               RoundingMode.HALF_DOWN);
       if (averageBitrate > 0 && averageBitrate < Integer.MAX_VALUE) {
         Format format = track.format.buildUpon().setAverageBitrate((int) averageBitrate).build();
-        track = track.copyWithFormat(format);
+        track = track.buildUpon().setFormat(format).build();
       }
     }
 
@@ -984,7 +985,7 @@ public final class BoxParser {
         Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
     if (hasPrerollSamples) {
       Format format = track.format.buildUpon().setHasPrerollSamples(true).build();
-      track = track.copyWithFormat(format);
+      track = track.buildUpon().setFormat(format).build();
     }
     return new TrackSampleTable(
         track,
