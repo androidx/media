@@ -627,21 +627,11 @@ public abstract class Timeline {
     }
 
     /**
-     * Sets the data held by this period.
-     *
-     * @param id An identifier for the period. Not necessarily unique. May be null if the ids of the
-     *     period are not required.
-     * @param uid A unique identifier for the period. May be null if the ids of the period are not
-     *     required.
-     * @param windowIndex The index of the window to which this period belongs.
-     * @param durationUs The duration of this period in microseconds, or {@link C#TIME_UNSET} if
-     *     unknown.
-     * @param positionInWindowUs The position of the start of this period relative to the start of
-     *     the window to which it belongs, in milliseconds. May be negative if the start of the
-     *     period is not within the window.
-     * @return This period, for convenience.
+     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean,
+     *     boolean)} instead.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     @UnstableApi
     public Period set(
         @Nullable Object id,
@@ -697,7 +687,7 @@ public abstract class Timeline {
      * @param durationUs The duration of this period in microseconds, or {@link C#TIME_UNSET} if
      *     unknown.
      * @param positionInWindowUs The position of the start of this period relative to the start of
-     *     the window to which it belongs, in milliseconds. May be negative if the start of the
+     *     the window to which it belongs, in microseconds. May be negative if the start of the
      *     period is not within the window.
      * @param adPlaybackState The state of the period's ads, or {@link AdPlaybackState#NONE} if
      *     there are no ads.

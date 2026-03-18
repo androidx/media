@@ -33,6 +33,7 @@ import android.text.TextUtils;
 import android.util.SparseArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -1376,10 +1377,14 @@ public final class DashMediaSource extends BaseMediaSource {
       return period.set(
           id,
           uid,
-          0,
+          /* windowIndex= */ 0,
           manifest.getPeriodDurationUs(periodIndex),
-          Util.msToUs(manifest.getPeriod(periodIndex).startMs - manifest.getPeriod(0).startMs)
-              - offsetInFirstPeriodUs);
+          /* positionInWindowUs= */ Util.msToUs(
+                  manifest.getPeriod(periodIndex).startMs - manifest.getPeriod(0).startMs)
+              - offsetInFirstPeriodUs,
+          AdPlaybackState.NONE,
+          /* isPlaceholder= */ false,
+          /* isDurationStrict= */ false);
     }
 
     @Override

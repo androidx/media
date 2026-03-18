@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
@@ -88,7 +89,10 @@ public class MultiplePeriodsPerWindowTimeline extends PlaylistTimeline {
         /* durationUs= */ Util.msToUs(defaultPeriodDurationMs),
         /* positionInWindowUs= */ periodIndexInWindow == 0
             ? -WINDOW_POSITION_IN_PERIOD_US
-            : periodIndexInWindow * Util.msToUs(defaultPeriodDurationMs));
+            : periodIndexInWindow * Util.msToUs(defaultPeriodDurationMs),
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false,
+        /* isDurationStrict= */ false);
     return period;
   }
 

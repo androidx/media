@@ -25,6 +25,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -537,7 +538,14 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       long periodDurationUs =
           durationUs == C.TIME_UNSET ? C.TIME_UNSET : durationUs - positionInClippedWindowUs;
       return period.set(
-          period.id, period.uid, /* windowIndex= */ 0, periodDurationUs, positionInClippedWindowUs);
+          period.id,
+          period.uid,
+          /* windowIndex= */ 0,
+          periodDurationUs,
+          positionInClippedWindowUs,
+          AdPlaybackState.NONE,
+          period.isPlaceholder,
+          /* isDurationStrict= */ false);
     }
   }
 }

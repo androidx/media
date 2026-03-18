@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
@@ -137,7 +138,10 @@ public class PlaylistTimeline extends Timeline {
         /* uid= */ null,
         periodIndex,
         Util.msToUs(DEFAULT_DURATION_MS),
-        /* positionInWindowUs= */ -WINDOW_POSITION_IN_PERIOD_US);
+        /* positionInWindowUs= */ -WINDOW_POSITION_IN_PERIOD_US,
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false,
+        /* isDurationStrict= */ false);
     return period;
   }
 

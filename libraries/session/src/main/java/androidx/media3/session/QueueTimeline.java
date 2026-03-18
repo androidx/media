@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -235,7 +236,10 @@ import java.util.Objects;
         /* uid= */ null,
         /* windowIndex= */ periodIndex,
         /* durationUs= */ msToUs(queuedMediaItem.durationMs),
-        /* positionInWindowUs= */ 0);
+        /* positionInWindowUs= */ 0,
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false,
+        /* isDurationStrict= */ false);
     return period;
   }
 

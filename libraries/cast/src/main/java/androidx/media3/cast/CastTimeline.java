@@ -18,6 +18,7 @@ package androidx.media3.cast;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -179,7 +180,15 @@ import java.util.Arrays;
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     int id = ids[periodIndex];
-    return period.set(id, id, periodIndex, durationsUs[periodIndex], 0);
+    return period.set(
+        id,
+        /* uid= */ id,
+        periodIndex,
+        durationsUs[periodIndex],
+        /* positionInWindowUs= */ 0,
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false,
+        /* isDurationStrict= */ false);
   }
 
   @Override

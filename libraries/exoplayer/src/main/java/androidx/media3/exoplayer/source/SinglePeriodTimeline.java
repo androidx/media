@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
@@ -350,7 +351,15 @@ public final class SinglePeriodTimeline extends Timeline {
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     checkElementIndex(periodIndex, 1);
     @Nullable Object uid = setIds ? UID : null;
-    return period.set(/* id= */ null, uid, 0, periodDurationUs, -windowPositionInPeriodUs);
+    return period.set(
+        /* id= */ null,
+        uid,
+        /* windowIndex= */ 0,
+        periodDurationUs,
+        /* positionInWindowUs= */ -windowPositionInPeriodUs,
+        AdPlaybackState.NONE,
+        /* isPlaceholder= */ false,
+        /* isDurationStrict= */ false);
   }
 
   @Override

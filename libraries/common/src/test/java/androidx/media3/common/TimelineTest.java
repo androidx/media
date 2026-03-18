@@ -225,6 +225,13 @@ public class TimelineTest {
     assertThat(period).isNotEqualTo(otherPeriod);
 
     otherPeriod = new Timeline.Period();
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(
+            /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE);
+    otherPeriod.adPlaybackState = adPlaybackState;
+    assertThat(period).isNotEqualTo(otherPeriod);
+
+    otherPeriod = new Timeline.Period();
     otherPeriod.isPlaceholder = true;
     assertThat(period).isNotEqualTo(otherPeriod);
 
@@ -237,6 +244,7 @@ public class TimelineTest {
     period.uid = new Object();
     period.windowIndex = 1;
     period.durationUs = 123L;
+    period.adPlaybackState = adPlaybackState;
     period.isPlaceholder = true;
     period.isDurationStrict = true;
     otherPeriod =
@@ -245,9 +253,10 @@ public class TimelineTest {
             period.uid,
             period.windowIndex,
             period.durationUs,
-            /* positionInWindowUs= */ 0);
-    otherPeriod.isPlaceholder = true;
-    otherPeriod.isDurationStrict = true;
+            /* positionInWindowUs= */ 0,
+            period.adPlaybackState,
+            period.isPlaceholder,
+            period.isDurationStrict);
     assertThat(period).isEqualTo(otherPeriod);
   }
 
