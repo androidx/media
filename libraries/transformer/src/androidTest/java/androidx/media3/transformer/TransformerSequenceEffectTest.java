@@ -371,7 +371,8 @@ public final class TransformerSequenceEffectTest {
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
         || Ascii.equalsIgnoreCase(Build.MODEL, "moto g04")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")) {
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "rmx3760")) {
       // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
       // bitrate output, or FrameworkMuxer fails to mux.
       bitrate = 10_000_000;
