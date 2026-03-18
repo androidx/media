@@ -16,6 +16,7 @@
 package androidx.media3.common.util;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.util.CodecSpecificDataUtil.calculateMediaCodecDolbyVisionLevel;
 
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
@@ -389,20 +390,29 @@ public final class MediaFormatUtil {
     if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
         && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
-      // TODO: b/485509264 - Convert MediaFormat constants to H263 spec constants.
+      // TODO: b/492523731 - Convert MediaFormat constants to H263 spec constants.
       return CodecSpecificDataUtil.buildH263CodecString(
           mediaFormat.getInteger(MediaFormat.KEY_PROFILE),
           mediaFormat.getInteger(MediaFormat.KEY_LEVEL));
     } else if (Objects.equals(
             mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_DOLBY_VISION)
-        && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
-        && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
+        && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)) {
+      int dolbyVisionLevel = getInteger(mediaFormat, MediaFormat.KEY_LEVEL, Format.NO_VALUE);
+      if (dolbyVisionLevel == Format.NO_VALUE) {
+        int width =
+            getInteger(mediaFormat, MediaFormat.KEY_WIDTH, /* defaultValue= */ Format.NO_VALUE);
+        int height =
+            getInteger(mediaFormat, MediaFormat.KEY_HEIGHT, /* defaultValue= */ Format.NO_VALUE);
+        float frameRate =
+            getFloatFromIntOrFloat(
+                mediaFormat, MediaFormat.KEY_FRAME_RATE, /* defaultValue= */ Format.NO_VALUE);
+        dolbyVisionLevel = calculateMediaCodecDolbyVisionLevel(width, height, frameRate);
+      }
       // Add Dolby Vision profile and level to codec string as per Dolby Vision ISO media format.
       return CodecSpecificDataUtil.buildDolbyVisionCodecString(
           CodecSpecificDataUtil.dolbyVisionConstantToProfileNumber(
               mediaFormat.getInteger(MediaFormat.KEY_PROFILE)),
-          CodecSpecificDataUtil.dolbyVisionConstantToLevelNumber(
-              mediaFormat.getInteger(MediaFormat.KEY_LEVEL)));
+          CodecSpecificDataUtil.dolbyVisionConstantToLevelNumber(dolbyVisionLevel));
     } else {
       return getString(mediaFormat, MediaFormat.KEY_CODECS_STRING, /* defaultValue= */ null);
     }

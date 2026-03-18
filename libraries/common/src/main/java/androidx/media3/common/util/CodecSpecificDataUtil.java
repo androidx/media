@@ -18,6 +18,7 @@ package androidx.media3.common.util;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -684,6 +685,7 @@ public final class CodecSpecificDataUtil {
    * @return A pair (profile constant, level constant) if the codec of the {@code format} is
    *     well-formed and recognized, or null otherwise.
    */
+  // TODO: b/492523731 - Consider moving this and related methods back to MediaCodecUtil.
   @Nullable
   public static Pair<Integer, Integer> getCodecProfileAndLevel(Format format) {
     MediaCodecProfileAndLevel mediaCodecProfileAndLevel = getMediaCodecProfileAndLevel(format);
@@ -1034,6 +1036,60 @@ public final class CodecSpecificDataUtil {
       default:
         throw new IllegalArgumentException("Unknown Dolby Vision profile: " + profileConstant);
     }
+  }
+
+  /**
+   * Calculates the Dolby Vision level based on resolution and frame rate.
+   *
+   * <p>Refer to <a
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile">Dolby
+   * Vision profiles and levels</a> for more details.
+   *
+   * @param width The video width in pixels.
+   * @param height The video height in pixels.
+   * @param frameRate The video frame rate in frames per second.
+   * @return The Android MediaCodec constants for the Dolby Vision level, or -1 if it could not be
+   *     determined.
+   */
+  public static int calculateMediaCodecDolbyVisionLevel(int width, int height, float frameRate) {
+    int maxWidthHeight = max(width, height);
+    checkState(maxWidthHeight <= 7680);
+    float pixelRate = width * height * frameRate;
+
+    int level = -1;
+    if (maxWidthHeight <= 1_280) {
+      if (pixelRate <= 22_118_400) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24; // Level 01
+      } else { // pixelRate <= 27_648_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30; // Level 02
+      }
+    } else if (maxWidthHeight <= 1_920 && pixelRate <= 49_766_400) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24; // Level 03
+    } else if (maxWidthHeight <= 2_560 && pixelRate <= 62_208_000) {
+      level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30; // Level 04
+    } else if (maxWidthHeight <= 3_840) {
+      if (pixelRate <= 124_416_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60; // Level 05
+      } else if (pixelRate <= 199_065_600) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24; // Level 06
+      } else if (pixelRate <= 248_832_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30; // Level 07
+      } else if (pixelRate <= 398_131_200) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48; // Level 08
+      } else if (pixelRate <= 497_664_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60; // Level 09
+      } else { // pixelRate <= 995_328_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120; // Level 10
+      }
+    } else if (maxWidthHeight <= 7_680) {
+      if (pixelRate <= 995_328_000) {
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30; // Level 11
+      } else { // pixelRate <= 1_990_656_000
+        level = MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60; // Level 12
+      }
+    }
+
+    return level;
   }
 
   /**
