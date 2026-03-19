@@ -1,4 +1,5 @@
 // Signature format: 5.0
+// - include-type-use-annotations=yes
 // - kotlin-name-type-order=yes
 // - kotlin-style-nulls=no
 package androidx.media3.common {
@@ -8,13 +9,13 @@ package androidx.media3.common {
     field public static final PURPOSE_CONTROLS: int = 1; // 0x1
     field public static final PURPOSE_NOT_VISIBLE: int = 4; // 0x4
     field public static final PURPOSE_OTHER: int = 3; // 0x3
-    field @androidx.media3.common.AdOverlayInfo.Purpose public final purpose: int;
+    field @androidx.media3.common.AdOverlayInfo.Purpose public final purpose: @androidx.media3.common.AdOverlayInfo.Purpose int;
     field @Nullable public final reasonDetail: String;
     field public final view: android.view.View;
   }
 
   public static final class AdOverlayInfo.Builder {
-    ctor public AdOverlayInfo.Builder(_: android.view.View, @androidx.media3.common.AdOverlayInfo.Purpose _: int);
+    ctor public AdOverlayInfo.Builder(_: android.view.View, @androidx.media3.common.AdOverlayInfo.Purpose _: @androidx.media3.common.AdOverlayInfo.Purpose int);
     method public build(): androidx.media3.common.AdOverlayInfo;
     method public setDetailedReason(@Nullable _: String): androidx.media3.common.AdOverlayInfo.Builder;
   }
@@ -31,13 +32,13 @@ package androidx.media3.common {
     method public static fromPlatformAudioAttributes(_: android.media.AudioAttributes): androidx.media3.common.AudioAttributes;
     method @Deprecated public getAudioAttributesV21(): androidx.media3.common.AudioAttributes.AudioAttributesV21;
     method public getPlatformAudioAttributes(): android.media.AudioAttributes;
-    method @androidx.media3.common.C.StreamType public getVolumeControlStream(): int;
+    method @androidx.media3.common.C.StreamType public getVolumeControlStream(): @androidx.media3.common.C.StreamType int;
     field public static final DEFAULT: androidx.media3.common.AudioAttributes;
-    field @androidx.media3.common.C.AudioAllowedCapturePolicy public final allowedCapturePolicy: int;
-    field @androidx.media3.common.C.AudioContentType public final contentType: int;
-    field @androidx.media3.common.C.AudioFlags public final flags: int;
-    field public final spatializationBehavior: int;
-    field @androidx.media3.common.C.AudioUsage public final usage: int;
+    field @androidx.media3.common.C.AudioAllowedCapturePolicy public final allowedCapturePolicy: @androidx.media3.common.C.AudioAllowedCapturePolicy int;
+    field @androidx.media3.common.C.AudioContentType public final contentType: @androidx.media3.common.C.AudioContentType int;
+    field @androidx.media3.common.C.AudioFlags public final flags: @androidx.media3.common.C.AudioFlags int;
+    field public final spatializationBehavior: @androidx.media3.common.C.SpatializationBehavior int;
+    field @androidx.media3.common.C.AudioUsage public final usage: @androidx.media3.common.C.AudioUsage int;
   }
 
   @Deprecated public static final class AudioAttributes.AudioAttributesV21 {
@@ -47,11 +48,11 @@ package androidx.media3.common {
   public static final class AudioAttributes.Builder {
     ctor public AudioAttributes.Builder();
     method public build(): androidx.media3.common.AudioAttributes;
-    method public setAllowedCapturePolicy(@androidx.media3.common.C.AudioAllowedCapturePolicy _: int): androidx.media3.common.AudioAttributes.Builder;
-    method public setContentType(@androidx.media3.common.C.AudioContentType _: int): androidx.media3.common.AudioAttributes.Builder;
-    method public setFlags(@androidx.media3.common.C.AudioFlags _: int): androidx.media3.common.AudioAttributes.Builder;
-    method public setSpatializationBehavior(_: int): androidx.media3.common.AudioAttributes.Builder;
-    method public setUsage(@androidx.media3.common.C.AudioUsage _: int): androidx.media3.common.AudioAttributes.Builder;
+    method public setAllowedCapturePolicy(@androidx.media3.common.C.AudioAllowedCapturePolicy _: @androidx.media3.common.C.AudioAllowedCapturePolicy int): androidx.media3.common.AudioAttributes.Builder;
+    method public setContentType(@androidx.media3.common.C.AudioContentType _: @androidx.media3.common.C.AudioContentType int): androidx.media3.common.AudioAttributes.Builder;
+    method public setFlags(@androidx.media3.common.C.AudioFlags _: @androidx.media3.common.C.AudioFlags int): androidx.media3.common.AudioAttributes.Builder;
+    method public setSpatializationBehavior(_: @androidx.media3.common.C.SpatializationBehavior int): androidx.media3.common.AudioAttributes.Builder;
+    method public setUsage(@androidx.media3.common.C.AudioUsage _: @androidx.media3.common.C.AudioUsage int): androidx.media3.common.AudioAttributes.Builder;
   }
 
   public final class C {
@@ -225,12 +226,12 @@ package androidx.media3.common {
     field public static final UNKNOWN: androidx.media3.common.DeviceInfo;
     field @IntRange(from=0) public final maxVolume: int;
     field @IntRange(from=0) public final minVolume: int;
-    field public final playbackType: int;
+    field public final playbackType: @androidx.media3.common.DeviceInfo.PlaybackType int;
     field @Nullable public final routingControllerId: String;
   }
 
   public static final class DeviceInfo.Builder {
-    ctor public DeviceInfo.Builder(_: int);
+    ctor public DeviceInfo.Builder(_: @androidx.media3.common.DeviceInfo.PlaybackType int);
     method public build(): androidx.media3.common.DeviceInfo;
     method public setMaxVolume(@IntRange(from=0) _: int): androidx.media3.common.DeviceInfo.Builder;
     method public setMinVolume(@IntRange(from=0) _: int): androidx.media3.common.DeviceInfo.Builder;
@@ -254,12 +255,12 @@ package androidx.media3.common {
     field @Nullable public final id: String;
     field @Nullable public final label: String;
     field @Nullable public final language: String;
-    field public final pcmEncoding: int;
+    field public final pcmEncoding: @androidx.media3.common.C.PcmEncoding int;
     field public final pixelWidthHeightRatio: float;
-    field @androidx.media3.common.C.RoleFlags public final roleFlags: int;
+    field @androidx.media3.common.C.RoleFlags public final roleFlags: @androidx.media3.common.C.RoleFlags int;
     field @Nullable public final sampleMimeType: String;
     field public final sampleRate: int;
-    field @androidx.media3.common.C.SelectionFlags public final selectionFlags: int;
+    field @androidx.media3.common.C.SelectionFlags public final selectionFlags: @androidx.media3.common.C.SelectionFlags int;
     field public final width: int;
   }
 
@@ -338,7 +339,7 @@ package androidx.media3.common {
     method public buildUpon(): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method @Nullable public getKeySetId(): byte[];
     field public final forceDefaultLicenseUri: boolean;
-    field public final forcedSessionTrackTypes: com.google.common.collect.ImmutableList<java.lang.Integer>;
+    field public final forcedSessionTrackTypes: com.google.common.collect.ImmutableList<java.lang.@androidx.media3.common.C.TrackType Integer>;
     field public final licenseRequestHeaders: com.google.common.collect.ImmutableMap<java.lang.String,java.lang.String>;
     field @Nullable public final licenseUri: android.net.Uri;
     field public final multiSession: boolean;
@@ -351,7 +352,7 @@ package androidx.media3.common {
     method public build(): androidx.media3.common.MediaItem.DrmConfiguration;
     method public setForceDefaultLicenseUri(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setForceSessionsForAudioAndVideoTracks(_: boolean): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
-    method public setForcedSessionTrackTypes(_: java.util.List<java.lang.Integer>): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
+    method public setForcedSessionTrackTypes(_: java.util.List<java.lang.@androidx.media3.common.C.TrackType Integer>): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setKeySetId(@Nullable _: byte[]): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setLicenseRequestHeaders(_: java.util.Map<java.lang.String,java.lang.String>): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
     method public setLicenseUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaItem.DrmConfiguration.Builder;
@@ -412,8 +413,8 @@ package androidx.media3.common {
     field @Nullable public final label: String;
     field @Nullable public final language: String;
     field @Nullable public final mimeType: String;
-    field @androidx.media3.common.C.RoleFlags public final roleFlags: int;
-    field @androidx.media3.common.C.SelectionFlags public final selectionFlags: int;
+    field @androidx.media3.common.C.RoleFlags public final roleFlags: @androidx.media3.common.C.RoleFlags int;
+    field @androidx.media3.common.C.SelectionFlags public final selectionFlags: @androidx.media3.common.C.SelectionFlags int;
     field public final uri: android.net.Uri;
   }
 
@@ -424,8 +425,8 @@ package androidx.media3.common {
     method public setLabel(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setLanguage(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setMimeType(@Nullable _: String): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    method public setRoleFlags(@androidx.media3.common.C.RoleFlags _: int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
-    method public setSelectionFlags(@androidx.media3.common.C.SelectionFlags _: int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setRoleFlags(@androidx.media3.common.C.RoleFlags _: @androidx.media3.common.C.RoleFlags int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
+    method public setSelectionFlags(@androidx.media3.common.C.SelectionFlags _: @androidx.media3.common.C.SelectionFlags int): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
     method public setUri(_: android.net.Uri): androidx.media3.common.MediaItem.SubtitleConfiguration.Builder;
   }
 
@@ -501,7 +502,7 @@ package androidx.media3.common {
     field @Nullable public final albumTitle: CharSequence;
     field @Nullable public final artist: CharSequence;
     field @Nullable public final artworkData: byte[];
-    field @Nullable @androidx.media3.common.MediaMetadata.PictureType public final artworkDataType: Integer;
+    field @Nullable @androidx.media3.common.MediaMetadata.PictureType public final artworkDataType: @androidx.media3.common.MediaMetadata.PictureType Integer;
     field @Nullable public final artworkUri: android.net.Uri;
     field @Nullable public final compilation: CharSequence;
     field @Nullable public final composer: CharSequence;
@@ -511,11 +512,11 @@ package androidx.media3.common {
     field @Nullable public final displayTitle: CharSequence;
     field @Nullable public final durationMs: Long;
     field @Nullable public final extras: android.os.Bundle;
-    field @Deprecated @Nullable @androidx.media3.common.MediaMetadata.FolderType public final folderType: Integer;
+    field @Deprecated @Nullable @androidx.media3.common.MediaMetadata.FolderType public final folderType: @androidx.media3.common.MediaMetadata.FolderType Integer;
     field @Nullable public final genre: CharSequence;
     field @Nullable public final isBrowsable: Boolean;
     field @Nullable public final isPlayable: Boolean;
-    field @Nullable public final mediaType: Integer;
+    field @Nullable public final mediaType: @androidx.media3.common.MediaMetadata.MediaType Integer;
     field @Nullable public final overallRating: androidx.media3.common.Rating;
     field @Nullable public final recordingDay: Integer;
     field @Nullable public final recordingMonth: Integer;
@@ -536,11 +537,11 @@ package androidx.media3.common {
   public static final class MediaMetadata.Builder {
     ctor public MediaMetadata.Builder();
     method public build(): androidx.media3.common.MediaMetadata;
-    method public maybeSetArtworkData(_: byte[], @androidx.media3.common.MediaMetadata.PictureType _: int): androidx.media3.common.MediaMetadata.Builder;
+    method public maybeSetArtworkData(_: byte[], @androidx.media3.common.MediaMetadata.PictureType _: @androidx.media3.common.MediaMetadata.PictureType int): androidx.media3.common.MediaMetadata.Builder;
     method public setAlbumArtist(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
     method public setAlbumTitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
     method public setArtist(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
-    method public setArtworkData(@Nullable _: byte[], @Nullable @androidx.media3.common.MediaMetadata.PictureType _: Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setArtworkData(@Nullable _: byte[], @Nullable @androidx.media3.common.MediaMetadata.PictureType _: @androidx.media3.common.MediaMetadata.PictureType Integer): androidx.media3.common.MediaMetadata.Builder;
     method public setArtworkUri(@Nullable _: android.net.Uri): androidx.media3.common.MediaMetadata.Builder;
     method public setCompilation(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
     method public setComposer(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
@@ -550,11 +551,11 @@ package androidx.media3.common {
     method public setDisplayTitle(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
     method public setDurationMs(@Nullable _: Long): androidx.media3.common.MediaMetadata.Builder;
     method public setExtras(@Nullable _: android.os.Bundle): androidx.media3.common.MediaMetadata.Builder;
-    method @Deprecated public setFolderType(@Nullable @androidx.media3.common.MediaMetadata.FolderType _: Integer): androidx.media3.common.MediaMetadata.Builder;
+    method @Deprecated public setFolderType(@Nullable @androidx.media3.common.MediaMetadata.FolderType _: @androidx.media3.common.MediaMetadata.FolderType Integer): androidx.media3.common.MediaMetadata.Builder;
     method public setGenre(@Nullable _: CharSequence): androidx.media3.common.MediaMetadata.Builder;
     method public setIsBrowsable(@Nullable _: Boolean): androidx.media3.common.MediaMetadata.Builder;
     method public setIsPlayable(@Nullable _: Boolean): androidx.media3.common.MediaMetadata.Builder;
-    method public setMediaType(@Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
+    method public setMediaType(@Nullable _: @androidx.media3.common.MediaMetadata.MediaType Integer): androidx.media3.common.MediaMetadata.Builder;
     method public setOverallRating(@Nullable _: androidx.media3.common.Rating): androidx.media3.common.MediaMetadata.Builder;
     method public setRecordingDay(@IntRange(from=1, to=31) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
     method public setRecordingMonth(@IntRange(from=1, to=12) @Nullable _: Integer): androidx.media3.common.MediaMetadata.Builder;
@@ -667,7 +668,7 @@ package androidx.media3.common {
   public class PlaybackException extends java.lang.Exception {
     method @CallSuper public errorInfoEquals(@Nullable _: androidx.media3.common.PlaybackException): boolean;
     method public final getErrorCodeName(): String;
-    method public static getErrorCodeName(@androidx.media3.common.PlaybackException.ErrorCode _: int): String;
+    method public static getErrorCodeName(@androidx.media3.common.PlaybackException.ErrorCode _: @androidx.media3.common.PlaybackException.ErrorCode int): String;
     field public static final CUSTOM_ERROR_CODE_BASE: int = 1000000; // 0xf4240
     field public static final ERROR_CODE_AUDIO_TRACK_INIT_FAILED: int = 5001; // 0x1389
     field public static final ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED: int = 5004; // 0x138c
@@ -720,7 +721,7 @@ package androidx.media3.common {
     field public static final ERROR_CODE_SKIP_LIMIT_REACHED: int = -107; // 0xffffff95
     field public static final ERROR_CODE_TIMEOUT: int = 1003; // 0x3eb
     field public static final ERROR_CODE_UNSPECIFIED: int = 1000; // 0x3e8
-    field @androidx.media3.common.PlaybackException.ErrorCode public final errorCode: int;
+    field @androidx.media3.common.PlaybackException.ErrorCode public final errorCode: @androidx.media3.common.PlaybackException.ErrorCode int;
     field public final timestampMs: long;
   }
 
@@ -750,7 +751,7 @@ package androidx.media3.common {
     method public clearVideoSurfaceView(@Nullable _: android.view.SurfaceView): void;
     method public clearVideoTextureView(@Nullable _: android.view.TextureView): void;
     method @Deprecated public decreaseDeviceVolume(): void;
-    method public decreaseDeviceVolume(_: int): void;
+    method public decreaseDeviceVolume(_: @androidx.media3.common.C.VolumeFlags int): void;
     method public getApplicationLooper(): android.os.Looper;
     method public getAudioAttributes(): androidx.media3.common.AudioAttributes;
     method public getAvailableCommands(): androidx.media3.common.Player.Commands;
@@ -779,12 +780,12 @@ package androidx.media3.common {
     method public getNextMediaItemIndex(): int;
     method public getPlayWhenReady(): boolean;
     method public getPlaybackParameters(): androidx.media3.common.PlaybackParameters;
-    method @androidx.media3.common.Player.State public getPlaybackState(): int;
-    method @androidx.media3.common.Player.PlaybackSuppressionReason public getPlaybackSuppressionReason(): int;
+    method @androidx.media3.common.Player.State public getPlaybackState(): @androidx.media3.common.Player.State int;
+    method @androidx.media3.common.Player.PlaybackSuppressionReason public getPlaybackSuppressionReason(): @androidx.media3.common.Player.PlaybackSuppressionReason int;
     method @Nullable public getPlayerError(): androidx.media3.common.PlaybackException;
     method public getPlaylistMetadata(): androidx.media3.common.MediaMetadata;
     method public getPreviousMediaItemIndex(): int;
-    method @androidx.media3.common.Player.RepeatMode public getRepeatMode(): int;
+    method @androidx.media3.common.Player.RepeatMode public getRepeatMode(): @androidx.media3.common.Player.RepeatMode int;
     method public getSeekBackIncrement(): long;
     method public getSeekForwardIncrement(): long;
     method public getShuffleModeEnabled(): boolean;
@@ -795,8 +796,8 @@ package androidx.media3.common {
     method public hasNextMediaItem(): boolean;
     method public hasPreviousMediaItem(): boolean;
     method @Deprecated public increaseDeviceVolume(): void;
-    method public increaseDeviceVolume(_: int): void;
-    method public isCommandAvailable(@androidx.media3.common.Player.Command _: int): boolean;
+    method public increaseDeviceVolume(_: @androidx.media3.common.C.VolumeFlags int): void;
+    method public isCommandAvailable(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): boolean;
     method public isCurrentMediaItemDynamic(): boolean;
     method public isCurrentMediaItemLive(): boolean;
     method public isCurrentMediaItemSeekable(): boolean;
@@ -828,9 +829,9 @@ package androidx.media3.common {
     method public seekToPreviousMediaItem(): void;
     method public setAudioAttributes(_: androidx.media3.common.AudioAttributes, _: boolean): void;
     method @Deprecated public setDeviceMuted(_: boolean): void;
-    method public setDeviceMuted(_: boolean, _: int): void;
+    method public setDeviceMuted(_: boolean, _: @androidx.media3.common.C.VolumeFlags int): void;
     method @Deprecated public setDeviceVolume(@IntRange(from=0) _: int): void;
-    method public setDeviceVolume(@IntRange(from=0) _: int, _: int): void;
+    method public setDeviceVolume(@IntRange(from=0) _: int, _: @androidx.media3.common.C.VolumeFlags int): void;
     method public setMediaItem(_: androidx.media3.common.MediaItem): void;
     method public setMediaItem(_: androidx.media3.common.MediaItem, _: boolean): void;
     method public setMediaItem(_: androidx.media3.common.MediaItem, _: long): void;
@@ -841,7 +842,7 @@ package androidx.media3.common {
     method public setPlaybackParameters(_: androidx.media3.common.PlaybackParameters): void;
     method public setPlaybackSpeed(@FloatRange(from=0, fromInclusive=false) _: float): void;
     method public setPlaylistMetadata(_: androidx.media3.common.MediaMetadata): void;
-    method public setRepeatMode(@androidx.media3.common.Player.RepeatMode _: int): void;
+    method public setRepeatMode(@androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int): void;
     method public setShuffleModeEnabled(_: boolean): void;
     method public setTrackSelectionParameters(_: androidx.media3.common.TrackSelectionParameters): void;
     method public setVideoSurface(@Nullable _: android.view.Surface): void;
@@ -957,9 +958,9 @@ package androidx.media3.common {
   }
 
   public static final class Player.Commands {
-    method public contains(@androidx.media3.common.Player.Command _: int): boolean;
-    method public containsAny(@androidx.media3.common.Player.Command _: int...): boolean;
-    method @androidx.media3.common.Player.Command public get(_: int): int;
+    method public contains(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): boolean;
+    method public containsAny(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int...): boolean;
+    method @androidx.media3.common.Player.Command public get(_: int): @androidx.media3.common.Player.Command int;
     method public size(): int;
     field public static final EMPTY: androidx.media3.common.Player.Commands;
   }
@@ -971,10 +972,10 @@ package androidx.media3.common {
   }
 
   public static final class Player.Events {
-    method public contains(@androidx.media3.common.Player.Event _: int): boolean;
+    method public contains(@androidx.media3.common.Player.Event _: @androidx.media3.common.Player.Event int): boolean;
     method public containsAny(_: androidx.media3.common.Player.Events): boolean;
-    method public containsAny(@androidx.media3.common.Player.Event _: int...): boolean;
-    method @androidx.media3.common.Player.Event public get(_: int): int;
+    method public containsAny(@androidx.media3.common.Player.Event _: @androidx.media3.common.Player.Event int...): boolean;
+    method @androidx.media3.common.Player.Event public get(_: int): @androidx.media3.common.Player.Event int;
     method public size(): int;
   }
 
@@ -988,24 +989,24 @@ package androidx.media3.common {
     method public default onIsLoadingChanged(_: boolean): void;
     method public default onIsPlayingChanged(_: boolean): void;
     method public default onMaxSeekToPreviousPositionChanged(_: long): void;
-    method public default onMediaItemTransition(@Nullable _: androidx.media3.common.MediaItem, @androidx.media3.common.Player.MediaItemTransitionReason _: int): void;
+    method public default onMediaItemTransition(@Nullable _: androidx.media3.common.MediaItem, @androidx.media3.common.Player.MediaItemTransitionReason _: @androidx.media3.common.Player.MediaItemTransitionReason int): void;
     method public default onMediaMetadataChanged(_: androidx.media3.common.MediaMetadata): void;
-    method public default onPlayWhenReadyChanged(_: boolean, @androidx.media3.common.Player.PlayWhenReadyChangeReason _: int): void;
+    method public default onPlayWhenReadyChanged(_: boolean, @androidx.media3.common.Player.PlayWhenReadyChangeReason _: @androidx.media3.common.Player.PlayWhenReadyChangeReason int): void;
     method public default onPlaybackParametersChanged(_: androidx.media3.common.PlaybackParameters): void;
-    method public default onPlaybackStateChanged(@androidx.media3.common.Player.State _: int): void;
-    method public default onPlaybackSuppressionReasonChanged(@androidx.media3.common.Player.PlaybackSuppressionReason _: int): void;
+    method public default onPlaybackStateChanged(@androidx.media3.common.Player.State _: @androidx.media3.common.Player.State int): void;
+    method public default onPlaybackSuppressionReasonChanged(@androidx.media3.common.Player.PlaybackSuppressionReason _: @androidx.media3.common.Player.PlaybackSuppressionReason int): void;
     method public default onPlayerError(_: androidx.media3.common.PlaybackException): void;
     method public default onPlayerErrorChanged(@Nullable _: androidx.media3.common.PlaybackException): void;
     method public default onPlaylistMetadataChanged(_: androidx.media3.common.MediaMetadata): void;
-    method public default onPositionDiscontinuity(_: androidx.media3.common.Player.PositionInfo, _: androidx.media3.common.Player.PositionInfo, @androidx.media3.common.Player.DiscontinuityReason _: int): void;
+    method public default onPositionDiscontinuity(_: androidx.media3.common.Player.PositionInfo, _: androidx.media3.common.Player.PositionInfo, @androidx.media3.common.Player.DiscontinuityReason _: @androidx.media3.common.Player.DiscontinuityReason int): void;
     method public default onRenderedFirstFrame(): void;
-    method public default onRepeatModeChanged(@androidx.media3.common.Player.RepeatMode _: int): void;
+    method public default onRepeatModeChanged(@androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int): void;
     method public default onSeekBackIncrementChanged(_: long): void;
     method public default onSeekForwardIncrementChanged(_: long): void;
     method public default onShuffleModeEnabledChanged(_: boolean): void;
     method public default onSkipSilenceEnabledChanged(_: boolean): void;
     method public default onSurfaceSizeChanged(_: int, _: int): void;
-    method public default onTimelineChanged(_: androidx.media3.common.Timeline, @androidx.media3.common.Player.TimelineChangeReason _: int): void;
+    method public default onTimelineChanged(_: androidx.media3.common.Timeline, @androidx.media3.common.Player.TimelineChangeReason _: @androidx.media3.common.Player.TimelineChangeReason int): void;
     method public default onTrackSelectionParametersChanged(_: androidx.media3.common.TrackSelectionParameters): void;
     method public default onTracksChanged(_: androidx.media3.common.Tracks): void;
     method public default onVideoSizeChanged(_: androidx.media3.common.VideoSize): void;
@@ -1064,21 +1065,21 @@ package androidx.media3.common {
     method public getFirstWindowIndex(_: boolean): int;
     method public abstract getIndexOfPeriod(_: Object): int;
     method public getLastWindowIndex(_: boolean): int;
-    method public final getNextPeriodIndex(_: int, _: androidx.media3.common.Timeline.Period, _: androidx.media3.common.Timeline.Window, @androidx.media3.common.Player.RepeatMode _: int, _: boolean): int;
-    method public getNextWindowIndex(_: int, @androidx.media3.common.Player.RepeatMode _: int, _: boolean): int;
+    method public final getNextPeriodIndex(_: int, _: androidx.media3.common.Timeline.Period, _: androidx.media3.common.Timeline.Window, @androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int, _: boolean): int;
+    method public getNextWindowIndex(_: int, @androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int, _: boolean): int;
     method public final getPeriod(_: int, _: androidx.media3.common.Timeline.Period): androidx.media3.common.Timeline.Period;
     method public abstract getPeriod(_: int, _: androidx.media3.common.Timeline.Period, _: boolean): androidx.media3.common.Timeline.Period;
     method public getPeriodByUid(_: Object, _: androidx.media3.common.Timeline.Period): androidx.media3.common.Timeline.Period;
     method public abstract getPeriodCount(): int;
     method public final getPeriodPositionUs(_: androidx.media3.common.Timeline.Window, _: androidx.media3.common.Timeline.Period, _: int, _: long): android.util.Pair<java.lang.Object,java.lang.Long>;
     method @Nullable public final getPeriodPositionUs(_: androidx.media3.common.Timeline.Window, _: androidx.media3.common.Timeline.Period, _: int, _: long, _: long): android.util.Pair<java.lang.Object,java.lang.Long>;
-    method public getPreviousWindowIndex(_: int, @androidx.media3.common.Player.RepeatMode _: int, _: boolean): int;
+    method public getPreviousWindowIndex(_: int, @androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int, _: boolean): int;
     method public abstract getUidOfPeriod(_: int): Object;
     method public final getWindow(_: int, _: androidx.media3.common.Timeline.Window): androidx.media3.common.Timeline.Window;
     method public abstract getWindow(_: int, _: androidx.media3.common.Timeline.Window, _: long): androidx.media3.common.Timeline.Window;
     method public abstract getWindowCount(): int;
     method public final isEmpty(): boolean;
-    method public final isLastPeriod(_: int, _: androidx.media3.common.Timeline.Period, _: androidx.media3.common.Timeline.Window, @androidx.media3.common.Player.RepeatMode _: int, _: boolean): boolean;
+    method public final isLastPeriod(_: int, _: androidx.media3.common.Timeline.Period, _: androidx.media3.common.Timeline.Window, @androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int, _: boolean): boolean;
     field public static final EMPTY: androidx.media3.common.Timeline;
   }
 
@@ -1137,7 +1138,7 @@ package androidx.media3.common {
   public final class TrackSelectionOverride {
     ctor public TrackSelectionOverride(_: androidx.media3.common.TrackGroup, _: int);
     ctor public TrackSelectionOverride(_: androidx.media3.common.TrackGroup, _: java.util.List<java.lang.Integer>);
-    method public getType(): int;
+    method public getType(): @androidx.media3.common.C.TrackType int;
     field public final mediaTrackGroup: androidx.media3.common.TrackGroup;
     field public final trackIndices: com.google.common.collect.ImmutableList<java.lang.Integer>;
   }
@@ -1147,10 +1148,10 @@ package androidx.media3.common {
     method public static fromBundle(_: android.os.Bundle): androidx.media3.common.TrackSelectionParameters;
     method @Deprecated public static getDefaults(_: android.content.Context): androidx.media3.common.TrackSelectionParameters;
     method @CallSuper public toBundle(): android.os.Bundle;
-    field public final disabledTrackTypes: com.google.common.collect.ImmutableSet<java.lang.Integer>;
+    field public final disabledTrackTypes: com.google.common.collect.ImmutableSet<java.lang.@androidx.media3.common.C.TrackType Integer>;
     field public final forceHighestSupportedBitrate: boolean;
     field public final forceLowestBitrate: boolean;
-    field @androidx.media3.common.C.SelectionFlags public final ignoredTextSelectionFlags: int;
+    field @androidx.media3.common.C.SelectionFlags public final ignoredTextSelectionFlags: @androidx.media3.common.C.SelectionFlags int;
     field public final isViewportSizeLimitedByPhysicalDisplaySize: boolean;
     field public final maxAudioBitrate: int;
     field public final maxAudioChannelCount: int;
@@ -1166,14 +1167,14 @@ package androidx.media3.common {
     field public final preferredAudioLabels: com.google.common.collect.ImmutableList<java.lang.String>;
     field public final preferredAudioLanguages: com.google.common.collect.ImmutableList<java.lang.String>;
     field public final preferredAudioMimeTypes: com.google.common.collect.ImmutableList<java.lang.String>;
-    field @androidx.media3.common.C.RoleFlags public final preferredAudioRoleFlags: int;
+    field @androidx.media3.common.C.RoleFlags public final preferredAudioRoleFlags: @androidx.media3.common.C.RoleFlags int;
     field public final preferredTextLabels: com.google.common.collect.ImmutableList<java.lang.String>;
     field public final preferredTextLanguages: com.google.common.collect.ImmutableList<java.lang.String>;
-    field @androidx.media3.common.C.RoleFlags public final preferredTextRoleFlags: int;
+    field @androidx.media3.common.C.RoleFlags public final preferredTextRoleFlags: @androidx.media3.common.C.RoleFlags int;
     field public final preferredVideoLabels: com.google.common.collect.ImmutableList<java.lang.String>;
     field public final preferredVideoLanguages: com.google.common.collect.ImmutableList<java.lang.String>;
     field public final preferredVideoMimeTypes: com.google.common.collect.ImmutableList<java.lang.String>;
-    field @androidx.media3.common.C.RoleFlags public final preferredVideoRoleFlags: int;
+    field @androidx.media3.common.C.RoleFlags public final preferredVideoRoleFlags: @androidx.media3.common.C.RoleFlags int;
     field public final selectTextByDefault: boolean;
     field public final selectUndeterminedTextLanguage: boolean;
     field public final usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager: boolean;
@@ -1189,12 +1190,12 @@ package androidx.media3.common {
     method public build(): androidx.media3.common.TrackSelectionParameters;
     method public clearOverride(_: androidx.media3.common.TrackGroup): androidx.media3.common.TrackSelectionParameters.Builder;
     method public clearOverrides(): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public clearOverridesOfType(_: int): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public clearOverridesOfType(_: @androidx.media3.common.C.TrackType int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public clearVideoSizeConstraints(): androidx.media3.common.TrackSelectionParameters.Builder;
     method public clearViewportSizeConstraints(): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setForceHighestSupportedBitrate(_: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setForceLowestBitrate(_: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public setIgnoredTextSelectionFlags(@androidx.media3.common.C.SelectionFlags _: int): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public setIgnoredTextSelectionFlags(@androidx.media3.common.C.SelectionFlags _: @androidx.media3.common.C.SelectionFlags int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setMaxAudioBitrate(_: int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setMaxAudioChannelCount(_: int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setMaxVideoBitrate(_: int): androidx.media3.common.TrackSelectionParameters.Builder;
@@ -1210,41 +1211,41 @@ package androidx.media3.common {
     method public setPreferredAudioLanguages(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredAudioMimeType(@Nullable _: String): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredAudioMimeTypes(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public setPreferredAudioRoleFlags(@androidx.media3.common.C.RoleFlags _: int): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public setPreferredAudioRoleFlags(@androidx.media3.common.C.RoleFlags _: @androidx.media3.common.C.RoleFlags int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredTextLabels(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredTextLanguage(@Nullable _: String): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(): androidx.media3.common.TrackSelectionParameters.Builder;
     method @Deprecated public setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(_: android.content.Context): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredTextLanguages(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public setPreferredTextRoleFlags(@androidx.media3.common.C.RoleFlags _: int): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public setPreferredTextRoleFlags(@androidx.media3.common.C.RoleFlags _: @androidx.media3.common.C.RoleFlags int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredVideoLabels(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredVideoLanguage(@Nullable _: String): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredVideoLanguages(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredVideoMimeType(@Nullable _: String): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setPreferredVideoMimeTypes(_: java.lang.String...): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public setPreferredVideoRoleFlags(@androidx.media3.common.C.RoleFlags _: int): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public setPreferredVideoRoleFlags(@androidx.media3.common.C.RoleFlags _: @androidx.media3.common.C.RoleFlags int): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setSelectTextByDefault(_: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setSelectUndeterminedTextLanguage(_: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
-    method public setTrackTypeDisabled(_: int, _: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
+    method public setTrackTypeDisabled(_: @androidx.media3.common.C.TrackType int, _: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setViewportSize(_: int, _: int, _: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
     method @Deprecated public setViewportSizeToPhysicalDisplaySize(_: android.content.Context, _: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
     method public setViewportSizeToPhysicalDisplaySize(_: boolean): androidx.media3.common.TrackSelectionParameters.Builder;
   }
 
   public final class Tracks {
-    method public containsType(_: int): boolean;
+    method public containsType(_: @androidx.media3.common.C.TrackType int): boolean;
     method public getGroups(): com.google.common.collect.ImmutableList<androidx.media3.common.Tracks.Group>;
     method public isEmpty(): boolean;
-    method public isTypeSelected(_: int): boolean;
-    method public isTypeSupported(_: int): boolean;
-    method public isTypeSupported(_: int, _: boolean): boolean;
+    method public isTypeSelected(_: @androidx.media3.common.C.TrackType int): boolean;
+    method public isTypeSupported(_: @androidx.media3.common.C.TrackType int): boolean;
+    method public isTypeSupported(_: @androidx.media3.common.C.TrackType int, _: boolean): boolean;
     field public static final EMPTY: androidx.media3.common.Tracks;
   }
 
   public static final class Tracks.Group {
     method public getMediaTrackGroup(): androidx.media3.common.TrackGroup;
     method public getTrackFormat(_: int): androidx.media3.common.Format;
-    method public getType(): int;
+    method public getType(): @androidx.media3.common.C.TrackType int;
     method public isAdaptiveSupported(): boolean;
     method public isSelected(): boolean;
     method public isSupported(): boolean;
@@ -1285,18 +1286,18 @@ package androidx.media3.common.text {
     field @Nullable public final bitmap: android.graphics.Bitmap;
     field public final bitmapHeight: float;
     field public final line: float;
-    field @androidx.media3.common.text.Cue.AnchorType public final lineAnchor: int;
-    field @androidx.media3.common.text.Cue.LineType public final lineType: int;
+    field @androidx.media3.common.text.Cue.AnchorType public final lineAnchor: @androidx.media3.common.text.Cue.AnchorType int;
+    field @androidx.media3.common.text.Cue.LineType public final lineType: @androidx.media3.common.text.Cue.LineType int;
     field @Nullable public final multiRowAlignment: android.text.Layout.Alignment;
     field public final position: float;
-    field @androidx.media3.common.text.Cue.AnchorType public final positionAnchor: int;
+    field @androidx.media3.common.text.Cue.AnchorType public final positionAnchor: @androidx.media3.common.text.Cue.AnchorType int;
     field public final shearDegrees: float;
     field public final size: float;
     field @Nullable public final text: CharSequence;
     field @Nullable public final textAlignment: android.text.Layout.Alignment;
     field public final textSize: float;
-    field @androidx.media3.common.text.Cue.TextSizeType public final textSizeType: int;
-    field @androidx.media3.common.text.Cue.VerticalType public final verticalType: int;
+    field @androidx.media3.common.text.Cue.TextSizeType public final textSizeType: @androidx.media3.common.text.Cue.TextSizeType int;
+    field @androidx.media3.common.text.Cue.VerticalType public final verticalType: @androidx.media3.common.text.Cue.VerticalType int;
     field public final windowColor: int;
     field public final windowColorSet: boolean;
   }
@@ -1323,15 +1324,15 @@ package androidx.media3.common.util {
 
   public final class Util {
     method public static checkCleartextTrafficPermitted(_: androidx.media3.common.MediaItem...): boolean;
-    method @Nullable public static getAdaptiveMimeTypeForContentType(@androidx.media3.common.C.ContentType _: int): String;
+    method @Nullable public static getAdaptiveMimeTypeForContentType(@androidx.media3.common.C.ContentType _: @androidx.media3.common.C.ContentType int): String;
     method @Nullable public static getDrmUuid(_: String): java.util.UUID;
     method public static getUserAgent(_: android.content.Context, _: String): String;
     method public static handlePauseButtonAction(@Nullable _: androidx.media3.common.Player): boolean;
     method public static handlePlayButtonAction(@Nullable _: androidx.media3.common.Player): boolean;
     method public static handlePlayPauseButtonAction(@Nullable _: androidx.media3.common.Player): boolean;
-    method @androidx.media3.common.C.ContentType public static inferContentType(_: android.net.Uri): int;
-    method @androidx.media3.common.C.ContentType public static inferContentTypeForExtension(_: String): int;
-    method @androidx.media3.common.C.ContentType public static inferContentTypeForUriAndMimeType(_: android.net.Uri, @Nullable _: String): int;
+    method @androidx.media3.common.C.ContentType public static inferContentType(_: android.net.Uri): @androidx.media3.common.C.ContentType int;
+    method @androidx.media3.common.C.ContentType public static inferContentTypeForExtension(_: String): @androidx.media3.common.C.ContentType int;
+    method @androidx.media3.common.C.ContentType public static inferContentTypeForUriAndMimeType(_: android.net.Uri, @Nullable _: String): @androidx.media3.common.C.ContentType int;
     method @Deprecated public static maybeRequestReadExternalStoragePermission(_: android.app.Activity, _: android.net.Uri...): boolean;
     method @Deprecated public static maybeRequestReadExternalStoragePermission(_: android.app.Activity, _: androidx.media3.common.MediaItem...): boolean;
     method public static maybeRequestReadStoragePermission(_: android.app.Activity, _: androidx.media3.common.MediaItem...): boolean;
@@ -1349,7 +1350,7 @@ package androidx.media3.datasource {
   }
 
   public class DataSourceException extends java.io.IOException {
-    field @androidx.media3.common.PlaybackException.ErrorCode public final reason: int;
+    field @androidx.media3.common.PlaybackException.ErrorCode public final reason: @androidx.media3.common.PlaybackException.ErrorCode int;
   }
 
   public final class DefaultDataSource implements androidx.media3.datasource.DataSource {
@@ -1381,7 +1382,7 @@ package androidx.media3.datasource {
     field public static final TYPE_CLOSE: int = 3; // 0x3
     field public static final TYPE_OPEN: int = 1; // 0x1
     field public static final TYPE_READ: int = 2; // 0x2
-    field public final type: int;
+    field public final type: @androidx.media3.datasource.HttpDataSource.HttpDataSourceException.Type int;
   }
 
   @IntDef({androidx.media3.datasource.HttpDataSource.HttpDataSourceException.TYPE_OPEN, androidx.media3.datasource.HttpDataSource.HttpDataSourceException.TYPE_READ, androidx.media3.datasource.HttpDataSource.HttpDataSourceException.TYPE_CLOSE}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface HttpDataSource.HttpDataSourceException.Type {
@@ -1437,7 +1438,7 @@ package androidx.media3.exoplayer {
     method @Nullable public getPlayerError(): androidx.media3.exoplayer.ExoPlaybackException;
     method public removeAnalyticsListener(_: androidx.media3.exoplayer.analytics.AnalyticsListener): void;
     method public setHandleAudioBecomingNoisy(_: boolean): void;
-    method public setWakeMode(@androidx.media3.common.C.WakeMode _: int): void;
+    method public setWakeMode(@androidx.media3.common.C.WakeMode _: @androidx.media3.common.C.WakeMode int): void;
   }
 
   public static final class ExoPlayer.Builder {
@@ -1449,7 +1450,7 @@ package androidx.media3.exoplayer {
     method public setMediaSourceFactory(_: androidx.media3.exoplayer.source.MediaSource.Factory): androidx.media3.exoplayer.ExoPlayer.Builder;
     method public setSeekBackIncrementMs(@IntRange(from=1) _: long): androidx.media3.exoplayer.ExoPlayer.Builder;
     method public setSeekForwardIncrementMs(@IntRange(from=1) _: long): androidx.media3.exoplayer.ExoPlayer.Builder;
-    method public setWakeMode(@androidx.media3.common.C.WakeMode _: int): androidx.media3.exoplayer.ExoPlayer.Builder;
+    method public setWakeMode(@androidx.media3.common.C.WakeMode _: @androidx.media3.common.C.WakeMode int): androidx.media3.exoplayer.ExoPlayer.Builder;
   }
 
 }
@@ -1552,13 +1553,13 @@ package androidx.media3.exoplayer.audio {
     field public final isFormatSupportedForOffload: boolean;
     field public final isGaplessSupportedForOffload: boolean;
     field public final isSpeedChangeSupportedForOffload: boolean;
-    field public final supportLevel: int;
+    field public final supportLevel: @androidx.media3.exoplayer.audio.AudioOutputProvider.SupportLevel int;
   }
 
   public static final class AudioOutputProvider.FormatSupport.Builder {
     ctor public AudioOutputProvider.FormatSupport.Builder();
     method public build(): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport;
-    method public setFormatSupportLevel(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder;
+    method public setFormatSupportLevel(_: @androidx.media3.exoplayer.audio.AudioOutputProvider.SupportLevel int): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder;
     method public setIsFormatSupportedForOffload(_: boolean): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder;
     method public setIsGaplessSupportedForOffload(_: boolean): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder;
     method public setIsSpeedChangeSupportedForOffload(_: boolean): androidx.media3.exoplayer.audio.AudioOutputProvider.FormatSupport.Builder;
@@ -1579,7 +1580,7 @@ package androidx.media3.exoplayer.audio {
     field public final audioSessionId: int;
     field public final bufferSize: int;
     field public final channelMask: int;
-    field public final encoding: int;
+    field public final encoding: @androidx.media3.common.C.Encoding int;
     field public final isOffload: boolean;
     field public final isTunneling: boolean;
     field public final sampleRate: int;
@@ -1595,7 +1596,7 @@ package androidx.media3.exoplayer.audio {
     method public setAudioSessionId(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
     method public setBufferSize(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
     method public setChannelMask(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
-    method public setEncoding(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
+    method public setEncoding(_: @androidx.media3.common.C.Encoding int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
     method public setIsOffload(_: boolean): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
     method public setIsTunneling(_: boolean): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
     method public setSampleRate(_: int): androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig.Builder;
@@ -1873,17 +1874,17 @@ package androidx.media3.session {
     field public static final ICON_VOLUME_UP: int = 57424; // 0xe050
     field public final displayName: CharSequence;
     field public final extras: android.os.Bundle;
-    field public final icon: int;
+    field public final icon: @androidx.media3.session.CommandButton.Icon int;
     field @DrawableRes public final iconResId: int;
     field @Nullable public final iconUri: android.net.Uri;
     field public final isEnabled: boolean;
-    field @androidx.media3.common.Player.Command public final playerCommand: int;
+    field @androidx.media3.common.Player.Command public final playerCommand: @androidx.media3.common.Player.Command int;
     field @Nullable public final sessionCommand: androidx.media3.session.SessionCommand;
   }
 
   public static final class CommandButton.Builder {
     ctor @Deprecated public CommandButton.Builder();
-    ctor public CommandButton.Builder(_: int);
+    ctor public CommandButton.Builder(_: @androidx.media3.session.CommandButton.Icon int);
     method public build(): androidx.media3.session.CommandButton;
     method public setCustomIconResId(@DrawableRes _: int): androidx.media3.session.CommandButton.Builder;
     method public setDisplayName(_: CharSequence): androidx.media3.session.CommandButton.Builder;
@@ -1891,7 +1892,7 @@ package androidx.media3.session {
     method public setExtras(_: android.os.Bundle): androidx.media3.session.CommandButton.Builder;
     method @Deprecated public setIconResId(@DrawableRes _: int): androidx.media3.session.CommandButton.Builder;
     method public setIconUri(_: android.net.Uri): androidx.media3.session.CommandButton.Builder;
-    method public setPlayerCommand(@androidx.media3.common.Player.Command _: int): androidx.media3.session.CommandButton.Builder;
+    method public setPlayerCommand(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): androidx.media3.session.CommandButton.Builder;
     method public setSessionCommand(_: androidx.media3.session.SessionCommand): androidx.media3.session.CommandButton.Builder;
   }
 
@@ -1899,8 +1900,8 @@ package androidx.media3.session {
   }
 
   public final class LibraryResult<V> {
-    method public static <V> ofError(_: int): androidx.media3.session.LibraryResult<V>;
-    method public static <V> ofError(_: int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): androidx.media3.session.LibraryResult<V>;
+    method public static <V> ofError(_: @androidx.media3.session.LibraryResult.Code int): androidx.media3.session.LibraryResult<V>;
+    method public static <V> ofError(_: @androidx.media3.session.LibraryResult.Code int, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): androidx.media3.session.LibraryResult<V>;
     method public static ofItem(_: androidx.media3.common.MediaItem, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): androidx.media3.session.LibraryResult<androidx.media3.common.MediaItem>;
     method public static ofItemList(_: java.util.List<androidx.media3.common.MediaItem>, @Nullable _: androidx.media3.session.MediaLibraryService.LibraryParams): androidx.media3.session.LibraryResult<com.google.common.collect.ImmutableList<androidx.media3.common.MediaItem>>;
     method public static ofVoid(): androidx.media3.session.LibraryResult<java.lang.Void>;
@@ -1923,7 +1924,7 @@ package androidx.media3.session {
     field public static final RESULT_SUCCESS: int = 0; // 0x0
     field public final completionTimeMs: long;
     field @Nullable public final params: androidx.media3.session.MediaLibraryService.LibraryParams;
-    field public final resultCode: int;
+    field public final resultCode: @androidx.media3.session.LibraryResult.Code int;
     field @Nullable public final value: V;
   }
 
@@ -1975,7 +1976,7 @@ package androidx.media3.session {
     method public final clearVideoSurfaceView(@Nullable _: android.view.SurfaceView): void;
     method public final clearVideoTextureView(@Nullable _: android.view.TextureView): void;
     method @Deprecated public final decreaseDeviceVolume(): void;
-    method public final decreaseDeviceVolume(_: int): void;
+    method public final decreaseDeviceVolume(_: @androidx.media3.common.C.VolumeFlags int): void;
     method public final getApplicationLooper(): android.os.Looper;
     method public final getAudioAttributes(): androidx.media3.common.AudioAttributes;
     method public final getAvailableCommands(): androidx.media3.common.Player.Commands;
@@ -2007,12 +2008,12 @@ package androidx.media3.session {
     method public final getNextMediaItemIndex(): int;
     method public final getPlayWhenReady(): boolean;
     method public final getPlaybackParameters(): androidx.media3.common.PlaybackParameters;
-    method @androidx.media3.common.Player.State public final getPlaybackState(): int;
-    method @androidx.media3.common.Player.PlaybackSuppressionReason public final getPlaybackSuppressionReason(): int;
+    method @androidx.media3.common.Player.State public final getPlaybackState(): @androidx.media3.common.Player.State int;
+    method @androidx.media3.common.Player.PlaybackSuppressionReason public final getPlaybackSuppressionReason(): @androidx.media3.common.Player.PlaybackSuppressionReason int;
     method @Nullable public final getPlayerError(): androidx.media3.common.PlaybackException;
     method public final getPlaylistMetadata(): androidx.media3.common.MediaMetadata;
     method public final getPreviousMediaItemIndex(): int;
-    method @androidx.media3.common.Player.RepeatMode public final getRepeatMode(): int;
+    method @androidx.media3.common.Player.RepeatMode public final getRepeatMode(): @androidx.media3.common.Player.RepeatMode int;
     method public final getSeekBackIncrement(): long;
     method public final getSeekForwardIncrement(): long;
     method @Nullable public final getSessionActivity(): android.app.PendingIntent;
@@ -2025,8 +2026,8 @@ package androidx.media3.session {
     method public final hasNextMediaItem(): boolean;
     method public final hasPreviousMediaItem(): boolean;
     method @Deprecated public final increaseDeviceVolume(): void;
-    method public final increaseDeviceVolume(_: int): void;
-    method public final isCommandAvailable(@androidx.media3.common.Player.Command _: int): boolean;
+    method public final increaseDeviceVolume(_: @androidx.media3.common.C.VolumeFlags int): void;
+    method public final isCommandAvailable(@androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): boolean;
     method public final isConnected(): boolean;
     method public final isCurrentMediaItemDynamic(): boolean;
     method public final isCurrentMediaItemLive(): boolean;
@@ -2036,7 +2037,7 @@ package androidx.media3.session {
     method public final isPlaying(): boolean;
     method public final isPlayingAd(): boolean;
     method public final isSessionCommandAvailable(_: androidx.media3.session.SessionCommand): boolean;
-    method public final isSessionCommandAvailable(_: int): boolean;
+    method public final isSessionCommandAvailable(_: @androidx.media3.session.SessionCommand.CommandCode int): boolean;
     method public final moveMediaItem(_: int, _: int): void;
     method public final moveMediaItems(_: int, _: int, _: int): void;
     method public final mute(): void;
@@ -2063,9 +2064,9 @@ package androidx.media3.session {
     method public final sendCustomCommand(_: androidx.media3.session.SessionCommand, _: android.os.Bundle): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
     method public final setAudioAttributes(_: androidx.media3.common.AudioAttributes, _: boolean): void;
     method @Deprecated public final setDeviceMuted(_: boolean): void;
-    method public final setDeviceMuted(_: boolean, _: int): void;
+    method public final setDeviceMuted(_: boolean, _: @androidx.media3.common.C.VolumeFlags int): void;
     method @Deprecated public final setDeviceVolume(@IntRange(from=0) _: int): void;
-    method public final setDeviceVolume(@IntRange(from=0) _: int, _: int): void;
+    method public final setDeviceVolume(@IntRange(from=0) _: int, _: @androidx.media3.common.C.VolumeFlags int): void;
     method public final setMediaItem(_: androidx.media3.common.MediaItem): void;
     method public final setMediaItem(_: androidx.media3.common.MediaItem, _: boolean): void;
     method public final setMediaItem(_: androidx.media3.common.MediaItem, _: long): void;
@@ -2078,7 +2079,7 @@ package androidx.media3.session {
     method public final setPlaylistMetadata(_: androidx.media3.common.MediaMetadata): void;
     method public final setRating(_: androidx.media3.common.Rating): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
     method public final setRating(_: String, _: androidx.media3.common.Rating): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
-    method public final setRepeatMode(@androidx.media3.common.Player.RepeatMode _: int): void;
+    method public final setRepeatMode(@androidx.media3.common.Player.RepeatMode _: @androidx.media3.common.Player.RepeatMode int): void;
     method public final setShuffleModeEnabled(_: boolean): void;
     method public final setTrackSelectionParameters(_: androidx.media3.common.TrackSelectionParameters): void;
     method public final setVideoSurface(@Nullable _: android.view.Surface): void;
@@ -2192,7 +2193,7 @@ package androidx.media3.session {
     method public default onConnect(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo): androidx.media3.session.MediaSession.ConnectionResult;
     method public default onCustomCommand(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo, _: androidx.media3.session.SessionCommand, _: android.os.Bundle): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
     method public default onDisconnected(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo): void;
-    method @Deprecated public default onPlayerCommandRequest(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo, @androidx.media3.common.Player.Command _: int): int;
+    method @Deprecated public default onPlayerCommandRequest(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo, @androidx.media3.common.Player.Command _: @androidx.media3.common.Player.Command int): @androidx.media3.session.SessionResult.Code int;
     method public default onPostConnect(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo): void;
     method public default onSetRating(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo, _: androidx.media3.common.Rating): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
     method public default onSetRating(_: androidx.media3.session.MediaSession, _: androidx.media3.session.MediaSession.ControllerInfo, _: String, _: androidx.media3.common.Rating): com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult>;
@@ -2228,7 +2229,7 @@ package androidx.media3.session {
   }
 
   public final class SessionCommand {
-    ctor public SessionCommand(_: int);
+    ctor public SessionCommand(_: @androidx.media3.session.SessionCommand.CommandCode int);
     ctor public SessionCommand(_: String, _: android.os.Bundle);
     field public static final COMMAND_CODE_CUSTOM: int = 0; // 0x0
     field public static final COMMAND_CODE_LIBRARY_GET_CHILDREN: int = 50003; // 0xc353
@@ -2239,7 +2240,7 @@ package androidx.media3.session {
     field public static final COMMAND_CODE_LIBRARY_SUBSCRIBE: int = 50001; // 0xc351
     field public static final COMMAND_CODE_LIBRARY_UNSUBSCRIBE: int = 50002; // 0xc352
     field public static final COMMAND_CODE_SESSION_SET_RATING: int = 40010; // 0x9c4a
-    field public final commandCode: int;
+    field public final commandCode: @androidx.media3.session.SessionCommand.CommandCode int;
     field public final customAction: String;
     field public final customExtras: android.os.Bundle;
   }
@@ -2250,7 +2251,7 @@ package androidx.media3.session {
   public final class SessionCommands {
     method public buildUpon(): androidx.media3.session.SessionCommands.Builder;
     method public contains(_: androidx.media3.session.SessionCommand): boolean;
-    method public contains(_: int): boolean;
+    method public contains(_: @androidx.media3.session.SessionCommand.CommandCode int): boolean;
     field public static final EMPTY: androidx.media3.session.SessionCommands;
     field public final commands: com.google.common.collect.ImmutableSet<androidx.media3.session.SessionCommand>;
   }
@@ -2258,16 +2259,16 @@ package androidx.media3.session {
   public static final class SessionCommands.Builder {
     ctor public SessionCommands.Builder();
     method public add(_: androidx.media3.session.SessionCommand): androidx.media3.session.SessionCommands.Builder;
-    method public add(_: int): androidx.media3.session.SessionCommands.Builder;
+    method public add(_: @androidx.media3.session.SessionCommand.CommandCode int): androidx.media3.session.SessionCommands.Builder;
     method public addSessionCommands(_: java.util.Collection<androidx.media3.session.SessionCommand>): androidx.media3.session.SessionCommands.Builder;
     method public build(): androidx.media3.session.SessionCommands;
     method public remove(_: androidx.media3.session.SessionCommand): androidx.media3.session.SessionCommands.Builder;
-    method public remove(_: int): androidx.media3.session.SessionCommands.Builder;
+    method public remove(_: @androidx.media3.session.SessionCommand.CommandCode int): androidx.media3.session.SessionCommands.Builder;
   }
 
   public final class SessionResult {
-    ctor public SessionResult(_: int);
-    ctor public SessionResult(_: int, _: android.os.Bundle);
+    ctor public SessionResult(_: @androidx.media3.session.SessionResult.Code int);
+    ctor public SessionResult(_: @androidx.media3.session.SessionResult.Code int, _: android.os.Bundle);
     field public static final RESULT_ERROR_BAD_VALUE: int = -3; // 0xfffffffd
     field public static final RESULT_ERROR_INVALID_STATE: int = -2; // 0xfffffffe
     field public static final RESULT_ERROR_IO: int = -5; // 0xfffffffb
@@ -2286,7 +2287,7 @@ package androidx.media3.session {
     field public static final RESULT_SUCCESS: int = 0; // 0x0
     field public final completionTimeMs: long;
     field public final extras: android.os.Bundle;
-    field public final resultCode: int;
+    field public final resultCode: @androidx.media3.session.SessionResult.Code int;
   }
 
   @IntDef({androidx.media3.session.SessionResult.RESULT_SUCCESS, androidx.media3.session.SessionError.INFO_CANCELLED, androidx.media3.session.SessionError.ERROR_UNKNOWN, androidx.media3.session.SessionError.ERROR_INVALID_STATE, androidx.media3.session.SessionError.ERROR_BAD_VALUE, androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED, androidx.media3.session.SessionError.ERROR_IO, androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED, androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED, androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, androidx.media3.session.SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED, androidx.media3.session.SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT, androidx.media3.session.SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED, androidx.media3.session.SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION, androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED, androidx.media3.session.SessionError.ERROR_SESSION_SETUP_REQUIRED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface SessionResult.Code {
@@ -2300,7 +2301,7 @@ package androidx.media3.session {
     method public getPackageName(): String;
     method public getServiceName(): String;
     method public getSessionVersion(): int;
-    method public getType(): int;
+    method public getType(): @androidx.media3.session.SessionToken.TokenType int;
     method public getUid(): int;
     field public static final PLATFORM_SESSION_VERSION: int = 0; // 0x0
     field public static final TYPE_LIBRARY_SERVICE: int = 2; // 0x2
