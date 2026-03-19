@@ -3670,12 +3670,15 @@ import java.util.Objects;
         periodIdWithAds.nextAdGroupIndex == C.INDEX_UNSET
             || (oldPeriodId.nextAdGroupIndex != C.INDEX_UNSET
                 && periodIdWithAds.nextAdGroupIndex >= oldPeriodId.nextAdGroupIndex);
+    final boolean samePeriodCount =
+        playbackInfo.timeline.getPeriodCount() == timeline.getPeriodCount();
     // Drop update if we keep playing the same content (MediaPeriod.periodUid are identical) and
     // the only change is that MediaPeriodId.nextAdGroupIndex increased. This postpones a potential
     // discontinuity until we reach the former next ad group position.
     boolean sameOldAndNewPeriodUid = oldPeriodId.periodUid.equals(newPeriodUid);
     boolean onlyNextAdGroupIndexIncreased =
         sameOldAndNewPeriodUid
+            && samePeriodCount
             && !oldPeriodId.isAd()
             && !periodIdWithAds.isAd()
             && earliestCuePointIsUnchangedOrLater;
