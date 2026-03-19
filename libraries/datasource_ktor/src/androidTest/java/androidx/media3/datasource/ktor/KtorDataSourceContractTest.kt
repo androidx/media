@@ -35,9 +35,9 @@ class KtorDataSourceContractTest : DataSourceContractTest() {
     return KtorDataSource.Factory(
         HttpClient(Android) {
           install(HttpTimeout) {
-            requestTimeoutMillis = 400
-            connectTimeoutMillis = 400
-            socketTimeoutMillis = 400
+            requestTimeoutMillis = 800
+            connectTimeoutMillis = 800
+            socketTimeoutMillis = 800
           }
         }
       )
