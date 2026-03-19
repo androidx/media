@@ -391,15 +391,19 @@ public final class DefaultHlsPlaylistTracker
       multivariantPlaylist = (HlsMultivariantPlaylist) result;
     }
     this.multivariantPlaylist = multivariantPlaylist;
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
     try {
-      this.variantRedundantGroups =
-          HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+      this.variantRedundantGroups = redundantGroupFactory.createVariantRedundantGroupList();
       this.videoRedundantGroups =
-          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+          redundantGroupFactory.createRenditionRedundantGroupList(
+              HlsRedundantGroup.VIDEO_RENDITION);
       this.audioRedundantGroups =
-          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+          redundantGroupFactory.createRenditionRedundantGroupList(
+              HlsRedundantGroup.AUDIO_RENDITION);
       this.subtitleRedundantGroups =
-          HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+          redundantGroupFactory.createRenditionRedundantGroupList(
+              HlsRedundantGroup.SUBTITLE_RENDITION);
     } catch (ParserException e) {
       redundantGroupListCreationError = e;
       return;

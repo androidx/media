@@ -118,21 +118,202 @@ public class HlsRedundantGroupTest {
           + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"B\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n" // Redundant variants with same PATHWAY-ID field but different URLs
           + "https://backup.example.com/low/video.m3u8\n";
 
+  private static final String PLAYLIST_WITH_RENDITION_WITHOUT_URL =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+          + "low/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_INFO_AND_REDUNDANT_VARIANTS_WITH_PATHWAY_ID =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,URI=\"eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"B\",NAME=\"English\",DEFAULT=YES,URI=\"https://b.example.com/eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-768\"\n"
+              + "hi/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"B\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"B\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-768\"\n"
+              + "https://backup.example.com/hi/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_INFO_AND_ONLY_ONE_VARIANT_IN_REDUNDANT_GROUP_WITHOUT_PATHWAY_ID =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,URI=\"eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"B\",NAME=\"English\",DEFAULT=YES,URI=\"https://b.example.com/eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"A\",STABLE-VARIANT-ID=\"Video-768\"\n"
+              + "hi/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"B\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"B\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-768\"\n"
+              + "https://backup.example.com/hi/video.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_INFO_ALL_VARIANTS_WITHOUT_PATHWAY_ID =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\", PATHWAY-ID=\".\"\n"
+          + "\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,URI=\"eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+          + "\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"B\",NAME=\"English\",DEFAULT=YES,URI=\"https://b.example.com/eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+          + "low/video.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"A\",STABLE-VARIANT-ID=\"Video-768\"\n"
+          + "hi/video.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+          + "https://backup.example.com/low/video.m3u8\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,AUDIO=\"B\",STABLE-VARIANT-ID=\"Video-768\"\n"
+          + "https://backup.example.com/hi/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_REDUNDANT_VARIANTS_WITH_SAME_PATHWAY_ID_BUT_DIFFERENT_URLS =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,URI=\"eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"B\",NAME=\"English\",DEFAULT=YES,URI=\"https://b.example.com/eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"B\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n" // Redundant variants with same PATHWAY-ID field but different URLs
+              + "https://backup.example.com/low/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_VIDEO_GROUP_ID =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID=\"A\",NAME=\"Stream1\",URI=\"v1.m3u8\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,VIDEO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,VIDEO=\"A\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_AUDIO_GROUP_ID =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",URI=\"eng.m3u8\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_SUBTITLE_GROUP_ID =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"S\",NAME=\"Subtitle\",URI=\"sub.m3u8\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,SUBTITLES=\"S\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,SUBTITLES=\"S\",PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n";
+
+  private static final String PLAYLIST_WITH_CONTENT_STEERING_AND_UNREFERENCED_RENDITION =
+      " #EXTM3U \n"
+          + "\n"
+          + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\", PATHWAY-ID=\"CDN-A\"\n"
+          + "\n"
+          + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",URI=\"eng.m3u8\"\n"
+          + "\n"
+          + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+          + "low/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_INCONSISTENT_PATHWAY_ID_AMONG_VARIANT_REDUNDANT_GROUPS =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=7680000,PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-768\"\n"
+              + "hi/video.m3u8\n";
+
+  private static final String
+      PLAYLIST_WITH_CONTENT_STEERING_AND_INCONSISTENT_PATHWAY_ID_BETWEEN_VARIANT_AND_RENDITION_REDUNDANT_GROUPS =
+          " #EXTM3U \n"
+              + "\n"
+              + "#EXT-X-CONTENT-STEERING:SERVER-URI=\"/steering_manifest.json\","
+              + " PATHWAY-ID=\"CDN-A\"\n"
+              + "\n"
+              + "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"A\",NAME=\"English\",DEFAULT=YES,URI=\"eng.m3u8\",LANGUAGE=\"en\",STABLE-RENDITION-ID=\"Audio-37262\"\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,AUDIO=\"A\",PATHWAY-ID=\"CDN-A\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "low/video.m3u8\n"
+              + "\n"
+              + "#EXT-X-STREAM-INF:BANDWIDTH=1280000,PATHWAY-ID=\"CDN-B\",STABLE-VARIANT-ID=\"Video-128\"\n"
+              + "https://backup.example.com/low/video.m3u8\n";
+
   @Test
   public void
       createRedundantGroupLists_noRedundantVariantsNorRenditions_redundantGroupsCorrectlyCreated()
           throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(PLAYLIST_NO_REDUNDANT_VARIANTS_NOR_RENDITIONS);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
 
     ImmutableList<HlsRedundantGroup> variantRedundantGroups =
-        HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+        redundantGroupFactory.createVariantRedundantGroupList();
     ImmutableList<HlsRedundantGroup> videoRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
     ImmutableList<HlsRedundantGroup> audioRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
     ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
 
     assertThat(variantRedundantGroups).hasSize(2);
     HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
@@ -176,15 +357,18 @@ public class HlsRedundantGroupTest {
           throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(PLAYLIST_REDUNDANT_VARIANTS_WITH_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
 
     ImmutableList<HlsRedundantGroup> variantRedundantGroups =
-        HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+        redundantGroupFactory.createVariantRedundantGroupList();
     ImmutableList<HlsRedundantGroup> videoRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
     ImmutableList<HlsRedundantGroup> audioRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
     ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
 
     assertThat(variantRedundantGroups).hasSize(2);
     HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
@@ -239,15 +423,18 @@ public class HlsRedundantGroupTest {
           throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(PLAYLIST_REDUNDANT_VARIANTS_WITHOUT_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
 
     ImmutableList<HlsRedundantGroup> variantRedundantGroups =
-        HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+        redundantGroupFactory.createVariantRedundantGroupList();
     ImmutableList<HlsRedundantGroup> videoRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
     ImmutableList<HlsRedundantGroup> audioRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
     ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
 
     assertThat(variantRedundantGroups).hasSize(2);
     HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
@@ -302,15 +489,18 @@ public class HlsRedundantGroupTest {
           throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(PLAYLIST_REDUNDANT_VARIANTS_MIX_OF_WITH_AND_WITHOUT_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
 
     ImmutableList<HlsRedundantGroup> variantRedundantGroups =
-        HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants);
+        redundantGroupFactory.createVariantRedundantGroupList();
     ImmutableList<HlsRedundantGroup> videoRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.videos);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
     ImmutableList<HlsRedundantGroup> audioRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.audios);
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
     ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
-        HlsRedundantGroup.createRenditionRedundantGroupList(multivariantPlaylist.subtitles);
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
 
     assertThat(variantRedundantGroups).hasSize(2);
     HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
@@ -361,15 +551,303 @@ public class HlsRedundantGroupTest {
 
   @Test
   public void
+      createRenditionRedundantGroupList_renditionWithNullUrl_skipThisRenditionAndRedundantGroupsCorrectlyCreated()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_WITH_RENDITION_WITHOUT_URL);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ImmutableList<HlsRedundantGroup> audioRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
+
+    assertThat(audioRedundantGroups).isEmpty();
+  }
+
+  @Test
+  public void
       createRedundantGroupLists_redundantVariantsWithSamePathwayIdButDifferentUrls_throwsParserException()
           throws IOException {
     HlsMultivariantPlaylist multivariantPlaylist =
         parseMultivariantPlaylist(
             PLAYLIST_REDUNDANT_VARIANTS_WITH_SAME_PATHWAY_ID_BUT_DIFFERENT_URLS);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
 
-    assertThrows(
-        ParserException.class,
-        () -> HlsRedundantGroup.createVariantRedundantGroupList(multivariantPlaylist.variants));
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void createRenditionRedundantGroupList_withInvalidType_throwsIllegalArgumentException()
+      throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_REDUNDANT_VARIANTS_WITH_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VARIANT));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains("Invalid type for creating rendition redundant group list");
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_redundantVariantsWithPathwayId_redundantGroupsCorrectlyCreated()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_INFO_AND_REDUNDANT_VARIANTS_WITH_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ImmutableList<HlsRedundantGroup> variantRedundantGroups =
+        redundantGroupFactory.createVariantRedundantGroupList();
+    ImmutableList<HlsRedundantGroup> videoRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
+    ImmutableList<HlsRedundantGroup> audioRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
+    ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
+
+    assertThat(variantRedundantGroups).hasSize(2);
+    HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
+    assertThat(firstVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(1280000);
+    assertThat(firstVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-128");
+    assertThat(firstVariantRedundantGroup.groupKey.name).isNull();
+    assertThat(firstVariantRedundantGroup.size()).isEqualTo(2);
+    assertThat(firstVariantRedundantGroup.getPlaylistUrl("CDN-A"))
+        .isEqualTo(Uri.parse("https://example.com/low/video.m3u8"));
+    assertThat(firstVariantRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://backup.example.com/low/video.m3u8"));
+    assertThat(firstVariantRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/low/video.m3u8"),
+            Uri.parse("https://backup.example.com/low/video.m3u8"));
+
+    HlsRedundantGroup secondVariantRedundantGroup = variantRedundantGroups.get(1);
+    assertThat(secondVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(7680000);
+    assertThat(secondVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-768");
+    assertThat(secondVariantRedundantGroup.groupKey.name).isNull();
+    assertThat(secondVariantRedundantGroup.size()).isEqualTo(2);
+    assertThat(secondVariantRedundantGroup.getPlaylistUrl("CDN-A"))
+        .isEqualTo(Uri.parse("https://example.com/hi/video.m3u8"));
+    assertThat(secondVariantRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://backup.example.com/hi/video.m3u8"));
+    assertThat(secondVariantRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/hi/video.m3u8"),
+            Uri.parse("https://backup.example.com/hi/video.m3u8"));
+
+    assertThat(audioRedundantGroups).hasSize(1);
+    HlsRedundantGroup audioRedundantGroup = audioRedundantGroups.get(0);
+    assertThat(audioRedundantGroup.groupKey.format.language).isEqualTo("en");
+    assertThat(audioRedundantGroup.groupKey.stableId).isEqualTo("Audio-37262");
+    assertThat(audioRedundantGroup.groupKey.name).isEqualTo("English");
+    assertThat(audioRedundantGroup.size()).isEqualTo(2);
+    assertThat(audioRedundantGroup.getPlaylistUrl("CDN-A"))
+        .isEqualTo(Uri.parse("https://example.com/eng.m3u8"));
+    assertThat(audioRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://b.example.com/eng.m3u8"));
+    assertThat(audioRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/eng.m3u8"), Uri.parse("https://b.example.com/eng.m3u8"));
+
+    assertThat(videoRedundantGroups).isEmpty();
+    assertThat(subtitleRedundantGroups).isEmpty();
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_onlyOneVariantInRedundantGroupWithoutPathwayId_redundantGroupsCorrectlyCreated()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_INFO_AND_ONLY_ONE_VARIANT_IN_REDUNDANT_GROUP_WITHOUT_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ImmutableList<HlsRedundantGroup> variantRedundantGroups =
+        redundantGroupFactory.createVariantRedundantGroupList();
+    ImmutableList<HlsRedundantGroup> videoRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.VIDEO_RENDITION);
+    ImmutableList<HlsRedundantGroup> audioRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
+    ImmutableList<HlsRedundantGroup> subtitleRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(
+            HlsRedundantGroup.SUBTITLE_RENDITION);
+
+    assertThat(variantRedundantGroups).hasSize(2);
+    HlsRedundantGroup firstVariantRedundantGroup = variantRedundantGroups.get(0);
+    assertThat(firstVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(1280000);
+    assertThat(firstVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-128");
+    assertThat(firstVariantRedundantGroup.groupKey.name).isNull();
+    assertThat(firstVariantRedundantGroup.size()).isEqualTo(2);
+    assertThat(firstVariantRedundantGroup.getPlaylistUrl("."))
+        .isEqualTo(Uri.parse("https://example.com/low/video.m3u8"));
+    assertThat(firstVariantRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://backup.example.com/low/video.m3u8"));
+    assertThat(firstVariantRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/low/video.m3u8"),
+            Uri.parse("https://backup.example.com/low/video.m3u8"));
+
+    HlsRedundantGroup secondVariantRedundantGroup = variantRedundantGroups.get(1);
+    assertThat(secondVariantRedundantGroup.groupKey.format.bitrate).isEqualTo(7680000);
+    assertThat(secondVariantRedundantGroup.groupKey.stableId).isEqualTo("Video-768");
+    assertThat(secondVariantRedundantGroup.groupKey.name).isNull();
+    assertThat(secondVariantRedundantGroup.size()).isEqualTo(2);
+    assertThat(secondVariantRedundantGroup.getPlaylistUrl("."))
+        .isEqualTo(Uri.parse("https://example.com/hi/video.m3u8"));
+    assertThat(secondVariantRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://backup.example.com/hi/video.m3u8"));
+    assertThat(secondVariantRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/hi/video.m3u8"),
+            Uri.parse("https://backup.example.com/hi/video.m3u8"));
+
+    assertThat(audioRedundantGroups).hasSize(1);
+    HlsRedundantGroup audioRedundantGroup = audioRedundantGroups.get(0);
+    assertThat(audioRedundantGroup.groupKey.format.language).isEqualTo("en");
+    assertThat(audioRedundantGroup.groupKey.stableId).isEqualTo("Audio-37262");
+    assertThat(audioRedundantGroup.groupKey.name).isEqualTo("English");
+    assertThat(audioRedundantGroup.size()).isEqualTo(2);
+    assertThat(audioRedundantGroup.getPlaylistUrl("."))
+        .isEqualTo(Uri.parse("https://example.com/eng.m3u8"));
+    assertThat(audioRedundantGroup.getPlaylistUrl("CDN-B"))
+        .isEqualTo(Uri.parse("https://b.example.com/eng.m3u8"));
+    assertThat(audioRedundantGroup.getAllPlaylistUrls())
+        .containsExactly(
+            Uri.parse("https://example.com/eng.m3u8"), Uri.parse("https://b.example.com/eng.m3u8"));
+
+    assertThat(videoRedundantGroups).isEmpty();
+    assertThat(subtitleRedundantGroups).isEmpty();
+  }
+
+  @Test
+  public void
+      createRenditionRedundantGroupListForContentSteering_renditionWithUnknownPathwayId_skipThisRenditionAndRedundantGroupsCorrectlyCreated()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(PLAYLIST_WITH_CONTENT_STEERING_AND_UNREFERENCED_RENDITION);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ImmutableList<HlsRedundantGroup> audioRedundantGroups =
+        redundantGroupFactory.createRenditionRedundantGroupList(HlsRedundantGroup.AUDIO_RENDITION);
+
+    assertThat(audioRedundantGroups).isEmpty();
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_allVariantsWithoutPathwayId_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_INFO_ALL_VARIANTS_WITHOUT_PATHWAY_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_redundantVariantsWithSamePathwayIdButDifferentUrls_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_REDUNDANT_VARIANTS_WITH_SAME_PATHWAY_ID_BUT_DIFFERENT_URLS);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_variantsFromMoreThanOnePathwayUsingSameVideoGroupId_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_VIDEO_GROUP_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_variantsFromMoreThanOnePathwayUsingSameAudioGroupId_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_AUDIO_GROUP_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_variantsFromMoreThanOnePathwayUsingSameSubtitleGroupId_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_VARIANTS_FROM_MORE_THAN_ONE_PATHWAY_USING_SAME_SUBTITLE_GROUP_ID);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_inconsistentPathwayIdAmongVariantRedundantGroups_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_INCONSISTENT_PATHWAY_ID_AMONG_VARIANT_REDUNDANT_GROUPS);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ParserException exception =
+        assertThrows(ParserException.class, redundantGroupFactory::createVariantRedundantGroupList);
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "The set of available pathway IDs is inconsistent among variant redundant groups");
+  }
+
+  @Test
+  public void
+      createRedundantGroupListsForContentSteering_inconsistentPathwayIdBetweenVariantAndRenditionRedundantGroups_throwsParserException()
+          throws IOException {
+    HlsMultivariantPlaylist multivariantPlaylist =
+        parseMultivariantPlaylist(
+            PLAYLIST_WITH_CONTENT_STEERING_AND_INCONSISTENT_PATHWAY_ID_BETWEEN_VARIANT_AND_RENDITION_REDUNDANT_GROUPS);
+    HlsRedundantGroup.Factory redundantGroupFactory =
+        new HlsRedundantGroup.Factory(multivariantPlaylist);
+
+    ParserException exception =
+        assertThrows(
+            ParserException.class,
+            () ->
+                redundantGroupFactory.createRenditionRedundantGroupList(
+                    HlsRedundantGroup.AUDIO_RENDITION));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "The set of available pathway IDs of a rendition redundant group is inconsistent with"
+                + " variant redundant groups");
   }
 
   @Test
