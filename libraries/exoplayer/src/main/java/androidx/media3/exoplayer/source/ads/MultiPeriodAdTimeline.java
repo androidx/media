@@ -47,8 +47,6 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
   public MultiPeriodAdTimeline(Timeline contentTimeline, AdPlaybackState adPlaybackState) {
     super(contentTimeline);
     final int periodCount = contentTimeline.getPeriodCount();
-    // for period count == 1 SinglePeriodAdTimeline should be used
-    Assertions.checkState(periodCount > 1);
     Assertions.checkState(contentTimeline.getWindowCount() == 1);
     this.adPlaybackStates = new AdPlaybackState[periodCount];
 
