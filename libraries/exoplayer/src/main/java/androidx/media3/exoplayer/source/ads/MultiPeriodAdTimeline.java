@@ -54,13 +54,10 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
     this.adPlaybackStates = new AdPlaybackState[periodCount];
 
     final Timeline.Period period = new Timeline.Period();
-    long periodStartOffsetUs = 0;
     for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
       timeline.getPeriod(periodIndex, period);
-      final long periodDurationUs = period.durationUs;
-      adPlaybackStates[periodIndex] = forPeriod(adPlaybackState, periodStartOffsetUs,
-          periodDurationUs, periodIndex == periodCount - 1);
-      periodStartOffsetUs += periodDurationUs;
+      adPlaybackStates[periodIndex] = forPeriod(adPlaybackState, period.positionInWindowUs,
+          period.durationUs, periodIndex == periodCount - 1);
     }
   }
 
