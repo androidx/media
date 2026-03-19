@@ -17,6 +17,7 @@ package androidx.media3.inspector.frame;
 
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
+import static androidx.media3.test.utils.AssetInfo.MP3_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
@@ -714,7 +715,74 @@ public class FrameExtractorTest {
                 frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS);
               }
             });
-
     assertThat(thrown).hasCauseThat().isInstanceOf(ExoPlaybackException.class);
+  }
+
+  @Test
+  public void extractFrame_audioOnlyMedia_reportsErrorViaFuture() {
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP3_ASSET.uri)).build()) {
+      ExecutionException thrown =
+          assertThrows(
+              ExecutionException.class,
+              () -> frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS));
+
+      assertThat(thrown).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+      assertThat(thrown)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Media item does not contain any video tracks.");
+    }
+  }
+
+  @Test
+  public void extractFrame_audioOnlyMedia_consecutiveCallsReportErrorViaFuture() {
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP3_ASSET.uri)).build()) {
+      ExecutionException thrown1 =
+          assertThrows(
+              ExecutionException.class,
+              () -> frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS));
+
+      assertThat(thrown1).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+      assertThat(thrown1)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Media item does not contain any video tracks.");
+
+      ExecutionException thrown2 =
+          assertThrows(
+              ExecutionException.class,
+              () -> frameExtractor.getFrame(/* positionMs= */ 1000).get(TIMEOUT_SECONDS, SECONDS));
+
+      assertThat(thrown2).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
+      assertThat(thrown2)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Media item does not contain any video tracks.");
+    }
+  }
+
+  @Test
+  public void extractFrame_zeroDurationVideo_reportsErrorViaFuture() {
+    // Simulate an empty video track by clipping to zero duration, triggering STATE_ENDED.
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(FILE_PATH)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(0).build())
+            .build();
+    try (FrameExtractor frameExtractor = new FrameExtractor.Builder(context, mediaItem).build()) {
+      ExecutionException thrown =
+          assertThrows(
+              ExecutionException.class,
+              () -> frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS));
+
+      assertThat(thrown).hasCauseThat().isInstanceOf(IllegalStateException.class);
+      assertThat(thrown)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Reached end of stream without extracting a frame.");
+    }
   }
 }
