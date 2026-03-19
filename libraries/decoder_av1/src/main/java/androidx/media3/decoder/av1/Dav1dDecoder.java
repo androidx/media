@@ -52,6 +52,8 @@ public final class Dav1dDecoder
   @GuardedBy("lock")
   private final ArrayDeque<VideoDecoderOutputBuffer> queuedOutputBuffers;
 
+  private final DecoderInputBuffer[] allInputBuffers;
+
   @GuardedBy("lock")
   private final DecoderInputBuffer[] availableInputBuffers;
 
@@ -120,12 +122,14 @@ public final class Dav1dDecoder
     outputStartTimeUs = C.TIME_UNSET;
     queuedInputBuffers = new ArrayDeque<>();
     queuedOutputBuffers = new ArrayDeque<>();
+    allInputBuffers = new DecoderInputBuffer[numInputBuffers];
     availableInputBuffers = new DecoderInputBuffer[numInputBuffers];
     availableInputBufferCount = numInputBuffers;
     for (int i = 0; i < availableInputBufferCount; i++) {
-      availableInputBuffers[i] =
+      allInputBuffers[i] =
           new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
-      availableInputBuffers[i].ensureSpaceForWrite(initialInputBufferSize);
+      allInputBuffers[i].ensureSpaceForWrite(initialInputBufferSize);
+      availableInputBuffers[i] = allInputBuffers[i];
     }
     availableOutputBuffers = new VideoDecoderOutputBuffer[numOutputBuffers];
     availableOutputBufferCount = numOutputBuffers;
@@ -332,10 +336,18 @@ public final class Dav1dDecoder
         ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
         int inputOffset = inputData.position();
         int inputSize = inputData.remaining();
+        int bufferIndex = -1;
+        for (int i = 0; i < allInputBuffers.length; i++) {
+          if (allInputBuffers[i] == inputBuffer) {
+            bufferIndex = i;
+            break;
+          }
+        }
         int status =
             dav1dDecode(
                 dav1dDecoderContext,
                 inputBuffer,
+                bufferIndex,
                 inputOffset,
                 inputSize,
                 decodeOnly,
@@ -424,6 +436,16 @@ public final class Dav1dDecoder
   private void releaseInputBuffer(DecoderInputBuffer inputBuffer) {
     synchronized (lock) {
       releaseInputBufferInternal(inputBuffer);
+    }
+  }
+
+  private void releaseInputBuffer(int bufferIndex) {
+    synchronized (lock) {
+      DecoderInputBuffer inputBuffer = allInputBuffers[bufferIndex];
+      // Prevent the EAGAIN double-free race condition:
+      if (!queuedInputBuffers.contains(inputBuffer)) {
+        releaseInputBufferInternal(inputBuffer);
+      }
     }
   }
 
@@ -518,6 +540,7 @@ public final class Dav1dDecoder
   private native int dav1dDecode(
       long context,
       DecoderInputBuffer inputBuffer,
+      int bufferIndex,
       int inputOffset,
       int inputSize,
       boolean decodeOnly,
