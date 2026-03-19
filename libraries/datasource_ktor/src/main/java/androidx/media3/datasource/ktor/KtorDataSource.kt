@@ -274,8 +274,6 @@ private constructor(
 
               if (dataSpec.httpBody != null) {
                 setBody(dataSpec.httpBody!!)
-              } else if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
-                setBody(ByteArray(0))
               }
             }
             .execute()
