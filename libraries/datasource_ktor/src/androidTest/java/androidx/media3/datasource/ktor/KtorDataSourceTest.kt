@@ -20,6 +20,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.android.Android
 import java.nio.charset.StandardCharsets
 import java.util.HashMap
 import java.util.concurrent.TimeUnit
@@ -32,7 +33,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class KtorDataSourceTest {
 
-  val httpClient = HttpClient()
+  val httpClient = HttpClient(Android)
 
   @Test
   @Throws(Exception::class)
