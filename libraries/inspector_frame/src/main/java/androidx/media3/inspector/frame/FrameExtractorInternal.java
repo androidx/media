@@ -285,10 +285,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 playerHandler::post);
           } else {
             Tracks tracks = checkNotNull(player).getCurrentTracks();
-            if (!tracks.containsType(C.TRACK_TYPE_VIDEO)) {
-              return Futures.immediateFailedFuture(
-                  new IllegalArgumentException("Media item does not contain any video tracks."));
-            }
+            assertTracksSupported(tracks);
+
             long timestampToExtractMs =
                 isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
             return processTask(
@@ -313,6 +311,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   playerHandler::post);
           return "FrameExtractorInternal.getDecoderCounters";
         });
+  }
+
+  private static void assertTracksSupported(Tracks tracks) {
+    if (!tracks.containsType(C.TRACK_TYPE_VIDEO)) {
+      throw new IllegalArgumentException("Media item does not contain any video tracks.");
+    }
+
+    boolean hasSelectedClearVideoTrack = false;
+    boolean hasDrmVideoTrack = false;
+
+    for (Tracks.Group group : tracks.getGroups()) {
+      if (group.getType() == C.TRACK_TYPE_VIDEO) {
+        for (int i = 0; i < group.length; i++) {
+          Format format = group.getTrackFormat(i);
+          if (format.drmInitData != null || format.cryptoType != C.CRYPTO_TYPE_NONE) {
+            hasDrmVideoTrack = true;
+          } else if (group.isTrackSelected(i)) {
+            hasSelectedClearVideoTrack = true;
+          }
+        }
+      }
+    }
+
+    if (hasDrmVideoTrack && !hasSelectedClearVideoTrack) {
+      throw new UnsupportedOperationException(
+          "Frame extraction from DRM-protected media is not supported.");
+    }
   }
 
   private long getThumbnailPresentationTimeMs() {
@@ -461,12 +486,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (tracks.isEmpty()) {
         return;
       }
-      if (!tracks.containsType(C.TRACK_TYPE_VIDEO)) {
+      try {
+        assertTracksSupported(tracks);
+      } catch (RuntimeException e) {
         CallbackToFutureAdapter.Completer<FrameExtractor.Frame> frameBeingExtractedCompleter =
             internal.activeTaskCompleter.getAndSet(null);
         if (frameBeingExtractedCompleter != null) {
-          frameBeingExtractedCompleter.setException(
-              new IllegalArgumentException("Media item does not contain any video tracks."));
+          frameBeingExtractedCompleter.setException(e);
         }
       }
     }

@@ -791,4 +791,23 @@ public class FrameExtractorTest {
           .isEqualTo("Reached end of stream without extracting a frame.");
     }
   }
+
+  @Test
+  public void extractFrame_drmProtectedMedia_reportsErrorViaFuture() {
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(
+                context, MediaItem.fromUri("asset:///media/drm/sample_fragmented_widevine.mp4"))
+            .build()) {
+      ExecutionException thrown =
+          assertThrows(
+              ExecutionException.class,
+              () -> frameExtractor.getFrame(/* positionMs= */ 0).get(TIMEOUT_SECONDS, SECONDS));
+
+      assertThat(thrown).hasCauseThat().isInstanceOf(UnsupportedOperationException.class);
+      assertThat(thrown)
+          .hasCauseThat()
+          .hasMessageThat()
+          .isEqualTo("Frame extraction from DRM-protected media is not supported.");
+    }
+  }
 }
