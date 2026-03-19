@@ -22,6 +22,8 @@
     *   Reduce the OOM risk of
         `DefaultLoadControl.prioritizeTimeOverSizeThresholds` by falling back to
         buffer byte size limits if available heap memory seems tight.
+    *   Fix possible app crashes when recovering from decoder errors with
+        renderer prewarming.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
