@@ -99,7 +99,7 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
         }
       } else {
-        if (periodEndUs < adGroupTimeUs) {
+        if (periodDurationUs != C.TIME_UNSET && periodEndUs < adGroupTimeUs) {
           // this cue point belongs to next periods
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
         }
