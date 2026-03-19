@@ -7,6 +7,8 @@
     *   Fix race condition related to audio session id generation that could
         lead to an `IllegalStateException` with tunneling mode.
         ([#3099](https://github.com/androidx/media/issues/3099)).
+    *   Fix possible app crashes when recovering from decoder errors with
+        renderer prewarming.
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
