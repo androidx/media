@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.DoubleMath.fuzzyEquals;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -643,11 +644,12 @@ public final class Format {
     /**
      * Sets {@link Format#frameRate}. The default value is {@link #NO_VALUE}.
      *
-     * @param frameRate The {@link Format#frameRate}.
+     * @param frameRate The {@link Format#frameRate}, which must be positive or {@link #NO_VALUE}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setFrameRate(float frameRate) {
+      checkArgument(frameRate == NO_VALUE || frameRate > 0f);
       this.frameRate = frameRate;
       return this;
     }
@@ -1075,7 +1077,11 @@ public final class Format {
    */
   @UnstableApi public final int decodedHeight;
 
-  /** The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable. */
+  /**
+   * The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If not {@link #NO_VALUE}, the value is guaranteed to be positive.
+   */
   public final float frameRate;
 
   /**
@@ -1767,6 +1773,10 @@ public final class Format {
       }
       initializationData.add(data);
     }
+    float frameRate = bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate);
+    if (frameRate <= 0f) {
+      frameRate = NO_VALUE;
+    }
     builder
         .setInitializationData(initializationData)
         .setDrmInitData(bundle.getParcelable(FIELD_DRM_INIT_DATA))
@@ -1776,7 +1786,7 @@ public final class Format {
         .setHeight(bundle.getInt(FIELD_HEIGHT, DEFAULT.height))
         .setDecodedWidth(bundle.getInt(FIELD_DECODED_WIDTH, DEFAULT.decodedWidth))
         .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
-        .setFrameRate(bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate))
+        .setFrameRate(frameRate)
         .setRotationDegrees(bundle.getInt(FIELD_ROTATION_DEGREES, DEFAULT.rotationDegrees))
         .setPixelWidthHeightRatio(
             bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT.pixelWidthHeightRatio))
