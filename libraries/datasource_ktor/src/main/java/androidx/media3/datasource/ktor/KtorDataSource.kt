@@ -30,6 +30,7 @@ import androidx.media3.datasource.TransferListener
 import com.google.common.base.Predicate
 import com.google.common.collect.Maps
 import com.google.common.net.HttpHeaders
+import com.google.errorprone.annotations.CanIgnoreReturnValue
 import io.ktor.client.HttpClient
 import io.ktor.client.request.headers
 import io.ktor.client.request.prepareRequest
@@ -46,7 +47,6 @@ import io.ktor.utils.io.availableForRead
 import io.ktor.utils.io.readAvailable
 import java.io.IOException
 import java.io.InterruptedIOException
-import java.util.TreeMap
 import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -63,7 +63,6 @@ class KtorDataSource
 private constructor(
   private val httpClient: HttpClient,
   private val userAgent: String?,
-  private val cacheControl: String?,
   private val defaultRequestProperties: HttpDataSource.RequestProperties?,
   private val contentTypePredicate: Predicate<String>?,
   private val requestProperties: HttpDataSource.RequestProperties,
@@ -87,13 +86,12 @@ private constructor(
     private val defaultRequestProperties = HttpDataSource.RequestProperties()
 
     private var userAgent: String? = null
-
-    private var cacheControl: String? = null
-
+    
     private var transferListener: TransferListener? = null
 
     private var contentTypePredicate: Predicate<String>? = null
 
+    @CanIgnoreReturnValue
     override fun setDefaultRequestProperties(
       defaultRequestProperties: Map<String, String>
     ): Factory {
@@ -111,22 +109,9 @@ private constructor(
      *   the underlying [HttpClient].
      * @return This factory.
      */
+    @CanIgnoreReturnValue
     fun setUserAgent(userAgent: String?): Factory {
       this.userAgent = userAgent
-      return this
-    }
-
-    /**
-     * Sets the Cache-Control header that will be used.
-     *
-     * The default is `null`.
-     *
-     * @param cacheControl The cache control header value that will be used, or `null` to clear a
-     *   previously set value.
-     * @return This factory.
-     */
-    fun setCacheControl(cacheControl: String?): Factory {
-      this.cacheControl = cacheControl
       return this
     }
 
@@ -140,6 +125,7 @@ private constructor(
      *   was previously set.
      * @return This factory.
      */
+    @CanIgnoreReturnValue
     fun setContentTypePredicate(contentTypePredicate: Predicate<String>?): Factory {
       this.contentTypePredicate = contentTypePredicate
       return this
@@ -155,6 +141,7 @@ private constructor(
      * @param transferListener The listener that will be used.
      * @return This factory.
      */
+    @CanIgnoreReturnValue
     fun setTransferListener(transferListener: TransferListener?): Factory {
       this.transferListener = transferListener
       return this
@@ -166,7 +153,6 @@ private constructor(
         KtorDataSource(
           client,
           userAgent,
-          cacheControl,
           defaultRequestProperties,
           contentTypePredicate,
           HttpDataSource.RequestProperties(),
@@ -196,8 +182,8 @@ private constructor(
 
   override fun getResponseHeaders(): Map<String, List<String>> {
     val headers = response?.headers ?: return emptyMap()
-    return Maps.asMap<String, List<String>>(headers.names()) {
-      name -> headers.getAll(name) as List<String>
+    return Maps.asMap<String, List<String>>(headers.names()) { name ->
+      headers.getAll(name) as List<String>
     }
   }
 
@@ -254,10 +240,6 @@ private constructor(
                 rangeHeader?.let { set(HttpHeaders.RANGE, rangeHeader) }
 
                 userAgent?.let { set(HttpHeaders.USER_AGENT, userAgent) }
-
-                cacheControl?.let {
-                  set(HttpHeaders.CACHE_CONTROL, cacheControl)
-                }
 
                 if (!dataSpec.isFlagSet(DataSpec.FLAG_ALLOW_GZIP)) {
                   set(HttpHeaders.ACCEPT_ENCODING, "identity")
