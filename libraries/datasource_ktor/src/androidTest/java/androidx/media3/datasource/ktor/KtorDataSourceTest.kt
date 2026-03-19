@@ -72,7 +72,7 @@ class KtorDataSourceTest {
         .setHttpRequestHeaders(dataSpecRequestProperties)
         .build()
 
-    dataSource.open(dataSpec)
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()
@@ -117,7 +117,7 @@ class KtorDataSourceTest {
     val defaultRequestProperties = HashMap<String, String>()
     defaultRequestProperties["0"] = "afterCreation"
     factory.setDefaultRequestProperties(defaultRequestProperties)
-    dataSource.open(dataSpec)
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()
@@ -152,7 +152,7 @@ class KtorDataSourceTest {
         .setHttpBody("test body".toByteArray(StandardCharsets.UTF_8))
         .build()
 
-    dataSource.open(dataSpec)
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()

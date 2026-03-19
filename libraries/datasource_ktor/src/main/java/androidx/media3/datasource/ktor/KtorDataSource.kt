@@ -86,7 +86,7 @@ private constructor(
     private val defaultRequestProperties = HttpDataSource.RequestProperties()
 
     private var userAgent: String? = null
-    
+
     private var transferListener: TransferListener? = null
 
     private var contentTypePredicate: Predicate<String>? = null
