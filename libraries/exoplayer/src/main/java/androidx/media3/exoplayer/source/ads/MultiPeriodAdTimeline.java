@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.source.ForwardingTimeline;
  * For each period a modified {@link AdPlaybackState} is created for each period:
  * <ul>
  * <li> ad group time is offset relative to period start time </li>
- * <li> ad groups after period end time are marked as skipped </li>
  * <li> post-roll ad group is kept only for last period </li>
  * <li> ad group count and indices are kept unchanged </li>
  * </ul>
@@ -57,7 +56,7 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
     for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
       timeline.getPeriod(periodIndex, period);
       adPlaybackStates[periodIndex] = forPeriod(adPlaybackState, period.positionInWindowUs,
-          period.durationUs, periodIndex == periodCount - 1);
+          periodIndex == periodCount - 1);
     }
   }
 
@@ -79,16 +78,13 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
   /**
    * @param adPlaybackState     original state is immutable always new modified copy is created
    * @param periodStartOffsetUs period start time offset from start of timeline (microseconds)
-   * @param periodDurationUs    period duration (microseconds)
    * @param isLastPeriod        true if this is the last period
    * @return adPlaybackState modified for period
    */
   private AdPlaybackState forPeriod(
       AdPlaybackState adPlaybackState,
       long periodStartOffsetUs,
-      long periodDurationUs,
       boolean isLastPeriod) {
-    final long periodEndUs = periodStartOffsetUs + periodDurationUs;
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
       final long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
       if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
@@ -96,10 +92,6 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
         }
       } else {
-        if (periodDurationUs != C.TIME_UNSET && periodEndUs < adGroupTimeUs) {
-          // this cue point belongs to next periods
-          adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
-        }
         // start time relative to period start
         adPlaybackState = adPlaybackState.withAdGroupTimeUs(adGroupIndex,
             adGroupTimeUs - periodStartOffsetUs);
