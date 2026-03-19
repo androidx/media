@@ -85,6 +85,9 @@
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
 *   Session:
+    *   Workaround SysUI bug on API 29 where media session artwork in a
+        particular size can crash SysUI and force the device to reboot
+        ([#3118](https://github.com/androidx/media/issues/3118)).
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

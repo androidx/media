@@ -22,17 +22,21 @@ import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.max;
 
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.Surface;
+import android.view.WindowManager;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -57,6 +61,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
@@ -65,6 +70,7 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.primitives.Longs;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -73,6 +79,7 @@ import com.google.errorprone.annotations.DoNotMock;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -254,6 +261,7 @@ public class MediaSession {
   public static final class Builder extends BuilderBase<MediaSession, Builder, Callback> {
 
     private boolean useLegacySurfaceHandling;
+    private boolean buildCalled;
 
     /**
      * Creates a builder for {@link MediaSession}.
@@ -509,6 +517,8 @@ public class MediaSession {
      */
     @Override
     public MediaSession build() {
+      checkState(!buildCalled);
+      buildCalled = true;
       ensureBitmapLoaderIsSizeLimited();
       return new MediaSession(
           context,
@@ -2479,6 +2489,9 @@ public class MediaSession {
       BuilderT extends BuilderBase<SessionT, BuilderT, CallbackT>,
       CallbackT extends Callback> {
 
+    private static final AtomicReference<@NullableType ImmutableIntArray> bitmapSizesToAvoidApi29 =
+        new AtomicReference<>(/* initialValue= */ null);
+
     /* package */ final Context context;
     /* package */ final Player player;
     /* package */ String id;
@@ -2494,7 +2507,7 @@ public class MediaSession {
     /* package */ boolean isPeriodicPositionUpdateEnabled;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
-      this.context = checkNotNull(context);
+      this.context = checkNotNull(context.getApplicationContext());
       this.player = checkNotNull(player);
       checkArgument(player.canAdvertiseSession());
       id = DEFAULT_SESSION_ID;
@@ -2597,15 +2610,50 @@ public class MediaSession {
       int dimensionLimit = MediaSession.getBitmapDimensionLimit(context);
       if (bitmapLoader == null) {
         bitmapLoader =
-            new CacheBitmapLoader(
-                new DataSourceBitmapLoader.Builder(context)
-                    .setMaximumOutputDimension(dimensionLimit)
-                    .setMakeShared(true)
-                    .build());
+            new DataSourceBitmapLoader.Builder(context)
+                .setMaximumOutputDimension(dimensionLimit)
+                .setMakeShared(true)
+                .build();
       } else {
         bitmapLoader =
             new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit, /* makeShared= */ true);
       }
+      if (SDK_INT == 29) {
+        bitmapLoader =
+            new SizeAvoidingBitmapLoader(bitmapLoader, getBitmapSizesToAvoidApi29(context));
+      }
+      // Always apply at least a basic level of caching to avoid repeated work.
+      bitmapLoader = new CacheBitmapLoader(bitmapLoader);
+    }
+
+    private static ImmutableIntArray getBitmapSizesToAvoidApi29(Context context) {
+      // Workaround bug on API 29 where Bitmap size of exactly display size / 6 causes crashes.
+      // See https://github.com/androidx/media/issues/3118.
+      ImmutableIntArray sizesToAvoid = bitmapSizesToAvoidApi29.get();
+      if (sizesToAvoid != null) {
+        return sizesToAvoid;
+      }
+      // Use same method to obtain display size and downscaling by 6 as in
+      // https://android.googlesource.com/platform/frameworks/base/+/android-platform-12.0.0_r29/packages/SystemUI/src/com/android/systemui/statusbar/MediaArtworkProcessor.kt#57
+      Display display = context.getSystemService(WindowManager.class).getDefaultDisplay();
+      Point currentDisplaySize = new Point();
+      display.getSize(currentDisplaySize);
+      Point realDisplaySize = new Point();
+      display.getRealSize(realDisplaySize);
+      // We also have to exclude the size when the display is rotated (landscape/portrait), but we
+      // can't query it upfront. It's usually either the same as the current dimension, or the
+      // device applies the same offset between the reported and real size (to account for the
+      // system navigation bar usually).
+      Point rotatedDisplaySize =
+          new Point(
+              realDisplaySize.y - (realDisplaySize.x - currentDisplaySize.x),
+              realDisplaySize.x - (realDisplaySize.y - currentDisplaySize.y));
+      sizesToAvoid =
+          ImmutableIntArray.of(
+              max(currentDisplaySize.x / 6, currentDisplaySize.y / 6),
+              max(rotatedDisplaySize.x / 6, rotatedDisplaySize.y / 6));
+      bitmapSizesToAvoidApi29.set(sizesToAvoid);
+      return sizesToAvoid;
     }
   }
 

@@ -23,24 +23,33 @@ import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.Math.max;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Point;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.view.WindowManager;
 import androidx.annotation.Nullable;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Player.PositionInfo;
@@ -60,10 +69,15 @@ import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -1108,6 +1122,65 @@ public class MediaSessionServiceTest {
     service.blockUntilAllControllersUnbind(TIMEOUT_MS);
 
     assertThat(notificationFlags & Notification.FLAG_FOREGROUND_SERVICE).isEqualTo(0);
+  }
+
+  /** Regression test for https://github.com/androidx/media/issues/3118. */
+  @Test
+  public void playbackWithArtworkOneSixthOfDisplaySize_doesNotCrashDevice() throws Exception {
+    // Create compressed Bitmap of exactly 1/6 of the larger display size.
+    Point displaySize = new Point();
+    context.getSystemService(WindowManager.class).getDefaultDisplay().getSize(displaySize);
+    int oneSixthDisplaySize = max(displaySize.x / 6, displaySize.y / 6);
+    Bitmap artworkBitmap =
+        Bitmap.createBitmap(oneSixthDisplaySize, oneSixthDisplaySize, Bitmap.Config.ARGB_8888);
+    artworkBitmap.eraseColor(Color.BLUE);
+    ByteArrayOutputStream bitmapOutputStream = new ByteArrayOutputStream();
+    artworkBitmap.compress(Bitmap.CompressFormat.PNG, 100, bitmapOutputStream);
+    byte[] artworkBytes = bitmapOutputStream.toByteArray();
+    TestHandler handler = new TestHandler(Looper.getMainLooper());
+    ExoPlayer player =
+        handler.postAndSync(
+            () -> {
+              ExoPlayer exoPlayer = new TestExoPlayerBuilder(context).build();
+              exoPlayer.setMediaItem(
+                  new MediaItem.Builder()
+                      .setUri("asset:///media/mp4/sample.mp4")
+                      .setMediaMetadata(
+                          new MediaMetadata.Builder()
+                              .setArtworkData(artworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                              .build())
+                      .build());
+              exoPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+              exoPlayer.prepare();
+              return exoPlayer;
+            });
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player).build();
+    TestServiceRegistry.getInstance().setOnGetSessionHandler(controllerInfo -> mediaSession);
+    // Start the service by creating a remote controller.
+    controllerTestRule.createRemoteController(
+        token, /* waitForConnection= */ true, /* connectionHints= */ Bundle.EMPTY);
+    MockMediaSessionService service =
+        (MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance();
+    runPendingMainThreadMessages();
+    UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    uiAutomation.executeShellCommand("logcat -c"); // Ensure logcat is clean.
+
+    MainLooperTestRule.runOnMainSync(player::play);
+    // Sleep for 2 seconds to give SysUI sufficient time to receive and use the Bitmap.
+    Thread.sleep(2000);
+    mediaSession.release();
+    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
+
+    // Check if there was a recent SysUI crash in logcat.
+    try (ParcelFileDescriptor command =
+            uiAutomation.executeShellCommand("logcat -d -t 500 AndroidRuntime:E *:S");
+        FileInputStream fileInputStream = new FileInputStream(command.getFileDescriptor());
+        InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, UTF_8);
+        BufferedReader reader = new BufferedReader(inputStreamReader)) {
+      assertThat(reader.lines().anyMatch(line -> line.contains("Process: com.android.systemui")))
+          .isFalse();
+    }
   }
 
   private void runPendingMainThreadMessages() throws Exception {
