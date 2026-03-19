@@ -187,8 +187,7 @@ const int GetThreadCount(jint threads) {
 // Cookie. Instead, manage buffers by passing an index into a Java-side
 // DecoderInputBuffer array.
 struct Cookie {
-  jobject global_ref_input_buffer;
-  jobject global_ref_dav1d_data;
+  jint buffer_index;
   jlong jni_context;
 };
 
@@ -347,15 +346,6 @@ void Dav1dDataFreeCallback(const uint8_t* data, void* cookie) {
   } catch (const std::bad_alloc&) {
     // Allocation failed for unique_ptr, prevent memory leak
     LOGE("Failed to emplace Cookie: Out of memory");
-    JNIEnv* env = nullptr;
-    // Ensure the current thread is attached to the JVM
-    jint attach_result = context->jvm->AttachCurrentThread(&env, nullptr);
-    if (attach_result == JNI_OK) {
-      env->DeleteGlobalRef(cookie_ptr->global_ref_dav1d_data);
-      env->DeleteGlobalRef(cookie_ptr->global_ref_input_buffer);
-    } else {
-      LOGE("Failed to attach current thread to JVM in Data callback.");
-    }
     delete cookie_ptr;
   }
 }
@@ -561,8 +551,7 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   context->set_flags_method =
       env->GetMethodID(outputBufferClass, "setFlags", "(I)V");
   context->release_input_buffer_method =
-      env->GetMethodID(decoderClass, "releaseInputBuffer",
-                       "(Landroidx/media3/decoder/DecoderInputBuffer;)V");
+      env->GetMethodID(decoderClass, "releaseInputBuffer", "(I)V");
   context->init_for_offset_frames_method =
       env->GetMethodID(outputBufferClass, "initForOffsetFrames", "(IIIIIII)Z");
   context->create_direct_byte_buffer_method = env->GetStaticMethodID(
@@ -625,9 +614,6 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
     std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
     while (!context->unused_cookies.empty()) {
-      Cookie* cookie = context->unused_cookies.back().get();
-      env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
-      env->DeleteGlobalRef(cookie->global_ref_input_buffer);
       context->unused_cookies.pop_back();
     }
   }
@@ -640,8 +626,8 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
 }
 
 DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
-             jint offset, jint length, jboolean decodeOnly, jint flags,
-             jlong timeUs, jint outputMode) {
+             jint bufferIndex, jint offset, jint length, jboolean decodeOnly,
+             jint flags, jlong timeUs, jint outputMode) {
   if (jContext == kStatusError) {
     return kStatusError;
   }
@@ -659,16 +645,13 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
   Dav1dData data = {};
 
   Cookie* cookie = new Cookie();
-  cookie->global_ref_input_buffer = env->NewGlobalRef(jInputBuffer);
-  cookie->global_ref_dav1d_data = env->NewGlobalRef(encoded_data);
+  cookie->buffer_index = bufferIndex;
   cookie->jni_context = jContext;
 
   context->libdav1d_status_code = dav1d_data_wrap(
       &data, buf, length, Dav1dDataFreeCallback, static_cast<void*>(cookie));
 
   if (context->libdav1d_status_code != 0) {
-    env->DeleteGlobalRef(cookie->global_ref_input_buffer);
-    env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
     delete cookie;
     return kStatusError;
   }
@@ -993,13 +976,11 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
   while (!cookies_to_release.empty()) {
     Cookie* cookie = cookies_to_release.back().get();
     env->CallVoidMethod(decoder, context->release_input_buffer_method,
-                        cookie->global_ref_input_buffer);
+                        cookie->buffer_index);
     if (env->ExceptionCheck()) {
       LOGE("Failed to release input buffer.");
       env->ExceptionClear();
     }
-    env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
-    env->DeleteGlobalRef(cookie->global_ref_input_buffer);
     cookies_to_release.pop_back();
   }
   if (context->use_custom_allocator) {
