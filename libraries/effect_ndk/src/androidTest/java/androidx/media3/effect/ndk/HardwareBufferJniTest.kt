@@ -355,60 +355,6 @@ class HardwareBufferJniTest {
     }
   }
 
-  @Test
-  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedReadUsage_returnsFalse() {
-    val hb1 =
-      HardwareBuffer.create(
-        WIDTH,
-        HEIGHT,
-        /* format= */ HardwareBuffer.RGBA_8888,
-        /* layers= */ 1,
-        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
-      )
-    val hb2 =
-      HardwareBuffer.create(
-        WIDTH,
-        HEIGHT,
-        /* format= */ HardwareBuffer.RGBA_8888,
-        /* layers= */ 1,
-        /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN,
-      )
-
-    try {
-      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
-    } finally {
-      hb1.close()
-      hb2.close()
-    }
-  }
-
-  @Test
-  fun nativeCopyHardwareBufferToHardwareBuffer_mismatchedWriteUsage_returnsFalse() {
-    val hb1 =
-      HardwareBuffer.create(
-        WIDTH,
-        HEIGHT,
-        /* format= */ HardwareBuffer.RGBA_8888,
-        /* layers= */ 1,
-        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
-      )
-    val hb2 =
-      HardwareBuffer.create(
-        WIDTH,
-        HEIGHT,
-        /* format= */ HardwareBuffer.RGBA_8888,
-        /* layers= */ 1,
-        /* usage= */ HardwareBuffer.USAGE_CPU_READ_OFTEN,
-      )
-
-    try {
-      assertThat(HardwareBufferJni.nativeCopyHardwareBufferToHardwareBuffer(hb1, hb2)).isFalse()
-    } finally {
-      hb1.close()
-      hb2.close()
-    }
-  }
-
   private companion object {
     const val FILE_PATH = "media/png/first_frame_1920x1080.png"
     const val WIDTH = 100

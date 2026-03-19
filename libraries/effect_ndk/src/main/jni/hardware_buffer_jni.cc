@@ -295,15 +295,6 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyHardwareBufferToHard
     return JNI_FALSE;
   }
 
-  if (!(srcDesc.usage & AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN)) {
-    LOGE("Source HardwareBuffer must have CPU_READ_OFTEN usage");
-    return JNI_FALSE;
-  }
-  if (!(dstDesc.usage & AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN)) {
-    LOGE("Destination HardwareBuffer must have CPU_WRITE_OFTEN usage");
-    return JNI_FALSE;
-  }
-
   uint32_t bpp;
   if (srcDesc.format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM ||
       srcDesc.format == AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM) {
@@ -316,6 +307,8 @@ Java_androidx_media3_effect_ndk_HardwareBufferJni_nativeCopyHardwareBufferToHard
     return JNI_FALSE;
   }
 
+  // Do not check the HardwareBuffer usage before locking, as
+  // AHardwareBuffer_Desc can return incorrect usage flags.
   void* srcPixels = nullptr;
   if (s_AHardwareBuffer_lock(srcHb, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1,
                              nullptr, &srcPixels) != 0) {

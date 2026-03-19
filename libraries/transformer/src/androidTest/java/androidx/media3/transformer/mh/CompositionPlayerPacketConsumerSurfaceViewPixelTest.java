@@ -52,6 +52,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
@@ -85,6 +86,7 @@ import org.junit.runner.RunWith;
  */
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 28)
 public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
 
   private static final long TEST_TIMEOUT_MS = 10_000;
@@ -128,7 +130,6 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_reportsVideoSizeChanged()
       throws InterruptedException {
     ConditionVariable videoSizeReported = new ConditionVariable();
@@ -139,7 +140,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
+              NdkCompositionPlayerBuilder.create(context)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -176,7 +177,6 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_rendersFirstFrameAndReturnsBitmap()
       throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -186,7 +186,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
+              NdkCompositionPlayerBuilder.create(context)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
@@ -236,7 +236,6 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_usesMetadataListener() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -247,7 +246,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
           DefaultHardwareBufferEffectsPipeline packetProcessor =
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
+              NdkCompositionPlayerBuilder.create(context)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
@@ -315,7 +314,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
+              NdkCompositionPlayerBuilder.create(context)
                   .setHardwareBufferEffectsPipeline(
                       DefaultHardwareBufferEffectsPipeline.create(
                           context, HardwareBufferJni.INSTANCE))
@@ -360,7 +359,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer =
-              new CompositionPlayer.Builder(context)
+              NdkCompositionPlayerBuilder.create(context)
                   .setHardwareBufferEffectsPipeline(
                       DefaultHardwareBufferEffectsPipeline.create(
                           context, HardwareBufferJni.INSTANCE))

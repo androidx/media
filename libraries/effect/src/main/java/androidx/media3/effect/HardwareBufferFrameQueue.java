@@ -137,6 +137,16 @@ public interface HardwareBufferFrameQueue {
       this.colorInfo = colorInfo;
     }
 
+    /** Returns a {@link Builder} initialized with the values of this instance. */
+    public Builder buildUpon() {
+      return new Builder()
+          .setWidth(width)
+          .setHeight(height)
+          .setColorInfo(colorInfo)
+          .setPixelFormat(pixelFormat)
+          .setUsageFlags(usageFlags);
+    }
+
     @Override
     public boolean equals(@Nullable Object o) {
       if (this == o) {

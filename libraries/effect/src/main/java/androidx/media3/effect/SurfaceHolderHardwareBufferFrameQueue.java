@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -24,6 +25,7 @@ import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
 import android.system.ErrnoException;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -32,13 +34,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.effect.HardwareBufferPool.HardwareBufferWithFence;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 
 /** A {@link HardwareBufferFrameQueue} that outputs frames to a {@link SurfaceHolder}. */
 // TODO: b/483974351 - Reduce required API level by copying HardwareBuffer contents into
 // android.media.Image and avoid using ImageWriter.Builder().
-@RequiresApi(33)
+@RequiresApi(28)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public final class SurfaceHolderHardwareBufferFrameQueue
     implements HardwareBufferFrameQueue, SurfaceHolder.Callback {
@@ -68,6 +71,8 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     void onEnded();
   }
 
+  private static final int CAPACITY = 2;
+
   private final Object lock;
 
   private final Executor surfaceHolderExecutor;
@@ -85,6 +90,10 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   private ImageWriter imageWriter;
 
   @GuardedBy("lock")
+  @Nullable
+  private Surface surface;
+
+  @GuardedBy("lock")
   private boolean isSurfaceChangeRequested;
 
   @GuardedBy("lock")
@@ -95,8 +104,12 @@ public final class SurfaceHolderHardwareBufferFrameQueue
 
   private final Executor listenerExecutor;
 
+  private final HardwareBufferPool hardwareBufferPool;
+  @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+
   /**
-   * Creates a new instance.
+   * Creates a new instance, that returns {@link HardwareBufferFrame}s that are directly dequeued
+   * from an {@link ImageWriter} linked to the output {@link SurfaceHolder#getSurface()}.
    *
    * @param surfaceHolder The {@link SurfaceHolder} to which frames will be written, or {@code null}
    *     if not yet available.
@@ -105,16 +118,64 @@ public final class SurfaceHolderHardwareBufferFrameQueue
    * @param listener The {@link Listener}.
    * @param listenerExecutor The {@link Executor} on which the listener methods will be called.
    */
-  public SurfaceHolderHardwareBufferFrameQueue(
+  @RequiresApi(33)
+  public static SurfaceHolderHardwareBufferFrameQueue create(
       @Nullable SurfaceHolder surfaceHolder,
       Executor surfaceHolderExecutor,
       Listener listener,
       Executor listenerExecutor) {
+    return new SurfaceHolderHardwareBufferFrameQueue(
+        surfaceHolder,
+        surfaceHolderExecutor,
+        listener,
+        listenerExecutor,
+        /* hardwareBufferJniWrapper= */ null);
+  }
+
+  /**
+   * Creates a new instance, that will allocate intermediate {@link HardwareBufferFrame}s that are
+   * filled by the caller, and are then copied to {@link HardwareBuffer}s dequeued from an {@link
+   * ImageWriter} linked to the output {@link SurfaceHolder#getSurface()}.
+   *
+   * @param surfaceHolder The {@link SurfaceHolder} to which frames will be written, or {@code null}
+   *     if not yet available.
+   * @param surfaceHolderExecutor The {@link Executor} on which the surface holder methods will be
+   *     called.
+   * @param listener The {@link Listener}.
+   * @param listenerExecutor The {@link Executor} on which the listener methods will be called.
+   * @param hardwareBufferJniWrapper The {@link HardwareBufferJniWrapper} used to copy intermediate
+   *     {@link HardwareBuffer}s to {@link HardwareBuffer}s dequeued from {@link ImageWriter}.
+   */
+  public static SurfaceHolderHardwareBufferFrameQueue create(
+      @Nullable SurfaceHolder surfaceHolder,
+      Executor surfaceHolderExecutor,
+      Listener listener,
+      Executor listenerExecutor,
+      HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    return new SurfaceHolderHardwareBufferFrameQueue(
+        surfaceHolder, surfaceHolderExecutor, listener, listenerExecutor, hardwareBufferJniWrapper);
+  }
+
+  private SurfaceHolderHardwareBufferFrameQueue(
+      @Nullable SurfaceHolder surfaceHolder,
+      Executor surfaceHolderExecutor,
+      Listener listener,
+      Executor listenerExecutor,
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+    if (SDK_INT < 33) {
+      checkState(hardwareBufferJniWrapper != null);
+    }
     lock = new Object();
     this.surfaceHolder = surfaceHolder;
     this.surfaceHolderExecutor = surfaceHolderExecutor;
     this.listener = listener;
     this.listenerExecutor = listenerExecutor;
+    this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+    this.hardwareBufferPool =
+        new HardwareBufferPool(
+            CAPACITY,
+            listenerExecutor,
+            (e) -> listener.onError(VideoFrameProcessingException.from(e)));
     if (surfaceHolder != null) {
       surfaceHolder.addCallback(this);
     }
@@ -154,25 +215,51 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     synchronized (lock) {
       if (format.equals(currentFormat) && imageWriter != null) {
         try {
-          Image image = imageWriter.dequeueInputImage();
-          ImageWriter currentImageWriter = imageWriter;
-          HardwareBuffer hardwareBuffer = checkNotNull(image.getHardwareBuffer());
+          // On API 33+ the usage flags can be directly set on ImageWriter, so the dequeued image
+          // can be directly written to by the caller.
+          // On API < 33, if no specific usage flags are requested, or CPU usage only is requested,
+          // we can also use the dequeued buffer directly.
+          if (SDK_INT >= 33
+              || format.usageFlags == 0
+              || format.usageFlags == HardwareBuffer.USAGE_CPU_WRITE_OFTEN) {
+            InternalImage internalImage = dequeueInternalImage(/* needsCopy= */ false);
+            return new HardwareBufferFrame.Builder(
+                    checkNotNull(internalImage.image.getHardwareBuffer()),
+                    directExecutor(),
+                    /* releaseCallback= */ (releaseFence) -> {
+                      handleEarlyRelease(internalImage);
+                    })
+                .setInternalFrame(internalImage)
+                .build();
+          }
+
+          // On API <33, create an intermediate frame with usage equal to the requested usage, that
+          // can also be read by the CPU. This will be filled be the caller, then copied into the
+          // buffer dequeued from ImageWriter via the JNI.
+          checkState(hardwareBufferJniWrapper != null);
+          FrameFormat intermediateFormat =
+              format
+                  .buildUpon()
+                  .setUsageFlags(format.usageFlags | HardwareBuffer.USAGE_CPU_READ_OFTEN)
+                  .build();
+          @Nullable
+          HardwareBufferWithFence bufferWithFence =
+              hardwareBufferPool.get(intermediateFormat, wakeupListener);
+          // The pool is at capacity, wakeupListener will be invoked when there is an available
+          // buffer.
+          if (bufferWithFence == null) {
+            return null;
+          }
+          InternalImage internalImage = dequeueInternalImage(/* needsCopy= */ true);
           return new HardwareBufferFrame.Builder(
-                  hardwareBuffer,
+                  bufferWithFence.hardwareBuffer,
                   directExecutor(),
                   /* releaseCallback= */ (releaseFence) -> {
-                    // This frame will only be released by the dequeuing class, if it encounters an
-                    // error before queueing it back. Close the ImageWriter if it is still the
-                    // active one, to ensure no images are leaked or corrupted images rendered. The
-                    // ImageWriter will be recreated on the next dequeue.
-                    synchronized (lock) {
-                      if (currentImageWriter == imageWriter) {
-                        imageWriter.close();
-                        imageWriter = null;
-                      }
-                    }
+                    hardwareBufferPool.recycle(bufferWithFence.hardwareBuffer, releaseFence);
+                    handleEarlyRelease(internalImage);
                   })
-              .setInternalFrame(new ImageWithImageWriter(image, checkNotNull(imageWriter)))
+              .setInternalFrame(internalImage)
+              .setAcquireFence(bufferWithFence.acquireFence)
               .build();
         } catch (IllegalStateException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
@@ -205,6 +292,10 @@ public final class SurfaceHolderHardwareBufferFrameQueue
 
   @Override
   public void queue(HardwareBufferFrame frame) {
+    InternalImage internalImage = (InternalImage) checkNotNull(frame.internalFrame);
+    Image image = internalImage.image;
+    ImageWriter imageWriterFromFrame = internalImage.imageWriter;
+
     synchronized (lock) {
       if (frame.acquireFence != null) {
         try {
@@ -212,25 +303,52 @@ public final class SurfaceHolderHardwareBufferFrameQueue
           frame.acquireFence.close();
         } catch (ErrnoException | IllegalStateException | IOException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
+          frame.release(/* releaseFence= */ null);
+          return;
         }
       }
-      if (frame.hardwareBuffer != null) {
-        frame.hardwareBuffer.close();
-      }
-      ImageWithImageWriter imageWithImageWriter =
-          (ImageWithImageWriter) checkNotNull(frame.internalFrame);
-      ImageWriter imageWriter = this.imageWriter;
-      if (imageWriter != imageWithImageWriter.imageWriter) {
+
+      if (this.imageWriter != imageWriterFromFrame) {
         // The ImageWriter has changed since this frame was dequeued. The previous writer was
         // closed and this image can no longer be used.
+        frame.release(/* releaseFence= */ null);
         return;
       }
-      Image image = imageWithImageWriter.image;
+
+      // Copy the input frame's content to the ImageWriter's HardwareBuffer if an intermediate
+      // pooled buffer was used.
+      if (internalImage.needsCopy) {
+        checkState(hardwareBufferJniWrapper != null);
+        // Every call to image.getHardwareBuffer() returns a new reference that needs to be closed.
+        try (HardwareBuffer imageWriterHardwareBuffer = checkNotNull(image.getHardwareBuffer())) {
+          boolean copySuccess =
+              hardwareBufferJniWrapper.nativeCopyHardwareBufferToHardwareBuffer(
+                  checkNotNull(frame.hardwareBuffer), imageWriterHardwareBuffer);
+          if (!copySuccess) {
+            listenerExecutor.execute(
+                () ->
+                    listener.onError(
+                        new VideoFrameProcessingException(
+                            "Failed to copy HardwareBuffer via JNI.")));
+            frame.release(/* releaseFence= */ null);
+            return;
+          }
+          // Recycle the pooled buffer. The ImageWriter's buffer is now filled.
+          hardwareBufferPool.recycle(frame.hardwareBuffer, /* fence= */ null);
+        }
+        // Only close the input buffer if it was directly created from an ImageWriter buffer, so
+        // needs to be closed separately.
+      } else if (frame.hardwareBuffer != null) {
+        frame.hardwareBuffer.close();
+      }
+
       try {
         image.setTimestamp(frame.releaseTimeNs);
-        imageWriter.queueInputImage(image);
+        imageWriterFromFrame.queueInputImage(image);
       } catch (IllegalStateException e) {
         listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
+        // If queueInputImage fails, the Image is not consumed. We must close it.
+        image.close();
       }
     }
 
@@ -272,32 +390,43 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
     synchronized (lock) {
       FrameFormat currentFormat = this.currentFormat;
-      if (currentFormat == null
-          || width != currentFormat.width
-          || height != currentFormat.height
-          || format != currentFormat.pixelFormat) {
-        if (currentFormat != null) {
-          holder.setFixedSize(currentFormat.width, currentFormat.height);
-          holder.setFormat(currentFormat.pixelFormat);
-        }
+      if (currentFormat == null) {
         return;
       }
-
-      if (imageWriter != null) {
-        imageWriter.close();
+      if (width != currentFormat.width
+          || height != currentFormat.height
+          || format != currentFormat.pixelFormat) {
+        this.surface = null;
+        holder.setFixedSize(currentFormat.width, currentFormat.height);
+        holder.setFormat(currentFormat.pixelFormat);
+        return;
+      }
+      ImageWriter currentImageWriter = imageWriter;
+      if (currentImageWriter != null) {
+        // If the format, dimensions and surface are the same, ignore this callback and continue to
+        // use the existing ImageWriter.
+        if (holder.getSurface().equals(this.surface)) {
+          return;
+        }
+        currentImageWriter.close();
       }
 
-      imageWriter =
-          new ImageWriter.Builder(holder.getSurface())
-              .setUsage(currentFormat.usageFlags)
-              .setHardwareBufferFormat(currentFormat.pixelFormat)
-              .setDataSpace(
-                  DataSpace.pack(
-                      colorSpaceToDataSpaceStandard(currentFormat.colorInfo.colorSpace),
-                      colorTransferToDataSpaceTransfer(currentFormat.colorInfo.colorTransfer),
-                      colorRangeToDataSpaceRange(currentFormat.colorInfo.colorRange)))
-              .build();
-
+      if (SDK_INT >= 33) {
+        imageWriter =
+            new ImageWriter.Builder(holder.getSurface())
+                .setMaxImages(CAPACITY)
+                .setUsage(currentFormat.usageFlags)
+                .setHardwareBufferFormat(currentFormat.pixelFormat)
+                .setDataSpace(
+                    DataSpace.pack(
+                        colorSpaceToDataSpaceStandard(currentFormat.colorInfo.colorSpace),
+                        colorTransferToDataSpaceTransfer(currentFormat.colorInfo.colorTransfer),
+                        colorRangeToDataSpaceRange(currentFormat.colorInfo.colorRange)))
+                .build();
+      } else {
+        imageWriter = ImageWriter.newInstance(holder.getSurface(), CAPACITY);
+      }
+      surface = holder.getSurface();
       isSurfaceChangeRequested = false;
       Runnable wakeupListener = this.wakeupListener;
       this.wakeupListener = null;
@@ -310,23 +439,52 @@ public final class SurfaceHolderHardwareBufferFrameQueue
   @Override
   public void surfaceDestroyed(SurfaceHolder holder) {
     synchronized (lock) {
+      ImageWriter imageWriter = this.imageWriter;
       if (imageWriter != null) {
         imageWriter.close();
+        this.imageWriter = null;
+      }
+    }
+  }
+
+  /** Dequeues an {@link android.media.Image} from the {@link android.media.ImageWriter}. */
+  @GuardedBy("lock")
+  private InternalImage dequeueInternalImage(boolean needsCopy) {
+    Image image = checkNotNull(imageWriter).dequeueInputImage();
+    return new InternalImage(image, checkNotNull(imageWriter), needsCopy);
+  }
+
+  /**
+   * Close the {@link #imageWriter} if it is still the active one, to ensure no images are leaked or
+   * corrupted images rendered. The ImageWriter will be recreated on the next dequeue.
+   */
+  private void handleEarlyRelease(InternalImage internalImage) {
+    synchronized (lock) {
+      if (internalImage.imageWriter == imageWriter) {
+        checkNotNull(imageWriter).close();
         imageWriter = null;
       }
     }
   }
 
-  private static final class ImageWithImageWriter {
+  /**
+   * Helper class that stores an {@link android.media.Image} along with the {@link
+   * android.media.ImageWriter} it was dequeued from, and a flag indicating whether an intermediate
+   * copy is needed to write to the {@link android.media.Image}.
+   */
+  private static final class InternalImage {
     final Image image;
     final ImageWriter imageWriter;
+    final boolean needsCopy;
 
-    ImageWithImageWriter(Image image, ImageWriter imageWriter) {
+    InternalImage(Image image, ImageWriter imageWriter, boolean needsCopy) {
       this.image = image;
       this.imageWriter = imageWriter;
+      this.needsCopy = needsCopy;
     }
   }
 
+  @RequiresApi(33)
   private static int colorSpaceToDataSpaceStandard(@C.ColorSpace int colorSpace) {
     switch (colorSpace) {
       case C.COLOR_SPACE_BT709:
@@ -341,6 +499,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     }
   }
 
+  @RequiresApi(33)
   private static int colorTransferToDataSpaceTransfer(@C.ColorTransfer int colorTransfer) {
     switch (colorTransfer) {
       case C.COLOR_TRANSFER_ST2084:
@@ -361,6 +520,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     }
   }
 
+  @RequiresApi(33)
   private static int colorRangeToDataSpaceRange(@C.ColorRange int colorRange) {
     switch (colorRange) {
       case C.COLOR_RANGE_FULL:

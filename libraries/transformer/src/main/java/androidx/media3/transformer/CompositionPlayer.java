@@ -47,6 +47,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -473,6 +474,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public Builder setPacketConsumerFactory(
         PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
+      checkState(packetProcessor == null);
       this.packetConsumerFactory = packetConsumerFactory;
       return this;
     }
@@ -486,6 +488,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * <p>The default value is {@code null}.
      *
+     * <p>If used on API 32 and below, the {@linkplain #setNativeHardwareBufferHelpers native
+     * helpers} must be set.
+     *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
      * <p>For multi-sequence compositions, the index of a frame in the aggregated {@link
@@ -498,12 +503,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
      *     #setVideoGraphFactory set}.
      */
+    @RequiresApi(28)
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     public Builder setHardwareBufferEffectsPipeline(
         RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
             packetProcessor) {
       checkState(videoGraphFactory == null);
+      checkState(packetConsumerFactory == null);
       this.packetProcessor = packetProcessor;
       return this;
     }
@@ -705,14 +712,21 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       } else {
         hardwareBufferPostProcessor = null;
       }
-      if (packetProcessor != null && SDK_INT >= 33) {
-        packetConsumer = packetProcessor;
+      if (packetProcessor != null && SDK_INT >= 28) {
         surfaceHolderHardwareBufferFrameQueue =
-            new SurfaceHolderHardwareBufferFrameQueue(
-                /* surfaceHolder= */ null,
-                /* surfaceHolderExecutor= */ applicationHandler::post,
-                internalListener,
-                directExecutor());
+            SDK_INT >= 33
+                ? SurfaceHolderHardwareBufferFrameQueue.create(
+                    /* surfaceHolder= */ null,
+                    /* surfaceHolderExecutor= */ applicationHandler::post,
+                    internalListener,
+                    directExecutor())
+                : SurfaceHolderHardwareBufferFrameQueue.create(
+                    /* surfaceHolder= */ null,
+                    /* surfaceHolderExecutor= */ applicationHandler::post,
+                    internalListener,
+                    directExecutor(),
+                    checkNotNull(hardwareBufferJniWrapper));
+        packetConsumer = packetProcessor;
         packetProcessor.setRenderOutput(surfaceHolderHardwareBufferFrameQueue);
         packetConsumerReportsRenderingEvents = true;
       } else {
@@ -1925,7 +1939,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setVideoSurfaceHolderInternal(SurfaceHolder surfaceHolder) {
-    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
+    if (SDK_INT >= 28 && surfaceHolderHardwareBufferFrameQueue != null) {
       surfaceHolderHardwareBufferFrameQueue.setSurfaceHolder(surfaceHolder);
       return;
     }

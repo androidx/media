@@ -528,14 +528,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update { currentState ->
       val currentItems = currentState.mediaState.selectedItems
 
-      val newSelectedItems =
-        currentItems.mapIndexed { i, item ->
-          if (i == index) {
-            item.copy(selectedEffects = newEffects)
-          } else {
-            item
-          }
+      val newSelectedItems = currentItems.mapIndexed { i, item ->
+        if (i == index) {
+          item.copy(selectedEffects = newEffects)
+        } else {
+          item
         }
+      }
       currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
     }
   }
@@ -857,7 +856,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder: CompositionPlayer.Builder
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
-    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 33) {
+    if (uiState.value.outputSettingsState.frameConsumerEnabled && SDK_INT >= 28) {
       playerBuilder = NdkCompositionPlayerBuilder.create(getApplication())
       playerBuilder.setHardwareBufferEffectsPipeline(
         DefaultHardwareBufferEffectsPipeline.create(
