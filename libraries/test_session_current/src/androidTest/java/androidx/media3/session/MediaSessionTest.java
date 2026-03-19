@@ -387,15 +387,10 @@ public class MediaSessionTest {
   @Test
   public void creatingTwoSessionWithSameId() {
     String sessionId = "testSessionId";
-    MediaSession session =
-        new MediaSession.Builder(
-                context, new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build())
-            .setId(sessionId)
-            .build();
+    Player player = new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
+    MediaSession session = new MediaSession.Builder(context, player).setId(sessionId).build();
 
-    MediaSession.Builder builderWithSameId =
-        new MediaSession.Builder(
-            context, new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build());
+    MediaSession.Builder builderWithSameId = new MediaSession.Builder(context, player);
     try {
       builderWithSameId.setId(sessionId).build();
       assertWithMessage(
@@ -407,7 +402,8 @@ public class MediaSessionTest {
 
     session.release();
     // Creating a new session with ID of the closed session is okay.
-    MediaSession sessionWithSameId = builderWithSameId.build();
+    MediaSession sessionWithSameId =
+        new MediaSession.Builder(context, player).setId(sessionId).build();
     sessionWithSameId.release();
   }
 

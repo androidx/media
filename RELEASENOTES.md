@@ -1,3 +1,9 @@
+# Release notes
+
+### Unreleased changes
+
+## 1.10
+
 ### 1.10.0-rc02 (2026-03-16)
 
 This release includes the following changes since

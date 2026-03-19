@@ -22,6 +22,7 @@ import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -431,6 +432,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
     public static final class Builder extends BuilderBase<MediaLibrarySession, Builder, Callback> {
 
       private @LibraryErrorReplicationMode int libraryErrorReplicationMode;
+      private boolean buildCalled;
 
       /**
        * Creates a builder for {@link MediaLibrarySession}.
@@ -689,6 +691,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       @Override
       public MediaLibrarySession build() {
+        checkState(!buildCalled);
+        buildCalled = true;
         ensureBitmapLoaderIsSizeLimited();
         return new MediaLibrarySession(
             context,
