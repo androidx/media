@@ -371,7 +371,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
                   /* windowPositionUs= */ startPositionUs);
           MediaPeriodId mediaPeriodId = new MediaPeriodId(periodPosition.first);
           PreloadMediaPeriod mediaPeriod =
-              PreloadMediaSource.this.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+              (PreloadMediaPeriod)
+                  PreloadMediaSource.this.createPeriod(
+                      mediaPeriodId, allocator, periodPosition.second);
           mediaPeriod.preload(
               new PreloadMediaPeriodCallback(periodPosition.second),
               /* positionUs= */ periodPosition.second);
@@ -379,8 +381,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   }
 
   @Override
-  public PreloadMediaPeriod createPeriod(
-      MediaPeriodId id, Allocator allocator, long startPositionUs) {
+  public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
     MediaPeriodKey key = new MediaPeriodKey(id, startPositionUs);
     if (preloadingMediaPeriodAndKey != null && key.equals(preloadingMediaPeriodAndKey.second)) {
       PreloadMediaPeriod mediaPeriod = checkNotNull(preloadingMediaPeriodAndKey).first;

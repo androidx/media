@@ -52,7 +52,8 @@ import java.util.concurrent.ScheduledExecutorService;
 public final class AudioTrackAudioOutput implements AudioOutput {
 
   /** Listener for potential capability change events. */
-  /* package */ interface CapabilityChangeListener {
+  @UnstableApi
+  public interface CapabilityChangeListener {
 
     /** The audio device routing changed. */
     void onRoutedDeviceChanged(AudioDeviceInfo routedDevice);

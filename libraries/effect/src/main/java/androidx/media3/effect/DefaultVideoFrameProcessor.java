@@ -588,7 +588,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
 
   /** Returns the task executor that runs video frame processing tasks. */
   @VisibleForTesting
-  public VideoFrameProcessingTaskExecutor getTaskExecutor() {
+  /* package */ VideoFrameProcessingTaskExecutor getTaskExecutor() {
     return videoFrameProcessingTaskExecutor;
   }
 

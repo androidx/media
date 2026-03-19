@@ -86,7 +86,7 @@ public final class TransformerUtil {
   }
 
   /** Returns whether the audio track should be transcoded. */
-  public static boolean shouldTranscodeAudio(
+  /* package */ static boolean shouldTranscodeAudio(
       Format inputFormat,
       Composition composition,
       int sequenceIndex,
@@ -137,7 +137,7 @@ public final class TransformerUtil {
   }
 
   /** Returns whether the video track should be transcoded. */
-  public static boolean shouldTranscodeVideo(
+  /* package */ static boolean shouldTranscodeVideo(
       Format inputFormat,
       Composition composition,
       int sequenceIndex,
@@ -235,7 +235,7 @@ public final class TransformerUtil {
    * on the given {@link MuxerWrapper} if the given {@code videoEffects} only contains a mix of
    * regular rotations and no-ops. A regular rotation is a rotation divisible by 90 degrees.
    */
-  public static void maybeSetMuxerWrapperAdditionalRotationDegrees(
+  /* package */ static void maybeSetMuxerWrapperAdditionalRotationDegrees(
       MuxerWrapper muxerWrapper, ImmutableList<Effect> videoEffects, Format inputFormat) {
     float rotationDegrees =
         maybeCalculateTotalRotationDegreesAppliedInEffects(videoEffects, inputFormat);

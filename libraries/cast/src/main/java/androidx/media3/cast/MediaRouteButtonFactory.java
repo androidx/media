@@ -72,7 +72,7 @@ public final class MediaRouteButtonFactory {
    * <pre>{@code
    * public class MyActivity extends AppCompatActivity {
    *     ...
-   *     @Override
+   *     &#64;Override
    *     public boolean onCreateOptionsMenu(Menu menu) {
    *         ...
    *         getMenuInflater().inflate(R.menu.sample_media_route_button_menu, menu);
@@ -81,12 +81,12 @@ public final class MediaRouteButtonFactory {
    *         Futures.addCallback(
    *             menuItemFuture,
    *             new FutureCallback<MenuItem>() {
-   *               @Override
+   *               &#64;Override
    *               public void onSuccess(MenuItem menuItem) {
    *                 // Do something with the menu item.
    *               }
    *
-   *               @Override
+   *               &#64;Override
    *               public void onFailure(Throwable t) {
    *                 // Handle the failure.
    *               }
@@ -184,7 +184,7 @@ public final class MediaRouteButtonFactory {
    * <pre>{@code
    * public class MyActivity extends AppCompatActivity {
    *     ...
-   *     @Override
+   *     &#64;Override
    *     public void onCreate(Bundle savedInstanceState) {
    *         ...
    *         MediaRouteButton button = findViewById(R.id.media_route_button);
@@ -193,12 +193,12 @@ public final class MediaRouteButtonFactory {
    *         Futures.addCallback(
    *             setUpFuture,
    *             new FutureCallback<Void>() {
-   *               @Override
+   *               &#64;Override
    *               public void onSuccess(Void unused) {
    *                 // Indicate that the media route button is set up successfully.
    *               }
    *
-   *               @Override
+   *               &#64;Override
    *               public void onFailure(Throwable t) {
    *                 // Handle the failure.
    *               }

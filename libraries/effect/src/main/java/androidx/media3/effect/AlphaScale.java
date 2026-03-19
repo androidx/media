@@ -40,7 +40,7 @@ public final class AlphaScale implements GlEffect {
   }
 
   @Override
-  public AlphaScaleShaderProgram toGlShaderProgram(Context context, boolean useHdr)
+  public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
       throws VideoFrameProcessingException {
     return new AlphaScaleShaderProgram(context, useHdr, alphaScale);
   }

@@ -876,7 +876,7 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
   }
 
   /** Data class to hold playlist media sources together with meta data needed to process them. */
-  /* package */ static final class MediaSourceHolder {
+  protected static final class MediaSourceHolder {
 
     public final MaskingMediaSource mediaSource;
     public final Object uid;

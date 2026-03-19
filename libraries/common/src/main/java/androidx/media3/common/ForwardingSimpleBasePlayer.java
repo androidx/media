@@ -35,14 +35,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  *
  * <pre>{@code
  * new ForwardingSimpleBasePlayer(player) {
- *   @Override
+ *   &#64;Override
  *   protected State getState() {
  *     State state = super.getState();
  *     // Modify current state as required:
  *     return state.buildUpon().setAvailableCommands(filteredCommands).build();
  *   }
  *
- *   @Override
+ *   &#64;Override
  *   protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
  *     // Modify actions by directly calling the underlying player as needed:
  *     getPlayer().setShuffleModeEnabled(true);
