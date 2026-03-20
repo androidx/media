@@ -29,6 +29,7 @@
         ([#3125](https://github.com/androidx/media/issues/3125)).
 *   CompositionPlayer:
 *   Transformer:
+    *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
 *   Track selection:
 *   Extractors:
     *   MP4: Add support for extracting chapter metadata (both Nero and

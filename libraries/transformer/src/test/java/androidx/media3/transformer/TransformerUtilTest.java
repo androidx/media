@@ -206,7 +206,10 @@ public final class TransformerUtilTest {
     public void onSampleWrittenOrDropped() {}
 
     @Override
-    public void onEnded(long approximateDurationMs, long fileSizeBytes) {}
+    public void onEnded(long approximateDurationMs) {}
+
+    @Override
+    public void onFileSizeBytesAvailable(long fileSizeBytes) {}
 
     @Override
     public void onError(ExportException exportException) {}

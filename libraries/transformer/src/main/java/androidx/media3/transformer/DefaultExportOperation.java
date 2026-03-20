@@ -217,11 +217,14 @@ import com.google.common.collect.ImmutableList;
     }
 
     @Override
-    public void onEnded(long approximateDurationMs, long fileSizeBytes) {
-      exportResultBuilder
-          .setApproximateDurationMs(approximateDurationMs)
-          .setFileSizeBytes(fileSizeBytes);
+    public void onEnded(long approximateDurationMs) {
+      exportResultBuilder.setApproximateDurationMs(approximateDurationMs);
       checkNotNull(transformerInternal).endWithCompletion();
+    }
+
+    @Override
+    public void onFileSizeBytesAvailable(long fileSizeBytes) {
+      exportResultBuilder.setFileSizeBytes(fileSizeBytes);
     }
 
     @Override

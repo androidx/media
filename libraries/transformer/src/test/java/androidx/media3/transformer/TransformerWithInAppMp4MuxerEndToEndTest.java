@@ -43,6 +43,7 @@ import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.base.Predicate;
+import java.io.File;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -226,6 +227,21 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
             MdtaMetadataEntry.class,
             mdtaEntry -> mdtaEntry.key.equals(expectedFloatMetadata.key));
     assertThat(actualFloatMetadata).isEqualTo(expectedFloatMetadata);
+  }
+
+  @Test
+  public void transmux_withoutStreamingOutput_reportsCorrectFileSIze() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();
+    // TODO: b/494254802 - Improve API for non-streamable MP4 output.
+    inAppMuxerFactory.setFreeSpaceAfterFileTypeBoxBytes(1);
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+
+    transformer.start(mediaItem, outputPath);
+    ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
+
+    assertThat(exportResult.fileSizeBytes).isEqualTo(new File(outputPath).length());
   }
 
   @Test
