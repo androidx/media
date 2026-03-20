@@ -115,6 +115,10 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Fixed regression in H.264 and H.265 streaming that would incorrectly
+        parse samples of the same access unit that spanned multiple RTP packets.
+        This resulted in visual artifacts and corruption in the video
+        ([#3121](https://github.com/androidx/media/issues/3121)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
