@@ -302,11 +302,12 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
       if (adMediaSourceHolder == null) {
         long endPositionUs = C.TIME_END_OF_SOURCE;
         if (useAdMediaSourceClipping) {
-          long adDurationUs =
-              checkNotNull(adPlaybackState.getAdGroup(id.adGroupIndex))
-                  .durationsUs[id.adIndexInAdGroup];
-          if (adDurationUs != C.TIME_UNSET) {
-            endPositionUs = adDurationUs;
+          AdGroup adGroup = checkNotNull(adPlaybackState.getAdGroup(id.adGroupIndex));
+          if (adGroup.durationsUs.length > adIndexInAdGroup) {
+            long adDurationUs = adGroup.durationsUs[adIndexInAdGroup];
+            if (adDurationUs != C.TIME_UNSET) {
+              endPositionUs = adDurationUs;
+            }
           }
         }
         adMediaSourceHolder = new AdMediaSourceHolder(id, endPositionUs);
@@ -523,7 +524,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     for (int i = 0; i < adMediaSourceHolders.length; i++) {
       int adCount =
           useAdMediaSourceClipping
-              ? adPlaybackState.getAdGroup(i).count
+              ? Math.max(adPlaybackState.getAdGroup(i).count, 0)
               : adMediaSourceHolders[i].length;
       adDurationsUs[i] = new long[adCount];
       for (int j = 0; j < adCount; j++) {

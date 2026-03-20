@@ -2,6 +2,11 @@
 
 ### Unreleased changes
 
+*   Session:
+    *   Workaround SysUI bug on API 29 where media session artwork in a
+        particular size can crash SysUI and force the device to reboot
+        ([#3118](https://github.com/androidx/media/issues/3118)).
+
 ## 1.10
 
 ### 1.10.0-rc02 (2026-03-16)
