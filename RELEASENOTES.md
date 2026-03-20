@@ -18,6 +18,9 @@
 *   Inspector:
 *   Audio:
 *   Video:
+    *   Adjust logic for codec reuse at frame rate changes on API<30 to avoid
+        codec resets where they are not beneficial
+        ([#3120](https://github.com/androidx/media/issues/3120)).
 *   Text:
 *   Metadata:
 *   Image:

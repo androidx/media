@@ -27,8 +27,10 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.round;
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -193,6 +195,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * <p>Dropping too many consecutive input buffers can harm user experience.
    */
   private static final int MAX_CONSECUTIVE_DROPPED_INPUT_BUFFERS_COUNT_TO_DISCARD_HEADER = 0;
+
+  /**
+   * The maximum difference of the frame rate ratio from a whole number to assume the frame rate
+   * switch is seamless enough to keep the codec below API 30. This accounts for floating point
+   * calculation inaccuracies and allows transitions between almost equivalent frame rates like
+   * 29.97 and 30 that can't be resolved by screen rate refresh changes anyway.
+   */
+  private static final float MAX_FRAME_RATE_RATIO_DIFF_TO_KEEP_CODEC = 0.01f;
 
   private static boolean evaluatedDeviceNeedsSetOutputSurfaceWorkaround;
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
@@ -1389,7 +1399,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected DecoderReuseEvaluation canReuseCodec(
-      MediaCodecInfo codecInfo, Format oldFormat, Format newFormat) {
+      MediaCodecInfo codecInfo,
+      Format oldFormat,
+      Format newFormat,
+      boolean isAdaptiveFormatChange) {
     DecoderReuseEvaluation evaluation = codecInfo.canReuseCodec(oldFormat, newFormat);
 
     @DecoderDiscardReasons int discardReasons = evaluation.discardReasons;
@@ -1400,11 +1413,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (getMaxInputSize(codecInfo, newFormat) > codecMaxValues.inputSize) {
       discardReasons |= DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
     }
-    if (changeFrameRateStrategy != C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
-        && oldFormat.frameRate != Format.NO_VALUE
-        && newFormat.frameRate != Format.NO_VALUE
-        && Math.abs(newFormat.frameRate - oldFormat.frameRate) > 1f
-        && cannotChangeSurfaceFrameRateMidPlayback()) {
+    if (shouldDiscardCodecForFrameRateChange(
+        codecInfo, oldFormat, newFormat, isAdaptiveFormatChange)) {
       discardReasons |= DISCARD_REASON_VIDEO_FRAME_RATE_CHANGED;
     }
 
@@ -2861,12 +2871,40 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return (pixelCount * 3) / (2 * minCompressionRatio);
   }
 
-  private static boolean cannotChangeSurfaceFrameRateMidPlayback() {
-    // We can't tell the surface about the new frame rate before API 30, so it's likely to keep
-    // the initially estimated screen refresh rate from the previous format.
-    // See https://github.com/androidx/media/issues/2941. MiTV boxes were also reported to
-    // still have this problem on API 30.
-    return SDK_INT < 30 || (SDK_INT == 30 && Build.MODEL.startsWith("MiTV"));
+  private boolean shouldDiscardCodecForFrameRateChange(
+      MediaCodecInfo mediaCodecInfo,
+      Format oldFormat,
+      Format newFormat,
+      boolean isAdaptiveFormatChange) {
+    if (changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF) {
+      // We are not attempting to change the surface frame rate anyway.
+      return false;
+    }
+    if (SDK_INT >= 31 || (SDK_INT == 30 && !Build.MODEL.startsWith("MiTV"))) {
+      // We can tell the surface about the new frame rate so it can handle this seamlessly. This
+      // wasn't possible before API 30 where the initially estimated screen refresh rate from the
+      // previous format is likely kept. See https://github.com/androidx/media/issues/2941. MiTV
+      // boxes were also reported to still have this problem on API 30.
+      return false;
+    }
+    if (oldFormat.frameRate == Format.NO_VALUE || newFormat.frameRate == Format.NO_VALUE) {
+      // Not enough information to tell if there was a frame rate change.
+      return false;
+    }
+    if (mediaCodecInfo.secure && isAdaptiveFormatChange) {
+      // Many secure codecs introduce a black frame when discarded, which is more distracting for an
+      // adaptive switch than the potential display refresh mismatch. For non-adaptive switches
+      // (e.g. playlist transitions), the codec can still be discarded.
+      // See https://github.com/androidx/media/issues/3120.
+      return false;
+    }
+    float frameRateRatio =
+        max(newFormat.frameRate, oldFormat.frameRate)
+            / min(newFormat.frameRate, oldFormat.frameRate);
+    // Only need to discard the codec if the frame rates are not the same or a close multiple of
+    // each other (where the change could be handled seamlessly even without a surface refresh
+    // rate change).
+    return abs(frameRateRatio - round(frameRateRatio)) > MAX_FRAME_RATE_RATIO_DIFF_TO_KEEP_CODEC;
   }
 
   private static boolean evaluateDeviceNeedsSetOutputSurfaceWorkaround() {

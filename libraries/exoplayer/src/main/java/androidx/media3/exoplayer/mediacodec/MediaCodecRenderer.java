@@ -812,6 +812,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       waitingForFirstSampleInFormat = true;
     }
     outputStreamInfo.formatQueue.clear();
+    outputStreamInfo.queuedBufferAfterReset = false;
   }
 
   @Override
@@ -1624,7 +1625,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     if (waitingForFirstSampleInFormat) {
-      getLastOutputStreamInfo().formatQueue.add(presentationTimeUs, checkNotNull(inputFormat));
+      OutputStreamInfo lastStreamInfo = getLastOutputStreamInfo();
+      lastStreamInfo.formatQueue.add(presentationTimeUs, checkNotNull(inputFormat));
+      lastStreamInfo.queuedBufferAfterReset = true;
       waitingForFirstSampleInFormat = false;
     }
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
@@ -1813,7 +1816,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     boolean drainAndUpdateCodecDrmSession = sourceDrmSession != codecDrmSession;
 
-    DecoderReuseEvaluation evaluation = canReuseCodec(codecInfo, oldFormat, newFormat);
+    DecoderReuseEvaluation evaluation =
+        canReuseCodec(
+            codecInfo,
+            oldFormat,
+            newFormat,
+            /* isAdaptiveFormatChange= */ getLastOutputStreamInfo().queuedBufferAfterReset);
     @DecoderDiscardReasons int overridingDiscardReasons = 0;
     switch (evaluation.result) {
       case REUSE_RESULT_NO:
@@ -2001,17 +2009,23 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /**
    * Evaluates whether the existing {@link MediaCodec} can be kept for a new {@link Format}, and if
-   * it can whether it requires reconfiguration.
+   * it can, whether it requires reconfiguration.
    *
    * <p>The default implementation does not allow decoder reuse.
    *
    * @param codecInfo A {@link MediaCodecInfo} describing the decoder.
    * @param oldFormat The {@link Format} for which the existing instance is configured.
    * @param newFormat The new {@link Format}.
+   * @param isAdaptiveFormatChange Whether the format change happens within the same stream after
+   *     having queued samples for {@code oldFormat}, typically indicating an adaptive format
+   *     change.
    * @return The result of the evaluation.
    */
   protected DecoderReuseEvaluation canReuseCodec(
-      MediaCodecInfo codecInfo, Format oldFormat, Format newFormat) {
+      MediaCodecInfo codecInfo,
+      Format oldFormat,
+      Format newFormat,
+      boolean isAdaptiveFormatChange) {
     return new DecoderReuseEvaluation(
         codecInfo.name,
         oldFormat,
@@ -2877,20 +2891,21 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   private static final class OutputStreamInfo {
 
-    public static final OutputStreamInfo UNSET =
+    private static final OutputStreamInfo UNSET =
         new OutputStreamInfo(
             /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
             /* startPositionUs= */ C.TIME_UNSET,
             /* streamOffsetUs= */ C.TIME_UNSET);
 
-    public final long previousStreamLastBufferTimeUs;
-    public final long startPositionUs;
-    public final long streamOffsetUs;
-    public final TimedValueQueue<Format> formatQueue;
+    private final long previousStreamLastBufferTimeUs;
+    private final long startPositionUs;
+    private final long streamOffsetUs;
+    private final TimedValueQueue<Format> formatQueue;
 
-    public long lastBufferTimeUs;
+    private boolean queuedBufferAfterReset;
+    private long lastBufferTimeUs;
 
-    public OutputStreamInfo(
+    private OutputStreamInfo(
         long previousStreamLastBufferTimeUs, long startPositionUs, long streamOffsetUs) {
       this.previousStreamLastBufferTimeUs = previousStreamLastBufferTimeUs;
       this.startPositionUs = startPositionUs;

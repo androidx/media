@@ -1098,7 +1098,10 @@ public class MediaCodecRendererTest {
 
     @Override
     protected DecoderReuseEvaluation canReuseCodec(
-        MediaCodecInfo codecInfo, Format oldFormat, Format newFormat) {
+        MediaCodecInfo codecInfo,
+        Format oldFormat,
+        Format newFormat,
+        boolean isAdaptiveFormatChange) {
       return codecInfo.canReuseCodec(oldFormat, newFormat);
     }
   }
