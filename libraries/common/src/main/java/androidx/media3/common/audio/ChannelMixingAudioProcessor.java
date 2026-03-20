@@ -58,7 +58,11 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
         matrixByInputChannelCount.get(inputAudioFormat.channelCount);
     if (channelMixingMatrix == null) {
       throw new UnhandledAudioFormatException(
-          "No mixing matrix for input channel count", inputAudioFormat);
+          String.format(
+              "No mixing matrix set for input channel count=%s. Please call"
+                  + " putChannelMixingMatrix() with the appropriate matrix.",
+              inputAudioFormat.channelCount),
+          inputAudioFormat);
     }
     if (channelMixingMatrix.isIdentity()) {
       return AudioFormat.NOT_SET;
