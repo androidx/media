@@ -15,8 +15,10 @@
  */
 package androidx.media3.datasource.ktor
 
+import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.TransferListener
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import io.ktor.client.HttpClient
@@ -158,5 +160,111 @@ class KtorDataSourceTest {
     assertThat(request).isNotNull()
     assertThat(request!!.method).isEqualTo("POST")
     assertThat(request.body.readUtf8()).isEqualTo("test body")
+  }
+
+  @Test
+  @Throws(Exception::class)
+  fun factory_setUserAgent_setsCorrectHeader() {
+    val mockWebServer = MockWebServer()
+    mockWebServer.enqueue(MockResponse())
+
+    val userAgent = "testUserAgent"
+    val dataSource =
+      KtorDataSource.Factory(httpClient).setUserAgent(userAgent).createDataSource()
+    val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
+
+    val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
+    assertThat(request).isNotNull()
+    assertThat(request!!.getHeader("User-Agent")).isEqualTo(userAgent)
+  }
+
+  @Test
+  @Throws(Exception::class)
+  fun factory_setContentTypePredicate_filtersContentType() {
+    val mockWebServer = MockWebServer()
+    mockWebServer.enqueue(
+      MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html")
+    )
+
+    val dataSource =
+      KtorDataSource.Factory(httpClient)
+        .setContentTypePredicate { contentType -> contentType == "audio/mpeg" }
+        .createDataSource()
+    val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+
+    val exception =
+      assertThrows(HttpDataSource.InvalidContentTypeException::class.java) {
+        dataSource.open(dataSpec)
+      }
+
+    assertThat(exception.contentType).isEqualTo("text/html")
+  }
+
+  @Test
+  @Throws(Exception::class)
+  fun factory_setTransferListener_setsListener() {
+    val mockWebServer = MockWebServer()
+    mockWebServer.enqueue(MockResponse())
+
+    var transferInitializingCalled = false
+    var transferStartCalled = false
+    var transferEndCalled = false
+
+    val transferListener =
+      object : TransferListener {
+        override fun onTransferInitializing(
+          source: DataSource,
+          dataSpec: DataSpec,
+          isNetwork: Boolean
+        ) {
+          assertThat(source).isNotNull()
+          assertThat(dataSpec).isNotNull()
+          assertThat(isNetwork).isNotNull()
+          transferInitializingCalled = true
+        }
+
+        override fun onTransferStart(
+          source: DataSource,
+          dataSpec: DataSpec,
+          isNetwork: Boolean
+        ) {
+          assertThat(source).isNotNull()
+          assertThat(dataSpec).isNotNull()
+          assertThat(isNetwork).isNotNull()
+          transferStartCalled = true
+        }
+
+        override fun onBytesTransferred(
+          source: DataSource,
+          dataSpec: DataSpec,
+          isNetwork: Boolean,
+          bytesTransferred: Int
+        ) {
+
+          assertThat(source).isNotNull()
+          assertThat(dataSpec).isNotNull()
+          assertThat(isNetwork).isNotNull()
+          assertThat(bytesTransferred).isAtLeast(0)
+        }
+
+        override fun onTransferEnd(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {
+          transferEndCalled = true
+        }
+      }
+
+    val dataSource =
+      KtorDataSource.Factory(httpClient)
+        .setTransferListener(transferListener)
+        .createDataSource()
+    val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
+
+    dataSource.open(dataSpec)
+    assertThat(transferInitializingCalled).isTrue()
+    assertThat(transferStartCalled).isTrue()
+
+    dataSource.close()
+    assertThat(transferEndCalled).isTrue()
   }
 }
