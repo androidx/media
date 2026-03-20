@@ -512,7 +512,10 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   protected DecoderReuseEvaluation canReuseCodec(
-      MediaCodecInfo codecInfo, Format oldFormat, Format newFormat) {
+      MediaCodecInfo codecInfo,
+      Format oldFormat,
+      Format newFormat,
+      boolean isAdaptiveFormatChange) {
     DecoderReuseEvaluation evaluation = codecInfo.canReuseCodec(oldFormat, newFormat);
 
     @DecoderDiscardReasons int discardReasons = evaluation.discardReasons;
