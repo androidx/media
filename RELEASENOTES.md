@@ -24,6 +24,9 @@
         buffer byte size limits if available heap memory seems tight.
     *   Fix possible app crashes when recovering from decoder errors with
         renderer prewarming.
+    *   Fix bug where an uninitialized pre roll ad produced an
+        `ArrayIndexOutOfBoundsException`
+        ([#3125](https://github.com/androidx/media/issues/3125)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:

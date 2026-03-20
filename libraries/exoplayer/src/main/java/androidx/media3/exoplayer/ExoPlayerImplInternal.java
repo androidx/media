@@ -3736,8 +3736,9 @@ import java.util.Objects;
         && newPeriodId.adGroupIndex != C.INDEX_UNSET) {
       AdPlaybackState adPlaybackState =
           timeline.getPeriodByUid(newPeriodId.periodUid, period).adPlaybackState;
-      if (adPlaybackState.getAdGroup(newPeriodId.adGroupIndex).states[newPeriodId.adIndexInAdGroup]
-          != AdPlaybackState.AD_STATE_SKIPPED) {
+      AdGroup adGroup = adPlaybackState.getAdGroup(newPeriodId.adGroupIndex);
+      if (newPeriodId.adIndexInAdGroup >= adGroup.states.length
+          || adGroup.states[newPeriodId.adIndexInAdGroup] != AdPlaybackState.AD_STATE_SKIPPED) {
         // An ad inserted into the timeline causes a sudden change of the playing period.
         discontinuityReason = Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
       }

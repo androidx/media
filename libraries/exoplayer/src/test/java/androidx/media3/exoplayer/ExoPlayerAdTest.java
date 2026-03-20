@@ -47,6 +47,7 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
@@ -72,6 +73,7 @@ import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Supplier;
@@ -80,6 +82,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
@@ -264,6 +267,77 @@ public class ExoPlayerAdTest {
             positionInfoSuccessfulAdEnd,
             positionInfoContentAtSuccessfulAd,
             Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+  }
+
+  @Test
+  public void playAds_preRollsUnavailableWhenStartingToPlay_doesNotCrash()
+      throws PlaybackException, TimeoutException, InterruptedException {
+    // Test regression reported with https://github.com/androidx/media/issues/3125
+    Timeline primaryContentTimeline =
+        new FakeTimeline(new TimelineWindowDefinition.Builder().setDurationUs(60_000_000L).build());
+    AdPlaybackState adPlaybackState = new AdPlaybackState("adsId", 0L, 10_000L, 20_000L);
+    AdPlaybackState adPlaybackStateWithAvailableMidroll =
+        adPlaybackState.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 1,
+            /* adIndexInAdGroup= */ 0,
+            MediaItem.fromUri("http://www.example.com"));
+    AdPlaybackState adPlaybackStateWithAvailablePreroll =
+        adPlaybackStateWithAvailableMidroll.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            MediaItem.fromUri("http://www.example.com"));
+    FakeAdsLoader fakeAdsLoader = new FakeAdsLoader();
+    AdsMediaSource adsMediaSource =
+        new AdsMediaSource(
+            new FakeMediaSource(primaryContentTimeline, ExoPlayerTestRunner.VIDEO_FORMAT),
+            new DataSpec(Uri.EMPTY),
+            "adsId",
+            /* adMediaSourceFactory= */ new FakeMediaSourceFactory(
+                new TimelineWindowDefinition.Builder().setDurationUs(10_000_000L)),
+            fakeAdsLoader,
+            /* adViewProvider= */ () -> null,
+            /* useLazyContentSourcePreparation= */ true,
+            /* useAdMediaSourceClipping= */ true);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    AtomicBoolean midRollInitialized = new AtomicBoolean();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            Period period = timeline.getPeriod(/* periodIndex= */ 0, new Period());
+            if (period.adPlaybackState.adGroupCount > 1
+                && period.adPlaybackState.getAdGroup(/* adGroupIndex= */ 1).states.length > 0) {
+              midRollInitialized.set(true);
+            }
+          }
+        });
+    player.setMediaSource(adsMediaSource);
+    player.prepare();
+    advance(player)
+        .untilBackgroundThreadCondition(
+            (Supplier<Boolean>) () -> fakeAdsLoader.eventListeners.get("adsId") != null);
+    fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(adPlaybackState);
+    player.play();
+    advance(player).untilState(Player.STATE_BUFFERING);
+
+    // Set the media item to midroll to trigger a timeline update with the preroll still not
+    // initialized to emulate the situation with IMA deferring preroll initialization.
+    fakeAdsLoader
+        .eventListeners
+        .get("adsId")
+        .onAdPlaybackState(adPlaybackStateWithAvailableMidroll);
+    RobolectricUtil.runMainLooperUntil(() -> midRollInitialized.get());
+    // Set the media item to the preroll to transition to READY state.
+    fakeAdsLoader
+        .eventListeners
+        .get("adsId")
+        .onAdPlaybackState(adPlaybackStateWithAvailablePreroll);
+
+    // If we get to STATE_READY for the pre-roll, we are fine.
+    advance(player).untilState(Player.STATE_READY);
+    assertThat(player.getCurrentAdGroupIndex()).isEqualTo(0);
+    assertThat(player.getCurrentAdIndexInAdGroup()).isEqualTo(0);
+    player.release();
   }
 
   @Test
