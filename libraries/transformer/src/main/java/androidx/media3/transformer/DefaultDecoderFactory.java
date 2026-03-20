@@ -307,10 +307,6 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -codecPriority));
     }
 
-    if (shouldConfigureOperatingRate) {
-      configureOperatingRate(mediaFormat);
-    }
-
     return createCodecForMediaFormat(
         mediaFormat, format, outputSurface, devicePrefersSoftwareDecoder(format), logSessionId);
   }
@@ -385,7 +381,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     return dynamicSchedulingEnabled;
   }
 
-  private static DefaultCodec createCodecFromDecoderInfos(
+  private DefaultCodec createCodecFromDecoderInfos(
       Context context,
       List<MediaCodecInfo> decoderInfos,
       Format format,
@@ -399,6 +395,10 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       // The MIME type of the selected decoder may differ from Format.sampleMimeType, for example,
       // video/hevc is used instead of video/dolby-vision for some specific DolbyVision videos.
       mediaFormat.setString(MediaFormat.KEY_MIME, codecMimeType);
+      if (shouldConfigureOperatingRate) {
+        configureOperatingRate(
+            mediaFormat, decoderInfo.getMaxSupportedFrameRate(format.width, format.height));
+      }
       try {
         return new DefaultCodec(
             context, format, mediaFormat, decoderInfo.name, /* isDecoder= */ true, outputSurface);
@@ -411,7 +411,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
     throw codecInitExceptions.get(0);
   }
 
-  private static void configureOperatingRate(MediaFormat mediaFormat) {
+  private static void configureOperatingRate(MediaFormat mediaFormat, float maxSupportedFrameRate) {
     if (SDK_INT < 25) {
       // Not setting priority and operating rate achieves better decoding performance.
       return;
@@ -422,8 +422,7 @@ public final class DefaultDecoderFactory implements Codec.DecoderFactory {
       mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 1);
     }
 
-    // Setting KEY_OPERATING_RATE to Integer.MAX_VALUE leads to slower operation on some devices.
-    mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, 10000);
+    mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, maxSupportedFrameRate);
   }
 
   private static boolean deviceNeedsPriorityWorkaround() {
