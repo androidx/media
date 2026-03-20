@@ -280,6 +280,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   public void seekToUs(long positionUs) {
     lastSeekPositionUs = positionUs;
     needToEvaluateInitialDiscontinuity = false;
+    hasInitialDiscontinuity = false;
     if (isPendingReset()) {
       // A reset is already pending. We only need to update its position.
       pendingResetPositionUs = positionUs;
