@@ -1,0 +1,7 @@
+# Proguard rules specific to the Ktor extension.
+
+# Options for Ktor and Okio
+-dontwarn io.ktor.**
+-dontwarn okio.**
+-dontwarn javax.annotation.**
+-dontwarn org.conscrypt.**
