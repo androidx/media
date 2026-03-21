@@ -460,7 +460,8 @@ public final class MimeTypes {
     codec = Ascii.toLowerCase(codec.trim());
     if (codec.startsWith("avc1") || codec.startsWith("avc3")) {
       return MimeTypes.VIDEO_H264;
-    } else if (codec.startsWith("hev1") || codec.startsWith("hvc1")) {
+    } else if (codec.startsWith("hev1") || codec.startsWith("hvc1")
+        || codec.startsWith("hev2") || codec.startsWith("hvc2")) {
       return MimeTypes.VIDEO_H265;
     } else if (codec.startsWith("vvc1") || codec.startsWith("vvi1")) {
       return MimeTypes.VIDEO_H266;
@@ -630,9 +631,11 @@ public final class MimeTypes {
     if (supplementalCodecs == null) {
       return false;
     }
-    // profiles 8, 9 and 10
-    return (supplementalCodecs.startsWith("dvhe") && codecs.startsWith("hev1"))
-        || (supplementalCodecs.startsWith("dvh1") && codecs.startsWith("hvc1"))
+    // profiles 8, 9, 10 and 20
+    return (supplementalCodecs.startsWith("dvhe")
+            && (codecs.startsWith("hev1") || codecs.startsWith("hev2")))
+        || (supplementalCodecs.startsWith("dvh1")
+            && (codecs.startsWith("hvc1") || codecs.startsWith("hvc2")))
         || (supplementalCodecs.startsWith("dvav") && codecs.startsWith("avc3"))
         || (supplementalCodecs.startsWith("dva1") && codecs.startsWith("avc1"))
         || (supplementalCodecs.startsWith("dav1") && codecs.startsWith("av01"));
