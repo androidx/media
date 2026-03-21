@@ -39,6 +39,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaNotification.Provider.NotificationChannelInfo;
+import androidx.media3.session.MediaSessionService.ShowNotificationForEmptyPlayerMode;
 import androidx.media3.session.MediaSessionService.ShowNotificationForIdlePlayerMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
@@ -85,6 +86,7 @@ import java.util.concurrent.TimeoutException;
   private boolean isUserEngagedTimeoutEnabled;
   private long userEngagedTimeoutMs;
   @ShowNotificationForIdlePlayerMode int showNotificationForIdlePlayerMode;
+  @ShowNotificationForEmptyPlayerMode int showNotificationForEmptyPlayerMode;
 
   public MediaNotificationManager(
       MediaSessionService mediaSessionService,
@@ -108,6 +110,8 @@ import java.util.concurrent.TimeoutException;
     userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
     showNotificationForIdlePlayerMode =
         MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR;
+    showNotificationForEmptyPlayerMode =
+        MediaSessionService.SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER;
   }
 
   /**
@@ -236,6 +240,16 @@ import java.util.concurrent.TimeoutException;
     }
   }
 
+  public void setShowNotificationForEmptyPlayer(
+      @ShowNotificationForEmptyPlayerMode int showNotificationForEmptyPlayerMode) {
+    this.showNotificationForEmptyPlayerMode = showNotificationForEmptyPlayerMode;
+    List<MediaSession> sessions = mediaSessionService.getSessions();
+    for (int i = 0; i < sessions.size(); i++) {
+      mediaSessionService.onUpdateNotificationInternal(
+          sessions.get(i), /* startInForegroundWhenPaused= */ false);
+    }
+  }
+
   @Override
   public boolean handleMessage(Message msg) {
     if (msg.what == MSG_USER_ENGAGED_TIMEOUT) {
@@ -345,10 +359,25 @@ import java.util.concurrent.TimeoutException;
 
   private boolean shouldShowNotification(MediaSession session) {
     MediaController controller = getConnectedControllerForSession(session);
-    if (controller == null || controller.getCurrentTimeline().isEmpty()) {
+    if (controller == null) {
       return false;
     }
     ControllerInfo controllerInfo = checkNotNull(controllerMap.get(session));
+    if (controller.getCurrentTimeline().isEmpty()) {
+      switch (showNotificationForEmptyPlayerMode) {
+        case MediaSessionService.SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_ALWAYS:
+          break;
+        case MediaSessionService.SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_NEVER:
+          return false;
+        case MediaSessionService.SHOW_NOTIFICATION_FOR_EMPTY_PLAYER_AFTER_STOP_OR_ERROR:
+          if (!controllerInfo.hasBeenPrepared) {
+            return false;
+          }
+          break;
+        default:
+          throw new IllegalStateException();
+      }
+    }
     if (controller.getPlaybackState() != Player.STATE_IDLE) {
       // Playback first prepared or restarted, reset previous notification dismissed flag.
       controllerInfo.wasNotificationDismissed = false;
