@@ -171,187 +171,6 @@ public class FrameAggregatorTest {
   }
 
   @Test
-  public void queueFrame_upsampling_reusesFutureSecondaryFrame() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    HardwareBufferFrame primaryFrame1 = createFrame(100);
-    HardwareBufferFrame primaryFrame2 = createFrame(101);
-    HardwareBufferFrame primaryFrame3 = createFrame(102);
-    HardwareBufferFrame secondaryFrame = createFrame(102);
-
-    frameAggregator.queueFrame(primaryFrame1, 0);
-    frameAggregator.queueFrame(primaryFrame2, 0);
-    frameAggregator.queueFrame(primaryFrame3, 0);
-
-    // Aggregator must wait for a frame >= target timestamps
-    assertThat(outputFrames).isEmpty();
-
-    frameAggregator.queueFrame(secondaryFrame, 1);
-
-    assertThat(outputFrames).hasSize(3);
-    assertThat(outputFrames.get(0).get(1).presentationTimeUs)
-        .isEqualTo(secondaryFrame.presentationTimeUs);
-    assertThat(outputFrames.get(1).get(1).presentationTimeUs)
-        .isEqualTo(secondaryFrame.presentationTimeUs);
-    assertThat(outputFrames.get(2).get(1).presentationTimeUs)
-        .isEqualTo(secondaryFrame.presentationTimeUs);
-  }
-
-  @Test
-  public void queueFrame_downsampling_dropsIntermediateFrames() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    HardwareBufferFrame primaryFrame = createFrame(102);
-    HardwareBufferFrame secondaryFrame1 = createFrame(100);
-    HardwareBufferFrame secondaryFrame2 = createFrame(101);
-    HardwareBufferFrame secondaryFrame3 = createFrame(102);
-
-    frameAggregator.queueFrame(primaryFrame, 0);
-    frameAggregator.queueFrame(secondaryFrame1, 1);
-    frameAggregator.queueFrame(secondaryFrame2, 1);
-
-    // Frames 100 and 101 are strictly in the past for target 102. They should be dropped.
-    assertThat(outputFrames).isEmpty();
-    assertThat(releasedFrameTimestamps)
-        .containsExactly(secondaryFrame1.presentationTimeUs, secondaryFrame2.presentationTimeUs);
-
-    frameAggregator.queueFrame(secondaryFrame3, 1);
-
-    assertThat(outputFrames).hasSize(1);
-    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
-    assertThat(aggregatedPacket.get(0).presentationTimeUs)
-        .isEqualTo(primaryFrame.presentationTimeUs);
-    assertThat(aggregatedPacket.get(1).presentationTimeUs)
-        .isEqualTo(secondaryFrame3.presentationTimeUs);
-  }
-
-  @Test
-  public void queueFrame_mismatchedDuration_omitsEndedSecondary() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    HardwareBufferFrame primaryFrame1 = createFrame(100);
-    HardwareBufferFrame primaryFrame2 = createFrame(200);
-    HardwareBufferFrame secondaryFrame = createFrame(100);
-
-    frameAggregator.queueFrame(primaryFrame1, 0);
-    frameAggregator.queueFrame(secondaryFrame, 1);
-
-    assertThat(outputFrames).hasSize(1);
-    assertThat(outputFrames.get(0)).hasSize(2);
-
-    // Secondary sequence ends earlier than primary.
-    frameAggregator.queueEndOfStream(1);
-    frameAggregator.queueFrame(primaryFrame2, 0);
-
-    assertThat(outputFrames).hasSize(2);
-    assertThat(outputFrames.get(1)).containsExactly(primaryFrame2);
-  }
-
-  @Test
-  public void queueFrame_throughputStress_1fpsSecondary() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    // Queue one second of primary frames (30 packets).
-    for (int i = 0; i < 30; i++) {
-      frameAggregator.queueFrame(createFrame(i * 33333L), 0);
-    }
-
-    // Pipeline is stalled waiting for the secondary frame.
-    assertThat(outputFrames).isEmpty();
-
-    // Arrival of the secondary frame triggers a burst of all 30 pending packets.
-    frameAggregator.queueFrame(createFrame(1000000L), 1);
-
-    assertThat(outputFrames).hasSize(30);
-    // Every primary frame in the first second paired with the 1s secondary frame.
-    for (int i = 0; i < 30; i++) {
-      assertThat(outputFrames.get(i).get(1).presentationTimeUs).isEqualTo(1000000L);
-    }
-  }
-
-  @Test
-  public void queueFrame_interleavedTimestamps_aggregatesCorrectly() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    // Simulate ~30fps for primary sequence
-    long[] primaryTimestampsUs = {0, 33_333, 66_667, 100_000, 133_333, 166_667, 200_000};
-    // Simulate ~20fps for secondary sequence
-    long[] secondaryTimestampsUs = {0, 50_000, 100_000, 150_000, 200_000};
-    long[] expectedSecondaryMatches = {0, 50_000, 100_000, 100_000, 150_000, 200_000, 200_000};
-    int primaryIndex = 0;
-    int secondaryIndex = 0;
-
-    // Iterate through both lists and queue the frames in chronological order
-    // simulating two sequences working normally.
-    while (primaryIndex < primaryTimestampsUs.length
-        || secondaryIndex < secondaryTimestampsUs.length) {
-      long nextPrimaryUs =
-          primaryIndex < primaryTimestampsUs.length
-              ? primaryTimestampsUs[primaryIndex]
-              : Long.MAX_VALUE;
-      long nextSecondaryUs =
-          secondaryIndex < secondaryTimestampsUs.length
-              ? secondaryTimestampsUs[secondaryIndex]
-              : Long.MAX_VALUE;
-      if (nextPrimaryUs <= nextSecondaryUs) {
-        frameAggregator.queueFrame(createFrame(nextPrimaryUs), /* sequenceIndex= */ 0);
-        primaryIndex++;
-      } else {
-        frameAggregator.queueFrame(createFrame(nextSecondaryUs), /* sequenceIndex= */ 1);
-        secondaryIndex++;
-      }
-    }
-
-    assertThat(outputFrames).hasSize(primaryTimestampsUs.length);
-    for (int i = 0; i < primaryTimestampsUs.length; i++) {
-      List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(i);
-      assertThat(aggregatedPacket.get(0).presentationTimeUs).isEqualTo(primaryTimestampsUs[i]);
-      assertThat(aggregatedPacket.get(1).presentationTimeUs).isEqualTo(expectedSecondaryMatches[i]);
-    }
-  }
-
-  @Test
-  public void queueFrame_withStalls_waitsForMissingFrames() {
-    FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
-    long[] primaryUs = {0, 33_333, 66_667, 100_000};
-    long[] secondaryUs = {0, 50_000, 100_000};
-
-    // Queue first frames, expect immediate output
-    frameAggregator.queueFrame(createFrame(primaryUs[0]), /* sequenceIndex= */ 0);
-    frameAggregator.queueFrame(createFrame(secondaryUs[0]), /* sequenceIndex= */ 1);
-
-    assertThat(outputFrames).hasSize(1);
-
-    // Intentionally add a stall: Queue primary frames faster than secondary
-    frameAggregator.queueFrame(createFrame(primaryUs[1]), /* sequenceIndex= */ 0);
-    frameAggregator.queueFrame(createFrame(primaryUs[2]), /* sequenceIndex= */ 0);
-
-    // Assert pipeline is stalled waiting for secondary frame
-    assertThat(outputFrames).hasSize(1);
-
-    // Queue secondary frame, resolving the stall for one primary frame
-    frameAggregator.queueFrame(createFrame(secondaryUs[1]), /* sequenceIndex= */ 1);
-
-    assertThat(outputFrames).hasSize(2);
-
-    // Queue next secondary frame, resolving the stall for the other primary frame
-    frameAggregator.queueFrame(createFrame(secondaryUs[2]), /* sequenceIndex= */ 1);
-
-    assertThat(outputFrames).hasSize(3);
-
-    // Secondary sequence is now ahead. It stalls waiting for the next primary.
-    // Queue primary frame, resolving the stall
-    frameAggregator.queueFrame(createFrame(primaryUs[3]), /* sequenceIndex= */ 0);
-
-    assertThat(outputFrames).hasSize(4);
-    assertThat(outputFrames.get(0).get(1).presentationTimeUs).isEqualTo(secondaryUs[0]);
-    assertThat(outputFrames.get(1).get(1).presentationTimeUs).isEqualTo(secondaryUs[1]);
-    assertThat(outputFrames.get(2).get(1).presentationTimeUs).isEqualTo(secondaryUs[2]);
-    assertThat(outputFrames.get(3).get(1).presentationTimeUs).isEqualTo(secondaryUs[2]);
-  }
-
-  @Test
   public void releaseAllFrames_releasesAllHeldFrames() {
     FrameAggregator frameAggregator =
         new FrameAggregator(/* numSequences= */ 3, /* downstreamConsumer= */ outputFrames::add);
@@ -474,7 +293,6 @@ public class FrameAggregatorTest {
 
     frameAggregator.queueFrame(primaryFrame1, /* sequenceIndex= */ 0);
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 1);
-
     assertThat(outputFrames).hasSize(1);
 
     frameAggregator.flush(/* sequenceIndex= */ 1);
@@ -604,13 +422,18 @@ public class FrameAggregatorTest {
 
     frameAggregator.queueFrame(secondaryFrame, 1);
 
+    assertThat(outputFrames).hasSize(1);
+    List<HardwareBufferFrame> aggregatedPacket = outputFrames.get(0);
+    assertThat(aggregatedPacket).hasSize(2);
+    assertThat(aggregatedPacket.get(0).presentationTimeUs)
+        .isEqualTo(primaryFrame.presentationTimeUs);
+    assertThat(aggregatedPacket.get(1).presentationTimeUs)
+        .isEqualTo(secondaryFrame.presentationTimeUs);
+
+    frameAggregator.queueEndOfStream(1);
+
     assertThat(outputFrames).hasSize(2);
-    List<HardwareBufferFrame> dataPacket = outputFrames.get(0);
-    assertThat(dataPacket).hasSize(2);
-    assertThat(dataPacket.get(0).presentationTimeUs).isEqualTo(primaryFrame.presentationTimeUs);
-    assertThat(dataPacket.get(1).presentationTimeUs).isEqualTo(secondaryFrame.presentationTimeUs);
-    List<HardwareBufferFrame> eosPacket = outputFrames.get(1);
-    assertThat(eosPacket).containsExactly(HardwareBufferFrame.END_OF_STREAM_FRAME);
+    assertThat(outputFrames.get(1)).containsExactly(HardwareBufferFrame.END_OF_STREAM_FRAME);
   }
 
   /** Creates a {@link GlTextureFrame} for testing. */

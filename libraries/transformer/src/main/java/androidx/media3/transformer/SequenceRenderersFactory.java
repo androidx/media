@@ -1069,15 +1069,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               || compositionRendererListener.isEnded());
     }
 
-    @Override
-    public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
-      // Force frames to be released to the FrameAggregator as soon as they are decoded, regardless
-      // of the wall-clock time. This ensures that the aggregator can immediately find matching
-      // frames for all sequences and avoids stalling the pipeline while waiting for frames that
-      // have already been decoded.
-      return true;
-    }
-
     private int indexOfCurrentItem() {
       return getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
     }
