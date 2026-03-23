@@ -98,7 +98,8 @@ public final class TransformerUtilTest {
                 /* sequenceIndex= */ 0,
                 new TransformationRequest.Builder().build(),
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
-                muxerWrapper))
+                muxerWrapper,
+                /* hasPacketProcessor= */ false))
         .isTrue();
   }
 
@@ -131,7 +132,8 @@ public final class TransformerUtilTest {
                 /* sequenceIndex= */ 0,
                 new TransformationRequest.Builder().build(),
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
-                muxerWrapper))
+                muxerWrapper,
+                /* hasPacketProcessor= */ false))
         .isTrue();
   }
 
@@ -194,6 +196,33 @@ public final class TransformerUtilTest {
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
                 muxerWrapper))
         .isFalse();
+  }
+
+  @Test
+  public void shouldTranscodeVideo_withPacketProcessor_returnsTrue() throws Exception {
+    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_VIDEO);
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    Composition composition =
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))).build();
+    MuxerWrapper muxerWrapper =
+        new MuxerWrapper(
+            temporaryFolder.newFile().getPath(),
+            new DefaultMuxer.Factory(),
+            new NoOpMuxerListenerImpl(),
+            MUXER_MODE_DEFAULT,
+            /* dropSamplesBeforeFirstVideoSample= */ false,
+            /* appendVideoFormat= */ null);
+
+    assertThat(
+            shouldTranscodeVideo(
+                FORMAT,
+                composition,
+                /* sequenceIndex= */ 0,
+                new TransformationRequest.Builder().build(),
+                new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
+                muxerWrapper,
+                /* hasPacketProcessor= */ true))
+        .isTrue();
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {

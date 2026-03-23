@@ -360,7 +360,7 @@ public final class Transformer {
     /**
      * Sets the {@link RenderingPacketConsumer} used to process {@link HardwareBufferFrame}s.
      *
-     * <p>This parameter has no effect when transmuxing video, or when processing audio.
+     * <p>Setting this parameter forces video transcoding. It has no effect on audio processing.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *

@@ -905,7 +905,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     sequenceIndex,
                     transformationRequest,
                     encoderFactory,
-                    muxerWrapper)
+                    muxerWrapper,
+                    /* hasPacketProcessor= */ packetProcessor != null)
                 || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
         checkState(
             !applyMp4EditListTrim || !shouldTranscode,

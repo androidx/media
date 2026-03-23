@@ -2351,6 +2351,25 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void export_withHardwareBufferEffectsPipeline_forcesVideoTranscoding() throws Exception {
+    Transformer transformer =
+        NdkTransformerBuilder.create(context)
+            .setHardwareBufferEffectsPipeline(
+                DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE))
+            .build();
+    MediaItem mediaItem = MediaItem.fromUri(MP4_ADVANCED_ASSET.uri);
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, mediaItem);
+
+    assertThat(result.exportResult.exportException).isNull();
+    assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
+  }
+
+  @Test
   public void transmux_audioWithEditList_preservesDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();

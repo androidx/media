@@ -288,7 +288,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     /* sequenceIndex= */ 0,
                     transformationRequest,
                     encoderFactory,
-                    remuxingMuxerWrapper)
+                    remuxingMuxerWrapper,
+                    /* hasPacketProcessor= */ packetProcessor != null)
                 || (mp4Info.audioFormat != null
                     && shouldTranscodeAudio(
                         mp4Info.audioFormat,

@@ -143,7 +143,8 @@ public final class TransformerUtil {
       int sequenceIndex,
       TransformationRequest transformationRequest,
       Codec.EncoderFactory encoderFactory,
-      MuxerWrapper muxerWrapper) {
+      MuxerWrapper muxerWrapper,
+      boolean hasPacketProcessor) {
     if (composition.sequences.size() > 1
         || composition.sequences.get(sequenceIndex).editedMediaItems.size() > 1) {
       return !composition.transmuxVideo;
@@ -169,6 +170,10 @@ public final class TransformerUtil {
       return true;
     }
     if (inputFormat.pixelWidthHeightRatio != 1f) {
+      return true;
+    }
+    if (hasPacketProcessor) {
+      // A PacketProcessor processes video frames, which requires decoding and re-encoding.
       return true;
     }
     EditedMediaItem firstEditedMediaItem =
