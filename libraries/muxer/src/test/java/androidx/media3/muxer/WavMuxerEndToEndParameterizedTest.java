@@ -42,11 +42,19 @@ public class WavMuxerEndToEndParameterizedTest {
   private static final String PCM_16_BIT_STEREO = "wav/bbb_2ch_44kHz.wav";
   private static final String PCM_24_BIT_MONO = "wav/sine_24le.wav";
   private static final String PCM_32_BIT_STEREO = "wav/sine_32le.wav";
+  private static final String PCM_FLOAT_32_MONO = "wav/sample_float32.wav";
+  private static final String PCM_FLOAT_64_MONO = "wav/sample_float64.wav";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
-        PCM_8_BIT_MONO, PCM_16_BIT_MONO, PCM_16_BIT_STEREO, PCM_24_BIT_MONO, PCM_32_BIT_STEREO);
+        PCM_8_BIT_MONO,
+        PCM_16_BIT_MONO,
+        PCM_16_BIT_STEREO,
+        PCM_24_BIT_MONO,
+        PCM_32_BIT_STEREO,
+        PCM_FLOAT_32_MONO,
+        PCM_FLOAT_64_MONO);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;

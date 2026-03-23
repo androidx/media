@@ -31,6 +31,9 @@ public final class WavUtil {
   /** Four character code for "fmt ". */
   public static final int FMT_FOURCC = 0x666d7420;
 
+  /** Four character code for "fact". */
+  public static final int FACT_FOURCC = 0x66616374;
+
   /** Four character code for "data". */
   public static final int DATA_FOURCC = 0x64617461;
 

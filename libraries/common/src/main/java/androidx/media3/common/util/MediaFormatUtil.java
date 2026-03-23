@@ -108,11 +108,7 @@ public final class MediaFormatUtil {
                     mediaFormat,
                     MediaFormat.KEY_CHANNEL_COUNT,
                     /* defaultValue= */ Format.NO_VALUE))
-            .setPcmEncoding(
-                getInteger(
-                    mediaFormat,
-                    MediaFormat.KEY_PCM_ENCODING,
-                    /* defaultValue= */ Format.NO_VALUE));
+            .setPcmEncoding(getPcmEncoding(mediaFormat));
 
     ImmutableList.Builder<byte[]> csdBuffers = new ImmutableList.Builder<>();
     int csdIndex = 0;
@@ -483,6 +479,18 @@ public final class MediaFormatUtil {
     }
     mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_WIDTH, pixelAspectRatioWidth);
     mediaFormat.setInteger(MediaFormat.KEY_PIXEL_ASPECT_RATIO_HEIGHT, pixelAspectRatioHeight);
+  }
+
+  @SuppressLint("InlinedApi") // Inlined MediaFormat keys.
+  private static @C.PcmEncoding int getPcmEncoding(MediaFormat mediaFormat) {
+    @C.PcmEncoding
+    int exoPcmEncoding =
+        getInteger(mediaFormat, KEY_PCM_ENCODING_EXTENDED, /* defaultValue= */ Format.NO_VALUE);
+    if (exoPcmEncoding != Format.NO_VALUE) {
+      return exoPcmEncoding;
+    }
+    return getInteger(
+        mediaFormat, MediaFormat.KEY_PCM_ENCODING, /* defaultValue= */ Format.NO_VALUE);
   }
 
   @SuppressLint("InlinedApi") // Inlined KEY_PCM_ENCODING.

@@ -27,6 +27,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -140,5 +141,58 @@ public class WavMuxerEndToEndTest {
     int fixedHeaderSize = 44;
     int padding = 1;
     assertThat(bytesFromOutputFile).hasLength(fixedHeaderSize + oddSizedSample.length + padding);
+  }
+
+  @Test
+  public void createWavFile_withFloatPcmFormat_writesExpectedChunksAndFloatFormatTag()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile("muxeroutput.wav").getPath();
+    byte[] sample = new byte[] {1, 2, 3, 4};
+    Format floatPcmFormat =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
+            .setChannelCount(1)
+            .setSampleRate(44_100)
+            .build();
+
+    try (WavMuxer wavMuxer = new WavMuxer(SeekableMuxerOutput.of(outputFilePath))) {
+      int trackId = wavMuxer.addTrack(floatPcmFormat);
+      wavMuxer.writeSampleData(
+          trackId,
+          ByteBuffer.wrap(sample),
+          new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 4, /* flags= */ 0));
+    }
+
+    byte[] bytes = TestUtil.getByteArrayFromFilePath(outputFilePath);
+    // Header check
+    // fmt chunk
+    assertThat(bytes[12]).isEqualTo((byte) 'f');
+    assertThat(bytes[13]).isEqualTo((byte) 'm');
+    assertThat(bytes[14]).isEqualTo((byte) 't');
+    assertThat(bytes[15]).isEqualTo((byte) ' ');
+    // fmt chunk size
+    assertThat(
+            ByteBuffer.wrap(bytes, /* offset= */ 16, /* length= */ 4)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getInt())
+        .isEqualTo(18);
+    // format tag
+    assertThat(
+            ByteBuffer.wrap(bytes, /* offset= */ 20, /* length= */ 2)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getShort())
+        .isEqualTo((short) 3);
+    // fact chunk
+    assertThat(bytes[38]).isEqualTo((byte) 'f');
+    assertThat(bytes[39]).isEqualTo((byte) 'a');
+    assertThat(bytes[40]).isEqualTo((byte) 'c');
+    assertThat(bytes[41]).isEqualTo((byte) 't');
+    // fact chunk size
+    assertThat(
+            ByteBuffer.wrap(bytes, /* offset= */ 42, /* length= */ 4)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .getInt())
+        .isEqualTo(4);
   }
 }

@@ -87,6 +87,8 @@
         new `addTrackReference` API. This allows establishing relationships
         between tracks, such as linking a metadata track to the video track it
         describes.
+    *   Add `WavMuxer` for WAV file generation (supports integer and
+        floating-point PCM).
 *   IMA extension:
     *   Add
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`

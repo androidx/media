@@ -19,8 +19,10 @@ import static androidx.media3.common.util.Util.getByteDepth;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.toUnsignedInt;
 import static androidx.media3.common.util.WavUtil.DATA_FOURCC;
+import static androidx.media3.common.util.WavUtil.FACT_FOURCC;
 import static androidx.media3.common.util.WavUtil.FMT_FOURCC;
 import static androidx.media3.common.util.WavUtil.RIFF_FOURCC;
+import static androidx.media3.common.util.WavUtil.TYPE_FLOAT;
 import static androidx.media3.common.util.WavUtil.TYPE_PCM;
 import static androidx.media3.common.util.WavUtil.WAVE_FOURCC;
 import static androidx.media3.common.util.WavUtil.getTypeForPcmEncoding;
@@ -43,7 +45,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Only integer PCM is supported.
  */
 /* package */ final class WavWriter {
-  private static final int HEADER_SIZE = 44;
+
+  private static final int FMT_CHUNK_SIZE_INT_PCM = 16;
+  private static final int FMT_CHUNK_SIZE_FLOAT_PCM = 18;
+  private static final int FACT_CHUNK_SIZE_FLOAT_PCM = 12;
 
   private final SeekableMuxerOutput muxerOutput;
 
@@ -96,12 +101,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkArgument(format.pcmEncoding != Format.NO_VALUE);
     int audioFormatType = getTypeForPcmEncoding(format.pcmEncoding);
     // TODO: b/474575207 - Add support for float PCM.
-    checkArgument(audioFormatType == TYPE_PCM, "Only integer PCM supported");
+    checkArgument(
+        audioFormatType == TYPE_PCM || audioFormatType == TYPE_FLOAT, "Only integer PCM supported");
   }
 
   private void writeWavHeader() throws IOException {
     checkNotNull(format);
-    ByteBuffer header = ByteBuffer.allocate(HEADER_SIZE);
+    int audioFormatType = getTypeForPcmEncoding(format.pcmEncoding);
+    boolean isFloatPcm = audioFormatType == TYPE_FLOAT;
+    int fmtChunkSize = isFloatPcm ? FMT_CHUNK_SIZE_FLOAT_PCM : FMT_CHUNK_SIZE_INT_PCM;
+    int factChunkSize = isFloatPcm ? FACT_CHUNK_SIZE_FLOAT_PCM : 0;
+    // RIFF/WAVE header + fmt chunk + fact chunk + data chunk
+    int headerSize = 12 + (8 + fmtChunkSize) + factChunkSize + 8;
+    ByteBuffer header = ByteBuffer.allocate(headerSize);
     header.order(ByteOrder.LITTLE_ENDIAN);
 
     // The RIFF/WAVE header
@@ -109,15 +121,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // If the data size is an odd number of bytes, a pad byte with value zero is written after data.
     int extraPadding = (int) (dataSize % 2);
     // Subtract 8 for ChunkId and ChunkSize bytes
-    long totalFileSize = HEADER_SIZE - 8 + dataSize + extraPadding;
+    long totalFileSize = headerSize - 8 + dataSize + extraPadding;
     checkState(totalFileSize <= UNSIGNED_INT_MAX_VALUE);
     header.putInt((int) totalFileSize);
     header.putInt(Integer.reverseBytes(WAVE_FOURCC));
 
     // The "fmt " chunk
     header.putInt(Integer.reverseBytes(FMT_FOURCC));
-    header.putInt(16); // fmt chunk size
-    int audioFormatType = getTypeForPcmEncoding(format.pcmEncoding);
+    header.putInt(fmtChunkSize);
     header.putShort((short) audioFormatType);
     header.putShort((short) format.channelCount);
     header.putInt(format.sampleRate);
@@ -126,6 +137,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     header.putInt(byteRate);
     header.putShort((short) bytesPerFrame); // Block Align
     header.putShort((short) (getByteDepth(format.pcmEncoding) * 8)); // Bits per sample
+    if (isFloatPcm) {
+      header.putShort((short) 0); // cbSize
+    }
+    if (isFloatPcm) {
+      // The "fact" chunk
+      header.putInt(Integer.reverseBytes(FACT_FOURCC));
+      header.putInt(4); // fact chunk size
+      int numFrames = (int) (dataSize / bytesPerFrame);
+      header.putInt(numFrames);
+    }
 
     // The "data" chunk
     header.putInt(Integer.reverseBytes(DATA_FOURCC));
