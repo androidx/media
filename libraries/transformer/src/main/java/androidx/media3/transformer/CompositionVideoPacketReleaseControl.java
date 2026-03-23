@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,6 +31,7 @@ import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.exoplayer.video.VideoSink.FirstFrameReleaseInstruction;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -143,6 +143,16 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       }
       videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
     }
+  }
+
+  @Override
+  public void onEnabled(
+      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction, int sequenceIndex) {
+    // Only update based on stream changes in the primary sequence.
+    if (sequenceIndex != 0) {
+      return;
+    }
+    videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
   }
 
   @Override

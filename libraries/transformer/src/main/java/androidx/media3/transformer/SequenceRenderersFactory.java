@@ -63,6 +63,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
+import androidx.media3.exoplayer.video.VideoSink.FirstFrameReleaseInstruction;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -95,6 +96,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long elapsedRealtimeUs,
         long compositionTimeOutputStreamStartPositionUs)
         throws ExoPlaybackException;
+
+    /**
+     * Called on {@link Renderer#enable}.
+     *
+     * <p>Called on the playback thread.
+     *
+     * @param firstFrameReleaseInstruction The {@link FirstFrameReleaseInstruction} from the calling
+     *     renderer.
+     * @param sequenceIndex The sequence index of the calling renderer.
+     */
+    void onEnabled(
+        @FirstFrameReleaseInstruction int firstFrameReleaseInstruction, int sequenceIndex);
 
     /**
      * Called on {@link Renderer#isEnded}.
@@ -235,12 +248,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               videoRendererEventListener,
               checkNotNull(compositionRendererListener),
               checkNotNull(hardwareBufferFrameReader),
-              lateThresholdToDropInputUs));
+              lateThresholdToDropInputUs,
+              inputIndex));
       renderers.add(
           new HardwareBufferImageRenderer(
               checkNotNull(imageDecoderFactory),
               checkNotNull(compositionRendererListener),
-              checkNotNull(hardwareBufferFrameReader)));
+              checkNotNull(hardwareBufferFrameReader),
+              inputIndex));
     }
     return renderers.toArray(new Renderer[0]);
   }
@@ -272,7 +287,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           videoRendererEventListener,
           checkNotNull(compositionRendererListener),
           checkNotNull(hardwareBufferFrameReader),
-          lateThresholdToDropInputUs);
+          lateThresholdToDropInputUs,
+          inputIndex);
     }
     return null;
   }
@@ -918,6 +934,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final CompositionRendererListener compositionRendererListener;
     private final HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
+    private final int sequenceIndex;
 
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private @MonotonicNonNull Format nextFormat;
@@ -930,7 +947,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         VideoRendererEventListener videoRendererEventListener,
         CompositionRendererListener compositionRendererListener,
         HardwareBufferFrameReader hardwareBufferFrameReader,
-        long lateThresholdToDropInputUs) {
+        long lateThresholdToDropInputUs,
+        int sequenceIndex) {
       super(
           new Builder(context)
               .setMediaCodecSelector(MediaCodecSelector.DEFAULT)
@@ -945,6 +963,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReader = hardwareBufferFrameReader;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+      this.sequenceIndex = sequenceIndex;
+    }
+
+    @Override
+    protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+        throws ExoPlaybackException {
+      int firstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
+      compositionRendererListener.onEnabled(firstFrameReleaseInstruction, sequenceIndex);
+      super.onEnabled(joining, mayRenderStartOfStream);
     }
 
     @Override
@@ -1081,6 +1111,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private final CompositionRendererListener compositionRendererListener;
     private final HardwareBufferFrameReader hardwareBufferFrameReader;
+    private final int sequenceIndex;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
@@ -1089,14 +1120,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
         CompositionRendererListener compositionRendererListener,
-        HardwareBufferFrameReader hardwareBufferFrameReader) {
+        HardwareBufferFrameReader hardwareBufferFrameReader,
+        int sequenceIndex) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+      this.sequenceIndex = sequenceIndex;
       streamStartPositionUs = C.TIME_UNSET;
     }
 
     // ImageRenderer methods
+    @Override
+    protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+        throws ExoPlaybackException {
+      int firstFrameReleaseInstruction =
+          mayRenderStartOfStream
+              ? RELEASE_FIRST_FRAME_IMMEDIATELY
+              : RELEASE_FIRST_FRAME_WHEN_STARTED;
+      compositionRendererListener.onEnabled(firstFrameReleaseInstruction, sequenceIndex);
+      super.onEnabled(joining, mayRenderStartOfStream);
+    }
 
     @Override
     protected void onPositionReset(

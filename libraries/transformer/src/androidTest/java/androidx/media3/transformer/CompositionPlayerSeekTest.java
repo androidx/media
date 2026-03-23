@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
@@ -48,9 +49,13 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
+import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -61,6 +66,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -1189,6 +1196,75 @@ public class CompositionPlayerSeekTest {
 
     assertThat(lastPositionOffsetUsFirstSequence.get()).isEqualTo(/* positionOffsetUs */ 400_000);
     assertThat(lastPositionOffsetUsSecondSequence.get()).isEqualTo(/* positionOffsetUs */ 100_000);
+  }
+
+  @Test
+  @Ignore("This is flaky, re-enable once seeking is fixed (b/481625008)")
+  @SdkSuppress(minSdkVersion = 33)
+  public void seekWhilePaused_withPacketConsumer_outputsPacket() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicBoolean isPlaying = new AtomicBoolean();
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            applicationContext,
+            HardwareBufferJni.INSTANCE,
+            /* onQueue= */ frames -> {
+              queuedFrame.set(frames.get(0));
+              queuedPackets.incrementAndGet();
+              packetQueued.open();
+              return frames;
+            });
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  new CompositionPlayer.Builder(applicationContext)
+                      .setHardwareBufferEffectsPipeline(pipeline)
+                      .build());
+              player.get().setVideoSurfaceView(surfaceView);
+              player.get().addListener(listener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(packetQueued.isOpen()).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(0);
+    getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
+
+    queuedPackets.set(0);
+    queuedFrame.set(null);
+    packetQueued.close();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(100);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(100_100L);
+
+    // Even after seeking and rendering a frame, the video should not be playing.
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
   }
 
   /**

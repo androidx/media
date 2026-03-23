@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -66,6 +67,7 @@ import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
@@ -78,6 +80,7 @@ import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -94,6 +97,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -833,6 +837,7 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  @Ignore("This is flaky, re-enable once EOS is only propagated when playing (b/481625008)")
   @SdkSuppress(minSdkVersion = 33)
   public void compositionPlayer_withPacketConsumer_outputsFrameBeforeEnding() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -992,5 +997,51 @@ public class CompositionPlayerTest {
       }
       return superPositionUs + offsetUs;
     }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 33)
+  public void prepare_withPacketConsumer_rendersFirstFrame() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicBoolean isPlaying = new AtomicBoolean();
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            applicationContext,
+            HardwareBufferJni.INSTANCE,
+            /* onQueue= */ frames -> {
+              queuedFrame.set(frames.get(0));
+              queuedPackets.incrementAndGet();
+              return frames;
+            });
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setHardwareBufferEffectsPipeline(pipeline)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+                                  .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+        });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(0);
+    instrumentation.runOnMainSync(() -> assertThat(compositionPlayer.getPlayWhenReady()).isFalse());
+
+    // Even after seeking and rendering a frame, the video should not be playing.
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(compositionPlayer.getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
   }
 }
