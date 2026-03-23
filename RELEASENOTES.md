@@ -140,6 +140,8 @@
         instead.
     *   Remove `androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata`. Use
         `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
+    *   Remove `androidx.media3.extractor.DummyTrackOutput`. Use
+        `androidx.media3.extractor.DiscardingTrackOutput` instead.
 
 ## 1.10
 
