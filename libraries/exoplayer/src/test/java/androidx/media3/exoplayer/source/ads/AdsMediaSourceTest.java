@@ -52,6 +52,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.ads.AdsLoader.EventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestUtil;
@@ -153,8 +154,7 @@ public final class AdsMediaSourceTest {
             mockAdViewProvider,
             /* useLazyContentSourcePreparation= */ true,
             /* useAdMediaSourceClipping= */ false);
-    adsMediaSource.prepareSource(
-        mockMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(mockMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
     verify(mockAdsLoader)
         .start(
@@ -341,8 +341,8 @@ public final class AdsMediaSourceTest {
     mediaSource.updateMediaItem(updatedMediaItem);
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
 
     assertThat(
@@ -452,8 +452,7 @@ public final class AdsMediaSourceTest {
         };
 
     // Prepare the source which must not notify the caller with a timeline yet.
-    adsMediaSource.prepareSource(
-        fakeMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(fakeMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
 
     // Verify ads loader was called with the content timeline to allow populating the ads.
@@ -630,8 +629,7 @@ public final class AdsMediaSourceTest {
         };
 
     // Prepare the source that must not result in an external timeline without ad data.
-    adsMediaSource.prepareSource(
-        fakeMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(fakeMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
 
     // External caller not yet notified.
@@ -1054,8 +1052,7 @@ public final class AdsMediaSourceTest {
             mockAdViewProvider,
             /* useLazyContentSourcePreparation= */ false,
             /* useAdMediaSourceClipping= */ false);
-    adsMediaSource.prepareSource(
-        mockMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(mockMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
     ArgumentCaptor<EventListener> eventListenerArgumentCaptor =
         ArgumentCaptor.forClass(AdsLoader.EventListener.class);
@@ -1157,8 +1154,7 @@ public final class AdsMediaSourceTest {
             mockAdViewProvider,
             /* useLazyContentSourcePreparation= */ false,
             /* useAdMediaSourceClipping= */ false);
-    adsMediaSource.prepareSource(
-        mockMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(mockMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
     ArgumentCaptor<EventListener> eventListenerArgumentCaptor =
         ArgumentCaptor.forClass(AdsLoader.EventListener.class);
@@ -1225,8 +1221,7 @@ public final class AdsMediaSourceTest {
             mockAdViewProvider,
             /* useLazyContentSourcePreparation= */ false,
             /* useAdMediaSourceClipping= */ true);
-    adsMediaSource.prepareSource(
-        mockMediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    adsMediaSource.prepareSource(mockMediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     shadowOf(Looper.getMainLooper()).idle();
     ArgumentCaptor<EventListener> eventListenerArgumentCaptor =
         ArgumentCaptor.forClass(AdsLoader.EventListener.class);

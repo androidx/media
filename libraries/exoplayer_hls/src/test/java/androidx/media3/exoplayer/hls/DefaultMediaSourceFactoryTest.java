@@ -25,6 +25,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
@@ -136,7 +137,7 @@ public class DefaultMediaSourceFactoryTest {
         .runOnMainSync(
             () ->
                 mediaSource.prepareSource(
-                    (source, timeline) -> {}, /* mediaTransferListener= */ null, PlayerId.UNSET));
+                    (source, timeline) -> {}, PlayerId.UNSET, BandwidthMeter.NO_OP));
     // We don't expect this to prepare successfully.
     RobolectricUtil.runMainLooperUntil(
         /* maxTimeDiffMs= */ 10_000, // Account for internal timeouts and retries

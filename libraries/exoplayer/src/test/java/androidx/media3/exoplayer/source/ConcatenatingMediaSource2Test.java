@@ -47,6 +47,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
@@ -516,9 +517,7 @@ public final class ConcatenatingMediaSource2Test {
     MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     ArrayList<Timeline> timelines = new ArrayList<>();
     mediaSource.prepareSource(
-        (source, timeline) -> timelines.add(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        (source, timeline) -> timelines.add(timeline), PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelines.size() == config.expectedTimelineData.size());
 
     for (int i = 0; i < config.expectedTimelineData.size(); i++) {
@@ -569,14 +568,14 @@ public final class ConcatenatingMediaSource2Test {
     MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     ArrayList<Timeline> timelines = new ArrayList<>();
     MediaSource.MediaSourceCaller caller = (source, timeline) -> timelines.add(timeline);
-    mediaSource.prepareSource(caller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelines.size() == config.expectedTimelineData.size());
 
     // Release and re-prepare.
     mediaSource.releaseSource(caller);
     AtomicReference<Timeline> secondTimeline = new AtomicReference<>();
     MediaSource.MediaSourceCaller secondCaller = (source, timeline) -> secondTimeline.set(timeline);
-    mediaSource.prepareSource(secondCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(secondCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
     // Assert that we receive the same final timeline.
     runMainLooperUntil(() -> getLast(timelines).equals(secondTimeline.get()));
@@ -590,9 +589,7 @@ public final class ConcatenatingMediaSource2Test {
     mediaSource.addEventListener(new Handler(Looper.myLooper()), eventListener);
     ArrayList<Timeline> timelines = new ArrayList<>();
     mediaSource.prepareSource(
-        (source, timeline) -> timelines.add(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        (source, timeline) -> timelines.add(timeline), PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelines.size() == config.expectedTimelineData.size());
 
     // Iterate through all periods and ads. Create and prepare them twice, because the MediaSource
@@ -877,8 +874,8 @@ public final class ConcatenatingMediaSource2Test {
     mediaSource.updateMediaItem(updatedMediaItem);
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
 
     assertThat(

@@ -29,6 +29,7 @@ import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
@@ -46,8 +47,8 @@ import java.io.IOException;
  *   <li>To provide the player with a {@link Timeline} defining the structure of its media, and to
  *       provide a new timeline whenever the structure of the media changes. The MediaSource
  *       provides these timelines by calling {@link MediaSourceCaller#onSourceInfoRefreshed} on the
- *       {@link MediaSourceCaller}s passed to {@link #prepareSource(MediaSourceCaller,
- *       TransferListener, PlayerId)}.
+ *       {@link MediaSourceCaller}s passed to {@link #prepareSource(MediaSourceCaller, PlayerId,
+ *       BandwidthMeter)}.
  *   <li>To provide {@link MediaPeriod} instances for the periods in its timeline. MediaPeriods are
  *       obtained by calling {@link #createPeriod(MediaPeriodId, Allocator, long)}, and provide a
  *       way for the player to load and read the media.
@@ -493,6 +494,21 @@ public interface MediaSource {
   default void updateMediaItem(MediaItem mediaItem) {}
 
   /**
+   * @deprecated Use {@link #prepareSource(MediaSourceCaller, PlayerId, BandwidthMeter)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  default void prepareSource(
+      MediaSourceCaller caller,
+      @Nullable TransferListener mediaTransferListener,
+      PlayerId playerId) {
+    // Media3 ExoPlayer will never call this method. This default implementation provides an
+    // implementation to please the compiler only.
+    throw new IllegalStateException(
+        "prepareSource(MediaSourceCaller, TransferListener, PlayerId) not implemented");
+  }
+
+  /**
    * Registers a {@link MediaSourceCaller}. Starts source preparation if needed and enables the
    * source for the creation of {@link MediaPeriod MediaPerods}.
    *
@@ -507,17 +523,20 @@ public interface MediaSource {
    * <p>This method must be called on the playback thread.
    *
    * @param caller The {@link MediaSourceCaller} to be registered.
-   * @param mediaTransferListener The transfer listener which should be informed of any media data
-   *     transfers. May be null if no listener is available. Note that this listener should be only
-   *     informed of transfers related to the media loads and not of auxiliary loads for manifests
-   *     and other data.
    * @param playerId The {@link PlayerId} of the player using this media source.
+   * @param bandwidthMeter The {@link BandwidthMeter} that provides {@linkplain
+   *     BandwidthMeter#getTransferListener() transfer listener} which should be informed of any
+   *     media data transfers, and estimates the currently available bandwidth. May be {@link
+   *     BandwidthMeter#NO_OP} if no bandwidth meter is available and the {@link MediaSource}
+   *     doesn't need the bandwidth estimation. Note that the provided transfer listener by the
+   *     {@code bandwidthMeter} should be only informed of transfers related to the media loads and
+   *     not of auxiliary loads for manifests and other data.
    */
   @UnstableApi
-  void prepareSource(
-      MediaSourceCaller caller,
-      @Nullable TransferListener mediaTransferListener,
-      PlayerId playerId);
+  default void prepareSource(
+      MediaSourceCaller caller, PlayerId playerId, BandwidthMeter bandwidthMeter) {
+    prepareSource(caller, bandwidthMeter.getTransferListener(), playerId);
+  }
 
   /**
    * Throws any pending error encountered while loading or refreshing source information.
@@ -525,7 +544,7 @@ public interface MediaSource {
    * <p>Should not be called directly from application code.
    *
    * <p>This method must be called on the playback thread and only after {@link
-   * #prepareSource(MediaSourceCaller, TransferListener, PlayerId)}.
+   * #prepareSource(MediaSourceCaller, PlayerId, BandwidthMeter)}.
    */
   @UnstableApi
   void maybeThrowSourceInfoRefreshError() throws IOException;
@@ -536,7 +555,7 @@ public interface MediaSource {
    * <p>Should not be called directly from application code.
    *
    * <p>This method must be called on the playback thread and only after {@link
-   * #prepareSource(MediaSourceCaller, TransferListener, PlayerId)}.
+   * #prepareSource(MediaSourceCaller, PlayerId, BandwidthMeter)}.
    *
    * @param caller The {@link MediaSourceCaller} enabling the source.
    */

@@ -41,6 +41,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeDataSet;
@@ -866,7 +867,7 @@ public class HlsMediaSourceTest {
     List<Timeline> timelines = new ArrayList<>();
     MediaSource.MediaSourceCaller mediaSourceCaller = (source, timeline) -> timelines.add(timeline);
 
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> timelines.size() == 1);
     mediaSource.onPrimaryPlaylistRefreshed(secondPlaylist);
     runMainLooperUntil(() -> timelines.size() == 2);
@@ -1182,9 +1183,7 @@ public class HlsMediaSourceTest {
       throws TimeoutException {
     AtomicReference<Timeline> receivedTimeline = new AtomicReference<>();
     mediaSource.prepareSource(
-        (source, timeline) -> receivedTimeline.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        (source, timeline) -> receivedTimeline.set(timeline), PlayerId.UNSET, BandwidthMeter.NO_OP);
     runMainLooperUntil(() -> receivedTimeline.get() != null);
     return receivedTimeline.get();
   }

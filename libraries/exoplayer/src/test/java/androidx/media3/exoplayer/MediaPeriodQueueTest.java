@@ -60,6 +60,7 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeMultiPeriodLiveTimeline;
 import androidx.media3.test.utils.FakeShuffleOrder;
@@ -147,7 +148,8 @@ public final class MediaPeriodQueueTest {
             mock(MediaSourceList.MediaSourceListInfoRefreshListener.class),
             analyticsCollector,
             handler,
-            PlayerId.UNSET);
+            PlayerId.UNSET,
+            BandwidthMeter.NO_OP);
     rendererCapabilities = new RendererCapabilities[0];
     trackSelector = mock(TrackSelector.class);
     allocator = mock(Allocator.class);
@@ -2213,7 +2215,7 @@ public final class MediaPeriodQueueTest {
       MediaSourceList.MediaSourceHolder mediaSourceHolder =
           new MediaSourceList.MediaSourceHolder(source, /* useLazyPreparation= */ false);
       mediaSourceHolder.mediaSource.prepareSource(
-          mock(MediaSourceCaller.class), /* mediaTransferListener= */ null, PlayerId.UNSET);
+          mock(MediaSourceCaller.class), PlayerId.UNSET, BandwidthMeter.NO_OP);
       mediaSourceHolders.add(mediaSourceHolder);
     }
     ImmutableList<MediaSourceList.MediaSourceHolder> holders = mediaSourceHolders.build();
@@ -2431,8 +2433,8 @@ public final class MediaPeriodQueueTest {
           serverSideAdInsertionTimelineRef.set(serverSideInsertedAdTimeline);
           countDownLatch.countDown();
         },
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     if (!countDownLatch.await(/* timeout= */ 2, SECONDS)) {
       fail();
     }

@@ -32,6 +32,7 @@ import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.FileDataSource;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -475,14 +476,14 @@ public final class DashMediaSourceTest {
         (source, timeline) ->
             capturedWindows.add(timeline.getWindow(/* windowIndex= */ 0, new Window()));
 
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
     RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
     // Assert that the offset defined by the media item was overridden.
     assertThat(capturedWindows.get(0).liveConfiguration.targetOffsetMs).isEqualTo(9_000L);
 
     mediaSource.releaseSource(mediaSourceCaller);
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
     RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
     assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(25_000L);
@@ -627,7 +628,7 @@ public final class DashMediaSourceTest {
         (source, timeline) ->
             capturedWindows.add(timeline.getWindow(/* windowIndex= */ 0, new Window()));
 
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
     RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 1);
     // Assert that the offset defined by the media item was overridden.
@@ -641,7 +642,7 @@ public final class DashMediaSourceTest {
             .setLiveConfiguration(new LiveConfiguration.Builder().setTargetOffsetMs(5_000L).build())
             .build());
 
-    mediaSource.prepareSource(mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
+    mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
 
     RobolectricUtil.runMainLooperUntil(() -> capturedWindows.size() == 2);
     assertThat(capturedWindows.get(1).liveConfiguration.targetOffsetMs).isEqualTo(5_000L);
@@ -652,8 +653,8 @@ public final class DashMediaSourceTest {
     mediaSource.prepareSource(
         (source, timeline) ->
             windowReference.set(timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window())),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> windowReference.get() != null);
     return windowReference.get();
   }
