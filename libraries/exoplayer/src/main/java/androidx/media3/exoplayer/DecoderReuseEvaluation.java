@@ -155,7 +155,7 @@ public final class DecoderReuseEvaluation {
 
   /**
    * {@link DecoderDiscardReasons Reasons} why the decoder cannot be reused. Always {@code 0} if
-   * reuse is possible. May also be {code 0} if reuse is not possible for an unspecified reason.
+   * reuse is possible. May also be {@code 0} if reuse is not possible for an unspecified reason.
    */
   public final @DecoderDiscardReasons int discardReasons;
 
