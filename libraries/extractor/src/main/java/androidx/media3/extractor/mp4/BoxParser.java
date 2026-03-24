@@ -2116,7 +2116,7 @@ public final class BoxParser {
     } else if (atomType == Mp4Box.TYPE_dtse) {
       mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
     } else if (atomType == Mp4Box.TYPE_dtsx) {
-      mimeType = MimeTypes.AUDIO_DTS_X;
+      mimeType = MimeTypes.AUDIO_DTS_UHD_P2;
     } else if (atomType == Mp4Box.TYPE_samr) {
       mimeType = MimeTypes.AUDIO_AMR_NB;
     } else if (atomType == Mp4Box.TYPE_sawb) {

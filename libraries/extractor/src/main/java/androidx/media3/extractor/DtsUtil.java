@@ -86,13 +86,19 @@ public final class DtsUtil {
    * <ul>
    *   <li>{@link MimeTypes#AUDIO_DTS}
    *   <li>{@link MimeTypes#AUDIO_DTS_EXPRESS}
-   *   <li>{@link MimeTypes#AUDIO_DTS_X}
+   *   <li>{@link MimeTypes#AUDIO_DTS_HD}
+   *   <li>{@link MimeTypes#AUDIO_DTS_UHD_P2}
    * </ul>
    */
   @Documented
   @Retention(SOURCE)
   @Target(TYPE_USE)
-  @StringDef({MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_EXPRESS, MimeTypes.AUDIO_DTS_X})
+  @StringDef({
+    MimeTypes.AUDIO_DTS,
+    MimeTypes.AUDIO_DTS_EXPRESS,
+    MimeTypes.AUDIO_DTS_HD,
+    MimeTypes.AUDIO_DTS_UHD_P2
+  })
   public @interface DtsAudioMimeType {}
 
   /**
@@ -656,7 +662,7 @@ public final class DtsUtil {
 
     int frameSize = ftocPayloadInBytes + chunkPayloadBytes;
     return new DtsHeader(
-        MimeTypes.AUDIO_DTS_X,
+        MimeTypes.AUDIO_DTS_UHD_P2,
         // To determine the actual number of channels from a bit stream, we need to read the
         // metadata chunk bytes. If defining a constant channel count causes problems, we can
         // consider adding additional parsing logic for UHD frames.

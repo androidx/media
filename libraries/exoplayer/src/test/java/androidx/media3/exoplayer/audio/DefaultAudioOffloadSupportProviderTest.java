@@ -68,7 +68,10 @@ public final class DefaultAudioOffloadSupportProviderTest {
   public void
       getAudioOffloadSupport_withDtsXAndSdkUnder34_returnsAudioOffloadSupportDefaultUnsupported() {
     Format formatDtsX =
-        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_DTS_X).setSampleRate(48_000).build();
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_DTS_UHD_P2)
+            .setSampleRate(48_000)
+            .build();
     DefaultAudioOffloadSupportProvider audioOffloadSupportProvider =
         new DefaultAudioOffloadSupportProvider();
 
