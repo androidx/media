@@ -870,7 +870,7 @@ public class MediaController implements Player {
    * {@inheritDoc}
    *
    * <p>Interoperability: When connected to {@code
-   * android.support.v4.media.session.MediaSessionCompat}, it returns {code 0}.
+   * android.support.v4.media.session.MediaSessionCompat}, it returns {@code 0}.
    */
   @Override
   public final long getSeekBackIncrement() {
@@ -899,7 +899,7 @@ public class MediaController implements Player {
    * {@inheritDoc}
    *
    * <p>Interoperability: When connected to {@code
-   * android.support.v4.media.session.MediaSessionCompat}, it returns {code 0}.
+   * android.support.v4.media.session.MediaSessionCompat}, it returns {@code 0}.
    */
   @Override
   public final long getSeekForwardIncrement() {
