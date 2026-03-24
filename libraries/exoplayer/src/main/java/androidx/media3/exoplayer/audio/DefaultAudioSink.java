@@ -1861,7 +1861,9 @@ public final class DefaultAudioSink implements AudioSink {
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_8BIT:
       case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
       case C.ENCODING_PCM_DOUBLE:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
       case C.ENCODING_AAC_ER_BSAC:
       case C.ENCODING_DSD:
       case C.ENCODING_INVALID:

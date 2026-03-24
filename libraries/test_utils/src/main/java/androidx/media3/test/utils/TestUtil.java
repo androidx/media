@@ -255,6 +255,13 @@ public class TestUtil {
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(long[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 8).order(ByteOrder.nativeOrder());
+    buffer.asLongBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(short[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
     buffer.asShortBuffer().put(data);

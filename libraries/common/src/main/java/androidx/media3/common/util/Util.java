@@ -2448,11 +2448,28 @@ public final class Util {
    */
   @UnstableApi
   public static @C.PcmEncoding int getFloatPcmEncoding(int bitDepth) {
+    return getFloatPcmEncoding(bitDepth, LITTLE_ENDIAN);
+  }
+
+  /**
+   * Converts a sample bit depth and byte order to a corresponding float PCM encoding constant.
+   *
+   * @param bitDepth The bit depth. Supported values are 32 and 64.
+   * @param byteOrder The byte order.
+   * @return The corresponding float PCM encoding. If the bit depth is unsupported then {@link
+   *     C#ENCODING_INVALID} is returned.
+   */
+  @UnstableApi
+  public static @C.PcmEncoding int getFloatPcmEncoding(int bitDepth, ByteOrder byteOrder) {
     switch (bitDepth) {
       case 32:
-        return C.ENCODING_PCM_FLOAT;
+        return byteOrder.equals(LITTLE_ENDIAN)
+            ? C.ENCODING_PCM_FLOAT
+            : C.ENCODING_PCM_FLOAT_BIG_ENDIAN;
       case 64:
-        return C.ENCODING_PCM_DOUBLE;
+        return byteOrder.equals(LITTLE_ENDIAN)
+            ? C.ENCODING_PCM_DOUBLE
+            : C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
       default:
         return C.ENCODING_INVALID;
     }
@@ -2474,7 +2491,9 @@ public final class Util {
         || encoding == C.ENCODING_PCM_32BIT
         || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_FLOAT
-        || encoding == C.ENCODING_PCM_DOUBLE;
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_DOUBLE
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
   }
 
   /**
@@ -2490,7 +2509,9 @@ public final class Util {
         || encoding == C.ENCODING_PCM_32BIT
         || encoding == C.ENCODING_PCM_32BIT_BIG_ENDIAN
         || encoding == C.ENCODING_PCM_FLOAT
-        || encoding == C.ENCODING_PCM_DOUBLE;
+        || encoding == C.ENCODING_PCM_FLOAT_BIG_ENDIAN
+        || encoding == C.ENCODING_PCM_DOUBLE
+        || encoding == C.ENCODING_PCM_DOUBLE_BIG_ENDIAN;
   }
 
   /**
@@ -2689,8 +2710,10 @@ public final class Util {
       case C.ENCODING_PCM_32BIT:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
         return 4;
       case C.ENCODING_PCM_DOUBLE:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
         return 8;
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:

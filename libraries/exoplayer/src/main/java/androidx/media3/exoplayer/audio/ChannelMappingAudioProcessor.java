@@ -117,9 +117,11 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
             buffer.putInt(inputBuffer.getInt(inputIndex));
             break;
           case C.ENCODING_PCM_FLOAT:
+          case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
             buffer.putFloat(inputBuffer.getFloat(inputIndex));
             break;
           case C.ENCODING_PCM_DOUBLE:
+          case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
             buffer.putDouble(inputBuffer.getDouble(inputIndex));
             break;
           default:

@@ -47,10 +47,23 @@ public class ToFloatPcmAudioProcessorTest {
    *   <li>{@link C#ENCODING_PCM_24BIT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_32BIT}
    *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
+   *   <li>{@link C#ENCODING_PCM_FLOAT_BIG_ENDIAN}
    *   <li>{@link C#ENCODING_PCM_DOUBLE}
+   *   <li>{@link C#ENCODING_PCM_DOUBLE_BIG_ENDIAN}
    * </ul>
    */
-  @TestParameter({"3", "2", "268435456", "21", "1342177280", "22", "1610612736", "1879048192"})
+  @TestParameter({
+    "3",
+    "2",
+    "268435456",
+    "21",
+    "1342177280",
+    "22",
+    "1610612736",
+    "1895825408",
+    "1879048192",
+    "1912602624"
+  })
   private int pcmEncoding;
 
   @Test
@@ -106,7 +119,9 @@ public class ToFloatPcmAudioProcessorTest {
       case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
         return 1f / 0x800000;
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
       case C.ENCODING_PCM_DOUBLE:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
         return 0;
     }
     throw new IllegalArgumentException();
@@ -176,8 +191,24 @@ public class ToFloatPcmAudioProcessorTest {
               0x00,
               0x00
             });
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+        return createByteBuffer(
+            new int[] {
+              Integer.reverseBytes(Float.floatToIntBits(1f)),
+              Integer.reverseBytes(Float.floatToIntBits(-1f)),
+              Integer.reverseBytes(Float.floatToIntBits(0.5f)),
+              Integer.reverseBytes(Float.floatToIntBits(-0.5f))
+            });
       case C.ENCODING_PCM_DOUBLE:
         return createByteBuffer(new double[] {1, -1, 0.5, -0.5});
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+        return createByteBuffer(
+            new long[] {
+              Long.reverseBytes(Double.doubleToLongBits(1f)),
+              Long.reverseBytes(Double.doubleToLongBits(-1f)),
+              Long.reverseBytes(Double.doubleToLongBits(0.5f)),
+              Long.reverseBytes(Double.doubleToLongBits(-0.5f))
+            });
     }
     throw new IllegalArgumentException();
   }
