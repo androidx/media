@@ -132,6 +132,8 @@
         `androidx.media3.extractor.metadata.MotionPhotoMetadata` instead.
     *   Remove `androidx.media3.extractor.DummyTrackOutput`. Use
         `androidx.media3.extractor.DiscardingTrackOutput` instead.
+    *   Remove `androidx.media3.extractor.DummyExtractorOutput`. Use
+        `androidx.media3.extractor.NoOpExtractorOutput` instead.
 
 ## 1.10
 
