@@ -137,12 +137,17 @@ enum JniStatusCode {
   kJniStatusDecoderInitFailed = -8,
   kJniStatusBufferInitError = -9,
   kJniStatusANativeWindowError = -10,
+  kJniStatusDataWrapError = -11,
+  kJniStatusUserDataWrapError = -12,
+  kJniStatusSendDataError = -13,
 };
 
 const int kLibdav1dDecoderStatusOk = 0;
 
 const char* GetJniErrorMessage(JniStatusCode error_code) {
   switch (error_code) {
+    case kJniStatusOk:
+      return "No JNI error.";
     case kJniStatusOutOfMemory:
       return "Out of memory.";
     case kJniStatusBufferAlreadyReleased:
@@ -164,6 +169,12 @@ const char* GetJniErrorMessage(JniStatusCode error_code) {
       return "Output buffer initialization failed.";
     case kJniStatusANativeWindowError:
       return "ANativeWindow error.";
+    case kJniStatusDataWrapError:
+      return "Data wrap error.";
+    case kJniStatusUserDataWrapError:
+      return "User data wrap error.";
+    case kJniStatusSendDataError:
+      return "Send data error.";
     default:
       return "Unrecognized error code.";
   }
@@ -653,6 +664,11 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
 
   if (context->libdav1d_status_code != 0) {
     delete cookie;
+    {
+      std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+          context->state_mutex);
+      context->jni_status_code = kJniStatusDataWrapError;
+    }
     return kStatusError;
   }
 
@@ -670,6 +686,11 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
     LOGE("Failed to wrap user data.");
     delete user_data;
     dav1d_data_unref(&data);
+    {
+      std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+          context->state_mutex);
+      context->jni_status_code = kJniStatusUserDataWrapError;
+    }
     return kStatusError;
   }
   int libdav1d_status_code = dav1d_send_data(context->decoder, &data);
@@ -683,6 +704,11 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
     dav1d_data_unref(&data);
     if (libdav1d_status_code == DAV1D_ERR(EAGAIN)) {
       return kStatusEagain;
+    }
+    {
+      std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
+          context->state_mutex);
+      context->jni_status_code = kJniStatusSendDataError;
     }
     return kStatusError;
   }
@@ -925,10 +951,17 @@ DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
       context->state_mutex);
+  char error_message[256];
   if (context->libdav1d_status_code != kLibdav1dDecoderStatusOk) {
-    char error_message[100];
-    snprintf(error_message, sizeof(error_message),
-             "There is a decoder error. %d", context->libdav1d_status_code);
+    if (context->libdav1d_status_code == DAV1D_ERR(EINVAL)) {
+      snprintf(error_message, sizeof(error_message),
+               "There is a decoder error. %d. %s",
+               context->libdav1d_status_code,
+               GetJniErrorMessage(context->jni_status_code));
+    } else {
+      snprintf(error_message, sizeof(error_message),
+               "There is a decoder error. %d", context->libdav1d_status_code);
+    }
     return env->NewStringUTF(error_message);
   }
   if (context->jni_status_code != kJniStatusOk) {
