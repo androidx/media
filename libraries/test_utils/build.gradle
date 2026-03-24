@@ -44,7 +44,6 @@ dependencies {
     api 'androidx.test.ext:truth:' + androidxTestTruthVersion
     api 'junit:junit:' + junitVersion
     api 'com.google.truth:truth:' + truthVersion
-    api 'com.google.truth.extensions:truth-java8-extension:' + truthVersion
     api 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion

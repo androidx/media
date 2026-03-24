@@ -23,7 +23,6 @@ def addMissingAarTypeToXml(xml) {
         "androidx.concurrent:concurrent-futures",
         "com.github.philburk:jsyn",
         "com.google.guava:guava",
-        "com.google.truth.extensions:truth-java8-extension",
         "com.google.truth:truth",
         "com.squareup.okhttp3:mockwebserver",
         "com.squareup.okhttp3:okhttp",
