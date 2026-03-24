@@ -69,6 +69,8 @@ public class AudioGraphInputTest {
       new AudioFormat(/* sampleRate= */ 48_000, /* channelCount= */ 1, C.ENCODING_PCM_16BIT);
   private static final AudioFormat STEREO_44100 =
       new AudioFormat(/* sampleRate= */ 44_100, /* channelCount= */ 2, C.ENCODING_PCM_16BIT);
+  private static final AudioFormat SURROUND_44100 =
+      new AudioFormat(/* sampleRate= */ 44_100, /* channelCount= */ 6, C.ENCODING_PCM_16BIT);
   private static final AudioFormat STEREO_48000 =
       new AudioFormat(/* sampleRate= */ 48_000, /* channelCount= */ 2, C.ENCODING_PCM_16BIT);
 
@@ -808,9 +810,7 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void
-      getOutputAudioFormat_duringSilenceGeneration_returnsPreviousPreProcessingPipelineOutputFormat()
-          throws Exception {
+  public void generateSilence_withPreprocessingEffect_usesSequenceOutputFormat() throws Exception {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setOutputSampleRateHz(88200);
     EditedMediaItem item =
@@ -851,6 +851,110 @@ public class AudioGraphInputTest {
 
     List<Byte> output = drainAudioGraphInputUntilEnded(audioGraphInput);
     assertThat(output).hasSize(88_200 * expectedOutputFormat.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(output)).containsExactly((byte) 0);
+  }
+
+  @Test
+  public void generateSilence_withUserEffect_usesSequenceOutputFormat() throws Exception {
+    ChannelMixingAudioProcessor processor = new ChannelMixingAudioProcessor();
+    processor.putChannelMixingMatrix(
+        ChannelMixingMatrix.createForConstantPower(
+            /* inputChannelCount= */ 6, /* outputChannelCount= */ 2));
+    EditedMediaItem item = FAKE_ITEM.buildUpon().setEffects(createAudioEffects(processor)).build();
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ item,
+            /* inputFormat= */ getPcmFormat(SURROUND_44100));
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ item,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(SURROUND_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    // Force the media item change to be processed.
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+    // Queue EOS.
+    audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    checkState(audioGraphInput.queueInputBuffer());
+    // Use null format to signal a gap.
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 1_000_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+    // Force the media item change to be processed.
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+
+    // Even though the first item was SURROUND_44100, the sequence output was STEREO_44100.
+    assertThat(audioGraphInput.getOutputAudioFormat()).isEqualTo(STEREO_44100);
+    List<Byte> output = drainAudioGraphInputUntilEnded(audioGraphInput);
+    assertThat(output).hasSize(STEREO_44100.sampleRate * STEREO_44100.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(output)).containsExactly((byte) 0);
+  }
+
+  @Test
+  public void generateSilence_withSetOutputFormat_usesSequenceOutputFormat() throws Exception {
+    // When setting a requested output format, the AudioGraphInput will try to convert the stream
+    // onto that format, even if no user effects have been added.
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ MONO_44100,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    // Force the media item change to be processed.
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+    // Queue EOS.
+    audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    checkState(audioGraphInput.queueInputBuffer());
+    // Use null format to signal a gap.
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 1_000_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+    // Force the media item change to be processed.
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+
+    // Even though the first item was STEREO_44100, the sequence output was set to MONO_44100.
+    assertThat(audioGraphInput.getOutputAudioFormat()).isEqualTo(MONO_44100);
+    List<Byte> output = drainAudioGraphInputUntilEnded(audioGraphInput);
+    assertThat(output).hasSize(MONO_44100.sampleRate * MONO_44100.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(output)).containsExactly((byte) 0);
+  }
+
+  @Test
+  public void generateSilence_withSetOutputFormat_usesSequenceOutputFormatAsFirstItem()
+      throws Exception {
+    // Input format of gap is ignored when gap is first item in sequence.
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ MONO_44100,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ 1_000_000,
+        /* decodedFormat= */ null,
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    // Force the media item change to be processed.
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+
+    assertThat(audioGraphInput.getOutputAudioFormat()).isEqualTo(MONO_44100);
+    List<Byte> output = drainAudioGraphInputUntilEnded(audioGraphInput);
+    assertThat(output).hasSize(MONO_44100.sampleRate * MONO_44100.bytesPerFrame);
     assertThat(ImmutableSet.copyOf(output)).containsExactly((byte) 0);
   }
 

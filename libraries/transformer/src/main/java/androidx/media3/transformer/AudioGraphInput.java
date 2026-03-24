@@ -76,8 +76,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
   private final SilenceAppendingAudioProcessor silenceAppendingAudioProcessor;
 
-  private AudioFormat lastInputFormat;
-
   /**
    * Pipeline containing {@link AudioProcessor} instances to apply immediately before {@link
    * #userPipeline}.
@@ -144,7 +142,6 @@ import java.util.concurrent.atomic.AtomicLong;
             preProcessingAudioFormat,
             requestedOutputAudioFormat,
             silenceAppendingAudioProcessor);
-    lastInputFormat = preProcessingAudioFormat;
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
     userPipeline.flush(StreamMetadata.DEFAULT);
     outputAudioFormat = userPipeline.getOutputAudioFormat();
@@ -487,6 +484,8 @@ import java.util.concurrent.atomic.AtomicLong;
     } else { // Generating silence
       // No audio track. Generate silence based on video track duration after applying effects.
       if (pendingChange.editedMediaItem.effects.audioProcessors.isEmpty()) {
+        // TODO: b/495429335 - Remove audio effects with gaps or when generating silence for
+        // audio-removed items or audio-less items.
         // No audio track and no effects.
         // Generate silence based on video track duration after applying effects.
         currentItemExpectedInputDurationUs =
@@ -496,7 +495,8 @@ import java.util.concurrent.atomic.AtomicLong;
         // Generate audio track based on video duration, and apply effects.
         currentItemExpectedInputDurationUs = pendingChange.durationUs;
       }
-      pendingAudioFormat = lastInputFormat;
+      // Use requested output format when generating silence to match sequence format.
+      pendingAudioFormat = outputAudioFormat;
       startTimeUs.compareAndSet(/* expectedValue= */ C.TIME_UNSET, /* newValue= */ 0);
       onlyGenerateSilence = true;
     }
@@ -516,7 +516,6 @@ import java.util.concurrent.atomic.AtomicLong;
               postAudioFormat,
               /* requiredOutputAudioFormat= */ outputAudioFormat,
               silenceAppendingAudioProcessor);
-      lastInputFormat = postAudioFormat;
     }
 
     // positionOffsetUs and the output of preProcessingPipeline should be congruent, so we don't
