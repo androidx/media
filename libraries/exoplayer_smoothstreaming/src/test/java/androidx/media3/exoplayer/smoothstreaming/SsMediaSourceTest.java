@@ -30,7 +30,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.smoothstreaming.manifest.SsManifest;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -190,8 +189,8 @@ public class SsMediaSourceTest {
     mediaSource.prepareSource(
         (source, timeline) ->
             windowReference.set(timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window())),
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     RobolectricUtil.runMainLooperUntil(() -> windowReference.get() != null);
     return windowReference.get();
   }

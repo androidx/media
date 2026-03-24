@@ -37,7 +37,6 @@ import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -341,7 +340,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             case MESSAGE_PREPARE_SOURCE:
               MediaItem mediaItem = (MediaItem) msg.obj;
               mediaSource = mediaSourceFactory.createMediaSource(mediaItem);
-              mediaSource.prepareSource(mediaSourceCaller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+              mediaSource.prepareSource(
+                  mediaSourceCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
               mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
               return true;
             case MESSAGE_CHECK_FOR_FAILURE:

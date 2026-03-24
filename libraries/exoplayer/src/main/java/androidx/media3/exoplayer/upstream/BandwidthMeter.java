@@ -28,27 +28,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @UnstableApi
 public interface BandwidthMeter {
 
-  /** A no-op {@link BandwidthMeter} that doesn't do estimation. */
-  BandwidthMeter NO_OP =
-      new BandwidthMeter() {
-        @Override
-        public long getBitrateEstimate() {
-          return 0;
-        }
-
-        @Nullable
-        @Override
-        public TransferListener getTransferListener() {
-          return null;
-        }
-
-        @Override
-        public void addEventListener(Handler eventHandler, EventListener eventListener) {}
-
-        @Override
-        public void removeEventListener(EventListener eventListener) {}
-      };
-
   /** A listener of {@link BandwidthMeter} events. */
   interface EventListener {
 

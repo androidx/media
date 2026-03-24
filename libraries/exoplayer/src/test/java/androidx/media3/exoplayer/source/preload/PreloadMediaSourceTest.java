@@ -283,7 +283,8 @@ public final class PreloadMediaSourceTest {
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
@@ -683,7 +684,7 @@ public final class PreloadMediaSourceTest {
         IllegalStateException.class,
         () ->
             preloadMediaSource.prepareSource(
-                (source, timeline) -> {}, PlayerId.UNSET, bandwidthMeter));
+                (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET));
 
     preloadThread.quit();
   }
@@ -711,7 +712,9 @@ public final class PreloadMediaSourceTest {
         IllegalStateException.class,
         () ->
             preloadMediaSource.prepareSource(
-                mock(MediaSource.MediaSourceCaller.class), PlayerId.UNSET, bandwidthMeter));
+                mock(MediaSource.MediaSourceCaller.class),
+                bandwidthMeter.getTransferListener(),
+                PlayerId.UNSET));
 
     preloadThread.quit();
   }
@@ -737,7 +740,8 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     wrappedMediaSource.setAllowPreparation(true);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -766,7 +770,8 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
 
     verify(externalCaller).onSourceInfoRefreshed(eq(preloadMediaSource), any());
     verify(mockPreloadControl).onSourcePrepared(eq(preloadMediaSource));
@@ -792,7 +797,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               doAnswer(
                       createPeriodInvocation -> {
                         MediaPeriod mediaPeriod = mock(MediaPeriod.class);
@@ -835,7 +840,8 @@ public final class PreloadMediaSourceTest {
     AtomicReference<Timeline> externalCallerSourceInfoTimelineReference = new AtomicReference<>();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoTimelineReference.set(timeline);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     Pair<Object, Long> periodPosition =
         externalCallerSourceInfoTimelineReference
             .get()
@@ -869,7 +875,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               doAnswer(
                       createPeriodInvocation -> {
                         MediaPeriod mediaPeriod = mock(MediaPeriod.class);
@@ -912,7 +918,8 @@ public final class PreloadMediaSourceTest {
     AtomicReference<Timeline> externalCallerSourceInfoTimelineReference = new AtomicReference<>();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoTimelineReference.set(timeline);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     // Create a period from different position.
     Pair<Object, Long> periodPosition =
         externalCallerSourceInfoTimelineReference
@@ -1106,7 +1113,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
@@ -1126,7 +1133,8 @@ public final class PreloadMediaSourceTest {
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
     MediaSource.MediaSourceCaller externalCaller =
         (source, timeline) -> externalCallerSourceInfoRefreshedCalled.set(true);
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releaseSource(externalCaller);
 
@@ -1155,7 +1163,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
@@ -1175,7 +1183,8 @@ public final class PreloadMediaSourceTest {
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     preloadMediaSource.releaseSource(externalCaller);
 
     verify(loadControl).onPrepared(PlayerId.PRELOAD);
@@ -1205,7 +1214,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
@@ -1228,8 +1237,10 @@ public final class PreloadMediaSourceTest {
         (source, timeline) -> externalCaller1SourceInfoRefreshedCalled.set(true);
     MediaSource.MediaSourceCaller externalCaller2 =
         (source, timeline) -> externalCaller2SourceInfoRefreshedCalled.set(true);
-    preloadMediaSource.prepareSource(externalCaller1, PlayerId.UNSET, bandwidthMeter);
-    preloadMediaSource.prepareSource(externalCaller2, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller1, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
+    preloadMediaSource.prepareSource(
+        externalCaller2, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     // Only releaseSource by externalCaller1.
     preloadMediaSource.releaseSource(externalCaller1);
 
@@ -1259,7 +1270,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
@@ -1306,7 +1317,7 @@ public final class PreloadMediaSourceTest {
                         return null;
                       })
                   .when(mockMediaSource)
-                  .prepareSource(any(), any(), any(BandwidthMeter.class));
+                  .prepareSource(any(), any(), any());
               when(mockMediaSource.createPeriod(any(), any(), anyLong()))
                   .thenReturn(mock(MediaPeriod.class));
               return mockMediaSource;
@@ -1326,7 +1337,8 @@ public final class PreloadMediaSourceTest {
     MediaSource.MediaSourceCaller externalCaller = mock(MediaSource.MediaSourceCaller.class);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
-    preloadMediaSource.prepareSource(externalCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releasePreloadMediaSource();
     shadowOf(Looper.getMainLooper()).idle();

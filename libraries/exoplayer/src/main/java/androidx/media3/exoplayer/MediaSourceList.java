@@ -30,6 +30,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
@@ -45,7 +46,6 @@ import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.source.ShuffleOrder;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,7 +80,6 @@ import java.util.Set;
   private static final String TAG = "MediaSourceList";
 
   private final PlayerId playerId;
-  private final BandwidthMeter bandwidthMeter;
   private final List<MediaSourceHolder> mediaSourceHolders;
   private final IdentityHashMap<MediaPeriod, MediaSourceHolder> mediaSourceByMediaPeriod;
   private final Map<Object, MediaSourceHolder> mediaSourceByUid;
@@ -92,6 +91,8 @@ import java.util.Set;
   private ShuffleOrder shuffleOrder;
   private boolean isPrepared;
 
+  @Nullable private TransferListener mediaTransferListener;
+
   /**
    * Creates the media source list.
    *
@@ -102,16 +103,13 @@ import java.util.Set;
    * @param analyticsCollectorHandler The {@link Handler} to call {@link AnalyticsCollector} methods
    *     on.
    * @param playerId The {@link PlayerId} of the player using this list.
-   * @param bandwidthMeter The {@link BandwidthMeter} of the player using this list.
    */
   public MediaSourceList(
       MediaSourceListInfoRefreshListener listener,
       AnalyticsCollector analyticsCollector,
       HandlerWrapper analyticsCollectorHandler,
-      PlayerId playerId,
-      BandwidthMeter bandwidthMeter) {
+      PlayerId playerId) {
     this.playerId = playerId;
-    this.bandwidthMeter = bandwidthMeter;
     mediaSourceListInfoListener = listener;
     shuffleOrder = new DefaultShuffleOrder(0);
     mediaSourceByMediaPeriod = new IdentityHashMap<>();
@@ -311,8 +309,9 @@ import java.util.Set;
   }
 
   /** Prepares the playlist. */
-  public void prepare() {
+  public void prepare(@Nullable TransferListener mediaTransferListener) {
     checkState(!isPrepared);
+    this.mediaTransferListener = mediaTransferListener;
     for (int i = 0; i < mediaSourceHolders.size(); i++) {
       MediaSourceHolder mediaSourceHolder = mediaSourceHolders.get(i);
       prepareChildSource(mediaSourceHolder);
@@ -474,7 +473,7 @@ import java.util.Set;
     childSources.put(holder, new MediaSourceAndListener(mediaSource, caller, eventListener));
     mediaSource.addEventListener(Util.createHandlerForCurrentOrMainLooper(), eventListener);
     mediaSource.addDrmEventListener(Util.createHandlerForCurrentOrMainLooper(), eventListener);
-    mediaSource.prepareSource(caller, playerId, bandwidthMeter);
+    mediaSource.prepareSource(caller, mediaTransferListener, playerId);
   }
 
   private void maybeReleaseChildSource(MediaSourceHolder mediaSourceHolder) {

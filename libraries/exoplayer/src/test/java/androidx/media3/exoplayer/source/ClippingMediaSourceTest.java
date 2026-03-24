@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.ClippingMediaSource.IllegalClippingException;
 import androidx.media3.exoplayer.source.MaskingMediaSource.PlaceholderTimeline;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
@@ -616,8 +615,8 @@ public final class ClippingMediaSourceTest {
     mediaSource.updateMediaItem(updatedMediaItem);
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
 
     assertThat(

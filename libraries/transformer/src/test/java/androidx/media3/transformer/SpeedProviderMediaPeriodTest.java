@@ -54,7 +54,6 @@ import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
@@ -422,8 +421,8 @@ public final class SpeedProviderMediaPeriodTest {
           adjustedTimeline.set(timeline);
           latch.open();
         },
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     latch.block(1000);
 
     Window adjustedWindow = adjustedTimeline.get().getWindow(0, new Window());
@@ -461,8 +460,8 @@ public final class SpeedProviderMediaPeriodTest {
           adjustedTimeline.set(timeline);
           latch.open();
         },
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     assertThat(latch.block(1000)).isTrue();
 
     assertThat(adjustedTimeline.get().getWindow(0, new Window()).durationUs).isEqualTo(3_000_000);

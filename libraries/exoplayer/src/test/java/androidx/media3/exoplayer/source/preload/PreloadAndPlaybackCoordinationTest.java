@@ -24,6 +24,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
@@ -55,8 +56,8 @@ import org.robolectric.shadows.ShadowLooper;
 /**
  * Tests the coordination behaviours when the player starts to prepare the {@link
  * PreloadMediaSource} while it is in the different preload stages. For example, as long as the
- * player calls {@link MediaSource#prepareSource(MediaSource.MediaSourceCaller, PlayerId,
- * BandwidthMeter)}, the rest of the preload logic shouldn't proceed.
+ * player calls {@link PreloadMediaSource#prepareSource(MediaSource.MediaSourceCaller,
+ * TransferListener, PlayerId)}, the rest of the preload logic shouldn't proceed.
  */
 @RunWith(AndroidJUnit4.class)
 public class PreloadAndPlaybackCoordinationTest {
@@ -170,7 +171,8 @@ public class PreloadAndPlaybackCoordinationTest {
 
   @Test
   public void playbackWithoutPreload_reusableForPreloadAfterRelease() {
-    preloadMediaSource.prepareSource(playbackMediaSourceCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     ShadowLooper.idleMainLooper();
 
     assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(0);
@@ -194,7 +196,8 @@ public class PreloadAndPlaybackCoordinationTest {
 
   @Test
   public void playbackBeforePreload_reusableForPreloadAfterRelease() {
-    preloadMediaSource.prepareSource(playbackMediaSourceCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
 
@@ -223,7 +226,8 @@ public class PreloadAndPlaybackCoordinationTest {
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
-    preloadMediaSource.prepareSource(playbackMediaSourceCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     wrappedMediaSource.setAllowPreparation(true);
     ShadowLooper.idleMainLooper();
 
@@ -253,7 +257,8 @@ public class PreloadAndPlaybackCoordinationTest {
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
-    preloadMediaSource.prepareSource(playbackMediaSourceCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     FakeMediaPeriod lastCreatedActiveMediaPeriod =
         (FakeMediaPeriod) wrappedMediaSource.getLastCreatedActiveMediaPeriod();
     lastCreatedActiveMediaPeriod.setPreparationComplete();
@@ -283,7 +288,8 @@ public class PreloadAndPlaybackCoordinationTest {
   public void playbackWhilePreloadPeriodContinueLoading_reusableForPreloadAfterRelease() {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     ShadowLooper.idleMainLooper();
-    preloadMediaSource.prepareSource(playbackMediaSourceCaller, PlayerId.UNSET, bandwidthMeter);
+    preloadMediaSource.prepareSource(
+        playbackMediaSourceCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     ShadowLooper.idleMainLooper();
 
     assertThat(preloadControlOnSourcePreparedCalledCounter.get()).isEqualTo(1);

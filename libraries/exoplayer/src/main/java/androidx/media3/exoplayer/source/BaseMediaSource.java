@@ -26,7 +26,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import java.util.ArrayList;
 import java.util.HashSet;
 
@@ -48,7 +47,6 @@ public abstract class BaseMediaSource implements MediaSource {
   @Nullable private Looper looper;
   @Nullable private Timeline timeline;
   @Nullable private PlayerId playerId;
-  @Nullable private BandwidthMeter bandwidthMeter;
 
   public BaseMediaSource() {
     mediaSourceCallers = new ArrayList<>(/* initialCapacity= */ 1);
@@ -58,9 +56,9 @@ public abstract class BaseMediaSource implements MediaSource {
   }
 
   /**
-   * Starts source preparation and enables the source, see {@link
-   * MediaSource#prepareSource(MediaSourceCaller, PlayerId, BandwidthMeter)}. This method is called
-   * at most once until the next call to {@link #releaseSourceInternal()}.
+   * Starts source preparation and enables the source, see {@link #prepareSource(MediaSourceCaller,
+   * TransferListener, PlayerId)}. This method is called at most once until the next call to {@link
+   * #releaseSourceInternal()}.
    *
    * <p>This method is called on the playback thread.
    *
@@ -201,32 +199,8 @@ public abstract class BaseMediaSource implements MediaSource {
   }
 
   /**
-   * Returns the {@link BandwidthMeter} that is used by this media source.
-   *
-   * <p>Must only be used when the media source is {@linkplain
-   * #prepareSourceInternal(TransferListener)} prepared} or has {@linkplain
-   * #setBandwidthMeter(BandwidthMeter) a bandwidth meter set}.
-   */
-  protected final BandwidthMeter getBandwidthMeter() {
-    return checkNotNull(bandwidthMeter);
-  }
-
-  /**
-   * Sets the {@link BandwidthMeter} to be used by this media source.
-   *
-   * <p>This method usually doesn't need to be called explicitly because the bandwidth meter is
-   * provided when the source is {@linkplain #prepareSource(MediaSourceCaller, PlayerId,
-   * BandwidthMeter) prepared} during the normal player lifecycle.
-   *
-   * @param bandwidthMeter The {@link BandwidthMeter} to be set.
-   */
-  protected final void setBandwidthMeter(BandwidthMeter bandwidthMeter) {
-    this.bandwidthMeter = bandwidthMeter;
-  }
-
-  /**
-   * Returns whether the source has {@link MediaSource#prepareSource(MediaSourceCaller, PlayerId,
-   * BandwidthMeter)} called.
+   * Returns whether the source has {@link MediaSource#prepareSource(MediaSourceCaller,
+   * TransferListener, PlayerId)} called.
    */
   protected final boolean prepareSourceCalled() {
     return !mediaSourceCallers.isEmpty();
@@ -263,17 +237,18 @@ public abstract class BaseMediaSource implements MediaSource {
   @UnstableApi
   @Override
   public final void prepareSource(
-      MediaSourceCaller caller, PlayerId playerId, BandwidthMeter bandwidthMeter) {
+      MediaSourceCaller caller,
+      @Nullable TransferListener mediaTransferListener,
+      PlayerId playerId) {
     Looper looper = Looper.myLooper();
     checkArgument(this.looper == null || this.looper == looper);
     this.playerId = playerId;
-    this.bandwidthMeter = bandwidthMeter;
     @Nullable Timeline timeline = this.timeline;
     mediaSourceCallers.add(caller);
     if (this.looper == null) {
       this.looper = looper;
       enabledMediaSourceCallers.add(caller);
-      prepareSourceInternal(bandwidthMeter.getTransferListener());
+      prepareSourceInternal(mediaTransferListener);
     } else if (timeline != null) {
       enable(caller);
       caller.onSourceInfoRefreshed(/* source= */ this, timeline);

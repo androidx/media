@@ -45,6 +45,7 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.TransferListener;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
@@ -563,7 +564,7 @@ public final class DownloadHelper {
     this.rendererCapabilities = rendererCapabilities;
     this.debugLoggingEnabled = debugLoggingEnabled;
     this.scratchSet = new SparseIntArray();
-    trackSelector.init(/* listener= */ () -> {}, BandwidthMeter.NO_OP);
+    trackSelector.init(/* listener= */ () -> {}, new FakeBandwidthMeter());
     callbackHandler = Util.createHandlerForCurrentOrMainLooper();
     window = new Timeline.Window();
   }
@@ -1314,7 +1315,8 @@ public final class DownloadHelper {
           if (mediaSource instanceof ProgressiveMediaSource) {
             ((ProgressiveMediaSource) mediaSource).setListener(this);
           }
-          mediaSource.prepareSource(/* caller= */ this, PlayerId.UNSET, BandwidthMeter.NO_OP);
+          mediaSource.prepareSource(
+              /* caller= */ this, /* mediaTransferListener= */ null, PlayerId.UNSET);
           mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
           return true;
         case MESSAGE_CHECK_FOR_FAILURE:
@@ -1489,6 +1491,30 @@ public final class DownloadHelper {
         long availableDurationUs,
         List<? extends MediaChunk> queue,
         MediaChunkIterator[] mediaChunkIterators) {
+      // Do nothing.
+    }
+  }
+
+  private static final class FakeBandwidthMeter implements BandwidthMeter {
+
+    @Override
+    public long getBitrateEstimate() {
+      return 0;
+    }
+
+    @Override
+    @Nullable
+    public TransferListener getTransferListener() {
+      return null;
+    }
+
+    @Override
+    public void addEventListener(Handler eventHandler, EventListener eventListener) {
+      // Do nothing.
+    }
+
+    @Override
+    public void removeEventListener(EventListener eventListener) {
       // Do nothing.
     }
   }

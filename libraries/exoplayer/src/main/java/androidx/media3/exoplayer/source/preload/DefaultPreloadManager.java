@@ -270,12 +270,10 @@ public final class DefaultPreloadManager
      * @return This builder.
      * @throws IllegalStateException If {@link #build()}, {@link #buildExoPlayer()} or {@link
      *     #buildExoPlayer(ExoPlayer.Builder)} has already been called.
-     * @throws IllegalArgumentException If {@code bandwidthMeter} is {@link BandwidthMeter#NO_OP}.
      */
     @CanIgnoreReturnValue
     public Builder setBandwidthMeter(BandwidthMeter bandwidthMeter) {
       checkState(!buildCalled && !buildExoPlayerCalled);
-      checkArgument(bandwidthMeter != BandwidthMeter.NO_OP);
       this.bandwidthMeterSupplier = () -> bandwidthMeter;
       return this;
     }

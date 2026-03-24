@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.common.util.Util.postOrRun;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -165,7 +164,6 @@ public final class PreloadMediaSource extends WrappingMediaSource {
      * @param preloadLooper The {@link Looper} that will be used for preloading. It should be the
      *     same looper with {@link ExoPlayer.Builder#setPlaybackLooper(Looper)} that will play the
      *     created {@link PreloadMediaSource} instances.
-     * @throws IllegalArgumentException If {@code bandwidthMeter} is {@link BandwidthMeter#NO_OP}.
      */
     public Factory(
         MediaSource.Factory mediaSourceFactory,
@@ -178,7 +176,6 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       this.mediaSourceFactory = mediaSourceFactory;
       this.preloadControl = preloadControl;
       this.trackSelector = trackSelector;
-      checkArgument(bandwidthMeter != BandwidthMeter.NO_OP);
       this.bandwidthMeter = bandwidthMeter;
       this.rendererCapabilities = Arrays.copyOf(rendererCapabilities, rendererCapabilities.length);
       this.loadControl = loadControl;
@@ -314,7 +311,6 @@ public final class PreloadMediaSource extends WrappingMediaSource {
             this.preloadCalled = true;
             this.startPositionUs = startPositionUs;
             setPlayerId(PlayerId.PRELOAD);
-            setBandwidthMeter(bandwidthMeter);
             loadControl.onPrepared(PlayerId.PRELOAD);
             prepareSourceInternal(bandwidthMeter.getTransferListener());
             checkForPreloadError();

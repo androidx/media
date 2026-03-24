@@ -73,7 +73,6 @@ import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -152,8 +151,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
 
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     runMainLooperUntil(() -> timelineReference.get() != null);
 
     Timeline timeline = timelineReference.get();
@@ -230,8 +229,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
         });
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     runMainLooperUntil(() -> timelineReference.get() != null);
     Timeline firstTimeline = timelineReference.get();
     MediaSource.MediaPeriodId mediaPeriodId1 =
@@ -348,8 +347,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
 
     mediaSource.prepareSource(
         (source, timeline) -> timelineReference.set(timeline),
-        PlayerId.UNSET,
-        BandwidthMeter.NO_OP);
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     runMainLooperUntil(() -> timelineReference.get() != null);
 
     Timeline timeline = timelineReference.get();
@@ -399,8 +398,8 @@ public final class ServerSideAdInsertionMediaSourceTest {
                 (source, timeline) -> {
                   /* Do nothing. */
                 },
-                PlayerId.UNSET,
-                BandwidthMeter.NO_OP));
+                /* mediaTransferListener= */ null,
+                PlayerId.UNSET));
   }
 
   @Test
@@ -793,7 +792,9 @@ public final class ServerSideAdInsertionMediaSourceTest {
         ImmutableMap.of(periodUid, new AdPlaybackState(/* adsId= */ new Object())), timeline);
     AtomicBoolean sourcePrepared = new AtomicBoolean();
     serverSideAdInsertionMediaSource.prepareSource(
-        (source, newTimeline) -> sourcePrepared.set(true), PlayerId.UNSET, BandwidthMeter.NO_OP);
+        (source, newTimeline) -> sourcePrepared.set(true),
+        /* mediaTransferListener= */ null,
+        PlayerId.UNSET);
     RobolectricUtil.runMainLooperUntil(sourcePrepared::get);
     MediaPeriod serverSideAdInsertionMediaPeriod =
         serverSideAdInsertionMediaSource.createPeriod(

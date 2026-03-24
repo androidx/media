@@ -28,7 +28,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeShuffleOrder;
@@ -646,7 +645,7 @@ public final class ConcatenatingMediaSourceTest {
           () -> {
             MediaSourceCaller caller = mock(MediaSourceCaller.class);
             mediaSource.addMediaSources(Arrays.asList(createMediaSources(2)));
-            mediaSource.prepareSource(caller, PlayerId.UNSET, BandwidthMeter.NO_OP);
+            mediaSource.prepareSource(caller, /* mediaTransferListener= */ null, PlayerId.UNSET);
             mediaSource.moveMediaSource(
                 /* currentIndex= */ 0,
                 /* newIndex= */ 1,

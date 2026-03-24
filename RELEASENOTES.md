@@ -24,11 +24,6 @@
         buffer byte size limits if available heap memory seems tight.
     *   Fix possible app crashes when recovering from decoder errors with
         renderer prewarming.
-    *   Add `MediaSource.prepareSource(MediaSourceCaller, PlayerId,
-        BandwidthMeter)` to plumb `BandwidthMeter` to `MediaSource`. The
-        deprecated method with custom implementation will still be called by
-        default though, it is recommended to implement the new method and use
-        `BandwidthMeter.getTransferListener()` to get parity to the old method.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.

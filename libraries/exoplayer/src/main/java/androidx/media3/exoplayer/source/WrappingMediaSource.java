@@ -22,7 +22,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.upstream.Allocator;
-import androidx.media3.exoplayer.upstream.BandwidthMeter;
 
 /**
  * An abstract {@link MediaSource} wrapping a single child {@link MediaSource}.
@@ -71,9 +70,9 @@ public abstract class WrappingMediaSource extends CompositeMediaSource<Void> {
   }
 
   /**
-   * Starts source preparation and enables the source, see {@link
-   * MediaSource#prepareSource(MediaSourceCaller, PlayerId, BandwidthMeter)}. This method is called
-   * at most once until the next call to {@link #releaseSourceInternal()}.
+   * Starts source preparation and enables the source, see {@link #prepareSource(MediaSourceCaller,
+   * TransferListener, PlayerId)}. This method is called at most once until the next call to {@link
+   * #releaseSourceInternal()}.
    */
   protected void prepareSourceInternal() {
     prepareChildSource();
