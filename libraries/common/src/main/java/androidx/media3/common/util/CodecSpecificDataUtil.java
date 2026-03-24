@@ -2107,5 +2107,65 @@ public final class CodecSpecificDataUtil {
     }
   }
 
+  /**
+   * Maps Android MediaCodec constants to H.263 Profile numbers.
+   *
+   * @param profileConst The MediaCodec H.263 profile constant.
+   * @return The H.263 profile number, or -1 if the constant is not recognized.
+   */
+  public static int h263ConstToProfileNumber(int profileConst) {
+    switch (profileConst) {
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileBaseline:
+        return 0;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileH320Coding:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileBackwardCompatible:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileISWV2:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileISWV3:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileHighCompression:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileInternet:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileInterlace:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.H263ProfileHighLatency:
+        return 8;
+      default:
+        return -1;
+    }
+  }
+
+  /**
+   * Maps Android MediaCodec constants to H.263 Level numbers.
+   *
+   * @param levelConst The MediaCodec H.263 level constant.
+   * @return The H.263 level number, or -1 if the constant is not recognized.
+   */
+  public static int h263ConstToLevelNumber(int levelConst) {
+    switch (levelConst) {
+      case MediaCodecInfo.CodecProfileLevel.H263Level10:
+        return 10;
+      case MediaCodecInfo.CodecProfileLevel.H263Level20:
+        return 20;
+      case MediaCodecInfo.CodecProfileLevel.H263Level30:
+        return 30;
+      case MediaCodecInfo.CodecProfileLevel.H263Level40:
+        return 40;
+      case MediaCodecInfo.CodecProfileLevel.H263Level45:
+        return 45;
+      case MediaCodecInfo.CodecProfileLevel.H263Level50:
+        return 50;
+      case MediaCodecInfo.CodecProfileLevel.H263Level60:
+        return 60;
+      case MediaCodecInfo.CodecProfileLevel.H263Level70:
+        return 70;
+      default:
+        return -1;
+    }
+  }
+
   private CodecSpecificDataUtil() {}
 }

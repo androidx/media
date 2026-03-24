@@ -17,6 +17,8 @@ package androidx.media3.common.util;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.CodecSpecificDataUtil.calculateMediaCodecDolbyVisionLevel;
+import static androidx.media3.common.util.CodecSpecificDataUtil.h263ConstToLevelNumber;
+import static androidx.media3.common.util.CodecSpecificDataUtil.h263ConstToProfileNumber;
 
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
@@ -386,10 +388,9 @@ public final class MediaFormatUtil {
     if (Objects.equals(mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_H263)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)
         && mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
-      // TODO: b/492523731 - Convert MediaFormat constants to H263 spec constants.
       return CodecSpecificDataUtil.buildH263CodecString(
-          mediaFormat.getInteger(MediaFormat.KEY_PROFILE),
-          mediaFormat.getInteger(MediaFormat.KEY_LEVEL));
+          h263ConstToProfileNumber(mediaFormat.getInteger(MediaFormat.KEY_PROFILE)),
+          h263ConstToLevelNumber(mediaFormat.getInteger(MediaFormat.KEY_LEVEL)));
     } else if (Objects.equals(
             mediaFormat.getString(MediaFormat.KEY_MIME), MimeTypes.VIDEO_DOLBY_VISION)
         && mediaFormat.containsKey(MediaFormat.KEY_PROFILE)) {
