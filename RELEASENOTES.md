@@ -24,9 +24,6 @@
         buffer byte size limits if available heap memory seems tight.
     *   Fix possible app crashes when recovering from decoder errors with
         renderer prewarming.
-    *   Fix bug where an uninitialized pre roll ad produced an
-        `ArrayIndexOutOfBoundsException`
-        ([#3125](https://github.com/androidx/media/issues/3125)).
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
@@ -94,9 +91,6 @@
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
 *   Session:
-    *   Workaround SysUI bug on API 29 where media session artwork in a
-        particular size can crash SysUI and force the device to reboot
-        ([#3118](https://github.com/androidx/media/issues/3118)).
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`
@@ -117,10 +111,6 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
-    *   Fixed regression in H.264 and H.265 streaming that would incorrectly
-        parse samples of the same access unit that spanned multiple RTP packets.
-        This resulted in visual artifacts and corruption in the video
-        ([#3121](https://github.com/androidx/media/issues/3121)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
@@ -144,6 +134,25 @@
         `androidx.media3.extractor.DiscardingTrackOutput` instead.
 
 ## 1.10
+
+### 1.10.0-rc03 (2026-03-25)
+
+This release includes the following changes since
+[1.10.0-rc02 release](#1100-rc02-2026-03-16):
+
+*   ExoPlayer:
+    *   Fix bug where an uninitialized pre roll ad produced an
+        `ArrayIndexOutOfBoundsException`
+        ([#3125](https://github.com/androidx/media/issues/3125)).
+*   Session:
+    *   Workaround SysUI bug on API 29 where media session artwork in a
+        particular size can crash SysUI and force the device to reboot
+        ([#3118](https://github.com/androidx/media/issues/3118)).
+*   RTSP extension:
+    *   Fixed regression in H.264 and H.265 streaming that would incorrectly
+        parse samples of the same access unit that spanned multiple RTP packets.
+        This resulted in visual artifacts and corruption in the video
+        ([#3121](https://github.com/androidx/media/issues/3121)).
 
 ### 1.10.0-rc02 (2026-03-16)
 
