@@ -48,6 +48,7 @@ data class CompositionPreviewState(
   val overlayState: OverlayState,
   val outputSettingsState: OutputSettingsState,
   val exportState: ExportState,
+  val isCompositionSet: Boolean = false,
 )
 
 /**

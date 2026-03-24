@@ -380,12 +380,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
         thickness = 2.dp,
         modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
       )
-      Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
-        Button(onClick = { viewModel.previewComposition() }) {
-          Text(text = stringResource(R.string.preview))
-        }
-        Spacer(Modifier.weight(1f))
-        if (shouldShowSupportingPaneButton) {
+      if (shouldShowSupportingPaneButton) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+          Button(onClick = { viewModel.setComposition() }, enabled = !isOverlayPlacementActive) {
+            Text(text = stringResource(R.string.set_composition))
+          }
+          Button(onClick = { viewModel.play() }, enabled = uiState.isCompositionSet) {
+            Text(text = stringResource(R.string.play))
+          }
           Button(onClick = onNavigateToSupportingPane, enabled = !isOverlayPlacementActive) {
             Text(text = stringResource(R.string.export_settings))
           }

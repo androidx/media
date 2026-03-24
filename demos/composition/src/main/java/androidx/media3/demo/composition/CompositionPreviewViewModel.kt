@@ -204,60 +204,85 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   fun onCompositionLayoutChanged(newLayout: String) {
-    _uiState.update { currentState -> currentState.copy(compositionLayout = newLayout) }
-    previewComposition()
+    _uiState.update { currentState ->
+      currentState.copy(compositionLayout = newLayout, isCompositionSet = false)
+    }
   }
 
   fun enableDebugTracing(enable: Boolean) {
-    _uiState.update { it.copy(isDebugTracingEnabled = enable) }
+    _uiState.update { it.copy(isDebugTracingEnabled = enable, isCompositionSet = false) }
     DebugTraceUtil.enableTracing = enable
   }
 
   fun onFrameConsumerEnabledChanged(isEnabled: Boolean) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(includeBackgroundAudio = isEnabled))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(includeBackgroundAudio = isEnabled),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onOutputResolutionChanged(resolution: String) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(resolutionHeight = resolution))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(resolutionHeight = resolution),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onHdrModeChanged(hdrMode: Int) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(hdrMode = hdrMode))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(hdrMode = hdrMode),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onAudioMimeTypeChanged(mimeType: String) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(audioMimeType = mimeType))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(audioMimeType = mimeType),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onVideoMimeTypeChanged(mimeType: String) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(videoMimeType = mimeType))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(videoMimeType = mimeType),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onMuxerOptionChanged(option: String) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(muxerOption = option))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(muxerOption = option),
+        isCompositionSet = false,
+      )
     }
   }
 
   fun onRenderSizeChanged(newSize: geometrySize) {
     _uiState.update {
-      it.copy(outputSettingsState = it.outputSettingsState.copy(renderSize = newSize))
+      it.copy(
+        outputSettingsState = it.outputSettingsState.copy(renderSize = newSize),
+        isCompositionSet = false,
+      )
     }
   }
 
@@ -279,7 +304,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               overlayState =
                 it.overlayState.copy(
                   placementState = PlacementState.Placing(newOverlay, Offset.Zero)
-                )
+                ),
+              isCompositionSet = false,
             )
           }
         }
@@ -302,6 +328,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
     compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
     compositionPlayer.prepare()
+    _uiState.update { it.copy(isCompositionSet = true) }
   }
 
   fun placeExistingOverlay(overlayId: UUID) {
@@ -362,11 +389,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   fun onEndPlacementClicked() {
     endPlacementMode()
-
-    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
-    compositionPlayer.prepare()
-
-    compositionPlayer.play()
+    _uiState.update { it.copy(isCompositionSet = false) }
   }
 
   fun endPlacementMode() {
@@ -422,18 +445,20 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       val newCommittedOverlays =
         currentState.overlayState.committedOverlays.filter { it.id != overlayId }
       currentState.copy(
-        overlayState = currentState.overlayState.copy(committedOverlays = newCommittedOverlays)
+        overlayState = currentState.overlayState.copy(committedOverlays = newCommittedOverlays),
+        isCompositionSet = false,
       )
     }
-    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
-    compositionPlayer.prepare()
   }
 
   fun addItem(index: Int) {
     _uiState.update { currentState ->
       val itemToAdd = currentState.mediaState.availableItems[index].copy()
       val newSelectedItems = currentState.mediaState.selectedItems + itemToAdd
-      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        isCompositionSet = false,
+      )
     }
   }
 
@@ -509,7 +534,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         _uiState.update { currentState ->
           val newSelectedItems = currentState.mediaState.selectedItems + newItem
           currentState.copy(
-            mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems)
+            mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+            isCompositionSet = false,
           )
         }
       }
@@ -520,7 +546,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update { currentState ->
       val currentItems = currentState.mediaState.selectedItems
       val newSelectedItems = currentItems.filterIndexed { i, _ -> i != index }
-      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        isCompositionSet = false,
+      )
     }
   }
 
@@ -535,14 +564,21 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           item
         }
       }
-      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        isCompositionSet = false,
+      )
     }
   }
 
-  fun previewComposition() {
+  fun setComposition() {
     releaseAndRecreatePlayer()
     compositionPlayer.setComposition(prepareComposition())
     compositionPlayer.prepare()
+    _uiState.update { it.copy(isCompositionSet = true) }
+  }
+
+  fun play() {
     compositionPlayer.play()
   }
 
@@ -569,7 +605,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       if (uiState.value.outputSettingsState.frameConsumerEnabled) {
         if (SDK_INT < 33) {
           _uiState.update {
-            it.copy(snackbarMessage = "API 33+ required to export with PacketConsumer")
+            it.copy(
+              snackbarMessage = "API 33+ required to export with PacketConsumer",
+              isCompositionSet = false,
+            )
           }
           return
         }

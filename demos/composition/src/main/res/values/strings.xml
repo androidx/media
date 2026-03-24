@@ -35,7 +35,7 @@
   <string name="select" translatable="false">Select</string>
   <string name="select_effects" translatable="false">Select Effects</string>
   <string name="cancel" translatable="false">Cancel</string>
-  <string name="export_settings" translatable="false">Export Settings</string>
+  <string name="export_settings" translatable="false">Export</string>
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>
   <string name="output_video_mime_type" translatable="false">Output video MIME type</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
@@ -51,6 +51,8 @@
   <string name="delete_overlay">Delete Overlay</string>
   <string name="add_new_overlay">Add New Overlay</string>
   <string name="select_an_overlay_to_place">Select an Overlay to Place</string>
+  <string name="set_composition" translatable="false">Prepare</string>
+  <string name="play" translatable="false">Play</string>
   <string name="add_item">Add Item</string>
   <string name="add_local_file">Add Local File</string>
 </resources>
