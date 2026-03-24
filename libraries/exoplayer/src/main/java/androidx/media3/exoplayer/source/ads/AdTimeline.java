@@ -34,7 +34,7 @@ import androidx.media3.exoplayer.source.ForwardingTimeline;
  * </ul>
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
-public final class MultiPeriodAdTimeline extends ForwardingTimeline {
+public final class AdTimeline extends ForwardingTimeline {
 
   private final AdPlaybackState[] adPlaybackStates;
 
@@ -44,7 +44,7 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
    * @param contentTimeline The timeline of the content alongside which ads will be played.
    * @param adPlaybackState The state of the media's ads.
    */
-  public MultiPeriodAdTimeline(Timeline contentTimeline, AdPlaybackState adPlaybackState) {
+  public AdTimeline(Timeline contentTimeline, AdPlaybackState adPlaybackState) {
     super(contentTimeline);
     final int periodCount = contentTimeline.getPeriodCount();
     Assertions.checkState(contentTimeline.getWindowCount() == 1);
