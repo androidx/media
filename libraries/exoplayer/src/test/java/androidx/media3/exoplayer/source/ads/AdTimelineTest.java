@@ -11,7 +11,7 @@ import androidx.media3.common.Timeline.Period;
 import androidx.media3.test.utils.FakeTimeline;
 import org.junit.Test;
 
-public class MultiPeriodAdTimelineTest {
+public class AdTimelineTest {
   @Test
   public void getPeriod() {
     String windowId = "windowId";
@@ -32,7 +32,7 @@ public class MultiPeriodAdTimelineTest {
         )
     );
 
-    MultiPeriodAdTimeline multiPeriodAdTimeline = new MultiPeriodAdTimeline(
+    AdTimeline adTimeline = new AdTimeline(
         contentTimeline, new AdPlaybackState(
         "adsId",
         0L, 10 * MICROS_PER_SECOND, // period 0:  0s - 20s
@@ -41,7 +41,7 @@ public class MultiPeriodAdTimelineTest {
     ));
 
     Period period0 = new Period();
-    multiPeriodAdTimeline.getPeriod(0, period0);
+    adTimeline.getPeriod(0, period0);
 
     // period durations are uniformly split windowDuration/periodCount
     assertEquals(20 * MICROS_PER_SECOND, period0.durationUs);
@@ -54,7 +54,7 @@ public class MultiPeriodAdTimelineTest {
     assertEquals(INDEX_UNSET, period0.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND));
 
     Period period1 = new Period();
-    multiPeriodAdTimeline.getPeriod(1, period1);
+    adTimeline.getPeriod(1, period1);
 
     // positions within the 1st period
     assertEquals(1, period1.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)); // 21s
@@ -66,7 +66,7 @@ public class MultiPeriodAdTimelineTest {
     assertEquals(INDEX_UNSET, period1.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 39s
 
     Period period2 = new Period();
-    multiPeriodAdTimeline.getPeriod(2, period2);
+    adTimeline.getPeriod(2, period2);
 
     // positions within the 2nd period
     assertEquals(3, period2.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)); // 41s
@@ -98,14 +98,14 @@ public class MultiPeriodAdTimelineTest {
         )
     );
 
-    MultiPeriodAdTimeline multiPeriodAdTimeline = new MultiPeriodAdTimeline(
+    AdTimeline adTimeline = new AdTimeline(
         contentTimeline, new AdPlaybackState(
         "adsId",
         TIME_END_OF_SOURCE // period 1: 30s - 60s
     ));
 
     Period period0 = new Period();
-    multiPeriodAdTimeline.getPeriod(0, period0);
+    adTimeline.getPeriod(0, period0);
 
     // period durations are uniformly split windowDuration/periodCount
     assertEquals(30 * MICROS_PER_SECOND, period0.durationUs);
@@ -115,7 +115,7 @@ public class MultiPeriodAdTimelineTest {
     assertEquals(INDEX_UNSET, period0.getAdGroupIndexAfterPositionUs(15 * MICROS_PER_SECOND));
 
     Period period1 = new Period();
-    multiPeriodAdTimeline.getPeriod(1, period1);
+    adTimeline.getPeriod(1, period1);
 
     assertEquals(INDEX_UNSET, period1.getAdGroupIndexForPositionUs(29 * MICROS_PER_SECOND)); // 59s
     // post-roll in the end

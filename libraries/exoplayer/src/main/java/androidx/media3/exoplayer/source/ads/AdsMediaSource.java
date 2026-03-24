@@ -544,7 +544,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         if (contentTimeline.getPeriodCount() == 1) {
           refreshSourceInfo(new SinglePeriodAdTimeline(contentTimeline, adPlaybackState));
         } else {
-          refreshSourceInfo(new MultiPeriodAdTimeline(contentTimeline, adPlaybackState));
+          refreshSourceInfo(new AdTimeline(contentTimeline, adPlaybackState));
         }
       }
     }
