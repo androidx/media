@@ -53,7 +53,7 @@ public final class OggMuxer implements Muxer {
     }
 
     /**
-     * Sets the vendor string written to the Opus comment header. The default value is {@link
+     * Sets the vendor string written to the track's comment header. The default value is {@link
      * MediaLibraryInfo#VERSION_SLASHY}.
      *
      * @param vendorString The vendor string to use.
@@ -81,7 +81,7 @@ public final class OggMuxer implements Muxer {
 
   @Override
   public int addTrack(Format format) throws MuxerException {
-    checkArgument(Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS));
+    checkArgument(isMimeTypeSupported(format));
     // Only one track is supported.
     checkState(!isTrackAdded);
     try {
@@ -130,5 +130,15 @@ public final class OggMuxer implements Muxer {
     } catch (IOException e) {
       throw new MuxerException("Failed to close the OggMuxer", e);
     }
+  }
+
+  /**
+   * Checks if the format is supported by the muxer.
+   *
+   * @return True if the mimetype of the format is supported, false otherwise.
+   */
+  private boolean isMimeTypeSupported(Format format) {
+    return Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_OPUS)
+        || Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_VORBIS);
   }
 }

@@ -84,6 +84,8 @@
         new `addTrackReference` API. This allows establishing relationships
         between tracks, such as linking a metadata track to the video track it
         describes.
+    *   Add `OggMuxer` to allow muxing of `OPUS` or `VORBIS` media streams into
+        the `ogg` file format.
     *   Add `WavMuxer` for WAV file generation (supports integer and
         floating-point PCM).
 *   IMA extension:

@@ -43,12 +43,13 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class OggMuxerEndToEndParameterizedTest {
   private static final String OPUS_OGG = "ogg/bbb_6ch_8kHz_opus.ogg";
+  private static final String VORBIS_OGG = "ogg/bbb_1ch_16kHz_q10_vorbis.ogg";
 
   public static final String MEDIA_FILE_ASSET_DIRECTORY = "asset:///media/";
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of(OPUS_OGG);
+    return ImmutableList.of(OPUS_OGG, VORBIS_OGG);
   }
 
   @Parameter public @MonotonicNonNull String inputFile;

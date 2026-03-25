@@ -15,14 +15,20 @@
  */
 package androidx.media3.muxer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
+import androidx.media3.container.VorbisUtil;
+import androidx.media3.container.VorbisUtil.Mode;
+import androidx.media3.container.VorbisUtil.VorbisIdHeader;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,6 +36,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A writer for Ogg data. */
 /* package */ final class OggWriter {
@@ -49,8 +56,8 @@ import java.util.Random;
   private static final byte HEADER_TYPE_NEW_PAGE = 0x00; // New page
   private static final byte HEADER_TYPE_CONTINUATION = 0x01;
 
-  // Opus-specific constants
   private static final byte[] opusCommentHeaderSignature = Util.getUtf8Bytes("OpusTags");
+  private static final byte[] vorbisCommentHeaderSignature = Util.getUtf8Bytes("\u0003vorbis");
 
   private final WritableByteChannel outputChannel;
   private final int streamSerialNumber;
@@ -66,6 +73,11 @@ import java.util.Random;
   private long streamGranulePosition;
   private boolean isContinuedPage;
   private boolean wroteIdentificationAndCommentHeader;
+  @Nullable private VorbisIdHeader vorbisIdHeader;
+  @Nullable private Mode[] vorbisModes;
+  private int previousVorbisPacketBlockSize;
+  private boolean seenFirstVorbisAudioPacket;
+  private @MonotonicNonNull String sampleMimeType;
 
   /**
    * Creates a new OggWriter.
@@ -93,21 +105,34 @@ import java.util.Random;
    * <p>This must be called before any samples are written.
    *
    * @param format The {@link Format} for the track. The {@link Format#sampleMimeType} must be
-   *     {@link MimeTypes#AUDIO_OPUS}.
+   *     {@link MimeTypes#AUDIO_OPUS} or {@link MimeTypes#AUDIO_VORBIS}.
    * @throws IOException If an error occurs writing the header pages.
    */
   void setFormat(Format format) throws IOException {
     // Format can only be set once.
     checkState(!wroteIdentificationAndCommentHeader);
-    String sampleMimeType = checkNotNull(format.sampleMimeType);
+    sampleMimeType = checkNotNull(format.sampleMimeType);
     switch (sampleMimeType) {
       case MimeTypes.AUDIO_OPUS:
         byte[] opusHead = CodecSpecificDataUtil.getOpusInitializationData(format);
         // Parse little-endian pre-skip at byte 10.
         int preSkip = ((opusHead[11] & 0xFF) << 8) | (opusHead[10] & 0xFF);
         this.streamGranulePosition = preSkip;
-        writeOpusIdentificationHeader(format);
+        writeIdentificationHeader(opusHead);
         writeOpusCommentHeader();
+        break;
+      case MimeTypes.AUDIO_VORBIS:
+        // csd-0 and csd-1 must be present for Vorbis.
+        checkArgument(format.initializationData.size() > 1);
+        vorbisIdHeader =
+            VorbisUtil.readVorbisIdentificationHeader(
+                new ParsableByteArray(format.initializationData.get(0)));
+        vorbisModes =
+            VorbisUtil.readVorbisModes(
+                new ParsableByteArray(format.initializationData.get(1)), vorbisIdHeader.channels);
+        writeIdentificationHeader(format.initializationData.get(0));
+        writeVorbisCommentHeader();
+        writeVorbisSetupHeader(format.initializationData.get(1));
         break;
       default:
         throw new IllegalArgumentException("Unsupported MIME type: " + sampleMimeType);
@@ -128,10 +153,28 @@ import java.util.Random;
   void writeSampleData(ByteBuffer sampleByteBuffer, BufferInfo sampleBufferInfo)
       throws IOException {
     checkState(wroteIdentificationAndCommentHeader);
-
-    // Opus granule position = total PCM samples encoded up to the end of this packet.
-    streamGranulePosition += OpusUtil.parsePacketAudioSampleCount(sampleByteBuffer);
-
+    switch (checkNotNull(sampleMimeType)) {
+      case MimeTypes.AUDIO_OPUS:
+        // Calculate granule position based on presentation time.
+        streamGranulePosition += OpusUtil.parsePacketAudioSampleCount(sampleByteBuffer);
+        break;
+      case MimeTypes.AUDIO_VORBIS:
+        int packetBlockSize =
+            VorbisUtil.getPacketBlockSize(
+                sampleByteBuffer.get(sampleByteBuffer.position()),
+                checkNotNull(vorbisIdHeader),
+                checkNotNull(vorbisModes));
+        int sampleCount =
+            VorbisUtil.getSampleCountInPacket(
+                packetBlockSize, previousVorbisPacketBlockSize, seenFirstVorbisAudioPacket);
+        streamGranulePosition += sampleCount;
+        seenFirstVorbisAudioPacket = true;
+        previousVorbisPacketBlockSize = packetBlockSize;
+        break;
+      default:
+        // Should not happen.
+        throw new IllegalStateException("Codec not supported.");
+    }
     addPacketToPage(sampleByteBuffer, streamGranulePosition);
   }
 
@@ -150,14 +193,15 @@ import java.util.Random;
   }
 
   /**
-   * Writes the Opus identification header to the Ogg file.
+   * Writes the Opus or Vorbis identification header to the Ogg file.
    *
-   * <p>This header contains the Opus codec specific data and is written as a single page.
+   * <p>This header contains the Opus or Vorbis codec specific data and is written as a single page.
+   *
+   * @param csd0 The codec specific data for the Opus or Vorbis codec.
    */
-  private void writeOpusIdentificationHeader(Format format) throws IOException {
-    byte[] opusInitializationData = CodecSpecificDataUtil.getOpusInitializationData(format);
-    pageDataBuffer.put(opusInitializationData);
-    segmentTable.add((byte) opusInitializationData.length);
+  private void writeIdentificationHeader(byte[] csd0) throws IOException {
+    pageDataBuffer.put(csd0);
+    segmentTable.add((byte) csd0.length);
     writeOggPage(HEADER_TYPE_BOS, /* granulePosition= */ 0);
   }
 
@@ -185,6 +229,34 @@ import java.util.Random;
     writeOggPage(HEADER_TYPE_NEW_PAGE, /* granulePosition= */ 0);
   }
 
+  private void writeVorbisCommentHeader() throws IOException {
+    byte[] vendorBytes = Util.getUtf8Bytes(vendorString);
+    int payloadSize =
+        vorbisCommentHeaderSignature.length
+            +
+            /* vendorBytesLength= */ 4
+            + vendorBytes.length
+            +
+            /* userCommentListLength= */ 4
+            +
+            /* framingBit= */ 1;
+    ByteBuffer commentHeaderPayload =
+        ByteBuffer.allocate(payloadSize).order(ByteOrder.LITTLE_ENDIAN);
+    commentHeaderPayload.put(vorbisCommentHeaderSignature);
+    commentHeaderPayload.putInt(vendorBytes.length);
+    commentHeaderPayload.put(vendorBytes);
+    commentHeaderPayload.putInt(0); // user_comment_list_length = 0
+    commentHeaderPayload.put((byte) 1); // framing_bit
+    commentHeaderPayload.flip();
+    // Add the comment header to the current page. The page is not flushed yet to allow the setup
+    // header to be added to the same page.
+    addPacketToPage(commentHeaderPayload, /* packetGranulePosition= */ 0);
+  }
+
+  private void writeVorbisSetupHeader(byte[] csd1) throws IOException {
+    addPacketToPage(ByteBuffer.wrap(csd1), /* packetGranulePosition= */ 0, /* endPage= */ true);
+  }
+
   /**
    * Adds a packet to the pages.
    *
@@ -192,6 +264,11 @@ import java.util.Random;
    * multiple pages.
    */
   private void addPacketToPage(ByteBuffer packet, long packetGranulePosition) throws IOException {
+    addPacketToPage(packet, packetGranulePosition, /* endPage= */ false);
+  }
+
+  private void addPacketToPage(ByteBuffer packet, long packetGranulePosition, boolean endPage)
+      throws IOException {
     int bytesToWrite;
 
     do {
@@ -217,6 +294,9 @@ import java.util.Random;
     } while (bytesToWrite == MAX_SEGMENT_SIZE_BYTES);
     // Update Granule (only when packet actually finishes).
     this.currentPageGranulePosition = packetGranulePosition;
+    if (endPage) {
+      writeOggPage(HEADER_TYPE_NEW_PAGE, this.currentPageGranulePosition);
+    }
   }
 
   /** Writes a complete Ogg page to the output channel. */
