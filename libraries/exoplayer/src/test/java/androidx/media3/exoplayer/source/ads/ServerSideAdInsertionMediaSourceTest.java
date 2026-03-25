@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -97,6 +98,7 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 /** Unit test for {@link ServerSideAdInsertionMediaSource}. */
 @RunWith(AndroidJUnit4.class)
@@ -838,6 +840,189 @@ public final class ServerSideAdInsertionMediaSourceTest {
     } while (result != C.RESULT_BUFFER_READ || !buffer.isEndOfStream());
 
     assertThat(readSamples).containsExactly(0L, 200L, 400L, 600L, 800L).inOrder();
+  }
+
+  @Test
+  public void playlistWithTwoSsaiStreams_reportsExpectedDiscontinuities() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(context, clock);
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+
+    AdPlaybackState adPlaybackState = new AdPlaybackState(/* adsId= */ new Object());
+    adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            adPlaybackState,
+            /* fromPositionUs= */ 0,
+            /* contentResumeOffsetUs= */ 0,
+            /* adDurationsUs...= */ 200_000);
+    // This is a server-side post-roll, reaching to exactly the content duration of 1024ms.
+    adPlaybackState =
+        addAdGroupToAdPlaybackState(
+            adPlaybackState,
+            /* fromPositionUs= */ 924_000,
+            /* contentResumeOffsetUs= */ 0,
+            /* adDurationsUs...= */ 100_000);
+    AdPlaybackState finalAdPlaybackState = adPlaybackState;
+    AtomicReference<ServerSideAdInsertionMediaSource> mediaSourceRef1 = new AtomicReference<>();
+    AtomicReference<ServerSideAdInsertionMediaSource> mediaSourceRef2 = new AtomicReference<>();
+    mediaSourceRef1.set(
+        new ServerSideAdInsertionMediaSource(
+            new DefaultMediaSourceFactory(context).createMediaSource(MediaItem.fromUri(TEST_ASSET)),
+            contentTimeline -> {
+              Object periodUid =
+                  checkNotNull(
+                      contentTimeline.getPeriod(
+                              /* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                          .uid);
+              mediaSourceRef1
+                  .get()
+                  .setAdPlaybackStates(
+                      ImmutableMap.of(periodUid, finalAdPlaybackState), contentTimeline);
+              return true;
+            }));
+    mediaSourceRef2.set(
+        new ServerSideAdInsertionMediaSource(
+            new DefaultMediaSourceFactory(context).createMediaSource(MediaItem.fromUri(TEST_ASSET)),
+            contentTimeline -> {
+              Object periodUid =
+                  checkNotNull(
+                      contentTimeline.getPeriod(
+                              /* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                          .uid);
+              mediaSourceRef2
+                  .get()
+                  .setAdPlaybackStates(
+                      ImmutableMap.of(periodUid, finalAdPlaybackState), contentTimeline);
+              return true;
+            }));
+
+    AnalyticsListener listener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(listener);
+    player.setMediaSources(ImmutableList.of(mediaSourceRef1.get(), mediaSourceRef2.get()));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    ArgumentCaptor<Player.PositionInfo> oldPositionCaptor =
+        ArgumentCaptor.forClass(Player.PositionInfo.class);
+    ArgumentCaptor<Player.PositionInfo> newPositionCaptor =
+        ArgumentCaptor.forClass(Player.PositionInfo.class);
+    ArgumentCaptor<Integer> reasonCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(listener, atLeastOnce())
+        .onPositionDiscontinuity(
+            any(),
+            oldPositionCaptor.capture(),
+            newPositionCaptor.capture(),
+            reasonCaptor.capture());
+
+    List<Player.PositionInfo> oldPositions = oldPositionCaptor.getAllValues();
+    List<Player.PositionInfo> newPositions = newPositionCaptor.getAllValues();
+    assertThat(oldPositions).hasSize(7);
+    assertThat(reasonCaptor.getAllValues())
+        .containsExactly(
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION,
+            Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+
+    // 1. S1: Pre-roll to Content
+    Player.PositionInfo oldPosition = oldPositions.get(0);
+    Player.PositionInfo newPosition = newPositions.get(0);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(0);
+    assertThat(oldPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(oldPosition.positionMs).isEqualTo(200);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(0);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(newPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(newPosition.positionMs).isEqualTo(0);
+    assertThat(newPosition.contentPositionMs).isEqualTo(0);
+
+    // 2. S1: Content to Post-roll
+    oldPosition = oldPositions.get(1);
+    newPosition = newPositions.get(1);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(oldPosition.positionMs).isEqualTo(724);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(724);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(newPosition.adGroupIndex).isEqualTo(1);
+    assertThat(newPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(newPosition.positionMs).isEqualTo(0);
+    assertThat(newPosition.contentPositionMs).isEqualTo(724);
+
+    // 3. S1: Post-roll to Content End
+    oldPosition = oldPositions.get(2);
+    newPosition = newPositions.get(2);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(1);
+    assertThat(oldPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(oldPosition.positionMs).isEqualTo(100);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(724);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(newPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(newPosition.positionMs).isEqualTo(723);
+    assertThat(newPosition.contentPositionMs).isEqualTo(723);
+
+    // 4. S1 to S2 pre-roll
+    oldPosition = oldPositions.get(3);
+    newPosition = newPositions.get(3);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(0);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(oldPosition.positionMs).isEqualTo(724);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(724);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(newPosition.adGroupIndex).isEqualTo(0);
+    assertThat(newPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(newPosition.positionMs).isEqualTo(0);
+    assertThat(newPosition.contentPositionMs).isEqualTo(0);
+
+    // 5. S2: Pre-roll to Content
+    oldPosition = oldPositions.get(4);
+    newPosition = newPositions.get(4);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(0);
+    assertThat(oldPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(oldPosition.positionMs).isEqualTo(200);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(0);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(newPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(newPosition.positionMs).isEqualTo(0);
+    assertThat(newPosition.contentPositionMs).isEqualTo(0);
+
+    // 6. S2: Content to Post-roll
+    oldPosition = oldPositions.get(5);
+    newPosition = newPositions.get(5);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(oldPosition.positionMs).isEqualTo(724);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(724);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(newPosition.adGroupIndex).isEqualTo(1);
+    assertThat(newPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(newPosition.positionMs).isEqualTo(0);
+    assertThat(newPosition.contentPositionMs).isEqualTo(724);
+
+    // 7. S2: Post-roll to Content End
+    oldPosition = oldPositions.get(6);
+    newPosition = newPositions.get(6);
+    assertThat(oldPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(oldPosition.adGroupIndex).isEqualTo(1);
+    assertThat(oldPosition.adIndexInAdGroup).isEqualTo(0);
+    assertThat(oldPosition.positionMs).isEqualTo(100);
+    assertThat(oldPosition.contentPositionMs).isEqualTo(724);
+    assertThat(newPosition.mediaItemIndex).isEqualTo(1);
+    assertThat(newPosition.adGroupIndex).isEqualTo(C.INDEX_UNSET);
+    assertThat(newPosition.positionMs).isEqualTo(723);
+    assertThat(newPosition.contentPositionMs).isEqualTo(723);
   }
 
   private static final class DiscontinuitySkippingCapturingAudioSink extends CapturingAudioSink {
