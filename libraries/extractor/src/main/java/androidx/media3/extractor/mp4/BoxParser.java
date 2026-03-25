@@ -2051,12 +2051,10 @@ public final class BoxParser {
       int formatSpecificFlags = parent.readUnsignedIntToInt();
       boolean isFloat = (formatSpecificFlags & 1) != 0;
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
-      if (!isFloat) {
-        pcmEncoding = Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
-      } else {
-        pcmEncoding =
-            Util.getFloatPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
-      }
+      pcmEncoding =
+          isFloat
+              ? Util.getFloatPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN)
+              : Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
       if (pcmEncoding == C.ENCODING_INVALID) {
         pcmEncoding = Format.NO_VALUE;
       }
