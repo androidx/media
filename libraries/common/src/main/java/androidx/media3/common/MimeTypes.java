@@ -97,6 +97,13 @@ public final class MimeTypes {
   @UnstableApi
   public static final String AUDIO_DTS_UHD_P2 = BASE_TYPE_AUDIO + "/vnd.dts.uhd;profile=p2";
 
+  /**
+   * @deprecated Use {@link #AUDIO_DTS_UHD_P2} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public static final String AUDIO_DTS_X = AUDIO_DTS_UHD_P2;
+
   public static final String AUDIO_VORBIS = BASE_TYPE_AUDIO + "/vorbis";
   public static final String AUDIO_OPUS = BASE_TYPE_AUDIO + "/opus";
   public static final String AUDIO_AMR = BASE_TYPE_AUDIO + "/amr";
