@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="urn:mpeg:dash:schema:mpd:2011"
+  xmlns:scte214="urn:scte:dash:scte214-extensions"
+  xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011"
+  minBufferTime="PT1S"
+  profiles="urn:mpeg:dash:profile:isoff-main:2011"
+  type="static"
+  mediaPresentationDuration="PT904S">
+  <Period id="1" duration="PT904S" start="PT0S">
+    <AdaptationSet id="3000000000" mimeType="video/mp4" contentType="video" segmentAlignment="true" startWithSAP="1">
+      <SegmentTemplate presentationTimeOffset="0" media="video_$Time$_$Bandwidth$.m4s" timescale="1000" >
+        <SegmentTimeline>
+          <S d="4000" r="225"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+      <Representation id="0" codecs="hvc1.2.4.L123.90" width="768" height="432" frameRate="25" bandwidth="1300000" scte214:supplementalCodecs="dvh1.08.03" scte214:supplementalProfiles="db1p" />
+    </AdaptationSet>
+  </Period>
+</MPD>
