@@ -180,6 +180,17 @@ const char* GetJniErrorMessage(JniStatusCode error_code) {
   }
 }
 
+// Logs and clears any pending JNI exceptions to prevent an ART abort.
+// Returns true if an exception was cleared, false otherwise.
+bool ClearPendingException(JNIEnv* env) {
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+    return true;
+  }
+  return false;
+}
+
 const int GetThreadCount(jint threads) {
   switch (threads) {
     case kDav1dThreadCountDefault:
@@ -399,7 +410,7 @@ static int dav1d_picture_allocator(Dav1dPicture* p, void* cookie) {
       reinterpret_cast<jclass>(context->byte_buffer_class),
       context->create_direct_byte_buffer_method, total_size);
 
-  if (direct_byte_buffer == nullptr) {
+  if (ClearPendingException(env) || direct_byte_buffer == nullptr) {
     LOGE("Failed to create direct byte buffer.");
     return DAV1D_ERR(ENOMEM);
   }
@@ -525,13 +536,27 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
     context->jni_status_code = kJniStatusDecoderInitFailed;
   }
 
+  // Helper macro to execute a JNI lookup and abort initialization if it fails.
+  // This fully complies with JNI specs so we never call JNI with a pending
+  // exception.
+#define CHECK_JNI_EXCEPTION(assignment)                     \
+  assignment;                                               \
+  if (ClearPendingException(env)) {                         \
+    LOGE("dav1dInit: JNI lookup failed: %s", #assignment);  \
+    context->jni_status_code = kJniStatusDecoderInitFailed; \
+    return reinterpret_cast<jlong>(context);                \
+  }
+
   // Populate JNI References.
-  const jclass inputBufferClass =
-      env->FindClass("androidx/media3/decoder/DecoderInputBuffer");
-  const jclass outputBufferClass =
-      env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
-  const jclass decoderClass =
-      env->FindClass("androidx/media3/decoder/av1/Dav1dDecoder");
+  jclass inputBufferClass;
+  CHECK_JNI_EXCEPTION(inputBufferClass = env->FindClass(
+                          "androidx/media3/decoder/DecoderInputBuffer"));
+  jclass outputBufferClass;
+  CHECK_JNI_EXCEPTION(outputBufferClass = env->FindClass(
+                          "androidx/media3/decoder/VideoDecoderOutputBuffer"));
+  jclass decoderClass;
+  CHECK_JNI_EXCEPTION(decoderClass = env->FindClass(
+                          "androidx/media3/decoder/av1/Dav1dDecoder"));
   const jclass byteBufferClass = env->FindClass("java/nio/ByteBuffer");
 
   context->input_buffer_class = env->NewGlobalRef(inputBufferClass);
@@ -539,34 +564,41 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   context->decoder_class = env->NewGlobalRef(decoderClass);
   context->byte_buffer_class = env->NewGlobalRef(byteBufferClass);
 
-  context->input_data_field =
-      env->GetFieldID(inputBufferClass, "data", "Ljava/nio/ByteBuffer;");
-  context->display_width_field =
-      env->GetFieldID(outputBufferClass, "width", "I");
-  context->display_height_field =
-      env->GetFieldID(outputBufferClass, "height", "I");
-  context->output_buffer_stride_array_field =
-      env->GetFieldID(outputBufferClass, "yuvStrides", "[I");
-  context->ystride_field = env->GetFieldID(outputBufferClass, "yStride", "I");
-  context->uvstride_field = env->GetFieldID(outputBufferClass, "uvStride", "I");
-  context->init_output_buffer_method =
-      env->GetMethodID(outputBufferClass, "init", "(JILjava/nio/ByteBuffer;)V");
-  context->data_field =
-      env->GetFieldID(outputBufferClass, "data", "Ljava/nio/ByteBuffer;");
-  context->decoder_private_field =
-      env->GetFieldID(outputBufferClass, "decoderPrivate", "J");
-  context->init_for_yuv_frame_method =
-      env->GetMethodID(outputBufferClass, "initForYuvFrame", "(IIIII)Z");
-  context->init_for_private_frame_method =
-      env->GetMethodID(outputBufferClass, "initForPrivateFrame", "(II)V");
-  context->set_flags_method =
-      env->GetMethodID(outputBufferClass, "setFlags", "(I)V");
-  context->release_input_buffer_method =
-      env->GetMethodID(decoderClass, "releaseInputBuffer", "(I)V");
-  context->init_for_offset_frames_method =
-      env->GetMethodID(outputBufferClass, "initForOffsetFrames", "(IIIIIII)Z");
+  CHECK_JNI_EXCEPTION(context->input_data_field = env->GetFieldID(
+                          inputBufferClass, "data", "Ljava/nio/ByteBuffer;"));
+  CHECK_JNI_EXCEPTION(context->display_width_field =
+                          env->GetFieldID(outputBufferClass, "width", "I"));
+  CHECK_JNI_EXCEPTION(context->display_height_field =
+                          env->GetFieldID(outputBufferClass, "height", "I"));
+  CHECK_JNI_EXCEPTION(
+      context->output_buffer_stride_array_field =
+          env->GetFieldID(outputBufferClass, "yuvStrides", "[I"));
+  CHECK_JNI_EXCEPTION(context->ystride_field =
+                          env->GetFieldID(outputBufferClass, "yStride", "I"));
+  CHECK_JNI_EXCEPTION(context->uvstride_field =
+                          env->GetFieldID(outputBufferClass, "uvStride", "I"));
+  CHECK_JNI_EXCEPTION(context->init_output_buffer_method =
+                          env->GetMethodID(outputBufferClass, "init",
+                                           "(JILjava/nio/ByteBuffer;)V"));
+  CHECK_JNI_EXCEPTION(context->data_field = env->GetFieldID(
+                          outputBufferClass, "data", "Ljava/nio/ByteBuffer;"));
+  CHECK_JNI_EXCEPTION(context->decoder_private_field = env->GetFieldID(
+                          outputBufferClass, "decoderPrivate", "J"));
+  CHECK_JNI_EXCEPTION(context->init_for_yuv_frame_method = env->GetMethodID(
+                          outputBufferClass, "initForYuvFrame", "(IIIII)Z"));
+  CHECK_JNI_EXCEPTION(context->init_for_private_frame_method = env->GetMethodID(
+                          outputBufferClass, "initForPrivateFrame", "(II)V"));
+  CHECK_JNI_EXCEPTION(context->set_flags_method = env->GetMethodID(
+                          outputBufferClass, "setFlags", "(I)V"));
+  CHECK_JNI_EXCEPTION(context->release_input_buffer_method = env->GetMethodID(
+                          decoderClass, "releaseInputBuffer", "(I)V"));
+  CHECK_JNI_EXCEPTION(
+      context->init_for_offset_frames_method = env->GetMethodID(
+          outputBufferClass, "initForOffsetFrames", "(IIIIIII)Z"));
   context->create_direct_byte_buffer_method = env->GetStaticMethodID(
       byteBufferClass, "allocateDirect", "(I)Ljava/nio/ByteBuffer;");
+
+#undef CHECK_JNI_EXCEPTION
 
   // Assert JNI References are valid.
   assert(inputBufferClass);
@@ -645,6 +677,10 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   const jobject encoded_data =
       env->GetObjectField(jInputBuffer, context->input_data_field);
+  if (ClearPendingException(env)) {
+    LOGE("Failed to get input data field.");
+    return kStatusError;
+  }
   void* const buffer_ptr = env->GetDirectBufferAddress(encoded_data);
   if (buffer_ptr == nullptr) {
     LOGE("Failed to get direct buffer address.");
@@ -745,7 +781,7 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
       reinterpret_cast<const UserDataCookie*>(dav1d_picture->m.user_data.data);
   env->CallVoidMethod(jOutputBuffer, context->set_flags_method,
                       returned_user_data->flags);
-  if (env->ExceptionCheck()) {
+  if (ClearPendingException(env)) {
     context->jni_status_code = kJniStatusBufferInitError;
     return kStatusError;
   }
@@ -758,7 +794,7 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
   env->CallVoidMethod(jOutputBuffer, context->init_output_buffer_method,
                       returned_user_data->time_us,
                       returned_user_data->output_mode, nullptr);
-  if (env->ExceptionCheck()) {
+  if (ClearPendingException(env)) {
     context->jni_status_code = kJniStatusBufferInitError;
     return kStatusError;
   }
@@ -796,8 +832,7 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
       context->jni_status_code = kJniStatusBufferResizeError;
       return kStatusError;
     }
-    if (env->ExceptionCheck()) {
-      // Exception is thrown in Java when returning from the native call.
+    if (ClearPendingException(env)) {
       std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
           context->state_mutex);
       context->jni_status_code = kJniStatusBufferResizeError;
@@ -806,8 +841,16 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
     if (!context->use_custom_allocator) {
       const jobject data_object =
           env->GetObjectField(jOutputBuffer, context->data_field);
+      if (ClearPendingException(env)) {
+        LOGE("Failed to get data object from output buffer.");
+        return kStatusError;
+      }
       jbyte* const data =
           reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(data_object));
+      if (data == nullptr) {
+        LOGE("Failed to get direct buffer address for output data.");
+        return kStatusError;
+      }
       CopyFrameToDataBuffer(dav1d_picture.get(), data);
     }
   } else if (returned_user_data->output_mode == kOutputModeSurfaceYuv) {
@@ -815,8 +858,20 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
     Dav1dPicture* dav1d_picture_raw_ptr = dav1d_picture.release();
     env->SetLongField(jOutputBuffer, context->decoder_private_field,
                       (uint64_t)dav1d_picture_raw_ptr);
+    if (ClearPendingException(env)) {
+      // If an exception occurred, the long field might not have been set.
+      // To avoid leaking dav1d_picture_raw_ptr, we unref it here.
+      dav1d_picture_unref(dav1d_picture_raw_ptr);
+      delete dav1d_picture_raw_ptr;
+      context->jni_status_code = kJniStatusBufferInitError;
+      return kStatusError;
+    }
     env->CallVoidMethod(jOutputBuffer, context->init_for_private_frame_method,
                         dav1d_picture_raw_ptr->p.w, dav1d_picture_raw_ptr->p.h);
+    if (ClearPendingException(env)) {
+      context->jni_status_code = kJniStatusBufferInitError;
+      return kStatusError;
+    }
   }
   return kStatusOk;
 }
@@ -842,6 +897,10 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
 
   Dav1dPicture* dav1d_picture = reinterpret_cast<Dav1dPicture*>(
       env->GetLongField(jOutputBuffer, context->decoder_private_field));
+  if (ClearPendingException(env)) {
+    context->jni_status_code = kJniStatusBufferInitError;
+    return kStatusError;
+  }
   if (dav1d_picture == nullptr) {
     LOGE("Failed to get dav1d picture.");
     return kStatusError;
@@ -849,8 +908,16 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
 
   // Get the display width and height metadata from the output buffer.
   int32_t width = env->GetIntField(jOutputBuffer, context->display_width_field);
+  if (ClearPendingException(env)) {
+    context->jni_status_code = kJniStatusANativeWindowError;
+    return kStatusError;
+  }
   int32_t height =
       env->GetIntField(jOutputBuffer, context->display_height_field);
+  if (ClearPendingException(env)) {
+    context->jni_status_code = kJniStatusANativeWindowError;
+    return kStatusError;
+  }
   if (context->native_window_width != width ||
       context->native_window_height != height) {
     if (ANativeWindow_setBuffersGeometry(context->native_window, width, height,
@@ -931,9 +998,13 @@ DECODER_FUNC(void, dav1dReleaseFrame, jlong jContext, jobject jOutputBuffer) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
-  Dav1dPicture* dav1d_picture = (Dav1dPicture*)env->GetLongField(
-      jOutputBuffer, context->decoder_private_field);
+  Dav1dPicture* dav1d_picture = reinterpret_cast<Dav1dPicture*>(
+      env->GetLongField(jOutputBuffer, context->decoder_private_field));
+  if (ClearPendingException(env)) {
+    return;
+  }
   env->SetLongField(jOutputBuffer, context->decoder_private_field, 0);
+  ClearPendingException(env);
   if (dav1d_picture != nullptr) {
     dav1d_picture_unref(dav1d_picture);
     delete dav1d_picture;
@@ -1010,9 +1081,8 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
     Cookie* cookie = cookies_to_release.back().get();
     env->CallVoidMethod(decoder, context->release_input_buffer_method,
                         cookie->buffer_index);
-    if (env->ExceptionCheck()) {
+    if (ClearPendingException(env)) {
       LOGE("Failed to release input buffer.");
-      env->ExceptionClear();
     }
     cookies_to_release.pop_back();
   }
