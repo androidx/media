@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.media.AudioFormat;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -189,6 +190,96 @@ public class MediaCodecAudioRendererTest {
             audioRendererEventListener,
             audioSink);
     mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+  }
+
+  @Test
+  public void onOutputFormatChanged_withChannelMask_configuresAudioSinkWithChannelMask()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(6)
+            .setSampleRate(44100)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 6);
+    mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_5POINT1);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(format, mediaFormat);
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, atLeastOnce()).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.channelMask)
+        .isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
+  }
+
+  @Test
+  public void onOutputFormatChanged_withMismatchedChannelCountAndMask_dropsChannelMask()
+      throws Exception {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(6)
+            .setSampleRate(44100)
+            .build();
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
+    // 5.1 mask has 6 bits, but count is 2.
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_5POINT1);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(format, mediaFormat);
+
+    ArgumentCaptor<AudioSink.AudioSinkConfig> configCaptor =
+        ArgumentCaptor.forClass(AudioSink.AudioSinkConfig.class);
+    verify(audioSink, atLeastOnce()).configure(configCaptor.capture());
+    assertThat(configCaptor.getValue().format.channelMask).isEqualTo(Format.NO_VALUE);
   }
 
   @Test

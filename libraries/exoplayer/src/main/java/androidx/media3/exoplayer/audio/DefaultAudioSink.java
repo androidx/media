@@ -785,6 +785,10 @@ public final class DefaultAudioSink implements AudioSink {
               .setPcmEncoding(outputFormat.encoding)
               .setSampleRate(outputFormat.sampleRate)
               .setChannelCount(outputFormat.channelCount)
+              .setChannelMask(
+                  outputFormat.channelCount == inputFormat.channelCount
+                      ? inputFormat.channelMask
+                      : Format.NO_VALUE)
               .build();
       outputPcmFrameSize = Util.getPcmFrameSize(outputFormat.encoding, outputFormat.channelCount);
     } else {

@@ -2494,6 +2494,22 @@ public final class Util {
   }
 
   /**
+   * Returns the audio track channel configuration for the given {@link Format}, or {@link
+   * AudioFormat#CHANNEL_INVALID} if output is not possible.
+   *
+   * @param format The {@link Format} of the input audio.
+   * @return The channel configuration or {@link AudioFormat#CHANNEL_INVALID} if output is not
+   *     possible.
+   */
+  @UnstableApi
+  public static int getAudioTrackChannelConfig(Format format) {
+    if (format.channelMask != Format.NO_VALUE) {
+      return format.channelMask;
+    }
+    return getAudioTrackChannelConfig(format.channelCount);
+  }
+
+  /**
    * Returns the audio track channel configuration for the given channel count, or {@link
    * AudioFormat#CHANNEL_INVALID} if output is not possible.
    *

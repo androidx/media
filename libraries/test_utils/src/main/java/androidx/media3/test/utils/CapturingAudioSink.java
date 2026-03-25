@@ -226,6 +226,9 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
           .addIfNonDefault("pcmEncoding", inputFormat.pcmEncoding, Format.NO_VALUE)
           .addIfNonDefault("channelCount", inputFormat.channelCount, Format.NO_VALUE)
           .addIfNonDefault("sampleRate", inputFormat.sampleRate, Format.NO_VALUE);
+      if (inputFormat.channelMask != Format.NO_VALUE) {
+        dumper.add("channelMask", Util.formatInvariant("0x%08X", inputFormat.channelMask));
+      }
       if (outputChannels != null) {
         dumper.add("outputChannels", outputChannels.toString());
       }

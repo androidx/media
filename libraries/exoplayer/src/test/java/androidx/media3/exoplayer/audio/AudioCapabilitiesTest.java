@@ -462,6 +462,41 @@ public class AudioCapabilitiesTest {
     assertThat(encodingAndChannelConfig.second).isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
   }
 
+  @Config(minSdk = 29)
+  @Test
+  public void
+      getEncodingAndChannelConfigForPassthrough_withExplicitChannelMask_returnsExplicitMask() {
+    shadowOf(uiModeManager).setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
+            .setSampleRate(48_000)
+            .setChannelCount(6)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
+            .build();
+    AudioAttributes directPlaybackAudioAttributes =
+        new AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+            .build();
+    addDirectPlaybackSupport(
+        AudioFormat.ENCODING_E_AC3_JOC, CHANNEL_OUT_5POINT1, directPlaybackAudioAttributes);
+    AudioCapabilities audioCapabilities =
+        getCapabilities(
+            ApplicationProvider.getApplicationContext(),
+            directPlaybackAudioAttributes,
+            /* routedDevice= */ null,
+            /* spatializerChannelMasks= */ ImmutableList.of());
+
+    Pair<Integer, Integer> encodingAndChannelConfig =
+        audioCapabilities.getEncodingAndChannelConfigForPassthrough(
+            format, directPlaybackAudioAttributes);
+
+    assertThat(encodingAndChannelConfig).isNotNull();
+    assertThat(encodingAndChannelConfig.first).isEqualTo(AudioFormat.ENCODING_E_AC3_JOC);
+    assertThat(encodingAndChannelConfig.second).isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
+  }
+
   // TODO: b/320191198 - Disable the test for API 33, as the
   // ShadowAudioManager.getDirectProfilesForAttributes(AudioAttributes) hasn't really considered
   // the AudioAttributes yet.

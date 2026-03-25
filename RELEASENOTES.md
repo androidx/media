@@ -3,6 +3,9 @@
 ### Unreleased changes
 
 *   Common library:
+    *   Add `Format.channelMask` to explicitly represent the audio channel mask,
+        and a new `Util.getAudioTrackChannelConfig(Format)` overload to safely
+        resolve it.
 *   ExoPlayer:
     *   Mark tracks with a well-formed but unrecognized codec profile or level
         as `supported=NO_EXCEEDS_CAPABILITIES` instead of `supported=YES` (which
@@ -48,6 +51,9 @@
     *   Ignore `av1C` data with unsupported version.
 *   Inspector:
 *   Audio:
+    *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
+        the platform decoder, allowing `DefaultAudioSink` to use this explicit
+        mask instead of inferring one from the channel count.
     *   Convert parameters of `AudioSink.configure` to data class. Custom
         overrides of `ForwardingAudioSink.configure` need to be migrated to the
         new method signature.

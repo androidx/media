@@ -43,6 +43,7 @@ import static org.mockito.Mockito.verify;
 
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.media.AudioFormat;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -50,6 +51,7 @@ import android.os.Looper;
 import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.test.utils.TestUtil;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
@@ -1806,6 +1808,24 @@ public class UtilTest {
     assertThat(getInt24(buffer, 0)).isEqualTo(-1);
     assertThat(getInt24(buffer, 3)).isEqualTo(0x00123456);
     assertThat(getInt24(buffer, 6)).isEqualTo(0xFFFF0001);
+  }
+
+  @Test
+  public void getAudioTrackChannelConfig_withChannelMask_returnsChannelMask() {
+    Format format =
+        new Format.Builder()
+            .setChannelCount(6)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
+            .build();
+
+    assertThat(Util.getAudioTrackChannelConfig(format)).isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
+  }
+
+  @Test
+  public void getAudioTrackChannelConfig_withoutChannelMask_infersFromChannelCount() {
+    Format format = new Format.Builder().setChannelCount(6).build();
+
+    assertThat(Util.getAudioTrackChannelConfig(format)).isEqualTo(AudioFormat.CHANNEL_OUT_5POINT1);
   }
 
   private static void assertEscapeUnescapeFileName(String fileName, String escapedFileName) {

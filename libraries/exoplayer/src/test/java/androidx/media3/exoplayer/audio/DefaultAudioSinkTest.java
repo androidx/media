@@ -55,6 +55,7 @@ import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.ImmutableIntArray;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -128,6 +129,30 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
+  public void configure_withDownmixingChannelMappingAndInputChannelMask_succeeds()
+      throws Exception {
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext())
+            .setAudioProcessorChain(new DefaultAudioProcessorChain())
+            .build();
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(6)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .build();
+    AudioSink.AudioSinkConfig config =
+        new AudioSink.AudioSinkConfig.Builder(format)
+            .setOutputChannelMapping(ImmutableIntArray.of(0, 1))
+            .build();
+
+    // Call succeeds without IllegalStateException from format building during downmix
+    defaultAudioSink.configure(config);
+  }
+
+  @Test
   public void handlesBuffer_updatesPositionUsingAudioProcessorChain() throws Exception {
     defaultAudioSink =
         new DefaultAudioSink.Builder()
@@ -193,7 +218,8 @@ public final class DefaultAudioSinkTest {
     AudioProcessor capturingProcessor =
         new BaseAudioProcessor() {
           @Override
-          protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+          protected AudioProcessor.AudioFormat onConfigure(
+              AudioProcessor.AudioFormat inputAudioFormat) {
             return inputAudioFormat;
           }
 

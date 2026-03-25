@@ -161,7 +161,10 @@ public class SpatializerWrapper {
       linearChannelCount = format.channelCount;
     }
 
-    int channelConfig = Util.getAudioTrackChannelConfig(linearChannelCount);
+    int channelConfig =
+        (format.channelMask != Format.NO_VALUE && format.channelCount == linearChannelCount)
+            ? format.channelMask
+            : Util.getAudioTrackChannelConfig(linearChannelCount);
     if (channelConfig == AudioFormat.CHANNEL_INVALID) {
       return false;
     }

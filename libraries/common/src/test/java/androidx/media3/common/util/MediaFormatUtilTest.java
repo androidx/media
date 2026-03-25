@@ -57,6 +57,18 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  public void createFormatFromMediaFormat_withContradictoryChannelMask_dropsChannelMask() {
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_5POINT1);
+
+    Format format = MediaFormatUtil.createFormatFromMediaFormat(mediaFormat);
+
+    assertThat(format.channelCount).isEqualTo(2);
+    assertThat(format.channelMask).isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
   public void createFormatFromMediaFormat_withPopulatedMap_generatesExpectedFormat() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H264);
@@ -77,6 +89,7 @@ public class MediaFormatUtilTest {
     mediaFormat.setByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO, ByteBuffer.wrap(new byte[] {3}));
     mediaFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 11);
     mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+    mediaFormat.setInteger(MediaFormat.KEY_CHANNEL_MASK, AudioFormat.CHANNEL_OUT_STEREO);
     mediaFormat.setInteger(MediaFormat.KEY_PCM_ENCODING, C.ENCODING_PCM_8BIT);
     mediaFormat.setByteBuffer("csd-0", ByteBuffer.wrap(new byte[] {7}));
     mediaFormat.setByteBuffer("csd-1", ByteBuffer.wrap(new byte[] {10}));
@@ -111,6 +124,7 @@ public class MediaFormatUtilTest {
     assertThat(format.sampleRate).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE));
     assertThat(format.channelCount)
         .isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+    assertThat(format.channelMask).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK));
     assertThat(format.pcmEncoding).isEqualTo(mediaFormat.getInteger(MediaFormat.KEY_PCM_ENCODING));
     assertThat(format.initializationData.get(0))
         .isEqualTo(mediaFormat.getByteBuffer("csd-0").array());
@@ -152,6 +166,7 @@ public class MediaFormatUtilTest {
         new Format.Builder()
             .setAverageBitrate(1)
             .setChannelCount(2)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
             .setColorInfo(
                 new ColorInfo.Builder()
                     .setColorSpace(C.COLOR_SPACE_BT601)

@@ -2,6 +2,7 @@ format audio:
   averageBitrate = 131072
   sampleMimeType = audio/raw
   channelCount = 2
+  channelMask = 0x0000000C
   sampleRate = 48000
   pcmEncoding = 2
   metadata = entries=[Mp4AlternateGroup: 1, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]

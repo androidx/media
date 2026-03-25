@@ -643,6 +643,19 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         // output 16-bit PCM.
         pcmEncoding = C.ENCODING_PCM_16BIT;
       }
+      int channelCount = mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+      int channelMask = Format.NO_VALUE;
+      if (format.channelMask != Format.NO_VALUE && format.channelCount == channelCount) {
+        channelMask = format.channelMask;
+      }
+
+      if (mediaFormat.containsKey(MediaFormat.KEY_CHANNEL_MASK)) {
+        int mediaFormatChannelMask = mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK);
+        if (mediaFormatChannelMask != AudioFormat.CHANNEL_INVALID
+            && Integer.bitCount(mediaFormatChannelMask) == channelCount) {
+          channelMask = mediaFormatChannelMask;
+        }
+      }
       audioSinkInputFormat =
           new Format.Builder()
               .setSampleMimeType(MimeTypes.AUDIO_RAW)
@@ -657,7 +670,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
               .setLanguage(format.language)
               .setSelectionFlags(format.selectionFlags)
               .setRoleFlags(format.roleFlags)
-              .setChannelCount(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT))
+              .setChannelCount(channelCount)
+              .setChannelMask(channelMask)
               .setSampleRate(mediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE))
               .build();
       if (codecNeedsDiscardChannelsWorkaround

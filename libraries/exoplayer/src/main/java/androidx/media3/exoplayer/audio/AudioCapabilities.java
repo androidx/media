@@ -421,11 +421,11 @@ public final class AudioCapabilities {
         if (channelCount > 10) {
           return null;
         }
-      } else if (!audioProfile.supportsChannelCount(channelCount)) {
+      } else if (!audioProfile.supportsChannelConfig(channelCount, format)) {
         return null;
       }
     }
-    int channelConfig = getChannelConfigForPassthrough(channelCount);
+    int channelConfig = getChannelConfigForPassthrough(channelCount, format);
     if (channelConfig == AudioFormat.CHANNEL_INVALID) {
       return null;
     }
@@ -473,7 +473,7 @@ public final class AudioCapabilities {
     return Build.MANUFACTURER.equals("Amazon") || Build.MANUFACTURER.equals("Xiaomi");
   }
 
-  private static int getChannelConfigForPassthrough(int channelCount) {
+  private static int getChannelConfigForPassthrough(int channelCount, Format format) {
     if (SDK_INT <= 28) {
       // In passthrough mode the channel count used to configure the audio track doesn't affect how
       // the stream is handled, except that some devices do overly-strict channel configuration
@@ -492,7 +492,9 @@ public final class AudioCapabilities {
       channelCount = 2;
     }
 
-    return Util.getAudioTrackChannelConfig(channelCount);
+    return (format.channelMask != Format.NO_VALUE && format.channelCount == channelCount)
+        ? format.channelMask
+        : Util.getAudioTrackChannelConfig(channelCount);
   }
 
   // Suppression needed for IntDef casting.
@@ -590,12 +592,15 @@ public final class AudioCapabilities {
       this.channelMasks = null;
     }
 
-    public boolean supportsChannelCount(int channelCount) {
+    private boolean supportsChannelConfig(int channelCount, Format format) {
       if (channelMasks == null) {
         return channelCount <= maxChannelCount;
       }
 
-      int channelMask = Util.getAudioTrackChannelConfig(channelCount);
+      int channelMask =
+          (format.channelMask != Format.NO_VALUE && format.channelCount == channelCount)
+              ? format.channelMask
+              : Util.getAudioTrackChannelConfig(channelCount);
       if (channelMask == AudioFormat.CHANNEL_INVALID) {
         return false;
       }

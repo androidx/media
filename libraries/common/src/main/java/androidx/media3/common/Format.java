@@ -113,6 +113,7 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>{@link #channelCount}
+ *   <li>{@link #channelMask}
  *   <li>{@link #sampleRate}
  *   <li>{@link #pcmEncoding}
  *   <li>{@link #encoderDelay}
@@ -191,6 +192,7 @@ public final class Format {
     // Audio specific.
 
     private int channelCount;
+    private int channelMask;
     private int sampleRate;
     private @C.PcmEncoding int pcmEncoding;
     private int encoderDelay;
@@ -230,6 +232,7 @@ public final class Format {
       maxSubLayers = NO_VALUE;
       // Audio specific.
       channelCount = NO_VALUE;
+      channelMask = NO_VALUE;
       sampleRate = NO_VALUE;
       pcmEncoding = NO_VALUE;
       // Text specific.
@@ -285,6 +288,7 @@ public final class Format {
       this.maxSubLayers = format.maxSubLayers;
       // Audio specific.
       this.channelCount = format.channelCount;
+      this.channelMask = format.channelMask;
       this.sampleRate = format.sampleRate;
       this.pcmEncoding = format.pcmEncoding;
       this.encoderDelay = format.encoderDelay;
@@ -731,12 +735,32 @@ public final class Format {
     /**
      * Sets {@link Format#channelCount}. The default value is {@link #NO_VALUE}.
      *
+     * <p>If both the channel count and the {@linkplain #setChannelMask(int) channel mask} are set
+     * (i.e. not {@link #NO_VALUE}), the number of set bits in the channel mask must equal the
+     * channel count.
+     *
      * @param channelCount The {@link Format#channelCount}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
     public Builder setChannelCount(int channelCount) {
       this.channelCount = channelCount;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#channelMask}. The default value is {@link #NO_VALUE}.
+     *
+     * <p>If both the {@linkplain #setChannelCount(int) channel count} and the channel mask are set
+     * (i.e. not {@link #NO_VALUE}), the number of set bits in the channel mask must equal the
+     * channel count.
+     *
+     * @param channelMask The {@link Format#channelMask}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setChannelMask(int channelMask) {
+      this.channelMask = channelMask;
       return this;
     }
 
@@ -1114,8 +1138,24 @@ public final class Format {
 
   // Audio specific.
 
-  /** The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable. */
+  /**
+   * The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If both {@link #channelCount} and {@link #channelMask} are set (i.e. not {@link #NO_VALUE}),
+   * they are guaranteed to match, meaning the number of set bits in {@link #channelMask} equals
+   * {@link #channelCount}.
+   */
   public final int channelCount;
+
+  /**
+   * The audio channel mask. Expected to be a bitmask of {@link android.media.AudioFormat} {@code
+   * CHANNEL_OUT_*} constants, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>If both {@link #channelCount} and {@link #channelMask} are set (i.e. not {@link #NO_VALUE}),
+   * they are guaranteed to match, meaning the number of set bits in {@link #channelMask} equals
+   * {@link #channelCount}.
+   */
+  @UnstableApi public final int channelMask;
 
   /** The audio sampling rate in Hz, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int sampleRate;
@@ -1239,6 +1279,14 @@ public final class Format {
     maxSubLayers = builder.maxSubLayers;
     // Audio specific.
     channelCount = builder.channelCount;
+    channelMask = builder.channelMask;
+    if (channelCount != NO_VALUE && channelMask != NO_VALUE) {
+      checkState(
+          Integer.bitCount(channelMask) == channelCount,
+          "channelCount and channelMask are inconsistent. channelCount=%s, channelMask=%s",
+          channelCount,
+          channelMask);
+    }
     sampleRate = builder.sampleRate;
     pcmEncoding = builder.pcmEncoding;
     encoderDelay = builder.encoderDelay == NO_VALUE ? 0 : builder.encoderDelay;
@@ -1387,6 +1435,8 @@ public final class Format {
         + ", ["
         + channelCount
         + ", "
+        + channelMask
+        + ", "
         + sampleRate
         + "])";
   }
@@ -1431,6 +1481,7 @@ public final class Format {
       result = 31 * result + maxSubLayers;
       // Audio specific.
       result = 31 * result + channelCount;
+      result = 31 * result + channelMask;
       result = 31 * result + sampleRate;
       result = 31 * result + pcmEncoding;
       result = 31 * result + encoderDelay;
@@ -1475,6 +1526,7 @@ public final class Format {
         && stereoMode == other.stereoMode
         && maxSubLayers == other.maxSubLayers
         && channelCount == other.channelCount
+        && channelMask == other.channelMask
         && sampleRate == other.sampleRate
         && pcmEncoding == other.pcmEncoding
         && encoderDelay == other.encoderDelay
@@ -1592,6 +1644,9 @@ public final class Format {
     if (format.channelCount != NO_VALUE) {
       builder.append(", channels=").append(format.channelCount);
     }
+    if (format.channelMask != NO_VALUE) {
+      builder.append(", channel_mask=").append(format.channelMask);
+    }
     if (format.sampleRate != NO_VALUE) {
       builder.append(", sample_rate=").append(format.sampleRate);
     }
@@ -1664,6 +1719,7 @@ public final class Format {
   private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
   private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
   private static final String FIELD_PRIMARY_TRACK_GROUP_ID = Util.intToStringMaxRadix(37);
+  private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1717,6 +1773,7 @@ public final class Format {
     bundle.putInt(FIELD_MAX_SUB_LAYERS, maxSubLayers);
     // Audio specific.
     bundle.putInt(FIELD_CHANNEL_COUNT, channelCount);
+    bundle.putInt(FIELD_CHANNEL_MASK, channelMask);
     bundle.putInt(FIELD_SAMPLE_RATE, sampleRate);
     bundle.putInt(FIELD_PCM_ENCODING, pcmEncoding);
     bundle.putInt(FIELD_ENCODER_DELAY, encoderDelay);
@@ -1800,6 +1857,7 @@ public final class Format {
     // Audio specific.
     builder
         .setChannelCount(bundle.getInt(FIELD_CHANNEL_COUNT, DEFAULT.channelCount))
+        .setChannelMask(bundle.getInt(FIELD_CHANNEL_MASK, DEFAULT.channelMask))
         .setSampleRate(bundle.getInt(FIELD_SAMPLE_RATE, DEFAULT.sampleRate))
         .setPcmEncoding(bundle.getInt(FIELD_PCM_ENCODING, DEFAULT.pcmEncoding))
         .setEncoderDelay(bundle.getInt(FIELD_ENCODER_DELAY, DEFAULT.encoderDelay))

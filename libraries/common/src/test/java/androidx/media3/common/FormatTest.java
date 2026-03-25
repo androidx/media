@@ -22,6 +22,7 @@ import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.media.AudioFormat;
 import androidx.annotation.Nullable;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -110,6 +111,13 @@ public final class FormatTest {
                 .build());
   }
 
+  @Test
+  public void formatBuild_withChannelCountAndChannelMaskSetButNoMatch_throwsException() {
+    Format.Builder builder =
+        new Format.Builder().setChannelCount(2).setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1);
+    assertThrows(IllegalStateException.class, () -> builder.build());
+  }
+
   private static Format createTestFormat() {
     byte[] initData1 = new byte[] {1, 2, 3};
     byte[] initData2 = new byte[] {4, 5, 6};
@@ -164,6 +172,7 @@ public final class FormatTest {
         .setStereoMode(C.STEREO_MODE_TOP_BOTTOM)
         .setColorInfo(colorInfo)
         .setChannelCount(6)
+        .setChannelMask(AudioFormat.CHANNEL_OUT_5POINT1)
         .setSampleRate(44100)
         .setPcmEncoding(C.ENCODING_PCM_24BIT)
         .setEncoderDelay(1001)

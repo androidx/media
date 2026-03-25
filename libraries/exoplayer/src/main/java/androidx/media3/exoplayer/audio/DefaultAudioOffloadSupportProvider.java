@@ -88,7 +88,7 @@ public final class DefaultAudioOffloadSupportProvider
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }
 
-    int channelConfig = Util.getAudioTrackChannelConfig(format.channelCount);
+    int channelConfig = Util.getAudioTrackChannelConfig(format);
     if (channelConfig == AudioFormat.CHANNEL_INVALID) {
       return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
     }

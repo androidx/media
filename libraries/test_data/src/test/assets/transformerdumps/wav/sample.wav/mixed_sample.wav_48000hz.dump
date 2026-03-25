@@ -2,6 +2,7 @@ format audio:
   averageBitrate = 131072
   sampleMimeType = audio/raw
   channelCount = 1
+  channelMask = 0x00000004
   sampleRate = 48000
   pcmEncoding = 2
 sample:

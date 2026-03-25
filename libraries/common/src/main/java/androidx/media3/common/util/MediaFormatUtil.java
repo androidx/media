@@ -105,12 +105,19 @@ public final class MediaFormatUtil {
             .setSampleRate(
                 getInteger(
                     mediaFormat, MediaFormat.KEY_SAMPLE_RATE, /* defaultValue= */ Format.NO_VALUE))
-            .setChannelCount(
-                getInteger(
-                    mediaFormat,
-                    MediaFormat.KEY_CHANNEL_COUNT,
-                    /* defaultValue= */ Format.NO_VALUE))
             .setPcmEncoding(getPcmEncoding(mediaFormat));
+
+    int channelCount =
+        getInteger(mediaFormat, MediaFormat.KEY_CHANNEL_COUNT, /* defaultValue= */ Format.NO_VALUE);
+    int channelMask =
+        getInteger(mediaFormat, MediaFormat.KEY_CHANNEL_MASK, /* defaultValue= */ Format.NO_VALUE);
+    if (channelCount != Format.NO_VALUE
+        && channelMask != Format.NO_VALUE
+        && Integer.bitCount(channelMask) != channelCount) {
+      channelMask = Format.NO_VALUE;
+    }
+    formatBuilder.setChannelCount(channelCount);
+    formatBuilder.setChannelMask(channelMask);
 
     ImmutableList.Builder<byte[]> csdBuffers = new ImmutableList.Builder<>();
     int csdIndex = 0;
@@ -152,7 +159,7 @@ public final class MediaFormatUtil {
     maybeSetInteger(result, MediaFormat.KEY_BIT_RATE, format.bitrate);
     maybeSetInteger(result, KEY_MAX_BIT_RATE, format.peakBitrate);
     maybeSetInteger(result, MediaFormat.KEY_CHANNEL_COUNT, format.channelCount);
-    int channelMask = Util.getAudioTrackChannelConfig(format.channelCount);
+    int channelMask = Util.getAudioTrackChannelConfig(format);
     if (channelMask != AudioFormat.CHANNEL_INVALID) {
       result.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
     }
