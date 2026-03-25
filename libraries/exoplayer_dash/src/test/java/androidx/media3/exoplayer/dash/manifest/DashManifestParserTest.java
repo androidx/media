@@ -39,6 +39,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -92,6 +93,8 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_DASHIF_LICENSE_URL =
       "media/mpd/sample_mpd_dashif_license_url";
   private static final String SAMPLE_MPD_DOLBY_VISION = "media/mpd/sample_mpd_dolby";
+  private static final String SAMPLE_MPD_SUPPLEMENTAL_CODECS =
+      "media/mpd/sample_mpd_supplemental_codecs";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -1049,6 +1052,24 @@ public class DashManifestParserTest {
     assertThat(schemeData1.uuid).isEqualTo(C.WIDEVINE_UUID);
     assertThat(schemeData0.licenseServerUrl).isEqualTo("https://testserver1.test/AcquireLicense");
     assertThat(schemeData1.licenseServerUrl).isEqualTo("https://testserver2.test/AcquireLicense");
+  }
+
+  @Test
+  public void supplementalCodecs() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_SUPPLEMENTAL_CODECS));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+    Period period = manifest.getPeriod(0);
+    Representation representation =
+        Iterables.getOnlyElement(Iterables.getOnlyElement(period.adaptationSets).representations);
+    assertThat(representation.format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
+    assertThat(representation.format.codecs).isEqualTo("dvh1.08.03");
   }
 
   private static List<Descriptor> buildCea608AccessibilityDescriptors(String value) {
