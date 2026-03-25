@@ -171,6 +171,7 @@ public final class ForwardingSimpleBasePlayerTest {
             .setPlaybackParameters(playbackParameters)
             .setTrackSelectionParameters(trackSelectionParameters)
             .setAudioAttributes(audioAttributes)
+            .setAudioSessionId(1234)
             .setVolume(0.5f)
             .setVideoSize(videoSize)
             .setCurrentCues(cueGroup)
@@ -225,6 +226,7 @@ public final class ForwardingSimpleBasePlayerTest {
     assertThat(forwardingPlayer.getContentPosition()).isEqualTo(456);
     assertThat(forwardingPlayer.getContentBufferedPosition()).isEqualTo(499);
     assertThat(forwardingPlayer.getAudioAttributes()).isEqualTo(audioAttributes);
+    assertThat(forwardingPlayer.getAudioSessionId()).isEqualTo(1234);
     assertThat(forwardingPlayer.getVolume()).isEqualTo(0.5f);
     assertThat(forwardingPlayer.getVideoSize()).isEqualTo(videoSize);
     assertThat(forwardingPlayer.getCurrentCues()).isEqualTo(cueGroup);
