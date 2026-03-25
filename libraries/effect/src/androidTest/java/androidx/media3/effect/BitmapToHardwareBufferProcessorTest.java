@@ -31,15 +31,12 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.os.Build;
-import android.os.ParcelFileDescriptor;
-import android.system.Os;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.test.filters.SdkSuppress;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -208,7 +205,7 @@ public final class BitmapToHardwareBufferProcessorTest {
     HardwareBufferFrame inputFrame2 = createBitmapFrame(inputBitmap);
 
     HardwareBufferFrame outputFrame1 = processor.process(inputFrame1);
-    outputFrame1.release(createSignaledFence());
+    outputFrame1.release(/* releaseFence= */ null);
     HardwareBufferFrame outputFrame2 = processor.process(inputFrame2);
 
     assertThat(outputFrame1.hardwareBuffer).isSameInstanceAs(outputFrame2.hardwareBuffer);
@@ -233,7 +230,7 @@ public final class BitmapToHardwareBufferProcessorTest {
     // buffer1 is still held by outputFrame1.
     assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
 
-    outputFrame1.release(createSignaledFence());
+    outputFrame1.release(/* releaseFence= */ null);
     // Ensure there are no pending tasks left on the executor.
     executorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
 
@@ -272,7 +269,7 @@ public final class BitmapToHardwareBufferProcessorTest {
 
     assertThat(releasedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    outputFrame.release(createSignaledFence());
+    outputFrame.release(/* releaseFence= */ null);
   }
 
   @Test
@@ -285,14 +282,14 @@ public final class BitmapToHardwareBufferProcessorTest {
     HardwareBufferFrame outputFrame1 = processor.process(inputFrame1);
     HardwareBufferFrame outputFrame2 = processor.process(inputFrame2);
 
-    outputFrame1.release(createSignaledFence());
+    outputFrame1.release(/* releaseFence= */ null);
     // Ensure there are no pending tasks left on the executor.
     executorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(outputFrame1.hardwareBuffer.isClosed()).isFalse();
     assertThat(outputFrame2.hardwareBuffer.isClosed()).isFalse();
 
-    outputFrame2.release(createSignaledFence());
+    outputFrame2.release(/* releaseFence= */ null);
     // Ensure there are no pending tasks left on the executor.
     executorService.submit(() -> {}).get(TEST_TIMEOUT_MS, MILLISECONDS);
 
@@ -322,7 +319,7 @@ public final class BitmapToHardwareBufferProcessorTest {
     // Processor released its reference, but the frame still holds one.
     assertThat(hardwareBuffer.isClosed()).isFalse();
 
-    outputFrame.release(createSignaledFence());
+    outputFrame.release(/* releaseFence= */ null);
 
     // This will run synchronously because the internal executor is shutdown.
     assertThat(hardwareBuffer.isClosed()).isTrue();
@@ -405,25 +402,5 @@ public final class BitmapToHardwareBufferProcessorTest {
         /* format= */ HardwareBuffer.RGBA_8888,
         /* layers= */ 1,
         /* usage= */ HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
-  }
-
-  private SyncFenceCompat createSignaledFence() {
-    try {
-      FileDescriptor[] pipe = Os.pipe();
-      ParcelFileDescriptor readPfd = ParcelFileDescriptor.dup(pipe[0]);
-      ParcelFileDescriptor writePfd = ParcelFileDescriptor.dup(pipe[1]);
-      resourcesToClose.add(readPfd);
-      resourcesToClose.add(writePfd);
-      // Clean up the original pipe file descriptors as they have been duped.
-      Os.close(pipe[0]);
-      Os.close(pipe[1]);
-
-      // Write a single byte to the pipe, this causes the read-end to signal POLLIN.
-      Os.write(writePfd.getFileDescriptor(), new byte[] {1}, 0, 1);
-
-      return SyncFenceCompat.adoptFenceFileDescriptor(readPfd.detachFd());
-    } catch (Exception e) {
-      throw new AssertionError(e);
-    }
   }
 }

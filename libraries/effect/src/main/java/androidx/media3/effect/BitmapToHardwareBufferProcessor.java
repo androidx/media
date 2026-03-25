@@ -23,14 +23,13 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.hardware.HardwareBuffer;
-import android.system.ErrnoException;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
-import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -52,7 +51,7 @@ import java.util.concurrent.RejectedExecutionException;
 @ExperimentalApi // TODO: b/479415385 - remove when packet consumer is production-ready.
 public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProcessor {
 
-  private static final int RELEASE_TIMEOUT_MS = 500;
+  private static final Duration RELEASE_TIMEOUT = Duration.ofMillis(500);
 
   private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
   private final ExecutorService internalExecutor;
@@ -216,7 +215,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
     return buffer;
   }
 
-  private void releaseBuffer(HardwareBuffer buffer, @Nullable SyncFenceCompat releaseFence) {
+  private void releaseBuffer(HardwareBuffer buffer, @Nullable SyncFenceWrapper releaseFence) {
     if (releaseFence == null) {
       buffer.close();
       return;
@@ -226,27 +225,19 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
           () -> {
             try {
               // Wait on the fence on the executor thread to avoid blocking the caller.
-              checkState(releaseFence.await(RELEASE_TIMEOUT_MS));
-            } catch (ErrnoException | IllegalStateException e) {
+              checkState(releaseFence.await(RELEASE_TIMEOUT));
+            } catch (IllegalStateException e) {
               errorExecutor.execute(
                   () -> errorCallback.accept(new VideoFrameProcessingException(e)));
             } finally {
-              closeBufferAndFence(buffer, releaseFence);
+              releaseFence.close();
+              buffer.close();
             }
           });
     } catch (RejectedExecutionException e) {
       // This class has been released, shut down the fence without waiting on it to avoid leaking
       // it.
-      closeBufferAndFence(buffer, releaseFence);
-    }
-  }
-
-  private void closeBufferAndFence(HardwareBuffer buffer, SyncFenceCompat releaseFence) {
-    try {
       releaseFence.close();
-    } catch (IOException e) {
-      errorExecutor.execute(() -> errorCallback.accept(new VideoFrameProcessingException(e)));
-    } finally {
       buffer.close();
     }
   }

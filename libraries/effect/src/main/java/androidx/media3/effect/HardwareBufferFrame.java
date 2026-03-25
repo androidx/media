@@ -25,9 +25,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.common.util.Log;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -51,11 +49,11 @@ public final class HardwareBufferFrame implements Frame {
     /**
      * Releases the underlying resources of the {@link HardwareBufferFrame}.
      *
-     * @param releaseFence A {@link SyncFenceCompat} that must signal before the underlying
+     * @param releaseFence A {@link SyncFenceWrapper} that must signal before the underlying
      *     resources can be fully released, or {@code null} if the resources can be released
      *     immediately.
      */
-    void release(@Nullable SyncFenceCompat releaseFence);
+    void release(@Nullable SyncFenceWrapper releaseFence);
   }
 
   public static final HardwareBufferFrame END_OF_STREAM_FRAME =
@@ -82,7 +80,7 @@ public final class HardwareBufferFrame implements Frame {
   private final Metadata metadata;
 
   /**
-   * An acquire {@link SyncFenceCompat} for the {@linkplain #hardwareBuffer HardwareBuffer}.
+   * An acquire {@link SyncFenceWrapper} for the {@linkplain #hardwareBuffer HardwareBuffer}.
    *
    * <p>Callers should ensure that the acquire fence has signaled before accessing {@linkplain
    * #hardwareBuffer HardwareBuffer}.
@@ -90,7 +88,7 @@ public final class HardwareBufferFrame implements Frame {
    * <p>If the acquire fence is {@code null}, it's safe to access {@linkplain #hardwareBuffer
    * HardwareBuffer}.
    */
-  @Nullable public final SyncFenceCompat acquireFence;
+  @Nullable public final SyncFenceWrapper acquireFence;
 
   /** An optional internal frame type that is used when {@link #hardwareBuffer} is not supported. */
   @Nullable public final Object internalFrame;
@@ -111,7 +109,7 @@ public final class HardwareBufferFrame implements Frame {
     private Format format;
     private long releaseTimeNs;
     private Metadata metadata;
-    @Nullable private SyncFenceCompat acquireFence;
+    @Nullable private SyncFenceWrapper acquireFence;
     @Nullable private Object internalFrame;
     @Nullable private SharedState sharedState;
 
@@ -181,7 +179,7 @@ public final class HardwareBufferFrame implements Frame {
      * <p>The default value is {@code null}.
      */
     @CanIgnoreReturnValue
-    public Builder setAcquireFence(@Nullable SyncFenceCompat acquireFence) {
+    public Builder setAcquireFence(@Nullable SyncFenceWrapper acquireFence) {
       this.acquireFence = acquireFence;
       return this;
     }
@@ -254,7 +252,7 @@ public final class HardwareBufferFrame implements Frame {
   }
 
   @Override
-  public void release(@Nullable SyncFenceCompat releaseFence) {
+  public void release(@Nullable SyncFenceWrapper releaseFence) {
     synchronized (this) {
       if (isReleased) {
         closeFenceSilently(releaseFence);
@@ -282,15 +280,11 @@ public final class HardwareBufferFrame implements Frame {
     return new HardwareBufferFrame(this, sharedState);
   }
 
-  private static void closeFenceSilently(@Nullable SyncFenceCompat fence) {
+  private static void closeFenceSilently(@Nullable SyncFenceWrapper fence) {
     if (fence == null) {
       return;
     }
-    try {
-      fence.close();
-    } catch (IOException e) {
-      Log.w(TAG, "Failed to close fence on double-release", e);
-    }
+    fence.close();
   }
 
   /**
@@ -303,16 +297,16 @@ public final class HardwareBufferFrame implements Frame {
 
     private final ReleaseCallback callback;
     private final Executor executor;
-    @Nullable private final SyncFenceCompat acquireFence;
+    @Nullable private final SyncFenceWrapper acquireFence;
 
     @GuardedBy("this")
     private int refCount = 1;
 
     @GuardedBy("this")
-    private final List<SyncFenceCompat> releaseFences = new ArrayList<>();
+    private final List<SyncFenceWrapper> releaseFences = new ArrayList<>();
 
     private SharedState(
-        ReleaseCallback callback, Executor executor, @Nullable SyncFenceCompat acquireFence) {
+        ReleaseCallback callback, Executor executor, @Nullable SyncFenceWrapper acquireFence) {
       this.callback = callback;
       this.executor = executor;
       this.acquireFence = acquireFence;
@@ -325,8 +319,8 @@ public final class HardwareBufferFrame implements Frame {
       refCount++;
     }
 
-    private void release(@Nullable SyncFenceCompat releaseFence) {
-      List<SyncFenceCompat> fencesToCombine;
+    private void release(@Nullable SyncFenceWrapper releaseFence) {
+      List<SyncFenceWrapper> fencesToWaitOn;
 
       synchronized (this) {
         if (releaseFence != null) {
@@ -341,20 +335,21 @@ public final class HardwareBufferFrame implements Frame {
         // Collect all fences for the final release signal.
         // The acquire fence should have signaled before the release fences, but we combine it
         // here anyway to be safe.
-        fencesToCombine = new ArrayList<>(releaseFences);
+        fencesToWaitOn = new ArrayList<>(releaseFences);
         if (acquireFence != null) {
-          fencesToCombine.add(acquireFence);
+          fencesToWaitOn.add(acquireFence);
         }
         releaseFences.clear();
       }
 
-      // Execute the callback without the extra nesting
+      // TODO: b/479415385 - Consider forwarding a List<SyncFenceWrapper> to callback.release().
       executor.execute(
           () -> {
-            @Nullable
-            SyncFenceCompat combinedFence =
-                fencesToCombine.isEmpty() ? null : SyncFenceCompat.combine(fencesToCombine);
-            callback.release(combinedFence);
+            for (SyncFenceWrapper fence : fencesToWaitOn) {
+              fence.awaitForever();
+              fence.close();
+            }
+            callback.release(/* releaseFence= */ null);
           });
     }
   }

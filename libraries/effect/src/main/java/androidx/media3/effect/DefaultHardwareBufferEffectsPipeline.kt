@@ -40,6 +40,7 @@ import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL
 import androidx.media3.effect.PacketConsumer.Packet
 import com.google.common.collect.ImmutableList
+import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
@@ -60,7 +61,7 @@ private constructor(
   private val overlaySettingsProvider: (HardwareBufferFrame) -> OverlaySettings,
 ) : RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue> {
 
-  /** Executor used for all blocking [android.hardware.SyncFence.await] calls and GL operations. */
+  /** Executor used for all blocking [SyncFenceWrapper.await] calls and GL operations. */
   private val internalExecutor = Executors.newSingleThreadExecutor()
   private val internalDispatcher = internalExecutor.asCoroutineDispatcher()
   private val isReleased = AtomicBoolean(false)
@@ -90,11 +91,9 @@ private constructor(
           // Step 1: Dequeue an output frame, use the format of the first sequence to determine
           // the output format.
           val outputFrame = getOutputFrame(packet.payload[0].format)
-          var drawingCompletionFence: SyncFenceCompat? = null
           try {
             // Step 2: Composite the input frames onto the output frame on the internal thread.
             val outputFrameWithMetadata = processFrames(packet.payload, outputFrame)
-            drawingCompletionFence = outputFrameWithMetadata.acquireFence
             // Step 3: Forward output frame down stream.
             outputBufferQueue!!.queue(outputFrameWithMetadata)
           } catch (e: Exception) {
@@ -105,7 +104,8 @@ private constructor(
             // Always release the input frames, ensuring the release waits until after drawing
             // completes.
             for (inputFrame in packet.payload) {
-              inputFrame.release(drawingCompletionFence?.let { SyncFenceCompat.duplicate(it) })
+              // TODO: b/479415385 - Create a SyncFence for each input frame.
+              inputFrame.release(/* releaseFence= */ null)
             }
           }
         }
@@ -303,7 +303,7 @@ private constructor(
         // Draw the input textures into the output texture.
         checkNotNull(compositorGlProgram).drawFrame(inputFrameInfos, outputTextureInfo)
 
-        // TODO: b/479415385 - Create a SyncFenceCompat from a GL sync fence and set it as the
+        // TODO: b/479415385 - Create a SyncFence from a GL sync fence and set it as the
         //  acquireFence of the output frame, rather than calling glFinish.
         GLES20.glFinish()
         val drawingCompletionFence = null
@@ -385,9 +385,9 @@ private constructor(
   }
 
   // TODO: b/479415385 - Replace this with a GPU wait.
-  private fun waitAndClose(fence: SyncFenceCompat?) {
+  private fun waitAndClose(fence: SyncFenceWrapper?) {
     fence?.let { fence ->
-      check(fence.await(FENCE_TIMEOUT_MS))
+      check(fence.await(FENCE_TIMEOUT))
       fence.close()
     }
   }
@@ -396,7 +396,7 @@ private constructor(
     // It can take multiple seconds for the encoder to be configured and the first frame to be
     // encoded.
     private const val TIMEOUT_MS = 10_000L
-    private const val FENCE_TIMEOUT_MS = 500
+    private val FENCE_TIMEOUT = Duration.ofMillis(500)
 
     /**
      * Creates a new [DefaultHardwareBufferEffectsPipeline], that uses a default

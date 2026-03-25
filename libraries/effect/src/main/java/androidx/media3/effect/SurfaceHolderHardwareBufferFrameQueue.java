@@ -24,7 +24,6 @@ import android.hardware.DataSpace;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
-import android.system.ErrnoException;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import androidx.annotation.GuardedBy;
@@ -297,11 +296,10 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     ImageWriter imageWriterFromFrame = internalImage.imageWriter;
 
     synchronized (lock) {
-      if (frame.acquireFence != null) {
+      if (frame.acquireFence != null && SDK_INT >= 33) {
         try {
-          checkState(frame.acquireFence.await(/* timeoutMs= */ 500));
-          frame.acquireFence.close();
-        } catch (ErrnoException | IllegalStateException | IOException e) {
+          image.setFence(frame.acquireFence.asSyncFence());
+        } catch (IOException e) {
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
           frame.release(/* releaseFence= */ null);
           return;

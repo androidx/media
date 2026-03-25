@@ -17,13 +17,11 @@ package androidx.media3.transformer;
 
 import static android.hardware.HardwareBuffer.USAGE_VIDEO_ENCODE;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
-import android.system.ErrnoException;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
@@ -109,9 +107,8 @@ public class EncoderWriterHardwareBufferQueue implements HardwareBufferFrameQueu
     image.setTimestamp(frame.releaseTimeNs);
     if (frame.acquireFence != null) {
       try {
-        checkState(frame.acquireFence.await(/* timeoutMs= */ 500));
-        frame.acquireFence.close();
-      } catch (ErrnoException | IllegalStateException | IOException e) {
+        image.setFence(frame.acquireFence.asSyncFence());
+      } catch (IOException e) {
         listener.onError(VideoFrameProcessingException.from(e));
       }
     }

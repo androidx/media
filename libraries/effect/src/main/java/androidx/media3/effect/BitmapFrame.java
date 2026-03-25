@@ -55,7 +55,10 @@ import androidx.media3.common.Format;
   }
 
   @Override
-  public void release(@Nullable SyncFenceCompat releaseFence) {
+  public void release(@Nullable SyncFenceWrapper releaseFence) {
+    if (releaseFence != null) {
+      releaseFence.close();
+    }
     bitmap.recycle();
   }
 

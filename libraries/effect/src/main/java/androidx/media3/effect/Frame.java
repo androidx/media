@@ -42,8 +42,8 @@ public interface Frame {
   /**
    * Releases the frame and its underlying resources.
    *
-   * @param releaseFence A {@link SyncFenceCompat} that must signal before the underlying resources
+   * @param releaseFence A {@link SyncFenceWrapper} that must signal before the underlying resources
    *     can be fully released, or {@code null} if the resources can be released immediately.
    */
-  void release(@Nullable SyncFenceCompat releaseFence);
+  void release(@Nullable SyncFenceWrapper releaseFence);
 }

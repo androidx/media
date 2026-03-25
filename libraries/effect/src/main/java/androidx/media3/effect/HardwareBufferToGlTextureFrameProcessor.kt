@@ -37,6 +37,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
+import java.time.Duration
 import java.util.concurrent.ExecutorService
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -174,13 +175,7 @@ class HardwareBufferToGlTextureFrameProcessor(
       else format.width
 
     // TODO: b/479415385 - Convert SyncFence to EGLSync and wait on GL thread.
-    hardwareBufferFrame.acquireFence?.let { fence ->
-      val signaled = fence.await(500)
-      if (!signaled) {
-        Log.w(TAG, "Timed out waiting for acquire fence.")
-      }
-      fence.close()
-    }
+    hardwareBufferFrame.acquireFence?.let { awaitAndCloseFence(it) }
     return GlTextureFrame.Builder(
         GlTextureInfo(texture, C.INDEX_UNSET, C.INDEX_UNSET, frameWidth, frameHeight),
         directExecutor(),
@@ -208,6 +203,14 @@ class HardwareBufferToGlTextureFrameProcessor(
       .setReleaseTimeNs(hardwareBufferFrame.releaseTimeNs)
       .setFormat(hardwareBufferFrame.format)
       .build()
+  }
+
+  private fun awaitAndCloseFence(fence: SyncFenceWrapper) {
+    val signaled = fence.await(Duration.ofMillis(500))
+    if (!signaled) {
+      Log.w(TAG, "Timed out waiting for acquire fence.")
+    }
+    fence.close()
   }
 
   private fun maybeSetupGlResources() {

@@ -25,7 +25,6 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
-import android.system.ErrnoException;
 import android.view.Surface;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
@@ -35,11 +34,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.SyncFenceCompat;
-import java.io.IOException;
+import androidx.media3.effect.SyncFenceWrapper;
+import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -425,20 +423,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void releaseFrame(
       @Nullable Image image,
       @Nullable HardwareBuffer hardwareBuffer,
-      @Nullable SyncFenceCompat releaseFence) {
+      @Nullable SyncFenceWrapper releaseFence) {
     synchronized (this) {
       framesInUse--;
       if (releaseFence != null) {
-        try {
-          // TODO: b/475744934 - Use the NDK to set the fence on the Image.
-          boolean signaled = releaseFence.await(/* timeoutMs= */ 500);
-          if (!signaled) {
-            Log.w(TAG, "releaseFence timed out.");
-          }
-          releaseFence.close();
-        } catch (ErrnoException | IOException e) {
-          listener.onError(e);
-        }
+        // TODO: b/475744934 - Use the NDK to set the fence on the Image.
+        checkState(releaseFence.await(Duration.ofMillis(500)));
+        releaseFence.close();
       }
       if (SDK_INT >= 26 && hardwareBuffer != null) {
         hardwareBuffer.close();

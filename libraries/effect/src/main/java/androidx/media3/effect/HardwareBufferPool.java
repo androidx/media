@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -24,7 +23,6 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Consumer;
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -34,14 +32,14 @@ import java.util.concurrent.Executor;
  *
  * <p>This class manages a fixed-capacity pool of {@link HardwareBuffer}s that can be dequeued with
  * a specific {@link HardwareBufferFrameQueue.FrameFormat}. Dequeued buffers should be returned to
- * the pool using {@link #recycle(HardwareBuffer, SyncFenceCompat)} for reuse.
+ * the pool using {@link #recycle(HardwareBuffer, SyncFenceWrapper)} for reuse.
  *
  * <p>Methods can be called from any thread.
  */
 @RequiresApi(26)
 /* package */ final class HardwareBufferPool {
 
-  /** Wrapper around a {@link HardwareBuffer} and an {@linkplain SyncFenceCompat acquireFence}. */
+  /** Wrapper around a {@link HardwareBuffer} and an {@linkplain SyncFenceWrapper acquireFence}. */
   public static final class HardwareBufferWithFence {
     public final HardwareBuffer hardwareBuffer;
 
@@ -49,11 +47,11 @@ import java.util.concurrent.Executor;
      * The fence that must be waited on before writing to the {@link #hardwareBuffer}. If {@code
      * null} the buffer can be accessed immediately.
      */
-    @Nullable public final SyncFenceCompat acquireFence;
+    @Nullable public final SyncFenceWrapper acquireFence;
 
     /** Creates a new instance. */
     public HardwareBufferWithFence(
-        HardwareBuffer hardwareBuffer, @Nullable SyncFenceCompat acquireFence) {
+        HardwareBuffer hardwareBuffer, @Nullable SyncFenceWrapper acquireFence) {
       this.hardwareBuffer = hardwareBuffer;
       this.acquireFence = acquireFence;
     }
@@ -137,12 +135,12 @@ import java.util.concurrent.Executor;
    * Returns a {@link HardwareBuffer} to the pool.
    *
    * @param buffer The {@link HardwareBuffer} to return.
-   * @param fence An optional {@link SyncFenceCompat} that must be reached before the buffer can be
+   * @param fence An optional {@link SyncFenceWrapper} that must be reached before the buffer can be
    *     reused.
    * @throws IllegalArgumentException if the {@code buffer} is {@linkplain HardwareBuffer#isClosed()
    *     closed}.
    */
-  public void recycle(HardwareBuffer buffer, @Nullable SyncFenceCompat fence) {
+  public void recycle(HardwareBuffer buffer, @Nullable SyncFenceWrapper fence) {
     checkArgument(!buffer.isClosed());
     @Nullable Runnable listenerToRun = null;
     // TODO: b/479415385 - Do not close the fence here, reuse it as the acquire fence for this
@@ -213,15 +211,9 @@ import java.util.concurrent.Executor;
     return false;
   }
 
-  private void closeFence(@Nullable SyncFenceCompat fence) {
-    if (SDK_INT >= 33) {
-      if (fence != null) {
-        try {
-          fence.close();
-        } catch (IOException e) {
-          errorExecutor.execute(() -> errorCallback.accept(e));
-        }
-      }
+  private void closeFence(@Nullable SyncFenceWrapper fence) {
+    if (fence != null) {
+      fence.close();
     }
   }
 
