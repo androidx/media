@@ -100,9 +100,7 @@ public final class MimeTypes {
   /**
    * @deprecated Use {@link #AUDIO_DTS_UHD_P2} instead.
    */
-  @Deprecated
-  @UnstableApi
-  public static final String AUDIO_DTS_X = AUDIO_DTS_UHD_P2;
+  @Deprecated @UnstableApi public static final String AUDIO_DTS_X = AUDIO_DTS_UHD_P2;
 
   public static final String AUDIO_VORBIS = BASE_TYPE_AUDIO + "/vorbis";
   public static final String AUDIO_OPUS = BASE_TYPE_AUDIO + "/opus";

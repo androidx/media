@@ -66,8 +66,8 @@ public final class DefaultAudioOffloadSupportProviderTest {
   @Test
   @Config(maxSdk = 33)
   public void
-      getAudioOffloadSupport_withDtsXAndSdkUnder34_returnsAudioOffloadSupportDefaultUnsupported() {
-    Format formatDtsX =
+      getAudioOffloadSupport_withDtsUhdP2AndSdkUnder34_returnsAudioOffloadSupportDefaultUnsupported() {
+    Format formatDtsUhdP2 =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_DTS_UHD_P2)
             .setSampleRate(48_000)
@@ -76,7 +76,7 @@ public final class DefaultAudioOffloadSupportProviderTest {
         new DefaultAudioOffloadSupportProvider();
 
     AudioOffloadSupport audioOffloadSupport =
-        audioOffloadSupportProvider.getAudioOffloadSupport(formatDtsX, AudioAttributes.DEFAULT);
+        audioOffloadSupportProvider.getAudioOffloadSupport(formatDtsUhdP2, AudioAttributes.DEFAULT);
 
     assertThat(audioOffloadSupport.isFormatSupported).isFalse();
   }
