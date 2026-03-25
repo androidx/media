@@ -49,6 +49,7 @@
     *   MP3: Ignore Xing data length if it's longer than the known stream length
         ([#3117](https://github.com/androidx/media/issues/3117)).
     *   Ignore `av1C` data with unsupported version.
+    *   MP4: Add support for big-endian floating point PCM in `fpcm` boxes.
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
@@ -72,6 +73,7 @@
     *   Set correct `AudioProcessor.StreamMetadata.positionOffsetUs` to allow
         time-based audio processing
         ([#418](https://github.com/androidx/media/issues/418)).
+    *   Add support for big endian 32-bit and 64-bit floating point PCM.
 *   Video:
     *   Add support for skipping frames that are late during join rather than
         dropping in DecoderVideoRenderer.
