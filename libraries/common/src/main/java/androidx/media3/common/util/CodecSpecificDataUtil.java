@@ -32,6 +32,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.UnsignedBytes;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -640,9 +641,9 @@ public final class CodecSpecificDataUtil {
         "Invalid APV CSD version: %s",
         initializationData[0]); // configurationVersion == 1
 
-    int profile = initializationData[5];
-    int level = initializationData[6];
-    int band = initializationData[7];
+    int profile = UnsignedBytes.toInt(initializationData[5]);
+    int level = UnsignedBytes.toInt(initializationData[6]);
+    int band = UnsignedBytes.toInt(initializationData[7]);
     return Util.formatInvariant("apv1.apvf%d.apvl%d.apvb%d", profile, level, band);
   }
 

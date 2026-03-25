@@ -26,6 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -204,31 +205,31 @@ public class CodecSpecificDataUtilTest {
   @Test
   public void buildApvCodecString_withValidApvSpecificConfig_returnsCorrectCodecString() {
     byte[] apvSpecificConfig =
-        new byte[] {
-          1, // configurationVersion
-          1, // number_of_configuration_entry
-          1, // pbu_type
-          1, // number_of_frame_info
-          0, // reserved_zero_6bits, color_description_present_flag(1 bit),
-          // capture_time_distance_ignored(1 bit)
-          33, // profile_idc
-          60, // level_idc
-          0, // band_idc
-          0, // frame_width (4 bytes)
-          0,
-          2,
-          -128,
-          0, // frame_height (4 bytes)
-          0,
-          1,
-          -32,
-          34, // chroma_format_idc (4 bit) + bit_depth_minus8(4 bit)
-          0 // capture_time_distance
-        };
+        TestUtil.createByteArray(
+            1, // configurationVersion
+            1, // number_of_configuration_entry
+            1, // pbu_type
+            1, // number_of_frame_info
+            0, // reserved_zero_6bits, color_description_present_flag(1 bit),
+            // capture_time_distance_ignored(1 bit)
+            33, // profile_idc
+            150, // level_idc
+            0, // band_idc
+            0, // frame_width (4 bytes)
+            0,
+            2,
+            255,
+            0, // frame_height (4 bytes)
+            0,
+            1,
+            224,
+            34, // chroma_format_idc (4 bit) + bit_depth_minus8(4 bit)
+            0 // capture_time_distance
+            );
 
     String codecString = CodecSpecificDataUtil.buildApvCodecString(apvSpecificConfig);
 
-    assertThat(codecString).isEqualTo("apv1.apvf33.apvl60.apvb0");
+    assertThat(codecString).isEqualTo("apv1.apvf33.apvl150.apvb0");
   }
 
   @Test
