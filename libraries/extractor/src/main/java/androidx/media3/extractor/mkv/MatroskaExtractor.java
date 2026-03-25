@@ -81,6 +81,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -190,6 +191,17 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_DOC_TYPE_READ_VERSION = 0x4285;
   private static final int ID_SEGMENT = 0x18538067;
   private static final int ID_SEGMENT_INFO = 0x1549A966;
+  private static final int ID_CHAPTERS = 0x1043A770;
+  private static final int ID_EDITION_ENTRY = 0x45B9;
+  private static final int ID_CHAPTER_FLAG_HIDDEN = 0x98;
+  private static final int ID_CHAPTER_ATOM = 0xB6;
+  private static final int ID_CHAPTER_UID = 0x73C4;
+  private static final int ID_CHAPTER_TIME_START = 0x91;
+  private static final int ID_CHAPTER_TIME_END = 0x92;
+  private static final int ID_CHAPTER_TRACK = 0x8F;
+  private static final int ID_CHAPTER_TRACK_UID = 0x89;
+  private static final int ID_CHAPTER_DISPLAY = 0x80;
+  private static final int ID_CHAP_STRING = 0x85;
   private static final int ID_SEEK_HEAD = 0x114D9B74;
   private static final int ID_SEEK = 0x4DBB;
   private static final int ID_SEEK_ID = 0x53AB;
@@ -211,6 +223,7 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_TRACKS = 0x1654AE6B;
   private static final int ID_TRACK_ENTRY = 0xAE;
   private static final int ID_TRACK_NUMBER = 0xD7;
+  private static final int ID_TRACK_UID = 0x73C5;
   private static final int ID_TRACK_TYPE = 0x83;
   private static final int ID_FLAG_DEFAULT = 0x88;
   private static final int ID_FLAG_FORCED = 0x55AA;
@@ -434,6 +447,7 @@ public class MatroskaExtractor implements Extractor {
   private final EbmlReader reader;
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
+  private final SparseArray<Chapter> chapters;
   private final boolean seekForCuesEnabled;
   private final boolean parseSubtitlesDuringExtraction;
   private final SubtitleParser.Factory subtitleParserFactory;
@@ -458,6 +472,9 @@ public class MatroskaExtractor implements Extractor {
   private long durationUs = C.TIME_UNSET;
   private boolean isWebm;
   private boolean pendingEndTracks;
+
+  // The chapter corresponding to the current EditionEntry element, or null.
+  @Nullable private Chapter currentChapter;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -562,6 +579,7 @@ public class MatroskaExtractor implements Extractor {
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
     parseSubtitlesDuringExtraction = (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     varintReader = new VarintReader();
+    chapters = new SparseArray<>();
     tracks = new SparseArray<>();
     scratch = new ParsableByteArray(4);
     vorbisNumPageSamples = new ParsableByteArray(ByteBuffer.allocate(4).putInt(-1).array());
@@ -650,6 +668,11 @@ public class MatroskaExtractor implements Extractor {
     switch (id) {
       case ID_EBML:
       case ID_SEGMENT:
+      case ID_CHAPTERS:
+      case ID_EDITION_ENTRY:
+      case ID_CHAPTER_ATOM:
+      case ID_CHAPTER_TRACK:
+      case ID_CHAPTER_DISPLAY:
       case ID_SEEK_HEAD:
       case ID_SEEK:
       case ID_INFO:
@@ -686,7 +709,13 @@ public class MatroskaExtractor implements Extractor {
       case ID_DISPLAY_HEIGHT:
       case ID_DISPLAY_UNIT:
       case ID_TRACK_NUMBER:
+      case ID_TRACK_UID:
       case ID_TRACK_TYPE:
+      case ID_CHAPTER_FLAG_HIDDEN:
+      case ID_CHAPTER_TIME_START:
+      case ID_CHAPTER_TIME_END:
+      case ID_CHAPTER_UID:
+      case ID_CHAPTER_TRACK_UID:
       case ID_FLAG_DEFAULT:
       case ID_FLAG_FORCED:
       case ID_DEFAULT_DURATION:
@@ -721,6 +750,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_NAME:
       case ID_CODEC_ID:
       case ID_LANGUAGE:
+      case ID_CHAP_STRING:
         return EbmlProcessor.ELEMENT_TYPE_STRING;
       case ID_SEEK_ID:
       case ID_BLOCK_ADD_ID_EXTRA_DATA:
@@ -760,7 +790,7 @@ public class MatroskaExtractor implements Extractor {
    */
   @CallSuper
   protected boolean isLevel1Element(int id) {
-    return id == ID_SEGMENT_INFO || id == ID_CLUSTER || id == ID_CUES || id == ID_TRACKS;
+    return id == ID_SEGMENT_INFO || id == ID_CHAPTERS || id == ID_CLUSTER || id == ID_CUES || id == ID_TRACKS;
   }
 
   /**
@@ -827,6 +857,9 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_CONTENT_ENCRYPTION:
         getCurrentTrack(id).hasContentEncryption = true;
+        break;
+      case ID_CHAPTER_ATOM:
+        currentChapter = new Chapter();
         break;
       case ID_TRACK_ENTRY:
         currentTrack = new Track();
@@ -919,6 +952,21 @@ public class MatroskaExtractor implements Extractor {
                     currentCueTimeUs,
                     /* clusterPosition= */ segmentContentPosition + currentCueClusterPosition,
                     /* relativePosition= */ currentCueRelativePosition));
+          }
+        }
+        break;
+      case ID_CHAPTER_ATOM:
+        Chapter chapter = checkNotNull(currentChapter);
+        chapters.put(chapter.uid, chapter);
+        currentChapter = null;
+        break;
+      case ID_EDITION_ENTRY:
+        for (int i = 0; i < tracks.size(); i++) {
+          Track track = tracks.valueAt(i);
+          track.maybeAddChaptersMetadata(chapters);
+          if (!track.waitingForDtsAnalysis) {
+            track.assertOutputInitialized();
+            track.output.format(checkNotNull(track.format));
           }
         }
         break;
@@ -1085,6 +1133,21 @@ public class MatroskaExtractor implements Extractor {
       case ID_TIMECODE_SCALE:
         timecodeScale = value;
         break;
+      case ID_CHAPTER_UID:
+        getCurrentChapter(id).uid = (int) value;
+        break;
+      case ID_CHAPTER_TIME_START:
+        getCurrentChapter(id).timeStartNs = value;
+        break;
+      case ID_CHAPTER_TIME_END:
+        getCurrentChapter(id).timeEndNs = value;
+        break;
+      case ID_CHAPTER_FLAG_HIDDEN:
+        getCurrentChapter(id).flagHidden = value == 1;
+        break;
+      case ID_CHAPTER_TRACK_UID:
+        getCurrentChapter(id).trackUid = (int) value;
+        break;
       case ID_PIXEL_WIDTH:
         getCurrentTrack(id).width = (int) value;
         break;
@@ -1102,6 +1165,9 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_TRACK_NUMBER:
         getCurrentTrack(id).number = (int) value;
+        break;
+      case ID_TRACK_UID:
+        getCurrentTrack(id).uid = (int) value;
         break;
       case ID_FLAG_DEFAULT:
         getCurrentTrack(id).flagDefault = value == 1;
@@ -1383,6 +1449,9 @@ public class MatroskaExtractor implements Extractor {
         }
         isWebm = Objects.equals(value, DOC_TYPE_WEBM);
         break;
+      case ID_CHAP_STRING:
+        getCurrentChapter(id).chapString = value;
+        break;
       case ID_NAME:
         getCurrentTrack(id).name = value;
         break;
@@ -1620,6 +1689,14 @@ public class MatroskaExtractor implements Extractor {
     }
   }
 
+  @EnsuresNonNull("currentChapter")
+  private void assertInEditionEntry(int id) throws ParserException {
+    if (currentChapter == null) {
+      throw ParserException.createForMalformedContainer(
+          "Element " + id + " must be in an EditionEntry", /* cause= */ null);
+    }
+  }
+
   @EnsuresNonNull("currentTrack")
   private void assertInTrackEntry(int id) throws ParserException {
     if (currentTrack == null) {
@@ -1633,6 +1710,17 @@ public class MatroskaExtractor implements Extractor {
       throw ParserException.createForMalformedContainer(
           "Element " + id + " must be in a Cues", /* cause= */ null);
     }
+  }
+
+
+  /**
+   * Returns the chapter corresponding to the current EditionEntry element.
+   *
+   * @throws ParserException if the element id is not in a EditionEntry.
+   */
+  protected Chapter getCurrentChapter(int currentElementId) throws ParserException {
+    assertInEditionEntry(currentElementId);
+    return currentChapter;
   }
 
   /**
@@ -2210,6 +2298,16 @@ public class MatroskaExtractor implements Extractor {
     }
   }
 
+  /** Holds data corresponding to a single chapter. */
+  protected static final class Chapter {
+    private int uid = Format.NO_VALUE;
+    private long timeStartNs = Format.NO_VALUE;
+    private long timeEndNs = Format.NO_VALUE;
+    private boolean flagHidden = false;
+    private int trackUid = Format.NO_VALUE;
+    private @MonotonicNonNull String chapString = null;
+  }
+
   /** Holds data corresponding to a single track. */
   protected static final class Track {
 
@@ -2227,6 +2325,7 @@ public class MatroskaExtractor implements Extractor {
     public @MonotonicNonNull String name;
     public @MonotonicNonNull String codecId;
     public int number;
+    public int uid;
     public @C.TrackType int type;
     public int defaultSampleDurationNs;
     public int maxBlockAdditionId;
@@ -2801,6 +2900,33 @@ public class MatroskaExtractor implements Extractor {
       }
 
       return bestCueIndex == -1 ? C.TIME_UNSET : cuePoints.get(bestCueIndex).timeUs;
+    }
+
+    /**
+     * Adds chapters to the track's format as
+     * {@link androidx.media3.extractor.metadata.Chapter}.
+     */
+    private void maybeAddChaptersMetadata(
+        SparseArray<Chapter> chapters
+    ) {
+      Metadata existingMetadata = checkNotNull(format).metadata;
+      Metadata newMetadata = (existingMetadata == null) ? new Metadata() : existingMetadata;
+
+      for (int i = 0; i < chapters.size(); i++) {
+          Chapter chapter = chapters.valueAt(i);
+
+          // Check if chapter should be hidden and if it's tied to a specific track or not
+          if (!chapter.flagHidden && (chapter.trackUid == Format.NO_VALUE || chapter.trackUid == uid)) {
+            long startTimeMs = chapter.timeStartNs != Format.NO_VALUE ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs) : 0L;
+            long endTimeMs = chapter.timeEndNs != Format.NO_VALUE ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs) : startTimeMs;
+            androidx.media3.extractor.metadata.Chapter chapterMetadata = androidx.media3.extractor.metadata.Chapter
+                .create(startTimeMs, endTimeMs, chapter.chapString);
+
+            newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
+          }
+      }
+
+      format = format.buildUpon().setMetadata(newMetadata).build();
     }
 
     /**
