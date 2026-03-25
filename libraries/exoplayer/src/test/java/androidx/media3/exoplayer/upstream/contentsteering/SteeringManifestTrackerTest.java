@@ -19,12 +19,18 @@ import static androidx.media3.exoplayer.upstream.contentsteering.SteeringManifes
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.source.LoadEventInfo;
@@ -47,12 +53,18 @@ import okhttp3.mockwebserver.MockWebServer;
 import okio.Buffer;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Test for {@link SteeringManifestTracker}. */
 @RunWith(AndroidJUnit4.class)
 public final class SteeringManifestTrackerTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private static final String INITIAL_STEERING_MANIFEST_PATH = "/steering/initial?video=001";
   private static final String STEERING_MANIFEST_JSON_STRING_1 =
@@ -65,6 +77,7 @@ public final class SteeringManifestTrackerTest {
       "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"CDN-A\", \"CDN-B\"]}";
 
   private MockWebServer mockWebServer;
+  @Mock private SteeringManifestTracker.Callback mockCallback;
   private int enqueueCounter;
   private int assertedRequestCounter;
   private FakeClock clock;
@@ -75,6 +88,11 @@ public final class SteeringManifestTrackerTest {
   @Before
   public void setUp() {
     mockWebServer = new MockWebServer();
+    AtomicInteger requestCounter = new AtomicInteger();
+    when(mockCallback.getSteeringQueryParameters())
+        .then(
+            invocation ->
+                ImmutableMap.of("_query_param", String.valueOf(requestCounter.incrementAndGet())));
     enqueueCounter = 0;
     assertedRequestCounter = 0;
     clock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -133,13 +151,17 @@ public final class SteeringManifestTrackerTest {
             getMockResponse(STEERING_MANIFEST_JSON_STRING_3),
             getMockResponse(STEERING_MANIFEST_JSON_STRING_3));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadCompletedOrErrorCount.get() >= 4,
-            timeoutExceptionRef);
+
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadCompletedOrErrorCount.get() >= 4,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(4);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
@@ -153,7 +175,10 @@ public final class SteeringManifestTrackerTest {
     assertThat(steeringManifests.get(3).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
         .inOrder();
-    verify(eventDispatcher, times(4)).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback, never())
+        .onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ anyBoolean());
+    verify(eventDispatcher, times(4))
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -170,13 +195,17 @@ public final class SteeringManifestTrackerTest {
             getMockResponse(STEERING_MANIFEST_JSON_STRING_2),
             new MockResponse().setResponseCode(410));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadStartedCount.get() >= 4,
-            timeoutExceptionRef);
+
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadStartedCount.get() >= 4,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(2);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
@@ -184,9 +213,15 @@ public final class SteeringManifestTrackerTest {
     assertThat(steeringManifests.get(1).pathwayPriority)
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
-    verify(eventDispatcher, times(2)).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(true));
+    verify(eventDispatcher, times(2))
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
     verify(eventDispatcher)
-        .loadError(any(), eq(C.DATA_TYPE_STEERING_MANIFEST), any(), /* wasCanceled= */ eq(true));
+        .loadError(
+            /* loadEventInfo= */ any(),
+            eq(C.DATA_TYPE_STEERING_MANIFEST),
+            /* error= */ any(),
+            /* wasCanceled= */ eq(true));
     assertThat(timeoutExceptionRef.get()).isNotNull();
   }
 
@@ -203,13 +238,16 @@ public final class SteeringManifestTrackerTest {
             new MockResponse().setResponseCode(429).setHeader("Retry-After", 60),
             getMockResponse(STEERING_MANIFEST_JSON_STRING_2));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadCompletedOrErrorCount.get() >= 3,
-            timeoutExceptionRef);
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadCompletedOrErrorCount.get() >= 3,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(2);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
@@ -217,9 +255,15 @@ public final class SteeringManifestTrackerTest {
     assertThat(steeringManifests.get(1).pathwayPriority)
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
-    verify(eventDispatcher, times(2)).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
+    verify(eventDispatcher, times(2))
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
     verify(eventDispatcher)
-        .loadError(any(), eq(C.DATA_TYPE_STEERING_MANIFEST), any(), /* wasCanceled= */ eq(false));
+        .loadError(
+            /* loadEventInfo= */ any(),
+            eq(C.DATA_TYPE_STEERING_MANIFEST),
+            /* error= */ any(),
+            /* wasCanceled= */ eq(false));
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -236,13 +280,17 @@ public final class SteeringManifestTrackerTest {
             new MockResponse().setResponseCode(429).setHeader("Retry-After", "{}"),
             getMockResponse(STEERING_MANIFEST_JSON_STRING_2));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadCompletedOrErrorCount.get() >= 3,
-            timeoutExceptionRef);
+
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadCompletedOrErrorCount.get() >= 3,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(2);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
@@ -250,9 +298,15 @@ public final class SteeringManifestTrackerTest {
     assertThat(steeringManifests.get(1).pathwayPriority)
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
-    verify(eventDispatcher, times(2)).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
+    verify(eventDispatcher, times(2))
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
     verify(eventDispatcher)
-        .loadError(any(), eq(C.DATA_TYPE_STEERING_MANIFEST), any(), /* wasCanceled= */ eq(false));
+        .loadError(
+            /* loadEventInfo= */ any(),
+            eq(C.DATA_TYPE_STEERING_MANIFEST),
+            /* error= */ any(),
+            /* wasCanceled= */ eq(false));
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -269,13 +323,17 @@ public final class SteeringManifestTrackerTest {
             new MockResponse().setResponseCode(404),
             getMockResponse(STEERING_MANIFEST_JSON_STRING_2));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadCompletedOrErrorCount.get() >= 3,
-            timeoutExceptionRef);
+
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadCompletedOrErrorCount.get() >= 3,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(2);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
@@ -283,9 +341,15 @@ public final class SteeringManifestTrackerTest {
     assertThat(steeringManifests.get(1).pathwayPriority)
         .containsExactly("CDN-B", "CDN-A")
         .inOrder();
-    verify(eventDispatcher, times(2)).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
+    verify(eventDispatcher, times(2))
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
     verify(eventDispatcher)
-        .loadError(any(), eq(C.DATA_TYPE_STEERING_MANIFEST), any(), /* wasCanceled= */ eq(false));
+        .loadError(
+            /* loadEventInfo= */ any(),
+            eq(C.DATA_TYPE_STEERING_MANIFEST),
+            /* error= */ any(),
+            /* wasCanceled= */ eq(false));
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -300,20 +364,30 @@ public final class SteeringManifestTrackerTest {
             new MockResponse().setResponseCode(404),
             getMockResponse(STEERING_MANIFEST_JSON_STRING_1));
     AtomicReference<TimeoutException> timeoutExceptionRef = new AtomicReference<>();
-    List<SteeringManifest> steeringManifests =
-        runSteeringManifestTrackerAndCollectSteeringManifests(
-            Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
-            () -> loadCompletedOrErrorCount.get() >= 2,
-            timeoutExceptionRef);
+
+    runSteeringManifestTracker(
+        Uri.parse(mockWebServer.url(INITIAL_STEERING_MANIFEST_PATH).toString()),
+        () -> loadCompletedOrErrorCount.get() >= 2,
+        timeoutExceptionRef);
 
     assertRequestUrlsCalled(httpUrls);
+    ArgumentCaptor<SteeringManifest> manifestCaptor =
+        ArgumentCaptor.forClass(SteeringManifest.class);
+    verify(mockCallback, atLeastOnce()).onSteeringManifestUpdated(manifestCaptor.capture());
+    List<SteeringManifest> steeringManifests = manifestCaptor.getAllValues();
     assertThat(steeringManifests).hasSize(1);
     assertThat(steeringManifests.get(0).pathwayPriority)
         .containsExactly("CDN-A", "CDN-B")
         .inOrder();
-    verify(eventDispatcher).loadCompleted(any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(mockCallback).onSteeringManifestLoadError(/* error= */ any(), /* canceled= */ eq(false));
     verify(eventDispatcher)
-        .loadError(any(), eq(C.DATA_TYPE_STEERING_MANIFEST), any(), /* wasCanceled= */ eq(false));
+        .loadCompleted(/* loadEventInfo= */ any(), eq(C.DATA_TYPE_STEERING_MANIFEST));
+    verify(eventDispatcher)
+        .loadError(
+            /* loadEventInfo= */ any(),
+            eq(C.DATA_TYPE_STEERING_MANIFEST),
+            /* error= */ any(),
+            /* wasCanceled= */ eq(false));
     assertThat(timeoutExceptionRef.get()).isNull();
   }
 
@@ -337,7 +411,7 @@ public final class SteeringManifestTrackerTest {
     }
   }
 
-  private List<SteeringManifest> runSteeringManifestTrackerAndCollectSteeringManifests(
+  private void runSteeringManifestTracker(
       Uri initialSteeringManifestUrl,
       Supplier<Boolean> terminateCondition,
       AtomicReference<TimeoutException> timeoutExceptionRef) {
@@ -346,23 +420,7 @@ public final class SteeringManifestTrackerTest {
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()),
             /* downloadExecutorSupplier= */ null,
             clock);
-    List<SteeringManifest> steeringManifests = new ArrayList<>();
-    SteeringManifestTracker.Callback callback =
-        new SteeringManifestTracker.Callback() {
-
-          private final AtomicInteger requestCount = new AtomicInteger();
-
-          @Override
-          public ImmutableMap<String, String> getSteeringQueryParameters() {
-            return ImmutableMap.of("_query_param", String.valueOf(requestCount.incrementAndGet()));
-          }
-
-          @Override
-          public void onSteeringManifestUpdated(SteeringManifest steeringManifest) {
-            steeringManifests.add(steeringManifest);
-          }
-        };
-    steeringManifestTracker.start(initialSteeringManifestUrl, callback, eventDispatcher);
+    steeringManifestTracker.start(initialSteeringManifestUrl, mockCallback, eventDispatcher);
     try {
       runMainLooperUntil(
           /* maxTimeDiffMs= */ 3_000, // Account for scheduled steering manifest refresh delays
@@ -370,8 +428,8 @@ public final class SteeringManifestTrackerTest {
     } catch (TimeoutException e) {
       timeoutExceptionRef.set(e);
     }
+    shadowOf(Looper.getMainLooper()).idle();
     steeringManifestTracker.stop();
-    return steeringManifests;
   }
 
   private static MockResponse getMockResponse(String jsonString) {
