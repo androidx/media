@@ -38,7 +38,11 @@ import org.robolectric.ParameterizedRobolectricTestRunner;
 public final class WavPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
-    return ImmutableList.of("sample.wav", "sample_ima_adpcm.wav", "sample_with_trailing_bytes.wav");
+    return ImmutableList.of(
+        "sample.wav",
+        "sample_ima_adpcm.wav",
+        "sample_with_trailing_bytes.wav",
+        "sample_wav_format_extensible.wav");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;

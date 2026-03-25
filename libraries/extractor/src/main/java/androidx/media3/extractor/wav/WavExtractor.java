@@ -327,6 +327,7 @@ public final class WavExtractor implements Extractor {
               .setPeakBitrate(constantBitrate)
               .setMaxInputSize(targetSampleSizeBytes)
               .setChannelCount(wavFormat.numChannels)
+              .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
               .setPcmEncoding(pcmEncoding)
               .build();
@@ -482,6 +483,7 @@ public final class WavExtractor implements Extractor {
               .setPeakBitrate(constantBitrate)
               .setMaxInputSize(numOutputFramesToBytes(targetSampleSizeFrames, numChannels))
               .setChannelCount(wavFormat.numChannels)
+              .setChannelMask(WavUtil.mapToAudioFormatChannelMask(wavFormat.channelMask))
               .setSampleRate(wavFormat.frameRateHz)
               .setPcmEncoding(C.ENCODING_PCM_16BIT)
               .build();

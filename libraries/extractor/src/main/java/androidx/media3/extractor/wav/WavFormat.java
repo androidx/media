@@ -42,6 +42,12 @@ package androidx.media3.extractor.wav;
   /** Extra data appended to the format chunk. */
   public final byte[] extraData;
 
+  /**
+   * The audio channel mask, if parsed from the format extension. A value of {@code 0} indicates the
+   * mask is unknown or not applicable.
+   */
+  public final int channelMask;
+
   public WavFormat(
       int formatType,
       int numChannels,
@@ -49,7 +55,8 @@ package androidx.media3.extractor.wav;
       int averageBytesPerSecond,
       int blockSize,
       int bitsPerSample,
-      byte[] extraData) {
+      byte[] extraData,
+      int channelMask) {
     this.formatType = formatType;
     this.numChannels = numChannels;
     this.frameRateHz = frameRateHz;
@@ -57,5 +64,6 @@ package androidx.media3.extractor.wav;
     this.blockSize = blockSize;
     this.bitsPerSample = bitsPerSample;
     this.extraData = extraData;
+    this.channelMask = channelMask;
   }
 }

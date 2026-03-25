@@ -124,6 +124,7 @@ import java.util.Arrays;
 
     int bytesLeft = (int) chunkHeader.size - 16;
     byte[] extraData;
+    int channelMask = 0;
     if (bytesLeft > 0) {
       extraData = new byte[bytesLeft];
       input.peekFully(extraData, 0, bytesLeft);
@@ -139,7 +140,7 @@ import java.util.Arrays;
                   + bitsPerSample
                   + ") are not supported");
         }
-        int channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
+        channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
         if ((channelMask >> 18) != 0) {
           throw ParserException.createForUnsupportedContainerFeature(
               "invalid channel mask " + channelMask);
@@ -173,7 +174,8 @@ import java.util.Arrays;
         averageBytesPerSecond,
         blockSize,
         bitsPerSample,
-        extraData);
+        extraData,
+        channelMask);
   }
 
   /**

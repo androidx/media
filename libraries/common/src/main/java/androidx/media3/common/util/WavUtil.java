@@ -107,6 +107,23 @@ public final class WavUtil {
     }
   }
 
+  /**
+   * Maps the given Microsoft WAVE channel mask to the corresponding Android {@link
+   * android.media.AudioFormat} channel mask.
+   *
+   * @param wavChannelMask The WAVE channel mask.
+   * @return The mapped {@link android.media.AudioFormat} channel mask, or {@link Format#NO_VALUE}
+   *     if the channel mask is unknown or not applicable (such as for Ambisonics).
+   */
+  public static int mapToAudioFormatChannelMask(int wavChannelMask) {
+    if (wavChannelMask == 0) {
+      return Format.NO_VALUE;
+    }
+    // AudioFormat channel mask constants are equal to the corresponding WAV channel mask constants
+    // shifted by 2, leaving the lowest two bits 0.
+    return wavChannelMask << 2;
+  }
+
   private WavUtil() {
     // Prevent instantiation.
   }

@@ -1,0 +1,55 @@
+AudioSink:
+  buffer count = 6
+  config:
+    pcmEncoding = 4
+    channelCount = 6
+    sampleRate = 48000
+    channelMask = 0x000000FC
+  buffer #0:
+    time = 1000000000000
+    channel[0] = 1662177251
+    channel[1] = 1662177251
+    channel[2] = 1662177251
+    channel[3] = 1662177251
+    channel[4] = 1662177251
+    channel[5] = 1662177251
+  buffer #1:
+    time = 1000000100000
+    channel[0] = 39267123
+    channel[1] = 39267123
+    channel[2] = 39267123
+    channel[3] = 39267123
+    channel[4] = 39267123
+    channel[5] = 39267123
+  buffer #2:
+    time = 1000000200000
+    channel[0] = 39267123
+    channel[1] = 39267123
+    channel[2] = 39267123
+    channel[3] = 39267123
+    channel[4] = 39267123
+    channel[5] = 39267123
+  buffer #3:
+    time = 1000000300000
+    channel[0] = 39267123
+    channel[1] = 39267123
+    channel[2] = 39267123
+    channel[3] = 39267123
+    channel[4] = 39267123
+    channel[5] = 39267123
+  buffer #4:
+    time = 1000000400000
+    channel[0] = 39267123
+    channel[1] = 39267123
+    channel[2] = 39267123
+    channel[3] = 39267123
+    channel[4] = 39267123
+    channel[5] = 39267123
+  buffer #5:
+    time = 1000000500000
+    channel[0] = 1359338669
+    channel[1] = 1359338669
+    channel[2] = 1359338669
+    channel[3] = 1359338669
+    channel[4] = 1359338669
+    channel[5] = 1359338669

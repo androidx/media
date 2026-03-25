@@ -17,6 +17,7 @@ track 0:
     sampleMimeType = audio/raw
     maxInputSize = 115200
     channelCount = 6
+    channelMask = 0x000000FC
     sampleRate = 48000
     pcmEncoding = 4
   sample 0:
