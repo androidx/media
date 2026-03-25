@@ -580,6 +580,8 @@ class CompositionPreviewActivity : AppCompatActivity() {
               MimeTypes.VIDEO_H265,
               MimeTypes.VIDEO_MP4V,
               MimeTypes.VIDEO_AV1,
+              MimeTypes.VIDEO_APV,
+              MimeTypes.VIDEO_DOLBY_VISION,
             ),
           changeDropDownOpen = { expanded -> isVideoTypeExpanded = expanded },
           changeSelectedOption = onVideoMimeTypeChanged,
