@@ -18,6 +18,7 @@ package androidx.media3.muxer;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import android.util.SparseArray;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
@@ -199,6 +200,17 @@ public final class FragmentedMp4Muxer implements Muxer {
     trackIdToTrack = new SparseArray<>();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>A metadata track ({@link C#TRACK_TYPE_METADATA}) or a track with an unknown type ({@link
+   * C#TRACK_TYPE_UNKNOWN}) is written as a text metadata track, unless the sample MIME type is
+   * {@link MimeTypes#APPLICATION_ITUT_T35}, in which case it is written as a T35 metadata track.
+   *
+   * @param format The {@link Format} for the track.
+   * @return A unique track id. The track id is non-negative. It should be used in {@link
+   *     #writeSampleData}.
+   */
   @Override
   public int addTrack(Format format) {
     Track track = fragmentedMp4Writer.addTrack(/* sortKey= */ 1, format);

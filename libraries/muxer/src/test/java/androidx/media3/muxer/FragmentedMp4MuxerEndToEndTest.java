@@ -19,6 +19,8 @@ import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -158,5 +160,82 @@ public class FragmentedMp4MuxerEndToEndTest {
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
             MuxerTestUtil.getSubstitutedPath(H264_MP4, MuxerTestUtil.MP4) + "_fragmented"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_withSomeMetadataTrack_writesAsTextMetadataTrack()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // Fake metadata payload
+    byte[] sampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format metadataTrackFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_META).build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the metadata track.
+      int trackId = muxer.addTrack(metadataTrackFormat);
+      // Write fake metadata track samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            trackId,
+            ByteBuffer.wrap(sampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ sampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    // TODO: b/496518585 - FakeExtractorOutput is not dumping this metadata track.
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(
+            ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(checkNotNull(outputFilePath))));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("fragmented_mp4_with_metadata_track.mp4"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_withSomeUnknownTrack_writesAsTextMetadataTrack()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // Fake metadata payload
+    byte[] sampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format metadataTrackFormat = new Format.Builder().setSampleMimeType("xyz").build();
+
+    try (FragmentedMp4Muxer muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the metadata track.
+      int trackId = muxer.addTrack(metadataTrackFormat);
+      // Write fake metadata samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            trackId,
+            ByteBuffer.wrap(sampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ sampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    // TODO: b/496518585 - FakeExtractorOutput is not dumping this metadata track.
+    DumpableMp4Box dumpableMp4Box =
+        new DumpableMp4Box(
+            ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(checkNotNull(outputFilePath))));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableMp4Box,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("fragmented_mp4_with_unknown_track.mp4"));
   }
 }

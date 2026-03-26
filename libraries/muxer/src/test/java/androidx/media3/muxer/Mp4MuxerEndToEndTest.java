@@ -928,6 +928,77 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void writeMp4File_withSomeMetadataTrack_writesAsTextMetadataTrack() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // Fake metadata payload
+    byte[] sampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format metadataTrackFormat =
+        new Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_META).build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the metadata track.
+      int trackId = muxer.addTrack(metadataTrackFormat);
+      // Write fake metadata track samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            trackId,
+            ByteBuffer.wrap(sampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ sampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_metadata_track.mp4"));
+  }
+
+  @Test
+  public void writeMp4File_withSomeUnknownTrack_writesAsTextMetadataTrack() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    // Fake metadata payload
+    byte[] sampleData = new byte[] {0x05, 0x06, 0x07, 0x08};
+    Format metadataTrackFormat = new Format.Builder().setSampleMimeType("xyz").build();
+
+    try (Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      // Add the metadata track.
+      int trackId = muxer.addTrack(metadataTrackFormat);
+      // Write fake metadata samples.
+      for (int i = 0; i < 5; i++) {
+        muxer.writeSampleData(
+            trackId,
+            ByteBuffer.wrap(sampleData),
+            new BufferInfo(
+                /* presentationTimeUs= */ i * 100_000L,
+                /* size= */ sampleData.length,
+                /* flags= */ 0));
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_unknown_track.mp4"));
+  }
+
+  @Test
   public void writeMp4File_withT35MetadataTrack_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     // ITU-T T.35 prefix: country code, provider code, etc.

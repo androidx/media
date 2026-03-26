@@ -489,6 +489,10 @@ public final class Mp4Muxer implements Muxer {
    *
    * <p>The order of tracks remains same in which they are added.
    *
+   * <p>A metadata track ({@link C#TRACK_TYPE_METADATA}) or a track with an unknown type ({@link
+   * C#TRACK_TYPE_UNKNOWN}) is written as a text metadata track, unless the sample MIME type is
+   * {@link MimeTypes#APPLICATION_ITUT_T35}, in which case it is written as a T35 metadata track.
+   *
    * <p>For a metadata track, it is recommended to {@linkplain #addTrackReference(int, int, List)
    * add track reference}.
    *
