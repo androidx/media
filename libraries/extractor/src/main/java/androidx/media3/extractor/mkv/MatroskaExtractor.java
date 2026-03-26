@@ -963,10 +963,6 @@ public class MatroskaExtractor implements Extractor {
         for (int i = 0; i < tracks.size(); i++) {
           Track track = tracks.valueAt(i);
           track.maybeAddChaptersMetadata(chapters);
-          if (!track.waitingForDtsAnalysis) {
-            track.assertOutputInitialized();
-            track.output.format(checkNotNull(track.format));
-          }
         }
         break;
       case ID_BLOCK_GROUP:
