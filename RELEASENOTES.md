@@ -6,6 +6,8 @@
     *   Add `Format.channelMask` to explicitly represent the audio channel mask,
         and a new `Util.getAudioTrackChannelConfig(Format)` overload to safely
         resolve it.
+    *   Fix handling of `onAudioSessionIdChanged` in `SimpleBasePlayer` and
+        `ForwardingSimpleBasePlayer`.
 *   ExoPlayer:
     *   Mark tracks with a well-formed but unrecognized codec profile or level
         as `supported=NO_EXCEEDS_CAPABILITIES` instead of `supported=YES` (which
