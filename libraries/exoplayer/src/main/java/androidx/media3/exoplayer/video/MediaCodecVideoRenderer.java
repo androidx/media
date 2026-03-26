@@ -259,7 +259,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   /* package */ @Nullable OnFrameRenderedListener tunnelingOnFrameRenderedListener;
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
-  private long periodDurationUs;
   private boolean pendingVideoSinkInputStreamChange;
 
   private int consecutiveDroppedInputBufferCount;
@@ -662,7 +661,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     reportedVideoSize = null;
     rendererPriority = C.PRIORITY_PLAYBACK;
     startPositionUs = C.TIME_UNSET;
-    periodDurationUs = C.TIME_UNSET;
     av1SampleDependencyParser =
         builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
     droppedDecoderInputBufferTimestamps = new PriorityQueue<>();
@@ -1058,35 +1056,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    updatePeriodDurationUs(mediaPeriodId);
     if (videoFrameReleaseEarlyTimeForecaster != null) {
       videoFrameReleaseEarlyTimeForecaster.reset();
     }
-  }
-
-  @Override
-  protected void onTimelineChanged(Timeline timeline) {
-    super.onTimelineChanged(timeline);
-    MediaSource.MediaPeriodId mediaPeriodId = getMediaPeriodId();
-    if (mediaPeriodId != null) {
-      updatePeriodDurationUs(mediaPeriodId);
-    }
-  }
-
-  private void updatePeriodDurationUs(MediaSource.MediaPeriodId mediaPeriodId) {
-    Timeline timeline = getTimeline();
-    if (timeline.isEmpty()) {
-      periodDurationUs = C.TIME_UNSET;
-      return;
-    }
-    int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
-    // TODO: b/460354805 - Remove this workaround. The mediaPeriodId should always be inside the
-    // Timeline.
-    if (periodIndex == C.INDEX_UNSET) {
-      periodDurationUs = C.TIME_UNSET;
-      return;
-    }
-    periodDurationUs = timeline.getPeriod(periodIndex, new Timeline.Period()).getDurationUs();
   }
 
   @Override
@@ -1196,7 +1168,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void onDisabled() {
     reportedVideoSize = null;
-    periodDurationUs = C.TIME_UNSET;
     maybeSetupTunnelingForFirstFrame();
     haveReportedFirstFrameRenderedForCurrentSurface = false;
     tunnelingOnFrameRenderedListener = null;
@@ -1695,6 +1666,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected final boolean shouldFlushCodec() {
     Format inputFormat = getCodecInputFormat();
     boolean skippingFlushMayCauseOverflow = true;
+    long periodDurationUs = getPeriodDurationUs();
     if (periodDurationUs != C.TIME_UNSET) {
       long maxPotentialSkippedFlushOffset = periodDurationUs + 1;
       long maxPotentialSampleTimestamp = getOutputStreamOffsetUs() + periodDurationUs;
@@ -1834,12 +1806,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     // TODO: b/352276461 - improve buffer.isLastSample() logic.
     // This is a temporary workaround: do not skip buffers close to the period end.
-    if (periodDurationUs == C.TIME_UNSET) {
+    if (getPeriodDurationUs() == C.TIME_UNSET) {
       // Duration unknown: probably last sample.
       return true;
     }
     long presentationTimeUs = buffer.timeUs - getOutputStreamOffsetUs();
-    return periodDurationUs - presentationTimeUs <= OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US;
+    return getPeriodDurationUs() - presentationTimeUs <= OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US;
   }
 
   private boolean isBufferBeforeStartTime(DecoderInputBuffer buffer) {

@@ -85,6 +85,8 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private boolean throwRendererExceptionIsExecuting;
   private Timeline timeline;
   @Nullable private MediaSource.MediaPeriodId mediaPeriodId;
+  private long periodDurationUs;
+  private boolean isPeriodDurationStrict;
 
   @GuardedBy("lock")
   @Nullable
@@ -100,6 +102,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     formatHolder = new FormatHolder();
     readingPositionUs = C.TIME_END_OF_SOURCE;
     timeline = Timeline.EMPTY;
+    periodDurationUs = C.TIME_UNSET;
   }
 
   @Override
@@ -170,6 +173,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     checkState(!streamIsFinal);
     this.stream = stream;
     this.mediaPeriodId = mediaPeriodId;
+    updatePeriodInfo();
     if (readingPositionUs == C.TIME_END_OF_SOURCE) {
       readingPositionUs = startPositionUs;
     }
@@ -213,6 +217,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   public final void setTimeline(Timeline timeline) {
     if (!Objects.equals(this.timeline, timeline)) {
       this.timeline = timeline;
+      updatePeriodInfo();
       onTimelineChanged(this.timeline);
     }
   }
@@ -252,6 +257,8 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     streamIsFinal = false;
     onDisabled();
     mediaPeriodId = null;
+    periodDurationUs = C.TIME_UNSET;
+    isPeriodDurationStrict = false;
   }
 
   @Override
@@ -512,6 +519,28 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   /**
+   * Returns the duration of the {@link Timeline.Period} producing the stream, in microseconds, or
+   * {@link C#TIME_UNSET} if unknown.
+   *
+   * <p>The returned value is retrieved from the {@linkplain #getTimeline() timeline} and the
+   * {@linkplain #getMediaPeriodId() period ID}.
+   */
+  protected final long getPeriodDurationUs() {
+    return periodDurationUs;
+  }
+
+  /**
+   * Returns whether to ignore the buffers whose timestamp exceeds the {@linkplain
+   * #getPeriodDurationUs() duration}.
+   *
+   * <p>The returned value is retrieved from the {@linkplain #getTimeline() timeline} and the
+   * {@linkplain #getMediaPeriodId() period ID}.
+   */
+  protected final boolean isPeriodDurationStrict() {
+    return isPeriodDurationStrict;
+  }
+
+  /**
    * Creates an {@link ExoPlaybackException} of type {@link ExoPlaybackException#TYPE_RENDERER} for
    * this renderer.
    *
@@ -641,5 +670,24 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     if (listener != null) {
       listener.onRendererCapabilitiesChanged(this);
     }
+  }
+
+  private void updatePeriodInfo() {
+    if (timeline.isEmpty() || mediaPeriodId == null) {
+      periodDurationUs = C.TIME_UNSET;
+      isPeriodDurationStrict = false;
+      return;
+    }
+    int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
+    // TODO: b/460354805 - Remove this workaround. The mediaPeriodId should always be inside the
+    // Timeline.
+    if (periodIndex == C.INDEX_UNSET) {
+      periodDurationUs = C.TIME_UNSET;
+      isPeriodDurationStrict = false;
+      return;
+    }
+    Timeline.Period period = timeline.getPeriod(periodIndex, new Timeline.Period());
+    periodDurationUs = period.durationUs;
+    isPeriodDurationStrict = period.isDurationStrict;
   }
 }

@@ -51,6 +51,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimedValueQueue;
@@ -389,7 +390,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private int outputIndex;
   @Nullable private ByteBuffer outputBuffer;
   private boolean isDecodeOnlyOutputBuffer;
-  private boolean isLastOutputBuffer;
   private boolean bypassEnabled;
   private boolean bypassSampleBufferPending;
   private boolean bypassDrainAndReinitialize;
@@ -401,6 +401,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean codecReceivedEos;
   private boolean codecHasOutputMediaFormat;
   private long largestQueuedPresentationTimeUs;
+  private long largestQueuedPresentationTimeWithinDurationUs;
   private boolean inputStreamEnded;
   private boolean outputStreamEnded;
   private boolean waitingForFirstSampleInFormat;
@@ -469,6 +470,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     outputIndex = C.INDEX_UNSET;
     codecHotswapDeadlineMs = C.TIME_UNSET;
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
+    largestQueuedPresentationTimeWithinDurationUs = C.TIME_UNSET;
     lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
     lastOutputBufferProcessedRealtimeMs = C.TIME_UNSET;
     codecDrainState = DRAIN_STATE_NONE;
@@ -758,11 +760,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               + ", offset="
               + offsetUs);
     }
+    long durationUs = getPeriodDurationUs();
+    boolean isDurationStrict = isPeriodDurationStrict();
     if (outputStreamInfo.streamOffsetUs == C.TIME_UNSET) {
       // This is the first stream.
       setOutputStreamInfo(
           new OutputStreamInfo(
-              /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET, startPositionUs, offsetUs));
+              /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
+              startPositionUs,
+              offsetUs,
+              durationUs,
+              isDurationStrict));
       if (experimentalEnableProcessedStreamChangedAtStart) {
         onProcessedStreamChange();
       }
@@ -773,13 +781,22 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       // All previous streams have never queued any samples or have been fully output already.
       setOutputStreamInfo(
           new OutputStreamInfo(
-              /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET, startPositionUs, offsetUs));
+              /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
+              startPositionUs,
+              offsetUs,
+              durationUs,
+              isDurationStrict));
       if (outputStreamInfo.streamOffsetUs != C.TIME_UNSET) {
         onProcessedStreamChange();
       }
     } else {
       pendingOutputStreamChanges.add(
-          new OutputStreamInfo(largestQueuedPresentationTimeUs, startPositionUs, offsetUs));
+          new OutputStreamInfo(
+              /* previousStreamLastBufferTimeUs= */ largestQueuedPresentationTimeUs,
+              startPositionUs,
+              offsetUs,
+              durationUs,
+              isDurationStrict));
     }
   }
 
@@ -813,6 +830,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     outputStreamInfo.formatQueue.clear();
     outputStreamInfo.queuedBufferAfterReset = false;
+  }
+
+  @Override
+  protected void onTimelineChanged(Timeline timeline) {
+    OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
+    lastOutputStreamInfo.durationUs = getPeriodDurationUs();
+    lastOutputStreamInfo.isDurationStrict = isPeriodDurationStrict();
   }
 
   @Override
@@ -1085,6 +1109,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /** Resets the renderer internal state used by both bypass and codec modes. */
   private void resetCommonStateForFlush() {
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
+    largestQueuedPresentationTimeWithinDurationUs = C.TIME_UNSET;
     getLastOutputStreamInfo().lastBufferTimeUs = C.TIME_UNSET;
     lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
   }
@@ -1102,7 +1127,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecNeedsAdaptationWorkaroundBuffer = false;
     shouldSkipAdaptationWorkaroundOutputBuffer = false;
     isDecodeOnlyOutputBuffer = false;
-    isLastOutputBuffer = false;
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
     // Reconfiguration data sent shortly before the flush may not have been processed by the
@@ -1545,7 +1569,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (result == C.RESULT_NOTHING_READ) {
       if (hasReadStreamToEnd()) {
         // Notify output queue of the last buffer's timestamp.
-        getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
+        getLastOutputStreamInfo().lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
       }
       return false;
     }
@@ -1562,7 +1586,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
     // We've read a buffer.
     if (buffer.isEndOfStream()) {
-      getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
+      getLastOutputStreamInfo().lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
       if (codecReconfigurationState == RECONFIGURATION_STATE_QUEUE_PENDING) {
         // We received a new format immediately before the end of the stream. We need to clear
         // the corresponding reconfiguration data from the current buffer, but re-write it into
@@ -1632,9 +1656,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       waitingForFirstSampleInFormat = false;
     }
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
+    if (getPeriodDurationUs() == C.TIME_UNSET
+        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs <= getPeriodDurationUs()) {
+      largestQueuedPresentationTimeWithinDurationUs =
+          max(largestQueuedPresentationTimeWithinDurationUs, presentationTimeUs);
+    }
     if (hasReadStreamToEnd() || buffer.isLastSample()) {
       // Notify output queue of the last buffer's timestamp.
-      getLastOutputStreamInfo().lastBufferTimeUs = largestQueuedPresentationTimeUs;
+      getLastOutputStreamInfo().lastBufferTimeUs = getLargestValidQueuedPresentationTimeUs();
     }
     buffer.flip();
     if (buffer.hasSupplementalData()) {
@@ -1646,6 +1675,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         skippedFlushOffsetUs += largestQueuedPresentationTimeUs - presentationTimeUs + 1;
       }
       largestQueuedPresentationTimeUs = presentationTimeUs;
+      largestQueuedPresentationTimeWithinDurationUs = presentationTimeUs;
       hasSkippedFlushAndWaitingForQueueInputBuffer = false;
     }
 
@@ -1679,6 +1709,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecReconfigurationState = RECONFIGURATION_STATE_NONE;
     decoderCounters.queuedInputBufferCount++;
     return true;
+  }
+
+  private long getLargestValidQueuedPresentationTimeUs() {
+    return isPeriodDurationStrict()
+        ? largestQueuedPresentationTimeWithinDurationUs
+        : largestQueuedPresentationTimeUs;
   }
 
   /**
@@ -2273,12 +2309,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
     }
 
+    boolean isStrictDurationExceeded =
+        outputStreamInfo.isDurationStrict
+            && outputStreamInfo.durationUs != C.TIME_UNSET
+            && outputBufferInfo.presentationTimeUs - getOutputStreamOffsetUs()
+                > outputStreamInfo.durationUs;
     isDecodeOnlyOutputBuffer =
         hasSkippedFlushAndWaitingForQueueInputBuffer
-            || outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
-    isLastOutputBuffer =
+            || outputBufferInfo.presentationTimeUs < getLastResetPositionUs()
+            || isStrictDurationExceeded;
+    boolean isLastOutputBuffer =
         outputStreamInfo.lastBufferTimeUs != C.TIME_UNSET
-            && outputStreamInfo.lastBufferTimeUs <= outputBufferInfo.presentationTimeUs;
+            && outputStreamInfo.lastBufferTimeUs <= outputBufferInfo.presentationTimeUs
+            && !isStrictDurationExceeded;
 
     boolean processedOutputBuffer =
         processOutputBuffer(
@@ -2896,21 +2939,31 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         new OutputStreamInfo(
             /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
             /* startPositionUs= */ C.TIME_UNSET,
-            /* streamOffsetUs= */ C.TIME_UNSET);
+            /* streamOffsetUs= */ C.TIME_UNSET,
+            /* durationUs= */ C.TIME_UNSET,
+            /* isDurationStrict= */ false);
 
     private final long previousStreamLastBufferTimeUs;
     private final long startPositionUs;
     private final long streamOffsetUs;
     private final TimedValueQueue<Format> formatQueue;
 
+    private long durationUs;
+    private boolean isDurationStrict;
     private boolean queuedBufferAfterReset;
     private long lastBufferTimeUs;
 
     private OutputStreamInfo(
-        long previousStreamLastBufferTimeUs, long startPositionUs, long streamOffsetUs) {
+        long previousStreamLastBufferTimeUs,
+        long startPositionUs,
+        long streamOffsetUs,
+        long durationUs,
+        boolean isDurationStrict) {
       this.previousStreamLastBufferTimeUs = previousStreamLastBufferTimeUs;
       this.startPositionUs = startPositionUs;
       this.streamOffsetUs = streamOffsetUs;
+      this.durationUs = durationUs;
+      this.isDurationStrict = isDurationStrict;
       this.formatQueue = new TimedValueQueue<>();
       this.lastBufferTimeUs = C.TIME_UNSET;
     }

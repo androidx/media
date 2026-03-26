@@ -62,6 +62,7 @@ public final class FakeTimeline extends Timeline {
       private long windowStartTimeUs;
       private long windowPositionInFirstPeriodUs;
       @Nullable private List<AdPlaybackState> adPlaybackStates;
+      private boolean isDurationStrict;
       @Nullable private MediaItem mediaItem;
 
       /** Create a new instance. */
@@ -184,6 +185,13 @@ public final class FakeTimeline extends Timeline {
         return this;
       }
 
+      /** See {@link Timeline.Period#isDurationStrict}. Default is false. */
+      @CanIgnoreReturnValue
+      public Builder setDurationStrict(boolean durationStrict) {
+        this.isDurationStrict = durationStrict;
+        return this;
+      }
+
       /**
        * See {@link Timeline.Window#mediaItem}. Default is {@code
        * FAKE_MEDIA_ITEM.buildUpon().setTag(uid).build()}.
@@ -222,6 +230,7 @@ public final class FakeTimeline extends Timeline {
             windowStartTimeUs,
             /* windowOffsetInFirstPeriodUs= */ windowPositionInFirstPeriodUs,
             adPlaybackStates,
+            isDurationStrict,
             mediaItem);
       }
     }
@@ -244,6 +253,7 @@ public final class FakeTimeline extends Timeline {
     public final long windowStartTimeUs;
     public final long windowOffsetInFirstPeriodUs;
     public final List<AdPlaybackState> adPlaybackStates;
+    public final boolean isDurationStrict;
 
     /**
      * Returns a {@link TimelineWindowDefinition.Builder} initialized with the values of this
@@ -287,6 +297,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
           /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
           ImmutableList.of(AdPlaybackState.NONE),
+          /* isDurationStrict= */ false,
           FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
@@ -307,6 +318,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
           /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
           ImmutableList.of(AdPlaybackState.NONE),
+          /* isDurationStrict= */ false,
           FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
     }
 
@@ -328,6 +340,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
           /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
           ImmutableList.of(AdPlaybackState.NONE),
+          /* isDurationStrict= */ false,
           FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
@@ -354,6 +367,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
           /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
           ImmutableList.of(adPlaybackState),
+          /* isDurationStrict= */ false,
           FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
@@ -384,6 +398,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
           windowOffsetInFirstPeriodUs,
           ImmutableList.of(adPlaybackState),
+          /* isDurationStrict= */ false,
           FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
@@ -416,6 +431,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
           windowOffsetInFirstPeriodUs,
           ImmutableList.of(adPlaybackState),
+          /* isDurationStrict= */ false,
           mediaItem);
     }
 
@@ -447,6 +463,7 @@ public final class FakeTimeline extends Timeline {
           /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
           windowOffsetInFirstPeriodUs,
           adPlaybackStates,
+          /* isDurationStrict= */ false,
           mediaItem);
     }
 
@@ -481,6 +498,7 @@ public final class FakeTimeline extends Timeline {
         long windowStartTimeUs,
         long windowOffsetInFirstPeriodUs,
         List<AdPlaybackState> adPlaybackStates,
+        boolean isDurationStrict,
         MediaItem mediaItem) {
       checkArgument(durationUs != C.TIME_UNSET || periodCount == 1);
       this.periodCount = periodCount;
@@ -495,6 +513,7 @@ public final class FakeTimeline extends Timeline {
       this.windowStartTimeUs = windowStartTimeUs;
       this.windowOffsetInFirstPeriodUs = windowOffsetInFirstPeriodUs;
       this.adPlaybackStates = adPlaybackStates;
+      this.isDurationStrict = isDurationStrict;
     }
   }
 
@@ -767,7 +786,7 @@ public final class FakeTimeline extends Timeline {
         positionInWindowUs,
         adPlaybackState,
         windowDefinition.isPlaceholder,
-        /* isDurationStrict= */ false);
+        windowDefinition.isDurationStrict);
     return period;
   }
 
