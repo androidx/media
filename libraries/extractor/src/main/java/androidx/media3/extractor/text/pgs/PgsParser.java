@@ -36,11 +36,14 @@ public final class PgsParser implements SubtitleParser {
       Format.CUE_REPLACEMENT_BEHAVIOR_REPLACE;
 
   private static final String TAG = "PgsParser";
+  private static final boolean DEBUG = false;
 
   private static final int SECTION_TYPE_PALETTE = 0x14;
   private static final int SECTION_TYPE_BITMAP_PICTURE = 0x15;
   private static final int SECTION_TYPE_IDENTIFIER = 0x16;
   private static final int SECTION_TYPE_END = 0x80;
+  private static final float PGS_SIZE_SCALE = 0.85f;
+  private static final int PGS_BITMAP_MAX_DIMENSION = 540;
 
   private final ParsableByteArray buffer;
   private final ParsableByteArray inflatedBuffer;
@@ -81,7 +84,7 @@ public final class PgsParser implements SubtitleParser {
 
     cueBuilder.reset();
     ArrayList<Cue> cues = new ArrayList<>();
-    StringBuilder sectionLog = new StringBuilder("sections:");
+    @Nullable StringBuilder sectionLog = DEBUG ? new StringBuilder("sections:") : null;
     boolean sawPcs = false;
     boolean sawEnd = false;
 
@@ -98,14 +101,16 @@ public final class PgsParser implements SubtitleParser {
         break;
       }
 
-      sectionLog.append(
-          sectionType == SECTION_TYPE_PALETTE
-              ? " P"
-              : sectionType == SECTION_TYPE_BITMAP_PICTURE
-                  ? " B"
-                  : sectionType == SECTION_TYPE_IDENTIFIER
-                      ? " I"
-                      : sectionType == SECTION_TYPE_END ? " E" : " ?");
+      if (sectionLog != null) {
+        sectionLog.append(
+            sectionType == SECTION_TYPE_PALETTE
+                ? " P"
+                : sectionType == SECTION_TYPE_BITMAP_PICTURE
+                    ? " B"
+                    : sectionType == SECTION_TYPE_IDENTIFIER
+                        ? " I"
+                        : sectionType == SECTION_TYPE_END ? " E" : " ?");
+      }
 
       switch (sectionType) {
 
@@ -146,12 +151,17 @@ public final class PgsParser implements SubtitleParser {
       buffer.setPosition(nextSectionPosition);
     }
 
-    Log.d(
-        TAG,
-        "parse sampleLen=" + length
-            + " " + sectionLog
-            + " cues=" + cues.size()
-            + " startTimeUs=TIME_UNSET durationUs=TIME_UNSET");
+    if (DEBUG && sectionLog != null) {
+      Log.d(
+          TAG,
+          "parse sampleLen="
+              + length
+              + " "
+              + sectionLog
+              + " cues="
+              + cues.size()
+              + " startTimeUs=TIME_UNSET durationUs=TIME_UNSET");
+    }
 
     if (!cues.isEmpty()) {
       output.accept(
@@ -180,6 +190,7 @@ public final class PgsParser implements SubtitleParser {
 
     private final ParsableByteArray bitmapData;
     private final int[] colors;
+    private int[] argbBitmapData;
 
     private boolean colorsSet;
     /**
@@ -206,6 +217,7 @@ public final class PgsParser implements SubtitleParser {
     public CueBuilder() {
       bitmapData = new ParsableByteArray();
       colors = new int[256];
+      argbBitmapData = new int[0];
     }
 
     private void parsePaletteSection(ParsableByteArray buffer, int sectionLength) {
@@ -283,11 +295,23 @@ public final class PgsParser implements SubtitleParser {
 
         bitmapData.setPosition(position + bytesToRead);
         hasBitmapDataForCurrentObject = true;
-        Log.d(
-            TAG,
-            "bitmapData received plane=" + planeWidth + "x" + planeHeight
-                + " bitmap=" + bitmapWidth + "x" + bitmapHeight
-                + " pos=(" + bitmapX + "," + bitmapY + ")");
+        if (DEBUG) {
+          Log.d(
+              TAG,
+              "bitmapData received plane="
+                  + planeWidth
+                  + "x"
+                  + planeHeight
+                  + " bitmap="
+                  + bitmapWidth
+                  + "x"
+                  + bitmapHeight
+                  + " pos=("
+                  + bitmapX
+                  + ","
+                  + bitmapY
+                  + ")");
+        }
       }
     }
 
@@ -327,18 +351,30 @@ public final class PgsParser implements SubtitleParser {
       }
       bitmapX = compositionObjectCount > 0 ? compositionObjectX[0] : 0;
       bitmapY = compositionObjectCount > 0 ? compositionObjectY[0] : 0;
-      Log.d(
-          TAG,
-          "PCS plane=" + planeWidth + "x" + planeHeight
-              + " objects=" + compositionObjectCount
-              + " pos0=(" + bitmapX + "," + bitmapY + ")");
+      if (DEBUG) {
+        Log.d(
+            TAG,
+            "PCS plane="
+                + planeWidth
+                + "x"
+                + planeHeight
+                + " objects="
+                + compositionObjectCount
+                + " pos0=("
+                + bitmapX
+                + ","
+                + bitmapY
+                + ")");
+      }
     }
 
     @Nullable
     public Cue build() {
 
       if (!hasBitmapDataForCurrentObject) {
-        Log.d(TAG, "build() skip: no bitmap for current object pos=(" + bitmapX + "," + bitmapY + ")");
+        if (DEBUG) {
+          Log.d(TAG, "build() skip: no bitmap for current object pos=(" + bitmapX + "," + bitmapY + ")");
+        }
         return null;
       }
       if (planeWidth == 0
@@ -349,22 +385,36 @@ public final class PgsParser implements SubtitleParser {
           || bitmapData.getPosition() != bitmapData.limit()
           || !colorsSet) {
 
-        Log.d(
-            TAG,
-            "build() skip: incomplete plane=" + planeWidth + "x" + planeHeight
-                + " bitmap=" + bitmapWidth + "x" + bitmapHeight
-                + " limit=" + bitmapData.limit() + " pos=" + bitmapData.getPosition()
-                + " colorsSet=" + colorsSet);
+        if (DEBUG) {
+          Log.d(
+              TAG,
+              "build() skip: incomplete plane="
+                  + planeWidth
+                  + "x"
+                  + planeHeight
+                  + " bitmap="
+                  + bitmapWidth
+                  + "x"
+                  + bitmapHeight
+                  + " limit="
+                  + bitmapData.limit()
+                  + " pos="
+                  + bitmapData.getPosition()
+                  + " colorsSet="
+                  + colorsSet);
+        }
         return null;
       }
 
       bitmapData.setPosition(0);
-
-      int[] argbBitmapData = new int[bitmapWidth * bitmapHeight];
+      int pixelCount = bitmapWidth * bitmapHeight;
+      if (argbBitmapData.length < pixelCount) {
+        argbBitmapData = new int[pixelCount];
+      }
 
       int index = 0;
 
-      while (index < argbBitmapData.length) {
+      while (index < pixelCount) {
 
         int colorIndex = bitmapData.readUnsignedByte();
 
@@ -406,6 +456,21 @@ public final class PgsParser implements SubtitleParser {
               bitmapWidth,
               bitmapHeight,
               Bitmap.Config.ARGB_8888);
+      int maxDim = Math.max(bitmapWidth, bitmapHeight);
+      if (maxDim > PGS_BITMAP_MAX_DIMENSION) {
+        float scale = (float) PGS_BITMAP_MAX_DIMENSION / maxDim;
+        int scaledWidth = Math.round(bitmapWidth * scale);
+        int scaledHeight = Math.round(bitmapHeight * scale);
+        if (scaledWidth > 0
+            && scaledHeight > 0
+            && (scaledWidth != bitmapWidth || scaledHeight != bitmapHeight)) {
+          Bitmap scaled = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true);
+          if (scaled != bitmap) {
+            bitmap.recycle();
+            bitmap = scaled;
+          }
+        }
+      }
 
       int x = bitmapX;
       int y = bitmapY;
@@ -416,19 +481,39 @@ public final class PgsParser implements SubtitleParser {
       }
       float position = (float) x / planeWidth;
       float line = (float) y / planeHeight;
-      Log.d(
-          TAG,
-          "build() cue objIndex=" + (compositionObjectIndex - 1)
-              + " pos=(" + x + "," + y + ") norm=(" + position + "," + line + ")"
-              + " size=" + bitmapWidth + "x" + bitmapHeight);
+      // PGS_SIZE_SCALE shrinks width but position is START-anchored; without compensation the cue
+      // shifts left. Nudge position right by half the width reduction so visual center matches PGS.
+      if (PGS_SIZE_SCALE != 1f) {
+        float widthFraction = (float) bitmapWidth / planeWidth;
+        position += (1f - PGS_SIZE_SCALE) * widthFraction / 2f;
+        position = Util.constrainValue(position, 0f, 1f);
+      }
+      if (DEBUG) {
+        Log.d(
+            TAG,
+            "build() cue objIndex="
+                + (compositionObjectIndex - 1)
+                + " pos=("
+                + x
+                + ","
+                + y
+                + ") norm=("
+                + position
+                + ","
+                + line
+                + ")"
+                + " size="
+                + bitmapWidth
+                + "x"
+                + bitmapHeight);
+      }
       return new Cue.Builder()
           .setBitmap(bitmap)
           .setPosition(position)
           .setPositionAnchor(Cue.ANCHOR_TYPE_START)
           .setLine(line, Cue.LINE_TYPE_FRACTION)
           .setLineAnchor(Cue.ANCHOR_TYPE_START)
-          .setSize((float) bitmapWidth / planeWidth)
-          .setBitmapHeight((float) bitmapHeight / planeHeight)
+          .setSize(PGS_SIZE_SCALE * (float) bitmapWidth / planeWidth)
           .build();
     }
 
