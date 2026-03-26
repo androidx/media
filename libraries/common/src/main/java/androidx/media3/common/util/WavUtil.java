@@ -110,6 +110,18 @@ public final class WavUtil {
   }
 
   /**
+   * Checks whether the given Microsoft WAVE channel mask is valid and matches the channel count.
+   *
+   * @param channelMask The WAVE channel mask.
+   * @param channelCount The number of channels.
+   * @return Whether the channel mask is valid.
+   */
+  public static boolean isChannelMaskValid(int channelMask, int channelCount) {
+    return (channelMask >> 18) == 0
+        && (channelMask == 0 || Integer.bitCount(channelMask) == channelCount);
+  }
+
+  /**
    * Maps the given Microsoft WAVE channel mask to the corresponding Android {@link
    * android.media.AudioFormat} channel mask.
    *

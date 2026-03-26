@@ -40,6 +40,7 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WavUtil;
 import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
@@ -2269,6 +2270,7 @@ public class MatroskaExtractor implements Extractor {
     // Audio elements. Initially set to their default values.
     public int channelCount = 1;
     public int audioBitDepth = Format.NO_VALUE;
+    public int channelMask = Format.NO_VALUE;
     public int sampleRate = 8000;
     public long codecDelayNs = 0;
     public long seekPreRollNs = 0;
@@ -2536,6 +2538,7 @@ public class MatroskaExtractor implements Extractor {
       if (MimeTypes.isAudio(mimeType)) {
         formatBuilder
             .setChannelCount(channelCount)
+            .setChannelMask(channelMask)
             .setSampleRate(sampleRate)
             .setPcmEncoding(pcmEncoding);
       } else if (MimeTypes.isVideo(mimeType)) {
@@ -2906,13 +2909,17 @@ public class MatroskaExtractor implements Extractor {
      * @return Whether the codec private indicates PCM audio.
      * @throws ParserException If a parsing error occurs.
      */
-    private static boolean parseMsAcmCodecPrivate(ParsableByteArray buffer) throws ParserException {
+    private boolean parseMsAcmCodecPrivate(ParsableByteArray buffer) throws ParserException {
       try {
         int formatTag = buffer.readLittleEndianUnsignedShort();
         if (formatTag == WAVE_FORMAT_PCM) {
           return true;
         } else if (formatTag == WAVE_FORMAT_EXTENSIBLE) {
-          buffer.setPosition(WAVE_FORMAT_SIZE + 6); // unionSamples(2), channelMask(4)
+          buffer.setPosition(WAVE_FORMAT_SIZE + 2); // unionSamples(2)
+          int wavChannelMask = buffer.readLittleEndianUnsignedIntToInt();
+          if (WavUtil.isChannelMaskValid(wavChannelMask, channelCount)) {
+            channelMask = WavUtil.mapToAudioFormatChannelMask(wavChannelMask);
+          }
           return buffer.readLong() == WAVE_SUBFORMAT_PCM.getMostSignificantBits()
               && buffer.readLong() == WAVE_SUBFORMAT_PCM.getLeastSignificantBits();
         } else {

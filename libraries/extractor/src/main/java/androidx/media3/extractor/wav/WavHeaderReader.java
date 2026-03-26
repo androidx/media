@@ -141,17 +141,12 @@ import java.util.Arrays;
                   + ") are not supported");
         }
         channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
-        if ((channelMask >> 18) != 0) {
+        if (!WavUtil.isChannelMaskValid(channelMask, numChannels)) {
           throw ParserException.createForUnsupportedContainerFeature(
-              "invalid channel mask " + channelMask);
-        }
-
-        if ((channelMask != 0) && (Integer.bitCount(channelMask) != numChannels)) {
-          throw ParserException.createForUnsupportedContainerFeature(
-              "invalid number of channels ("
-                  + Integer.bitCount(channelMask)
-                  + ") in channel mask "
-                  + channelMask);
+              "Channel mask "
+                  + channelMask
+                  + " is invalid or does not match channel count "
+                  + numChannels);
         }
         audioFormatType = extensionScratch.readLittleEndianUnsignedShort();
         byte[] extensionString = new byte[14];
