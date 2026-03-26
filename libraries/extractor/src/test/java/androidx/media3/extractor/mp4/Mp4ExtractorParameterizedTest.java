@@ -297,8 +297,18 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWith32beFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_32be.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
   public void mp4SampleWith64leFpcm() throws Exception {
     assertExtractorBehavior("media/mp4/sample_fpcm_64le.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
+  public void mp4SampleWith64beFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_64be.mp4", /* peekLimit= */ 50);
   }
 
   // Only the rotation part of the transformation matrix is resolved (b/390422593 tracks supporting

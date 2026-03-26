@@ -2051,11 +2051,10 @@ public final class BoxParser {
       int formatSpecificFlags = parent.readUnsignedIntToInt();
       boolean isFloat = (formatSpecificFlags & 1) != 0;
       boolean isBigEndian = (formatSpecificFlags & (1 << 1)) != 0;
-      if (!isFloat) {
-        pcmEncoding = Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
-      } else if (!isBigEndian) {
-        pcmEncoding = Util.getFloatPcmEncoding(bitsPerSample);
-      }
+      pcmEncoding =
+          isFloat
+              ? Util.getFloatPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN)
+              : Util.getPcmEncoding(bitsPerSample, isBigEndian ? BIG_ENDIAN : LITTLE_ENDIAN);
       if (pcmEncoding == C.ENCODING_INVALID) {
         pcmEncoding = Format.NO_VALUE;
       }
@@ -2314,9 +2313,8 @@ public final class BoxParser {
         int sampleSize = parent.readUnsignedByte();
         if (atomType == Mp4Box.TYPE_ipcm) {
           pcmEncoding = Util.getPcmEncoding(sampleSize, byteOrder);
-        } else if (atomType == Mp4Box.TYPE_fpcm && byteOrder.equals(LITTLE_ENDIAN)) {
-          // Only little-endian floating point PCM is supported.
-          pcmEncoding = Util.getFloatPcmEncoding(sampleSize);
+        } else if (atomType == Mp4Box.TYPE_fpcm) {
+          pcmEncoding = Util.getFloatPcmEncoding(sampleSize, byteOrder);
         }
         if (pcmEncoding == C.ENCODING_INVALID) {
           pcmEncoding = Format.NO_VALUE;

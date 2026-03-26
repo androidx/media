@@ -833,8 +833,12 @@ public class EventLogger implements AnalyticsListener {
         return "pcm-32be";
       case C.ENCODING_PCM_DOUBLE:
         return "pcm-double";
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+        return "pcm-double-be";
       case C.ENCODING_PCM_FLOAT:
         return "pcm-float";
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+        return "pcm-float-be";
       case C.ENCODING_INVALID:
       default:
         return String.valueOf(encoding);

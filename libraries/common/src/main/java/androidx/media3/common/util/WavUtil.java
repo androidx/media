@@ -80,10 +80,12 @@ public final class WavUtil {
       case C.ENCODING_PCM_FLOAT:
       case C.ENCODING_PCM_DOUBLE:
         return TYPE_FLOAT;
-      // TYPE_PCM is little endian so big endian formats don't match.
+      // TYPE_PCM/TYPE_FLOAT are little endian so big endian formats don't match.
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
       default:

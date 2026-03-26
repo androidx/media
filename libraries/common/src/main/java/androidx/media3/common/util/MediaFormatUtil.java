@@ -532,7 +532,9 @@ public final class MediaFormatUtil {
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
       case C.ENCODING_PCM_DOUBLE:
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
       default:
         // No matching value. Do nothing.
         return;
