@@ -96,8 +96,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
      * Called when the content source has refreshed the timeline.
      *
      * <p>If true is returned the source refresh publication is deferred, to wait for an {@link
-     * #setAdPlaybackStates(ImmutableMap, Timeline)} ad playback state update}. If false is
-     * returned, the source refresh is immediately published.
+     * #setAdPlaybackStates(ImmutableMap, Timeline) ad playback state update}. If false is returned,
+     * the source refresh is immediately published.
      *
      * <p>Called on the playback thread.
      *
@@ -113,6 +113,7 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcherWithoutId;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcherWithoutId;
   @Nullable private final AdPlaybackStateUpdater adPlaybackStateUpdater;
+  private final Timeline.Period period;
 
   @GuardedBy("this")
   @Nullable
@@ -120,6 +121,8 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
   @Nullable private SharedMediaPeriod lastUsedMediaPeriod;
   private ImmutableMap<Object, AdPlaybackState> adPlaybackStates;
+  private Timeline sourceTimeline;
+  private Timeline splitTimeline;
 
   /**
    * Creates the media source.
@@ -138,6 +141,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     adPlaybackStates = ImmutableMap.of();
     mediaSourceEventDispatcherWithoutId = createEventDispatcher(/* mediaPeriodId= */ null);
     drmEventDispatcherWithoutId = createDrmEventDispatcher(/* mediaPeriodId= */ null);
+    period = new Timeline.Period();
+    sourceTimeline = Timeline.EMPTY;
+    splitTimeline = Timeline.EMPTY;
   }
 
   /**
@@ -189,33 +195,38 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
         }
       }
     }
+    Handler playbackHandler;
     synchronized (this) {
-      if (playbackHandler == null) {
-        this.adPlaybackStates = adPlaybackStates;
-      } else {
-        playbackHandler.post(
-            () -> {
-              for (SharedMediaPeriod mediaPeriod : mediaPeriods.values()) {
-                @Nullable
-                AdPlaybackState adPlaybackState = adPlaybackStates.get(mediaPeriod.periodUid);
-                if (adPlaybackState != null) {
-                  mediaPeriod.updateAdPlaybackState(adPlaybackState);
-                }
-              }
-              if (lastUsedMediaPeriod != null) {
-                @Nullable
-                AdPlaybackState adPlaybackState =
-                    adPlaybackStates.get(lastUsedMediaPeriod.periodUid);
-                if (adPlaybackState != null) {
-                  lastUsedMediaPeriod.updateAdPlaybackState(adPlaybackState);
-                }
-              }
-              this.adPlaybackStates = adPlaybackStates;
-              refreshSourceInfo(
-                  new ServerSideAdInsertionTimeline(contentTimeline, adPlaybackStates));
-            });
-      }
+      playbackHandler = this.playbackHandler;
     }
+    if (playbackHandler == null) {
+      this.adPlaybackStates = adPlaybackStates;
+      return;
+    }
+    Util.postOrRun(
+        playbackHandler,
+        () -> {
+          if (!contentTimeline.equals(sourceTimeline)) {
+            // Stale update, ignore.
+            return;
+          }
+          this.adPlaybackStates = adPlaybackStates;
+          splitTimeline = new ServerSideAdInsertionTimeline(sourceTimeline, adPlaybackStates);
+          for (SharedMediaPeriod mediaPeriod : mediaPeriods.values()) {
+            @Nullable AdPlaybackState adPlaybackState = adPlaybackStates.get(mediaPeriod.periodUid);
+            if (adPlaybackState != null) {
+              mediaPeriod.updateAdPlaybackState(splitTimeline, adPlaybackState, period);
+            }
+          }
+          if (lastUsedMediaPeriod != null) {
+            @Nullable
+            AdPlaybackState adPlaybackState = adPlaybackStates.get(lastUsedMediaPeriod.periodUid);
+            if (adPlaybackState != null) {
+              lastUsedMediaPeriod.updateAdPlaybackState(splitTimeline, adPlaybackState, period);
+            }
+          }
+          refreshSourceInfo(splitTimeline);
+        });
   }
 
   @Override
@@ -262,10 +273,11 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
 
   @Override
   public void onSourceInfoRefreshed(MediaSource source, Timeline timeline) {
+    sourceTimeline = timeline;
     if ((adPlaybackStateUpdater == null
             || !adPlaybackStateUpdater.onAdPlaybackStateUpdateRequested(timeline))
         && !adPlaybackStates.isEmpty()) {
-      refreshSourceInfo(new ServerSideAdInsertionTimeline(timeline, adPlaybackStates));
+      setAdPlaybackStates(adPlaybackStates, timeline);
     }
   }
 
@@ -316,9 +328,14 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
         mediaPeriods.put(sharedMediaPeriodKey, sharedPeriod);
       }
     }
+    long endPositionUs = getEndPositionInSplitPeriodUs(splitTimeline, id, period);
     MediaPeriodImpl mediaPeriod =
         new MediaPeriodImpl(
-            sharedPeriod, id, createEventDispatcher(id), createDrmEventDispatcher(id));
+            sharedPeriod,
+            id,
+            endPositionUs,
+            createEventDispatcher(id),
+            createDrmEventDispatcher(id));
     sharedPeriod.add(mediaPeriod);
     if (reusedSharedPeriod && sharedPeriod.trackSelections.length > 0) {
       mediaPeriod.seekToUs(startPositionUs);
@@ -597,18 +614,21 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     return periods.get(0).mediaPeriods.get(0);
   }
 
-  private static long getMediaPeriodEndPositionUs(
-      MediaPeriodImpl mediaPeriod, AdPlaybackState adPlaybackState) {
-    MediaPeriodId id = mediaPeriod.mediaPeriodId;
+  private static long getEndPositionInSplitPeriodUs(
+      Timeline splitTimeline, MediaPeriodId id, Timeline.Period period) {
+    splitTimeline.getPeriodByUid(id.periodUid, period);
     if (id.isAd()) {
-      AdPlaybackState.AdGroup adGroup = adPlaybackState.getAdGroup(id.adGroupIndex);
+      AdPlaybackState.AdGroup adGroup = period.adPlaybackState.getAdGroup(id.adGroupIndex);
       return adGroup.count == C.LENGTH_UNSET ? 0 : adGroup.durationsUs[id.adIndexInAdGroup];
     }
-    if (id.nextAdGroupIndex == C.INDEX_UNSET) {
-      return Long.MAX_VALUE;
+    long nextAdGroupTimeUs =
+        id.nextAdGroupIndex == C.INDEX_UNSET
+            ? C.TIME_END_OF_SOURCE
+            : period.getAdGroupTimeUs(id.nextAdGroupIndex);
+    if (nextAdGroupTimeUs != C.TIME_END_OF_SOURCE) {
+      return nextAdGroupTimeUs;
     }
-    AdPlaybackState.AdGroup nextAdGroup = adPlaybackState.getAdGroup(id.nextAdGroupIndex);
-    return nextAdGroup.timeUs == C.TIME_END_OF_SOURCE ? Long.MAX_VALUE : nextAdGroup.timeUs;
+    return period.durationUs;
   }
 
   private static MediaLoadData correctMediaLoadData(
@@ -669,8 +689,14 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       lastDownstreamFormatChangeData = new MediaLoadData[0];
     }
 
-    public void updateAdPlaybackState(AdPlaybackState adPlaybackState) {
+    private void updateAdPlaybackState(
+        Timeline splitTimeline, AdPlaybackState adPlaybackState, Timeline.Period period) {
       this.adPlaybackState = adPlaybackState;
+      for (int i = 0; i < mediaPeriods.size(); i++) {
+        MediaPeriodImpl mediaPeriod = mediaPeriods.get(i);
+        mediaPeriod.updateEndPositionUs(
+            getEndPositionInSplitPeriodUs(splitTimeline, mediaPeriod.mediaPeriodId, period));
+      }
     }
 
     public void add(MediaPeriodImpl mediaPeriod) {
@@ -694,12 +720,16 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     }
 
     public boolean canReuseMediaPeriod(MediaPeriodId id, long positionUs) {
+      if (mediaPeriods.isEmpty()) {
+        return false;
+      }
       MediaPeriodImpl previousPeriod = Iterables.getLast(mediaPeriods);
+      if (previousPeriod.endPositionUs == C.TIME_UNSET) {
+        return false;
+      }
       long previousEndPositionUs =
           getStreamPositionUs(
-              getMediaPeriodEndPositionUs(previousPeriod, adPlaybackState),
-              previousPeriod.mediaPeriodId,
-              adPlaybackState);
+              previousPeriod.endPositionUs, previousPeriod.mediaPeriodId, adPlaybackState);
       long startPositionUs = getStreamPositionUs(positionUs, id, adPlaybackState);
       return startPositionUs == previousEndPositionUs;
     }
@@ -717,8 +747,9 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
                   Util.msToUs(mediaLoadData.mediaStartTimeMs),
                   mediaPeriod.mediaPeriodId,
                   adPlaybackState);
-          long mediaPeriodEndPositionUs = getMediaPeriodEndPositionUs(mediaPeriod, adPlaybackState);
-          if (startTimeInPeriodUs >= 0 && startTimeInPeriodUs < mediaPeriodEndPositionUs) {
+          if (startTimeInPeriodUs >= 0
+              && (mediaPeriod.endPositionUs == C.TIME_UNSET
+                  || startTimeInPeriodUs < mediaPeriod.endPositionUs)) {
             return mediaPeriod;
           }
         }
@@ -981,8 +1012,10 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       }
       long mediaPeriodPositionUs =
           getMediaPeriodPositionUs(positionUs, mediaPeriod.mediaPeriodId, adPlaybackState);
-      long endPositionUs = getMediaPeriodEndPositionUs(mediaPeriod, adPlaybackState);
-      return mediaPeriodPositionUs >= endPositionUs ? C.TIME_END_OF_SOURCE : mediaPeriodPositionUs;
+      return mediaPeriod.endPositionUs != C.TIME_UNSET
+              && mediaPeriodPositionUs >= mediaPeriod.endPositionUs
+          ? C.TIME_END_OF_SOURCE
+          : mediaPeriodPositionUs;
     }
 
     private int findMatchingStreamIndex(MediaLoadData mediaLoadData) {
@@ -1132,14 +1165,17 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     public long lastStartPositionUs;
     public boolean[] hasNotifiedDownstreamFormatChange;
     public boolean isPrepared;
+    public long endPositionUs;
 
     public MediaPeriodImpl(
         SharedMediaPeriod sharedPeriod,
         MediaPeriodId mediaPeriodId,
+        long endPositionUs,
         MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
         DrmSessionEventListener.EventDispatcher drmEventDispatcher) {
       this.sharedPeriod = sharedPeriod;
       this.mediaPeriodId = mediaPeriodId;
+      this.endPositionUs = endPositionUs;
       this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
       this.drmEventDispatcher = drmEventDispatcher;
       hasNotifiedDownstreamFormatChange = new boolean[0];
@@ -1151,6 +1187,11 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
         callback.onPrepared(this);
       }
       isPrepared = true;
+    }
+
+    /** Called when the splitting updated the end position of this period. */
+    public void updateEndPositionUs(long endPositionUs) {
+      this.endPositionUs = endPositionUs;
     }
 
     @Override

@@ -1292,18 +1292,12 @@ import java.util.List;
       boolean isPrecededByTransitionFromSameStream) {
     timeline.getPeriodByUid(periodUid, period);
     int nextAdGroupIndex = period.getAdGroupIndexAfterPositionUs(startPositionUs);
-    boolean clipPeriodAtContentDuration = false;
-    if (nextAdGroupIndex == C.INDEX_UNSET) {
-      // Clip SSAI streams when at the end of the period.
-      clipPeriodAtContentDuration =
-          period.getAdGroupCount() > 0
-              && period.isServerSideInsertedAdGroup(period.getRemovedAdGroupCount());
-    } else if (period.isServerSideInsertedAdGroup(nextAdGroupIndex)
+    if (nextAdGroupIndex != C.INDEX_UNSET
+        && period.isServerSideInsertedAdGroup(nextAdGroupIndex)
         && period.getAdGroupTimeUs(nextAdGroupIndex) == period.durationUs
         && period.hasPlayedAdGroup(nextAdGroupIndex)) {
-      // Clip period before played SSAI post-rolls.
+      // Ignore SSAI post-rolls if already played.
       nextAdGroupIndex = C.INDEX_UNSET;
-      clipPeriodAtContentDuration = true;
     }
 
     MediaPeriodId id = new MediaPeriodId(periodUid, windowSequenceNumber, nextAdGroupIndex);
@@ -1321,7 +1315,7 @@ import java.util.List;
     long endPositionUs =
         nextAdGroupIndex != C.INDEX_UNSET && !isFollowedByServerSidePostRollPlaceholder
             ? period.getAdGroupTimeUs(nextAdGroupIndex)
-            : clipPeriodAtContentDuration ? period.durationUs : C.TIME_UNSET;
+            : C.TIME_UNSET;
     long durationUs =
         endPositionUs == C.TIME_UNSET || endPositionUs == C.TIME_END_OF_SOURCE
             ? period.durationUs
