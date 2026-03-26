@@ -18,11 +18,15 @@ package androidx.media3.effect
 import android.content.Context
 import android.hardware.HardwareBuffer
 import android.media.MediaFormat.COLOR_TRANSFER_SDR_VIDEO
+import android.opengl.EGL14
+import android.opengl.EGL15
 import android.opengl.EGLContext
 import android.opengl.EGLDisplay
+import android.opengl.EGLExt
 import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
+import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.RequiresApi
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
@@ -91,9 +95,12 @@ private constructor(
           // Step 1: Dequeue an output frame, use the format of the first sequence to determine
           // the output format.
           val outputFrame = getOutputFrame(packet.payload[0].format)
+          var inputReleaseFences: List<SyncFenceWrapper?> = emptyList()
           try {
             // Step 2: Composite the input frames onto the output frame on the internal thread.
-            val outputFrameWithMetadata = processFrames(packet.payload, outputFrame)
+            val result = processFrames(packet.payload, outputFrame)
+            val outputFrameWithMetadata = result.outputFrame
+            inputReleaseFences = result.inputReleaseFences
             // Step 3: Forward output frame down stream.
             outputBufferQueue!!.queue(outputFrameWithMetadata)
           } catch (e: Exception) {
@@ -103,9 +110,10 @@ private constructor(
           } finally {
             // Always release the input frames, ensuring the release waits until after drawing
             // completes.
-            for (inputFrame in packet.payload) {
-              // TODO: b/479415385 - Create a SyncFence for each input frame.
-              inputFrame.release(/* releaseFence= */ null)
+            for (i in packet.payload.indices) {
+              val inputFrame = packet.payload[i]
+              val releaseFence = if (i < inputReleaseFences.size) inputReleaseFences[i] else null
+              inputFrame.release(releaseFence)
             }
           }
         }
@@ -174,7 +182,7 @@ private constructor(
   private suspend fun processFrames(
     inputFrames: ImmutableList<HardwareBufferFrame>,
     outputFrame: HardwareBufferFrame,
-  ): HardwareBufferFrame =
+  ): ProcessedFrameResult =
     withContext(internalDispatcher) {
       val inputFrameInfos = mutableListOf<InputFrameInfo>()
       val inputEglImages = mutableListOf<Long>()
@@ -303,19 +311,61 @@ private constructor(
         // Draw the input textures into the output texture.
         checkNotNull(compositorGlProgram).drawFrame(inputFrameInfos, outputTextureInfo)
 
-        // TODO: b/479415385 - Create a SyncFence from a GL sync fence and set it as the
-        //  acquireFence of the output frame, rather than calling glFinish.
-        GLES20.glFinish()
-        val drawingCompletionFence = null
+        var drawingCompletionFence: SyncFenceWrapper? = null
+        val inputReleaseFences =
+          ArrayList<SyncFenceWrapper?>(/* initialCapacity= */ inputFrames.size)
+        val eglDisplay = checkNotNull(eglDisplay)
+        val extensions = EGL14.eglQueryString(eglDisplay, EGL14.EGL_EXTENSIONS) ?: ""
+        if (SDK_INT >= 33 && extensions.contains("EGL_ANDROID_native_fence_sync")) {
+          val sync =
+            EGL15.eglCreateSync(
+              eglDisplay,
+              /* type= */ EGLExt.EGL_SYNC_NATIVE_FENCE_ANDROID,
+              /* attrib_list= */ longArrayOf(EGL14.EGL_NONE.toLong()),
+              /* offset= */ 0,
+            )
+          GlUtil.checkEglException("eglCreateSync failed")
+          if (sync != EGL15.EGL_NO_SYNC) {
+            try {
+              var nativeFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, sync)
+              GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed")
+              if (!nativeFence.isValid) {
+                // Calling eglDupNativeFenceAndroid may produce an invalid fence the first time it
+                // is called. See b/18052459.
+                GLES20.glFlush()
+                nativeFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, sync)
+                GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed after glFlush")
+              }
+              if (nativeFence.isValid) {
+                drawingCompletionFence = SyncFenceWrapper.of(/* syncFence= */ nativeFence)
+                for (i in inputFrames.indices) {
+                  val inputNativeFence = EGLExt.eglDupNativeFenceFDANDROID(eglDisplay, sync)
+                  GlUtil.checkEglException("eglDupNativeFenceFDANDROID failed for input frame")
+                  check(inputNativeFence.isValid)
+                  inputReleaseFences.add(SyncFenceWrapper.of(/* syncFence= */ inputNativeFence))
+                }
+              }
+            } finally {
+              EGL15.eglDestroySync(eglDisplay, sync)
+              GlUtil.checkEglException("eglDestroySync failed")
+            }
+          }
+        }
 
-        outputFrame
-          .buildUpon()
-          .setPresentationTimeUs(inputFrames[0].presentationTimeUs)
-          .setReleaseTimeNs(inputFrames[0].releaseTimeNs)
-          .setFormat(inputFrames[0].format)
-          .setMetadata(inputFrames[0].metadata)
-          .setAcquireFence(drawingCompletionFence)
-          .build()
+        if (drawingCompletionFence == null) {
+          GLES20.glFinish()
+        }
+
+        val outputFrameWithMetadata =
+          outputFrame
+            .buildUpon()
+            .setPresentationTimeUs(inputFrames[0].presentationTimeUs)
+            .setReleaseTimeNs(inputFrames[0].releaseTimeNs)
+            .setFormat(inputFrames[0].format)
+            .setMetadata(inputFrames[0].metadata)
+            .setAcquireFence(drawingCompletionFence)
+            .build()
+        ProcessedFrameResult(outputFrameWithMetadata, inputReleaseFences)
       } finally {
         // Clean up GL resources.
         for (fboId in intermediateFbos) {
@@ -391,6 +441,18 @@ private constructor(
       fence.close()
     }
   }
+
+  /**
+   * Result of [processFrames].
+   *
+   * @property outputFrame The processed output [HardwareBufferFrame].
+   * @property inputReleaseFences The [SyncFenceWrapper] instances that signal when the input frames
+   *   have been read by the GPU.
+   */
+  private data class ProcessedFrameResult(
+    val outputFrame: HardwareBufferFrame,
+    val inputReleaseFences: List<SyncFenceWrapper?>,
+  )
 
   companion object {
     // It can take multiple seconds for the encoder to be configured and the first frame to be
