@@ -107,10 +107,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
     this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     this.sampleBatchingEnabled = sampleBatchingEnabled;
-    this.freeSpaceAfterFtypInBytes =
-        freeSpaceAfterFtypInBytes > 0
-            ? freeSpaceAfterFtypInBytes
-            : (attemptStreamableOutputEnabled ? DEFAULT_MOOV_BOX_SIZE_BYTES : 0);
+    this.freeSpaceAfterFtypInBytes = freeSpaceAfterFtypInBytes;
     tracks = new ArrayList<>();
     auxiliaryTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
@@ -319,9 +316,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
     muxerOutput.write(Boxes.ftyp());
 
     if (freeSpaceAfterFtypInBytes > 0) {
-      reservedMoovSpaceStart = muxerOutput.getPosition();
       muxerOutput.write(
           BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(freeSpaceAfterFtypInBytes)));
+    }
+
+    if (canWriteMoovAtStart) {
+      reservedMoovSpaceStart = muxerOutput.getPosition();
+      muxerOutput.write(
+          BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(DEFAULT_MOOV_BOX_SIZE_BYTES)));
       reservedMoovSpaceEnd = muxerOutput.getPosition();
     }
 

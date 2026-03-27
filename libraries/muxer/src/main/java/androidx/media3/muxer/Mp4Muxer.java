@@ -353,13 +353,9 @@ public final class Mp4Muxer implements Muxer {
      * Sets the amount of free space (in bytes) to be reserved immediately after the {@code ftyp}
      * box (File Type box) in the MP4 file.
      *
-     * <p>The {@code moov} box (Movie Box) is written in the reserved space if {@link
-     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}, and the size of the
-     * {@code moov} box is not greater than {@code bytes}. Otherwise, a {@code free} box of the
-     * requested size is written.
-     *
-     * <p>By default 400_000 bytes are reserved if {@link
-     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}.
+     * <p>A {@code free} box of the requested size is always written. If {@link
+     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}, an additional space is
+     * reserved for the {@code moov} box (Movie Box) which is written if it fits.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      */

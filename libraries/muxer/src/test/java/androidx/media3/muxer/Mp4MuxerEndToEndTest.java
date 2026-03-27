@@ -908,7 +908,35 @@ public class Mp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeMp4File_withSomeFreeSpaceAfterFileTypeBoxAndAttemptStreamableOutputDisabled_reservesExpectedFreeSpace()
+      writeMp4File_withSomeFreeSpaceAfterFileTypeBox_reservesExpectedFreeSpaceAndWritesMoovBoxAfterIt()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
+
+    try (Mp4Muxer muxer =
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
+            .experimentalSetFreeSpaceAfterFileTypeBox(500_000)
+            .build()) {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
+  }
+
+  @Test
+  public void
+      writeMp4File_withSomeFreeSpaceAfterFileTypeBoxAndAttemptStreamableOutputDisabled_reservesExpectedFreeSpaceAndNoMoovBoxAfterIt()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
@@ -932,7 +960,8 @@ public class Mp4MuxerEndToEndTest {
     DumpFileAsserts.assertOutput(
         context,
         dumpableBox,
-        MuxerTestUtil.getExpectedMp4DumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
+        MuxerTestUtil.getExpectedMp4DumpFilePath(
+            "mp4_with_some_free_space_after_ftyp_and_streamable_output_disabled.mp4"));
   }
 
   @Test
