@@ -123,6 +123,7 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
     if (player.isCommandAvailable(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
       state.setAudioAttributes(player.getAudioAttributes());
     }
+    state.setAudioSessionId(player.getAudioSessionId());
     state.setAvailableCommands(player.getAvailableCommands());
     if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
       state.setContentBufferedPositionMs(positionSuppliers.contentBufferedPositionSupplier);

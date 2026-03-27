@@ -6,6 +6,8 @@
     *   Add `Format.channelMask` to explicitly represent the audio channel mask,
         and a new `Util.getAudioTrackChannelConfig(Format)` overload to safely
         resolve it.
+    *   Fix handling of `onAudioSessionIdChanged` in `SimpleBasePlayer` and
+        `ForwardingSimpleBasePlayer`.
 *   ExoPlayer:
     *   Remove clipping of content for client-side inserted ads in the core
         player. Instead, `AdsMediaSource` takes care of the clipping logic.
