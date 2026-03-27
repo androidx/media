@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common library:
+    *   Fix handling of `onAudioSessionIdChanged` in `SimpleBasePlayer` and
+        `ForwardingSimpleBasePlayer`.
 *   ExoPlayer:
     *   Fix race condition related to audio session id generation that could
         lead to an `IllegalStateException` with tunneling mode.
