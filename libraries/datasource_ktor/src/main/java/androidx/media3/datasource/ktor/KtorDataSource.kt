@@ -44,13 +44,12 @@ import io.ktor.http.contentLength
 import io.ktor.http.contentType
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readAvailable
-import io.ktor.utils.io.readRemaining
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.runBlocking
-import kotlinx.io.readByteArray
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InterruptedIOException
 import kotlin.math.min
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.runBlocking
 
 /**
  * An [HttpDataSource] that delegates to Ktor's [HttpClient].
@@ -300,7 +299,15 @@ private constructor(
         try {
           runBlocking {
             val ch = responseChannel ?: return@runBlocking Util.EMPTY_BYTE_ARRAY
-            val bytes = ch.readRemaining().readByteArray()
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (!ch.isClosedForRead) {
+              val read = ch.readAvailable(buffer, 0, buffer.size)
+              if (read > 0) {
+                output.write(buffer, 0, read)
+              }
+            }
+            val bytes = output.toByteArray()
             if (bytes.isNotEmpty()) bytes else Util.EMPTY_BYTE_ARRAY
           }
         } catch (_: Exception) {
