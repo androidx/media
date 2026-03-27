@@ -790,7 +790,11 @@ public class MatroskaExtractor implements Extractor {
    */
   @CallSuper
   protected boolean isLevel1Element(int id) {
-    return id == ID_SEGMENT_INFO || id == ID_CHAPTERS || id == ID_CLUSTER || id == ID_CUES || id == ID_TRACKS;
+    return id == ID_SEGMENT_INFO
+        || id == ID_CHAPTERS
+        || id == ID_CLUSTER
+        || id == ID_CUES
+        || id == ID_TRACKS;
   }
 
   /**
@@ -1707,7 +1711,6 @@ public class MatroskaExtractor implements Extractor {
           "Element " + id + " must be in a Cues", /* cause= */ null);
     }
   }
-
 
   /**
    * Returns the chapter corresponding to the current EditionEntry element.
@@ -2899,27 +2902,32 @@ public class MatroskaExtractor implements Extractor {
     }
 
     /**
-     * Adds chapters to the track's format as
-     * {@link androidx.media3.extractor.metadata.Chapter}.
+     * Adds chapters to the track's format as {@link androidx.media3.extractor.metadata.Chapter}.
      */
-    private void maybeAddChaptersMetadata(
-        SparseArray<Chapter> chapters
-    ) {
+    private void maybeAddChaptersMetadata(SparseArray<Chapter> chapters) {
       Metadata existingMetadata = checkNotNull(format).metadata;
       Metadata newMetadata = (existingMetadata == null) ? new Metadata() : existingMetadata;
 
       for (int i = 0; i < chapters.size(); i++) {
-          Chapter chapter = chapters.valueAt(i);
+        Chapter chapter = chapters.valueAt(i);
 
-          // Check if chapter should be hidden and if it's tied to a specific track or not
-          if (!chapter.flagHidden && (chapter.trackUid == Format.NO_VALUE || chapter.trackUid == uid)) {
-            long startTimeMs = chapter.timeStartNs != Format.NO_VALUE ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs) : 0L;
-            long endTimeMs = chapter.timeEndNs != Format.NO_VALUE ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs) : startTimeMs;
-            androidx.media3.extractor.metadata.Chapter chapterMetadata = androidx.media3.extractor.metadata.Chapter
-                .create(startTimeMs, endTimeMs, chapter.chapString);
+        // Check if chapter should be hidden and if it's tied to a specific track or not
+        if (!chapter.flagHidden
+            && (chapter.trackUid == Format.NO_VALUE || chapter.trackUid == uid)) {
+          long startTimeMs =
+              chapter.timeStartNs != Format.NO_VALUE
+                  ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs)
+                  : 0L;
+          long endTimeMs =
+              chapter.timeEndNs != Format.NO_VALUE
+                  ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs)
+                  : startTimeMs;
+          androidx.media3.extractor.metadata.Chapter chapterMetadata =
+              androidx.media3.extractor.metadata.Chapter.create(
+                  startTimeMs, endTimeMs, chapter.chapString);
 
-            newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
-          }
+          newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
+        }
       }
 
       format = format.buildUpon().setMetadata(newMetadata).build();
