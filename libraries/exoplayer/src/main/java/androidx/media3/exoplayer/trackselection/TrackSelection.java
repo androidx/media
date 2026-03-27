@@ -31,7 +31,8 @@ import java.lang.annotation.Target;
  * A track selection consisting of a static subset of selected tracks belonging to a {@link
  * TrackGroup}.
  *
- * <p>Tracks belonging to the subset are exposed in decreasing bandwidth order.
+ * <p>Tracks belonging to the subset are exposed in selection order, which by default is decreasing
+ * bandwidth order.
  */
 @UnstableApi
 public interface TrackSelection {
