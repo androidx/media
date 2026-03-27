@@ -44,6 +44,15 @@ public final class PgsParser implements SubtitleParser {
   private static final int SECTION_TYPE_END = 0x80;
   private static final float PGS_SIZE_SCALE = 0.85f;
   private static final int PGS_BITMAP_MAX_DIMENSION = 540;
+  public static final int CUE_AREA_FILTER_NONE = 0;
+  public static final int CUE_AREA_FILTER_BOTTOM_ONLY = 1;
+  public static final int CUE_AREA_FILTER_TOP_AND_BOTTOM_ONLY = 2;
+  public static final int CUE_AREA_FILTER_HIDE_CENTER_KEEP_EDGES = 3;
+  private static volatile int cueAreaFilterMode = CUE_AREA_FILTER_NONE;
+
+  public static void setCueAreaFilterMode(int mode) {
+    cueAreaFilterMode = mode;
+  }
 
   private final ParsableByteArray buffer;
   private final ParsableByteArray inflatedBuffer;
@@ -406,6 +415,20 @@ public final class PgsParser implements SubtitleParser {
         return null;
       }
 
+      int x = bitmapX;
+      int y = bitmapY;
+      if (compositionObjectIndex < compositionObjectCount) {
+        x = compositionObjectX[compositionObjectIndex];
+        y = compositionObjectY[compositionObjectIndex];
+        compositionObjectIndex++;
+      }
+      if (!shouldRenderAtPosition(x, y, bitmapWidth, bitmapHeight, planeWidth, planeHeight)) {
+        if (DEBUG) {
+          Log.d(TAG, "build() skip: filtered by area mode pos=(" + x + "," + y + ")");
+        }
+        return null;
+      }
+
       bitmapData.setPosition(0);
       int pixelCount = bitmapWidth * bitmapHeight;
       if (argbBitmapData.length < pixelCount) {
@@ -471,14 +494,6 @@ public final class PgsParser implements SubtitleParser {
           }
         }
       }
-
-      int x = bitmapX;
-      int y = bitmapY;
-      if (compositionObjectIndex < compositionObjectCount) {
-        x = compositionObjectX[compositionObjectIndex];
-        y = compositionObjectY[compositionObjectIndex];
-        compositionObjectIndex++;
-      }
       float position = (float) x / planeWidth;
       float line = (float) y / planeHeight;
       // PGS_SIZE_SCALE shrinks width but position is START-anchored; without compensation the cue
@@ -515,6 +530,29 @@ public final class PgsParser implements SubtitleParser {
           .setLineAnchor(Cue.ANCHOR_TYPE_START)
           .setSize(PGS_SIZE_SCALE * (float) bitmapWidth / planeWidth)
           .build();
+    }
+
+    private static boolean shouldRenderAtPosition(
+        int x, int y, int width, int height, int planeWidth, int planeHeight) {
+      int mode = cueAreaFilterMode;
+      if (mode == CUE_AREA_FILTER_NONE || planeWidth <= 0 || planeHeight <= 0) {
+        return true;
+      }
+      float centerX = (x + width * 0.5f) / planeWidth;
+      float centerY = (y + height * 0.5f) / planeHeight;
+      centerX = Util.constrainValue(centerX, 0f, 1f);
+      centerY = Util.constrainValue(centerY, 0f, 1f);
+      switch (mode) {
+        case CUE_AREA_FILTER_BOTTOM_ONLY:
+          return centerY >= 2f / 3f;
+        case CUE_AREA_FILTER_TOP_AND_BOTTOM_ONLY:
+          return centerY <= 1f / 3f || centerY >= 2f / 3f;
+        case CUE_AREA_FILTER_HIDE_CENTER_KEEP_EDGES:
+          return centerY <= 0.2f || centerY >= 0.8f || centerX <= 0.2f || centerX >= 0.8f;
+        case CUE_AREA_FILTER_NONE:
+        default:
+          return true;
+      }
     }
 
     /**
