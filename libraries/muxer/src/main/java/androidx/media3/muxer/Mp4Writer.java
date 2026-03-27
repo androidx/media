@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.CodecSpecificDataUtil.buildVp9CodecPrivateFromUncompressedHeader;
 import static androidx.media3.muxer.AnnexBUtils.doesSampleContainAnnexBNalUnits;
 import static androidx.media3.muxer.Av1ConfigUtil.createAv1CodecConfigurationRecord;
 import static androidx.media3.muxer.Boxes.BOX_HEADER_SIZE;
@@ -161,10 +162,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
    */
   public void writeSampleData(Track track, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws IOException {
-    if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
-        && track.format.initializationData.isEmpty()
-        && track.parsedCsd == null) {
-      track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+    if (track.format.initializationData.isEmpty() && track.parsedCsd == null) {
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)) {
+        track.parsedCsd = createAv1CodecConfigurationRecord(byteBuffer.duplicate());
+      } else if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_VP9)) {
+        track.parsedCsd = buildVp9CodecPrivateFromUncompressedHeader(byteBuffer.duplicate());
+      }
     }
     track.writeSampleData(byteBuffer, bufferInfo);
     if (sampleBatchingEnabled) {

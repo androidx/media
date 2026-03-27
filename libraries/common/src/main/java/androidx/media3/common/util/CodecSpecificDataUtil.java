@@ -128,6 +128,16 @@ public final class CodecSpecificDataUtil {
   private static final int EXTENDED_PAR = 0x0F;
   private static final int RECTANGULAR = 0x00;
 
+  // VP9 constants from VP9 Bitstream Specification.
+  private static final int VP9_FRAME_MARKER = 0b10;
+  private static final int VP9_FRAME_TYPE_KEY_FRAME = 0;
+  private static final int VP9_SYNC_CODE = 0x498342;
+  private static final int VP9_COLOR_SPACE_RGB = 7;
+  private static final int VP9_CHROMA_SUBSAMPLING_420 = 0;
+  private static final int VP9_CHROMA_SUBSAMPLING_422 = 2;
+  private static final int VP9_CHROMA_SUBSAMPLING_444 = 3;
+  private static final int VP9_MAX_UNCOMPRESSED_HEADER_SIZE_BYTES = 128;
+
   // IAMF OBU types.
   private static final int OBU_IA_CODEC_CONFIG = 0x00;
   private static final int OBU_IA_SEQUENCE_HEADER = 0x1F;
@@ -338,6 +348,160 @@ public final class CodecSpecificDataUtil {
           bitDepthId, length, bitDepth,
           chromaSubsamplingId, length, chromaSubsampling
         });
+  }
+
+  /**
+   * Builds VP9 CodecPrivate from the uncompressed header of the first frame.
+   *
+   * <p>This method parses the uncompressed header of the first frame to extract the VP9 profile,
+   * bit depth, and chroma subsampling.
+   *
+   * <p>Refer to <a
+   * href="https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.7-20170222-draft.pdf">6.2
+   * of the VP9 bitstream specification</a> and <a
+   * href="https://www.webmproject.org/vp9/mp4/#Semantics">VP9 in ISO Media File Format</a> for more
+   * details.
+   *
+   * @param sample The first frame's data.
+   * @return The CodecPrivate data for VP9 if parsing is successful, {@code null} otherwise.
+   */
+  @Nullable
+  public static byte[] buildVp9CodecPrivateFromUncompressedHeader(ByteBuffer sample) {
+    int headerSize = Math.min(sample.remaining(), VP9_MAX_UNCOMPRESSED_HEADER_SIZE_BYTES);
+    byte[] data = new byte[headerSize];
+    sample.get(data, /* offset= */ 0, headerSize);
+    ParsableBitArray bits = new ParsableBitArray(data);
+    // The uncompressed header should be at least 5 bytes to contain the profile, bit depth,
+    // and chroma subsampling.
+    checkState(sample.remaining() >= 5);
+
+    // First 2 bits of the uncompressed header should be the frame_marker.
+    if (bits.readBits(2) != VP9_FRAME_MARKER) {
+      return null;
+    }
+
+    // profile_low_bit (1 bit), profile_high_bit (1 bit)
+    int profileLowBit = bits.readBits(1);
+    int profileHighBit = bits.readBits(1);
+    int profile = (profileHighBit << 1) | profileLowBit;
+
+    // One reserved '0' bit if profile is 3.
+    if (profile == 3) {
+      if (bits.bitsLeft() < 1 || bits.readBit()) {
+        return null;
+      }
+    }
+
+    // If show_existing_frame is set, we get no more data. Since this is
+    // expected to be the first frame, we can return null, indicating a malformed stream.
+    if (bits.readBit()) { // show_existing_frame
+      return null;
+    }
+
+    int frameType = bits.readBits(1);
+    boolean showFrame = bits.readBit();
+    boolean errorResilientMode = bits.readBit();
+
+    int bitDepth = 8;
+    int chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+
+    boolean isKeyFrame = frameType == VP9_FRAME_TYPE_KEY_FRAME;
+    boolean canParseHeader = isKeyFrame;
+    boolean colorConfigPresent = isKeyFrame;
+
+    if (!isKeyFrame) {
+      int intraOnly = 0;
+      if (!showFrame) {
+        intraOnly = bits.readBits(1);
+      }
+      if (!errorResilientMode) {
+        bits.skipBits(2); // reset_frame_context
+      }
+
+      if (intraOnly != 0) {
+        canParseHeader = true;
+        // color_config() is only present for intra-only frames if profile > 0.
+        colorConfigPresent = profile > 0;
+      }
+    }
+
+    if (!canParseHeader) {
+      return null;
+    }
+
+    if (bits.readBits(24) != VP9_SYNC_CODE) {
+      return null;
+    }
+
+    if (colorConfigPresent) {
+      Pair<Integer, Integer> results = getVp9BitdepthChromaSubSampling(bits, profile);
+      if (results == null) {
+        return null;
+      }
+      bitDepth = results.first;
+      chromaSubsampling = results.second;
+    } else {
+      // For intra-only, profile 0 frames, color config is not present. The default
+      // bitDepth (8) and chromaSubsampling (4:2:0) are used.
+      bitDepth = 8;
+      chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+    }
+
+    // Level 0 signals that the level is unknown/unspecified.
+    return CodecSpecificDataUtil.buildVp9CodecPrivateInitializationData(
+            (byte) profile, /* level= */ (byte) 0, (byte) bitDepth, (byte) chromaSubsampling)
+        .get(0);
+  }
+
+  /**
+   * Gets the bitdepth and subsampling from a VP9 uncompressed header.
+   *
+   * <p>Refer to <a
+   * href="https://storage.googleapis.com/downloads.webmproject.org/docs/vp9/vp9-bitstream-specification-v0.7-20170222-draft.pdf">6.2
+   * of the VP9 bitstream specification</a> and <a
+   * href="https://www.webmproject.org/vp9/mp4/#Semantics">VP9 in ISO Media File Format</a> for more
+   * details.
+   *
+   * @param bits The bitstream to parse.
+   * @param profile The VP9 codec profile.
+   * @return A {@link Pair} containing the bitdepth and subsampling, or {@code null} if parsing
+   *     fails.
+   */
+  @Nullable
+  private static Pair<Integer, Integer> getVp9BitdepthChromaSubSampling(
+      ParsableBitArray bits, int profile) {
+    int bitDepth;
+    if (profile >= 2) {
+      bitDepth = bits.readBit() ? 12 : 10;
+    } else {
+      bitDepth = 8;
+    }
+    int colorSpace = bits.readBits(3);
+    int chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+
+    if (colorSpace != VP9_COLOR_SPACE_RGB) {
+      bits.skipBits(1); // yuv_range_flag
+      if (profile == 1 || profile == 3) {
+        int ssX = bits.readBits(1);
+        int ssY = bits.readBits(1);
+        // From bitstream chroma subsampling to MP4 equivalent chroma subsampling conversion.
+        if (ssX == 1 && ssY == 1) {
+          return null; // ERROR: 4:2:0 is invalid for Profiles 1 & 3
+        } else if (ssX == 1 && ssY == 0) {
+          chromaSubsampling = VP9_CHROMA_SUBSAMPLING_422;
+        } else if (ssX == 0 && ssY == 0) {
+          chromaSubsampling = VP9_CHROMA_SUBSAMPLING_444;
+        } else {
+          // ssX == 0 && ssY == 1 (4:4:0) is not supported in VP9 ISO MP4.
+          return null;
+        }
+      } else {
+        chromaSubsampling = VP9_CHROMA_SUBSAMPLING_420;
+      }
+    } else {
+      chromaSubsampling = VP9_CHROMA_SUBSAMPLING_444;
+    }
+    return Pair.create(bitDepth, chromaSubsampling);
   }
 
   /**

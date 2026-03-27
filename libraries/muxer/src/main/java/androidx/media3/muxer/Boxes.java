@@ -166,7 +166,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
-      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+      if ((Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_VP9))
           && format.initializationData.isEmpty()) {
         format =
             format
