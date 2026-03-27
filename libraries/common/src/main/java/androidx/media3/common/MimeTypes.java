@@ -93,7 +93,15 @@ public final class MimeTypes {
   public static final String AUDIO_DTS = BASE_TYPE_AUDIO + "/vnd.dts";
   public static final String AUDIO_DTS_HD = BASE_TYPE_AUDIO + "/vnd.dts.hd";
   public static final String AUDIO_DTS_EXPRESS = BASE_TYPE_AUDIO + "/vnd.dts.hd;profile=lbr";
-  @UnstableApi public static final String AUDIO_DTS_X = BASE_TYPE_AUDIO + "/vnd.dts.uhd;profile=p2";
+
+  @UnstableApi
+  public static final String AUDIO_DTS_UHD_P2 = BASE_TYPE_AUDIO + "/vnd.dts.uhd;profile=p2";
+
+  /**
+   * @deprecated Use {@link #AUDIO_DTS_UHD_P2} instead.
+   */
+  @Deprecated @UnstableApi public static final String AUDIO_DTS_X = AUDIO_DTS_UHD_P2;
+
   public static final String AUDIO_VORBIS = BASE_TYPE_AUDIO + "/vorbis";
   public static final String AUDIO_OPUS = BASE_TYPE_AUDIO + "/opus";
   public static final String AUDIO_AMR = BASE_TYPE_AUDIO + "/amr";
@@ -504,7 +512,7 @@ public final class MimeTypes {
     } else if (codec.startsWith("dtsh") || codec.startsWith("dtsl")) {
       return MimeTypes.AUDIO_DTS_HD;
     } else if (codec.startsWith("dtsx")) {
-      return MimeTypes.AUDIO_DTS_X;
+      return MimeTypes.AUDIO_DTS_UHD_P2;
     } else if (codec.startsWith("opus")) {
       return MimeTypes.AUDIO_OPUS;
     } else if (codec.startsWith("vorbis")) {
@@ -710,7 +718,7 @@ public final class MimeTypes {
         return C.ENCODING_DTS_HD;
       case MimeTypes.AUDIO_DTS_EXPRESS:
         return C.ENCODING_DTS_HD;
-      case MimeTypes.AUDIO_DTS_X:
+      case MimeTypes.AUDIO_DTS_UHD_P2:
         return C.ENCODING_DTS_UHD_P2;
       case MimeTypes.AUDIO_TRUEHD:
         return C.ENCODING_DOLBY_TRUEHD;
