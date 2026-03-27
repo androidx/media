@@ -60,6 +60,7 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
+import androidx.media3.extractor.metadata.Chapter;
 import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
@@ -446,7 +447,7 @@ public class MatroskaExtractor implements Extractor {
   private final EbmlReader reader;
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
-  private final SparseArray<Chapter> chapters;
+  private final SparseArray<ChapterEntry> chapters;
   private final boolean seekForCuesEnabled;
   private final boolean parseSubtitlesDuringExtraction;
   private final SubtitleParser.Factory subtitleParserFactory;
@@ -473,7 +474,7 @@ public class MatroskaExtractor implements Extractor {
   private boolean pendingEndTracks;
 
   // The chapter corresponding to the current EditionEntry element, or null.
-  @Nullable private Chapter currentChapter;
+  @Nullable private ChapterEntry currentChapter;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -862,7 +863,7 @@ public class MatroskaExtractor implements Extractor {
         getCurrentTrack(id).hasContentEncryption = true;
         break;
       case ID_CHAPTER_ATOM:
-        currentChapter = new Chapter();
+        currentChapter = new ChapterEntry();
         break;
       case ID_TRACK_ENTRY:
         currentTrack = new Track();
@@ -959,7 +960,7 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_CHAPTER_ATOM:
-        Chapter chapter = checkNotNull(currentChapter);
+        ChapterEntry chapter = checkNotNull(currentChapter);
         chapters.put(chapter.uid, chapter);
         currentChapter = null;
         break;
@@ -1716,7 +1717,7 @@ public class MatroskaExtractor implements Extractor {
    *
    * @throws ParserException if the element id is not in a EditionEntry.
    */
-  protected Chapter getCurrentChapter(int currentElementId) throws ParserException {
+  protected ChapterEntry getCurrentChapter(int currentElementId) throws ParserException {
     assertInEditionEntry(currentElementId);
     return currentChapter;
   }
@@ -2297,13 +2298,20 @@ public class MatroskaExtractor implements Extractor {
   }
 
   /** Holds data corresponding to a single chapter. */
-  protected static final class Chapter {
-    private int uid = Format.NO_VALUE;
-    private long timeStartNs = Format.NO_VALUE;
-    private long timeEndNs = Format.NO_VALUE;
-    private boolean flagHidden = false;
-    private int trackUid = Format.NO_VALUE;
-    private @MonotonicNonNull String chapString = null;
+  protected static final class ChapterEntry {
+    public int uid;
+    public long timeStartNs;
+    public long timeEndNs;
+    public boolean flagHidden;
+    public int trackUid;
+    public @MonotonicNonNull String chapString;
+
+    protected ChapterEntry() {
+      uid = Format.NO_VALUE;
+      timeStartNs = C.TIME_UNSET;
+      timeEndNs = C.TIME_UNSET;
+      trackUid = Format.NO_VALUE;
+    }
   }
 
   /** Holds data corresponding to a single track. */
@@ -2899,14 +2907,14 @@ public class MatroskaExtractor implements Extractor {
     }
 
     /**
-     * Adds chapters to the track's format as {@link androidx.media3.extractor.metadata.Chapter}.
+     * Adds chapters to the track's format as {@link Chapter}.
      */
-    private void maybeAddChaptersMetadata(SparseArray<Chapter> chapters) {
-      Metadata existingMetadata = checkNotNull(format).metadata;
-      Metadata newMetadata = (existingMetadata == null) ? new Metadata() : existingMetadata;
+    private void maybeAddChaptersMetadata(SparseArray<ChapterEntry> chapters) {
+      Metadata newMetadata = (checkNotNull(format).metadata
+          == null) ? new Metadata() : format.metadata;
 
       for (int i = 0; i < chapters.size(); i++) {
-        Chapter chapter = chapters.valueAt(i);
+        ChapterEntry chapter = chapters.valueAt(i);
 
         // Check if chapter should be hidden and if it's tied to a specific track or not
         if (!chapter.flagHidden
@@ -2919,8 +2927,8 @@ public class MatroskaExtractor implements Extractor {
               chapter.timeEndNs != Format.NO_VALUE
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs)
                   : startTimeMs;
-          androidx.media3.extractor.metadata.Chapter chapterMetadata =
-              androidx.media3.extractor.metadata.Chapter.create(
+          Chapter chapterMetadata =
+              Chapter.create(
                   startTimeMs, endTimeMs, chapter.chapString);
 
           newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
