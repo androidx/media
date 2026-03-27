@@ -380,6 +380,11 @@ public final class MediaCodecUtil {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
       return MimeTypes.AUDIO_E_AC3;
     }
+    if (MimeTypes.AUDIO_DTS_HD.equals(format.sampleMimeType)
+        || MimeTypes.AUDIO_DTS_UHD_P2.equals(format.sampleMimeType)) {
+      // DTS decoders support DTS-HD streams (but decode only the core layer).
+      return MimeTypes.AUDIO_DTS;
+    }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
       // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
