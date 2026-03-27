@@ -38,6 +38,7 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.BaseMediaSource;
+import androidx.media3.exoplayer.source.ClippingMediaPeriod;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
@@ -388,6 +389,10 @@ public class FakeMediaSource extends BaseMediaSource {
         createEventDispatcher(period.windowIndex, id);
     DrmSessionEventListener.EventDispatcher drmEventDispatcher =
         createDrmEventDispatcher(period.windowIndex, id);
+    long nextAdGroupTimeUs =
+        id.nextAdGroupIndex != C.INDEX_UNSET
+            ? period.getAdGroupTimeUs(id.nextAdGroupIndex)
+            : C.TIME_UNSET;
     MediaPeriod mediaPeriod =
         createMediaPeriod(
             id,
@@ -397,6 +402,14 @@ public class FakeMediaSource extends BaseMediaSource {
             drmSessionManager,
             drmEventDispatcher,
             transferListener);
+    if (nextAdGroupTimeUs != C.TIME_UNSET) {
+      mediaPeriod =
+          new ClippingMediaPeriod(
+              mediaPeriod,
+              /* enableInitialDiscontinuity= */ true,
+              /* startUs= */ 0,
+              /* endUs= */ nextAdGroupTimeUs);
+    }
     activeMediaPeriods.add(mediaPeriod);
     createdMediaPeriods.add(id);
     return mediaPeriod;

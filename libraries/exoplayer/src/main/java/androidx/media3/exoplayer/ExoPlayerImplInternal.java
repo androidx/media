@@ -2529,7 +2529,6 @@ import java.util.Objects;
           // Update the new playing media period info if it already exists.
           if (periodHolder.info.id.equals(newPeriodId)) {
             periodHolder.info = queue.getUpdatedMediaPeriodInfo(timeline, periodHolder.info);
-            periodHolder.updateClipping();
           }
           periodHolder = periodHolder.getNext();
         }

@@ -25,7 +25,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.exoplayer.source.ClippingMediaPeriod;
 import androidx.media3.exoplayer.source.EmptySampleStream;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -122,14 +121,7 @@ import java.io.IOException;
     this.trackSelectorResult = emptyTrackSelectorResult;
     sampleStreams = new SampleStream[rendererCapabilities.length];
     mayRetainStreamFlags = new boolean[rendererCapabilities.length];
-    mediaPeriod =
-        createMediaPeriod(
-            info.id,
-            mediaSourceList,
-            allocator,
-            info.startPositionUs,
-            info.endPositionUs,
-            info.isPrecededByTransitionFromSameStream);
+    mediaPeriod = mediaSourceList.createPeriod(info.id, allocator, info.startPositionUs);
   }
 
   /**
@@ -401,15 +393,6 @@ import java.io.IOException;
     return trackSelectorResult;
   }
 
-  /** Updates the clipping to {@link MediaPeriodInfo#endPositionUs} if required. */
-  public void updateClipping() {
-    if (mediaPeriod instanceof ClippingMediaPeriod) {
-      long endPositionUs =
-          info.endPositionUs == C.TIME_UNSET ? C.TIME_END_OF_SOURCE : info.endPositionUs;
-      ((ClippingMediaPeriod) mediaPeriod).updateClipping(/* startUs= */ 0, endPositionUs);
-    }
-  }
-
   /**
    * Returns whether the media period has encountered an error that prevents it from being prepared
    * or reading data.
@@ -488,34 +471,10 @@ import java.io.IOException;
     return next == null;
   }
 
-  /** Returns a media period corresponding to the given {@code id}. */
-  private static MediaPeriod createMediaPeriod(
-      MediaPeriodId id,
-      MediaSourceList mediaSourceList,
-      Allocator allocator,
-      long startPositionUs,
-      long endPositionUs,
-      boolean isPrecededByTransitionFromSameStream) {
-    MediaPeriod mediaPeriod = mediaSourceList.createPeriod(id, allocator, startPositionUs);
-    if (endPositionUs != C.TIME_UNSET) {
-      mediaPeriod =
-          new ClippingMediaPeriod(
-              mediaPeriod,
-              /* enableInitialDiscontinuity= */ !isPrecededByTransitionFromSameStream,
-              /* startUs= */ 0,
-              endPositionUs);
-    }
-    return mediaPeriod;
-  }
-
   /** Releases the given {@code mediaPeriod}, logging and suppressing any errors. */
   private static void releaseMediaPeriod(MediaSourceList mediaSourceList, MediaPeriod mediaPeriod) {
     try {
-      if (mediaPeriod instanceof ClippingMediaPeriod) {
-        mediaSourceList.releasePeriod(((ClippingMediaPeriod) mediaPeriod).mediaPeriod);
-      } else {
-        mediaSourceList.releasePeriod(mediaPeriod);
-      }
+      mediaSourceList.releasePeriod(mediaPeriod);
     } catch (RuntimeException e) {
       // There's nothing we can do.
       Log.e(TAG, "Period release failed.", e);

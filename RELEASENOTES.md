@@ -7,6 +7,10 @@
         and a new `Util.getAudioTrackChannelConfig(Format)` overload to safely
         resolve it.
 *   ExoPlayer:
+    *   Remove clipping of content for client-side inserted ads in the core
+        player. Instead, `AdsMediaSource` takes care of the clipping logic.
+        Custom client-side inserted ads sources need to be updated to implement
+        the content clipping internally.
     *   Mark tracks with a well-formed but unrecognized codec profile or level
         as `supported=NO_EXCEEDS_CAPABILITIES` instead of `supported=YES` (which
         is how tracks with missing or malformed profile or level info are

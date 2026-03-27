@@ -607,8 +607,6 @@ import java.util.List;
               oldPeriodInfo.requestedContentPositionUs);
 
       if (oldPeriodInfo.durationUs != newPeriodInfo.durationUs) {
-        // The period duration changed.
-        periodHolder.updateClipping();
         // Check whether we've read beyond the new duration.
         long newDurationInRendererTime =
             newPeriodInfo.durationUs == C.TIME_UNSET
