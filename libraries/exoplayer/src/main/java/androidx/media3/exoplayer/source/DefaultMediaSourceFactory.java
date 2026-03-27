@@ -655,12 +655,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       return mediaSource;
     }
     return new ClippingMediaSource.Builder(mediaSource)
-        .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
-        .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
-        .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
-        .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
-        .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
-        .setAllowUnseekableMedia(mediaItem.clippingConfiguration.allowUnseekableMedia)
+        .setClippingConfiguration(mediaItem.clippingConfiguration)
         .setEnableClippingInMediaPeriod(enableClippingInMediaPeriod)
         .build();
   }
