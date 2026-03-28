@@ -1,0 +1,292 @@
+seekMap:
+  isSeekable = true
+  duration = 992333
+  getPosition(0) = [[timeUs=0, position=0]]
+  getPosition(1) = [[timeUs=1, position=0]]
+  getPosition(496166) = [[timeUs=496166, position=102507]]
+  getPosition(992333) = [[timeUs=992333, position=205202]]
+numberOfTracks = 1
+track 256:
+  total output bytes = 72352
+  sample count = 68
+  format 0:
+    averageBitrate = 1536000
+    id = 1/256
+    containerMimeType = video/mp2t
+    sampleMimeType = audio/vnd.dts.hd
+    channelCount = 8
+    sampleRate = 48000
+    language = en
+  sample 0:
+    time = 639666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 1:
+    time = 650332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 2:
+    time = 650333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 3:
+    time = 660999
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 4:
+    time = 661000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 5:
+    time = 671666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 6:
+    time = 671666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 7:
+    time = 682332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 8:
+    time = 683000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 9:
+    time = 693666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 10:
+    time = 693666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 11:
+    time = 704332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 12:
+    time = 704333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 13:
+    time = 714999
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 14:
+    time = 715000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 15:
+    time = 725666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 16:
+    time = 725666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 17:
+    time = 736332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 18:
+    time = 736333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 19:
+    time = 746999
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 20:
+    time = 746988
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 21:
+    time = 757654
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 22:
+    time = 757655
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 23:
+    time = 768321
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 24:
+    time = 767988
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 25:
+    time = 778654
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 26:
+    time = 778655
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 27:
+    time = 789321
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 28:
+    time = 789322
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 29:
+    time = 799988
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 30:
+    time = 799988
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 31:
+    time = 810654
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 32:
+    time = 810655
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 33:
+    time = 821321
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 34:
+    time = 821322
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 35:
+    time = 831988
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 36:
+    time = 831988
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 37:
+    time = 842654
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 38:
+    time = 842655
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 39:
+    time = 853321
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 40:
+    time = 854011
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 41:
+    time = 864677
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 42:
+    time = 864677
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 43:
+    time = 875343
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 44:
+    time = 875344
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 45:
+    time = 886010
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 46:
+    time = 886011
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 47:
+    time = 896677
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 48:
+    time = 896666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 49:
+    time = 907332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 50:
+    time = 907333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 51:
+    time = 917999
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 52:
+    time = 918000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 53:
+    time = 928666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 54:
+    time = 928666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 55:
+    time = 939332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 56:
+    time = 939000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 57:
+    time = 949666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 58:
+    time = 949666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 59:
+    time = 960332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 60:
+    time = 960333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 61:
+    time = 970999
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 62:
+    time = 971000
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 63:
+    time = 981666
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 64:
+    time = 981666
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 65:
+    time = 992332
+    flags = 1
+    data = length 116, hash 11AB07D5
+  sample 66:
+    time = 992333
+    flags = 1
+    data = length 2012, hash 9F758396
+  sample 67:
+    time = 1002999
+    flags = 1
+    data = length 116, hash 11AB07D5
+tracksEnded = true

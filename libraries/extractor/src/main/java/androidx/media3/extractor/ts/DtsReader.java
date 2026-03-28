@@ -31,6 +31,7 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.ts.TsPayloadReader.TrackIdGenerator;
 import com.google.common.primitives.Ints;
+import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -52,7 +53,7 @@ public final class DtsReader implements ElementaryStreamReader {
   private static final int CORE_HEADER_SIZE = 18;
 
   /**
-   * Maximum possible size of extension sub-stream header, in bytes. See See ETSI TS 102 114 V1.6.1
+   * Maximum possible size of extension sub-stream header, in bytes. See ETSI TS 102 114 V1.6.1
    * (2019-08) Section 7.5.2.
    */
   /* package */ static final int EXTSS_HEADER_SIZE_MAX = 4096;
@@ -73,7 +74,7 @@ public final class DtsReader implements ElementaryStreamReader {
   private final String containerMimeType;
 
   private @MonotonicNonNull String formatId;
-  private @MonotonicNonNull TrackOutput output;
+  private @MonotonicNonNull PatientTrackOutput output;
 
   private int state;
   private int bytesRead;
@@ -122,6 +123,8 @@ public final class DtsReader implements ElementaryStreamReader {
     bytesRead = 0;
     syncBytes = 0;
     timeUs = C.TIME_UNSET;
+    format = null;
+    output.seek();
     uhdAudioChunkId.set(0);
   }
 
@@ -129,7 +132,8 @@ public final class DtsReader implements ElementaryStreamReader {
   public void createTracks(ExtractorOutput extractorOutput, TrackIdGenerator idGenerator) {
     idGenerator.generateNewId();
     formatId = idGenerator.getFormatId();
-    output = extractorOutput.track(idGenerator.getTrackId(), C.TRACK_TYPE_AUDIO);
+    output =
+        new PatientTrackOutput(extractorOutput.track(idGenerator.getTrackId(), C.TRACK_TYPE_AUDIO));
   }
 
   @Override
@@ -144,7 +148,12 @@ public final class DtsReader implements ElementaryStreamReader {
     while (data.bytesLeft() > 0) {
       switch (state) {
         case STATE_FINDING_SYNC:
+          @DtsUtil.FrameType final int lastFrameType = frameType;
           if (skipToNextSyncWord(data)) {
+            if (lastFrameType == frameType) {
+              // If we have a stream with only one frame type, ensure we flush the output.
+              output.flush();
+            }
             if (frameType == DtsUtil.FRAME_TYPE_UHD_SYNC
                 || frameType == DtsUtil.FRAME_TYPE_UHD_NON_SYNC) {
               state = STATE_FINDING_UHD_HEADER_SIZE;
@@ -157,6 +166,9 @@ public final class DtsReader implements ElementaryStreamReader {
           break;
         case STATE_READING_CORE_HEADER:
           if (continueRead(data, headerScratchBytes.getData(), CORE_HEADER_SIZE)) {
+            // If a stream contains multiple frame types, the first frames will always be core
+            // frames, ensure we flush the output after the previous frames finished.
+            output.flush();
             parseCoreHeader();
             headerScratchBytes.setPosition(0);
             output.sampleData(headerScratchBytes, CORE_HEADER_SIZE);
@@ -174,6 +186,9 @@ public final class DtsReader implements ElementaryStreamReader {
         case STATE_READING_EXTSS_HEADER:
           if (continueRead(data, headerScratchBytes.getData(), extensionSubstreamHeaderSize)) {
             parseExtensionSubstreamHeader();
+            // If a stream contains multiple frame types, and we read extension substream frame,
+            // we should send core sample data after emitting correct extension format.
+            output.flush();
             headerScratchBytes.setPosition(0);
             output.sampleData(headerScratchBytes, extensionSubstreamHeaderSize);
             state = STATE_READING_SAMPLE;
@@ -210,9 +225,7 @@ public final class DtsReader implements ElementaryStreamReader {
             output.sampleMetadata(
                 timeUs,
                 frameType == DtsUtil.FRAME_TYPE_UHD_NON_SYNC ? 0 : C.BUFFER_FLAG_KEY_FRAME,
-                sampleSize,
-                0,
-                null);
+                sampleSize);
             timeUs += sampleDurationUs;
             state = STATE_FINDING_SYNC;
           }
@@ -225,7 +238,7 @@ public final class DtsReader implements ElementaryStreamReader {
 
   @Override
   public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
+    output.flush();
   }
 
   /**
@@ -331,6 +344,67 @@ public final class DtsReader implements ElementaryStreamReader {
               .setRoleFlags(roleFlags)
               .build();
       output.format(format);
+    }
+  }
+
+  /**
+   * This wrapper around {@link TrackOutput} allows storing one sample of data before deciding on a
+   * format. This is useful because a core frame may come before an extension substream frame, and
+   * we should ensure to not accidentally output the first sample using the core format.
+   */
+  private static class PatientTrackOutput {
+
+    private final TrackOutput output;
+    private @Nullable Format format;
+    private ParsableByteArray data;
+    private long timeUs;
+    private @C.BufferFlags int flags;
+    private int size;
+
+    public PatientTrackOutput(TrackOutput output) {
+      this.output = output;
+      data = new ParsableByteArray();
+    }
+
+    public void flush() {
+      if (format != null) {
+        output.format(format);
+        format = null;
+      }
+      if (data.limit() > 0) {
+        output.sampleData(data, data.limit());
+        data.reset(0);
+      }
+      if (size > 0) {
+        output.sampleMetadata(timeUs, flags, size, 0, null);
+        size = 0;
+      }
+    }
+
+    public void format(Format format) {
+      this.format = format;
+    }
+
+    public void sampleData(ParsableByteArray data, int length) {
+      this.data.ensureCapacity(this.data.limit() + length);
+      ByteBuffer tmp = ByteBuffer.wrap(this.data.getData());
+      tmp.position(this.data.limit());
+      tmp.put(data.getData(), data.getPosition(), length);
+      this.data.setLimit(this.data.limit() + length);
+      data.skipBytes(length);
+    }
+
+    public void sampleMetadata(long timeUs, @C.BufferFlags int flags, int size) {
+      checkState(this.size == 0);
+      this.size = size;
+      this.timeUs = timeUs;
+      this.flags = flags;
+    }
+
+    public void seek() {
+      format = null;
+      data.reset(0);
+      size = 0;
     }
   }
 }
