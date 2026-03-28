@@ -22,6 +22,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.util.LongSparseArray;
 import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.CallSuper;
@@ -447,7 +448,7 @@ public class MatroskaExtractor implements Extractor {
   private final EbmlReader reader;
   private final VarintReader varintReader;
   private final SparseArray<Track> tracks;
-  private final SparseArray<ChapterEntry> chapters;
+  private final LongSparseArray<ChapterEntry> chapters;
   private final boolean seekForCuesEnabled;
   private final boolean parseSubtitlesDuringExtraction;
   private final SubtitleParser.Factory subtitleParserFactory;
@@ -579,7 +580,7 @@ public class MatroskaExtractor implements Extractor {
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
     parseSubtitlesDuringExtraction = (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     varintReader = new VarintReader();
-    chapters = new SparseArray<>();
+    chapters = new LongSparseArray<>();
     tracks = new SparseArray<>();
     scratch = new ParsableByteArray(4);
     vorbisNumPageSamples = new ParsableByteArray(ByteBuffer.allocate(4).putInt(-1).array());
@@ -961,7 +962,9 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_CHAPTER_ATOM:
         ChapterEntry chapter = checkNotNull(currentChapter);
-        chapters.put(chapter.uid, chapter);
+        if (chapter.uid > 0) {
+          chapters.put(chapter.uid, chapter);
+        }
         currentChapter = null;
         break;
       case ID_EDITION_ENTRY:
@@ -1146,7 +1149,7 @@ public class MatroskaExtractor implements Extractor {
         getCurrentChapter(id).flagHidden = value == 1;
         break;
       case ID_CHAPTER_TRACK_UID:
-        getCurrentChapter(id).trackUid = (int) value;
+        getCurrentChapter(id).trackUid = value;
         break;
       case ID_PIXEL_WIDTH:
         getCurrentTrack(id).width = (int) value;
@@ -1167,7 +1170,7 @@ public class MatroskaExtractor implements Extractor {
         getCurrentTrack(id).number = (int) value;
         break;
       case ID_TRACK_UID:
-        getCurrentTrack(id).uid = (int) value;
+        getCurrentTrack(id).uid = value;
         break;
       case ID_FLAG_DEFAULT:
         getCurrentTrack(id).flagDefault = value == 1;
@@ -2299,18 +2302,18 @@ public class MatroskaExtractor implements Extractor {
 
   /** Holds data corresponding to a single chapter. */
   protected static final class ChapterEntry {
-    public int uid;
+    public long uid;
     public long timeStartNs;
     public long timeEndNs;
     public boolean flagHidden;
-    public int trackUid;
+    public long trackUid;
     public @MonotonicNonNull String chapString;
 
     protected ChapterEntry() {
-      uid = Format.NO_VALUE;
+      uid = 0;
       timeStartNs = C.TIME_UNSET;
       timeEndNs = C.TIME_UNSET;
-      trackUid = Format.NO_VALUE;
+      trackUid = 0;
     }
   }
 
@@ -2331,7 +2334,7 @@ public class MatroskaExtractor implements Extractor {
     public @MonotonicNonNull String name;
     public @MonotonicNonNull String codecId;
     public int number;
-    public int uid;
+    public long uid = 0;
     public @C.TrackType int type;
     public int defaultSampleDurationNs;
     public int maxBlockAdditionId;
@@ -2909,7 +2912,7 @@ public class MatroskaExtractor implements Extractor {
     /**
      * Adds chapters to the track's format as {@link Chapter}.
      */
-    private void maybeAddChaptersMetadata(SparseArray<ChapterEntry> chapters) {
+    private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapters) {
       Metadata newMetadata = (checkNotNull(format).metadata
           == null) ? new Metadata() : format.metadata;
 
@@ -2918,7 +2921,7 @@ public class MatroskaExtractor implements Extractor {
 
         // Check if chapter should be hidden and if it's tied to a specific track or not
         if (!chapter.flagHidden
-            && (chapter.trackUid == Format.NO_VALUE || chapter.trackUid == uid)) {
+            && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
           long startTimeMs =
               chapter.timeStartNs != Format.NO_VALUE
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs)
