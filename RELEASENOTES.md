@@ -85,6 +85,8 @@
         codec resets where they are not beneficial
         ([#3120](https://github.com/androidx/media/issues/3120)).
 *   Text:
+    *   TTML: Fallback to `displayAlign` from `style` for regions
+        ([#2559](https://github.com/androidx/media/issues/2559)).
 *   Metadata:
 *   Image:
 *   DataSource:
