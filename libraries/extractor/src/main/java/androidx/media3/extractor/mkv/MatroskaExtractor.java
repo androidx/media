@@ -2912,19 +2912,16 @@ public class MatroskaExtractor implements Extractor {
       return bestCueIndex == -1 ? C.TIME_UNSET : cuePoints.get(bestCueIndex).timeUs;
     }
 
-    /**
-     * Adds chapters to the track's format as {@link Chapter}.
-     */
+    /** Adds chapters to the track's format as {@link Chapter}. */
     private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapters) {
-      Metadata newMetadata = (checkNotNull(format).metadata
-          == null) ? new Metadata() : format.metadata;
+      Metadata newMetadata =
+          (checkNotNull(format).metadata == null) ? new Metadata() : format.metadata;
 
       for (int i = 0; i < chapters.size(); i++) {
         ChapterEntry chapter = chapters.valueAt(i);
 
         // Check if chapter should be hidden and if it's tied to a specific track or not
-        if (!chapter.flagHidden
-            && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
+        if (!chapter.flagHidden && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
           long startTimeMs =
               chapter.timeStartNs != Format.NO_VALUE
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs)
@@ -2933,9 +2930,7 @@ public class MatroskaExtractor implements Extractor {
               chapter.timeEndNs != Format.NO_VALUE
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs)
                   : startTimeMs;
-          Chapter chapterMetadata =
-              Chapter.create(
-                  startTimeMs, endTimeMs, chapter.chapString);
+          Chapter chapterMetadata = Chapter.create(startTimeMs, endTimeMs, chapter.chapString);
 
           newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
         }
