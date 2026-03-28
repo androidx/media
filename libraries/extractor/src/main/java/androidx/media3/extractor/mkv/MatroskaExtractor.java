@@ -2923,11 +2923,11 @@ public class MatroskaExtractor implements Extractor {
         // Check if chapter should be hidden and if it's tied to a specific track or not
         if (!chapter.flagHidden && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
           long startTimeMs =
-              chapter.timeStartNs != Format.NO_VALUE
+              chapter.timeStartNs != C.TIME_UNSET
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs)
                   : 0L;
           long endTimeMs =
-              chapter.timeEndNs != Format.NO_VALUE
+              chapter.timeEndNs != C.TIME_UNSET
                   ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs)
                   : startTimeMs;
           Chapter chapterMetadata = Chapter.create(startTimeMs, endTimeMs, chapter.chapString);
