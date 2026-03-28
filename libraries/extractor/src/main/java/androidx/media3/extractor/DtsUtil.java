@@ -429,6 +429,8 @@ public final class DtsUtil {
     int assetsCount; // nuNumAssets
     int referenceClockCode; // nuRefClockCode
     int extensionSubstreamFrameDurationCode; // nuExSSFrameDurationCode
+    boolean enableMixMetadata = false; // bMixMetadataEnbl
+    int[] mixerOutChannels = null;
 
     boolean staticFieldsPresent = headerBits.readBit(); // bStaticFieldsPresent
     if (staticFieldsPresent) {
@@ -456,13 +458,16 @@ public final class DtsUtil {
         }
       }
 
-      if (headerBits.readBit()) { // bMixMetadataEnbl
+      enableMixMetadata = headerBits.readBit();
+      if (enableMixMetadata) { // bMixMetadataEnbl
         headerBits.skipBits(2); // nuMixMetadataAdjLevel
         int mixerOutputMaskBits = (headerBits.readBits(2) + 1) << 2; // nuBits4MixOutMask
         int mixerOutputConfigurationCount = headerBits.readBits(2) + 1; // nuNumMixOutConfigs
+        mixerOutChannels = new int[mixerOutputConfigurationCount];
         // Output Mixing Configuration Loop
         for (int i = 0; i < mixerOutputConfigurationCount; i++) {
-          headerBits.skipBits(mixerOutputMaskBits); // nuMixOutChMask
+          int mask = headerBits.readBits(mixerOutputMaskBits); // nuMixOutChMask
+          mixerOutChannels[i] = getRemapChannelCount(mask);
         }
       }
     } else {
@@ -476,8 +481,11 @@ public final class DtsUtil {
     headerBits.skipBits(extensionSubstreamFrameSizeBits); // nuAssetFsize
     int sampleRate = C.RATE_UNSET_INT;
     int channelCount = C.LENGTH_UNSET; // nuTotalNumChs
+    boolean embeddedStereo = false; // bEmbeddedStereoFlag
+    boolean embedded6ch = false; // bEmbeddedSixChFlag
 
-    // Asset descriptor, see ETSI TS 102 114 V1.6.1 (2019-08) Table 7-5.
+    // Asset descriptor: Size, Index and Per Stream Static Metadata, see ETSI TS 102 114 V1.6.1
+    // (2019-08) Table 7-5.
     headerBits.skipBits(9 + 3); // nuAssetDescriptFsize, nuAssetIndex
     if (staticFieldsPresent) {
       if (headerBits.readBit()) { // bAssetTypeDescrPresent
@@ -493,8 +501,112 @@ public final class DtsUtil {
       headerBits.skipBits(5); // nuBitResolution
       sampleRate = SAMPLE_RATE_BY_INDEX[headerBits.readBits(4)]; // nuMaxSampleRate
       channelCount = headerBits.readBits(8) + 1;
-      // Done reading necessary bits, ignoring the rest.
+      if (headerBits.readBit()) { // bOne2OneMapChannels2Speakers
+        if (channelCount > 2) {
+          embeddedStereo = headerBits.readBit(); // bEmbeddedStereoFlag
+        }
+        if (channelCount > 6) {
+          embedded6ch = headerBits.readBit(); // bEmbeddedSixChFlag
+        }
+        int speakerMaskLength = 0;
+        if (headerBits.readBit()) { // bSpkrMaskEnabled
+          speakerMaskLength = (headerBits.readBits(2) + 1) << 2; // nuNumBits4SAMask
+          headerBits.skipBits(speakerMaskLength); // nuSpkrActivityMask
+        }
+        int speakerRemapSetsCount = headerBits.readBits(3); // nuNumSpkrRemapSets
+        int[] speakerRemapSets = new int[speakerRemapSetsCount];
+        for (int i = 0; i < speakerRemapSetsCount; i++) {
+          speakerRemapSets[i] = headerBits.readBits(speakerMaskLength); // nuStndrSpkrLayoutMask[ns]
+        }
+        for (int i = 0; i < speakerRemapSetsCount; i++) {
+          int remapChannelCount = getRemapChannelCount(speakerRemapSets[i]);
+          int remapMaskLength = headerBits.readBits(5) + 1; // nuNumDecCh4Remap[ns]
+          for (int j = 0; j < remapChannelCount; j++) {
+            int remapMask = headerBits.readBits(remapMaskLength); // nuRemapDecChMask[ns][nCh]
+            int coef = Integer.bitCount(remapMask); // nCoef
+            headerBits.skipBits(coef * 5); // nuSpkrRemapCodes[ns][nCh][nc]
+          }
+        }
+      }
+    } else {
+      headerBits.skipBits(3); // nuRepresentationType
     }
+
+    // Asset descriptor: Dynamic Metadata - DRC, DNC and Mixing Metadata, see ETSI TS 102 114 V1.6.1
+    // (2019-08) Table 7-6.
+    boolean hasDrcCoef = headerBits.readBit();
+    if (hasDrcCoef) { // bDRCCoefPresent
+      headerBits.skipBits(8); // nuDRCCode
+    }
+    if (headerBits.readBit()) { // bDialNormPresent
+      headerBits.skipBits(5); // nuDialNormCode
+    }
+    if (hasDrcCoef && embeddedStereo) {
+      headerBits.skipBits(8); // nuDRC2ChDmixCode
+    }
+    if (enableMixMetadata && headerBits.readBit()) { // bMixMetadataPresent
+      headerBits.skipBits(1 + 6); // bExternalMixFlag, nuPostMixGainAdjCode
+      if (headerBits.readBits(2) < 3) { // nuControlMixerDRC
+        headerBits.skipBits(3); // nuLimit4EmbeddedDRC
+      } else {
+        headerBits.skipBits(8); // nuCustomDRCCode
+      }
+      boolean audioScalePerChannel = headerBits.readBit(); // bEnblPerChMainAudioScale
+      for (int mixerOutChannel : mixerOutChannels) {
+        if (audioScalePerChannel) {
+          headerBits.skipBits(6 * mixerOutChannel); // nuMainAudioScaleCode[ns][nCh]
+        } else {
+          headerBits.skipBits(6); // nuMainAudioScaleCode[ns][0]
+        }
+      }
+      int mixesCount = 1; // nEmDM
+      int[] channelCountsForDownmixes = new int[3];
+      channelCountsForDownmixes[0] = channelCount; // nDecCh[0]
+      if (embedded6ch) {
+        channelCountsForDownmixes[mixesCount] = 6; // nDecCh[nEmDM]
+        mixesCount++; // nEmDM
+      }
+      if (embeddedStereo) {
+        channelCountsForDownmixes[mixesCount] = 2; // nDecCh[nEmDM]
+        mixesCount++; // nEmDM
+      }
+      for (int mixerOutChannel : mixerOutChannels) {
+        for (int downmix = 0; downmix < mixesCount; downmix++) {
+          int channelCountForDownmix = channelCountsForDownmixes[downmix];
+          for (int downmixChannel = 0; downmixChannel < channelCountForDownmix; downmixChannel++) {
+            int mask = headerBits.readBits(mixerOutChannel); // nuMixMapMask[ns][nE][nCh]
+            int coefficients = Integer.bitCount(mask); // nuNumMixCoefs[ns][nE][nCh]
+            headerBits.skipBits(coefficients * 6); // nuMixCoeffs[ns][nE][nCh][nC]
+          }
+        }
+      }
+    }
+
+    // Asset descriptor: Decoder Navigation Data, see ETSI TS 102 114 V1.6.1 (2019-08) Table 7-7.
+    int codingMode = headerBits.readBits(2); // nuCodingMode
+    String mimeType;
+    switch (codingMode) {
+      case 0: // DTS-HD Coding Mode that may contain multiple coding components
+        int extensionMask = headerBits.readBits(12);
+        if ((extensionMask & 0x100) != 0) { // Low bit rate component
+          mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
+        } else {
+          mimeType = MimeTypes.AUDIO_DTS_HD;
+        }
+        break;
+      case 1: // DTS-HD Loss-less coding mode without CBR component
+        mimeType = MimeTypes.AUDIO_DTS_HD;
+        break;
+      case 2: // DTS-HD Low bit-rate mode
+        mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
+        break;
+      case 3: // The auxiliary coding mode is reserved for future applications.
+      default:
+        throw ParserException.createForMalformedContainer(
+            /* message= */ "Unsupported coding mode in DTS HD header: " + codingMode,
+            /* cause= */ null);
+    }
+    // Done reading necessary bits, ignoring the rest.
 
     long frameDurationUs = C.TIME_UNSET;
     if (staticFieldsPresent) {
@@ -521,12 +633,66 @@ public final class DtsUtil {
               extensionSubstreamFrameDurationCode, C.MICROS_PER_SECOND, referenceClockFrequency);
     }
     return new DtsHeader(
-        MimeTypes.AUDIO_DTS_EXPRESS,
+        mimeType,
         channelCount,
         sampleRate,
         extensionSubstreamFrameSize,
         frameDurationUs,
         /* bitrate= */ 0);
+  }
+
+  // See Table 7-10 in ETSI TS 102 114 V1.6.1
+  private static int getRemapChannelCount(int mask) {
+    int remapChannelCount = 0;
+    if ((mask & 0x0001) != 0) { // Centre in front of listener
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x0002) != 0) { // Left/Right in front
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0004) != 0) { // Left/Right surround on side in rear
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0008) != 0) { // Low frequency effects subwoofer
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x0010) != 0) { // Centre surround in rear
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x0020) != 0) { // Left/Right height in front
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0040) != 0) { // Left/Right surround in rear
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0080) != 0) { // Centre Height in front
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x0100) != 0) { // Over the listener's head
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x0200) != 0) { // Between left/right and centre in front
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0400) != 0) { // Left/Right on side in front
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x0800) != 0) { // Left/Right surround on side
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x1000) != 0) { // Second low frequency effects subwoofer
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x2000) != 0) { // Left/Right height on side
+      remapChannelCount += 2;
+    }
+    if ((mask & 0x4000) != 0) { // Centre height in rear
+      remapChannelCount += 1;
+    }
+    if ((mask & 0x8000) != 0) { // Left/Right height in rear
+      remapChannelCount += 2;
+    }
+    return remapChannelCount;
   }
 
   /**
@@ -689,31 +855,50 @@ public final class DtsUtil {
         + 1;
   }
 
-  /** Returns whether the sample data at the current {@link ExtractorInput} is a DTS-HD sample. */
-  public static boolean isSampleDtsHd(ExtractorInput input, int sampleSize) throws IOException {
+  /**
+   * Returns a non-null mime type if the sample data at the current {@link ExtractorInput} is a
+   * DTS-HD sample, or null if it is not.
+   */
+  public static @Nullable String getDtsHdMimeType(ExtractorInput input, int sampleSize)
+      throws IOException {
     ParsableByteArray sampleData = new ParsableByteArray(sampleSize);
     if (!input.peekFully(
         sampleData.getData(), /* offset= */ 0, sampleSize, /* allowEndOfInput= */ true)) {
-      return false;
+      return null;
     }
     input.resetPeekPosition();
     int word = sampleData.peekInt();
+    // Skip the core frame if present (it doesn't have to be).
     if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_CORE) {
       if (sampleData.bytesLeft() < 10) {
-        return false;
+        return null;
       }
       byte[] header = new byte[10];
       sampleData.readBytes(header, /* offset= */ 0, /* length= */ 10);
       sampleData.setPosition(0);
       int frameSize = DtsUtil.getDtsFrameSize(header);
       if (frameSize <= 0 || sampleData.bytesLeft() < frameSize + 4) {
-        return false;
+        return null;
       }
       sampleData.skipBytes(frameSize);
-      word = sampleData.readInt();
-      return DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM;
+      word = sampleData.peekInt();
     }
-    return false;
+    if (DtsUtil.getFrameType(word) != DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM) {
+      return null;
+    }
+    if (sampleData.bytesLeft() < 7) {
+      return null;
+    }
+    byte[] headerPrefix = new byte[7];
+    sampleData.readBytes(headerPrefix, /* offset= */ 0, /* length= */ 7);
+    sampleData.skipBytes(-7);
+    int frameSize = parseDtsHdHeaderSize(headerPrefix);
+    if (frameSize <= 0 || sampleData.bytesLeft() < frameSize) {
+      return null;
+    }
+    byte[] header = new byte[frameSize];
+    sampleData.readBytes(header, /* offset= */ 0, /* length= */ frameSize);
+    return parseDtsHdHeader(header).mimeType;
   }
 
   /**
