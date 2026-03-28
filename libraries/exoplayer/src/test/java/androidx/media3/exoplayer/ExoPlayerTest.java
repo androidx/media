@@ -203,6 +203,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -244,6 +245,9 @@ public final class ExoPlayerTest {
   private static final int TIMEOUT_MS = 10_000;
 
   private static final String SAMPLE_URI = "asset://android_asset/media/mp4/sample.mp4";
+  private static final String SAMPLE_AC4_TS_URI =
+      "asset://android_asset/media/ts/"
+          + "MultiLangPerso_1PID_PC0_Select_AC4_H265_DVB_50fps_Audio_Only.ts";
 
   @Parameters(name = "preload={0}")
   public static ImmutableList<Object[]> params() {
@@ -11126,6 +11130,72 @@ public final class ExoPlayerTest {
     shadowOf(Looper.getMainLooper()).idle();
 
     assertThat(player.getMediaMetadata()).isEqualTo(mediaMetadata);
+
+    player.release();
+  }
+
+  @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
+  @RequiresApi(api = Build.VERSION_CODES.P)
+  @Test
+  public void playingAC4_TS_withMultipleAudioPresentations() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaItem(MediaItem.fromUri(SAMPLE_AC4_TS_URI));
+    List<AudioPresentation> refPresentations = new ArrayList<>();
+    HashMap<ULocale, CharSequence> labelsFirst = new HashMap<>();
+    labelsFirst.put(new ULocale("en"), "Standard");
+    HashMap<ULocale, CharSequence> labelsSecond = new HashMap<>();
+    labelsSecond.put(new ULocale("en"), "Kids' choice");
+    HashMap<ULocale, CharSequence> labelsThird = new HashMap<>();
+    labelsThird.put(new ULocale("en"), "Artists' commentary");
+    refPresentations.add(new AudioPresentation.Builder(10)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setLabels(labelsFirst)
+                        .setHasDialogueEnhancement(true)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(11)
+                        .setLocale(ULocale.ENGLISH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setLabels(labelsSecond)
+                        .setHasAudioDescription(true)
+                        .setHasDialogueEnhancement(true)
+                        .build());
+    refPresentations.add(new AudioPresentation.Builder(12)
+                        .setLocale(ULocale.FRENCH)
+                        .setMasteringIndication(AudioPresentation.MASTERED_FOR_SURROUND)
+                        .setHasSpokenSubtitles(false)
+                        .setLabels(labelsThird)
+                        .setHasAudioDescription(false)
+                        .setHasDialogueEnhancement(true)
+                        .build());
+    final boolean[] audioPresentationsVerfied = {false};
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onAudioPresentationsChanged(List<AudioPresentation> audioPresentations) {
+
+            assertThat(audioPresentations).isNotNull();
+            assertThat(audioPresentations.size()).isEqualTo(refPresentations.size());
+            for (int i = 0; i < audioPresentations.size(); i++) {
+              assertThat(audioPresentations.get(i)).isEqualTo((refPresentations.get(i)));
+            }
+            audioPresentationsVerfied[0] = true;
+          }
+        });
+
+    player.prepare();
+    player.play();
+    try {
+      runUntilPlaybackState(player, Player.STATE_ENDED);
+    } catch (IllegalStateException ignored) {
+      // Not expected to play the input.
+    }
+    assertThat(audioPresentationsVerfied[0]).isTrue();
+    player.stop();
+
+    shadowOf(Looper.getMainLooper()).idle();
 
     player.release();
   }
