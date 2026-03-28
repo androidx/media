@@ -82,6 +82,9 @@ public final class DtsReader implements ElementaryStreamReader {
   /** Used to find the header. */
   private int syncBytes;
 
+  private boolean waitingForResyncAfterSeek;
+  private boolean sawCoreFrame;
+
   // Used when parsing the header.
   private long sampleDurationUs;
   private @MonotonicNonNull Format format;
@@ -123,9 +126,9 @@ public final class DtsReader implements ElementaryStreamReader {
     bytesRead = 0;
     syncBytes = 0;
     timeUs = C.TIME_UNSET;
-    format = null;
     output.seek();
     uhdAudioChunkId.set(0);
+    waitingForResyncAfterSeek = true;
   }
 
   @Override
@@ -150,6 +153,16 @@ public final class DtsReader implements ElementaryStreamReader {
         case STATE_FINDING_SYNC:
           @DtsUtil.FrameType final int lastFrameType = frameType;
           if (skipToNextSyncWord(data)) {
+            if (waitingForResyncAfterSeek && frameType != DtsUtil.FRAME_TYPE_CORE && sawCoreFrame) {
+              // If we:
+              // 1. just seeked, potentially into the middle of the stream
+              // 2. did not end up on a core frame
+              // 3. but know this stream contains core frames
+              // then skip sync words until we find a core frame, to avoid sending extension
+              // substream frame to decoder without its preceding core frame.
+              break;
+            }
+            waitingForResyncAfterSeek = false;
             if (lastFrameType == frameType) {
               // If we have a stream with only one frame type, ensure we flush the output.
               output.flush();
@@ -292,6 +305,7 @@ public final class DtsReader implements ElementaryStreamReader {
           DtsUtil.parseDtsFormat(frameData, formatId, language, roleFlags, containerMimeType, null);
       output.format(format);
     }
+    sawCoreFrame = true;
     sampleSize = DtsUtil.getDtsFrameSize(frameData);
     // In this class a sample is an access unit (frame in DTS), but the format's sample rate
     // specifies the number of PCM audio samples per second.
