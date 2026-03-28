@@ -259,6 +259,14 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mkvSample_withChapters() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_chapters.mkv",
+        simulationConfig);
+  }
+
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;
