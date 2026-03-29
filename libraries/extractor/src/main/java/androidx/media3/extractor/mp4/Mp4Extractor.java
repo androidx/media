@@ -46,6 +46,7 @@ import androidx.media3.container.Mp4Box.ContainerBox;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.Ac3Util;
 import androidx.media3.extractor.Ac4Util;
+import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -744,10 +745,14 @@ public final class Mp4Extractor implements Extractor {
       // The moov and esds boxes don't contain enough information to distinguish between MPEG
       // audio layers 1, 2 and 3, but the distinction is important to select the right MIME type
       // for MediaCodec decoders (and other decoders that handle the same audio/mpeg-L1 and
-      // audio/mpeg-L2 MIME types). So we store the format with audio/mpeg for now, and then
-      // update the MIME type and pass it to TrackOutput.format(...) based on the layer info in
-      // the first sample.
-      boolean isMpegAudio = Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG);
+      // audio/mpeg-L2 MIME types). DTS has a similar problem where we can't distinguish DTS,
+      // DTS-HD and DTS Express. So we store the format with a placeholder MIME for now, and then
+      // update the MIME type and pass it to TrackOutput.format(...) based on the info in the first
+      // sample.
+      boolean needSamplesForMime =
+          Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD);
       boolean needsChapterMetadata = false;
       if (!omitTrackSampleTable && track.chapterTrackId != C.INDEX_UNSET) {
         for (TrackSampleTable chapterSampleTable : chapterSampleTables) {
@@ -757,7 +762,7 @@ public final class Mp4Extractor implements Extractor {
           }
         }
       }
-      if (isMpegAudio || needsChapterMetadata) {
+      if (needSamplesForMime || needsChapterMetadata) {
         mp4Track.pendingFormat = format;
       } else {
         mp4Track.trackOutput.format(format);
@@ -1013,6 +1018,13 @@ public final class Mp4Extractor implements Extractor {
                     .build()
                 : pendingFormat);
         track.pendingFormat = null;
+      } else if (track.pendingFormat != null
+          && (Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
+              || Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD))) {
+        Format pendingFormat = track.pendingFormat;
+        track.trackOutput.format(
+            DtsUtil.updateFormatWithDtsHdInfo(input, sampleSize, pendingFormat));
+        track.pendingFormat = null;
       } else if (trueHdSampleRechunker != null) {
         trueHdSampleRechunker.startSample(input);
       }
@@ -1103,10 +1115,12 @@ public final class Mp4Extractor implements Extractor {
             currentFormat.buildUpon().setMetadata(new Metadata(filteredEntries)).build();
 
         // The format was kept pending in processMoovAtom either because it was waiting for chapter
-        // metadata, or because it is MPEG audio (which needs to wait for the first sample to
+        // metadata, or because it is MPEG or DTS audio (which needs to wait for the first sample to
         // determine the exact MIME type). We have now applied the chapter metadata, so we can
-        // output the format, unless it is also MPEG audio.
-        if (Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
+        // output the format, unless it is also MPEG or DTS audio.
+        if (Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_MPEG)
+            || Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_DTS)
+            || Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_DTS_HD)) {
           track.pendingFormat = updatedFormat;
         } else {
           track.trackOutput.format(updatedFormat);

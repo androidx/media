@@ -49,6 +49,7 @@ import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.CeaUtil;
 import androidx.media3.extractor.ChunkIndex;
 import androidx.media3.extractor.ChunkIndexMerger;
+import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -1851,6 +1852,20 @@ public class FragmentedMp4Extractor implements Extractor {
         }
       }
     } else {
+      if (trackBundle.pendingFormat != null
+          && (Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
+              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD))) {
+        trackBundle.baseFormat =
+            DtsUtil.updateFormatWithDtsHdInfo(input, sampleSize, trackBundle.baseFormat);
+        Format pendingFormat =
+            trackBundle
+                .baseFormat
+                .buildUpon()
+                .setDrmInitData(trackBundle.pendingFormat.drmInitData)
+                .build();
+        trackBundle.output.format(pendingFormat);
+        trackBundle.pendingFormat = null;
+      }
       while (sampleBytesWritten < sampleSize) {
         int writtenBytes = output.sampleData(input, sampleSize - sampleBytesWritten, false);
         sampleBytesWritten += writtenBytes;
@@ -2302,7 +2317,13 @@ public class FragmentedMp4Extractor implements Extractor {
     public int currentTrackRunIndex;
     public int firstSampleToOutputIndex;
 
-    private final Format baseFormat;
+    /**
+     * A {@link Format} that needs to be passed to {@link #output}, after being possibly modified
+     * based on sample data, before {@link TrackOutput#sampleMetadata} is called.
+     */
+    @Nullable public Format pendingFormat;
+
+    private Format baseFormat;
     private final ParsableByteArray encryptionSignalByte;
     private final ParsableByteArray defaultInitializationVector;
 
@@ -2321,13 +2342,19 @@ public class FragmentedMp4Extractor implements Extractor {
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
       defaultInitializationVector = new ParsableByteArray();
+      if (Objects.equals(baseFormat.sampleMimeType, MimeTypes.AUDIO_DTS)
+          || Objects.equals(baseFormat.sampleMimeType, MimeTypes.AUDIO_DTS_HD)) {
+        pendingFormat = baseFormat;
+      }
       reset(moovSampleTable, defaultSampleValues);
     }
 
     public void reset(TrackSampleTable moovSampleTable, DefaultSampleValues defaultSampleValues) {
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
-      output.format(baseFormat);
+      if (pendingFormat == null) {
+        output.format(baseFormat);
+      }
       resetFragmentInfo();
     }
 
@@ -2339,7 +2366,11 @@ public class FragmentedMp4Extractor implements Extractor {
       @Nullable String schemeType = encryptionBox != null ? encryptionBox.schemeType : null;
       DrmInitData updatedDrmInitData = drmInitData.copyWithSchemeType(schemeType);
       Format format = baseFormat.buildUpon().setDrmInitData(updatedDrmInitData).build();
-      output.format(format);
+      if (pendingFormat != null) {
+        pendingFormat = format;
+      } else {
+        output.format(format);
+      }
     }
 
     /** Resets the current fragment, sample indices and {@link #currentlyInFragment} boolean. */
