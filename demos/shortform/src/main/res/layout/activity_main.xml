@@ -29,6 +29,16 @@
     android:layout_marginEnd="12dp"
     android:layout_marginRight="12dp"/>
 
+  <Button android:id="@+id/lazy_column_button"
+    android:text="@string/open_lazy_column_activity"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginLeft="12dp"
+    android:layout_marginStart="12dp"
+    android:layout_marginEnd="12dp"
+    android:layout_marginRight="12dp"
+    android:layout_marginTop="8dp"/>
+
   <com.google.android.material.textfield.TextInputEditText
     android:id="@+id/num_players_field"
     android:layout_width="match_parent"
