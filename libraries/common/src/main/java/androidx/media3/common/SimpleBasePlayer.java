@@ -43,6 +43,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -52,6 +53,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -2216,7 +2218,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   private final ListenerSet<Listener> listeners;
   private final Looper applicationLooper;
   private final HandlerWrapper applicationHandler;
-  private final HashSet<ListenableFuture<?>> pendingOperations;
+  private final Set<ListenableFuture<?>> pendingOperations;
   private final Timeline.Period period;
 
   private @MonotonicNonNull State state;
@@ -2242,7 +2244,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   protected SimpleBasePlayer(Looper applicationLooper, Clock clock) {
     this.applicationLooper = applicationLooper;
     applicationHandler = clock.createHandler(applicationLooper, /* callback= */ null);
-    pendingOperations = new HashSet<>();
+    pendingOperations = Sets.newIdentityHashSet();
     period = new Timeline.Period();
     @SuppressWarnings("nullness:argument.type.incompatible") // Using this in constructor.
     ListenerSet<Player.Listener> listenerSet =
