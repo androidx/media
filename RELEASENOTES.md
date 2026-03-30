@@ -56,6 +56,8 @@
         ([#3117](https://github.com/androidx/media/issues/3117)).
     *   Ignore `av1C` data with unsupported version.
     *   MP4: Add support for big-endian floating point PCM in `fpcm` boxes.
+    *   Matroska: Parse chapter info to `Chapter` entries in a track's
+        `Metadata`.
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
