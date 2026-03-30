@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
@@ -62,6 +63,18 @@ import java.util.Queue;
   }
 
   /**
+   * Registers the given {@code sequenceIndex} with the {@link FrameAggregator}, and indicates
+   * whether it should be considered when aggregating frames.
+   *
+   * <p>All sequences must be registered before frames are queued.
+   */
+  public void registerSequence(int sequenceIndex, boolean shouldAggregate) {
+    checkArgument(sequenceIndex >= 0);
+    checkArgument(sequenceIndex < numSequences);
+    inputFrameQueues.get(sequenceIndex).initialize(shouldAggregate);
+  }
+
+  /**
    * Queues a {@link HardwareBufferFrame} at the given sequence.
    *
    * <p>Once called, the caller must not modify the {@link HardwareBufferFrame}.
@@ -74,6 +87,7 @@ import java.util.Queue;
   public void queueFrame(HardwareBufferFrame frame, int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
     inputFrameQueues.get(sequenceIndex).frames.add(frame);
     maybeAggregate();
   }
@@ -90,7 +104,8 @@ import java.util.Queue;
   public void queueEndOfStream(int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
-    inputFrameQueues.get(sequenceIndex).isEnded = true;
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ true);
     maybeAggregate();
   }
 
@@ -119,6 +134,7 @@ import java.util.Queue;
   public void flush(int sequenceIndex) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
+    checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
     @Nullable HardwareBufferFrame nextFrame;
     while ((nextFrame = inputFrameQueues.get(sequenceIndex).frames.poll()) != null) {
       nextFrame.release(/* releaseFence= */ null);
@@ -126,7 +142,7 @@ import java.util.Queue;
     if (sequenceIndex == 0) {
       isEnded = false;
     }
-    inputFrameQueues.get(sequenceIndex).isEnded = false;
+    inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ false);
     onFlush.accept(sequenceIndex);
   }
 
@@ -138,11 +154,13 @@ import java.util.Queue;
     if (isEnded) {
       return;
     }
+    // TODO: b/496904840 - This assumes the primary sequence can be aggregated against. Update it to
+    //  when this is not the case.
     @Nullable
     HardwareBufferFrame nextPrimaryFrame = checkNotNull(inputFrameQueues.get(0).frames).peek();
     if (nextPrimaryFrame == null) {
       // When the primary sequence ends, send an EOS frame downstream.
-      if (inputFrameQueues.get(0).isEnded) {
+      if (inputFrameQueues.get(0).getIsEnded()) {
         downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
         isEnded = true;
       }
@@ -165,7 +183,7 @@ import java.util.Queue;
         }
       }
       if (nextFrame == null) {
-        if (frameQueue.isEnded) {
+        if (frameQueue.getIsEnded()) {
           continue;
         }
         return;
@@ -183,10 +201,29 @@ import java.util.Queue;
   /** A helper class representing a {@link Queue<HardwareBufferFrame>} that can end. */
   private static class FrameQueue {
     final Queue<HardwareBufferFrame> frames;
-    boolean isEnded;
+    private boolean isRegistered;
+    private boolean shouldAggregate;
+    private boolean isEnded;
 
     FrameQueue() {
       frames = new ArrayDeque<>();
+      // Force FrameAggregator to wait for frames for this sequence, until initialize is called.
+      shouldAggregate = true;
+    }
+
+    void initialize(boolean shouldAggregate) {
+      checkState(!isRegistered);
+      this.isRegistered = true;
+      this.shouldAggregate = shouldAggregate;
+    }
+
+    void setIsEnded(boolean isEnded) {
+      this.isEnded = isEnded;
+    }
+
+    boolean getIsEnded() {
+      checkState(isRegistered);
+      return isEnded || !shouldAggregate;
     }
   }
 }

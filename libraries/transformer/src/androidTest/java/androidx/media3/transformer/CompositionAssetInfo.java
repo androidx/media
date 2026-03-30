@@ -143,12 +143,8 @@ import com.google.common.collect.Iterables;
                   VIDEO_WITH_REMOVE_VIDEO,
                   VIDEO)));
 
-  public static final ImmutableList<CompositionAssetInfo> MULTI_SEQUENCE_IMAGE_CONFIGS =
-      ImmutableList.of(
-          new CompositionAssetInfo(
-              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE, IMAGE, IMAGE),
-              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE, IMAGE, IMAGE)));
-
+  // This is split from MULTI_SEQUENCE_CONFIGS below because CompositionPlayer fails when testing
+  // this config when using MultipleInputVideoGraph.
   public static final ImmutableList<CompositionAssetInfo> MULTI_SEQUENCE_VIDEO_CONFIGS =
       ImmutableList.of(
           new CompositionAssetInfo(
@@ -157,21 +153,32 @@ import com.google.common.collect.Iterables;
               new SequenceAssetInfo(
                   ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO, VIDEO, VIDEO)));
 
-  public static final ImmutableList<CompositionAssetInfo>
-      MULTI_SEQUENCE_MISMATCHED_DURATION_CONFIGS =
-          ImmutableList.of(
-              new CompositionAssetInfo(
-                  new SequenceAssetInfo(
-                      ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
-                      VIDEO,
-                      AUDIO_WITH_VIDEO_TIMESTAMPS,
-                      VIDEO),
-                  new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE)),
-              new CompositionAssetInfo(
-                  new SequenceAssetInfo(
-                      ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO, VIDEO),
-                  new SequenceAssetInfo(
-                      /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO)));
+  public static final ImmutableList<CompositionAssetInfo> MULTI_SEQUENCE_CONFIGS =
+      ImmutableList.of(
+          new CompositionAssetInfo(
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE, IMAGE, IMAGE),
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE, IMAGE, IMAGE)),
+          new CompositionAssetInfo(
+              new SequenceAssetInfo(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO,
+                  AUDIO_WITH_VIDEO_TIMESTAMPS,
+                  VIDEO),
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE)),
+          new CompositionAssetInfo(
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO),
+              new SequenceAssetInfo(
+                  /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO)),
+          new CompositionAssetInfo(
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE),
+              new SequenceAssetInfo(
+                  /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO)),
+          new CompositionAssetInfo(
+              new SequenceAssetInfo(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO),
+              new SequenceAssetInfo(
+                  /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO),
+              new SequenceAssetInfo(
+                  /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE)));
 
   public final ImmutableList<SequenceAssetInfo> sequences;
 

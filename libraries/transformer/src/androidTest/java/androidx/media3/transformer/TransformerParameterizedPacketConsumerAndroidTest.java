@@ -16,8 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeAllFormatsSupported;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_IMAGE_CONFIGS;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_MISMATCHED_DURATION_CONFIGS;
+import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
 import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
 import static androidx.media3.transformer.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
 import static com.google.common.truth.Truth.assertThat;
@@ -57,9 +56,8 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
         TestParameterValuesProvider.Context context) {
       return new ImmutableList.Builder<CompositionAssetInfo>()
           .addAll(SINGLE_SEQUENCE_CONFIGS)
-          .addAll(MULTI_SEQUENCE_IMAGE_CONFIGS)
           .addAll(MULTI_SEQUENCE_VIDEO_CONFIGS)
-          .addAll(MULTI_SEQUENCE_MISMATCHED_DURATION_CONFIGS)
+          .addAll(MULTI_SEQUENCE_CONFIGS)
           .build();
     }
   }

@@ -1597,7 +1597,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               checkNotNull(videoPacketReleaseControl),
               hardwareBufferFrameReader,
               lateThresholdToDropInputUs);
-
+      // Ensure the FrameAggregator ignores audio only sequences.
+      boolean shouldAggregateSequence =
+          composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
+      checkNotNull(frameAggregator).registerSequence(sequenceIndex, shouldAggregateSequence);
     } else {
       VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
       renderersFactory =

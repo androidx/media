@@ -16,7 +16,6 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -182,17 +181,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     packetConsumerCaller.run();
     packetProcessor.setRenderOutput(hardwareBufferFrameQueue);
 
-    // Create the FrameAggregator, ignoring audio only sequences.
-    int numVideoSequences = getNumVideoSequences(composition);
     frameAggregator =
         new FrameAggregator(
-            numVideoSequences, thisRef::queueAggregatedFrames, /* onFlush= */ (unused) -> {});
-
+            composition.sequences.size(),
+            thisRef::queueAggregatedFrames,
+            /* onFlush= */ (unused) -> {});
     // Create the per sequence consumers that feed buffers from the decoders into the
     // FrameAggregator.
     ImmutableList.Builder<HardwareBufferSampleConsumer> sampleConsumerBuilder =
         new ImmutableList.Builder<>();
-    for (int i = 0; i < numVideoSequences; i++) {
+    for (int i = 0; i < composition.sequences.size(); i++) {
       int sequenceIndex = i;
       Consumer<HardwareBufferFrame> frameConsumer =
           // TODO: b/478781219 - Remove the handlerWrapper.post once HardwareBufferSampleConsumer is
@@ -219,6 +217,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               frameConsumer,
               errorConsumer);
       sampleConsumerBuilder.add(sampleConsumer);
+      // TODO: b/496585841 - Handle single asset items with TRACK_TYPE_NONE.
+      // Ensure the FrameAggregator ignores audio only sequences.
+      boolean shouldAggregateSequence =
+          composition.sequences.get(sequenceIndex).trackTypes.contains(TRACK_TYPE_VIDEO);
+      frameAggregator.registerSequence(sequenceIndex, shouldAggregateSequence);
     }
     sampleConsumers = sampleConsumerBuilder.build();
   }
@@ -315,18 +318,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   protected boolean isMuxerInputEnded() {
     return encoderWrapper != null && encoderWrapper.isEnded();
-  }
-
-  private static int getNumVideoSequences(Composition composition) {
-    int numVideoSequences = 0;
-    for (int i = 0; i < composition.sequences.size(); i++) {
-      if (composition.sequences.get(i).trackTypes.size() == 1
-          && composition.sequences.get(i).trackTypes.contains(TRACK_TYPE_AUDIO)) {
-        continue;
-      }
-      numVideoSequences++;
-    }
-    return numVideoSequences;
   }
 
   private final class ComponentListener implements PacketConsumerHardwareBufferFrameQueue.Listener {

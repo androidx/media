@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_IMAGE_CONFIGS;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_MISMATCHED_DURATION_CONFIGS;
+import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
 import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
 import static androidx.media3.transformer.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -81,8 +81,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
         TestParameterValuesProvider.Context context) {
       return new ImmutableList.Builder<CompositionAssetInfo>()
           .addAll(SINGLE_SEQUENCE_CONFIGS)
-          .addAll(MULTI_SEQUENCE_IMAGE_CONFIGS)
-          .addAll(MULTI_SEQUENCE_MISMATCHED_DURATION_CONFIGS)
+          .addAll(MULTI_SEQUENCE_CONFIGS)
           .build();
     }
   }
@@ -91,11 +90,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
     @Override
     protected List<CompositionAssetInfo> provideValues(
         TestParameterValuesProvider.Context context) {
-      // TODO: b/418785194 - Expand this once mismatched sequence lengths are supported.
       return new ImmutableList.Builder<CompositionAssetInfo>()
           .addAll(SINGLE_SEQUENCE_CONFIGS)
-          .addAll(MULTI_SEQUENCE_IMAGE_CONFIGS)
           .addAll(MULTI_SEQUENCE_VIDEO_CONFIGS)
+          .addAll(MULTI_SEQUENCE_CONFIGS)
           .build();
     }
   }
@@ -210,14 +208,12 @@ public class CompositionPlayerParameterizedPlaybackTest {
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
       long presentationTimeUs = queuedPackets.get(packetIndex).get(0).presentationTimeUs;
       assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
-      assertThat(queuedPackets.get(0)).hasSize(composition.sequences.size());
-      for (int sequenceIndex = 0;
-          sequenceIndex < queuedPackets.get(packetIndex).size();
-          ++sequenceIndex) {
-        Frame.Metadata metadata = queuedPackets.get(packetIndex).get(sequenceIndex).getMetadata();
+      assertThat(queuedPackets.get(0)).hasSize(getNumVideoSequences(composition));
+      for (int i = 0; i < queuedPackets.get(packetIndex).size(); ++i) {
+        Frame.Metadata metadata = queuedPackets.get(packetIndex).get(i).getMetadata();
         assertThat(metadata).isInstanceOf(CompositionFrameMetadata.class);
         CompositionFrameMetadata compositionFrameMetadata = (CompositionFrameMetadata) metadata;
-        assertThat(compositionFrameMetadata.sequenceIndex).isEqualTo(sequenceIndex);
+        int sequenceIndex = compositionFrameMetadata.sequenceIndex;
         // CompositionPlayer replaces TimestampAdjustment effects with InactiveTimestampAdjustment.
         // Assert on the non-edited MediaItem.
         MediaItem itemFromMetadata = itemFromMetadata(compositionFrameMetadata);
@@ -295,5 +291,15 @@ public class CompositionPlayerParameterizedPlaybackTest {
       itemIndex++;
     }
     return sequence.editedMediaItems.get(itemIndex).mediaItem;
+  }
+
+  private static int getNumVideoSequences(Composition composition) {
+    int numVideoSequences = 0;
+    for (int i = 0; i < composition.sequences.size(); i++) {
+      if (composition.sequences.get(i).trackTypes.contains(TRACK_TYPE_VIDEO)) {
+        numVideoSequences++;
+      }
+    }
+    return numVideoSequences;
   }
 }
