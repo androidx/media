@@ -36,6 +36,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.VideoOutputMode;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimedValueQueue;
@@ -62,6 +63,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.ArrayDeque;
 
 /**
  * Decodes and renders video using a {@link Decoder}.
@@ -115,10 +117,12 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   private final int maxDroppedFramesToNotify;
   private final EventDispatcher eventDispatcher;
   private final TimedValueQueue<Format> formatQueue;
+  private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
   private final DecoderInputBuffer flagsOnlyBuffer;
 
   @Nullable private Format inputFormat;
   @Nullable private Format outputFormat;
+  @Nullable private OutputStreamInfo outputStreamInfo;
 
   @Nullable
   private Decoder<
@@ -126,6 +130,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       decoder;
 
   @Nullable private DecoderInputBuffer inputBuffer;
+  private long largestQueuedPresentationTimeUs;
   @Nullable private VideoDecoderOutputBuffer outputBuffer;
   private @VideoOutputMode int outputMode;
   @Nullable private Object output;
@@ -176,9 +181,11 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     this.maxDroppedFramesToNotify = maxDroppedFramesToNotify;
     joiningDeadlineMs = C.TIME_UNSET;
     formatQueue = new TimedValueQueue<>();
+    pendingOutputStreamChanges = new ArrayDeque<>();
     flagsOnlyBuffer = DecoderInputBuffer.newNoDataInstance();
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     decoderReinitializationState = REINITIALIZATION_STATE_NONE;
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
     outputMode = C.VIDEO_OUTPUT_MODE_NONE;
     firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
     decoderCounters = new DecoderCounters();
@@ -297,6 +304,12 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     // TODO(b/440006632): Implement decode-only frame drop logic to allow skipping keyframe reset.
     inputStreamEnded = false;
     outputStreamEnded = false;
+    if (!pendingOutputStreamChanges.isEmpty()) {
+      // Update current outputStreamInfo to represent current stream provided by sample queue.
+      outputStreamInfo = pendingOutputStreamChanges.getLast();
+    }
+    pendingOutputStreamChanges.clear();
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     initialPositionUs = C.TIME_UNSET;
     consecutiveDroppedFrameCount = 0;
@@ -333,6 +346,9 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   @Override
   protected void onDisabled() {
     inputFormat = null;
+    outputStreamInfo = null;
+    pendingOutputStreamChanges.clear();
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
     reportedVideoSize = null;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED);
     try {
@@ -353,6 +369,34 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     // TODO: This code should make sure to render the first frame of the next stream if the playback
     //  position reached the new stream.
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    if (outputStreamInfo == null
+        || (pendingOutputStreamChanges.isEmpty() && buffersInCodecCount == 0)) {
+      outputStreamInfo =
+          new OutputStreamInfo(
+              /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
+              offsetUs,
+              getPeriodDurationUs(),
+              isPeriodDurationStrict());
+    } else {
+      pendingOutputStreamChanges.add(
+          new OutputStreamInfo(
+              /* previousStreamLastBufferTimeUs= */ largestQueuedPresentationTimeUs,
+              offsetUs,
+              getPeriodDurationUs(),
+              isPeriodDurationStrict()));
+    }
+  }
+
+  @Override
+  protected void onTimelineChanged(Timeline timeline) {
+    OutputStreamInfo lastOutputStreamInfo =
+        pendingOutputStreamChanges.isEmpty()
+            ? outputStreamInfo
+            : pendingOutputStreamChanges.getLast();
+    if (lastOutputStreamInfo != null) {
+      lastOutputStreamInfo.durationUs = getPeriodDurationUs();
+      lastOutputStreamInfo.isDurationStrict = isPeriodDurationStrict();
+    }
   }
 
   /**
@@ -462,6 +506,10 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   @CallSuper
   protected void onProcessedOutputBuffer(long presentationTimeUs) {
     buffersInCodecCount--;
+    while (!pendingOutputStreamChanges.isEmpty()
+        && presentationTimeUs >= pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs) {
+      outputStreamInfo = checkNotNull(pendingOutputStreamChanges.poll());
+    }
   }
 
   /**
@@ -794,6 +842,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
         buffersInCodecCount++;
         decoderReceivedBuffers = true;
         decoderCounters.queuedInputBufferCount++;
+        largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, inputBuffer.timeUs);
         this.inputBuffer = null;
         return true;
       default:
@@ -835,9 +884,10 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       return false;
     }
 
+    long outputBufferTimeUs = checkNotNull(outputBuffer).timeUs;
     boolean processedOutputBuffer = processOutputBuffer(positionUs, elapsedRealtimeUs);
     if (processedOutputBuffer) {
-      onProcessedOutputBuffer(checkNotNull(outputBuffer).timeUs);
+      onProcessedOutputBuffer(outputBufferTimeUs);
       outputBuffer = null;
     }
     return processedOutputBuffer;
@@ -871,6 +921,15 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       return false;
     }
 
+    checkNotNull(this.outputStreamInfo);
+    long presentationTimeUs = bufferTimeUs - outputStreamInfo.streamOffsetUs;
+    if (outputStreamInfo.isDurationStrict
+        && outputStreamInfo.durationUs != C.TIME_UNSET
+        && presentationTimeUs > outputStreamInfo.durationUs) {
+      skipOutputBuffer(outputBuffer);
+      return true;
+    }
+
     Format format = formatQueue.pollFloor(bufferTimeUs);
     if (format != null) {
       outputFormat = format;
@@ -881,9 +940,6 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       outputFormat = formatQueue.pollFirst();
     }
 
-    // TODO: This shouldn't just use the input stream offset and we should correctly track the
-    //  output stream offset after decoding instead.
-    long presentationTimeUs = bufferTimeUs - getStreamOffsetUs();
     if (shouldForceRender(earlyUs)) {
       renderOutputBuffer(outputBuffer, presentationTimeUs, checkNotNull(outputFormat));
       return true;
@@ -1013,5 +1069,24 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   private static boolean isBufferVeryLate(long earlyUs) {
     // Class a buffer as very late if it should have been presented more than 500 ms ago.
     return earlyUs < -500000;
+  }
+
+  private static final class OutputStreamInfo {
+
+    private final long previousStreamLastBufferTimeUs;
+    private final long streamOffsetUs;
+    private long durationUs;
+    private boolean isDurationStrict;
+
+    private OutputStreamInfo(
+        long previousStreamLastBufferTimeUs,
+        long streamOffsetUs,
+        long durationUs,
+        boolean isDurationStrict) {
+      this.previousStreamLastBufferTimeUs = previousStreamLastBufferTimeUs;
+      this.streamOffsetUs = streamOffsetUs;
+      this.durationUs = durationUs;
+      this.isDurationStrict = isDurationStrict;
+    }
   }
 }

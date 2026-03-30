@@ -46,6 +46,7 @@ import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.Phaser;
@@ -216,7 +217,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0L,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -248,7 +249,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ false,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -279,7 +280,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ false,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         new MediaSource.MediaPeriodId(new Object()));
     renderer.start();
     for (int i = 0; i < 10; i++) {
@@ -324,7 +325,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         mediaPeriodId1);
     renderer.start();
 
@@ -381,7 +382,7 @@ public final class DecoderVideoRendererTest {
         /* joining= */ false,
         /* mayRenderStartOfStream= */ true,
         /* startPositionUs= */ 0,
-        /* offsetUs */ 0,
+        /* offsetUs= */ 0,
         mediaPeriodId1);
 
     boolean replacedStream = false;
@@ -452,5 +453,98 @@ public final class DecoderVideoRendererTest {
 
     assertThat(capturedOutputFormat).isEqualTo(H264_FORMAT);
     verify(eventListener).onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+  }
+
+  @Test
+  public void render_withStrictDuration_skipsBuffersAfterDuration() throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(90_000)
+                .setDurationStrict(true)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    renderer.setTimeline(fakeTimeline);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    int posUs = 0;
+    while (!renderer.isEnded()) {
+      renderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 10_000;
+    }
+    ShadowLooper.idleMainLooper();
+
+    assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(2);
+    assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(1);
+  }
+
+  @Test
+  public void render_withoutStrictDuration_rendersBuffersAfterDuration() throws Exception {
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(90_000)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    renderer.setTimeline(fakeTimeline);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ H264_FORMAT,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {H264_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+
+    renderer.start();
+    renderer.setCurrentStreamFinal();
+    int posUs = 0;
+    while (!renderer.isEnded()) {
+      renderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 10_000;
+    }
+    ShadowLooper.idleMainLooper();
+
+    assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(3);
+    assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(0);
   }
 }
