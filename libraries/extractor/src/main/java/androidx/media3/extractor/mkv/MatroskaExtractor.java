@@ -83,7 +83,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -2920,14 +2919,8 @@ public class MatroskaExtractor implements Extractor {
 
         // Check if chapter should be hidden and if it's tied to a specific track or not
         if (!chapter.flagHidden && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
-          long startTimeMs =
-              chapter.timeStartNs != C.TIME_UNSET
-                  ? TimeUnit.NANOSECONDS.toMillis(chapter.timeStartNs)
-                  : 0L;
-          long endTimeMs =
-              chapter.timeEndNs != C.TIME_UNSET
-                  ? TimeUnit.NANOSECONDS.toMillis(chapter.timeEndNs)
-                  : startTimeMs;
+          long startTimeMs = Util.nsToMs(chapter.timeStartNs);
+          long endTimeMs = Util.nsToMs(chapter.timeEndNs);
           Chapter chapterMetadata = Chapter.create(startTimeMs, endTimeMs, chapter.chapString);
 
           newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
