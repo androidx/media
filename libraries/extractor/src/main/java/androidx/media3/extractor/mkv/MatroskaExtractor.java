@@ -2910,24 +2910,30 @@ public class MatroskaExtractor implements Extractor {
     }
 
     /** Adds chapters to the track's format as {@link Chapter}. */
-    private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapters) {
-      Metadata newMetadata =
-          (checkNotNull(format).metadata == null) ? new Metadata() : format.metadata;
-
+    private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapterEntries) {
+      List<Chapter> chapters = new ArrayList<>();
       for (int i = 0; i < chapters.size(); i++) {
-        ChapterEntry chapter = chapters.valueAt(i);
-
+        ChapterEntry chapterEntry = chapterEntries.valueAt(i);
         // Check if chapter should be hidden and if it's tied to a specific track or not
-        if (!chapter.flagHidden && (chapter.trackUid == 0 || chapter.trackUid == uid)) {
-          long startTimeMs = Util.nsToMs(chapter.timeStartNs);
-          long endTimeMs = Util.nsToMs(chapter.timeEndNs);
-          Chapter chapterMetadata = Chapter.create(startTimeMs, endTimeMs, chapter.chapString);
-
-          newMetadata = newMetadata.copyWithAppendedEntries(chapterMetadata);
+        if (!chapterEntry.flagHidden
+            && (chapterEntry.trackUid == 0 || chapterEntry.trackUid == uid)) {
+          chapters.add(
+              Chapter.create(
+                  Util.nsToMs(chapterEntry.timeStartNs),
+                  Util.nsToMs(chapterEntry.timeEndNs),
+                  chapterEntry.chapString));
         }
       }
-
-      format = format.buildUpon().setMetadata(newMetadata).build();
+      if (!chapters.isEmpty()) {
+        format =
+            checkNotNull(format)
+                .buildUpon()
+                .setMetadata(
+                    format.metadata != null
+                        ? format.metadata.copyWithAppendedEntries(chapters.toArray(new Chapter[0]))
+                        : new Metadata(chapters))
+                .build();
+      }
     }
 
     /**
