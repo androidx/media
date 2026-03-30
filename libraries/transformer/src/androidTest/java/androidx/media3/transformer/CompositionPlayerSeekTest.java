@@ -19,7 +19,6 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
@@ -52,6 +51,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -1199,8 +1199,7 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
-  @Ignore("This is flaky, re-enable once seeking is fixed (b/481625008)")
-  @SdkSuppress(minSdkVersion = 33)
+  @SdkSuppress(minSdkVersion = 28)
   public void seekWhilePaused_withPacketConsumer_outputsPacket() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     AtomicBoolean isPlaying = new AtomicBoolean();
@@ -1222,8 +1221,8 @@ public class CompositionPlayerSeekTest {
         new Composition.Builder(
                 EditedMediaItemSequence.withAudioAndVideoFrom(
                     ImmutableList.of(
-                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
-                            .setDurationUs(MP4_ADVANCED_ASSET.videoDurationUs)
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
                             .build())))
             .build();
 
@@ -1231,7 +1230,7 @@ public class CompositionPlayerSeekTest {
         .runOnMainSync(
             () -> {
               player.set(
-                  new CompositionPlayer.Builder(applicationContext)
+                  NdkCompositionPlayerBuilder.create(applicationContext)
                       .setHardwareBufferEffectsPipeline(pipeline)
                       .build());
               player.get().setVideoSurfaceView(surfaceView);

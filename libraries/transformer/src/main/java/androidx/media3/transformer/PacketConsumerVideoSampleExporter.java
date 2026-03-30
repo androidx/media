@@ -184,7 +184,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Create the FrameAggregator, ignoring audio only sequences.
     int numVideoSequences = getNumVideoSequences(composition);
-    frameAggregator = new FrameAggregator(numVideoSequences, thisRef::queueAggregatedFrames);
+    frameAggregator =
+        new FrameAggregator(
+            numVideoSequences, thisRef::queueAggregatedFrames, /* onFlush= */ (unused) -> {});
 
     // Create the per sequence consumers that feed buffers from the decoders into the
     // FrameAggregator.

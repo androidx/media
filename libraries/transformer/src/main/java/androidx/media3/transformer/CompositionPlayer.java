@@ -1482,7 +1482,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
       frameAggregator =
           new FrameAggregator(
-              composition.sequences.size(), checkNotNull(videoPacketReleaseControl)::queue);
+              composition.sequences.size(),
+              checkNotNull(videoPacketReleaseControl)::queue,
+              checkNotNull(videoPacketReleaseControl)::flush);
     }
 
     prepareCompositionPlayerInternal();

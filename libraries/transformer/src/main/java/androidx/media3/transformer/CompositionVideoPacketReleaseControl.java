@@ -47,7 +47,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
-  private boolean isEnded;
+  private volatile boolean isEnded;
 
   /**
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
@@ -155,6 +155,20 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
   }
 
+  /**
+   * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
+   * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control, when the
+   * primary sequence is flushed.
+   *
+   * <p>Called on the playback thread.
+   */
+  public void flush(int sequenceIndex) {
+    // Only reset when the primary sequence is flushed.
+    if (sequenceIndex == 0) {
+      reset();
+    }
+  }
+
   @Override
   public boolean isEnded() {
     return isEnded;
@@ -167,7 +181,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    */
   public void onStarted() {
     videoFrameReleaseControl.onStarted();
-    isEnded = false;
   }
 
   /**
@@ -183,7 +196,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
    * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control.
    */
-  public void reset() {
+  private void reset() {
     @Nullable ImmutableList<HardwareBufferFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       releasePacket(packet);

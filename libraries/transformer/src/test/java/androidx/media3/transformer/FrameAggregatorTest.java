@@ -39,17 +39,22 @@ public class FrameAggregatorTest {
   private List<Long> releasedFrameTimestamps;
 
   private ArrayList<List<HardwareBufferFrame>> outputFrames;
+  private ArrayList<Integer> flushedSequences;
 
   @Before
   public void setUp() {
     releasedFrameTimestamps = new ArrayList<>();
     outputFrames = new ArrayList<>();
+    flushedSequences = new ArrayList<>();
   }
 
   @Test
   public void queueFrame_withInvalidSequenceIndex_throwsIllegalArgumentException() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame = createFrame(/* presentationTimeUs= */ 100);
 
     assertThrows(IllegalArgumentException.class, () -> frameAggregator.queueFrame(frame, 2));
@@ -58,7 +63,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueFrame_singleSequence_passesFramesThrough() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame frame2 = createFrame(/* presentationTimeUs= */ 200);
 
@@ -73,7 +81,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueFrame_waitsForAllSequencesBeforeAggregating() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 100);
 
@@ -96,7 +107,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueFrame_dropsSecondaryFramesWithEarlierPresentationTimeUs() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 50);
     HardwareBufferFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 80);
@@ -125,7 +139,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueFrame_selectsSecondaryFrameWithEqualPresentationTimeUs() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 200);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 199);
     HardwareBufferFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 200);
@@ -149,7 +166,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueFrame_selectsSecondaryFrameWithGreaterPresentationTimeUs() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 200);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 199);
     HardwareBufferFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 201);
@@ -173,7 +193,10 @@ public class FrameAggregatorTest {
   @Test
   public void releaseAllFrames_releasesAllHeldFrames() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 3, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 3,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame0 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame frame2 = createFrame(/* presentationTimeUs= */ 100);
@@ -203,7 +226,10 @@ public class FrameAggregatorTest {
   @Test
   public void flush_thenQueueFramesWithEarlierPresentationTimeUs_aggregatesCorrectly() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
 
@@ -220,6 +246,8 @@ public class FrameAggregatorTest {
 
     frameAggregator.flush(/* sequenceIndex= */ 0);
     frameAggregator.flush(/* sequenceIndex= */ 1);
+
+    assertThat(flushedSequences).containsExactly(0, 1).inOrder();
 
     HardwareBufferFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 50);
     HardwareBufferFrame secondaryFrame2 = createFrame(/* presentationTimeUs= */ 50);
@@ -239,7 +267,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_withInvalidSequenceIndex_throwsIllegalArgumentException() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
 
     assertThrows(IllegalArgumentException.class, () -> frameAggregator.queueEndOfStream(2));
   }
@@ -247,7 +278,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_secondaryStream_aggregatesWithoutSecondaryFrame() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
 
     frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
@@ -263,7 +297,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_oneOfTwoSecondaryStreams_aggregatesWithAvailableFrames() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 3, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 3,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
 
@@ -286,7 +323,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_thenFlush_resetsEndedState() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 200);
     HardwareBufferFrame secondaryFrame = createFrame(/* presentationTimeUs= */ 200);
@@ -310,12 +350,17 @@ public class FrameAggregatorTest {
         .isEqualTo(primaryFrame2.presentationTimeUs);
     assertThat(aggregatedPacket.get(1).presentationTimeUs)
         .isEqualTo(secondaryFrame.presentationTimeUs);
+
+    assertThat(flushedSequences).containsExactly(1);
   }
 
   @Test
   public void queueEndOfStream_secondaryStreamAlreadyHasFrames_usesFramesBeforeSkipping() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
     HardwareBufferFrame primaryFrame2 = createFrame(/* presentationTimeUs= */ 200);
     HardwareBufferFrame secondaryFrame1 = createFrame(/* presentationTimeUs= */ 100);
@@ -342,7 +387,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_primarySequence_outputsEndOfStreamFrame() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
 
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
 
@@ -353,7 +401,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_primarySequenceAfterFrames_outputsFramesThenEndOfStream() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
 
     frameAggregator.queueFrame(frame1, /* sequenceIndex= */ 0);
@@ -367,7 +418,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_primarySequence_ignoresSubsequentFrames() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame frame1 = createFrame(/* presentationTimeUs= */ 100);
 
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
@@ -382,7 +436,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_primarySequence_idempotent() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
 
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
@@ -394,7 +451,10 @@ public class FrameAggregatorTest {
   @Test
   public void queueEndOfStream_thenFlushPrimary_allowsNewFrames() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 1, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
 
     frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
     assertThat(outputFrames.get(0)).containsExactly(HardwareBufferFrame.END_OF_STREAM_FRAME);
@@ -406,12 +466,17 @@ public class FrameAggregatorTest {
 
     assertThat(outputFrames).hasSize(2);
     assertThat(outputFrames.get(1)).containsExactly(frame1);
+
+    assertThat(flushedSequences).containsExactly(0);
   }
 
   @Test
   public void queueEndOfStream_primaryEndsWhileWaitingForSecondary_outputsFramesThenEos() {
     FrameAggregator frameAggregator =
-        new FrameAggregator(/* numSequences= */ 2, /* downstreamConsumer= */ outputFrames::add);
+        new FrameAggregator(
+            /* numSequences= */ 2,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
     HardwareBufferFrame primaryFrame = createFrame(100);
     HardwareBufferFrame secondaryFrame = createFrame(100);
 

@@ -185,7 +185,8 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void reset_releasesHeldFramesAndResetsReleaseControl() throws ExoPlaybackException {
+  public void flushPrimarySequence_releasesHeldFramesAndResetsReleaseControl()
+      throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
     ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
     ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
@@ -199,11 +200,32 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.queue(packet2);
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
 
-    compositionVideoPacketReleaseControl.reset();
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
     assertThat(releasedFrameTimestamps)
         .containsExactly(packet1.get(0).presentationTimeUs, packet2.get(0).presentationTimeUs);
+  }
+
+  @Test
+  public void flushSecondarySequence_isIgnored() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.queue(packet2);
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 1);
+
+    assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
@@ -280,7 +302,8 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void onStarted_afterEos_resetsIsEndedToFalse() throws ExoPlaybackException {
+  public void onStarted_afterEos_doesNotResetIsEndedToFalse() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -290,11 +313,12 @@ public class CompositionVideoPacketReleaseControlTest {
 
     compositionVideoPacketReleaseControl.onStarted();
 
-    assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
   }
 
   @Test
-  public void reset_afterEos_resetsIsEndedToFalse() throws ExoPlaybackException {
+  public void flushPrimarySequence_afterEos_resetsIsEndedToFalse() throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -302,9 +326,25 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
 
-    compositionVideoPacketReleaseControl.reset();
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+  }
+
+  @Test
+  public void flushSecondarySequence_afterEos_doesNotResetIsEndedToFalse()
+      throws ExoPlaybackException {
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 1);
+
+    assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
   }
 
   @Test

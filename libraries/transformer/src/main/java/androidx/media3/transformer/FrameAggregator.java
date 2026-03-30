@@ -36,6 +36,7 @@ import java.util.Queue;
  */
 /* package */ class FrameAggregator {
   private final Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
+  private final Consumer<Integer> onFlush;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
   private boolean isEnded;
@@ -45,11 +46,15 @@ import java.util.Queue;
    *
    * @param downstreamConsumer Receives the aggregated {@linkplain
    *     ImmutableList<HardwareBufferFrame> frames}.
+   * @param onFlush Callback triggered when {@link #flush(int)} is called.
    */
   public FrameAggregator(
-      int numSequences, Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer) {
+      int numSequences,
+      Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
+      Consumer<Integer> onFlush) {
     this.numSequences = numSequences;
     this.downstreamConsumer = downstreamConsumer;
+    this.onFlush = onFlush;
     inputFrameQueues = new ArrayList<>();
     for (int i = 0; i < numSequences; i++) {
       inputFrameQueues.add(new FrameQueue());
@@ -122,6 +127,7 @@ import java.util.Queue;
       isEnded = false;
     }
     inputFrameQueues.get(sequenceIndex).isEnded = false;
+    onFlush.accept(sequenceIndex);
   }
 
   /**

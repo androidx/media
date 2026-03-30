@@ -247,9 +247,6 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           playbackAudioGraphWrapper.startSeek(/* positionUs= */ Util.msToUs((long) message.obj));
           break;
         case MSG_END_SEEK:
-          if (videoPacketReleaseControl != null) {
-            videoPacketReleaseControl.reset();
-          }
           playbackAudioGraphWrapper.endSeek();
           break;
         case MSG_RELEASE:

@@ -71,6 +71,7 @@ import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -837,8 +838,7 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  @Ignore("This is flaky, re-enable once EOS is only propagated when playing (b/481625008)")
-  @SdkSuppress(minSdkVersion = 33)
+  @SdkSuppress(minSdkVersion = 28)
   public void compositionPlayer_withPacketConsumer_outputsFrameBeforeEnding() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     Queue<Long> videoTimestamps = new ConcurrentLinkedQueue<>();
@@ -849,7 +849,7 @@ public class CompositionPlayerTest {
               DefaultHardwareBufferEffectsPipeline.create(
                   applicationContext, HardwareBufferJni.INSTANCE);
           compositionPlayer =
-              new CompositionPlayer.Builder(applicationContext)
+              NdkCompositionPlayerBuilder.create(applicationContext)
                   .setHardwareBufferEffectsPipeline(packetProcessor)
                   .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                   .build();
@@ -892,6 +892,56 @@ public class CompositionPlayerTest {
     listener.waitUntilPlayerEnded();
 
     assertThat(videoTimestamps).containsExactly(0L, -1L).inOrder();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void compositionPlayer_playAfterEnded_doesNotTimeout() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+
+    instrumentation.runOnMainSync(
+        () -> {
+          DefaultHardwareBufferEffectsPipeline packetProcessor =
+              DefaultHardwareBufferEffectsPipeline.create(
+                  applicationContext, HardwareBufferJni.INSTANCE);
+          compositionPlayer =
+              NdkCompositionPlayerBuilder.create(applicationContext)
+                  .setHardwareBufferEffectsPipeline(packetProcessor)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      new MediaItem.Builder()
+                                          .setUri(
+                                              MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)
+                                          .setClippingConfiguration(
+                                              new MediaItem.ClippingConfiguration.Builder()
+                                                  .setEndPositionMs(10)
+                                                  .build())
+                                          .build())
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    listener.waitUntilPlayerEnded();
+
+    // Call play() again after the player has already ended.
+    // This should not cause a timeout.
+    instrumentation.runOnMainSync(() -> compositionPlayer.play());
+    listener.waitUntilPlayerEnded();
+
+    // Verify the state is still ENDED
+    instrumentation.runOnMainSync(
+        () -> assertThat(compositionPlayer.getPlaybackState()).isEqualTo(STATE_ENDED));
   }
 
   private static final class TestExternallyLoadedBitmapResolver

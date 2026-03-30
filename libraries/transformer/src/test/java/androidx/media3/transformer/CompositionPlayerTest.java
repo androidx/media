@@ -1319,6 +1319,53 @@ public class CompositionPlayerTest {
     assertThat(allExpectedPacketsQueued.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
+  @Test
+  public void packetConsumer_seekWhilePaused_outputsPacket() throws Exception {
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrame.set(frames.get(0));
+          queuedPackets.incrementAndGet();
+          packetQueued.open();
+          return null;
+        });
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(0);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(500_000L);
+  }
+
   private static EditedMediaItem getImageItem() {
     return new EditedMediaItem.Builder(
             new MediaItem.Builder()
