@@ -2911,8 +2911,8 @@ public class MatroskaExtractor implements Extractor {
 
     /** Adds chapters to the track's format as {@link Chapter}. */
     private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapterEntries) {
-      List<Chapter> chapters = new ArrayList<>();
-      for (int i = 0; i < chapters.size(); i++) {
+      List<Chapter> chapters = new ArrayList<>(chapterEntries.size());
+      for (int i = 0; i < chapterEntries.size(); i++) {
         ChapterEntry chapterEntry = chapterEntries.valueAt(i);
         // Check if chapter should be hidden and if it's tied to a specific track or not
         if (!chapterEntry.flagHidden
