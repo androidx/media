@@ -23,6 +23,7 @@ import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
@@ -49,11 +50,14 @@ import androidx.lifecycle.LifecycleService;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -802,7 +806,22 @@ public abstract class MediaSessionService extends LifecycleService {
   public void onUpdateNotification(MediaSession session, boolean startInForegroundRequired) {
     onUpdateNotification(session);
     if (defaultMethodCalled) {
-      getMediaNotificationManager().updateNotification(session, startInForegroundRequired);
+      ListenableFuture<@NullableType Void> result =
+          getMediaNotificationManager().updateNotification(session, startInForegroundRequired);
+      ListenableFuture<@NullableType Void> ignored =
+          Futures.catching(
+              result,
+              RuntimeException.class,
+              e -> {
+                if (SDK_INT >= 31 && e instanceof ForegroundServiceStartNotAllowedException) {
+                  Log.e(TAG, "Failed to start service into the foreground", e);
+                  onForegroundServiceStartNotAllowedException();
+                } else {
+                  Log.e(TAG, "Calling updateNotification() failed with a runtime exception", e);
+                }
+                return null;
+              },
+              directExecutor());
     }
   }
 
@@ -848,18 +867,9 @@ public abstract class MediaSessionService extends LifecycleService {
    */
   /* package */ boolean onUpdateNotificationInternal(
       MediaSession session, boolean startInForegroundWhenPaused) {
-    try {
-      boolean startInForegroundRequired =
-          getMediaNotificationManager().shouldRunInForeground(startInForegroundWhenPaused);
-      onUpdateNotification(session, startInForegroundRequired);
-    } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
-      if ((SDK_INT >= 31) && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
-        Log.e(TAG, "Failed to start foreground", e);
-        onForegroundServiceStartNotAllowedException();
-        return false;
-      }
-      throw e;
-    }
+    boolean startInForegroundRequired =
+        getMediaNotificationManager().shouldRunInForeground(startInForegroundWhenPaused);
+    onUpdateNotification(session, startInForegroundRequired);
     return true;
   }
 
@@ -1047,14 +1057,6 @@ public abstract class MediaSessionService extends LifecycleService {
         SessionUtil.disconnectIMediaController(controller);
       }
       pendingControllers.clear();
-    }
-  }
-
-  @RequiresApi(31)
-  private static final class Api31 {
-    public static boolean instanceOfForegroundServiceStartNotAllowedException(
-        IllegalStateException e) {
-      return e instanceof ForegroundServiceStartNotAllowedException;
     }
   }
 }

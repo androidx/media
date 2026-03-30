@@ -33,6 +33,10 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Fix bug where 'ForegroundServiceStartNotAllowedException' wasn't
+        propagated across thread boundaries in case the application thread is
+        not the main thread
+        ([#2499](https://github.com/androidx/media/issues/2499)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:
