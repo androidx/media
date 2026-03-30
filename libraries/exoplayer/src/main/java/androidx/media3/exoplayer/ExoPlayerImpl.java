@@ -134,6 +134,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -1171,6 +1172,17 @@ import java.util.function.IntConsumer;
     }
     currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
     playerReleased = true;
+    // TODO (b/494325148): Remove assertion.
+    if (!playbackInfo.timeline.isEmpty()) {
+      checkState(
+          playbackInfo.timeline.getIndexOfPeriod(playbackInfo.periodId.periodUid) != C.INDEX_UNSET,
+          String.format(
+              Locale.US,
+              "periodUid %s not found in timeline %s with size %d",
+              playbackInfo.periodId.periodUid,
+              playbackInfo.timeline.getClass().getName(),
+              playbackInfo.timeline.getWindowCount()));
+    }
   }
 
   @Override
@@ -2272,6 +2284,12 @@ import java.util.function.IntConsumer;
     PlaybackInfo previousPlaybackInfo = this.playbackInfo;
     PlaybackInfo newPlaybackInfo = playbackInfo;
     this.playbackInfo = playbackInfo;
+    // TODO (b/494325148): Remove assertion.
+    if (!playbackInfo.timeline.isEmpty()) {
+      checkState(
+          playbackInfo.timeline.getIndexOfPeriod(playbackInfo.periodId.periodUid) != C.INDEX_UNSET,
+          "periodUid not found in timeline");
+    }
 
     boolean timelineChanged = !previousPlaybackInfo.timeline.equals(newPlaybackInfo.timeline);
     Pair<Boolean, Integer> mediaItemTransitionInfo =

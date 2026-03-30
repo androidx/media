@@ -86,6 +86,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /** Implements the internal behavior of {@link ExoPlayerImpl}. */
@@ -863,7 +864,7 @@ import java.util.Objects;
           }
           MediaPeriodHolder newPlayingPeriodHolder = checkNotNull(queue.getPlayingPeriod());
           // Send already pending updates if needed before making further changes to PlaybackInfo.
-          maybeNotifyPlaybackInfoChanged();
+          maybeNotifyPlaybackInfoChanged(msg.what);
           playbackInfo =
               handlePositionDiscontinuity(
                   newPlayingPeriodHolder.info.id,
@@ -928,7 +929,7 @@ import java.util.Objects;
       stopInternal(/* forceResetRenderers= */ true, /* acknowledgeStop= */ false);
       playbackInfo = playbackInfo.copyWithPlaybackError(error);
     }
-    maybeNotifyPlaybackInfoChanged();
+    maybeNotifyPlaybackInfoChanged(msg.what);
     return true;
   }
 
@@ -958,9 +959,22 @@ import java.util.Objects;
     }
   }
 
-  private void maybeNotifyPlaybackInfoChanged() {
+  private void maybeNotifyPlaybackInfoChanged(int messageNumber) {
     playbackInfoUpdate.setPlaybackInfo(playbackInfo);
     if (playbackInfoUpdate.hasPendingChange) {
+      // TODO (b/494325148): Remove assertion.
+      if (!playbackInfo.timeline.isEmpty()) {
+        checkState(
+            playbackInfo.timeline.getIndexOfPeriod(playbackInfo.periodId.periodUid)
+                != C.INDEX_UNSET,
+            String.format(
+                Locale.US,
+                "periodUid %s not found in timeline %s with size %d triggered by msg %d",
+                playbackInfo.periodId.periodUid,
+                playbackInfo.timeline.getClass().getName(),
+                playbackInfo.timeline.getWindowCount(),
+                messageNumber));
+      }
       playbackInfoUpdateListener.onPlaybackInfoUpdate(playbackInfoUpdate);
       playbackInfoUpdate = new PlaybackInfoUpdate(playbackInfo);
     }
@@ -2944,7 +2958,7 @@ import java.util.Objects;
     while (shouldAdvancePlayingPeriod()) {
       if (advancedPlayingPeriod) {
         // If we advance more than one period at a time, notify listeners after each update.
-        maybeNotifyPlaybackInfoChanged();
+        maybeNotifyPlaybackInfoChanged(/* messageNumber= */ -1);
       }
       isPrewarmingDisabledUntilNextTransition = false;
       MediaPeriodHolder newPlayingPeriodHolder = checkNotNull(queue.advancePlayingPeriod());
