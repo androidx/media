@@ -16,15 +16,14 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.media.AudioFormat;
 import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableSet;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -33,7 +32,7 @@ import java.lang.annotation.Target;
 import java.util.List;
 
 /** Constants and utils for configuring IAMF decoding. */
-@RestrictTo(LIBRARY_GROUP)
+@UnstableApi
 public final class IamfUtil {
 
   private IamfUtil() {}
