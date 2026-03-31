@@ -398,8 +398,7 @@ import java.util.function.IntConsumer;
               playerId,
               builder.playbackLooperProvider,
               preloadConfiguration,
-              frameMetadataListener,
-              builder.avoidLoadingWhileEnded);
+              frameMetadataListener);
       Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;

@@ -235,7 +235,6 @@ import java.util.Objects;
   private final HandlerWrapper applicationLooperHandler;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
-  private final boolean avoidLoadingWhileEnded;
 
   private SeekParameters seekParameters;
   private ScrubbingModeParameters scrubbingModeParameters;
@@ -294,8 +293,7 @@ import java.util.Objects;
       PlayerId playerId,
       @Nullable PlaybackLooperProvider playbackLooperProvider,
       PreloadConfiguration preloadConfiguration,
-      VideoFrameMetadataListener videoFrameMetadataListener,
-      boolean avoidLoadingWhileEnded) {
+      VideoFrameMetadataListener videoFrameMetadataListener) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.trackSelector = trackSelector;
     this.emptyTrackSelectorResult = emptyTrackSelectorResult;
@@ -315,7 +313,6 @@ import java.util.Objects;
     this.analyticsCollector = analyticsCollector;
     this.volume = 1f;
     this.scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
-    this.avoidLoadingWhileEnded = avoidLoadingWhileEnded;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
@@ -1360,19 +1357,13 @@ import java.util.Objects;
     // Remove other pending DO_SOME_WORK requests that are handled by this invocation.
     handler.removeMessages(MSG_DO_SOME_WORK);
 
-    if (!avoidLoadingWhileEnded) {
-      updatePeriods();
-    }
-
     if (playbackInfo.playbackState == Player.STATE_IDLE
         || playbackInfo.playbackState == Player.STATE_ENDED) {
       // Nothing to do. Prepare (in case of IDLE) or seek (in case of ENDED) will resume.
       return;
     }
 
-    if (avoidLoadingWhileEnded) {
-      updatePeriods();
-    }
+    updatePeriods();
 
     @Nullable MediaPeriodHolder playingPeriodHolder = queue.getPlayingPeriod();
     if (playingPeriodHolder == null) {
