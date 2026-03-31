@@ -574,8 +574,8 @@ public final class MediaItem {
     /**
      * Sets the image duration in video output, in milliseconds.
      *
-     * <p>Must be set if {@linkplain #setUri the URI} is set and resolves to an image. Ignored
-     * otherwise.
+     * <p>Should be set if {@linkplain #setUri the URI} is set and resolves to an image, otherwise
+     * the duration of the image may default to a very small value. Ignored otherwise.
      *
      * <p>Motion photos will be rendered as images if this parameter is set, and as videos
      * otherwise.

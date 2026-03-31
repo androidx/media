@@ -31,7 +31,19 @@ import org.robolectric.RobolectricTestParameterInjector;
 public final class JpegExtractorTest {
 
   @Test
-  public void sampleNonMotionPhotoShortened_extractImage(
+  public void sampleNonMotionPhotoShortened_noFlags_extractImage(
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        JpegExtractor::new,
+        "media/jpeg/non-motion-photo-shortened.jpg",
+        /* peekLimit= */ -1,
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleNonMotionPhotoShortened_readImageFlag_extractImage(
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
@@ -39,15 +51,11 @@ public final class JpegExtractorTest {
         () -> new JpegExtractor(JpegExtractor.FLAG_READ_IMAGE),
         "media/jpeg/non-motion-photo-shortened.jpg",
         /* peekLimit= */ 2,
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                "extractordumps/jpeg/non-motion-photo-shortened.jpg_JpegExtractor.FLAG_READ_IMAGE")
-            .build(),
         simulationConfig);
   }
 
   @Test
-  public void samplePixelMotionPhotoShortened_extractImage(
+  public void samplePixelMotionPhotoShortened_readImageFlag_extractImage(
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
@@ -56,8 +64,7 @@ public final class JpegExtractorTest {
         "media/jpeg/pixel-motion-photo-shortened.jpg",
         /* peekLimit= */ 2,
         new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                "extractordumps/jpeg/pixel-motion-photo-shortened.jpg_JpegExtractor.FLAG_READ_IMAGE")
+            .setDumpFilesPrefix("extractordumps/jpeg/pixel-motion-photo-shortened.jpg_image")
             .build(),
         simulationConfig);
   }
@@ -164,7 +171,7 @@ public final class JpegExtractorTest {
   }
 
   @Test
-  public void sniff_onNonMotionPhotoWithDefaultFlags_returnsFalse() throws Exception {
+  public void sniff_onNonMotionPhotoWithDefaultFlags_returnsTrue() throws Exception {
     JpegExtractor extractor = new JpegExtractor();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -174,7 +181,7 @@ public final class JpegExtractorTest {
                     "media/jpeg/non-motion-photo-shortened.jpg"))
             .build();
 
-    assertThat(extractor.sniff(input)).isFalse();
+    assertThat(extractor.sniff(input)).isTrue();
   }
 
   @Test

@@ -33,6 +33,9 @@
         buffer byte size limits if available heap memory seems tight.
     *   Fix possible app crashes when recovering from decoder errors with
         renderer prewarming.
+    *   Align handling of still images when `MediaItem.imageDurationUs` is not
+        set: JPEG and HEIC still images now 'play' with a very short default
+        duration (the same way PNG and other images previously behaved).
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
