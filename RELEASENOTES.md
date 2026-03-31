@@ -134,9 +134,6 @@ This release includes the following changes since
     *   Improve the retry logic of `AudioOutput` initialization in
         `DefaultAudioSink`
         ([#2905](https://github.com/androidx/media/issues/2905)).
-    *   Improve the retry logic of `AudioOutput` initialization in
-        `DefaultAudioSink`
-        ([#2905](https://github.com/androidx/media/issues/2905)).
     *   Attempt to match the output layout of the speakers (or Spatializer if
         applicable) when decoding IAMF, both with the IAMF extension and media
         codec decoders, supported by new fields and logic in AudioCapabilities
@@ -207,6 +204,8 @@ This release includes the following changes since
     *   Workaround SysUI bug on API 29 where media session artwork in a
         particular size can crash SysUI and force the device to reboot
         ([#3118](https://github.com/androidx/media/issues/3118)).
+    *   Fix notification artwork icon scaling on Android Q
+        ([#3084](https://github.com/androidx/media/issues/3084)).
 *   UI:
     *   Add `PlaybackSpeedControl` Composable to `media3-ui-compose` for
         displaying and modifying playback speed.
