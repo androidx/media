@@ -77,14 +77,13 @@ public final class TranscodeQualityTest {
 
   private static final String LEGACY = "legacy";
   private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
-  private static final String PACKET_CONSUMER = "packet_consumer";
 
   @Rule public final TestName testName = new TestName();
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
-    if (SDK_INT >= 33) {
-      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK, PACKET_CONSUMER);
+    if (SDK_INT >= 28) {
+      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK);
     }
     return ImmutableList.of(LEGACY);
   }
@@ -169,7 +168,6 @@ public final class TranscodeQualityTest {
     Context context = ApplicationProvider.getApplicationContext();
     // TODO: b/286211012 - Enable once DefaultHardwareBufferEffectsPipeline supports HDR.
     assumeFalse(mode.equals(PACKET_CONSUMER_NDK));
-    assumeFalse(mode.equals(PACKET_CONSUMER));
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
@@ -208,11 +206,6 @@ public final class TranscodeQualityTest {
   private static Transformer.Builder createBuilder(Context context, String mode) {
     if (mode.equals(PACKET_CONSUMER_NDK)) {
       return NdkTransformerBuilder.create(context)
-          .setHardwareBufferEffectsPipeline(
-              DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
-    }
-    if (mode.equals(PACKET_CONSUMER)) {
-      return new Transformer.Builder(context)
           .setHardwareBufferEffectsPipeline(
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
     }

@@ -139,18 +139,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     componentListener = new ComponentListener();
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
-    if (hardwareBufferJniWrapper != null) {
+    if (SDK_INT >= 33) {
+      hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
+    } else if (hardwareBufferJniWrapper != null) {
       // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-      hardwareBufferPostProcessor =
-          new BitmapToHardwareBufferProcessor(
-              hardwareBufferJniWrapper,
-              /* internalExecutor= */ Util.newSingleThreadExecutor(
-                  "BitmapToHardwareBufferProcessor::Thread"),
-              /* errorExecutor= */ directExecutor(),
-              /* errorCallback= */ (e) ->
-                  errorConsumer.accept(
-                      ExportException.createForVideoFrameProcessingException(
-                          VideoFrameProcessingException.from(e))));
       HardwareBufferSurfaceRenderer packetRenderer =
           HardwareBufferSurfaceRenderer.create(
               context,
@@ -162,11 +154,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                           VideoFrameProcessingException.from(e))));
       hardwareBufferFrameQueue =
           new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
-    } else if (SDK_INT >= 33) {
-      hardwareBufferPostProcessor = null;
-      hardwareBufferFrameQueue = new EncoderWriterHardwareBufferQueue(componentListener);
     } else {
       throw new UnsupportedOperationException();
+    }
+    if (hardwareBufferJniWrapper != null) {
+      hardwareBufferPostProcessor =
+          new BitmapToHardwareBufferProcessor(
+              hardwareBufferJniWrapper,
+              /* internalExecutor= */ Util.newSingleThreadExecutor(
+                  "BitmapToHardwareBufferProcessor::Thread"),
+              /* errorExecutor= */ directExecutor(),
+              /* errorCallback= */ (e) ->
+                  errorConsumer.accept(
+                      ExportException.createForVideoFrameProcessingException(
+                          VideoFrameProcessingException.from(e))));
+    } else {
+      hardwareBufferPostProcessor = null;
     }
 
     // Create a Java wrapper to feed frames into the effects pipeline.

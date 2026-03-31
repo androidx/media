@@ -95,6 +95,7 @@ import androidx.media3.effect.StaticOverlaySettings;
 import androidx.media3.effect.TextOverlay;
 import androidx.media3.effect.TextureOverlay;
 import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.ndk.NdkTransformerBuilder;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor;
 import androidx.media3.exoplayer.util.DebugTextViewHelper;
@@ -367,17 +368,21 @@ public final class TransformerActivity extends AppCompatActivity {
   @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
   private Transformer createTransformer(
       @Nullable Bundle bundle, Composition composition, Uri inputUri, String filePath) {
-    Transformer.Builder transformerBuilder = new Transformer.Builder(/* context= */ this);
+    Transformer.Builder transformerBuilder;
 
     if (bundle != null && bundle.getBoolean(ConfigurationActivity.ENABLE_PACKET_PROCESSOR)) {
-      if (SDK_INT < 33) {
-        throw new IllegalStateException("API version 34+ required to export with PacketProcessor");
+      // We cannot use checkState(SDK_INT < 28); because the compiler is not smart enough.
+      if (SDK_INT < 28) {
+        throw new IllegalStateException("API version 28+ required to export with PacketProcessor");
       }
+      transformerBuilder = NdkTransformerBuilder.create(/* context= */ this);
       transformerBuilder.setHardwareBufferEffectsPipeline(
           DefaultHardwareBufferEffectsPipeline.create(
-              this,
+              /* context= */ this,
               HardwareBufferJni.INSTANCE,
               /* overlaySettingsProvider= */ TransformerActivity::getOverlaySettings));
+    } else {
+      transformerBuilder = new Transformer.Builder(/* context= */ this);
     }
     transformerBuilder.addListener(
         new Transformer.Listener() {
