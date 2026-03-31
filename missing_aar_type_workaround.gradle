@@ -26,6 +26,8 @@ def addMissingAarTypeToXml(xml) {
         "com.google.truth:truth",
         "com.squareup.okhttp3:mockwebserver",
         "com.squareup.okhttp3:okhttp",
+        "io.ktor:ktor-client-android",
+        "io.ktor:ktor-client-core",
         "junit:junit",
         "org.chromium.net:cronet-api",
         "org.jetbrains.kotlin:kotlin-stdlib",
