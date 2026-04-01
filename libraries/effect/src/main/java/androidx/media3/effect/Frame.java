@@ -24,10 +24,6 @@ import androidx.media3.common.util.UnstableApi;
  * An interface that represents a single frame of data.
  *
  * <p>This interface is experimental and subject to change.
- *
- * <p>A {@code Frame} is the basic unit of data that {@link FrameConsumer}s can process.
- * Implementations should wrap the underlying data objects, such as a {@link
- * android.graphics.Bitmap} or a GL texture.
  */
 @UnstableApi
 @RestrictTo(Scope.LIBRARY_GROUP)
