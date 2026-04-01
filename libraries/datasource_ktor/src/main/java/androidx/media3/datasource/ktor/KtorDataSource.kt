@@ -68,106 +68,9 @@ private constructor(
   private val requestProperties: HttpDataSource.RequestProperties,
 ) : BaseDataSource(/* isNetwork= */ true), HttpDataSource {
 
-  companion object {
-    private const val TAG = "KtorDataSource"
-
-    init {
-      MediaLibraryInfo.registerModule("media3.datasource.ktor")
-    }
-  }
-
-  /**
-   * [androidx.media3.datasource.DataSource.Factory] for [KtorDataSource] instances.
-   *
-   * @param httpClient A [HttpClient] for use by the sources created by the factory.
-   */
-  class Factory(private val httpClient: HttpClient) : HttpDataSource.Factory {
-
-    private val defaultRequestProperties = HttpDataSource.RequestProperties()
-
-    private var userAgent: String? = null
-
-    private var transferListener: TransferListener? = null
-
-    private var contentTypePredicate: Predicate<String>? = null
-
-    @CanIgnoreReturnValue
-    override fun setDefaultRequestProperties(
-      defaultRequestProperties: Map<String, String>
-    ): Factory {
-      this.defaultRequestProperties.clearAndSet(defaultRequestProperties)
-      return this
-    }
-
-    /**
-     * Sets the user agent that will be used.
-     *
-     * The default is `null`, which causes the default user agent of the underlying [HttpClient] to
-     * be used.
-     *
-     * @param userAgent The user agent that will be used, or `null` to use the default user agent of
-     *   the underlying [HttpClient].
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setUserAgent(userAgent: String?): Factory {
-      this.userAgent = userAgent
-      return this
-    }
-
-    /**
-     * Sets a content type [Predicate]. If a content type is rejected by the predicate then a
-     * [HttpDataSource.InvalidContentTypeException] is thrown from [KtorDataSource.open].
-     *
-     * The default is `null`.
-     *
-     * @param contentTypePredicate The content type [Predicate], or `null` to clear a predicate that
-     *   was previously set.
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setContentTypePredicate(contentTypePredicate: Predicate<String>?): Factory {
-      this.contentTypePredicate = contentTypePredicate
-      return this
-    }
-
-    /**
-     * Sets the [TransferListener] that will be used.
-     *
-     * The default is `null`.
-     *
-     * See [androidx.media3.datasource.DataSource.addTransferListener].
-     *
-     * @param transferListener The listener that will be used.
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setTransferListener(transferListener: TransferListener?): Factory {
-      this.transferListener = transferListener
-      return this
-    }
-
-    override fun createDataSource(): KtorDataSource {
-      val client = httpClient
-      val dataSource =
-        KtorDataSource(
-          client,
-          userAgent,
-          defaultRequestProperties,
-          contentTypePredicate,
-          HttpDataSource.RequestProperties(),
-        )
-      transferListener?.let { dataSource.addTransferListener(it) }
-      return dataSource
-    }
-  }
-
   private var dataSpec: DataSpec? = null
-
   private var response: HttpResponse? = null
-
   private var responseChannel: ByteReadChannel? = null
-
   private var connectionEstablished = false
   private var bytesToRead: Long = 0
   private var bytesRead: Long = 0
@@ -467,5 +370,99 @@ private constructor(
   private fun closeConnectionQuietly() {
     responseChannel?.cancel(null)
     responseChannel = null
+  }
+
+  /**
+   * [androidx.media3.datasource.DataSource.Factory] for [KtorDataSource] instances.
+   *
+   * @param httpClient A [HttpClient] for use by the sources created by the factory.
+   */
+  class Factory(private val httpClient: HttpClient) : HttpDataSource.Factory {
+
+    private val defaultRequestProperties = HttpDataSource.RequestProperties()
+
+    private var userAgent: String? = null
+
+    private var transferListener: TransferListener? = null
+
+    private var contentTypePredicate: Predicate<String>? = null
+
+    @CanIgnoreReturnValue
+    override fun setDefaultRequestProperties(
+      defaultRequestProperties: Map<String, String>
+    ): Factory {
+      this.defaultRequestProperties.clearAndSet(defaultRequestProperties)
+      return this
+    }
+
+    /**
+     * Sets the user agent that will be used.
+     *
+     * The default is `null`, which causes the default user agent of the underlying [HttpClient] to
+     * be used.
+     *
+     * @param userAgent The user agent that will be used, or `null` to use the default user agent of
+     *   the underlying [HttpClient].
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    fun setUserAgent(userAgent: String?): Factory {
+      this.userAgent = userAgent
+      return this
+    }
+
+    /**
+     * Sets a content type [Predicate]. If a content type is rejected by the predicate then a
+     * [HttpDataSource.InvalidContentTypeException] is thrown from [KtorDataSource.open].
+     *
+     * The default is `null`.
+     *
+     * @param contentTypePredicate The content type [Predicate], or `null` to clear a predicate that
+     *   was previously set.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    fun setContentTypePredicate(contentTypePredicate: Predicate<String>?): Factory {
+      this.contentTypePredicate = contentTypePredicate
+      return this
+    }
+
+    /**
+     * Sets the [TransferListener] that will be used.
+     *
+     * The default is `null`.
+     *
+     * See [androidx.media3.datasource.DataSource.addTransferListener].
+     *
+     * @param transferListener The listener that will be used.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    fun setTransferListener(transferListener: TransferListener?): Factory {
+      this.transferListener = transferListener
+      return this
+    }
+
+    override fun createDataSource(): KtorDataSource {
+      val client = httpClient
+      val dataSource =
+        KtorDataSource(
+          client,
+          userAgent,
+          defaultRequestProperties,
+          contentTypePredicate,
+          HttpDataSource.RequestProperties(),
+        )
+      transferListener?.let { dataSource.addTransferListener(it) }
+      return dataSource
+    }
+  }
+
+  companion object {
+    private const val TAG = "KtorDataSource"
+
+    init {
+      MediaLibraryInfo.registerModule("media3.datasource.ktor")
+    }
   }
 }
