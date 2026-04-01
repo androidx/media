@@ -2031,7 +2031,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    */
   @CallSuper
   protected void onProcessedOutputBuffer(long presentationTimeUs) {
-    lastProcessedOutputBufferTimeUs = presentationTimeUs;
+    // Use max even though lastProcessedOutputBufferTimeUs should be increasing for tests because
+    // test codecs do not reorder samples.
+    lastProcessedOutputBufferTimeUs = max(presentationTimeUs, lastProcessedOutputBufferTimeUs);
     while (!pendingOutputStreamChanges.isEmpty()
         && presentationTimeUs >= pendingOutputStreamChanges.peek().previousStreamLastBufferTimeUs) {
       setOutputStreamInfo(checkNotNull(pendingOutputStreamChanges.poll()));
