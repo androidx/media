@@ -126,9 +126,7 @@ public final class TranscodeQualityTest {
             .run(testId, editedMediaItem);
 
     maybeSaveResultFile(result);
-    if (result.ssim != ExportTestResult.SSIM_UNSET) {
-      assertThat(result.ssim).isGreaterThan(0.90);
-    }
+    assertThat(result.ssim).isGreaterThan(0.90);
   }
 
   @Test
@@ -157,9 +155,7 @@ public final class TranscodeQualityTest {
             .run(testId, editedMediaItem);
 
     maybeSaveResultFile(result);
-    if (result.ssim != ExportTestResult.SSIM_UNSET) {
-      assertThat(result.ssim).isGreaterThan(0.90);
-    }
+    assertThat(result.ssim).isGreaterThan(0.90);
   }
 
   @Test

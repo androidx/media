@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -454,13 +455,7 @@ public class TransformerAndroidTestRunner {
       @Nullable FallbackDetails fallbackDetails,
       File outputVideoFile)
       throws InterruptedException {
-    if (fallbackDetails != null && fallbackDetails.fallbackOutputHeight != C.LENGTH_UNSET) {
-      Log.i(
-          TAG,
-          testId
-              + ": Skipping SSIM calculation because an encoder resolution fallback was applied.");
-      return;
-    }
+    assumeFalse(fallbackDetails != null && fallbackDetails.fallbackOutputHeight != C.LENGTH_UNSET);
     try {
       MediaItem mediaItem = extractMediaItem(mediaInput);
       double ssim =
