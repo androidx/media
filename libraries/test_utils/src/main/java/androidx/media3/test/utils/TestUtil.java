@@ -1108,32 +1108,38 @@ public class TestUtil {
   }
 
   /**
-   * Creates a {@link File} of the {@code fileName} in the application cache directory.
+   * Creates a {@link File} {@code fileName} within the {@linkplain Context#getCacheDir() internal
+   * application cache directory}.
    *
    * <p>If a file of that name already exists, it is overwritten.
    *
    * @param context The {@link Context}.
    * @param fileName The filename to save to the cache.
    */
-  public static File createExternalCacheFile(Context context, String fileName) throws IOException {
-    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
+  public static File createInternalCacheFile(Context context, String fileName) throws IOException {
+    return createFileInDirectory(context.getCacheDir(), fileName);
   }
 
   /**
-   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
-   * application cache directory.
+   * Creates a {@link File} {@code fileName} in a directory {@code directoryName} within the
+   * {@linkplain Context#getCacheDir() internal application cache directory}.
    *
    * <p>If a file of that name already exists, it is overwritten.
    *
    * @param context The {@link Context}.
-   * @param directoryName The directory name within the external cache to save the file in.
+   * @param directoryName The directory name within the internal cache to save the file in.
    * @param fileName The filename to save to the cache.
    */
-  public static File createExternalCacheFile(Context context, String directoryName, String fileName)
+  public static File createInternalCacheFile(Context context, String directoryName, String fileName)
       throws IOException {
-    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
-    fileDirectory.mkdirs();
-    File file = new File(fileDirectory, fileName);
+    return createFileInDirectory(new File(context.getCacheDir(), directoryName), fileName);
+  }
+
+  private static File createFileInDirectory(File directory, String fileName) throws IOException {
+    if (!directory.exists()) {
+      checkState(directory.mkdirs(), "Unable to create directory: %s", directory.getAbsolutePath());
+    }
+    File file = new File(directory, fileName);
     checkState(
         !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
     checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());

@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -36,6 +35,7 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
 import androidx.media3.test.utils.TestSummaryLogger;
+import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.Transformer.Listener;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
@@ -483,7 +483,7 @@ public class TransformerAndroidTestRunner {
   }
 
   private File createOutputFile(String testId) throws IOException {
-    return createExternalCacheFile(
+    return TestUtil.createInternalCacheFile(
         context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
   }
 

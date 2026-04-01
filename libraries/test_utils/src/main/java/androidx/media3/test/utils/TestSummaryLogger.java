@@ -15,7 +15,7 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
+import static androidx.media3.test.utils.TestUtil.createInternalCacheFile;
 
 import android.content.Context;
 import androidx.media3.common.util.Log;
@@ -72,7 +72,7 @@ public class TestSummaryLogger {
     }
 
     File analysisFile =
-        createExternalCacheFile(
+        createInternalCacheFile(
             context, /* directoryName= */ "analysis", /* fileName= */ testId + "-result.txt");
     try (FileWriter fileWriter = new FileWriter(analysisFile)) {
       fileWriter.write(analysisContents);
