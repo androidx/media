@@ -1423,9 +1423,9 @@ import java.util.concurrent.TimeoutException;
         COMMAND_RELEASE);
     if ((sessionFlags & FLAG_HANDLES_QUEUE_COMMANDS) != 0) {
       playerCommandsBuilder.add(COMMAND_CHANGE_MEDIA_ITEMS);
-      if (hasAction(actions, PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)) {
-        playerCommandsBuilder.add(Player.COMMAND_SEEK_TO_MEDIA_ITEM);
-      }
+    }
+    if (hasAction(actions, PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)) {
+      playerCommandsBuilder.add(Player.COMMAND_SEEK_TO_MEDIA_ITEM);
     }
     if (isSessionReady) {
       if (hasAction(actions, PlaybackStateCompat.ACTION_SET_REPEAT_MODE)) {
