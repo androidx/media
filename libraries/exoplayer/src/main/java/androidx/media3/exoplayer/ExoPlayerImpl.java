@@ -2287,7 +2287,12 @@ import java.util.function.IntConsumer;
     if (!playbackInfo.timeline.isEmpty()) {
       checkState(
           playbackInfo.timeline.getIndexOfPeriod(playbackInfo.periodId.periodUid) != C.INDEX_UNSET,
-          "periodUid not found in timeline");
+          String.format(
+              Locale.US,
+              "periodUid %s not found in timeline %s with size %d",
+              playbackInfo.periodId.periodUid,
+              playbackInfo.timeline.getClass().getName(),
+              playbackInfo.timeline.getWindowCount()));
     }
 
     boolean timelineChanged = !previousPlaybackInfo.timeline.equals(newPlaybackInfo.timeline);
