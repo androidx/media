@@ -104,6 +104,7 @@ import androidx.media3.transformer.ExperimentalAnalyzerModeFactory;
 import androidx.media3.transformer.ExportException;
 import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.InAppFragmentedMp4Muxer;
+import androidx.media3.transformer.InAppHybridMp4Muxer;
 import androidx.media3.transformer.JsonUtil;
 import androidx.media3.transformer.MediaProjectionAssetLoader;
 import androidx.media3.transformer.ProgressHolder;
@@ -395,6 +396,8 @@ public final class TransformerActivity extends AppCompatActivity {
 
       if (bundle.getBoolean(ConfigurationActivity.PRODUCE_FRAGMENTED_MP4)) {
         transformerBuilder.setMuxerFactory(new InAppFragmentedMp4Muxer.Factory());
+      } else if (bundle.getBoolean(ConfigurationActivity.PRODUCE_HYBRID_MP4)) {
+        transformerBuilder.setMuxerFactory(new InAppHybridMp4Muxer.Factory());
       }
 
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_DEBUG_PREVIEW)) {

@@ -73,6 +73,7 @@ import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.InAppFragmentedMp4Muxer
+import androidx.media3.transformer.InAppHybridMp4Muxer
 import androidx.media3.transformer.InAppMp4Muxer
 import androidx.media3.transformer.JsonUtil
 import androidx.media3.transformer.Transformer
@@ -494,6 +495,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       MUXER_OPTIONS[2] -> {
         transformerBuilder.setMuxerFactory(InAppFragmentedMp4Muxer.Factory())
       }
+
+      MUXER_OPTIONS[3] -> {
+        transformerBuilder.setMuxerFactory(InAppHybridMp4Muxer.Factory())
+      }
     }
 
     transformer =
@@ -819,7 +824,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val RESOLUTION_HEIGHTS =
       listOf(SAME_AS_INPUT_OPTION, "144", "240", "360", "480", "720", "1080", "1440", "2160")
     val MUXER_OPTIONS =
-      listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer")
+      listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer", "Use Media3 HybridMp4Muxer")
     val COMPOSITION_LAYOUT = listOf("Sequential", "2x2 grid", "PiP overlay")
 
     fun getAudioBackgroundSequence(): EditedMediaItemSequence {
