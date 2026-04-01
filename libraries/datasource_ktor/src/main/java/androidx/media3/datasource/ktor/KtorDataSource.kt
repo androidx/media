@@ -136,7 +136,9 @@ private constructor(
               url(urlString)
 
               headers {
-                mergedHeaders.forEach { (key, value) -> set(key, value) }
+                for ((key, value) in mergedHeaders) {
+                  set(key, value)
+                }
 
                 val rangeHeader =
                   HttpUtil.buildRangeRequestHeader(dataSpec.position, dataSpec.length)
@@ -166,21 +168,13 @@ private constructor(
       }
       this.response = httpResponse
       this.responseChannel = channel
-    } catch (_: CancellationException) {
-      throw InterruptedIOException()
+    } catch (e: CancellationException) {
+      throw InterruptedIOException(e.message)
     } catch (e: IOException) {
       if (e is HttpDataSource.HttpDataSourceException) throw e
       throw HttpDataSource.HttpDataSourceException.createForIOException(
         e,
         dataSpec,
-        HttpDataSource.HttpDataSourceException.TYPE_OPEN,
-      )
-    } catch (e: Exception) {
-      throw HttpDataSource.HttpDataSourceException(
-        e.message ?: "Unknown error",
-        null,
-        dataSpec,
-        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
         HttpDataSource.HttpDataSourceException.TYPE_OPEN,
       )
     }
@@ -260,9 +254,9 @@ private constructor(
     } catch (e: HttpDataSource.HttpDataSourceException) {
       closeConnectionQuietly()
       throw e
-    } catch (_: CancellationException) {
+    } catch (e: CancellationException) {
       closeConnectionQuietly()
-      throw InterruptedIOException()
+      throw InterruptedIOException(e.message)
     }
 
     return bytesToRead
