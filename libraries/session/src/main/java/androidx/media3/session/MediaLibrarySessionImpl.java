@@ -421,10 +421,13 @@ import java.util.concurrent.Future;
   private ListenableFuture<LibraryResult<ImmutableList<MediaItem>>>
       getRecentMediaItemAtDeviceBootTime(
           ControllerInfo controller, @Nullable LibraryParams params) {
-    controller =
-        isMediaNotificationControllerConnected()
-            ? checkNotNull(getMediaNotificationControllerInfo())
-            : controller;
+    if (isMediaNotificationControllerConnected()) {
+      // The media notification controller may have disconnected during session shutdown.
+      ControllerInfo mediaNotificationController = getMediaNotificationControllerInfo();
+      if (mediaNotificationController != null) {
+        controller = mediaNotificationController;
+      }
+    }
     ListenableFuture<MediaSession.MediaItemsWithStartPosition> future =
         callback.onPlaybackResumption(instance, controller, /* isForPlayback= */ false);
 
