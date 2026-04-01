@@ -44,7 +44,6 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
   private final HashMap<T, MediaSourceAndListener<T>> childSources;
 
   @Nullable private Handler eventHandler;
-  @Nullable private TransferListener mediaTransferListener;
 
   /** Creates composite media source without child sources. */
   protected CompositeMediaSource() {
@@ -54,7 +53,6 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
   @Override
   @CallSuper
   protected void prepareSourceInternal(@Nullable TransferListener mediaTransferListener) {
-    this.mediaTransferListener = mediaTransferListener;
     eventHandler = Util.createHandlerForCurrentLooper();
   }
 
@@ -123,7 +121,7 @@ public abstract class CompositeMediaSource<T> extends BaseMediaSource {
     childSources.put(id, new MediaSourceAndListener<>(mediaSource, caller, eventListener));
     mediaSource.addEventListener(checkNotNull(eventHandler), eventListener);
     mediaSource.addDrmEventListener(checkNotNull(eventHandler), eventListener);
-    mediaSource.prepareSource(caller, mediaTransferListener, getPlayerId());
+    mediaSource.prepareSource(caller, getPlayerId(), getBandwidthMeter());
     if (!isEnabled()) {
       mediaSource.disable(caller);
     }

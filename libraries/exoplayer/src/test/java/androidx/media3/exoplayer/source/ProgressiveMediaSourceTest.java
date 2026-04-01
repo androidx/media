@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.test.utils.MediaSourceTestRunner;
@@ -123,8 +124,8 @@ public class ProgressiveMediaSourceTest {
     mediaSource.updateMediaItem(updatedMediaItem);
     mediaSource.prepareSource(
         (unusedSource, timeline) -> timelineReference.set(timeline),
-        /* mediaTransferListener= */ null,
-        PlayerId.UNSET);
+        PlayerId.UNSET,
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> timelineReference.get() != null);
 
     assertThat(

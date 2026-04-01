@@ -36,6 +36,11 @@
     *   Align handling of still images when `MediaItem.imageDurationUs` is not
         set: JPEG and HEIC still images now 'play' with a very short default
         duration (the same way PNG and other images previously behaved).
+    *   Add `MediaSource.prepareSource(MediaSourceCaller, PlayerId,
+        BandwidthMeter)` to plumb `BandwidthMeter` to `MediaSource`. The
+        deprecated method with custom implementation will still be called by
+        default though, it is recommended to implement the new method and use
+        `BandwidthMeter.getTransferListener()` to get parity to the old method.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.

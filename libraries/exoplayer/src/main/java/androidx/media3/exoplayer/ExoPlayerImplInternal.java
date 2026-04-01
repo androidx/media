@@ -213,7 +213,6 @@ import java.util.Objects;
   private final TrackSelector trackSelector;
   private final TrackSelectorResult emptyTrackSelectorResult;
   private final LoadControl loadControl;
-  private final BandwidthMeter bandwidthMeter;
   private final HandlerWrapper handler;
   private final PlaybackLooperProvider playbackLooperProvider;
   private final Looper playbackLooper;
@@ -298,7 +297,6 @@ import java.util.Objects;
     this.trackSelector = trackSelector;
     this.emptyTrackSelectorResult = emptyTrackSelectorResult;
     this.loadControl = loadControl;
-    this.bandwidthMeter = bandwidthMeter;
     this.repeatMode = repeatMode;
     this.shuffleModeEnabled = shuffleModeEnabled;
     this.seekParameters = seekParameters;
@@ -361,7 +359,11 @@ import java.util.Objects;
             preloadConfiguration);
     mediaSourceList =
         new MediaSourceList(
-            /* listener= */ this, analyticsCollector, applicationLooperHandler, playerId);
+            /* listener= */ this,
+            analyticsCollector,
+            applicationLooperHandler,
+            playerId,
+            bandwidthMeter);
 
     this.playbackLooperProvider =
         (playbackLooperProvider == null) ? new PlaybackLooperProvider() : playbackLooperProvider;
@@ -987,7 +989,7 @@ import java.util.Objects;
     loadControl.onPrepared(playerId);
     setState(playbackInfo.timeline.isEmpty() ? Player.STATE_ENDED : Player.STATE_BUFFERING);
     updatePlayWhenReadyWithAudioFocus();
-    mediaSourceList.prepare(bandwidthMeter.getTransferListener());
+    mediaSourceList.prepare();
     handler.sendEmptyMessage(MSG_DO_SOME_WORK);
   }
 

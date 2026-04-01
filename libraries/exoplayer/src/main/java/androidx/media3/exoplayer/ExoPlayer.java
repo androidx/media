@@ -670,12 +670,14 @@ public interface ExoPlayer extends Player {
      * @param bandwidthMeter A {@link BandwidthMeter}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()} has already been called.
+     * @throws IllegalArgumentException If {@code bandwidthMeter} is {@link BandwidthMeter#NO_OP}.
      */
     @CanIgnoreReturnValue
     @UnstableApi
     public Builder setBandwidthMeter(BandwidthMeter bandwidthMeter) {
       checkState(!buildCalled);
       checkNotNull(bandwidthMeter);
+      checkArgument(bandwidthMeter != BandwidthMeter.NO_OP);
       this.bandwidthMeterSupplier = () -> bandwidthMeter;
       return this;
     }

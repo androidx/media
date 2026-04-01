@@ -502,8 +502,8 @@ public class DefaultPreloadManagerTest {
             checkNotNull(preloadMediaSource0)
                 .prepareSource(
                     (source, timeline) -> {},
-                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-                    PlayerId.UNSET));
+                    PlayerId.UNSET,
+                    DefaultBandwidthMeter.getSingletonInstance(context)));
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
     shadowOf(preloadThread.getLooper()).idle();
@@ -1242,8 +1242,8 @@ public class DefaultPreloadManagerTest {
             checkNotNull(preloadMediaSource4)
                 .prepareSource(
                     (source, timeline) -> {},
-                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-                    PlayerId.UNSET));
+                    PlayerId.UNSET,
+                    DefaultBandwidthMeter.getSingletonInstance(context)));
     shadowOf(preloadThread.getLooper()).idle();
 
     currentPlayingIndex.set(4);
@@ -1689,7 +1689,13 @@ public class DefaultPreloadManagerTest {
           shadowOf(preloadThread.getLooper()).idle();
         };
     Handler preloadHandler = Util.createHandler(preloadThread.getLooper(), /* callback= */ null);
-    preloadHandler.post(() -> mediaSource.prepareSource(mediaSourceCaller, null, PlayerId.UNSET));
+    preloadHandler.post(
+        () ->
+            mediaSource.prepareSource(
+                mediaSourceCaller,
+                PlayerId.UNSET,
+                DefaultBandwidthMeter.getSingletonInstance(
+                    ApplicationProvider.getApplicationContext())));
     shadowOf(preloadThread.getLooper()).idle();
   }
 
