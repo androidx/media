@@ -366,6 +366,34 @@ public final class MediaCodecUtil {
   }
 
   /**
+   * Returns a Dolby Vision base layer codec MIME type of the provided {@link Format}.
+   *
+   * @param format The media format.
+   * @return A Dolby Vision base layer MIME type, or null if a Dolby Vision profile is not
+   *     identified.
+   */
+  @Nullable
+  public static String getDolbyVisionBlMimeType(Format format) {
+
+    if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
+      @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
+      if (codecProfileAndLevel != null) {
+        int profile = codecProfileAndLevel.first;
+        if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr            // profile 4
+            || profile == CodecProfileLevel.DolbyVisionProfileDvheStn         // profile 5
+            || profile == CodecProfileLevel.DolbyVisionProfileDvheSt) {       // profile 8
+          return MimeTypes.VIDEO_H265;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {   // profile 9
+          return MimeTypes.VIDEO_H264;
+        } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {  // profile 10
+          return MimeTypes.VIDEO_AV1;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Returns an alternative codec MIME type (besides the default {@link Format#sampleMimeType}) that
    * can be used to decode samples of the provided {@link Format}.
    *
