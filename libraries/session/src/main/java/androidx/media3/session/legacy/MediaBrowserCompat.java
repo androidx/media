@@ -1482,6 +1482,9 @@ public final class MediaBrowserCompat {
 
     private void sendRequest(int what, @Nullable Bundle data, Messenger cbMessenger)
         throws RemoteException {
+      if (!messenger.getBinder().isBinderAlive()) {
+        return;
+      }
       Message msg = Message.obtain();
       msg.what = what;
       msg.arg1 = CLIENT_VERSION_CURRENT;
