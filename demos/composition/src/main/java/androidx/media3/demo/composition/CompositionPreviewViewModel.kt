@@ -16,8 +16,6 @@
 package androidx.media3.demo.composition
 
 import android.app.Application
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.SystemClock
@@ -27,7 +25,6 @@ import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size as geometrySize
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -53,17 +50,11 @@ import androidx.media3.demo.composition.data.ExportState
 import androidx.media3.demo.composition.data.Item
 import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
-import androidx.media3.demo.composition.data.OverlayAsset
-import androidx.media3.demo.composition.data.OverlayState
-import androidx.media3.demo.composition.data.PlacedOverlay
-import androidx.media3.demo.composition.data.PlacementState
-import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
 import androidx.media3.effect.HardwareBufferFrame
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
-import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
@@ -87,7 +78,6 @@ import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
 import java.io.File
 import java.io.IOException
-import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
@@ -143,7 +133,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       availableLayouts = COMPOSITION_LAYOUT,
       compositionLayout = COMPOSITION_LAYOUT[0],
       mediaState = MediaState(),
-      overlayState = OverlayState(),
       outputSettingsState =
         OutputSettingsState(
           resolutionHeight = SAME_AS_INPUT_OPTION,
@@ -166,19 +155,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       initialMediaItems.add(Item(titles[i], uris[i], durations[i].toLong(), emptySet()))
     }
 
-    // Load drag and drop placeable overlay effects
-    val initialPlaceableEffects = mutableListOf<OverlayAsset>()
-    val placeableOverlayEffectsNames =
-      application.resources.getStringArray(/* id= */ R.array.placeable_effects_names)
-    val placeableEffectsUris =
-      application.resources.getStringArray(/* id= */ R.array.placeable_effects_uris)
-
-    for (i in placeableOverlayEffectsNames.indices) {
-      initialPlaceableEffects.add(
-        OverlayAsset(placeableOverlayEffectsNames[i], placeableEffectsUris[i])
-      )
-    }
-
     _uiState.update { currentState ->
       currentState.copy(
         mediaState =
@@ -186,8 +162,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             availableItems = initialMediaItems,
             selectedItems = List(4) { initialMediaItems[0].copy() },
             availableEffects = effectOptions.keys.toList(),
-          ),
-        overlayState = currentState.overlayState.copy(availableOverlays = initialPlaceableEffects),
+          )
       )
     }
   }
@@ -281,171 +256,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update {
       it.copy(
         outputSettingsState = it.outputSettingsState.copy(renderSize = newSize),
-        isCompositionSet = false,
-      )
-    }
-  }
-
-  fun onPlaceNewOverlayClicked(asset: OverlayAsset) {
-    if (_uiState.value.overlayState.placementState is PlacementState.Placing) return
-    compositionPlayer.pause()
-    placeNewOverlay(asset)
-  }
-
-  fun placeNewOverlay(asset: OverlayAsset) {
-    viewModelScope.launch(Dispatchers.IO) {
-      try {
-        val inputStream = getApplication<Application>().assets.open(asset.assetPath)
-        val previewBitmap = BitmapFactory.decodeStream(inputStream)
-        withContext(Dispatchers.Main) {
-          val newOverlay = PlacedOverlay(assetName = asset.name, bitmap = previewBitmap)
-          _uiState.update {
-            it.copy(
-              overlayState =
-                it.overlayState.copy(
-                  placementState = PlacementState.Placing(newOverlay, Offset.Zero)
-                ),
-              isCompositionSet = false,
-            )
-          }
-        }
-      } catch (e: IOException) {
-        Log.e(TAG, "Error loading overlay bitmap from assets", e)
-        withContext(Dispatchers.Main) {
-          _uiState.update { currentState ->
-            currentState.copy(snackbarMessage = "Could not load overlay image.")
-          }
-        }
-      }
-    }
-  }
-
-  fun onPlaceExistingOverlayClicked(overlayId: UUID) {
-    if (_uiState.value.overlayState.placementState is PlacementState.Placing) return
-    compositionPlayer.pause()
-
-    placeExistingOverlay(overlayId)
-
-    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
-    compositionPlayer.prepare()
-    _uiState.update { it.copy(isCompositionSet = true) }
-  }
-
-  fun placeExistingOverlay(overlayId: UUID) {
-    _uiState.update { currentState ->
-      val overlayToEdit = currentState.overlayState.committedOverlays.find { it.id == overlayId }
-
-      if (overlayToEdit == null) {
-        return@update currentState
-      }
-
-      val newCommittedOverlays =
-        currentState.overlayState.committedOverlays.filter { it.id != overlayId }
-
-      val newPlacementState = PlacementState.Placing(overlayToEdit, overlayToEdit.uiTransformOffset)
-
-      currentState.copy(
-        overlayState =
-          currentState.overlayState.copy(
-            committedOverlays = newCommittedOverlays,
-            placementState = newPlacementState,
-          )
-      )
-    }
-  }
-
-  fun onOverlayDrag(dragAmount: Offset) {
-    _uiState.update { currentState ->
-      val currentPlacement =
-        currentState.overlayState.placementState as? PlacementState.Placing
-          ?: return@update currentState
-
-      val overlayBitmap = currentPlacement.overlay.bitmap
-      val newOffset = currentPlacement.currentUiTransformOffset + dragAmount
-      val clampedX =
-        newOffset.x.coerceIn(
-          0f,
-          currentState.outputSettingsState.renderSize.width - overlayBitmap.width,
-        )
-      val clampedY =
-        newOffset.y.coerceIn(
-          0f,
-          currentState.outputSettingsState.renderSize.height - overlayBitmap.height,
-        )
-      val finalOffset = Offset(clampedX, clampedY)
-
-      currentState.copy(
-        overlayState =
-          currentState.overlayState.copy(
-            placementState =
-              PlacementState.Placing(
-                overlay = currentPlacement.overlay,
-                currentUiTransformOffset = finalOffset,
-              )
-          )
-      )
-    }
-  }
-
-  fun onEndPlacementClicked() {
-    endPlacementMode()
-    _uiState.update { it.copy(isCompositionSet = false) }
-  }
-
-  fun endPlacementMode() {
-    _uiState.update { currentState ->
-      val currentPlacement =
-        currentState.overlayState.placementState as? PlacementState.Placing
-          ?: return@update currentState
-      val finalOverlay =
-        currentPlacement.overlay.copy(
-          overlay =
-            createBitmapOverlay(
-              currentPlacement.overlay.bitmap,
-              currentPlacement.currentUiTransformOffset,
-              currentState.outputSettingsState.renderSize,
-            ),
-          uiTransformOffset = currentPlacement.currentUiTransformOffset,
-        )
-      val newCommittedOverlays = currentState.overlayState.committedOverlays + finalOverlay
-      currentState.copy(
-        overlayState =
-          currentState.overlayState.copy(
-            committedOverlays = newCommittedOverlays,
-            placementState = PlacementState.Inactive,
-          )
-      )
-    }
-  }
-
-  private fun createBitmapOverlay(
-    bitmap: Bitmap,
-    transformOffset: Offset,
-    renderSize: geometrySize,
-  ): BitmapOverlay {
-    if (renderSize == geometrySize.Zero) {
-      return BitmapOverlay.createStaticBitmapOverlay(bitmap)
-    }
-
-    // Converts the bitmap's center from UI pixel coordinates (origin at top-left) to the normalized
-    // [-1, 1] coordinate space anchors (origin at the center) that the overlay requires.
-    val boxCenterXpx = transformOffset.x + (bitmap.width / 2f)
-    val boxCenterYpx = transformOffset.y + (bitmap.height / 2f)
-
-    val anchorX = -1f + (boxCenterXpx / renderSize.width) * 2f
-    val anchorY = 1f - (boxCenterYpx / renderSize.height) * 2f
-
-    val overlaySettings =
-      StaticOverlaySettings.Builder().setBackgroundFrameAnchor(anchorX, anchorY).build()
-    return BitmapOverlay.createStaticBitmapOverlay(bitmap, overlaySettings)
-  }
-
-  fun removeOverlay(overlayId: UUID) {
-    _uiState.update { currentState ->
-      val newCommittedOverlays =
-        currentState.overlayState.committedOverlays.filter { it.id != overlayId }
-      currentState.copy(
-        overlayState = currentState.overlayState.copy(committedOverlays = newCommittedOverlays),
         isCompositionSet = false,
       )
     }
@@ -747,6 +557,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           .setDurationUs(item.durationUs)
       editedMediaItems.add(itemBuilder.build())
     }
+
     val numSequences =
       when (uiState.value.compositionLayout) {
         COMPOSITION_LAYOUT[1] -> 4 // 2x2 Grid
@@ -778,8 +589,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       videoSequences.add(getAudioBackgroundSequence())
     }
 
-    val allOverlays = _uiState.value.overlayState.committedOverlays.map { it.overlay!! }
-
     val finalVideoEffects = globalVideoEffects.toMutableList()
 
     if (settings.renderSize != geometrySize.Zero) {
@@ -791,14 +600,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         )
       finalVideoEffects.add(presentation)
     }
-
-    val overlayEffectList = mutableListOf<Effect>()
-    if (allOverlays.isNotEmpty()) {
-      val effect = OverlayEffect(allOverlays)
-      overlayEffectList.add(effect)
-    }
-
-    finalVideoEffects.addAll(overlayEffectList)
 
     return Composition.Builder(videoSequences)
       .setEffects(

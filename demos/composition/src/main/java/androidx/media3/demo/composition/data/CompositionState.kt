@@ -15,13 +15,9 @@
  */
 package androidx.media3.demo.composition.data
 
-import android.graphics.Bitmap
 import androidx.annotation.OptIn
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.BitmapOverlay
-import java.util.UUID
 
 /**
  * Represents the single source of truth for the Composition Preview screen's UI state.
@@ -34,7 +30,6 @@ import java.util.UUID
  * @param snackbarMessage A message to be shown in the snackbar.
  * @param isDebugTracingEnabled Whether debug tracing for media transformations is enabled.
  * @param mediaState The state for media items and their effects.
- * @param overlayState The state for draggable overlay management.
  * @param outputSettingsState The state for all output settings.
  * @param exportState The state for the current export process.
  */
@@ -45,7 +40,6 @@ data class CompositionPreviewState(
   val snackbarMessage: String? = null,
   val isDebugTracingEnabled: Boolean = false,
   val mediaState: MediaState,
-  val overlayState: OverlayState,
   val outputSettingsState: OutputSettingsState,
   val exportState: ExportState,
   val isCompositionSet: Boolean = false,
@@ -78,69 +72,6 @@ data class Item(
   val durationUs: Long,
   val selectedEffects: Set<String> = emptySet(),
 )
-
-/**
- * Holds the state for overlay management, including available assets and placement status.
- *
- * @param availableOverlays The list of overlay assets the user can choose from.
- * @param committedOverlays The list of overlays that have been placed on the timeline.
- * @param placementState The current state of the overlay placement UI (either Inactive or Placing).
- */
-@OptIn(UnstableApi::class)
-data class OverlayState(
-  val availableOverlays: List<OverlayAsset> = emptyList(),
-  val committedOverlays: List<PlacedOverlay> = emptyList(),
-  val placementState: PlacementState = PlacementState.Inactive,
-)
-
-/**
- * Represents an overlay that has been placed on the timeline, including its bitmap and position. In
- * placement mode, the UI will allow for this bitmap to be moved around. After the placing is done,
- * the [BitmapOverlay] object is updated with the new transform, received from the UI actions.
- *
- * @param id A unique identifier for the placed overlay.
- * @param assetName The name of the overlay asset.
- * @param bitmap The actual bitmap content of the overlay.
- * @param overlay The Media3 [BitmapOverlay] object used by the player/transformer.
- * @param uiTransformOffset The current top-left offset of the overlay in UI pixel coordinates.
- */
-@OptIn(UnstableApi::class)
-data class PlacedOverlay(
-  val id: UUID = UUID.randomUUID(),
-  val assetName: String,
-  val bitmap: Bitmap,
-  var overlay: BitmapOverlay? = null,
-  var uiTransformOffset: Offset = Offset.Zero,
-)
-
-/**
- * Represents an overlay asset that can be chosen by the user to be placed. This is different from a
- * [PlacedOverlay], as the asset has not been loaded yet and hence the [BitmapOverlay] object has
- * also not been created yet.
- *
- * @param name The display name of the asset.
- * @param assetPath The path to the asset within the application's assets folder.
- */
-data class OverlayAsset(val name: String, val assetPath: String)
-
-/** A sealed interface to model the different states of the overlay placement UI. */
-@OptIn(UnstableApi::class)
-sealed interface PlacementState {
-  /** The state when no overlay is being actively placed or moved. */
-  data object Inactive : PlacementState
-
-  /**
-   * The state when an overlay is being actively placed or moved by the user.
-   *
-   * @param overlay The [PlacedOverlay] object that is currently being placed.
-   * @param currentUiTransformOffset The current top-left position of the overlay during a drag
-   *   gesture. We use this instead of the existing [PlacedOverlay.uiTransformOffset], as we only
-   *   want to updated the [PlacedOverlay] once after the whole drag process is completed and not on
-   *   every drag input.
-   */
-  data class Placing(val overlay: PlacedOverlay, val currentUiTransformOffset: Offset) :
-    PlacementState
-}
 
 /**
  * Holds the state for all user-configurable output and export settings.

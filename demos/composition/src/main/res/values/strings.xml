@@ -45,12 +45,6 @@
   <string name="title_activity_main">MainActivity</string>
   <string name="effect_name_grayscale">Grayscale</string>
   <string name="effect_name_dizzy_crop">Dizzy Crop</string>
-  <string name="end_placement_mode">End Placement Mode</string>
-  <string name="overlay_preview">Overlay Preview</string>
-  <string name="placed_overlays">Placed Overlays</string>
-  <string name="delete_overlay">Delete Overlay</string>
-  <string name="add_new_overlay">Add New Overlay</string>
-  <string name="select_an_overlay_to_place">Select an Overlay to Place</string>
   <string name="set_composition" translatable="false">Prepare</string>
   <string name="play" translatable="false">Play</string>
   <string name="add_item">Add Item</string>

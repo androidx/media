@@ -18,7 +18,6 @@ package androidx.media3.demo.composition
 import android.Manifest
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
@@ -31,13 +30,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.draggable2D
-import androidx.compose.foundation.gestures.rememberDraggable2DState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,12 +43,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -94,17 +85,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -122,9 +106,6 @@ import androidx.media3.demo.composition.data.ExportState
 import androidx.media3.demo.composition.data.Item
 import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
-import androidx.media3.demo.composition.data.OverlayAsset
-import androidx.media3.demo.composition.data.OverlayState
-import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.ui.DropDownSpinner
 import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 import androidx.media3.demo.composition.ui.theme.spacing
@@ -132,8 +113,6 @@ import androidx.media3.demo.composition.ui.theme.textPadding
 import androidx.media3.transformer.Composition
 import androidx.media3.ui.PlayerView
 import java.util.Locale
-import java.util.UUID
-import kotlin.math.roundToInt
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 import kotlinx.coroutines.launch
@@ -241,10 +220,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
     uiState: CompositionPreviewState,
     modifier: Modifier = Modifier,
   ) {
-
-    val placementState = uiState.overlayState.placementState
-    val isOverlayPlacementActive = placementState is PlacementState.Placing
-
     val scrollState = rememberScrollState()
     var isLayoutDropdownExpanded by remember { mutableStateOf(false) }
 
@@ -264,69 +239,32 @@ class CompositionPreviewActivity : AppCompatActivity() {
           factory = { context -> PlayerView(context) },
           update = { playerView ->
             playerView.player = viewModel.compositionPlayer
-            playerView.setTimeBarScrubbingEnabled(!isOverlayPlacementActive)
-            playerView.setUseController(!isOverlayPlacementActive)
+            playerView.setTimeBarScrubbingEnabled(true)
+            playerView.setUseController(true)
             // TODO: b/449957627 - Remove once internal pipeline is migrated to FrameConsumer.
             viewModel.surfaceView = playerView.videoSurfaceView as SurfaceView
           },
           modifier = Modifier.fillMaxSize(),
         )
-
-        // Draggable Overlay Logic
-        if (placementState is PlacementState.Placing) {
-          val density = LocalDensity.current
-          val renderSize =
-            Size(
-              width = with(density) { maxWidth.toPx() },
-              height = with(density) { maxHeight.toPx() },
-            )
-          LaunchedEffect(renderSize) { viewModel.onRenderSizeChanged(renderSize) }
-
-          DraggableOverlay(
-            bitmap = placementState.overlay.bitmap,
-            offset = placementState.currentUiTransformOffset,
-            onDrag = { dragAmount -> viewModel.onOverlayDrag(dragAmount) },
-            modifier = Modifier.size(width = maxWidth, height = maxHeight),
-          )
-        }
       }
 
       HorizontalDivider(
         thickness = 2.dp,
         modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
       )
+
       Column(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-        modifier =
-          modifier.weight(1f).verticalScroll(scrollState, enabled = !isOverlayPlacementActive),
+        modifier = modifier.weight(1f).verticalScroll(scrollState),
       ) {
-        Box(
-          modifier = Modifier.graphicsLayer { alpha = if (isOverlayPlacementActive) 0.5f else 1.0f }
-        ) {
+        Box {
           VideoSequenceList(
             mediaState = uiState.mediaState,
-            isEnabled = !isOverlayPlacementActive,
+            isEnabled = true,
             onAddItem = { index -> viewModel.addItem(index) },
             onRemoveItem = { index -> viewModel.removeItem(index) },
             onUpdateEffects = { index, effects -> viewModel.updateEffectsForItem(index, effects) },
             onAddLocalItem = { uri -> viewModel.addLocalItem(uri) },
-          )
-        }
-        if (isOverlayPlacementActive) {
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-          ) {
-            Button(onClick = { viewModel.onEndPlacementClicked() }) {
-              Text(text = stringResource(R.string.end_placement_mode))
-            }
-          }
-        } else {
-          OverlayEffectsList(
-            overlayState = uiState.overlayState,
-            onPlaceNewOverlay = { asset -> viewModel.onPlaceNewOverlayClicked(asset) },
-            onEditOverlay = { id -> viewModel.onPlaceExistingOverlayClicked(id) },
-            onRemoveOverlay = { id -> viewModel.removeOverlay(id) },
           )
         }
 
@@ -341,6 +279,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
           },
           modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         )
+
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween,
@@ -370,145 +309,32 @@ class CompositionPreviewActivity : AppCompatActivity() {
             onCheckedChange = { isEnabled -> viewModel.onIncludeBackgroundAudioChanged(isEnabled) },
           )
         }
+
         OutputSettings(
           outputSettings = uiState.outputSettingsState,
           onResolutionChanged = viewModel::onOutputResolutionChanged,
           onHdrModeChanged = viewModel::onHdrModeChanged,
         )
       }
+
       HorizontalDivider(
         thickness = 2.dp,
         modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
       )
-      if (shouldShowSupportingPaneButton) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-          Button(onClick = { viewModel.setComposition() }, enabled = !isOverlayPlacementActive) {
-            Text(text = stringResource(R.string.set_composition))
-          }
-          Button(onClick = { viewModel.play() }, enabled = uiState.isCompositionSet) {
-            Text(text = stringResource(R.string.play))
-          }
-          Button(onClick = onNavigateToSupportingPane, enabled = !isOverlayPlacementActive) {
-            Text(text = stringResource(R.string.export_settings))
-          }
-        }
-      }
-    }
-  }
 
-  @OptIn(ExperimentalFoundationApi::class)
-  @Composable
-  private fun DraggableOverlay(
-    bitmap: Bitmap,
-    offset: Offset,
-    onDrag: (Offset) -> Unit,
-    modifier: Modifier = Modifier,
-  ) {
-    Box(
-      modifier =
-        modifier.clipToBounds().draggable2D(state = rememberDraggable2DState { onDrag(it) })
-    ) {
-      Image(
-        bitmap = bitmap.asImageBitmap(),
-        contentDescription = stringResource(R.string.overlay_preview),
-        modifier =
-          Modifier.offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-            .wrapContentSize(align = Alignment.TopStart, unbounded = true),
-      )
-    }
-  }
-
-  @Composable
-  fun OverlayEffectsList(
-    overlayState: OverlayState,
-    onPlaceNewOverlay: (OverlayAsset) -> Unit,
-    onEditOverlay: (UUID) -> Unit,
-    onRemoveOverlay: (UUID) -> Unit,
-  ) {
-    var showAssetSelectionDialog by remember { mutableStateOf(false) }
-
-    if (showAssetSelectionDialog) {
-      AssetSelectionDialog(
-        onDismissRequest = { showAssetSelectionDialog = false },
-        assetOptions = overlayState.availableOverlays,
-        onAssetSelected = { asset ->
-          onPlaceNewOverlay(asset)
-          showAssetSelectionDialog = false
-        },
-      )
-    }
-
-    Column(
-      modifier =
-        Modifier.padding(vertical = 4.dp)
-          .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
-          .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
-          .padding(MaterialTheme.spacing.small),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      Text(
-        text = stringResource(R.string.placed_overlays),
-        style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(bottom = MaterialTheme.spacing.mini),
-      )
-      HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
-
-      LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp)) {
-        items(overlayState.committedOverlays, key = { it.id }) { placedOverlay ->
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-          ) {
-            Text(text = placedOverlay.assetName, modifier = Modifier.weight(1f))
-            OutlinedButton(onClick = { onEditOverlay(placedOverlay.id) }) {
-              Text(stringResource(R.string.edit))
-            }
-            IconButton(onClick = { onRemoveOverlay(placedOverlay.id) }) {
-              Icon(
-                Icons.TwoTone.Delete,
-                contentDescription = stringResource(R.string.delete_overlay),
-              )
-            }
-          }
-        }
-      }
-
-      HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
-
-      ElevatedButton(
-        onClick = { showAssetSelectionDialog = true },
-        modifier = Modifier.padding(top = MaterialTheme.spacing.small),
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.small),
+        horizontalArrangement = Arrangement.SpaceEvenly,
       ) {
-        Text(stringResource(R.string.add_new_overlay))
-      }
-    }
-  }
-
-  @Composable
-  fun AssetSelectionDialog(
-    onDismissRequest: () -> Unit,
-    assetOptions: List<OverlayAsset>,
-    onAssetSelected: (OverlayAsset) -> Unit,
-  ) {
-    Dialog(onDismissRequest = onDismissRequest) {
-      Card(shape = RoundedCornerShape(16.dp)) {
-        Column(modifier = Modifier.padding(MaterialTheme.spacing.standard)) {
-          Text(
-            text = stringResource(R.string.select_an_overlay_to_place),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = MaterialTheme.spacing.standard),
-          )
-          LazyColumn {
-            items(assetOptions) { asset ->
-              Text(
-                text = asset.name,
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .clickable { onAssetSelected(asset) }
-                    .padding(vertical = MaterialTheme.spacing.standard),
-              )
-            }
+        Button(onClick = { viewModel.setComposition() }) {
+          Text(text = stringResource(R.string.set_composition))
+        }
+        Button(onClick = { viewModel.play() }, enabled = uiState.isCompositionSet) {
+          Text(text = stringResource(R.string.play))
+        }
+        if (shouldShowSupportingPaneButton) {
+          Button(onClick = onNavigateToSupportingPane) {
+            Text(text = stringResource(R.string.export_settings))
           }
         }
       }
