@@ -157,6 +157,9 @@
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
+*   Ktor extension:
+    *   Add a new `media3-datasource-ktor` extension module providing a
+        `KtorDataSource` backed by the [Ktor](https://ktor.io/) HTTP stack.
 *   RTMP extension:
 *   HLS extension:
     *   Fix a bug where an `ArrayIndexOutOfBoundsException` is thrown during
