@@ -232,8 +232,6 @@ public interface HardwareBufferFrameQueue {
   /**
    * Queues a {@link HardwareBufferFrame} for consumption by the downstream component.
    *
-   * <p>Implementations may override {@link Frame#release(SyncFenceWrapper)} of the queued frame.
-   *
    * <p>The implementation is responsible for ensuring the buffer is correctly reused or released
    * once the downstream component has finished processing it.
    *

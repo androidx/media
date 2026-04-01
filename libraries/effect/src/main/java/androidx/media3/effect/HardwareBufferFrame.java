@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * A {@link Frame} implementation backed by a {@link HardwareBuffer}.
+ * A frame backed by a {@link HardwareBuffer}.
  *
  * <p>Frames of this type may be mappable to memory accessible by various hardware systems, such as
  * GPU, media codecs, NPU, or other auxiliary processing units.
@@ -41,7 +41,7 @@ import java.util.concurrent.Executor;
  * party apps.
  */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-public final class HardwareBufferFrame implements Frame {
+public final class HardwareBufferFrame {
   private static final String TAG = "HardwareBufferFrame";
 
   /** A callback to be invoked when the {@link HardwareBufferFrame} is released. */
@@ -55,6 +55,12 @@ public final class HardwareBufferFrame implements Frame {
      */
     void release(@Nullable SyncFenceWrapper releaseFence);
   }
+
+  /**
+   * A marker interface for storing arbitrary metadata associated with a {@link
+   * HardwareBufferFrame}.
+   */
+  public interface Metadata {}
 
   public static final HardwareBufferFrame END_OF_STREAM_FRAME =
       new HardwareBufferFrame.Builder(
@@ -246,12 +252,19 @@ public final class HardwareBufferFrame implements Frame {
     return new Builder(this);
   }
 
-  @Override
   public Metadata getMetadata() {
     return metadata;
   }
 
-  @Override
+  /**
+   * Releases the frame and its underlying resources.
+   *
+   * <p>This implementation is idempotent if called after the frame has already been released. It
+   * will strictly release the underlying resources only when the count transitions from 1 to 0.
+   *
+   * @param releaseFence A {@link SyncFenceWrapper} that must signal before the underlying resources
+   *     can be fully released, or {@code null} if the resources can be released immediately.
+   */
   public void release(@Nullable SyncFenceWrapper releaseFence) {
     synchronized (this) {
       if (isReleased) {

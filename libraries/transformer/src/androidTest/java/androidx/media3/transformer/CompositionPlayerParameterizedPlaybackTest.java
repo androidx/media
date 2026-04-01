@@ -30,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.effect.Frame;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
@@ -210,7 +209,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
       assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
       assertThat(queuedPackets.get(0)).hasSize(getNumVideoSequences(composition));
       for (int i = 0; i < queuedPackets.get(packetIndex).size(); ++i) {
-        Frame.Metadata metadata = queuedPackets.get(packetIndex).get(i).getMetadata();
+        HardwareBufferFrame.Metadata metadata = queuedPackets.get(packetIndex).get(i).getMetadata();
         assertThat(metadata).isInstanceOf(CompositionFrameMetadata.class);
         CompositionFrameMetadata compositionFrameMetadata = (CompositionFrameMetadata) metadata;
         int sequenceIndex = compositionFrameMetadata.sequenceIndex;

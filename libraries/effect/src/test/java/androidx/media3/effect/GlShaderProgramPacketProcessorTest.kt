@@ -587,7 +587,7 @@ class GlShaderProgramPacketProcessorTest {
     }
   }
 
-  private class TestMetadata : Frame.Metadata {
+  private class TestMetadata : GlTextureFrame.Metadata {
     val released = AtomicBoolean(false)
   }
 
@@ -616,7 +616,8 @@ class GlShaderProgramPacketProcessorTest {
       private set
 
     var errorListener: GlShaderProgram.ErrorListener? =
-      GlShaderProgram.ErrorListener { e: VideoFrameProcessingException? -> }
+      GlShaderProgram.ErrorListener { _: VideoFrameProcessingException? ->
+      }
       private set
 
     override fun setInputListener(inputListener: InputListener) {

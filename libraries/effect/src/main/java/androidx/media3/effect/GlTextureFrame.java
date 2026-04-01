@@ -29,9 +29,13 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
+/** A frame that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-public class GlTextureFrame implements Frame {
+public class GlTextureFrame {
+
+  /** A marker interface for storing arbitrary metadata associated with a {@link GlTextureFrame}. */
+  public interface Metadata {}
+
   public static final GlTextureFrame END_OF_STREAM_FRAME =
       new Builder(
               new GlTextureInfo(
@@ -192,18 +196,19 @@ public class GlTextureFrame implements Frame {
     return new Builder(this);
   }
 
-  @Override
   public Metadata getMetadata() {
     return metadata;
   }
 
   /**
-   * {@inheritDoc}
+   * Releases the frame and its underlying resources.
    *
    * <p>This implementation is idempotent if called after the frame has already been released. It
    * will strictly release the underlying resources only when the count transitions from 1 to 0.
+   *
+   * @param releaseFence A {@link SyncFenceWrapper} that must signal before the underlying resources
+   *     can be fully released, or {@code null} if the resources can be released immediately.
    */
-  @Override
   public void release(@Nullable SyncFenceWrapper releaseFence) {
     if (releaseFence != null) {
       releaseFence.close();

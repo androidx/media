@@ -66,7 +66,7 @@ private constructor(
 
   // State accessed only on the dispatcher thread
   private var currentInputFrame: GlTextureFrame? = null
-  private var currentInputMetadata: Frame.Metadata? = null
+  private var currentInputMetadata: GlTextureFrame.Metadata? = null
   private var outputFrameDeferred: CompletableDeferred<GlTextureFrame>? = null
   /** Tracks the input capacity of the underlying [shaderProgram]. */
   private val inputCapacityChannel = Channel<Unit>(capacity = Channel.UNLIMITED)
