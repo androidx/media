@@ -260,7 +260,7 @@ class KtorDataSourceTest {
         .createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
-    dataSource.open(dataSpec)
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
     assertThat(transferInitializingCalled).isTrue()
     assertThat(transferStartCalled).isTrue()
 
