@@ -302,7 +302,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     clearSurfacesAndCallbacks();
     flushCommandQueueHandler.release();
     this.iSession = null;
-    if (iSession != null) {
+    if (iSession != null && iSession.asBinder().isBinderAlive()) {
       int seq = sequencedFutureManager.obtainNextSequenceNumber();
       try {
         iSession.asBinder().unlinkToDeath(deathRecipient, 0);
@@ -3894,10 +3894,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     private void flushCommandQueue() {
-      try {
-        iSession.flushCommandQueue(controllerStub);
-      } catch (RemoteException e) {
-        Log.w(TAG, "Error in sending flushCommandQueue");
+      if (iSession != null && iSession.asBinder().isBinderAlive()) {
+        try {
+          iSession.flushCommandQueue(controllerStub);
+        } catch (RemoteException e) {
+          Log.w(TAG, "Error in sending flushCommandQueue", e);
+        }
       }
     }
   }

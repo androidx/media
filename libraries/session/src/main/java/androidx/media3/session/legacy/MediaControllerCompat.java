@@ -1301,14 +1301,16 @@ public final class MediaControllerCompat {
       synchronized (lock) {
         IMediaSession extraBinder = sessionToken.getExtraBinder();
         if (extraBinder != null) {
-          try {
-            Callback.CallbackStub callbackStub = callbackMap.remove(callback);
-            if (callbackStub != null) {
-              callback.iControllerCallback = null;
-              extraBinder.unregisterCallbackListener(callbackStub);
+          Callback.CallbackStub callbackStub = callbackMap.remove(callback);
+          if (callbackStub != null) {
+            callback.iControllerCallback = null;
+            if (extraBinder.asBinder().isBinderAlive()) {
+              try {
+                extraBinder.unregisterCallbackListener(callbackStub);
+              } catch (RemoteException | SecurityException e) {
+                Log.w(TAG, "Dead object in unregisterCallbackListener.", e);
+              }
             }
-          } catch (RemoteException | SecurityException e) {
-            Log.e(TAG, "Dead object in unregisterCallback.", e);
           }
         } else {
           pendingCallbacks.remove(callback);
