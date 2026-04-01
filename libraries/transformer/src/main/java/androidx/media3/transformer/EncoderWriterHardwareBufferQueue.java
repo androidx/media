@@ -92,7 +92,9 @@ public class EncoderWriterHardwareBufferQueue implements HardwareBufferFrameQueu
               hardwareBuffer,
               directExecutor(),
               /* releaseCallback= */ releaseFence -> {
-                throw new UnsupportedOperationException();
+                if (imageWriter != null) {
+                  imageWriter.close();
+                }
               })
           .setInternalFrame(image)
           .build();
