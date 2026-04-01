@@ -1657,7 +1657,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
     if (getPeriodDurationUs() == C.TIME_UNSET
-        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs <= getPeriodDurationUs()) {
+        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs < getPeriodDurationUs()) {
       largestQueuedPresentationTimeWithinDurationUs =
           max(largestQueuedPresentationTimeWithinDurationUs, presentationTimeUs);
     }
@@ -2313,7 +2313,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         outputStreamInfo.isDurationStrict
             && outputStreamInfo.durationUs != C.TIME_UNSET
             && outputBufferInfo.presentationTimeUs - getOutputStreamOffsetUs()
-                > outputStreamInfo.durationUs;
+                >= outputStreamInfo.durationUs;
     isDecodeOnlyOutputBuffer =
         hasSkippedFlushAndWaitingForQueueInputBuffer
             || outputBufferInfo.presentationTimeUs < getLastResetPositionUs()

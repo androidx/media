@@ -925,7 +925,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
     long presentationTimeUs = bufferTimeUs - outputStreamInfo.streamOffsetUs;
     if (outputStreamInfo.isDurationStrict
         && outputStreamInfo.durationUs != C.TIME_UNSET
-        && presentationTimeUs > outputStreamInfo.durationUs) {
+        && presentationTimeUs >= outputStreamInfo.durationUs) {
       skipOutputBuffer(outputBuffer);
       return true;
     }
