@@ -215,7 +215,12 @@ public class FormatSupportAssumptions {
     }
     // Intentionally do not check fallback sizes so if this is true, DefaultEncoderFactory will be
     // able to encode with fallback disabled.
-    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
+    // Do not use EncoderUtil.isSizeSupported or check camcorder profiles - the 1080p camcorder
+    // profile can be 1920x1080 or 1920x1088 and cannot be used for this check.
+    // See b/340381469#comment9 .
+    MediaCodecInfo.VideoCapabilities videoCapabilities =
+        checkNotNull(encoder.getCapabilitiesForType(mimeType).getVideoCapabilities());
+    boolean sizeSupported = videoCapabilities.isSizeSupported(width, height);
     boolean bitrateSupported =
         format.averageBitrate == Format.NO_VALUE
             || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
