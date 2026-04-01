@@ -213,6 +213,29 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void getAvailableCommands_withSkipToQueueItemAction_containsSeekToMediaItemCommand()
+      throws Exception {
+    PlaybackStateCompat playbackStateCompat =
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM)
+            .build();
+    session.setPlaybackState(playbackStateCompat);
+    // sessionFlags = 0 (doesn't contain FLAG_HANDLES_QUEUE_COMMANDS)
+    session.setFlags(0);
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                assertThat(
+                        controller
+                            .getAvailableCommands()
+                            .contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM))
+                    .isTrue());
+  }
+
+  @Test
   public void
       createController_alreadyReleasedSession_throwsSecurityExceptionWithoutCallingOnDisconnected()
           throws Exception {

@@ -37,6 +37,9 @@
         propagated across thread boundaries in case the application thread is
         not the main thread
         ([#2499](https://github.com/androidx/media/issues/2499)).
+    *   Fix bug where `COMMAND_SEEK_TO_MEDIA_ITEM` is not available in a
+        `MediaController` when connecting to a platform-only session that
+        supports seeking to other items but no playlist modifications.
 *   UI:
 *   Downloads:
 *   OkHttp extension:
