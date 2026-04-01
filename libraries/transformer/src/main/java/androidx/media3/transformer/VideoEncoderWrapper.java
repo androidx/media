@@ -111,6 +111,73 @@ import org.checkerframework.dataflow.qual.Pure;
     return hdrModeAfterFallback;
   }
 
+  /**
+   * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions, and a fixed
+   * {@code rotationDegrees}.
+   */
+  @Nullable
+  public SurfaceInfo getFixedRotationSurfaceInfo(
+      int requestedWidth, int requestedHeight, int rotationDegrees) throws ExportException {
+    if (releaseEncoder) {
+      return null;
+    }
+    if (encoderSurfaceInfo != null) {
+      return encoderSurfaceInfo;
+    }
+
+    outputRotationDegrees = rotationDegrees;
+
+    Format requestedEncoderFormat =
+        new Format.Builder()
+            .setWidth(requestedWidth)
+            .setHeight(requestedHeight)
+            .setRotationDegrees(0)
+            .setFrameRate(inputFormat.frameRate)
+            .setSampleMimeType(requestedOutputMimeType)
+            .setColorInfo(getSupportedInputColor())
+            .setCodecs(inputFormat.codecs)
+            .build();
+
+    encoder =
+        encoderFactory.createForVideoEncoding(
+            requestedEncoderFormat
+                .buildUpon()
+                .setSampleMimeType(
+                    findSupportedMimeTypeForEncoderAndMuxer(
+                        requestedEncoderFormat, muxerSupportedMimeTypes))
+                .build(),
+            logSessionId);
+
+    Format actualEncoderFormat = encoder.getConfigurationFormat();
+
+    encoderSurfaceInfo =
+        new SurfaceInfo(
+            encoder.getInputSurface(),
+            actualEncoderFormat.width,
+            actualEncoderFormat.height,
+            outputRotationDegrees,
+            /* isEncoderInputSurface= */ true);
+
+    if (transformationRequest != null) {
+      fallbackListener.onTransformationRequestFinalized(
+          createSupportedTransformationRequest(
+              transformationRequest,
+              /* hasOutputFormatRotation= */ outputRotationDegrees != 0,
+              requestedEncoderFormat,
+              actualEncoderFormat,
+              hdrModeAfterFallback));
+    }
+
+    if (releaseEncoder) {
+      encoder.release();
+    }
+    return encoderSurfaceInfo;
+  }
+
+  /**
+   * Returns an encoder input {@link SurfaceInfo} with the closest supported dimensions. Prefers
+   * landscape encoding, and picks a rotation based on {@link #allowedEncodingRotationDegrees}.
+   */
   @Nullable
   public SurfaceInfo getSurfaceInfo(int requestedWidth, int requestedHeight)
       throws ExportException {

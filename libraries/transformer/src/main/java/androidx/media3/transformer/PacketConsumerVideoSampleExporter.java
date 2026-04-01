@@ -341,9 +341,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
         PacketConsumerVideoSampleExporter.this.encoderWrapper = encoderWrapper;
         hasProducedFrameWithTimestampZero = true;
-        // TODO: b/475744934 - Notify the effects pipeline if the encoder fell back to a format that
-        // differs from the input format.
-        return checkNotNull(encoderWrapper.getSurfaceInfo(format.width, format.height));
+        return checkNotNull(
+            encoderWrapper.getFixedRotationSurfaceInfo(
+                format.width, format.height, format.rotationDegrees));
       } catch (ExportException e) {
         throw VideoFrameProcessingException.from(e);
       }

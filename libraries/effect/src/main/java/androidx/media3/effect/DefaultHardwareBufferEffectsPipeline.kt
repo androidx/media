@@ -407,6 +407,7 @@ private constructor(
       HardwareBufferFrameQueue.FrameFormat.Builder()
         .setWidth(width)
         .setHeight(height)
+        .setRotationDegrees(format.rotationDegrees)
         .setPixelFormat(
           if (ColorInfo.isTransferHdr(format.colorInfo)) HardwareBuffer.RGBA_1010102
           else HardwareBuffer.RGBA_8888

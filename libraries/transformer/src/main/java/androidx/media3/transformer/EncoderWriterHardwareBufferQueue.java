@@ -70,6 +70,7 @@ public class EncoderWriterHardwareBufferQueue implements HardwareBufferFrameQueu
                 new Format.Builder()
                     .setWidth(format.width)
                     .setHeight(format.height)
+                    .setRotationDegrees(format.rotationDegrees)
                     .setColorInfo(format.colorInfo)
                     .setSampleMimeType(MimeTypes.VIDEO_H264)
                     .build());

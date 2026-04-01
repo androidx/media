@@ -38,6 +38,7 @@ public interface HardwareBufferFrameQueue {
     public static final class Builder {
       private int width;
       private int height;
+      private int rotationDegrees;
       private int pixelFormat;
       private long usageFlags;
       private ColorInfo colorInfo;
@@ -45,9 +46,9 @@ public interface HardwareBufferFrameQueue {
       /**
        * Creates a new builder with default values.
        *
-       * <p>Width and height default to 0, {@code pixelFormat} defaults to {@link
-       * HardwareBuffer#RGBA_8888}, {@code usageFlags} defaults to {@link
-       * HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE}, and {@link ColorInfo} defaults to {@link
+       * <p>Width and height default to 0, {@code rotationDegrees} defaults to 0, {@code
+       * pixelFormat} defaults to {@link HardwareBuffer#RGBA_8888}, {@code usageFlags} defaults to
+       * {@link HardwareBuffer#USAGE_GPU_SAMPLED_IMAGE}, and {@link ColorInfo} defaults to {@link
        * ColorInfo#SDR_BT709_LIMITED}.
        */
       public Builder() {
@@ -77,6 +78,18 @@ public interface HardwareBufferFrameQueue {
       @CanIgnoreReturnValue
       public Builder setHeight(int height) {
         this.height = height;
+        return this;
+      }
+
+      /**
+       * Sets the rotation degrees of the buffer.
+       *
+       * @param rotationDegrees The rotation degrees.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRotationDegrees(int rotationDegrees) {
+        this.rotationDegrees = rotationDegrees;
         return this;
       }
 
@@ -118,20 +131,27 @@ public interface HardwareBufferFrameQueue {
 
       /** Builds the {@link FrameFormat} instance. */
       public FrameFormat build() {
-        return new FrameFormat(width, height, pixelFormat, usageFlags, colorInfo);
+        return new FrameFormat(width, height, rotationDegrees, pixelFormat, usageFlags, colorInfo);
       }
     }
 
     public final int width;
     public final int height;
+    public final int rotationDegrees;
     public final int pixelFormat;
     public final long usageFlags;
     public final ColorInfo colorInfo;
 
     private FrameFormat(
-        int width, int height, int pixelFormat, long usageFlags, ColorInfo colorInfo) {
+        int width,
+        int height,
+        int rotationDegrees,
+        int pixelFormat,
+        long usageFlags,
+        ColorInfo colorInfo) {
       this.width = width;
       this.height = height;
+      this.rotationDegrees = rotationDegrees;
       this.pixelFormat = pixelFormat;
       this.usageFlags = usageFlags;
       this.colorInfo = colorInfo;
@@ -142,6 +162,7 @@ public interface HardwareBufferFrameQueue {
       return new Builder()
           .setWidth(width)
           .setHeight(height)
+          .setRotationDegrees(rotationDegrees)
           .setColorInfo(colorInfo)
           .setPixelFormat(pixelFormat)
           .setUsageFlags(usageFlags);
@@ -158,6 +179,7 @@ public interface HardwareBufferFrameQueue {
       FrameFormat that = (FrameFormat) o;
       return width == that.width
           && height == that.height
+          && rotationDegrees == that.rotationDegrees
           && pixelFormat == that.pixelFormat
           && usageFlags == that.usageFlags
           && Objects.equals(colorInfo, that.colorInfo);
@@ -165,7 +187,7 @@ public interface HardwareBufferFrameQueue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(width, height, pixelFormat, usageFlags, colorInfo);
+      return Objects.hash(width, height, rotationDegrees, pixelFormat, usageFlags, colorInfo);
     }
 
     @Override
@@ -175,6 +197,8 @@ public interface HardwareBufferFrameQueue {
           + width
           + ", height="
           + height
+          + ", rotationDegrees="
+          + rotationDegrees
           + ", pixelFormat="
           + pixelFormat
           + ", usageFlags="
