@@ -254,7 +254,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 transform(VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             // Plays the last frame of the second video
-            .add(1991633L)
+            .add(VIDEO_DURATION_US + getLast(VIDEO_TIMESTAMPS_US))
             .build();
 
     assertThat(
@@ -281,7 +281,7 @@ public class CompositionPlayerSeekTest {
             .addAll(
                 transform(VIDEO_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
             // Plays the last frame of the second video
-            .add(1991633L)
+            .add(VIDEO_DURATION_US + getLast(VIDEO_TIMESTAMPS_US))
             .build();
 
     assertThat(
@@ -618,7 +618,7 @@ public class CompositionPlayerSeekTest {
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
     // 100ms into the second video, should skip the first 3 frames.
-    long seekTimeMs = 1124;
+    long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the first 15 frames of the first video
@@ -968,7 +968,7 @@ public class CompositionPlayerSeekTest {
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
     // 100ms into the second video, should skip the first 3 frames.
-    long seekTimeMs = 1124;
+    long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the first 15 frames of the first video

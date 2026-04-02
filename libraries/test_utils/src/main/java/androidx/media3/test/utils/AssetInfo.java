@@ -336,7 +336,7 @@ public final class AssetInfo {
                   .setCodecs("avc1.42C00D")
                   .build())
           .setTrackCount(2)
-          .setVideoDurationUs(1_024_000L)
+          .setVideoDurationUs(1_089_000L)
           .setVideoFrameCount(30)
           .setAudioSampleCount(45)
           .setVideoTimestampsUs(
