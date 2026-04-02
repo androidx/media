@@ -40,6 +40,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ExperimentalApi;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -52,6 +54,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 // TODO: b/224949986 - Split audio and video encoder factory.
 @UnstableApi
 public final class DefaultEncoderFactory implements Codec.EncoderFactory {
+  private static final String TAG = "DefaultEncoderFactory";
   private static final int DEFAULT_AUDIO_BITRATE = 128 * 1024;
   private static final int DEFAULT_FRAME_RATE = 30;
 
@@ -67,6 +70,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     private AudioEncoderSettings requestedAudioEncoderSettings;
     private boolean enableFallback;
     private boolean enableCodecDbLite;
+    private boolean enableCodecDbLiteBitrate;
     private @C.Priority int codecPriority;
 
     /** Creates a new {@link Builder}. */
@@ -77,6 +81,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       requestedAudioEncoderSettings = AudioEncoderSettings.DEFAULT;
       enableFallback = true;
       enableCodecDbLite = false;
+      enableCodecDbLiteBitrate = false;
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
 
@@ -158,6 +163,18 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     /**
+     * Sets whether to use {@linkplain CodecDbLite} to recommend video encoder bitrate.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/496166847 - Remove after Photos experiment is successful.
+    public Builder setEnableCodecDbLiteBitrate(boolean enableCodecDbLiteBitrate) {
+      this.enableCodecDbLiteBitrate = enableCodecDbLiteBitrate;
+      return this;
+    }
+
+    /**
      * Sets the codec priority.
      *
      * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
@@ -192,6 +209,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final AudioEncoderSettings requestedAudioEncoderSettings;
   private final boolean enableFallback;
   private final boolean enableCodecDbLite;
+  private final boolean enableCodecDbLiteBitrate;
   private final @C.Priority int codecPriority;
 
   private DefaultEncoderFactory(Builder builder) {
@@ -201,6 +219,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     this.requestedAudioEncoderSettings = builder.requestedAudioEncoderSettings;
     this.enableFallback = builder.enableFallback;
     this.enableCodecDbLite = builder.enableCodecDbLite;
+    this.enableCodecDbLiteBitrate = builder.enableCodecDbLiteBitrate;
     this.codecPriority = builder.codecPriority;
   }
 
@@ -288,66 +307,26 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     checkNotNull(videoEncoderSelector);
 
     @Nullable
-    VideoEncoderQueryResult encoderAndClosestFormatSupport =
-        findVideoEncoderWithClosestSupportedFormat(
-            format, requestedVideoEncoderSettings, videoEncoderSelector, enableFallback);
+    VideoEncoderConfiguration encoderConfiguration =
+        resolveVideoEncoderConfiguration(
+            format,
+            requestedVideoEncoderSettings,
+            videoEncoderSelector,
+            enableFallback,
+            enableCodecDbLite,
+            enableCodecDbLiteBitrate);
 
-    if (encoderAndClosestFormatSupport == null) {
+    if (encoderConfiguration == null) {
       throw createExportException(
           format, /* errorString= */ "The requested video encoding format is not supported.");
     }
 
-    MediaCodecInfo encoderInfo = encoderAndClosestFormatSupport.encoder;
-    Format encoderSupportedFormat = encoderAndClosestFormatSupport.supportedFormat;
+    MediaCodecInfo encoderInfo = encoderConfiguration.encoder;
+    Format encoderSupportedFormat = encoderConfiguration.supportedFormat;
     VideoEncoderSettings supportedVideoEncoderSettings =
-        encoderAndClosestFormatSupport.supportedEncoderSettings;
+        encoderConfiguration.supportedEncoderSettings;
 
     String mimeType = checkNotNull(encoderSupportedFormat.sampleMimeType);
-
-    if (enableCodecDbLite) {
-      VideoEncoderSettings recommendedVideoEncoderSettings =
-          CodecDbLite.getRecommendedVideoEncoderSettings(format);
-
-      VideoEncoderSettings.Builder supportedVideoEncoderSettingsBuilder =
-          supportedVideoEncoderSettings.buildUpon();
-
-      if (supportedVideoEncoderSettings.maxBFrames == VideoEncoderSettings.NO_VALUE) {
-        supportedVideoEncoderSettingsBuilder.setMaxBFrames(
-            recommendedVideoEncoderSettings.maxBFrames);
-      }
-
-      if (supportedVideoEncoderSettings.numNonBidirectionalTemporalLayers
-              == VideoEncoderSettings.NO_VALUE
-          && supportedVideoEncoderSettings.numBidirectionalTemporalLayers
-              == VideoEncoderSettings.NO_VALUE) {
-        supportedVideoEncoderSettingsBuilder.setTemporalLayers(
-            recommendedVideoEncoderSettings.numNonBidirectionalTemporalLayers,
-            recommendedVideoEncoderSettings.numBidirectionalTemporalLayers);
-      }
-
-      supportedVideoEncoderSettings = supportedVideoEncoderSettingsBuilder.build();
-    }
-
-    int finalBitrate;
-    if (enableFallback) {
-      finalBitrate = supportedVideoEncoderSettings.bitrate;
-    } else {
-      // supportedVideoEncoderSettings is identical to requestedVideoEncoderSettings.
-      if (supportedVideoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE) {
-        finalBitrate = supportedVideoEncoderSettings.bitrate;
-      } else if (encoderSupportedFormat.averageBitrate != Format.NO_VALUE) {
-        finalBitrate = encoderSupportedFormat.averageBitrate;
-      } else {
-        finalBitrate =
-            getSuggestedBitrate(
-                encoderSupportedFormat.width,
-                encoderSupportedFormat.height,
-                encoderSupportedFormat.frameRate);
-      }
-    }
-
-    encoderSupportedFormat =
-        encoderSupportedFormat.buildUpon().setAverageBitrate(finalBitrate).build();
 
     MediaFormat mediaFormat = createMediaFormatFromFormat(encoderSupportedFormat);
     mediaFormat.setInteger(MediaFormat.KEY_BITRATE_MODE, supportedVideoEncoderSettings.bitrateMode);
@@ -481,15 +460,17 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    * Finds a video {@linkplain MediaCodecInfo encoder} that supports a format closest to the
    * requested format.
    *
-   * <p>Returns a {@link VideoEncoderQueryResult}, or {@code null} if no encoder is found.
+   * <p>Returns a {@link VideoEncoderConfiguration}, or {@code null} if no encoder is found.
    */
   @RequiresNonNull("#1.sampleMimeType")
   @Nullable
-  private static VideoEncoderQueryResult findVideoEncoderWithClosestSupportedFormat(
+  private static VideoEncoderConfiguration resolveVideoEncoderConfiguration(
       Format requestedFormat,
-      VideoEncoderSettings videoEncoderSettings,
+      VideoEncoderSettings requestedVideoEncoderSettings,
       EncoderSelector encoderSelector,
-      boolean enableFallback) {
+      boolean enableFallback,
+      boolean enableCodecDbLite,
+      boolean enableCodecDbLiteBitrate) {
     String mimeType = checkNotNull(requestedFormat.sampleMimeType);
     ImmutableList<MediaCodecInfo> filteredEncoderInfos =
         encoderSelector.selectEncoderInfos(mimeType);
@@ -497,42 +478,89 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       return null;
     }
 
+    int finalWidth = requestedFormat.width;
+    int finalHeight = requestedFormat.height;
+
+    if (enableFallback) {
+      filteredEncoderInfos =
+          filterEncodersByHdrEditingSupport(
+              filteredEncoderInfos, mimeType, requestedFormat.colorInfo);
+      if (filteredEncoderInfos.isEmpty()) {
+        return null;
+      }
+
+      filteredEncoderInfos =
+          filterEncodersByResolution(
+              filteredEncoderInfos, mimeType, requestedFormat.width, requestedFormat.height);
+      if (filteredEncoderInfos.isEmpty()) {
+        return null;
+      }
+      // The supported resolution is the same for all remaining encoders.
+      Size finalResolution =
+          checkNotNull(
+              EncoderUtil.getSupportedResolution(
+                  filteredEncoderInfos.get(0),
+                  mimeType,
+                  requestedFormat.width,
+                  requestedFormat.height));
+      finalWidth = finalResolution.getWidth();
+      finalHeight = finalResolution.getHeight();
+    }
+
+    Format formatWithFinalResolution =
+        requestedFormat.buildUpon().setWidth(finalWidth).setHeight(finalHeight).build();
+
+    VideoEncoderSettings.Builder settingsBuilder = requestedVideoEncoderSettings.buildUpon();
+    @Nullable VideoEncoderSettings recommendedVideoEncoderSettings = null;
+    if (enableCodecDbLite || enableCodecDbLiteBitrate) {
+      recommendedVideoEncoderSettings =
+          CodecDbLite.getRecommendedVideoEncoderSettings(formatWithFinalResolution);
+    }
+
+    if (enableCodecDbLite && recommendedVideoEncoderSettings != null) {
+      if (requestedVideoEncoderSettings.maxBFrames == VideoEncoderSettings.NO_VALUE) {
+        settingsBuilder.setMaxBFrames(recommendedVideoEncoderSettings.maxBFrames);
+      }
+
+      if (requestedVideoEncoderSettings.numNonBidirectionalTemporalLayers
+              == VideoEncoderSettings.NO_VALUE
+          && requestedVideoEncoderSettings.numBidirectionalTemporalLayers
+              == VideoEncoderSettings.NO_VALUE
+          && (recommendedVideoEncoderSettings.numNonBidirectionalTemporalLayers
+                  != VideoEncoderSettings.NO_VALUE
+              || recommendedVideoEncoderSettings.numBidirectionalTemporalLayers
+                  != VideoEncoderSettings.NO_VALUE)) {
+        settingsBuilder.setTemporalLayers(
+            recommendedVideoEncoderSettings.numNonBidirectionalTemporalLayers,
+            recommendedVideoEncoderSettings.numBidirectionalTemporalLayers);
+      }
+    }
+
+    int requestedBitrate;
+    if (requestedVideoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE) {
+      Log.d(TAG, "Using bitrate from user-provided VideoEncoderSettings");
+      requestedBitrate = requestedVideoEncoderSettings.bitrate;
+    } else if (requestedFormat.averageBitrate != Format.NO_VALUE) {
+      Log.d(TAG, "Using bitrate from requested Format");
+      requestedBitrate = requestedFormat.averageBitrate;
+    } else if (enableCodecDbLiteBitrate && recommendedVideoEncoderSettings != null) {
+      Log.d(TAG, "Using bitrate from CodecDB Lite");
+      requestedBitrate = recommendedVideoEncoderSettings.bitrate;
+    } else {
+      Log.d(TAG, "Using Kush Gauge bitrate");
+      requestedBitrate = getSuggestedBitrate(finalWidth, finalHeight, requestedFormat.frameRate);
+    }
+
+    Format.Builder encoderSupportedFormatBuilder = formatWithFinalResolution.buildUpon();
+
     if (!enableFallback) {
-      return new VideoEncoderQueryResult(
-          filteredEncoderInfos.get(0), requestedFormat, videoEncoderSettings);
+      encoderSupportedFormatBuilder.setAverageBitrate(requestedBitrate);
+      return new VideoEncoderConfiguration(
+          filteredEncoderInfos.get(0),
+          encoderSupportedFormatBuilder.build(),
+          settingsBuilder.build());
     }
 
-    filteredEncoderInfos =
-        filterEncodersByHdrEditingSupport(
-            filteredEncoderInfos, mimeType, requestedFormat.colorInfo);
-    if (filteredEncoderInfos.isEmpty()) {
-      return null;
-    }
-
-    filteredEncoderInfos =
-        filterEncodersByResolution(
-            filteredEncoderInfos, mimeType, requestedFormat.width, requestedFormat.height);
-    if (filteredEncoderInfos.isEmpty()) {
-      return null;
-    }
-    // The supported resolution is the same for all remaining encoders.
-    Size finalResolution =
-        checkNotNull(
-            EncoderUtil.getSupportedResolution(
-                filteredEncoderInfos.get(0),
-                mimeType,
-                requestedFormat.width,
-                requestedFormat.height));
-
-    int requestedBitrate =
-        videoEncoderSettings.bitrate != VideoEncoderSettings.NO_VALUE
-            ? videoEncoderSettings.bitrate
-            : requestedFormat.averageBitrate != Format.NO_VALUE
-                ? requestedFormat.averageBitrate
-                : getSuggestedBitrate(
-                    finalResolution.getWidth(),
-                    finalResolution.getHeight(),
-                    requestedFormat.frameRate);
     filteredEncoderInfos =
         filterEncodersByBitrate(filteredEncoderInfos, mimeType, requestedBitrate);
     if (filteredEncoderInfos.isEmpty()) {
@@ -541,37 +569,28 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     filteredEncoderInfos =
         filterEncodersByBitrateMode(
-            filteredEncoderInfos, mimeType, videoEncoderSettings.bitrateMode);
+            filteredEncoderInfos, mimeType, requestedVideoEncoderSettings.bitrateMode);
     if (filteredEncoderInfos.isEmpty()) {
       return null;
     }
 
-    VideoEncoderSettings.Builder supportedEncodingSettingBuilder = videoEncoderSettings.buildUpon();
-    Format.Builder encoderSupportedFormatBuilder =
-        requestedFormat
-            .buildUpon()
-            .setSampleMimeType(mimeType)
-            .setWidth(finalResolution.getWidth())
-            .setHeight(finalResolution.getHeight());
     MediaCodecInfo pickedEncoderInfo = filteredEncoderInfos.get(0);
     int closestSupportedBitrate =
         EncoderUtil.getSupportedBitrateRange(pickedEncoderInfo, mimeType).clamp(requestedBitrate);
-    supportedEncodingSettingBuilder.setBitrate(closestSupportedBitrate);
+    settingsBuilder.setBitrate(closestSupportedBitrate);
     encoderSupportedFormatBuilder.setAverageBitrate(closestSupportedBitrate);
 
-    if (videoEncoderSettings.profile == VideoEncoderSettings.NO_VALUE
-        || videoEncoderSettings.level == VideoEncoderSettings.NO_VALUE
-        || videoEncoderSettings.level
+    if (requestedVideoEncoderSettings.profile == VideoEncoderSettings.NO_VALUE
+        || requestedVideoEncoderSettings.level == VideoEncoderSettings.NO_VALUE
+        || requestedVideoEncoderSettings.level
             > EncoderUtil.findHighestSupportedEncodingLevel(
-                pickedEncoderInfo, mimeType, videoEncoderSettings.profile)) {
-      supportedEncodingSettingBuilder.setEncodingProfileLevel(
+                pickedEncoderInfo, mimeType, requestedVideoEncoderSettings.profile)) {
+      settingsBuilder.setEncodingProfileLevel(
           VideoEncoderSettings.NO_VALUE, VideoEncoderSettings.NO_VALUE);
     }
 
-    return new VideoEncoderQueryResult(
-        pickedEncoderInfo,
-        encoderSupportedFormatBuilder.build(),
-        supportedEncodingSettingBuilder.build());
+    return new VideoEncoderConfiguration(
+        pickedEncoderInfo, encoderSupportedFormatBuilder.build(), settingsBuilder.build());
   }
 
   /** Returns a list of encoders that support the requested resolution most closely. */
@@ -684,10 +703,10 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
   }
 
-  private static final class VideoEncoderQueryResult extends EncoderQueryResult {
+  private static final class VideoEncoderConfiguration extends EncoderQueryResult {
     public final VideoEncoderSettings supportedEncoderSettings;
 
-    public VideoEncoderQueryResult(
+    public VideoEncoderConfiguration(
         MediaCodecInfo encoder,
         Format supportedFormat,
         VideoEncoderSettings supportedEncoderSettings) {

@@ -510,8 +510,9 @@ public class DefaultEncoderFactoryTest {
 
   @Test
   @Config(sdk = 31)
-  public void createForVideoEncoding_withCodecDbLiteEnabled_configuresEncoderWithCodecDbLite()
-      throws Exception {
+  public void
+      createForVideoEncoding_withCodecDbLiteEnabled_configuresEncoderWithRecommendedSettings()
+          throws Exception {
     ShadowBuild.setSystemOnChipManufacturer("QTI");
     ShadowBuild.setSystemOnChipModel("SM8550");
 
@@ -580,6 +581,100 @@ public class DefaultEncoderFactoryTest {
                 .getConfigurationMediaFormat()
                 .containsKey(MediaFormat.KEY_TEMPORAL_LAYERING))
         .isFalse();
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void
+      createForVideoEncoding_withCodecDbLiteBitrateEnabled_configuresEncoderWithRecommendedBitrate()
+          throws Exception {
+    ShadowBuild.setSystemOnChipManufacturer("QTI");
+    ShadowBuild.setSystemOnChipModel("SM8550");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLiteBitrate(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(15_502_805);
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteEnabledAndBitrateDisabled_usesSuggestedBitrate()
+      throws Exception {
+    ShadowBuild.setSystemOnChipManufacturer("QTI");
+    ShadowBuild.setSystemOnChipModel("SM8550");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLite(true)
+            .setEnableCodecDbLiteBitrate(false)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    // Kush Gauge suggested bitrate is 8_709_120. CodecDB recommended bitrate is 15_502_805.
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(8_709_120);
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteBitrateEnabled_respectsUserRequestedBitrate()
+      throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder().setBitrate(5_000_000).build())
+            .setEnableCodecDbLiteBitrate(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    // Recommended bitrate for H264 1080p30 is 15_502_805.
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(5_000_000);
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteBitrateEnabled_respectsRequestedFormatBitrate()
+      throws Exception {
+    Format requestedVideoFormat =
+        createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30)
+            .buildUpon()
+            .setAverageBitrate(5_000_000)
+            .build();
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLiteBitrate(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    // Recommended bitrate for H264 1080p30 is 15_502_805.
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(5_000_000);
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void
+      createForVideoEncoding_withCodecDbLiteBitrateEnabledAndNoFallback_configuresEncoderWithRecommendedBitrate()
+          throws Exception {
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableFallback(false)
+            .setEnableCodecDbLiteBitrate(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationFormat().averageBitrate).isEqualTo(15_502_805);
   }
 
   @Test
