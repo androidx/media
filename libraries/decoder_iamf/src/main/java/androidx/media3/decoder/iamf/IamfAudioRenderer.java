@@ -19,6 +19,7 @@ import android.content.Context;
 import android.media.AudioFormat;
 import android.os.Handler;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -28,6 +29,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.audio.AudioCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
@@ -165,6 +167,7 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   private final @IamfDecoder.OutputSampleType int outputSampleType;
   private final @IamfDecoder.ChannelOrdering int channelOrdering;
   private final @IamfUtil.OutputLayout int requestedOutputLayout;
+  private @IamfUtil.OutputLayout int currentOutputLayout;
   private final long requestedMixPresentationId;
   private final boolean enableIntegratedBinaural;
 
@@ -179,6 +182,22 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   }
 
   @Override
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    switch (messageType) {
+      case MSG_SET_AUDIO_ATTRIBUTES:
+        AudioAttributes audioAttributes = (AudioAttributes) message;
+        if (audioAttributes != null) {
+          setAudioAttributes(audioAttributes);
+        }
+        break;
+      default:
+        super.handleMessage(messageType, message);
+        break;
+    }
+  }
+
+  @Override
   protected int supportsFormatInternal(Format format) {
     return !IamfLibrary.isAvailable()
             || !Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF)
@@ -190,7 +209,8 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   protected IamfDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws DecoderException {
     TraceUtil.beginSection("createIamfDecoder");
-    @IamfUtil.OutputLayout int currentOutputLayout = determineOutputLayout();
+    currentOutputLayout = determineOutputLayout();
+    setIsContentSpatializedFlag();
     IamfDecoder decoder =
         new IamfDecoder(
             format.initializationData,
@@ -219,6 +239,48 @@ public class IamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   @Override
   public String getName() {
     return "IamfAudioRenderer";
+  }
+
+  /**
+   * Handles an {@code MSG_SET_AUDIO_ATTRIBUTES} message, overriding {@code isContentSpatialized} if
+   * needed.
+   */
+  @UnstableApi
+  protected void setAudioAttributes(AudioAttributes newAttributes) {
+    // Check and update the isContentSpatialized flag if needed.
+    boolean isContentSpatialized = isCurrentOutputLayoutBinaural();
+    if (newAttributes.isContentSpatialized == isContentSpatialized) {
+      // We can pass along these attributes as they are.
+      audioSink.setAudioAttributes(newAttributes);
+      return;
+    }
+    AudioAttributes.Builder attributesBuilder = newAttributes.buildUpon();
+    AudioAttributes audioAttributes =
+        attributesBuilder.setIsContentSpatialized(isContentSpatialized).build();
+    audioSink.setAudioAttributes(audioAttributes);
+  }
+
+  /**
+   * If needed, sets the {@link AudioAttributes#isContentSpatialized} on the {@link AudioSink} based
+   * on the current {@link IamfUtil.OutputLayout}.
+   */
+  @UnstableApi
+  protected void setIsContentSpatializedFlag() {
+    boolean isContentSpatialized = isCurrentOutputLayoutBinaural();
+    @Nullable AudioAttributes oldAttributes = audioSink.getAudioAttributes();
+    if (oldAttributes != null && oldAttributes.isContentSpatialized == isContentSpatialized) {
+      // No update needed.
+      return;
+    }
+    AudioAttributes.Builder attributesBuilder =
+        oldAttributes != null ? oldAttributes.buildUpon() : new AudioAttributes.Builder();
+    AudioAttributes audioAttributes =
+        attributesBuilder.setIsContentSpatialized(isContentSpatialized).build();
+    audioSink.setAudioAttributes(audioAttributes);
+  }
+
+  private boolean isCurrentOutputLayoutBinaural() {
+    return currentOutputLayout == IamfUtil.OUTPUT_LAYOUT_BINAURAL;
   }
 
   private @IamfUtil.OutputLayout int determineOutputLayout() {

@@ -86,6 +86,16 @@ public final class AudioAttributes {
       hapticChannelsMuted = true;
     }
 
+    private Builder(AudioAttributes other) {
+      contentType = other.contentType;
+      flags = other.flags;
+      usage = other.usage;
+      allowedCapturePolicy = other.allowedCapturePolicy;
+      spatializationBehavior = other.spatializationBehavior;
+      isContentSpatialized = other.isContentSpatialized;
+      hapticChannelsMuted = other.hapticChannelsMuted;
+    }
+
     /** See {@link android.media.AudioAttributes.Builder#setContentType(int)} */
     @CanIgnoreReturnValue
     public Builder setContentType(@C.AudioContentType int contentType) {
@@ -190,6 +200,12 @@ public final class AudioAttributes {
 
   /** Whether haptic channels are muted. */
   @UnstableApi public final boolean hapticChannelsMuted;
+
+  /** Create new AudioAttributes based on an existing instance. */
+  @UnstableApi
+  public Builder buildUpon() {
+    return new Builder(this);
+  }
 
   @Nullable private android.media.AudioAttributes platformAudioAttributes;
 
