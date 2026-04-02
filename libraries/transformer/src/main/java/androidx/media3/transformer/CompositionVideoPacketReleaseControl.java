@@ -127,7 +127,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         // Ignore EOS frames if there are more frames to be rendered.
         continue;
       }
-      long presentationTimeUs = checkNotNull(packet).get(0).presentationTimeUs;
+      long presentationTimeUs = checkNotNull(packet).get(0).sequencePresentationTimeUs;
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(

@@ -79,7 +79,7 @@ public class CompositionVideoPacketReleaseControlTest {
   public void onRender_releaseActionDrop_releasesFrame() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
     ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 50_000, /* sequencePresentationTimeUs= */ 50_000);
+        createPacket(/* presentationTimeUs= */ 49_999, /* sequencePresentationTimeUs= */ 49_999);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -87,11 +87,11 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-    fakeFrameTimingEvaluator.shouldDropFrame = true;
 
     compositionVideoPacketReleaseControl.queue(packet);
+    // Render called at position 100ms, so the frame is >50ms late.
     compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100,
+        /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
@@ -206,6 +206,47 @@ public class CompositionVideoPacketReleaseControlTest {
     // Because the sequence presentation time increased, the packet queue should not
     // interpret this as a backward seek, so it shouldn't flush/release the first packet.
     assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void queue_lowerPresentationTimeButHigherSequenceTime_forwardsFrameDownstream()
+      throws ExoPlaybackException {
+    // Simulate a frame from the end of the first media item.
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    // Simulate a frame from the start of the second media item.
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 220_000);
+    ImmutableList<HardwareBufferFrame> expectedPacket1 =
+        updatePacketWithReleaseTime(packet1, /* releaseTimeNs= */ 120_000_000);
+    ImmutableList<HardwareBufferFrame> expectedPacket2 =
+        updatePacketWithReleaseTime(packet2, /* releaseTimeNs= */ 220_000_000);
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.queue(firstPacket);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 0,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, expectedPacket1);
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+
+    compositionVideoPacketReleaseControl.queue(packet2);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 220_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertOutputPackets(
+        /* ignoreReleaseTime= */ true, firstPacket, expectedPacket1, expectedPacket2);
   }
 
   @Test
@@ -557,12 +598,18 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   /**
-   * A fake {@link FrameTimingEvaluator} for testing, that by default does not drop, skip or force
-   * an early release of frames.
+   * A fake {@link FrameTimingEvaluator} for testing, that by default does not skip or force an
+   * early release of frames.
+   *
+   * <p>Drops frames if they are more than 50ms late.
    */
   private static final class FakeFrameTimingEvaluator implements FrameTimingEvaluator {
 
-    private boolean shouldDropFrame;
+    private final long lateThresholdUs;
+
+    private FakeFrameTimingEvaluator() {
+      this.lateThresholdUs = -50_000L;
+    }
 
     @Override
     public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
@@ -571,7 +618,7 @@ public class CompositionVideoPacketReleaseControlTest {
 
     @Override
     public boolean shouldDropFrame(long earlyUs, long elapsedRealtimeUs, boolean isLastFrame) {
-      return shouldDropFrame;
+      return earlyUs < lateThresholdUs;
     }
 
     @Override
