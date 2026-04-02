@@ -46,8 +46,8 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
   @Nullable private Format currentFormat;
   // Start at -1 so the initial onMediaItemChanged increments the current index to 0.
   private int currentMediaItemIndex = C.INDEX_UNSET;
-  private long currentReleaseTimeOffsetNs;
-  private long nextReleaseTimeOffsetNs;
+  private long currentTimeOffsetUs;
+  private long nextTimeOffsetUs;
 
   /**
    * Creates a new instance.
@@ -75,11 +75,10 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
     Consumer<HardwareBufferFrame> intermediateConsumer =
         (hardwareBufferFrame) -> {
           if (hardwareBufferFrame != HardwareBufferFrame.END_OF_STREAM_FRAME) {
-            // The presentation time of each frame is with respect to the individual media item.
-            // Adjust the
-            // release times so they are valid for the encoder.
-            long releaseTimeNs =
-                (hardwareBufferFrame.presentationTimeUs * 1000) + currentReleaseTimeOffsetNs;
+            // The frame's sequencePresentationTimeUs is already adjusted by the
+            // HardwareBufferFrameReader to be monotonic across the entire sequence.
+            // Adjust the release times so they are valid for the encoder.
+            long releaseTimeNs = hardwareBufferFrame.sequencePresentationTimeUs * 1000;
             hardwareBufferFrame =
                 hardwareBufferFrame.buildUpon().setReleaseTimeNs(releaseTimeNs).build();
           }
@@ -108,14 +107,15 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
     // composition, so they cannot be directly compared. Assume that media items are processed in
     // order, so every onMediaItemChanged call increments the media item index.
     currentMediaItemIndex++;
-    currentReleaseTimeOffsetNs += nextReleaseTimeOffsetNs;
-    nextReleaseTimeOffsetNs = durationUs * 1000;
+    currentTimeOffsetUs += nextTimeOffsetUs;
+    nextTimeOffsetUs = durationUs;
   }
 
   @Override
   public @InputResult int queueInputBitmap(
       Bitmap inputBitmap, TimestampIterator timestampIterator) {
-    hardwareBufferFrameReader.outputBitmap(inputBitmap, timestampIterator, currentMediaItemIndex);
+    hardwareBufferFrameReader.outputBitmap(
+        inputBitmap, timestampIterator, currentTimeOffsetUs, currentMediaItemIndex);
     return INPUT_RESULT_SUCCESS;
   }
 
@@ -131,7 +131,7 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
     }
     checkState(currentFormat != null);
     hardwareBufferFrameReader.queueFrameViaSurface(
-        presentationTimeUs, currentMediaItemIndex, currentFormat);
+        presentationTimeUs, currentTimeOffsetUs, currentMediaItemIndex, currentFormat);
     return true;
   }
 

@@ -1040,20 +1040,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void renderOutputBufferV21(
         MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
-      long compositionPresentationTimeUs =
-          presentationTimeUs + getOutputStreamOffsetUs() + offsetToCompositionTimeUs;
+      long sequenceOffsetUs = getOutputStreamOffsetUs() + offsetToCompositionTimeUs;
       // TODO: b/449956936 - This can probably be replaced by VideoFrameMetadataListener, but the
       // backpressure in processOutputBuffer can't. See what parts of this logic can be moved to
       // vanilla ExoPlayer.
       hardwareBufferFrameReader.queueFrameViaSurface(
-          /* presentationTimeUs= */ compositionPresentationTimeUs,
+          /* presentationTimeUs= */ presentationTimeUs,
+          sequenceOffsetUs,
           indexOfCurrentItem(),
           checkNotNull(nextFormat));
       super.renderOutputBufferV21(
-          codec,
-          index,
-          compositionPresentationTimeUs,
-          /* releaseTimeNs= */ compositionPresentationTimeUs * 1000);
+          codec, index, presentationTimeUs, /* releaseTimeNs= */ presentationTimeUs * 1000);
     }
 
     @Override
@@ -1186,7 +1183,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       checkNotNull(timestampIterator);
       int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
-      hardwareBufferFrameReader.outputBitmap(outputImage, timestampIterator, indexOfItem);
+      long sequenceOffsetUs = getStreamOffsetUs() + offsetToCompositionTimeUs;
+      hardwareBufferFrameReader.outputBitmap(
+          outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
       if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
         hardwareBufferFrameReader.queueEndOfStream();
       }
@@ -1205,10 +1204,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private ConstantRateTimestampIterator createTimestampIterator(long positionUs) {
       EditedMediaItem editedMediaItem =
           getEditedMediaItem(getTimeline(), checkNotNull(getMediaPeriodId()));
-      long lastBitmapTimeUs = getStreamOffsetUs() + editedMediaItem.getPresentationDurationUs();
+      // positionUs is the stream position with all the previous media item durations added.
+      long firstBitmapTimeUs = positionUs - getStreamOffsetUs();
+      long lastBitmapTimeUs = editedMediaItem.getPresentationDurationUs();
       return new ConstantRateTimestampIterator(
-          /* startPositionUs= */ positionUs + offsetToCompositionTimeUs,
-          /* endPositionUs= */ lastBitmapTimeUs + offsetToCompositionTimeUs,
+          /* startPositionUs= */ firstBitmapTimeUs,
+          /* endPositionUs= */ lastBitmapTimeUs,
           editedMediaItem.frameRate == C.RATE_UNSET_INT
               ? DEFAULT_FRAME_RATE
               : editedMediaItem.frameRate);

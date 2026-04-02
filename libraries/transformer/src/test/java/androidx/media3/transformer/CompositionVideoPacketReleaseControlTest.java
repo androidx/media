@@ -58,7 +58,7 @@ public class CompositionVideoPacketReleaseControlTest {
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
     releasedFrameTimestamps = new HashSet<>();
-    firstPacket = createPacket(/* presentationTimeUs= */ 0);
+    firstPacket = createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0);
     fakeFrameTimingEvaluator = new FakeFrameTimingEvaluator();
     fakeClock = new FakeClock(/* initialTimeMs= */ 0);
     videoFrameReleaseControl =
@@ -78,7 +78,8 @@ public class CompositionVideoPacketReleaseControlTest {
   @Test
   public void onRender_releaseActionDrop_releasesFrame() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 50_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 50_000, /* sequencePresentationTimeUs= */ 50_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -101,7 +102,8 @@ public class CompositionVideoPacketReleaseControlTest {
   @Test
   public void onRender_releaseActionTryAgainLater_keepsFrame() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 200_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -124,7 +126,8 @@ public class CompositionVideoPacketReleaseControlTest {
   public void onRender_releaseActionImmediate_forwardsFrameDownstream()
       throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -147,7 +150,8 @@ public class CompositionVideoPacketReleaseControlTest {
   public void onRender_releaseActionSchedule_forwardsFrameDownstreamWithReleaseTime()
       throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 120_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 120_000, /* sequencePresentationTimeUs= */ 120_000);
     ImmutableList<HardwareBufferFrame> expectedPacket =
         updatePacketWithReleaseTime(packet, /* releaseTimeNs= */ 120_000_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
@@ -175,8 +179,10 @@ public class CompositionVideoPacketReleaseControlTest {
 
   @Test
   public void queue_backwardSeek_flushesAndReleasesHeldFrames() {
-    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 200);
-    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 200, /* sequencePresentationTimeUs= */ 200);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
 
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
@@ -185,11 +191,31 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
+  public void queue_lowerPresentationTimeButHigherSequenceTime_doesNotReset() {
+    // Simulate a frame from the end of the first media item.
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(
+            /* presentationTimeUs= */ 2_000_000, /* sequencePresentationTimeUs= */ 2_000_000);
+    // Simulate a frame from the start of the second media item.
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 2_033_333);
+
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.queue(packet2);
+
+    // Because the sequence presentation time increased, the packet queue should not
+    // interpret this as a backward seek, so it shouldn't flush/release the first packet.
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
   public void flushPrimarySequence_releasesHeldFramesAndResetsReleaseControl()
       throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
-    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 200, /* sequencePresentationTimeUs= */ 200);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -210,8 +236,10 @@ public class CompositionVideoPacketReleaseControlTest {
   @Test
   public void flushSecondarySequence_isIgnored() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet1 = createPacket(/* presentationTimeUs= */ 100);
-    ImmutableList<HardwareBufferFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 200, /* sequencePresentationTimeUs= */ 200);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -256,7 +284,8 @@ public class CompositionVideoPacketReleaseControlTest {
   @Test
   public void onRender_eosPacketAfterFrames_setsIsEndedTrue() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -280,7 +309,8 @@ public class CompositionVideoPacketReleaseControlTest {
   @Test
   public void onRender_eosPacketBeforeFrames_doesNotSetIsEndedTrue() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
         /* compositionTimePositionUs= */ 0,
@@ -372,7 +402,8 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onStopped();
     compositionVideoPacketReleaseControl.onEnabled(
         RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -390,7 +421,8 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onStarted();
     compositionVideoPacketReleaseControl.onEnabled(
         RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -409,7 +441,8 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onStopped();
     compositionVideoPacketReleaseControl.onEnabled(
         RELEASE_FIRST_FRAME_IMMEDIATELY, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -430,7 +463,8 @@ public class CompositionVideoPacketReleaseControlTest {
         RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 1);
     compositionVideoPacketReleaseControl.onEnabled(
         RELEASE_FIRST_FRAME_IMMEDIATELY, /* sequenceIndex= */ 1);
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -455,7 +489,8 @@ public class CompositionVideoPacketReleaseControlTest {
 
     compositionVideoPacketReleaseControl.onEnabled(
         RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
 
     compositionVideoPacketReleaseControl.queue(packet);
     // Position is well before the stream start position, making the frame 100ms early (> 50ms).
@@ -477,13 +512,15 @@ public class CompositionVideoPacketReleaseControlTest {
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
-  private ImmutableList<HardwareBufferFrame> createPacket(long presentationTimeUs) {
+  private ImmutableList<HardwareBufferFrame> createPacket(
+      long presentationTimeUs, long sequencePresentationTimeUs) {
     HardwareBufferFrame hardwareBufferFrame =
         new HardwareBufferFrame.Builder(
                 /* hardwareBuffer= */ null,
                 directExecutor(),
                 (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
+            .setSequencePresentationTimeUs(sequencePresentationTimeUs)
             .setInternalFrame(presentationTimeUs)
             .build();
     return ImmutableList.of(hardwareBufferFrame);

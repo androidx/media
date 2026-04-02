@@ -169,6 +169,7 @@ public class BitmapToHardwareBufferProcessor implements HardwareBufferFrameProce
         .setInternalFrame(nextBitmap)
         .setReleaseTimeNs(inputFrame.releaseTimeNs)
         .setPresentationTimeUs(inputFrame.presentationTimeUs)
+        .setSequencePresentationTimeUs(inputFrame.sequencePresentationTimeUs)
         .setMetadata(inputFrame.getMetadata())
         .build();
   }

@@ -174,7 +174,7 @@ import java.util.Queue;
       while (nextFrame != null) {
         // Release all frames from the secondary sequence that arrived before the primary sequence
         // frame.
-        if (nextFrame.presentationTimeUs < nextPrimaryFrame.presentationTimeUs) {
+        if (nextFrame.sequencePresentationTimeUs < nextPrimaryFrame.sequencePresentationTimeUs) {
           nextFrame.release(/* releaseFence= */ null);
           frameQueue.frames.poll();
           nextFrame = frameQueue.frames.peek();

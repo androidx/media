@@ -591,6 +591,9 @@ public class FrameAggregatorTest {
             directExecutor(),
             (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
         .setPresentationTimeUs(presentationTimeUs)
+        // TODO: b/449957624 - Update tests to explicitly test sequence presentation times
+        //  that differ from item presentation times (e.g., sequences with multiple items).
+        .setSequencePresentationTimeUs(presentationTimeUs)
         .setInternalFrame(this)
         .build();
   }

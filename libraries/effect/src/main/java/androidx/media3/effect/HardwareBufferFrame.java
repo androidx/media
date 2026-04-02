@@ -74,8 +74,17 @@ public final class HardwareBufferFrame {
    */
   @Nullable public final HardwareBuffer hardwareBuffer;
 
-  /** The presentation time of the frame, in microseconds. */
+  /**
+   * The presentation time of the frame relative to the start of the media item it belongs to, in
+   * microseconds.
+   */
   public final long presentationTimeUs;
+
+  /**
+   * The presentation time of the frame relative to the start of the entire sequence, in
+   * microseconds. This time is monotonically increasing across all media items in the sequence.
+   */
+  public final long sequencePresentationTimeUs;
 
   /** The release time of the frame, in nanoseconds. */
   public final long releaseTimeNs;
@@ -112,6 +121,7 @@ public final class HardwareBufferFrame {
     private final ReleaseCallback releaseCallback;
 
     private long presentationTimeUs;
+    private long sequencePresentationTimeUs;
     private Format format;
     private long releaseTimeNs;
     private Metadata metadata;
@@ -136,6 +146,7 @@ public final class HardwareBufferFrame {
       this.releaseCallback = releaseCallback;
       this.metadata = new Metadata() {};
       presentationTimeUs = C.TIME_UNSET;
+      sequencePresentationTimeUs = C.TIME_UNSET;
       format = new Format.Builder().build();
       releaseTimeNs = C.TIME_UNSET;
     }
@@ -144,6 +155,7 @@ public final class HardwareBufferFrame {
       this(frame.hardwareBuffer, frame.sharedState.executor, frame.sharedState.callback);
       this.metadata = frame.metadata;
       this.presentationTimeUs = frame.presentationTimeUs;
+      this.sequencePresentationTimeUs = frame.sequencePresentationTimeUs;
       this.format = frame.format;
       this.releaseTimeNs = frame.releaseTimeNs;
       this.acquireFence = frame.acquireFence;
@@ -155,6 +167,13 @@ public final class HardwareBufferFrame {
     @CanIgnoreReturnValue
     public Builder setPresentationTimeUs(long presentationTimeUs) {
       this.presentationTimeUs = presentationTimeUs;
+      return this;
+    }
+
+    /** Sets the {@link HardwareBufferFrame#sequencePresentationTimeUs}. */
+    @CanIgnoreReturnValue
+    public Builder setSequencePresentationTimeUs(long sequencePresentationTimeUs) {
+      this.sequencePresentationTimeUs = sequencePresentationTimeUs;
       return this;
     }
 
@@ -213,6 +232,7 @@ public final class HardwareBufferFrame {
     checkArgument(builder.hardwareBuffer != null || builder.internalFrame != null);
     this.hardwareBuffer = builder.hardwareBuffer;
     this.presentationTimeUs = builder.presentationTimeUs;
+    this.sequencePresentationTimeUs = builder.sequencePresentationTimeUs;
     this.releaseTimeNs = builder.releaseTimeNs;
     this.format = builder.format;
     this.metadata = builder.metadata;
@@ -231,6 +251,7 @@ public final class HardwareBufferFrame {
   private HardwareBufferFrame(HardwareBufferFrame original, SharedState sharedState) {
     this.hardwareBuffer = original.hardwareBuffer;
     this.presentationTimeUs = original.presentationTimeUs;
+    this.sequencePresentationTimeUs = original.sequencePresentationTimeUs;
     this.releaseTimeNs = original.releaseTimeNs;
     this.format = original.format;
     this.metadata = original.metadata;

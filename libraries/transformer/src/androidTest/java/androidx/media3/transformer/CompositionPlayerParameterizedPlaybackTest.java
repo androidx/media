@@ -205,8 +205,9 @@ public class CompositionPlayerParameterizedPlaybackTest {
     // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
     assertThat(queuedPackets.size()).isAtLeast(expectedVideoTimestampsUs.size() - 2);
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
-      long presentationTimeUs = queuedPackets.get(packetIndex).get(0).presentationTimeUs;
-      assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
+      long sequencePresentationTimeUs =
+          queuedPackets.get(packetIndex).get(0).sequencePresentationTimeUs;
+      assertThat(sequencePresentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
       assertThat(queuedPackets.get(0)).hasSize(getNumVideoSequences(composition));
       for (int i = 0; i < queuedPackets.get(packetIndex).size(); ++i) {
         HardwareBufferFrame.Metadata metadata = queuedPackets.get(packetIndex).get(i).getMetadata();
@@ -217,7 +218,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
         // Assert on the non-edited MediaItem.
         MediaItem itemFromMetadata = itemFromMetadata(compositionFrameMetadata);
         MediaItem expectedItemAtTime =
-            expectedItemAtTime(composition, sequenceIndex, presentationTimeUs);
+            expectedItemAtTime(composition, sequenceIndex, sequencePresentationTimeUs);
         assertThat(itemFromMetadata).isEqualTo(expectedItemAtTime);
       }
     }

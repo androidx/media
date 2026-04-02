@@ -147,6 +147,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
                 directExecutor(),
                 (releaseFence) -> pool.recycle(checkNotNull(frame.hardwareBuffer), releaseFence))
             .setPresentationTimeUs(frame.presentationTimeUs)
+            .setSequencePresentationTimeUs(frame.sequencePresentationTimeUs)
             .setReleaseTimeNs(frame.releaseTimeNs)
             .setAcquireFence(frame.acquireFence)
             .setMetadata(frame.getMetadata())

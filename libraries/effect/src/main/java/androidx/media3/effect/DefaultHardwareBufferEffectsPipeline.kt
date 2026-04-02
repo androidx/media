@@ -360,6 +360,7 @@ private constructor(
           outputFrame
             .buildUpon()
             .setPresentationTimeUs(inputFrames[0].presentationTimeUs)
+            .setSequencePresentationTimeUs(inputFrames[0].sequencePresentationTimeUs)
             .setReleaseTimeNs(inputFrames[0].releaseTimeNs)
             .setFormat(inputFrames[0].format)
             .setMetadata(inputFrames[0].metadata)

@@ -90,7 +90,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       //  case, or handle queueFrame and onRender on a single internal thread to fix this.
       @Nullable ImmutableList<HardwareBufferFrame> nextRenderedFrames = packetQueue.peek();
       if (nextRenderedFrames != null
-          && packet.get(0).presentationTimeUs < nextRenderedFrames.get(0).presentationTimeUs) {
+          && packet.get(0).sequencePresentationTimeUs
+              < nextRenderedFrames.get(0).sequencePresentationTimeUs) {
         reset();
       }
     }

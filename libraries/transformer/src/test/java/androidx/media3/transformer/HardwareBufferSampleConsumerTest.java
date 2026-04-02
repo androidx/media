@@ -106,6 +106,7 @@ public class HardwareBufferSampleConsumerTest {
     // The frame.hardwareBuffer should also be non null, but in roboelectric HardwareBuffers are not
     // created properly so this is tested in the AndroidTest.
     assertThat(frame1.presentationTimeUs).isEqualTo(0);
+    assertThat(frame1.sequencePresentationTimeUs).isEqualTo(0);
     assertThat(frame1.releaseTimeNs).isEqualTo(0);
     assertThat(((CompositionFrameMetadata) frame1.getMetadata()).itemIndex).isEqualTo(0);
     // For bitmaps, the format is currently hardcoded in HardwareBufferFrameReader.
@@ -114,6 +115,7 @@ public class HardwareBufferSampleConsumerTest {
 
     HardwareBufferFrame frame2 = receivedFrames.get(1);
     assertThat(frame2.presentationTimeUs).isEqualTo(33_333);
+    assertThat(frame2.sequencePresentationTimeUs).isEqualTo(33_333);
     assertThat(frame2.releaseTimeNs).isEqualTo(33_333 * 1000);
     assertThat(((CompositionFrameMetadata) frame2.getMetadata()).itemIndex).isEqualTo(0);
     assertThat(frame2.format.sampleMimeType).isEqualTo(MimeTypes.IMAGE_RAW);
@@ -151,9 +153,9 @@ public class HardwareBufferSampleConsumerTest {
     assertThat(receivedFrames).hasSize(1);
     HardwareBufferFrame frame = receivedFrames.get(0);
 
-    long expectedOffsetNs = item1DurationUs * 1000;
     assertThat(frame.presentationTimeUs).isEqualTo(0);
-    assertThat(frame.releaseTimeNs).isEqualTo(expectedOffsetNs);
+    assertThat(frame.sequencePresentationTimeUs).isEqualTo(item1DurationUs);
+    assertThat(frame.releaseTimeNs).isEqualTo(item1DurationUs * 1000);
     assertThat(((CompositionFrameMetadata) frame.getMetadata()).itemIndex).isEqualTo(1);
   }
 
@@ -179,7 +181,8 @@ public class HardwareBufferSampleConsumerTest {
 
     assertThat(receivedFrames).hasSize(1);
     HardwareBufferFrame frame1 = receivedFrames.get(0);
-    assertThat(frame1.releaseTimeNs).isEqualTo(frame1.presentationTimeUs * 1000);
+    assertThat(frame1.sequencePresentationTimeUs).isEqualTo(0);
+    assertThat(frame1.releaseTimeNs).isEqualTo(0);
     assertThat(frame1.getMetadata()).isInstanceOf(CompositionFrameMetadata.class);
     assertThat(((CompositionFrameMetadata) frame1.getMetadata()).itemIndex).isEqualTo(0);
 
@@ -204,9 +207,9 @@ public class HardwareBufferSampleConsumerTest {
 
     assertThat(receivedFrames).hasSize(1);
     HardwareBufferFrame frame2 = receivedFrames.get(0);
-    long expectedOffset2 = item1DurationUs * 1000;
-    assertThat(frame2.releaseTimeNs)
-        .isEqualTo((frame2.presentationTimeUs * 1000) + expectedOffset2);
+    assertThat(frame2.presentationTimeUs).isEqualTo(0);
+    assertThat(frame2.sequencePresentationTimeUs).isEqualTo(item1DurationUs);
+    assertThat(frame2.releaseTimeNs).isEqualTo(item1DurationUs * 1000);
     assertThat(((CompositionFrameMetadata) frame2.getMetadata()).itemIndex).isEqualTo(1);
 
     for (HardwareBufferFrame frame : receivedFrames) {
@@ -230,9 +233,10 @@ public class HardwareBufferSampleConsumerTest {
 
     assertThat(receivedFrames).hasSize(1);
     HardwareBufferFrame frame3 = receivedFrames.get(0);
-    long expectedOffset3 = (item1DurationUs + item2DurationUs) * 1000;
-    assertThat(frame3.releaseTimeNs)
-        .isEqualTo((frame3.presentationTimeUs * 1000) + expectedOffset3);
+    long expectedOffsetUs3 = item1DurationUs + item2DurationUs;
+    assertThat(frame3.presentationTimeUs).isEqualTo(0);
+    assertThat(frame3.sequencePresentationTimeUs).isEqualTo(expectedOffsetUs3);
+    assertThat(frame3.releaseTimeNs).isEqualTo(expectedOffsetUs3 * 1000);
     assertThat(((CompositionFrameMetadata) frame3.getMetadata()).itemIndex).isEqualTo(2);
   }
 
