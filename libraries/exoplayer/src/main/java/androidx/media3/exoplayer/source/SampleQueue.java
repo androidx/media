@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.Format.NO_VALUE;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_OMIT_SAMPLE_DATA;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
@@ -70,6 +71,13 @@ public class SampleQueue implements TrackOutput {
   @VisibleForTesting /* package */ static final int SAMPLE_CAPACITY_INCREMENT = 1000;
   private static final String TAG = "SampleQueue";
 
+  /**
+   * Default value for {@link Format#maxNumReorderSamples} when it is unknown.
+   *
+   * <p>This is an upper bound for the {@link Format#maxNumReorderSamples} values.
+   */
+  private static final int DEFAULT_MAX_NUM_REORDER_SAMPLES = 16;
+
   private final SampleDataQueue sampleDataQueue;
   private final SampleExtrasHolder extrasHolder;
   private final SpannedData<SharedSampleMetadata> sharedSampleMetadata;
@@ -98,6 +106,13 @@ public class SampleQueue implements TrackOutput {
   private long largestDiscardedTimestampUs;
   private long largestQueuedTimestampUs;
   private int readEndTimeAbsoluteIndex;
+
+  /**
+   * Candidate for {@link #readEndTimeAbsoluteIndex} until more samples are queued to account for
+   * potential reordering.
+   */
+  private int readEndTimeAbsoluteIndexCandidate;
+
   private boolean isLastSampleQueued;
   private boolean upstreamKeyframeRequired;
   private boolean upstreamFormatRequired;
@@ -182,6 +197,7 @@ public class SampleQueue implements TrackOutput {
     discardAllSamplesToStartTime = true;
     readEndTimeUs = C.TIME_END_OF_SOURCE;
     readEndTimeAbsoluteIndex = C.INDEX_UNSET;
+    readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
   }
 
   // Called by the consuming thread when there is no loading thread.
@@ -214,6 +230,7 @@ public class SampleQueue implements TrackOutput {
     relativeFirstIndex = 0;
     readPosition = 0;
     readEndTimeAbsoluteIndex = C.INDEX_UNSET;
+    readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
     upstreamKeyframeRequired = true;
     startTimeUs = Long.MIN_VALUE;
     largestDiscardedTimestampUs = Long.MIN_VALUE;
@@ -254,22 +271,8 @@ public class SampleQueue implements TrackOutput {
     if (readEndTimeUs == this.readEndTimeUs) {
       return;
     }
-    if (readEndTimeUs == C.TIME_END_OF_SOURCE) {
-      readEndTimeAbsoluteIndex = C.INDEX_UNSET;
-      return;
-    }
-    // Check if we already have a suitable read end time sample index.
-    int readEndTimeRelativeIndex = -1;
-    if (readEndTimeUs <= largestQueuedTimestampUs) {
-      readEndTimeRelativeIndex =
-          findSampleAfter(
-              relativeFirstIndex, length, readEndTimeUs, /* allowTimeBeyondBuffer= */ false);
-    }
-    this.readEndTimeAbsoluteIndex =
-        readEndTimeRelativeIndex == -1
-            ? C.INDEX_UNSET
-            : absoluteFirstIndex + readEndTimeRelativeIndex;
     this.readEndTimeUs = readEndTimeUs;
+    searchReadEndTimeAbsoluteIndex();
   }
 
   /**
@@ -434,7 +437,7 @@ public class SampleQueue implements TrackOutput {
     if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex) {
       return true;
     }
-    if (!hasNextSample()) {
+    if (!hasNextSample() || isReadEndTimeIndexMaybeReached()) {
       return loadingFinished
           || isLastSampleQueued
           || (upstreamFormat != null && upstreamFormat != downstreamFormat);
@@ -505,6 +508,10 @@ public class SampleQueue implements TrackOutput {
       return false;
     }
     if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && sampleIndex >= readEndTimeAbsoluteIndex) {
+      return false;
+    }
+    if (readEndTimeAbsoluteIndexCandidate != C.INDEX_UNSET
+        && sampleIndex >= readEndTimeAbsoluteIndexCandidate) {
       return false;
     }
     startTimeUs = Long.MIN_VALUE;
@@ -755,7 +762,7 @@ public class SampleQueue implements TrackOutput {
     int readIndex = getReadIndex();
     boolean readEndTimeReached =
         readEndTimeAbsoluteIndex != C.INDEX_UNSET && readIndex >= readEndTimeAbsoluteIndex;
-    if (!hasNextSample() || readEndTimeReached) {
+    if (!hasNextSample() || isReadEndTimeIndexMaybeReached() || readEndTimeReached) {
       if (loadingFinished || isLastSampleQueued || readEndTimeReached) {
         buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
         buffer.timeUs = C.TIME_END_OF_SOURCE;
@@ -868,11 +875,7 @@ public class SampleQueue implements TrackOutput {
 
     isLastSampleQueued = (sampleFlags & C.BUFFER_FLAG_LAST_SAMPLE) != 0;
     largestQueuedTimestampUs = max(largestQueuedTimestampUs, timeUs);
-    if (readEndTimeUs != C.TIME_END_OF_SOURCE
-        && readEndTimeAbsoluteIndex == C.INDEX_UNSET
-        && timeUs >= readEndTimeUs) {
-      readEndTimeAbsoluteIndex = absoluteFirstIndex + length;
-    }
+    updateReadEndTimeState(/* absoluteSampleIndex= */ getWriteIndex(), timeUs, sampleFlags);
 
     int relativeEndIndex = getRelativeIndex(length);
     timesUs[relativeEndIndex] = timeUs;
@@ -957,6 +960,10 @@ public class SampleQueue implements TrackOutput {
     if (readEndTimeAbsoluteIndex != C.INDEX_UNSET && discardFromIndex < readEndTimeAbsoluteIndex) {
       readEndTimeAbsoluteIndex = C.INDEX_UNSET;
     }
+    if (readEndTimeAbsoluteIndexCandidate != C.INDEX_UNSET
+        && discardFromIndex < readEndTimeAbsoluteIndexCandidate) {
+      readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
+    }
     sharedSampleMetadata.discardFrom(discardFromIndex);
     if (length != 0) {
       int relativeLastWriteIndex = getRelativeIndex(length - 1);
@@ -967,6 +974,16 @@ public class SampleQueue implements TrackOutput {
 
   private boolean hasNextSample() {
     return readPosition != length;
+  }
+
+  /**
+   * Returns whether the read end time index might have been reached, but cannot be confirmed yet
+   * due to potential sample reordering.
+   */
+  private boolean isReadEndTimeIndexMaybeReached() {
+    return readEndTimeAbsoluteIndex == C.INDEX_UNSET
+        && readEndTimeAbsoluteIndexCandidate != C.INDEX_UNSET
+        && getReadIndex() >= readEndTimeAbsoluteIndexCandidate;
   }
 
   /**
@@ -1081,6 +1098,58 @@ public class SampleQueue implements TrackOutput {
       }
     }
     return allowTimeBeyondBuffer ? length : -1;
+  }
+
+  /**
+   * Searches for the absolute index of the first sample that should not be read due to the read end
+   * time, considering potential out-of-order samples.
+   */
+  private void searchReadEndTimeAbsoluteIndex() {
+    readEndTimeAbsoluteIndex = C.INDEX_UNSET;
+    readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
+    if (readEndTimeUs == C.TIME_END_OF_SOURCE || readEndTimeUs > largestQueuedTimestampUs) {
+      return;
+    }
+    for (int i = 0; i < length; i++) {
+      int searchIndex = getRelativeIndex(/* offset= */ i);
+      updateReadEndTimeState(absoluteFirstIndex + i, timesUs[searchIndex], flags[searchIndex]);
+      if (readEndTimeAbsoluteIndex != C.INDEX_UNSET) {
+        return;
+      }
+    }
+  }
+
+  /** Updates the state related to the read end time based on a new sample. */
+  private void updateReadEndTimeState(int absoluteSampleIndex, long sampleTimeUs, int sampleFlags) {
+    if (readEndTimeUs == C.TIME_END_OF_SOURCE) {
+      return;
+    }
+    if (readEndTimeAbsoluteIndex != C.INDEX_UNSET) {
+      return;
+    }
+    if (sampleTimeUs < readEndTimeUs) {
+      readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
+      return;
+    }
+    if (readEndTimeAbsoluteIndexCandidate == C.INDEX_UNSET) {
+      readEndTimeAbsoluteIndexCandidate = absoluteSampleIndex;
+    }
+    int consecutiveSamplesAfterEndCount =
+        absoluteSampleIndex - readEndTimeAbsoluteIndexCandidate + 1;
+    boolean isKeyFrame = (sampleFlags & C.BUFFER_FLAG_KEY_FRAME) != 0;
+    boolean isLastSample = (sampleFlags & C.BUFFER_FLAG_LAST_SAMPLE) != 0;
+    if ((consecutiveSamplesAfterEndCount >= getUpstreamMaxNumReorderSamples() + 1)
+        || isKeyFrame
+        || isLastSample) {
+      readEndTimeAbsoluteIndex = readEndTimeAbsoluteIndexCandidate;
+      readEndTimeAbsoluteIndexCandidate = C.INDEX_UNSET;
+    }
+  }
+
+  private int getUpstreamMaxNumReorderSamples() {
+    return upstreamFormat != null && upstreamFormat.maxNumReorderSamples != NO_VALUE
+        ? upstreamFormat.maxNumReorderSamples
+        : DEFAULT_MAX_NUM_REORDER_SAMPLES;
   }
 
   /**

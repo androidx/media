@@ -67,6 +67,7 @@ public final class ClippingHlsPlaybackTest {
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
+    String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
 
     player.setMediaItem(
         new MediaItem.Builder()
@@ -86,7 +87,7 @@ public final class ClippingHlsPlaybackTest {
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         playbackOutput,
-        "playbackdumps/cmaf/clipped.dump");
+        "playbackdumps/cmaf/clipped_period_clipping_" + dumpFileSuffix + ".dump");
   }
 
   @Test
@@ -94,6 +95,7 @@ public final class ClippingHlsPlaybackTest {
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
+    String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
 
     player.setMediaItem(
         new MediaItem.Builder()
@@ -115,7 +117,7 @@ public final class ClippingHlsPlaybackTest {
     DumpFileAsserts.assertOutput(
         ApplicationProvider.getApplicationContext(),
         playbackOutput,
-        "playbackdumps/cmaf/clipped_seek.dump");
+        "playbackdumps/cmaf/clipped_seek_period_clipping_" + dumpFileSuffix + ".dump");
   }
 
   private Pair<ExoPlayer, PlaybackOutput> setUpPlayerAndCapturingOutputForClippingTest() {
