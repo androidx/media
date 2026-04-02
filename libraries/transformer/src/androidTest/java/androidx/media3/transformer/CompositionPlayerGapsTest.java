@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
@@ -48,11 +48,11 @@ import org.junit.runner.RunWith;
 public final class CompositionPlayerGapsTest {
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
   private static final long START_GAP_CHECK_OFFSET_US = 70_000;
-  private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_ADVANCED_ASSET.videoDurationUs;
+  private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
   private static final long GAP_DURATION_US = 1_000_000;
   private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
-      new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ADVANCED_ASSET.uri))
+      new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
           .setDurationUs(AUDIO_VIDEO_MEDIA_ITEM_DURATION_US)
           .build();
   private static final EditedMediaItem AUDIO_ONLY_MEDIA_ITEM =
