@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Label;
 import com.google.common.primitives.Longs;
 import java.util.Objects;
 
@@ -27,20 +28,23 @@ import java.util.Objects;
 
   private final long startTimeMs;
   private final long endTimeMs;
-  @Nullable private final String title;
+  private final boolean isHidden;
+  @Nullable private final Label title;
 
   /**
    * Creates an instance.
    *
    * @param startTimeMs The start time in milliseconds.
    * @param endTimeMs The end time in milliseconds.
+   * @param isHidden Whether the chapter is hidden.
    * @param title The title of the chapter.
    */
-  public ChapterImpl(long startTimeMs, long endTimeMs, @Nullable String title) {
+  public ChapterImpl(long startTimeMs, long endTimeMs, boolean isHidden, @Nullable Label title) {
     checkArgument(
         startTimeMs == C.TIME_UNSET || endTimeMs == C.TIME_UNSET || startTimeMs <= endTimeMs);
     this.startTimeMs = startTimeMs;
     this.endTimeMs = endTimeMs;
+    this.isHidden = isHidden;
     this.title = title;
   }
 
@@ -54,9 +58,14 @@ import java.util.Objects;
     return endTimeMs;
   }
 
+  @Override
+  public boolean isHidden() {
+    return isHidden;
+  }
+
   @Nullable
   @Override
-  public String getTitle() {
+  public Label getTitle() {
     return title;
   }
 
@@ -71,6 +80,7 @@ import java.util.Objects;
     ChapterImpl other = (ChapterImpl) obj;
     return startTimeMs == other.startTimeMs
         && endTimeMs == other.endTimeMs
+        && isHidden == other.isHidden
         && Objects.equals(title, other.title);
   }
 
@@ -79,6 +89,7 @@ import java.util.Objects;
     int result = 17;
     result = 31 * result + Longs.hashCode(startTimeMs);
     result = 31 * result + Longs.hashCode(endTimeMs);
+    result = 31 * result + (isHidden ? 1 : 0);
     result = 31 * result + (title != null ? title.hashCode() : 0);
     return result;
   }
@@ -88,6 +99,7 @@ import java.util.Objects;
     return "Chapter: startTimeMs="
         + (startTimeMs == C.TIME_UNSET ? "UNSET" : startTimeMs)
         + (endTimeMs == C.TIME_UNSET ? "" : ", endTimeMs=" + endTimeMs)
+        + (isHidden ? ", hidden" : "")
         + (title == null ? "" : ", title=" + title);
   }
 }

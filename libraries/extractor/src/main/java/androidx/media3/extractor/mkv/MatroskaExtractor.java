@@ -33,6 +33,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -203,6 +204,7 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_CHAPTER_TRACK_UID = 0x89;
   private static final int ID_CHAPTER_DISPLAY = 0x80;
   private static final int ID_CHAP_STRING = 0x85;
+  private static final int ID_CHAP_LANGUAGE = 0x437C;
   private static final int ID_SEEK_HEAD = 0x114D9B74;
   private static final int ID_SEEK = 0x4DBB;
   private static final int ID_SEEK_ID = 0x53AB;
@@ -752,6 +754,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_CODEC_ID:
       case ID_LANGUAGE:
       case ID_CHAP_STRING:
+      case ID_CHAP_LANGUAGE:
         return EbmlProcessor.ELEMENT_TYPE_STRING;
       case ID_SEEK_ID:
       case ID_BLOCK_ADD_ID_EXTRA_DATA:
@@ -866,6 +869,10 @@ public class MatroskaExtractor implements Extractor {
       case ID_CHAPTER_ATOM:
         currentChapter = new ChapterEntry();
         break;
+      case ID_CHAPTER_DISPLAY:
+        getCurrentChapter(id).currentDisplayString = null;
+        getCurrentChapter(id).currentDisplayLanguage = null;
+        break;
       case ID_TRACK_ENTRY:
         currentTrack = new Track();
         currentTrack.isWebm = isWebm;
@@ -966,6 +973,15 @@ public class MatroskaExtractor implements Extractor {
           chapters.put(chapter.uid, chapter);
         }
         currentChapter = null;
+        break;
+      case ID_CHAPTER_DISPLAY:
+        ChapterEntry chapterEntry = checkNotNull(currentChapter);
+        if (chapterEntry.chapString == null && chapterEntry.currentDisplayString != null) {
+          chapterEntry.chapString = chapterEntry.currentDisplayString;
+          if (chapterEntry.currentDisplayLanguage != null) {
+            chapterEntry.chapLanguage = chapterEntry.currentDisplayLanguage;
+          }
+        }
         break;
       case ID_EDITION_ENTRY:
         for (int i = 0; i < tracks.size(); i++) {
@@ -1453,7 +1469,10 @@ public class MatroskaExtractor implements Extractor {
         isWebm = Objects.equals(value, DOC_TYPE_WEBM);
         break;
       case ID_CHAP_STRING:
-        getCurrentChapter(id).chapString = value;
+        getCurrentChapter(id).currentDisplayString = value;
+        break;
+      case ID_CHAP_LANGUAGE:
+        getCurrentChapter(id).currentDisplayLanguage = value;
         break;
       case ID_NAME:
         getCurrentTrack(id).name = value;
@@ -2308,6 +2327,9 @@ public class MatroskaExtractor implements Extractor {
     public boolean flagHidden;
     public long trackUid;
     public @MonotonicNonNull String chapString;
+    public @MonotonicNonNull String chapLanguage;
+    @Nullable public String currentDisplayString;
+    @Nullable public String currentDisplayLanguage;
 
     public ChapterEntry() {
       timeStartNs = C.TIME_UNSET;
@@ -2914,14 +2936,17 @@ public class MatroskaExtractor implements Extractor {
       List<Chapter> chapters = new ArrayList<>(chapterEntries.size());
       for (int i = 0; i < chapterEntries.size(); i++) {
         ChapterEntry chapterEntry = chapterEntries.valueAt(i);
-        // Check if chapter should be hidden and if it's tied to a specific track or not
-        if (!chapterEntry.flagHidden
-            && (chapterEntry.trackUid == 0 || chapterEntry.trackUid == uid)) {
-          chapters.add(
-              Chapter.create(
-                  Util.nsToMs(chapterEntry.timeStartNs),
-                  Util.nsToMs(chapterEntry.timeEndNs),
-                  chapterEntry.chapString));
+        // Check if the chapter is tied to a specific track (and whether it's *this* track).
+        if (chapterEntry.trackUid == 0 || chapterEntry.trackUid == uid) {
+          Chapter.Builder chapter =
+              new Chapter.Builder()
+                  .setStartTimeMs(Util.nsToMs(chapterEntry.timeStartNs))
+                  .setEndTimeMs(Util.nsToMs(chapterEntry.timeEndNs))
+                  .setHidden(chapterEntry.flagHidden);
+          if (chapterEntry.chapString != null) {
+            chapter.setTitle(new Label(chapterEntry.chapLanguage, chapterEntry.chapString));
+          }
+          chapters.add(chapter.build());
         }
       }
       if (!chapters.isEmpty()) {

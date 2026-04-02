@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -1066,7 +1067,11 @@ public final class BoxParser {
         }
         int titleLength = chplData.readUnsignedByte();
         String title = chplData.readString(titleLength);
-        chapters.add(Chapter.create(startTimeMs, C.TIME_UNSET, title));
+        chapters.add(
+            new Chapter.Builder()
+                .setStartTimeMs(startTimeMs)
+                .setTitle(new Label(null, title))
+                .build());
       }
       return chapters.isEmpty() ? null : new Metadata(chapters);
     } catch (IndexOutOfBoundsException e) {

@@ -318,15 +318,15 @@ public final class BoxParserTest {
     Chapter chapter1 = (Chapter) metadata.get(0);
     assertThat(chapter1.getStartTimeMs()).isEqualTo(500);
     assertThat(chapter1.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
-    assertThat(chapter1.getTitle()).isEqualTo("Chapter 1");
+    assertThat(chapter1.getTitle().value).isEqualTo("Chapter 1");
     Chapter chapter2 = (Chapter) metadata.get(1);
     assertThat(chapter2.getStartTimeMs()).isEqualTo(1000);
     assertThat(chapter2.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
-    assertThat(chapter2.getTitle()).isEqualTo("Chapter 2");
+    assertThat(chapter2.getTitle().value).isEqualTo("Chapter 2");
     Chapter chapter3 = (Chapter) metadata.get(2);
     assertThat(chapter3.getStartTimeMs()).isEqualTo(3_000_000);
     assertThat(chapter3.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
-    assertThat(chapter3.getTitle()).isEqualTo("Chapter 3");
+    assertThat(chapter3.getTitle().value).isEqualTo("Chapter 3");
   }
 
   @Test
@@ -347,7 +347,7 @@ public final class BoxParserTest {
     Chapter chapter = (Chapter) metadata.get(0);
     assertThat(chapter.getStartTimeMs()).isEqualTo(C.TIME_UNSET);
     assertThat(chapter.getEndTimeMs()).isEqualTo(C.TIME_UNSET);
-    assertThat(chapter.getTitle()).isEqualTo("Chapter 1");
+    assertThat(chapter.getTitle().value).isEqualTo("Chapter 1");
   }
 
   @Test

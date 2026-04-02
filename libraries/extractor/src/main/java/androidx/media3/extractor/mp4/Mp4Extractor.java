@@ -33,6 +33,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Label;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -1076,7 +1077,12 @@ public final class Mp4Extractor implements Extractor {
           chapterSampleIndex + 1 < chapterSampleTable.sampleCount
               ? Util.usToMs(chapterSampleTable.timestampsUs[chapterSampleIndex + 1])
               : Util.usToMs(chapterSampleTable.durationUs);
-      quickTimeChapters.add(Chapter.create(startTimeMs, endTimeMs, text));
+      quickTimeChapters.add(
+          new Chapter.Builder()
+              .setStartTimeMs(startTimeMs)
+              .setEndTimeMs(endTimeMs)
+              .setTitle(new Label(/* language= */ null, text))
+              .build());
       chapterSampleIndex++;
       return Extractor.RESULT_CONTINUE;
     }

@@ -29,7 +29,7 @@ track 0:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = en
-    metadata = entries=[TSSE: description=null: values=[Lavf61.1.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0, Chapter: startTimeMs=0, endTimeMs=201, title=Chapter 1, Chapter: startTimeMs=201, endTimeMs=800, title=Chapter 2, Chapter: startTimeMs=800, endTimeMs=850, title=Chapter 3]
+    metadata = entries=[TSSE: description=null: values=[Lavf61.1.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, ThumbnailMetadata: presentationTimeUs=0, Chapter: startTimeMs=0, endTimeMs=201, title={ lang=null, 'Chapter 1' }, Chapter: startTimeMs=201, endTimeMs=800, title={ lang=null, 'Chapter 2' }, Chapter: startTimeMs=800, endTimeMs=850, title={ lang=null, 'Chapter 3' }]
     initializationData:
       data = length 23, hash 33E412EE
       data = length 9, hash FBAFBC0C
@@ -168,7 +168,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf61.1.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, Chapter: startTimeMs=0, endTimeMs=201, title=Chapter 1, Chapter: startTimeMs=201, endTimeMs=800, title=Chapter 2, Chapter: startTimeMs=800, endTimeMs=850, title=Chapter 3]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf61.1.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000, Chapter: startTimeMs=0, endTimeMs=201, title={ lang=null, 'Chapter 1' }, Chapter: startTimeMs=201, endTimeMs=800, title={ lang=null, 'Chapter 2' }, Chapter: startTimeMs=800, endTimeMs=850, title={ lang=null, 'Chapter 3' }]
     initializationData:
       data = length 2, hash 5F7
   sample 0:

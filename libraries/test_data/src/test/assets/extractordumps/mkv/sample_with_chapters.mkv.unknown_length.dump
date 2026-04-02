@@ -21,7 +21,7 @@ track 1:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = und
-    metadata = entries=[Chapter: startTimeMs=0, endTimeMs=1999, title=Chapter 1, Chapter: startTimeMs=2000, endTimeMs=4999, title=Chapter 2, ThumbnailMetadata: presentationTimeUs=0]
+    metadata = entries=[Chapter: startTimeMs=0, endTimeMs=1999, title={ lang=en, 'Chapter 1' }, Chapter: startTimeMs=2000, endTimeMs=4999, title={ lang=de, 'Chapter 2' }, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 29, hash 3B9414F4
       data = length 10, hash 7A0CFA02
@@ -636,7 +636,7 @@ track 2:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[Chapter: startTimeMs=0, endTimeMs=1999, title=Chapter 1, Chapter: startTimeMs=2000, endTimeMs=4999, title=Chapter 2]
+    metadata = entries=[Chapter: startTimeMs=0, endTimeMs=1999, title={ lang=en, 'Chapter 1' }, Chapter: startTimeMs=2000, endTimeMs=4999, title={ lang=de, 'Chapter 2' }]
     initializationData:
       data = length 5, hash 2B7623A
   sample 0:
