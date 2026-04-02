@@ -64,6 +64,7 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import androidx.media3.exoplayer.video.VideoSink.FirstFrameReleaseInstruction;
+import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -930,7 +931,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * A {@link MediaCodecVideoRenderer} that outputs decoded frames to a {@link
    * HardwareBufferFrameReader}.
    */
-  private static final class HardwareBufferVideoRenderer extends MediaCodecVideoRenderer {
+  private static final class HardwareBufferVideoRenderer extends MediaCodecVideoRenderer
+      implements RendererWakeupListener {
     private final CompositionRendererListener compositionRendererListener;
     private final HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
@@ -974,7 +976,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               ? RELEASE_FIRST_FRAME_IMMEDIATELY
               : RELEASE_FIRST_FRAME_WHEN_STARTED;
       compositionRendererListener.onEnabled(firstFrameReleaseInstruction, sequenceIndex);
+      hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
       super.onEnabled(joining, mayRenderStartOfStream);
+    }
+
+    @Override
+    protected void onDisabled() {
+      super.onDisabled();
+      hardwareBufferFrameReader.removeRendererWakeupListener(/* rendererWakeupListener= */ this);
     }
 
     @Override
@@ -1094,6 +1103,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return super.isEnded()
           && (!isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))
               || compositionRendererListener.isEnded());
+    }
+
+    // RendererWakeupListener methods
+
+    @Override
+    public void onWakeup() {
+      WakeupListener wakeupListener = getWakeupListener();
+      if (wakeupListener != null) {
+        wakeupListener.onWakeup();
+      }
     }
 
     private int indexOfCurrentItem() {

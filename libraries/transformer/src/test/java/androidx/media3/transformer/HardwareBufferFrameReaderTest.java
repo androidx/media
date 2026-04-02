@@ -30,10 +30,12 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -173,6 +175,51 @@ public class HardwareBufferFrameReaderTest {
     assertThat(receivedFrames.get(2).presentationTimeUs).isEqualTo(66_667);
     assertThat(receivedFrames.get(2).sequencePresentationTimeUs).isEqualTo(66_667);
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void addWakeupListenerProvider_releaseFrame_callsRendererWakeupListener() {
+    TimestampIterator twoFrames =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f);
+    hardwareBufferFrameReader.outputBitmap(
+        Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888),
+        /* timestampIterator= */ twoFrames,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    AtomicBoolean onWakeupCalled = new AtomicBoolean();
+    hardwareBufferFrameReader.addRendererWakeupListener(() -> onWakeupCalled.set(true));
+    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+
+    receivedFrames.get(0).release(/* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(onWakeupCalled.get()).isTrue();
+    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
+  }
+
+  @Test
+  public void releaseFrame_afterRemoveWakeupListenerProvider_doesNotRendererWakeupListener() {
+    AtomicBoolean onWakeupCalled = new AtomicBoolean();
+    RendererWakeupListener rendererWakeupListener = () -> onWakeupCalled.set(true);
+    TimestampIterator twoFrames =
+        new ConstantRateTimestampIterator(/* durationUs= */ 1_000_000, /* frameRate= */ 2f);
+
+    hardwareBufferFrameReader.outputBitmap(
+        Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888),
+        /* timestampIterator= */ twoFrames,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0);
+
+    hardwareBufferFrameReader.addRendererWakeupListener(rendererWakeupListener);
+    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+
+    hardwareBufferFrameReader.removeRendererWakeupListener(rendererWakeupListener);
+    receivedFrames.get(0).release(/* releaseFence= */ null);
+    shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(onWakeupCalled.get()).isFalse();
+    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
   }
 
   @Test

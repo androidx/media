@@ -37,8 +37,11 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SyncFenceWrapper;
+import androidx.media3.exoplayer.Renderer;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -53,6 +56,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public interface Listener {
     /** Reports an error. */
     void onError(Exception cause);
+  }
+
+  /** A listener for renderer wakeup events. */
+  public interface RendererWakeupListener {
+    /**
+     * Requests the {@link Renderer} to render some frames.
+     *
+     * @see Renderer.WakeupListener
+     */
+    void onWakeup();
   }
 
   /**
@@ -91,6 +104,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @GuardedBy("this")
   private final Queue<FrameInfo> pendingFrameInfo;
 
+  private final List<RendererWakeupListener> rendererWakeupListenerList;
+
   private @MonotonicNonNull Surface imageReaderSurface;
 
   @Nullable private Format lastFormat;
@@ -128,6 +143,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.listenerHandler = listenerHandler;
     Handler playbackHandler = new Handler(playbackLooper);
     playbackExecutor = new PlaybackExecutor(playbackHandler);
+    rendererWakeupListenerList = new ArrayList<>();
     // The default width and height are ignored when writing from MediaCodec.
     // Sensible values greater than 1 allow HardwareBufferFrameReaderTest to pass.
     if (SDK_INT >= 29) {
@@ -244,6 +260,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  /**
+   * Registers a listener to receive wakeup events from the frame reader.
+   *
+   * @param rendererWakeupListener The listener to register.
+   */
+  void addRendererWakeupListener(RendererWakeupListener rendererWakeupListener) {
+    rendererWakeupListenerList.add(rendererWakeupListener);
+  }
+
+  /**
+   * Unregisters a listener registered through {@link
+   * #addRendererWakeupListener(RendererWakeupListener)}. The listener will no longer receive
+   * events.
+   *
+   * @param rendererWakeupListener The listener to unregister.
+   */
+  void removeRendererWakeupListener(RendererWakeupListener rendererWakeupListener) {
+    rendererWakeupListenerList.remove(rendererWakeupListener);
+  }
+
   /** Clears all pending frames. */
   void flush() {
     synchronized (this) {
@@ -307,6 +343,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             createHardwareBufferFrameFromImage(
                 image, itemPresentationTimeUs, sequenceOffsetUs, indexOfItem, frameInfo.format));
         maybeOutputPendingBitmaps();
+        maybeWakeupVideoRenderer();
       } catch (RuntimeException e) {
         if (image != null) {
           image.close();
@@ -458,6 +495,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     maybeOutputPendingBitmaps();
+    maybeWakeupVideoRenderer();
+  }
+
+  private void maybeWakeupVideoRenderer() {
+    for (int i = 0; i < rendererWakeupListenerList.size(); i++) {
+      rendererWakeupListenerList.get(i).onWakeup();
+    }
   }
 
   /**

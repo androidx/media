@@ -43,6 +43,7 @@ import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -174,6 +175,25 @@ public class HardwareBufferFrameReaderAndroidTest {
 
     assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isTrue();
     assertThat(hardwareBufferFrameReaderException.get()).isNull();
+  }
+
+  @Test
+  public void frameReader_releaseOutputFrame_callsWakeupListener() throws Exception {
+    AtomicBoolean onWakeupCalled = new AtomicBoolean();
+    hardwareBufferFrameReader.queueFrameViaSurface(
+        /* presentationTimeUs= */ 1234,
+        /* sequenceOffsetUs= */ 0,
+        /* indexOfItem= */ 0,
+        TEST_FORMAT);
+    hardwareBufferFrameReader.addRendererWakeupListener(() -> onWakeupCalled.set(true));
+    assertThat(hardwareBufferFrameReader.canAcceptFrameViaSurface()).isFalse();
+    produceFrameToFrameReaderSurface(/* presentationTimeUs= */ 1234);
+    HardwareBufferFrame receivedFrame = receivedFrames.poll(TEST_TIMEOUT_MS, MILLISECONDS);
+
+    receivedFrame.release(/* releaseFence= */ null);
+    handlerThread.join(TEST_TIMEOUT_MS);
+
+    assertThat(onWakeupCalled.get()).isTrue();
   }
 
   @Test
