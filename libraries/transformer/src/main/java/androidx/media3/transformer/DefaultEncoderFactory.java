@@ -168,7 +168,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
      * <p>The default value is {@code false}.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/496166847 - Remove after Photos experiment is successful.
+    @ExperimentalApi // TODO: b/496166847 - Remove after experiment is successful.
     public Builder setEnableCodecDbLiteBitrate(boolean enableCodecDbLiteBitrate) {
       this.enableCodecDbLiteBitrate = enableCodecDbLiteBitrate;
       return this;
