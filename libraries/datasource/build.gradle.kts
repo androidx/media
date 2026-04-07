@@ -43,9 +43,7 @@ dependencies {
   androidTestImplementation(libs.dexmaker)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)
-  androidTestImplementation(project(modulePrefix + "test-utils")) {
-    exclude(module = "${modulePrefix.substring(1)}library-core")
-  }
+  androidTestImplementation(project(modulePrefix + "test-utils"))
   testImplementation(libs.mockito.core)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
