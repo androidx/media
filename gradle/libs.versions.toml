@@ -1,0 +1,155 @@
+[versions]
+# SDK
+compileSdkVersion = "36"
+appTargetSdkVersion = "34"
+minSdkVersion = "23"
+# Upgrading this requires [Internal ref: b/193254928] to be fixed, or some
+# additional robolectric config.
+targetSdkVersion = "31"
+# See https://developer.android.com/training/cars/media/automotive-os#automotive-module
+automotiveMinSdkVersion = "28"
+
+# Gradle Plugins
+androidGradlePlugin = "8.12.3"
+kotlinGradlePlugin = "2.0.20"
+kotlinComposeCompiler = "2.0.20"
+protobufGradlePlugin = "0.9.5"
+strictVersionMatcherPlugin = "1.2.4"
+
+# Libraries
+androidxAnnotationVersion = "1.6.0"
+androidxAnnotationExperimentalVersion = "1.3.1"
+androidxAppCompatVersion = "1.6.1"
+androidxCollectionVersion = "1.2.0"
+# Remove non-bom version numbers of androidxCompose* once b/385138624 is fixed
+# See https://developer.android.com/develop/ui/compose/bom/bom-mapping
+androidxComposeBomVersion = "2024.12.01"
+androidxComposeFoundation = "1.7.6"
+androidxComposeMaterial3 = "1.3.1"
+androidxComposeMaterial3Adaptive = "1.0.0"
+androidxConcurrentFuturesVersion = "1.2.0"
+androidxConstraintLayoutVersion = "2.1.4"
+androidxCoreVersion = "1.8.0"
+androidxDatastoreVersion = "1.1.5"
+androidxExifInterfaceVersion = "1.3.6"
+androidXLeanbackVersion = "1.0.0"
+androidxLifecycleVersion = "2.5.1"
+androidxMaterialVersion = "1.8.0"
+androidxMediaRouterVersion = "1.8.1"
+androidxMediaVersion = "1.7.0"
+androidxNavigationVersion = "2.9.4"
+androidxRecyclerViewVersion = "1.3.0"
+androidxTestCoreVersion = "1.5.0"
+androidxTestEspressoVersion = "3.5.1"
+androidxTestJUnitVersion = "1.1.5"
+androidxTestRulesVersion = "1.5.0"
+androidxTestRunnerVersion = "1.6.2"
+androidxTestTruthVersion = "1.5.0"
+androidxTestUiAutomatorVersion = "2.3.0"
+androidxWindowVersion = "1.3.0"
+# Keep this in sync with Google's internal Checker Framework version.
+checkerframeworkVersion = "3.13.0"
+desugarJdkLibsVersion = "2.1.5"
+dexmakerVersion = "2.28.3"
+errorProneVersion = "2.18.0"
+gmsPlayServicesCastFrameworkVersion = "22.1.0"
+glideVersion = "4.14.2"
+# Use the same Guava version as the Android repo:
+# https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
+guavaVersion = "33.3.1-android"
+jsr305Version = "3.0.2"
+# Use the same JUnit version as the Android repo:
+# https://cs.android.com/android/platform/superproject/main/+/main:external/junit/METADATA
+junitVersion = "4.13.2"
+kotlinAnnotationsVersion = "1.9.0"
+kotlinBomVersion = "1.8.0"
+# Not the same as kotlin version, https://github.com/Kotlin/kotlinx.coroutines/releases
+kotlinxCoroutinesVersion = "1.9.0"
+leakCanaryVersion = "2.10"
+lottieVersion = "6.6.0"
+mockitoVersion = "3.12.4"
+okhttpVersion = "4.12.0"
+protobufVersion = "4.31.1"
+robolectricVersion = "4.16"
+testParameterInjectorVersion = "1.18"
+truthVersion = "1.4.0"
+
+[libraries]
+androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotationVersion" }
+androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "androidxAnnotationExperimentalVersion" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidxAppCompatVersion" }
+androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "androidxCollectionVersion" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBomVersion" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "androidxComposeFoundation" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "androidxComposeMaterial3" }
+androidx-compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "androidxComposeMaterial3Adaptive" }
+androidx-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "androidxComposeMaterial3Adaptive" }
+androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "androidxComposeMaterial3Adaptive" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-test = { group = "androidx.compose.ui", name = "ui-test" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures", version.ref = "androidxConcurrentFuturesVersion" }
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "androidxConstraintLayoutVersion" }
+androidx-core = { group = "androidx.core", name = "core", version.ref = "androidxCoreVersion" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCoreVersion" }
+androidx-datastore = { group = "androidx.datastore", name = "datastore", version.ref = "androidxDatastoreVersion" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "androidxExifInterfaceVersion" }
+androidx-leanback = { group = "androidx.leanback", name = "leanback", version.ref = "androidXLeanbackVersion" }
+androidx-lifecycle-common = { group = "androidx.lifecycle", name = "lifecycle-common", version.ref = "androidxLifecycleVersion" }
+androidx-lifecycle-runtime = { group = "androidx.lifecycle", name = "lifecycle-runtime", version.ref = "androidxLifecycleVersion" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "androidxLifecycleVersion" }
+androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "androidxLifecycleVersion" }
+androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "androidxLifecycleVersion" }
+androidx-media = { group = "androidx.media", name = "media", version.ref = "androidxMediaVersion" }
+androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "androidxMediaRouterVersion" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidxNavigationVersion" }
+androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "androidxRecyclerViewVersion" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCoreVersion" }
+androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidxTestEspressoVersion" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJUnitVersion" }
+androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRulesVersion" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunnerVersion" }
+androidx-test-truth = { group = "androidx.test.ext", name = "truth", version.ref = "androidxTestTruthVersion" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidxTestUiAutomatorVersion" }
+androidx-window = { group = "androidx.window", name = "window", version.ref = "androidxWindowVersion" }
+checkerframework-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerframeworkVersion" }
+desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
+dexmaker = { group = "com.linkedin.dexmaker", name = "dexmaker", version.ref = "dexmakerVersion" }
+dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
+errorprone-annotations = { group = "com.google.errorprone", name = "error_prone_annotations", version.ref = "errorProneVersion" }
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glideVersion" }
+glide-concurrent-integration = { group = "com.github.bumptech.glide", name = "concurrent-integration", version.ref = "glideVersion" }
+gms-play-services-cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "gmsPlayServicesCastFrameworkVersion" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guavaVersion" }
+guava-testlib = { group = "com.google.guava", name = "guava-testlib", version.ref = "guavaVersion" }
+jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305Version" }
+junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
+kotlin-annotations-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-annotations-jvm", version.ref = "kotlinAnnotationsVersion" }
+kotlin-bom = { group = "org.jetbrains.kotlin", name = "kotlin-bom", version.ref = "kotlinBomVersion" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesVersion" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesVersion" }
+kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesVersion" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesVersion" }
+leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakCanaryVersion" }
+lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottieVersion" }
+material = { group = "com.google.android.material", name = "material", version.ref = "androidxMaterialVersion" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoVersion" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version.ref = "protobufVersion" }
+protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobufVersion" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectricVersion" }
+strict-version-matcher-plugin = { module = "com.google.android.gms:strict-version-matcher-plugin", version.ref = "strictVersionMatcherPlugin" }  # module name contains a colon and cannot be in [plugins]
+test-parameter-injector = { group = "com.google.testparameterinjector", name = "test-parameter-injector", version.ref = "testParameterInjectorVersion" }
+truth = { group = "com.google.truth", name = "truth", version.ref = "truthVersion" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlinGradlePlugin" }
+kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinComposeCompiler" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobufGradlePlugin" }
