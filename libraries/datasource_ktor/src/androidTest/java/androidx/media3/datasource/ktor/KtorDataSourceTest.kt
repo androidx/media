@@ -74,7 +74,7 @@ class KtorDataSourceTest {
         .setHttpRequestHeaders(dataSpecRequestProperties)
         .build()
 
-    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()
@@ -119,7 +119,7 @@ class KtorDataSourceTest {
     val defaultRequestProperties = HashMap<String, String>()
     defaultRequestProperties["0"] = "afterCreation"
     factory.setDefaultRequestProperties(defaultRequestProperties)
-    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()
@@ -154,7 +154,7 @@ class KtorDataSourceTest {
         .setHttpBody("test body".toByteArray(StandardCharsets.UTF_8))
         .build()
 
-    assertThat(dataSource.open(dataSpec)).isEqualTo(0);
+    assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
     val request = mockWebServer.takeRequest(10, TimeUnit.SECONDS)
     assertThat(request).isNotNull()
@@ -169,8 +169,7 @@ class KtorDataSourceTest {
     mockWebServer.enqueue(MockResponse())
 
     val userAgent = "testUserAgent"
-    val dataSource =
-      KtorDataSource.Factory(httpClient).setUserAgent(userAgent).createDataSource()
+    val dataSource = KtorDataSource.Factory(httpClient, userAgent = userAgent).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)
@@ -189,8 +188,10 @@ class KtorDataSourceTest {
     )
 
     val dataSource =
-      KtorDataSource.Factory(httpClient)
-        .setContentTypePredicate { contentType -> contentType == "audio/mpeg" }
+      KtorDataSource.Factory(
+          httpClient,
+          contentTypePredicate = { contentType -> contentType == "audio/mpeg" },
+        )
         .createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
@@ -217,7 +218,7 @@ class KtorDataSourceTest {
         override fun onTransferInitializing(
           source: DataSource,
           dataSpec: DataSpec,
-          isNetwork: Boolean
+          isNetwork: Boolean,
         ) {
           assertThat(source).isNotNull()
           assertThat(dataSpec).isNotNull()
@@ -225,11 +226,7 @@ class KtorDataSourceTest {
           transferInitializingCalled = true
         }
 
-        override fun onTransferStart(
-          source: DataSource,
-          dataSpec: DataSpec,
-          isNetwork: Boolean
-        ) {
+        override fun onTransferStart(source: DataSource, dataSpec: DataSpec, isNetwork: Boolean) {
           assertThat(source).isNotNull()
           assertThat(dataSpec).isNotNull()
           assertThat(isNetwork).isNotNull()
@@ -240,7 +237,7 @@ class KtorDataSourceTest {
           source: DataSource,
           dataSpec: DataSpec,
           isNetwork: Boolean,
-          bytesTransferred: Int
+          bytesTransferred: Int,
         ) {
 
           assertThat(source).isNotNull()
@@ -255,9 +252,7 @@ class KtorDataSourceTest {
       }
 
     val dataSource =
-      KtorDataSource.Factory(httpClient)
-        .setTransferListener(transferListener)
-        .createDataSource()
+      KtorDataSource.Factory(httpClient, transferListener = transferListener).createDataSource()
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
 
     assertThat(dataSource.open(dataSpec)).isEqualTo(0)

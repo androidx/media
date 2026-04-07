@@ -75,13 +75,10 @@ private constructor(
   private var bytesToRead: Long = 0
   private var bytesRead: Long = 0
 
-  override fun getUri(): Uri? {
-    return this.response?.request?.url?.let { Uri.parse(it.toString()) } ?: this.dataSpec?.uri
-  }
+  override fun getUri(): Uri? =
+    this.response?.request?.url?.let { Uri.parse(it.toString()) } ?: this.dataSpec?.uri
 
-  override fun getResponseCode(): Int {
-    return response?.status?.value ?: -1
-  }
+  override fun getResponseCode(): Int = response?.status?.value ?: -1
 
   override fun getResponseHeaders(): Map<String, List<String>> {
     val headers = response?.headers ?: return emptyMap()
@@ -90,17 +87,11 @@ private constructor(
     }
   }
 
-  override fun setRequestProperty(name: String, value: String) {
-    requestProperties.set(name, value)
-  }
+  override fun setRequestProperty(name: String, value: String) = requestProperties.set(name, value)
 
-  override fun clearRequestProperty(name: String) {
-    requestProperties.remove(name)
-  }
+  override fun clearRequestProperty(name: String) = requestProperties.remove(name)
 
-  override fun clearAllRequestProperties() {
-    requestProperties.clear()
-  }
+  override fun clearAllRequestProperties() = requestProperties.clear()
 
   @Throws(HttpDataSource.HttpDataSourceException::class)
   override fun open(dataSpec: DataSpec): Long {
@@ -370,70 +361,28 @@ private constructor(
    * [androidx.media3.datasource.DataSource.Factory] for [KtorDataSource] instances.
    *
    * @param httpClient A [HttpClient] for use by the sources created by the factory.
+   * @param userAgent The user agent that will be used for requests. The default is `null`, which
+   *   causes the default user agent of the underlying [HttpClient] to be used.
+   * @param contentTypePredicate An optional content type [Predicate]. If a content type is rejected
+   *   by the predicate then a [HttpDataSource.InvalidContentTypeException] is thrown from
+   *   [KtorDataSource.open].
+   * @param transferListener An optional transfer listener. See
+   *   [androidx.media3.datasource.DataSource.addTransferListener].
    */
-  class Factory(private val httpClient: HttpClient) : HttpDataSource.Factory {
+  class Factory(
+    private val httpClient: HttpClient,
+    private val userAgent: String? = null,
+    private val contentTypePredicate: Predicate<String>? = null,
+    private val transferListener: TransferListener? = null,
+  ) : HttpDataSource.Factory {
 
     private val defaultRequestProperties = HttpDataSource.RequestProperties()
-
-    private var userAgent: String? = null
-
-    private var transferListener: TransferListener? = null
-
-    private var contentTypePredicate: Predicate<String>? = null
 
     @CanIgnoreReturnValue
     override fun setDefaultRequestProperties(
       defaultRequestProperties: Map<String, String>
     ): Factory {
       this.defaultRequestProperties.clearAndSet(defaultRequestProperties)
-      return this
-    }
-
-    /**
-     * Sets the user agent that will be used.
-     *
-     * The default is `null`, which causes the default user agent of the underlying [HttpClient] to
-     * be used.
-     *
-     * @param userAgent The user agent that will be used, or `null` to use the default user agent of
-     *   the underlying [HttpClient].
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setUserAgent(userAgent: String?): Factory {
-      this.userAgent = userAgent
-      return this
-    }
-
-    /**
-     * Sets a content type [Predicate]. If a content type is rejected by the predicate then a
-     * [HttpDataSource.InvalidContentTypeException] is thrown from [KtorDataSource.open].
-     *
-     * The default is `null`.
-     *
-     * @param contentTypePredicate The content type [Predicate], or `null` to clear a predicate that
-     *   was previously set.
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setContentTypePredicate(contentTypePredicate: Predicate<String>?): Factory {
-      this.contentTypePredicate = contentTypePredicate
-      return this
-    }
-
-    /**
-     * Sets the [TransferListener] that will be used.
-     *
-     * The default is `null`.
-     *
-     * See [androidx.media3.datasource.DataSource.addTransferListener].
-     *
-     * @param transferListener The listener that will be used.
-     * @return This factory.
-     */
-    @CanIgnoreReturnValue
-    fun setTransferListener(transferListener: TransferListener?): Factory {
-      this.transferListener = transferListener
       return this
     }
 
