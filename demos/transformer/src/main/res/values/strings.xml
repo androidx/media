@@ -33,6 +33,7 @@
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="abort_slow_export" translatable="false">Abort slow export</string>
   <string name="produce_fragmented_mp4" translatable="false">Produce Fragmented Mp4</string>
+  <string name="produce_hybrid_mp4" translatable="false">Produce Hybrid Mp4</string>
   <string name="trim" translatable="false">Trim</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
   <string name="enable_trim_optimization" translatable="false">Enable trim optimization</string>
