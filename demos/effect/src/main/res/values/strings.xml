@@ -39,4 +39,15 @@
   <string name="lottie_effect_name_heart">Heart</string>
   <string name="lottie_effect_name_asset_folder">Asset from folder</string>
   <string name="lottie_effect_name_asset_encoded">Assets encoded</string>
+  <string name="color_black">Black</string>
+  <string name="color_dark_gray">Dark Gray</string>
+  <string name="color_gray">Gray</string>
+  <string name="color_light_gray">Light Gray</string>
+  <string name="color_white">White</string>
+  <string name="color_red">Red</string>
+  <string name="color_green">Green</string>
+  <string name="color_blue">Blue</string>
+  <string name="color_yellow">Yellow</string>
+  <string name="color_cyan">Cyan</string>
+  <string name="color_magenta">Magenta</string>
 </resources>
