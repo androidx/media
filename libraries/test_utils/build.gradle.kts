@@ -54,6 +54,7 @@ dependencies {
 }
 
 extra["releaseArtifactId"] = "media3-test-utils"
+
 extra["releaseName"] = "Media3 test utils module"
 
 apply(from = "../../publish.gradle")

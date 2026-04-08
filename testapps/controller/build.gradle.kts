@@ -16,7 +16,6 @@ plugins {
   alias(libs.plugins.kotlin.android)
 }
 
-
 apply(from = "../../constants.gradle")
 
 android {

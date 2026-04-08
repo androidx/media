@@ -11,9 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins {
-  alias(libs.plugins.android.library)
-}
+plugins { alias(libs.plugins.android.library) }
 
 apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 
@@ -54,6 +52,7 @@ dependencies {
 }
 
 extra["releaseArtifactId"] = "media3-datasource"
+
 extra["releaseName"] = "Media3 DataSource module"
 
 apply(from = "../../publish.gradle")

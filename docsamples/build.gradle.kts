@@ -21,7 +21,6 @@ plugins {
 
 apply(from = "$projectDir/../common_config.gradle")
 
-
 android {
   namespace = "androidx.media3.docsamples"
 

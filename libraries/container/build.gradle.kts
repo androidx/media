@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-plugins {
-  alias(libs.plugins.android.library)
-}
+plugins { alias(libs.plugins.android.library) }
 
 apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 

@@ -64,6 +64,7 @@ dependencies {
 }
 
 extra["releaseArtifactId"] = "media3-effect-ndk"
+
 extra["releaseName"] = "Media3 Effect NDK module"
 
 apply(from = "../../publish.gradle")

@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 apply(from = "../../constants.gradle")
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.android)
 }
+
 android {
   namespace = "androidx.media3.demo.session.automotive"
 

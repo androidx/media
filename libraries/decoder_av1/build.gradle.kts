@@ -23,7 +23,6 @@ android {
   sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
 
   defaultConfig { externalNativeBuild { cmake { targets.add("dav1dJNI") } } }
-
 }
 
 // Configure the native build only if dav1d is present to avoid gradle sync

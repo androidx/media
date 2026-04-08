@@ -49,13 +49,7 @@ android {
 
 protobuf {
   protoc { artifact = libs.protobuf.protoc.get().toString() }
-  generateProtoTasks {
-    all().forEach { task ->
-      task.plugins {
-        create("java")
-      }
-    }
-  }
+  generateProtoTasks { all().forEach { task -> task.plugins { create("java") } } }
 }
 
 dependencies {

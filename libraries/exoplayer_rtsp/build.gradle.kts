@@ -41,6 +41,7 @@ dependencies {
 }
 
 extra["releaseArtifactId"] = "media3-exoplayer-rtsp"
+
 extra["releaseName"] = "Media3 ExoPlayer RTSP module"
 
 apply(from = "../../publish.gradle")

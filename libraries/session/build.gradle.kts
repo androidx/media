@@ -28,6 +28,7 @@ android {
   publishing { singleVariant("release") { withSourcesJar() } }
   buildFeatures { aidl = true }
 }
+
 dependencies {
   api(project(modulePrefix + "lib-common"))
   api(libs.androidx.lifecycle.service)
