@@ -1065,7 +1065,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1082,7 +1082,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1104,7 +1104,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1125,7 +1125,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1147,7 +1147,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1175,7 +1175,7 @@ public class HlsChunkSourceTest {
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
-    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
     when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
@@ -1436,26 +1436,5 @@ public class HlsChunkSourceTest {
 
   private static long periodTimeToPlaylistTimeUs(long periodTimeUs) {
     return periodTimeUs - PLAYLIST_START_PERIOD_OFFSET_US;
-  }
-
-  private static final class TestTrackSelection extends FakeTrackSelection {
-
-    private final long[] excludeUntilMs;
-
-    private TestTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
-      super(rendererTrackGroup, selectedIndex);
-      excludeUntilMs = new long[rendererTrackGroup.length];
-    }
-
-    @Override
-    public boolean excludeTrack(int index, long exclusionDurationMs) {
-      excludeUntilMs[index] = exclusionDurationMs;
-      return true;
-    }
-
-    @Override
-    public boolean isTrackExcluded(int index, long nowMs) {
-      return nowMs <= excludeUntilMs[index];
-    }
   }
 }
