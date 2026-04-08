@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +33,7 @@ import androidx.mediarouter.media.MediaRouteSelector;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.framework.CastContext;
+import com.google.android.gms.cast.framework.CastOptions;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
@@ -55,22 +57,32 @@ import org.robolectric.shadows.ShadowLooper;
 @RunWith(AndroidJUnit4.class)
 public final class CastTest {
 
+  private static final String FAKE_RECEIVER_APP_ID = "1234ABCD";
+
   @Rule public final MockitoRule mocks = MockitoJUnit.rule();
+
   @Mock private CastContext mockCastContext;
   @Mock private SessionManager mockSessionManager;
   @Mock private CastSession mockCastSession;
   @Captor ArgumentCaptor<OnCompleteListener<CastContext>> completionListenerCaptor;
+  @Captor ArgumentCaptor<CastOptions.Modifier> optionsModifierCaptor;
 
   @Mock private SessionManagerListener<CastSession> mockListener;
   @Mock private Cast.CastContextInitializer mockCastContextInitializer;
   @Mock private MediaRouteSelectorListener mockMediaRouteSelectorListener;
   private Context context;
+  private CastParams castParams;
   private MediaRouteSelector mediaRouteSelector;
   private TaskCompletionSource<CastContext> castContextTaskCompletionSource;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+    castParams =
+        new CastParams.Builder()
+            .setReceiverApplicationId(FAKE_RECEIVER_APP_ID)
+            .setRemoteToLocalEnabled(true)
+            .build();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     castContextTaskCompletionSource = new TaskCompletionSource<>();
     when(mockCastContextInitializer.init()).thenReturn(castContextTaskCompletionSource.getTask());
@@ -269,6 +281,120 @@ public final class CastTest {
   }
 
   @Test
+  public void initialize_withCastParams_initializesCastContextWithCastParamsDirectly() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer, castParams);
+
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    assertThat(cast.needsInitialization()).isFalse();
+    assertThat(cast.getCastContextLoadFailure()).isNull();
+    verify(mockCastContext, never()).applyOptionsModifier(any());
+  }
+
+  @Test
+  public void initialize_withExistingCastContext_appliesCastParams() {
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+
+    cast.initialize(castParams);
+
+    verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
+    verifyCastOptionsModifierEquals(
+        castParams.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+  }
+
+  @Test
+  public void initialize_withExistingCastContextLoadFailure_doesNotApplyCastParams() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    Exception exception = new RuntimeException("Failed to load");
+    castContextTaskCompletionSource.setException(exception);
+    ShadowLooper.idleMainLooper();
+    assertThat(cast.getCastContextLoadFailure()).isEqualTo(exception);
+
+    cast.initialize(castParams);
+
+    verify(mockCastContext, never()).applyOptionsModifier(any());
+  }
+
+  @Test
+  public void initialize_withPendingCastContextLoading_appliesCastParamsAfterInit() {
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+
+    cast.initialize(castParams);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
+    verifyCastOptionsModifierEquals(
+        castParams.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+  }
+
+  @Test
+  public void initialize_withPendingCastContextLoading_appliesLastCastParamsAfterInit() {
+    String newReceiverAppId1 = FAKE_RECEIVER_APP_ID + "_changed1";
+    String newReceiverAppId2 = FAKE_RECEIVER_APP_ID + "_changed2";
+    CastParams castParams1 =
+        new CastParams.Builder().setReceiverApplicationId(newReceiverAppId1).build();
+    CastParams castParams2 =
+        new CastParams.Builder().setReceiverApplicationId(newReceiverAppId2).build();
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+
+    cast.initialize(castParams1);
+    cast.initialize(castParams2);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+
+    verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
+    verifyCastOptionsModifierEquals(
+        castParams2.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+  }
+
+  @Test
+  public void initialize_calledMultipleTimesAfterInit_appliesLatestCastParams() {
+    String id1 = "ID_1";
+    String id2 = "ID_2";
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+    CastParams params1 = new CastParams.Builder().setReceiverApplicationId(id1).build();
+    CastParams params2 = new CastParams.Builder().setReceiverApplicationId(id2).build();
+
+    cast.initialize(params1);
+    cast.initialize(params2);
+
+    verify(mockCastContext, times(2)).applyOptionsModifier(optionsModifierCaptor.capture());
+    String firstApplicationIdSet =
+        optionsModifierCaptor.getAllValues().get(0).getReceiverApplicationId();
+    assertThat(firstApplicationIdSet).isEqualTo(id1);
+    String secondApplicationIdSet =
+        optionsModifierCaptor.getAllValues().get(1).getReceiverApplicationId();
+    assertThat(secondApplicationIdSet).isEqualTo(id2);
+  }
+
+  @Test
+  public void initialize_noArgs_appliesDefaultCastParams() {
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+
+    cast.initialize();
+
+    verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
+    verifyCastOptionsModifierEquals(
+        CastParams.DEFAULT.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+  }
+
+  @Test
+  public void initialize_withNullCastParams_throwsException() {
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+
+    NullPointerException exception =
+        assertThrows(NullPointerException.class, () -> cast.initialize((CastParams) null));
+
+    assertThat(exception).hasMessageThat().contains("castParams must not be null.");
+  }
+
+  @Test
   @Config(minSdk = VERSION_CODES.P)
   public void constructor_withContext_notOnMainProcess_throwsException() {
     final String mainProcessName = context.getPackageName();
@@ -346,16 +472,6 @@ public final class CastTest {
     verifyRegisterListenerAndGetCurrentSelectorAfterInit(/* selector= */ null);
   }
 
-  private void verifyRegisterListenerAndGetCurrentSelectorAfterInit(
-      @Nullable MediaRouteSelector selector) {
-    when(mockCastContext.getMergedSelector()).thenReturn(selector);
-    Cast cast = Cast.getSingletonInstance(mockCastContext);
-
-    MediaRouteSelector expectedSelector = (selector == null) ? MediaRouteSelector.EMPTY : selector;
-    assertThat(cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener))
-        .isEqualTo(expectedSelector);
-  }
-
   @Test
   public void registerListenerAndGetCurrentSelector_afterFailedInit_returnsEmptySelector() {
     Cast cast = Cast.getSingletonInstance(context);
@@ -382,5 +498,21 @@ public final class CastTest {
     ShadowLooper.idleMainLooper();
 
     verify(mockMediaRouteSelectorListener, never()).onMediaRouteSelectorChanged(any());
+  }
+
+  private void verifyRegisterListenerAndGetCurrentSelectorAfterInit(
+      @Nullable MediaRouteSelector selector) {
+    when(mockCastContext.getMergedSelector()).thenReturn(selector);
+    Cast cast = Cast.getSingletonInstance(mockCastContext);
+
+    MediaRouteSelector expectedSelector = (selector == null) ? MediaRouteSelector.EMPTY : selector;
+    assertThat(cast.registerListenerAndGetCurrentSelector(mockMediaRouteSelectorListener))
+        .isEqualTo(expectedSelector);
+  }
+
+  private void verifyCastOptionsModifierEquals(
+      CastOptions.Modifier expected, CastOptions.Modifier actual) {
+    assertThat(actual.getReceiverApplicationId()).isEqualTo(expected.getReceiverApplicationId());
+    assertThat(actual.getRemoteToLocalEnabled()).isEqualTo(expected.getRemoteToLocalEnabled());
   }
 }

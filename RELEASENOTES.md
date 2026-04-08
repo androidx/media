@@ -8,6 +8,7 @@
         resolve it.
     *   Fix handling of `onAudioSessionIdChanged` in `SimpleBasePlayer` and
         `ForwardingSimpleBasePlayer`.
+    *   Upgrade Kotlin from 2.0.20 to 2.2.0.
 *   ExoPlayer:
     *   Remove clipping of content for client-side inserted ads in the core
         player. Instead, `AdsMediaSource` takes care of the clipping logic.
@@ -149,6 +150,8 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Add new CastParams class to allow configuration of Cast by calling
+        `Cast.initialize(CastParams)`.
 *   Test utilities:
     *   Expand `DataSourceContractTest` to include support for `POST` requests
         with headers & bodies, add some `POST` resources to

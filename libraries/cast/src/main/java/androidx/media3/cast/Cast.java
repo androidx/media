@@ -51,10 +51,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>This singleton class manages global state associated with Cast playback, including
  * configurations (such as the receiver application id) and resource initialization.
  *
- * <p>The singleton instance must be initialized for Cast playback to function. The recommended
- * approach is to call {@link #initialize} within {@link Application#onCreate}. If {@link
- * #initialize} is not called but an OptionsProvider is configured in the app's manifest, {@link
- * RemoteCastPlayer} and UI elements will trigger initialization automatically .
+ * <p>The singleton instance must be initialized for Cast playback to function. See {@link
+ * #initialize(CastParams)} for details on how initialization works.
  *
  * <p>Must be called on the main process and the main thread.
  */
@@ -72,6 +70,7 @@ public class Cast {
   private final List<SessionManagerListener<CastSession>> pendingListeners;
 
   private final Set<MediaRouteSelectorListener> pendingMediaRouteSelectorListeners;
+  @Nullable private CastParams pendingCastParams;
 
   @Nullable private final Context context;
   @Nullable private CastContext castContext;
@@ -110,27 +109,32 @@ public class Cast {
     return singletonInstance;
   }
 
+  /** Equivalent to {@link #initialize(CastParams) initialize(CastParams.DEFAULT)}. */
+  public void initialize() {
+    initialize(CastParams.DEFAULT);
+  }
+
   /**
    * Initializes the singleton instance.
    *
-   * <p>Does nothing if {@link #needsInitialization() initialization} is not needed.
+   * <p>This method triggers asynchronous initialization using the provided {@link CastParams}. The
+   * Cast context loading is offloaded to {@link BackgroundExecutor}.
    *
-   * <p>Cast context loading is offloaded to {@link BackgroundExecutor}.
-   *
-   * <p>Cast configurations are determined by the manifest-configured options provider in the app's
-   * manifest.
+   * <p>Calling this method after initialization has started (and possibly completed) applies the
+   * newly provided {@link CastParams Cast parameters}.
    *
    * <p>Initialization must occur before the creation of a {@link RemoteCastPlayer} or the use of
    * Cast UI widgets, such as the {@link MediaRouteButtonFactory} or the {@link MediaRouteButtonKt}
-   * composable. To achieve this, the application can perform initialization in the {@link
-   * Application#onCreate()} method as follows:
+   * composable. The recommended way to do this is calling {@link #initialize(CastParams)} in the
+   * {@link Application#onCreate()} method as follows:
    *
    * <pre>{@code
    * public class MainApplication extends Application {
    *   &#64;Override
    *   public void onCreate() {
    *     super.onCreate();
-   *     Cast.getSingletonInstance(this).initialize();
+   *     CastParams castParams = // Build your Cast configurations or use CastParams.DEFAULT.
+   *     Cast.getSingletonInstance(this).initialize(castParams);
    *   }
    * }
    * }</pre>
@@ -145,15 +149,54 @@ public class Cast {
    * </application>
    * }</pre>
    *
+   * <p>If the application doesn't call this method before initialization is needed (by Cast UI
+   * widgets or {@link RemoteCastPlayer}), but provides the cast options tag in the manifest, then
+   * those options are used to perform initialization without the need to call {@link #initialize}
+   * explicitly. For example:
+   *
+   * <pre>{@code
+   * <meta-data
+   *     android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
+   *     android:value="..." />
+   * }</pre>
+   *
+   * <p>However, using manifest-provided Cast options is not recommended because they include
+   * options incompatible with Media3 such as automatic media session management, which Media3
+   * provides built-in support for.
+   *
    * @throws IllegalStateException if this method is not called on the main process.
    */
-  public void initialize() {
+  public void initialize(CastParams castParams) {
+    checkNotNull(castParams, "castParams must not be null.");
     initialize(
         () ->
             CastContext.getSharedInstance(
                 // This assertion should never fail. If context == null, then needsInit == false.
                 // If needsInit == false, this lambda shouldn't run.
-                checkNotNull(context), BackgroundExecutor.get()));
+                checkNotNull(context),
+                BackgroundExecutor.get(),
+                new DefaultCastOptionsProvider(),
+                castParams.toCastOptionsModifier()),
+        castParams);
+  }
+
+  @VisibleForTesting
+  /* package */ void initialize(
+      CastContextInitializer castContextInitializer, CastParams castParams) {
+    verifyMainThread();
+    if (castContext != null) {
+      castContext.applyOptionsModifier(castParams.toCastOptionsModifier());
+      return;
+    }
+    if (castContextLoadFailure != null) {
+      Log.w(TAG, "Tried to initialize Cast after already failed initialization.");
+      return;
+    }
+    if (isInitOngoing) {
+      pendingCastParams = castParams;
+      return;
+    }
+    initialize(castContextInitializer);
   }
 
   @VisibleForTesting
@@ -311,6 +354,10 @@ public class Cast {
     verifyMainThread();
     isInitOngoing = false;
     this.castContext = castContext;
+    if (pendingCastParams != null) {
+      castContext.applyOptionsModifier(pendingCastParams.toCastOptionsModifier());
+      pendingCastParams = null;
+    }
     SessionManager sessionManager = castContext.getSessionManager();
     for (SessionManagerListener<CastSession> listener : pendingListeners) {
       sessionManager.addSessionManagerListener(listener, CastSession.class);
@@ -332,6 +379,7 @@ public class Cast {
 
   private void onCastContextLoadFailure(@Nullable Exception exception) {
     isInitOngoing = false;
+    pendingCastParams = null;
     castContextLoadFailure =
         exception != null
             ? exception

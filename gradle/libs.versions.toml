@@ -11,8 +11,8 @@ automotiveMinSdkVersion = "28"
 
 # Gradle Plugins
 androidGradlePlugin = "8.12.3"
-kotlinGradlePlugin = "2.0.20"
-kotlinComposeCompiler = "2.0.20"
+kotlinGradlePlugin = "2.2.0"
+kotlinComposeCompiler = "2.2.0"
 protobufGradlePlugin = "0.9.5"
 strictVersionMatcherPlugin = "1.2.4"
 
@@ -54,7 +54,7 @@ cronetVersion = "113.5672.61"
 desugarJdkLibsVersion = "2.1.5"
 dexmakerVersion = "2.28.3"
 errorProneVersion = "2.18.0"
-gmsPlayServicesCastFrameworkVersion = "22.1.0"
+gmsPlayServicesCastFrameworkVersion = "22.3.1"
 glideVersion = "4.14.2"
 # Use the same Guava version as the Android repo:
 # https://cs.android.com/android/platform/superproject/main/+/main:external/guava/METADATA
