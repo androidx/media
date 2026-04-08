@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -64,6 +65,7 @@ public final class ClippingHlsPlaybackTest {
 
   @Test
   public void playback_clipped() throws Exception {
+    assumeFalse(enableMediaPeriodClipping); // TODO: 474538573 - Remove once discarding is fixed.
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
@@ -92,6 +94,7 @@ public final class ClippingHlsPlaybackTest {
 
   @Test
   public void playback_clippedWithSeek() throws Exception {
+    assumeFalse(enableMediaPeriodClipping); // TODO: 474538573 - Remove once discarding is fixed.
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;

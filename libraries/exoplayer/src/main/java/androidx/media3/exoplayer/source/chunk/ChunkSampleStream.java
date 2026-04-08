@@ -99,6 +99,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   private boolean needToEvaluateInitialDiscontinuity;
   private boolean hasInitialDiscontinuity;
   private boolean suppressRead;
+  private long endPositionUs;
 
   /* package */ boolean loadingFinished;
 
@@ -174,6 +175,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     chunkOutput = new BaseMediaChunkOutput(trackTypes, sampleQueues);
     pendingResetPositionUs = positionUs;
     lastSeekPositionUs = positionUs;
+    endPositionUs = C.TIME_END_OF_SOURCE;
 
     needToEvaluateInitialDiscontinuity = handleInitialDiscontinuity;
     if (handleInitialDiscontinuity && firstChunkStartTimeUs != C.TIME_UNSET) {
@@ -356,9 +358,18 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     C#TIME_END_OF_SOURCE} to not set an end position.
    */
   public void setEndPositionUs(long endPositionUs) {
+    boolean continueLoadingNeeded =
+        loadingFinished
+            && this.endPositionUs != C.TIME_END_OF_SOURCE
+            && (endPositionUs == C.TIME_END_OF_SOURCE || endPositionUs > this.endPositionUs);
+    this.endPositionUs = endPositionUs;
     primarySampleQueue.setReadEndTimeUs(endPositionUs);
     for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
       embeddedSampleQueue.setReadEndTimeUs(endPositionUs);
+    }
+    if (continueLoadingNeeded) {
+      loadingFinished = false;
+      callback.onContinueLoadingRequested(this);
     }
   }
 
@@ -650,7 +661,11 @@ public class ChunkSampleStream<T extends ChunkSource>
     @Nullable Chunk loadable = nextChunkHolder.chunk;
     nextChunkHolder.clear();
 
-    if (endOfStream) {
+    boolean nextChunkBeyondEndPositionUs =
+        loadable != null
+            && endPositionUs != C.TIME_END_OF_SOURCE
+            && loadable.startTimeUs >= endPositionUs;
+    if (endOfStream || nextChunkBeyondEndPositionUs) {
       pendingResetPositionUs = C.TIME_UNSET;
       loadingFinished = true;
       return true;
@@ -717,7 +732,8 @@ public class ChunkSampleStream<T extends ChunkSource>
         // Can't cancel anymore because the renderers have read from this chunk.
         return;
       }
-      if (chunkSource.shouldCancelLoad(positionUs, loadingChunk, readOnlyMediaChunks)) {
+      if ((endPositionUs != C.TIME_END_OF_SOURCE && loadingChunk.startTimeUs >= endPositionUs)
+          || chunkSource.shouldCancelLoad(positionUs, loadingChunk, readOnlyMediaChunks)) {
         loader.cancelLoading();
         if (isMediaChunk(loadingChunk)) {
           canceledMediaChunk = (BaseMediaChunk) loadingChunk;
@@ -726,12 +742,21 @@ public class ChunkSampleStream<T extends ChunkSource>
       return;
     }
 
-    int preferredQueueSize = chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks);
+    int preferredQueueSize =
+        min(mediaChunks.size(), chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks));
+    boolean discardedDataBeyondEndPositionUs = false;
+    if (endPositionUs != C.TIME_END_OF_SOURCE) {
+      while (preferredQueueSize > 0
+          && mediaChunks.get(preferredQueueSize - 1).startTimeUs >= endPositionUs) {
+        preferredQueueSize--;
+        discardedDataBeyondEndPositionUs = true;
+      }
+    }
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
     }
-
-    if (primarySampleQueue.hasQueuedTimestampsUpToReadEndTimeUs()) {
+    if (discardedDataBeyondEndPositionUs) {
+      pendingResetPositionUs = C.TIME_UNSET;
       loadingFinished = true;
     }
   }

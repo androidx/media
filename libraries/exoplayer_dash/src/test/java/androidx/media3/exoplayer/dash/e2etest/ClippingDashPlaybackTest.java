@@ -16,9 +16,11 @@
 package androidx.media3.exoplayer.dash.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
@@ -27,7 +29,10 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.ResolvingDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
@@ -43,6 +48,7 @@ import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import org.junit.Rule;
@@ -68,7 +74,6 @@ public final class ClippingDashPlaybackTest {
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
     String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
-
     player.setMediaItem(
         new MediaItem.Builder()
             .setUri(TEST_DASH_URI)
@@ -78,6 +83,7 @@ public final class ClippingDashPlaybackTest {
                     .setEndPositionMs(1200)
                     .build())
             .build());
+
     player.prepare();
     advance(player).untilFullyBuffered();
     player.play();
@@ -96,7 +102,6 @@ public final class ClippingDashPlaybackTest {
     ExoPlayer player = setupData.first;
     PlaybackOutput playbackOutput = setupData.second;
     String dumpFileSuffix = enableMediaPeriodClipping ? "enabled" : "disabled";
-
     player.setMediaItem(
         new MediaItem.Builder()
             .setUri(TEST_DASH_URI)
@@ -106,6 +111,7 @@ public final class ClippingDashPlaybackTest {
                     .setEndPositionMs(1200)
                     .build())
             .build());
+
     player.prepare();
     advance(player).untilFullyBuffered();
     player.play();
@@ -120,7 +126,413 @@ public final class ClippingDashPlaybackTest {
         "playbackdumps/cmaf/clipped_seek_period_clipping_" + dumpFileSuffix + ".dump");
   }
 
+  @Test
+  public void replaceMediaItem_extendEndPositionBeforeLoadingFinished() throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 6th chunk (1250-1500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_6"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 1250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(2000).build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_extend_before_load_finished.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_extendEndPositionAfterLoadingFinished() throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1900).build())
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_extend_after_load_finished.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_reduceEndPositionBeforeLoadingFinishedToNotLoadedValue()
+      throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 6th chunk (1250-1500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_6"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(2500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 1250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1900).build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_before_load_finished_to_not_loaded_value.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_reduceEndPositionBeforeLoadingFinishedToAlreadyLoadedValue()
+      throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 10th chunk (2250-2500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_10"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(2500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 2250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1500).build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_before_load_finished_to_already_loaded_value.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_reduceEndPositionAfterLoadingFinished() throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(2500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1400).build())
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_after_load_finished.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_extendEndPositionToEndOfSourceBeforeLoadingFinished()
+      throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 6th chunk (1250-1500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_6"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 1250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem
+                    .clippingConfiguration
+                    .buildUpon()
+                    .setEndPositionMs(C.TIME_END_OF_SOURCE)
+                    .build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_extend_to_end_of_source_before_load_finished.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_extendEndPositionToEndOfSourceAfterLoadingFinished()
+      throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1500).build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem
+                    .clippingConfiguration
+                    .buildUpon()
+                    .setEndPositionMs(C.TIME_END_OF_SOURCE)
+                    .build())
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_extend_to_end_of_source_after_load_finished.dump");
+  }
+
+  @Test
+  public void
+      replaceMediaItem_reduceEndPositionFromEndOfSourceBeforeLoadingFinishedToNotLoadedValue()
+          throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 6th chunk (1250-1500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_6"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setEndPositionMs(C.TIME_END_OF_SOURCE)
+                    .build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 1250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1500).build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_from_end_of_source_before_load_finished_to_not_loaded_value.dump");
+  }
+
+  @Test
+  public void
+      replaceMediaItem_reduceEndPositionFromEndOfSourceBeforeLoadingFinishedToAlreadyLoadedValue()
+          throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    ConditionVariable blockLoadingCondition = new ConditionVariable();
+    // Block loading of the 10th chunk (2250-2500ms)
+    Pair<ExoPlayer, PlaybackOutput> setupData =
+        setUpPlayerAndCapturingOutputForClippingTest(
+            blockLoadingCondition,
+            /* blockLoadingFilter= */ dataSpec -> dataSpec.uri.toString().contains("_10"));
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setEndPositionMs(C.TIME_END_OF_SOURCE)
+                    .build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() >= 2250);
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1500).build())
+            .build());
+    advance(player).untilPendingCommandsAreFullyHandled();
+    blockLoadingCondition.open();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_from_end_of_source_before_load_finished_to_already_loaded_value.dump");
+  }
+
+  @Test
+  public void replaceMediaItem_reduceEndPositionFromEndOfSourceAfterLoadingFinished()
+      throws Exception {
+    assumeTrue(enableMediaPeriodClipping);
+    Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
+    ExoPlayer player = setupData.first;
+    PlaybackOutput playbackOutput = setupData.second;
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(TEST_DASH_URI)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setEndPositionMs(C.TIME_END_OF_SOURCE)
+                    .build())
+            .build();
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.replaceMediaItem(
+        /* index= */ 0,
+        mediaItem
+            .buildUpon()
+            .setClippingConfiguration(
+                mediaItem.clippingConfiguration.buildUpon().setEndPositionMs(1500).build())
+            .build());
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        playbackOutput,
+        "playbackdumps/cmaf/replace_reduce_from_end_of_source_after_load_finished.dump");
+  }
+
   private Pair<ExoPlayer, PlaybackOutput> setUpPlayerAndCapturingOutputForClippingTest() {
+    return setUpPlayerAndCapturingOutputForClippingTest(
+        /* blockLoadingCondition= */ null, /* blockLoadingFilter= */ null);
+  }
+
+  private Pair<ExoPlayer, PlaybackOutput> setUpPlayerAndCapturingOutputForClippingTest(
+      @Nullable ConditionVariable blockLoadingCondition,
+      @Nullable Function<DataSpec, Boolean> blockLoadingFilter) {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     // Capture the loaded segments in addition to the decoded samples to capture the loading
@@ -135,8 +547,16 @@ public final class ClippingDashPlaybackTest {
             super.dump(dumper);
           }
         };
-    MediaSource.Factory dashFactory =
-        new DashMediaSource.Factory(new DefaultDataSource.Factory(context));
+    DataSource.Factory blockingDataSourceFactory =
+        new ResolvingDataSource.Factory(
+            new DefaultDataSource.Factory(context),
+            dataSpec -> {
+              if (blockLoadingCondition != null && blockLoadingFilter.apply(dataSpec)) {
+                blockLoadingCondition.block();
+              }
+              return dataSpec;
+            });
+    MediaSource.Factory dashFactory = new DashMediaSource.Factory(blockingDataSourceFactory);
     Handler testHandler = new Handler(Looper.myLooper());
     ExoPlayer player =
         new ExoPlayer.Builder(context, capturingRenderersFactory)
