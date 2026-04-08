@@ -20,8 +20,6 @@ apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 android {
   namespace = "androidx.media3.datasource.okhttp"
 
-  defaultConfig.minSdk = libs.versions.minSdkVersion.get().toInt()
-
   publishing { singleVariant("release") { withSourcesJar() } }
 }
 
