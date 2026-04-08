@@ -48,26 +48,10 @@ import java.util.Objects;
   public final long requestedContentPositionUs;
 
   /**
-   * The end position to which the media period's content is clipped in order to play a following ad
-   * group or to terminate a server side ad inserted stream before a played postroll, in
-   * microseconds, or {@link C#TIME_UNSET} if the content is not clipped or if this media period is
-   * an ad. The value {@link C#TIME_END_OF_SOURCE} indicates that a postroll ad follows at the end
-   * of this content media period.
-   */
-  public final long endPositionUs;
-
-  /**
-   * The duration of the media period, like {@link #endPositionUs} but with {@link
-   * C#TIME_END_OF_SOURCE} and {@link C#TIME_UNSET} resolved to the timeline period duration if
-   * known.
+   * The duration of the media period in microseconds, or {@link C#TIME_UNSET} if not known. Note
+   * that the actual duration may be clipped in order to play a following ad group.
    */
   public final long durationUs;
-
-  /**
-   * Whether this media period is preceded by another media period of the same server-side inserted
-   * as stream.
-   */
-  public final boolean isPrecededByTransitionFromSameStream;
 
   /**
    * Whether this media period is followed by a transition to another media period of the same
@@ -96,9 +80,7 @@ import java.util.Objects;
       long startPositionUs,
       long liveStreamStartPositionProjectionUs,
       long requestedContentPositionUs,
-      long endPositionUs,
       long durationUs,
-      boolean isPrecededByTransitionFromSameStream,
       boolean isFollowedByTransitionToSameStream,
       boolean isLastInTimelinePeriod,
       boolean isLastInTimelineWindow,
@@ -112,9 +94,7 @@ import java.util.Objects;
     this.startPositionUs = startPositionUs;
     this.liveStreamStartPositionProjectionUs = liveStreamStartPositionProjectionUs;
     this.requestedContentPositionUs = requestedContentPositionUs;
-    this.endPositionUs = endPositionUs;
     this.durationUs = durationUs;
-    this.isPrecededByTransitionFromSameStream = isPrecededByTransitionFromSameStream;
     this.isFollowedByTransitionToSameStream = isFollowedByTransitionToSameStream;
     this.isLastInTimelinePeriod = isLastInTimelinePeriod;
     this.isLastInTimelineWindow = isLastInTimelineWindow;
@@ -135,9 +115,7 @@ import java.util.Objects;
             startPositionUs,
             liveStreamStartPositionProjectionUs,
             requestedContentPositionUs,
-            endPositionUs,
             durationUs,
-            isPrecededByTransitionFromSameStream,
             isFollowedByTransitionToSameStream,
             isLastInTimelinePeriod,
             isLastInTimelineWindow,
@@ -156,9 +134,7 @@ import java.util.Objects;
             startPositionUs,
             liveStreamStartPositionProjectionUs,
             requestedContentPositionUs,
-            endPositionUs,
             durationUs,
-            isPrecededByTransitionFromSameStream,
             isFollowedByTransitionToSameStream,
             isLastInTimelinePeriod,
             isLastInTimelineWindow,
@@ -176,9 +152,7 @@ import java.util.Objects;
     MediaPeriodInfo that = (MediaPeriodInfo) o;
     return startPositionUs == that.startPositionUs
         && requestedContentPositionUs == that.requestedContentPositionUs
-        && endPositionUs == that.endPositionUs
         && durationUs == that.durationUs
-        && isPrecededByTransitionFromSameStream == that.isPrecededByTransitionFromSameStream
         && isFollowedByTransitionToSameStream == that.isFollowedByTransitionToSameStream
         && isLastInTimelinePeriod == that.isLastInTimelinePeriod
         && isLastInTimelineWindow == that.isLastInTimelineWindow
@@ -192,9 +166,7 @@ import java.util.Objects;
     result = 31 * result + id.hashCode();
     result = 31 * result + (int) startPositionUs;
     result = 31 * result + (int) requestedContentPositionUs;
-    result = 31 * result + (int) endPositionUs;
     result = 31 * result + (int) durationUs;
-    result = 31 * result + (isPrecededByTransitionFromSameStream ? 1 : 0);
     result = 31 * result + (isFollowedByTransitionToSameStream ? 1 : 0);
     result = 31 * result + (isLastInTimelinePeriod ? 1 : 0);
     result = 31 * result + (isLastInTimelineWindow ? 1 : 0);

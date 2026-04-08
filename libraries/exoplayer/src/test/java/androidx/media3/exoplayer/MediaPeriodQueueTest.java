@@ -164,9 +164,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -183,7 +181,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ C.TIME_UNSET,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -191,9 +188,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -209,9 +204,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -223,7 +216,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         /* adDurationUs= */ C.TIME_UNSET,
         /* contentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     setAdGroupLoaded(/* adGroupIndex= */ 0);
     assertNextMediaPeriodInfoIsAd(
@@ -231,7 +223,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -239,9 +230,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* endPositionUs= */ SECOND_AD_START_TIME_US,
         /* durationUs= */ SECOND_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -254,7 +243,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 1,
         AD_DURATION_US,
         /* contentPositionUs= */ SECOND_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -262,9 +250,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ SECOND_AD_START_TIME_US,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ SECOND_AD_START_TIME_US,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -280,9 +266,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -295,7 +279,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -303,9 +286,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -318,7 +299,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 1,
         AD_DURATION_US,
         /* contentPositionUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -326,9 +306,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -358,7 +336,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ C.TIME_UNSET,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -366,9 +343,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 2000,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -381,7 +356,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 1,
         AD_DURATION_US,
         /* contentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -389,9 +363,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ FIRST_AD_START_TIME_US + 3000,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -404,7 +376,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 2,
         AD_DURATION_US,
         /* contentPositionUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -412,9 +383,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -444,7 +413,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ C.TIME_UNSET,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ true);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -452,9 +420,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ true,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -467,7 +433,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 1,
         AD_DURATION_US,
         /* contentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ true);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -475,9 +440,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ FIRST_AD_START_TIME_US,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ FIRST_AD_START_TIME_US,
-        /* endPositionUs= */ SECOND_AD_START_TIME_US,
         /* durationUs= */ SECOND_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ true,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -490,7 +453,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 2,
         AD_DURATION_US,
         /* contentPositionUs= */ SECOND_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ true);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -498,9 +460,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ SECOND_AD_START_TIME_US,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ SECOND_AD_START_TIME_US,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -531,9 +491,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ C.TIME_UNSET,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -565,9 +523,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -579,9 +535,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -593,9 +547,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -607,9 +559,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // last period in live timeline
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -643,9 +593,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -657,9 +605,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -671,9 +617,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -685,9 +629,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // last period in live timeline
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -720,9 +662,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -735,7 +675,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         /* adDurationUs= */ adPeriodDurationUs,
         /* contentPositionUs= */ 0,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ true);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -743,9 +682,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ adPeriodDurationUs - 1,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -758,7 +695,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         /* adDurationUs= */ adPeriodDurationUs,
         /* contentPositionUs= */ 0,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ true);
     advance();
     assertGetNextMediaPeriodInfoReturnsContentMediaPeriod(
@@ -766,9 +702,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ adPeriodDurationUs - 1,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ adPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ true,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -780,9 +714,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // Last period in stream.
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -814,9 +746,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ contentPeriodDurationUs,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -828,9 +758,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ C.TIME_UNSET, // Last period in stream.
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -848,9 +776,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -863,9 +789,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ CONTENT_DURATION_US - 1,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ CONTENT_DURATION_US,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -884,7 +808,6 @@ public final class MediaPeriodQueueTest {
         /* adGroupIndex= */ 0,
         AD_DURATION_US,
         /* contentPositionUs= */ C.TIME_UNSET,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false);
     setAdGroupPlayed(/* adGroupIndex= */ 0);
     clear();
@@ -893,9 +816,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ FIRST_AD_START_TIME_US,
         /* durationUs= */ FIRST_AD_START_TIME_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -908,9 +829,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_END_OF_SOURCE,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ false,
         /* isLastInWindow= */ false,
@@ -923,9 +842,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -1015,9 +932,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ C.TIME_UNSET,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US + DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ false,
@@ -1029,9 +944,7 @@ public final class MediaPeriodQueueTest {
         /* startPositionUs= */ 0,
         /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
         /* requestedContentPositionUs= */ 0,
-        /* endPositionUs= */ C.TIME_UNSET,
         /* durationUs= */ CONTENT_DURATION_US,
-        /* isPrecededByTransitionFromSameStream= */ false,
         /* isFollowedByTransitionToSameStream= */ false,
         /* isLastInPeriod= */ true,
         /* isLastInWindow= */ true,
@@ -1063,8 +976,6 @@ public final class MediaPeriodQueueTest {
 
     assertThat(updateQueuedPeriodsResult).isEqualTo(0);
     assertThat(getQueueLength()).isEqualTo(1);
-    assertThat(mediaPeriodQueue.getPlayingPeriod().info.endPositionUs)
-        .isEqualTo(FIRST_AD_START_TIME_US - 2000);
     assertThat(mediaPeriodQueue.getPlayingPeriod().info.durationUs)
         .isEqualTo(FIRST_AD_START_TIME_US - 2000);
   }
@@ -1093,8 +1004,6 @@ public final class MediaPeriodQueueTest {
 
     assertThat(updateQueuedPeriodsResult).isEqualTo(UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD);
     assertThat(getQueueLength()).isEqualTo(1);
-    assertThat(mediaPeriodQueue.getPlayingPeriod().info.endPositionUs)
-        .isEqualTo(FIRST_AD_START_TIME_US - 2000);
     assertThat(mediaPeriodQueue.getPlayingPeriod().info.durationUs)
         .isEqualTo(FIRST_AD_START_TIME_US - 2000);
   }
@@ -1132,8 +1041,6 @@ public final class MediaPeriodQueueTest {
 
     assertThat(updateQueuedPeriodsResult).isEqualTo(0);
     assertThat(getQueueLength()).isEqualTo(1);
-    assertThat(mediaPeriodQueue.getPlayingPeriod().info.endPositionUs)
-        .isEqualTo(FIRST_AD_START_TIME_US - 2000);
     assertThat(mediaPeriodQueue.getPlayingPeriod().info.durationUs)
         .isEqualTo(FIRST_AD_START_TIME_US - 2000);
   }
@@ -1506,7 +1413,6 @@ public final class MediaPeriodQueueTest {
         .isEqualTo(C.TIME_END_OF_SOURCE);
     assertThat(mediaPeriodQueue.getLoadingPeriod().info.durationUs).isEqualTo(30_000_123L);
     assertThat(mediaPeriodQueue.getLoadingPeriod().info.startPositionUs).isEqualTo(0);
-    assertThat(mediaPeriodQueue.getLoadingPeriod().info.endPositionUs).isEqualTo(30_000_123L);
     assertThat(mediaPeriodQueue.getLoadingPeriod().getBufferedPositionUs()).isEqualTo(30_000_123L);
     assertThat(updateQueuedPeriodsResult).isEqualTo(0);
     assertThat(getQueueLength()).isEqualTo(1);
@@ -2340,9 +2246,7 @@ public final class MediaPeriodQueueTest {
       long startPositionUs,
       long liveStreamStartPositionProjectionUs,
       long requestedContentPositionUs,
-      long endPositionUs,
       long durationUs,
-      boolean isPrecededByTransitionFromSameStream,
       boolean isFollowedByTransitionToSameStream,
       boolean isLastInPeriod,
       boolean isLastInWindow,
@@ -2355,9 +2259,7 @@ public final class MediaPeriodQueueTest {
                 startPositionUs,
                 liveStreamStartPositionProjectionUs,
                 requestedContentPositionUs,
-                endPositionUs,
                 durationUs,
-                isPrecededByTransitionFromSameStream,
                 isFollowedByTransitionToSameStream,
                 isLastInPeriod,
                 isLastInWindow,
@@ -2369,7 +2271,6 @@ public final class MediaPeriodQueueTest {
       int adGroupIndex,
       long adDurationUs,
       long contentPositionUs,
-      boolean isPrecededByTransitionFromSameStream,
       boolean isFollowedByTransitionToSameStream) {
     assertThat(getNextMediaPeriodInfo())
         .isEqualTo(
@@ -2382,9 +2283,7 @@ public final class MediaPeriodQueueTest {
                 /* startPositionUs= */ 0,
                 /* liveStreamStartPositionProjectionUs= */ C.TIME_UNSET,
                 /* requestedContentPositionUs= */ contentPositionUs,
-                /* endPositionUs= */ C.TIME_UNSET,
                 adDurationUs,
-                isPrecededByTransitionFromSameStream,
                 isFollowedByTransitionToSameStream,
                 /* isLastInTimelinePeriod= */ false,
                 /* isLastInTimelineWindow= */ false,
