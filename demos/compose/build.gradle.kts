@@ -55,7 +55,7 @@ android {
 }
 
 dependencies {
-  implementation("androidx.activity:activity-compose:1.9.0")
+  implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.navigation.compose)

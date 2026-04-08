@@ -17,6 +17,7 @@ protobufGradlePlugin = "0.9.5"
 strictVersionMatcherPlugin = "1.2.4"
 
 # Libraries
+activityComposeVersion = "1.9.0"
 androidxAnnotationVersion = "1.6.0"
 androidxAnnotationExperimentalVersion = "1.3.1"
 androidxAppCompatVersion = "1.6.1"
@@ -49,6 +50,7 @@ androidxTestUiAutomatorVersion = "2.3.0"
 androidxWindowVersion = "1.3.0"
 # Keep this in sync with Google's internal Checker Framework version.
 checkerframeworkVersion = "3.13.0"
+cronetVersion = "113.5672.61"
 desugarJdkLibsVersion = "2.1.5"
 dexmakerVersion = "2.28.3"
 errorProneVersion = "2.18.0"
@@ -69,12 +71,16 @@ leakCanaryVersion = "2.10"
 lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
 okhttpVersion = "4.12.0"
+playServicesCronetVersion = "18.0.1"
+playServicesTfliteVersion = "16.1.0"
 protobufVersion = "4.31.1"
 robolectricVersion = "4.16"
 testParameterInjectorVersion = "1.18"
 truthVersion = "1.4.0"
+workRuntimeVersion = "2.8.1"
 
 [libraries]
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityComposeVersion" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotationVersion" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "androidxAnnotationExperimentalVersion" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidxAppCompatVersion" }
@@ -116,7 +122,10 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 androidx-test-truth = { group = "androidx.test.ext", name = "truth", version.ref = "androidxTestTruthVersion" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "androidxTestUiAutomatorVersion" }
 androidx-window = { group = "androidx.window", name = "window", version.ref = "androidxWindowVersion" }
+androidx-work-runtime = { group = "androidx.work", name = "work-runtime", version.ref = "workRuntimeVersion" }
 checkerframework-qual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerframeworkVersion" }
+cronet-api = { group = "org.chromium.net", name = "cronet-api", version.ref = "cronetVersion" }
+cronet-embedded = { group = "org.chromium.net", name = "cronet-embedded", version.ref = "cronetVersion" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibsVersion" }
 dexmaker = { group = "com.linkedin.dexmaker", name = "dexmaker", version.ref = "dexmakerVersion" }
 dexmaker-mockito = { group = "com.linkedin.dexmaker", name = "dexmaker-mockito", version.ref = "dexmakerVersion" }
@@ -140,6 +149,9 @@ material = { group = "com.google.android.material", name = "material", version.r
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoVersion" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttpVersion" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttpVersion" }
+play-services-cronet = { group = "com.google.android.gms", name = "play-services-cronet", version.ref = "playServicesCronetVersion" }
+play-services-tflite-java = { group = "com.google.android.gms", name = "play-services-tflite-java", version.ref = "playServicesTfliteVersion" }
+play-services-tflite-support = { group = "com.google.android.gms", name = "play-services-tflite-support", version.ref = "playServicesTfliteVersion" }
 protobuf-java = { group = "com.google.protobuf", name = "protobuf-java", version.ref = "protobufVersion" }
 protobuf-protoc = { group = "com.google.protobuf", name = "protoc", version.ref = "protobufVersion" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectricVersion" }

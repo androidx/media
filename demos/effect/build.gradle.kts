@@ -59,7 +59,7 @@ dependencies {
   implementation(libs.androidx.compose.foundation)
   implementation(libs.androidx.compose.material3)
 
-  implementation("androidx.activity:activity-compose:1.9.0")
+  implementation(libs.androidx.activity.compose)
   implementation(libs.material)
 
   implementation(project(modulePrefix + "lib-exoplayer"))

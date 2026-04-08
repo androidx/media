@@ -38,7 +38,7 @@ android {
 
 dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
-  implementation("androidx.activity:activity-compose:1.9.0")
+  implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.appcompat)
   implementation(platform(libs.androidx.compose.bom))

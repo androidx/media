@@ -24,9 +24,8 @@ android {
 }
 
 dependencies {
-  val cronetVersion = "113.5672.61"
-  runtimeOnly("com.google.android.gms:play-services-cronet:18.0.1")
-  api("org.chromium.net:cronet-api:${cronetVersion}")
+  runtimeOnly(libs.play.services.cronet)
+  api(libs.cronet.api)
   api(project(modulePrefix + "lib-common"))
   api(project(modulePrefix + "lib-datasource"))
   implementation(libs.androidx.annotation)
@@ -36,9 +35,8 @@ dependencies {
   androidTestImplementation(libs.androidx.test.rules)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker.mockito)
-  // Instrumentation tests assume that an app-packaged version of cronet is
-  // available.
-  androidTestImplementation("org.chromium.net:cronet-embedded:${cronetVersion}")
+  // Instrumentation tests assume that an app-packaged version of cronet is available.
+  androidTestImplementation(libs.cronet.embedded)
   androidTestImplementation(project(modulePrefix + "test-utils"))
   testImplementation(project(modulePrefix + "test-utils"))
   testImplementation(libs.okhttp.mockwebserver)

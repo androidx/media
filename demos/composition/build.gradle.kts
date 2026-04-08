@@ -69,7 +69,7 @@ dependencies {
   implementation(project(modulePrefix + "lib-ui-compose"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.lifecycle.viewmodel)
-  implementation("androidx.activity:activity-compose:1.9.0")
+  implementation(libs.androidx.activity.compose)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
