@@ -994,6 +994,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           elapsedRealtimeUs,
           /* compositionTimeOutputStreamStartPositionUs= */ streamStartPositionUs
               + offsetToCompositionTimeUs);
+      hardwareBufferFrameReader.pollImage();
     }
 
     @Override

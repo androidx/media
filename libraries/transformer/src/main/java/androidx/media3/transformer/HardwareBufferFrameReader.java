@@ -250,6 +250,55 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
+   * Tries to read a frame from the {@linkplain #getSurface() input surface}. Forwards the frame
+   * downstream, if a new frame was available.
+   */
+  void pollImage() {
+    synchronized (this) {
+      if (framesInUse >= CAPACITY) {
+        return;
+      }
+      Image image = imageReader.acquireNextImage();
+      if (image == null) {
+        return;
+      }
+      try {
+        // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
+        // CAPACITY images are queued.
+        framesInUse++;
+        @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
+        // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
+        // before onImageAvailable, then when onImageAvailable is called there will be no matching
+        // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
+        // this scenario.
+        if (frameInfo == null) {
+          image.close();
+          framesInUse--;
+          return;
+        }
+        long itemPresentationTimeUs = frameInfo.itemPresentationTimeUs;
+        long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
+        int indexOfItem = frameInfo.itemIndex;
+        checkState(
+            image.getTimestamp() == itemPresentationTimeUs * 1000,
+            "%s != %s",
+            image.getTimestamp(),
+            itemPresentationTimeUs * 1000);
+
+        frameConsumer.accept(
+            createHardwareBufferFrameFromImage(
+                image, itemPresentationTimeUs, sequenceOffsetUs, indexOfItem, frameInfo.format));
+        maybeOutputPendingBitmaps();
+        maybeWakeupVideoRenderer();
+      } catch (RuntimeException e) {
+        image.close();
+        framesInUse--;
+        throw e;
+      }
+    }
+  }
+
+  /**
    * Forwards a {@link HardwareBufferFrame#END_OF_STREAM_FRAME} to the downstream consumer after all
    * pending frames have been forwarded.
    */
@@ -310,48 +359,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     : format.colorInfo)
             .build();
     return lastAdjustedFormat;
-  }
-
-  private void onImageAvailable() {
-    Image image = null;
-    synchronized (this) {
-      try {
-        // Increment the framesInUse count before dequeueing pendingFrameInfo, to ensure only up to
-        // CAPACITY images are queued.
-        framesInUse++;
-        image = imageReader.acquireNextImage();
-        @Nullable FrameInfo frameInfo = pendingFrameInfo.poll();
-        // If the HardwareBufferFrameReader is flushed after queueFrameViaSurface is called, but
-        // before onImageAvailable, then when onImageAvailable is called there will be no matching
-        // pendingFrameInfo. Ignore Images with no matching pendingFrameInfo to avoid crashing in
-        // this scenario.
-        if (frameInfo == null) {
-          image.close();
-          framesInUse--;
-          return;
-        }
-        long itemPresentationTimeUs = frameInfo.itemPresentationTimeUs;
-        long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
-        int indexOfItem = frameInfo.itemIndex;
-        checkState(
-            image.getTimestamp() == itemPresentationTimeUs * 1000,
-            "%s != %s",
-            image.getTimestamp(),
-            itemPresentationTimeUs * 1000);
-
-        frameConsumer.accept(
-            createHardwareBufferFrameFromImage(
-                image, itemPresentationTimeUs, sequenceOffsetUs, indexOfItem, frameInfo.format));
-        maybeOutputPendingBitmaps();
-        maybeWakeupVideoRenderer();
-      } catch (RuntimeException e) {
-        if (image != null) {
-          image.close();
-        }
-        framesInUse--;
-        throw e;
-      }
-    }
   }
 
   private void maybeOutputPendingBitmaps() {
@@ -531,7 +538,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void onImageAvailable(ImageReader reader) {
       try {
-        HardwareBufferFrameReader.this.onImageAvailable();
+        pollImage();
       } catch (RuntimeException e) {
         listenerHandler.post(() -> listener.onError(e));
       }
