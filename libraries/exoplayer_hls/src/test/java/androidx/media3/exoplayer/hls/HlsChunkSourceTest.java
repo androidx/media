@@ -49,6 +49,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
 import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup.GroupKey;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.source.chunk.Chunk;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -1003,7 +1004,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void createFallbackOptionsForPlaylistError_returnsCorrectResult() throws IOException {
+  public void createFallbackOptionsForPlaylistError_withAllTracksSelected_returnsCorrectResult()
+      throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
     HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
@@ -1029,7 +1031,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void createFallbackOptionsForChunkError_returnsCorrectResult() throws IOException {
+  public void createFallbackOptionsForChunkError_withAllTracksSelected_returnsCorrectResult()
+      throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
     HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
@@ -1056,6 +1059,49 @@ public class HlsChunkSourceTest {
     assertThat(fallbackOptions.numberOfLocations).isEqualTo(3);
     assertThat(fallbackOptions.numberOfExcludedLocations).isEqualTo(1);
     assertThat(fallbackOptions.numberOfTracks).isEqualTo(4);
+    assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      createFallbackOptionsForPlaylistError_subsetTrackSelectionWithTrackExcluded_returnsCorrectResult()
+          throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    FakeTrackSelection trackSelection =
+        new FakeTrackSelection(
+            testChunkSource.getTrackGroup(), new int[] {1, 3}, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    assertThat(trackSelection.excludeTrack(/* index= */ 1, /* exclusionDurationMs= */ 10000))
+        .isTrue();
+    testChunkSource.setTrackSelection(trackSelection);
+    Uri playlistUrl = Uri.parse("https://test/media-a/playlist1.m3u8");
+
+    FallbackOptions fallbackOptions = testChunkSource.createFallbackOptions(playlistUrl);
+
+    assertThat(fallbackOptions.numberOfTracks).isEqualTo(2);
+    assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      createFallbackOptionsForChunkError_subsetTrackSelectionWithPlaylistExcluded_returnsCorrectResult()
+          throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    FakeTrackSelection trackSelection =
+        new FakeTrackSelection(
+            testChunkSource.getTrackGroup(), new int[] {1, 3}, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    Chunk mockChunk = mock(Chunk.class);
+    when(mockPlaylistTracker.isExcluded(eq(redundantGroups[3]), anyLong())).thenReturn(true);
+
+    FallbackOptions fallbackOptions = testChunkSource.createFallbackOptions(mockChunk);
+
+    assertThat(fallbackOptions.numberOfTracks).isEqualTo(2);
     assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(1);
   }
 
