@@ -607,6 +607,35 @@ public final class ClippingMediaSourceTest {
   }
 
   @Test
+  public void
+      canUpdateMediaItem_withChangedClippingConfigurationAndClippingInMediaPeriod_returnsTrue() {
+    MediaItem initialMediaItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(1).build())
+            .build();
+    MediaItem updatedMediaItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(2).build())
+            .build();
+    FakeMediaSource fakeMediaSource = new FakeMediaSource();
+    fakeMediaSource.setCanUpdateMediaItems(true);
+    fakeMediaSource.updateMediaItem(initialMediaItem);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEnableClippingInMediaPeriod(true)
+            .setStartPositionMs(1)
+            .build();
+
+    boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
+
+    assertThat(canUpdateMediaItem).isTrue();
+  }
+
+  @Test
   public void updateMediaItem_createsTimelineWithUpdatedItem() throws Exception {
     MediaItem initialMediaItem = new MediaItem.Builder().setUri("http://test.test").build();
     MediaItem updatedMediaItem = new MediaItem.Builder().setUri("http://test2.test").build();
@@ -626,6 +655,238 @@ public final class ClippingMediaSourceTest {
                 .getWindow(/* windowIndex= */ 0, new Timeline.Window())
                 .mediaItem)
         .isEqualTo(updatedMediaItem);
+  }
+
+  @Test
+  public void updateMediaItem_withStartAndEndPositionChange_updatesTimelineAndMediaPeriods()
+      throws Exception {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            TEST_PERIOD_DURATION_US,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setCanUpdateMediaItems(true);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEnableClippingInMediaPeriod(true)
+            .setStartPositionUs(100_000)
+            .setEndPositionUs(900_000)
+            .build();
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
+
+    try {
+      Timeline clippedTimeline = testRunner.prepareSource();
+      ClippingMediaPeriod mediaPeriod =
+          (ClippingMediaPeriod)
+              testRunner.createPeriod(
+                  new MediaPeriodId(
+                      clippedTimeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0));
+      assertThat(mediaPeriod.startUs).isEqualTo(100_000);
+      assertThat(mediaPeriod.endUs).isEqualTo(900_000);
+
+      MediaItem updatedMediaItem =
+          new MediaItem.Builder()
+              .setUri(Uri.EMPTY)
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder()
+                      .setStartPositionUs(200_000)
+                      .setEndPositionUs(800_000)
+                      .build())
+              .build();
+      testRunner.runOnPlaybackThread(() -> mediaSource.updateMediaItem(updatedMediaItem));
+      Timeline updatedClippedTimeline = testRunner.assertTimelineChangeBlocking();
+
+      assertThat(updatedClippedTimeline.getWindow(0, window).getDurationUs()).isEqualTo(600_000);
+      assertThat(mediaPeriod.startUs).isEqualTo(200_000);
+      assertThat(mediaPeriod.endUs).isEqualTo(800_000);
+    } finally {
+      testRunner.release();
+    }
+  }
+
+  @Test
+  public void updateMediaItem_withDefaultPositionChange_updatesPeriodsCorrectly() throws Exception {
+    long defaultPositionUs = 300_000;
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            /* periodDurationUs= */ TEST_PERIOD_DURATION_US,
+            /* windowDurationUs= */ TEST_PERIOD_DURATION_US - defaultPositionUs,
+            /* windowPositionInPeriodUs= */ 0,
+            /* windowDefaultStartPositionUs= */ defaultPositionUs,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setCanUpdateMediaItems(true);
+    // Initial: start=100ms relative to window (so 100ms in period if not relative to default)
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEnableClippingInMediaPeriod(true)
+            .setStartPositionUs(100_000)
+            .build();
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
+
+    try {
+      Timeline clippedTimeline = testRunner.prepareSource();
+      ClippingMediaPeriod mediaPeriod =
+          (ClippingMediaPeriod)
+              testRunner.createPeriod(
+                  new MediaPeriodId(
+                      clippedTimeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0));
+      assertThat(mediaPeriod.startUs).isEqualTo(100_000);
+
+      // Change to relative to default position.
+      // Expected new periodStartUs = windowPositionInPeriodUs(0) + defaultPosition(300ms) +
+      // startPosition(100ms) = 400ms.
+      MediaItem updatedMediaItem =
+          new MediaItem.Builder()
+              .setUri(Uri.EMPTY)
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder()
+                      .setStartPositionUs(100_000)
+                      .setRelativeToDefaultPosition(true)
+                      .build())
+              .build();
+      testRunner.runOnPlaybackThread(() -> mediaSource.updateMediaItem(updatedMediaItem));
+      testRunner.assertTimelineChangeBlocking();
+
+      assertThat(mediaPeriod.startUs).isEqualTo(400_000);
+    } finally {
+      testRunner.release();
+    }
+  }
+
+  @Test
+  public void updateMediaItem_withRelativeToLiveWindowChange_updatesPeriodsCorrectly()
+      throws Exception {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            /* periodDurationUs= */ 3 * TEST_PERIOD_DURATION_US,
+            /* windowDurationUs= */ TEST_PERIOD_DURATION_US,
+            /* windowPositionInPeriodUs= */ TEST_PERIOD_DURATION_US,
+            /* windowDefaultStartPositionUs= */ 0,
+            /* isSeekable= */ true,
+            /* isDynamic= */ true,
+            /* useLiveConfiguration= */ true,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setCanUpdateMediaItems(true);
+    // Initial: relativeToLiveWindow = true
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEnableClippingInMediaPeriod(true)
+            .setAllowDynamicClippingUpdates(true)
+            .setStartPositionUs(100_000)
+            .build();
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
+
+    try {
+      Timeline clippedTimeline = testRunner.prepareSource();
+      ClippingMediaPeriod mediaPeriod =
+          (ClippingMediaPeriod)
+              testRunner.createPeriod(
+                  new MediaPeriodId(
+                      clippedTimeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0));
+      // periodStartUs = 1s (window position) + 100ms (start pos) = 1.1s
+      assertThat(mediaPeriod.startUs).isEqualTo(1_100_000);
+
+      // Transition to non-dynamic (freezing it).
+      MediaItem updatedMediaItem =
+          new MediaItem.Builder()
+              .setUri(Uri.EMPTY)
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder()
+                      .setStartPositionUs(100_000)
+                      .setRelativeToLiveWindow(false)
+                      .build())
+              .build();
+      testRunner.runOnPlaybackThread(() -> mediaSource.updateMediaItem(updatedMediaItem));
+      testRunner.assertTimelineChangeBlocking();
+
+      // At this point, it was already 1.1s. It should remain 1.1s even if the window moves.
+      assertThat(mediaPeriod.startUs).isEqualTo(1_100_000);
+
+      // Now move the window.
+      Timeline timeline2 =
+          new SinglePeriodTimeline(
+              /* periodDurationUs= */ 4 * TEST_PERIOD_DURATION_US,
+              /* windowDurationUs= */ TEST_PERIOD_DURATION_US,
+              /* windowPositionInPeriodUs= */ 2 * TEST_PERIOD_DURATION_US,
+              /* windowDefaultStartPositionUs= */ 0,
+              /* isSeekable= */ true,
+              /* isDynamic= */ true,
+              /* useLiveConfiguration= */ true,
+              /* manifest= */ null,
+              MediaItem.fromUri(Uri.EMPTY));
+      fakeMediaSource.setNewSourceInfo(timeline2);
+      Timeline updatedClippedTimeline = testRunner.assertTimelineChangeBlocking();
+
+      // The window moved 1s forward in the period, but periodStartUs was frozen at 1.1s.
+      assertThat(mediaPeriod.startUs).isEqualTo(1_100_000);
+      // Window start in period was 2s. windowStartUs = 1.1s - 2s = -0.9s.
+      // Actually ClippingTimeline clamps it at 0.
+      assertThat(updatedClippedTimeline.getWindow(0, window).getPositionInFirstPeriodUs())
+          .isEqualTo(2_000_000);
+    } finally {
+      testRunner.release();
+    }
+  }
+
+  @Test
+  public void updateMediaItem_toEndOfSource_updatesPeriodsCorrectly() throws Exception {
+    Timeline timeline =
+        new SinglePeriodTimeline(
+            TEST_PERIOD_DURATION_US,
+            /* isSeekable= */ true,
+            /* isDynamic= */ false,
+            /* useLiveConfiguration= */ false,
+            /* manifest= */ null,
+            MediaItem.fromUri(Uri.EMPTY));
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setCanUpdateMediaItems(true);
+    ClippingMediaSource mediaSource =
+        new ClippingMediaSource.Builder(fakeMediaSource)
+            .setEnableClippingInMediaPeriod(true)
+            .setStartPositionUs(100_000)
+            .setEndPositionUs(900_000)
+            .build();
+    MediaSourceTestRunner testRunner = new MediaSourceTestRunner(mediaSource);
+
+    try {
+      Timeline clippedTimeline = testRunner.prepareSource();
+      ClippingMediaPeriod mediaPeriod =
+          (ClippingMediaPeriod)
+              testRunner.createPeriod(
+                  new MediaPeriodId(
+                      clippedTimeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0));
+      assertThat(mediaPeriod.endUs).isEqualTo(900_000);
+
+      // Change to end of source.
+      MediaItem updatedMediaItem =
+          new MediaItem.Builder()
+              .setUri(Uri.EMPTY)
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder()
+                      .setStartPositionUs(100_000)
+                      .setEndPositionUs(C.TIME_END_OF_SOURCE)
+                      .build())
+              .build();
+      testRunner.runOnPlaybackThread(() -> mediaSource.updateMediaItem(updatedMediaItem));
+      Timeline updatedTimeline = testRunner.assertTimelineChangeBlocking();
+
+      assertThat(updatedTimeline.getWindow(0, window).getDurationUs())
+          .isEqualTo(TEST_PERIOD_DURATION_US - 100_000);
+      assertThat(mediaPeriod.endUs).isEqualTo(C.TIME_END_OF_SOURCE);
+    } finally {
+      testRunner.release();
+    }
   }
 
   private static MediaSource buildMediaSource(MediaItem mediaItem) {

@@ -39,6 +39,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
  * {@link MediaSource} that wraps a source and clips its timeline based on specified start/end
@@ -310,11 +312,11 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     }
   }
 
-  private final MediaItem.ClippingConfiguration config;
   private final boolean enableClippingInMediaPeriod;
   private final ArrayList<ClippingMediaPeriod> mediaPeriods;
   private final Timeline.Window window;
 
+  private MediaItem.ClippingConfiguration config;
   @Nullable private ClippingTimeline clippingTimeline;
   @Nullable private IllegalClippingException clippingError;
   private long periodStartUs;
@@ -369,8 +371,34 @@ public final class ClippingMediaSource extends WrappingMediaSource {
 
   @Override
   public boolean canUpdateMediaItem(MediaItem mediaItem) {
-    return getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration)
-        && mediaSource.canUpdateMediaItem(mediaItem);
+    if (!mediaSource.canUpdateMediaItem(mediaItem)) {
+      return false;
+    }
+    return enableClippingInMediaPeriod
+        || getMediaItem().clippingConfiguration.equals(mediaItem.clippingConfiguration);
+  }
+
+  @SuppressWarnings("ReferenceEquality") // Intentional check for timeline identity.
+  @Override
+  public void updateMediaItem(MediaItem mediaItem) {
+    if (enableClippingInMediaPeriod) {
+      MediaItem.ClippingConfiguration oldConfig = config;
+      config = mediaItem.clippingConfiguration;
+      if (clippingTimeline != null && shouldKeepWindowFixed()) {
+        // If the window is not fixed, refreshClippedTimeline re-calculates the period clipping.
+        // If the window is fixed, we need to make adjustments for the new config directly.
+        updatePeriodClippingToNewConfig(oldConfig);
+      }
+    }
+    Timeline oldTimeline = clippingTimeline;
+    // Let the wrapped source update its internal state, which usually triggers a timeline refresh.
+    super.updateMediaItem(mediaItem);
+    if (enableClippingInMediaPeriod
+        && clippingTimeline != null
+        && clippingTimeline == oldTimeline) {
+      // If the timeline is unchanged, refresh it manually.
+      refreshClippedTimeline(clippingTimeline.timeline);
+    }
   }
 
   @Override
@@ -423,13 +451,15 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     long windowEndUs;
     timeline.getWindow(/* windowIndex= */ 0, window);
     long windowPositionInPeriodUs = window.getPositionInFirstPeriodUs();
-    if (clippingTimeline == null || mediaPeriods.isEmpty() || config.relativeToLiveWindow) {
+    if (!shouldKeepWindowFixed()) {
       windowStartUs = config.startPositionUs;
       windowEndUs = config.endPositionUs;
       if (config.relativeToDefaultPosition) {
         long windowDefaultPositionUs = window.getDefaultPositionUs();
         windowStartUs += windowDefaultPositionUs;
-        windowEndUs += windowDefaultPositionUs;
+        if (windowEndUs != C.TIME_END_OF_SOURCE) {
+          windowEndUs += windowDefaultPositionUs;
+        }
       }
       periodStartUs = windowPositionInPeriodUs + windowStartUs;
       periodEndUs =
@@ -444,7 +474,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       // Keep window fixed at previous period position.
       windowStartUs = periodStartUs - windowPositionInPeriodUs;
       windowEndUs =
-          config.endPositionUs == C.TIME_END_OF_SOURCE
+          periodEndUs == C.TIME_END_OF_SOURCE
               ? C.TIME_END_OF_SOURCE
               : periodEndUs - windowPositionInPeriodUs;
     }
@@ -461,6 +491,29 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       return;
     }
     refreshSourceInfo(clippingTimeline);
+  }
+
+  @RequiresNonNull("clippingTimeline")
+  private void updatePeriodClippingToNewConfig(MediaItem.ClippingConfiguration oldConfig) {
+    long windowDefaultOffset =
+        clippingTimeline.timeline.getWindow(/* windowIndex= */ 0, window).getDefaultPositionUs();
+    long defaultOffsetChange =
+        (oldConfig.relativeToDefaultPosition ? -windowDefaultOffset : 0)
+            + (config.relativeToDefaultPosition ? windowDefaultOffset : 0);
+    periodStartUs += defaultOffsetChange + config.startPositionUs - oldConfig.startPositionUs;
+    periodEndUs =
+        config.endPositionUs == C.TIME_END_OF_SOURCE
+            ? C.TIME_END_OF_SOURCE
+            : periodStartUs + config.endPositionUs - config.startPositionUs;
+    int count = mediaPeriods.size();
+    for (int i = 0; i < count; i++) {
+      mediaPeriods.get(i).updateClipping(periodStartUs, periodEndUs);
+    }
+  }
+
+  @EnsuresNonNullIf(result = true, expression = "clippingTimeline")
+  private boolean shouldKeepWindowFixed() {
+    return !mediaPeriods.isEmpty() && clippingTimeline != null && !config.relativeToLiveWindow;
   }
 
   /** Provides a clipped view of a specified timeline. */
