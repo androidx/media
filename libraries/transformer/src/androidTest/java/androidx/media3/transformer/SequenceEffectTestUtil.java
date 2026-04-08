@@ -43,7 +43,7 @@ import java.util.List;
 /** Utility class for checking testing {@link EditedMediaItemSequence} instances. */
 public final class SequenceEffectTestUtil {
   public static final ImmutableList<Effect> NO_EFFECT = ImmutableList.of();
-  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 50;
+  public static final long SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS = 30;
 
   /**
    * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a
