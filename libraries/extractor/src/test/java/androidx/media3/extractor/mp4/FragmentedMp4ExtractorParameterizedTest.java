@@ -106,10 +106,7 @@ public final class FragmentedMp4ExtractorParameterizedTest {
                 /* additionalEmsgTrackOutput= */ null),
         file,
         /* peekLimit= */ 700,
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                file.replaceFirst("media", "extractordumps") + ".no-merge-fragmented-sidx")
-            .build(),
+        new ExtractorAsserts.AssertionConfig.Builder().build(),
         simulationConfig);
   }
 
@@ -128,10 +125,7 @@ public final class FragmentedMp4ExtractorParameterizedTest {
                 /* additionalEmsgTrackOutput= */ null),
         file,
         /* peekLimit= */ 700,
-        new ExtractorAsserts.AssertionConfig.Builder()
-            .setDumpFilesPrefix(
-                file.replaceFirst("media", "extractordumps") + ".merge-fragmented-sidx")
-            .build(),
+        new ExtractorAsserts.AssertionConfig.Builder().build(),
         simulationConfig);
   }
 
