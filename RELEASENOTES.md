@@ -92,8 +92,8 @@
         ([#418](https://github.com/androidx/media/issues/418)).
     *   Add support for big endian 32-bit and 64-bit floating point PCM.
 *   Video:
-    *   Adjust logic for codec reuse at frame rate changes on API<30 to avoid
-        codec resets where they are not beneficial
+    *   Adjust logic for codec reuse at frame rate changes on API below 30 to
+        avoid codec resets where they are not beneficial
         ([#3120](https://github.com/androidx/media/issues/3120)).
 *   Text:
 *   Metadata:
@@ -1663,7 +1663,7 @@ This release includes the following changes since the
         line endings ([#2167](https://github.com/androidx/media/issues/2167)).
 *   DRM:
     *   Fix `MediaCodec$CryptoException: Operation not supported in this
-        configuration` error when playing ClearKey content on API < 27 devices
+        configuration` error when playing ClearKey content on API below 27
         ([#1732](https://github.com/androidx/media/issues/1732)).
 *   Effect:
     *   Moved the functionality of `OverlaySettings` into
@@ -4177,7 +4177,7 @@ This release corresponds to the
     *   Use LG AC3 audio decoder advertising non-standard MIME type.
     *   Change the return type of `AudioAttributes.getAudioAttributesV21()` from
         `android.media.AudioAttributes` to a new `AudioAttributesV21` wrapper
-        class, to prevent slow ART verification on API < 21.
+        class, to prevent slow ART verification on API below 21.
     *   Query the platform (API 29+) or assume the audio encoding channel count
         for audio passthrough when the format audio channel count is unset,
         which occurs with HLS chunkless preparation
