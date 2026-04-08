@@ -50,9 +50,18 @@ public final class SyncFenceWrapper {
   }
 
   /** Waits for the fence to signal. */
+  @RequiresApi(26)
   public boolean await(Duration timeout) {
     if (SDK_INT >= 33) {
       return Api33.await((SyncFence) syncFence, timeout);
+    }
+    return true;
+  }
+
+  /** Waits for the fence to signal. */
+  public boolean awaitMs(long timeoutMs) {
+    if (SDK_INT >= 33) {
+      return Api33.await((SyncFence) syncFence, Duration.ofMillis(timeoutMs));
     }
     return true;
   }

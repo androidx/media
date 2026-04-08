@@ -38,7 +38,6 @@ import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.SyncFenceWrapper;
 import androidx.media3.exoplayer.Renderer;
-import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -491,7 +490,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       framesInUse--;
       if (releaseFence != null) {
         // TODO: b/475744934 - Use the NDK to set the fence on the Image.
-        checkState(releaseFence.await(Duration.ofMillis(500)));
+        checkState(releaseFence.awaitMs(500));
         releaseFence.close();
       }
       if (SDK_INT >= 26 && hardwareBuffer != null) {
