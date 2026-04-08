@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.AssetDataSource;
@@ -32,9 +31,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
-import androidx.media3.exoplayer.source.chunk.MediaChunk;
-import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
-import androidx.media3.exoplayer.trackselection.BaseTrackSelection;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
@@ -45,9 +41,9 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
+import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
@@ -119,7 +115,8 @@ public final class ProgressiveMediaPeriodTest {
     boolean[] streamResetFlags = new boolean[trackGroups.length];
 
     // Select only track 0.
-    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    selections[0] =
+        new FakeTrackSelection(trackGroups.get(0), new int[] {0}, /* selectedIndex= */ 0);
     long unused =
         mediaPeriod.selectTracks(
             selections,
@@ -311,39 +308,6 @@ public final class ProgressiveMediaPeriodTest {
     public void run() {
       hasRun.set(true);
       super.run();
-    }
-  }
-
-  public static final class FakeTrackSelection extends BaseTrackSelection {
-
-    public FakeTrackSelection(TrackGroup group, int... tracks) {
-      super(group, tracks);
-    }
-
-    @Override
-    public void updateSelectedTrack(
-        long playbackPositionUs,
-        long bufferedDurationUs,
-        long availableDurationUs,
-        List<? extends MediaChunk> queue,
-        MediaChunkIterator[] mediaChunkIterators) {
-      // Do nothing.
-    }
-
-    @Override
-    public int getSelectedIndex() {
-      return 0;
-    }
-
-    @Override
-    public int getSelectionReason() {
-      return C.SELECTION_REASON_UNKNOWN;
-    }
-
-    @Nullable
-    @Override
-    public Object getSelectionData() {
-      return null;
     }
   }
 }
