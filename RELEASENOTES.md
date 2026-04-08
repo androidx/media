@@ -46,6 +46,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Fix a bug where an `ArrayIndexOutOfBoundsException` is thrown during
+        stream fallback if the track selection is a subset of the available
+        tracks ([#3161](https://github.com/androidx/media/issues/3161)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
