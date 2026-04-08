@@ -1436,8 +1436,7 @@ public class MediaSession {
    *
    * @param controllerInfo The controller to send the error to.
    * @param sessionError The session error.
-   * @exception IllegalArgumentException thrown if an error is attempted to be sent to a legacy
-   *     controller.
+   * @throws IllegalArgumentException If an error is sent to a legacy controller.
    */
   @UnstableApi
   public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
