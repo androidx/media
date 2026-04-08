@@ -18,7 +18,7 @@ apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 android {
   namespace = "androidx.media3.decoder.midi"
 
-  sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
+  sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets") }
 
   publishing { singleVariant("release") { withSourcesJar() } }
 }
