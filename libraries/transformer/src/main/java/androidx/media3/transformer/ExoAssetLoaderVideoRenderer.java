@@ -163,7 +163,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void onDecoderInputReady(DecoderInputBuffer inputBuffer) {
-    if (inputBuffer.timeUs < getLastResetPositionUs()) {
+    long durationUs = getPeriodDurationUs();
+    boolean exceedsStrictDuration =
+        isPeriodDurationStrict()
+            && durationUs != C.TIME_UNSET
+            && (inputBuffer.timeUs - getStreamOffsetUs()) >= durationUs;
+    if (inputBuffer.timeUs < getLastResetPositionUs() || exceedsStrictDuration) {
       decodeOnlyPresentationTimestamps.add(inputBuffer.timeUs);
     }
   }

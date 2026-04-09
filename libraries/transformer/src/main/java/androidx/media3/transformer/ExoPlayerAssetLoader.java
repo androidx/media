@@ -196,7 +196,9 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         if (editedMediaItem.flattenForSlowMotion) {
           defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
         }
-        mediaSourceFactory = new DefaultMediaSourceFactory(context, defaultExtractorsFactory);
+        mediaSourceFactory =
+            new DefaultMediaSourceFactory(context, defaultExtractorsFactory)
+                .setEnableClippingInMediaPeriod(true);
       }
       TrackSelector.Factory trackSelectorFactory = this.trackSelectorFactory;
       if (trackSelectorFactory == null) {

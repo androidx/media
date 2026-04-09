@@ -197,7 +197,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       audioSinkSupplier = () -> new DefaultAudioSink.Builder(context).build();
       glObjectsProviderSupplier = DefaultGlObjectsProvider::new;
       audioMixerFactorySupplier = DefaultAudioMixer.Factory::new;
-      mediaSourceFactorySupplier = () -> new DefaultMediaSourceFactory(context);
+      mediaSourceFactorySupplier =
+          () -> new DefaultMediaSourceFactory(context).setEnableClippingInMediaPeriod(true);
       loadControlSupplier = DefaultLoadControl::new;
       imageDecoderFactorySupplier =
           () ->

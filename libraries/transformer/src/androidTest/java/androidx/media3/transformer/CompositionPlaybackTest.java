@@ -691,6 +691,38 @@ public class CompositionPlaybackTest {
     assertThat(videoDecoderCounters.skippedOutputBufferCount).isEqualTo(14);
   }
 
+  @Test
+  public void playback_clippedMediaWithOutOfOrderFrames_effectsReceiveCorrectTimestamps()
+      throws Exception {
+    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
+    MediaItem mediaItem =
+        VIDEO_MEDIA_ITEM
+            .buildUpon()
+            .setClippingConfiguration(
+                new ClippingConfiguration.Builder().setEndPositionMs(150).build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        ImmutableList.copyOf(Iterables.filter(VIDEO_TIMESTAMPS_US, timeUs -> timeUs < 150_000L));
+    runCompositionPlayer(composition);
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
   private void runCompositionPlayer(Composition composition)
       throws PlaybackException, TimeoutException {
     runCompositionPlayer(composition, /* videoPrewarmingEnabled= */ true);

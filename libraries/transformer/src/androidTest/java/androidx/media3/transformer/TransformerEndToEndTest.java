@@ -1286,6 +1286,41 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void clippedMedia_outOfOrderFrames_processesCorrectFrames() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
+            .build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_ADVANCED_ASSET.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(150).build())
+            .build();
+    EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(mediaItem).build();
+    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    ImmutableList<Effect> videoEffects =
+        ImmutableList.of((GlEffect) (context, useHdr) -> timestampRecordingShaderProgram);
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
+            .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, composition);
+
+    assertThat(timestampRecordingShaderProgram.getInputTimestampsUs())
+        .containsExactly(0L, 33_366L, 66_733L, 100_100L, 133_466L);
+  }
+
+  @Test
   public void videoEditing_trimOptimizationEnabled_fallbackToNormalExport() throws Exception {
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
