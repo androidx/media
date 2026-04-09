@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 apply(from = "../../constants.gradle")
 
 plugins {
@@ -31,7 +34,7 @@ android {
     targetCompatibility = JavaVersion.VERSION_1_8
   }
 
-  kotlinOptions { jvmTarget = "1.8" }
+  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {
     versionName = releaseVersion

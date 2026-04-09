@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 import org.gradle.kotlin.dsl.implementation
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   alias(libs.plugins.android.library)
@@ -31,7 +33,7 @@ android {
     targetCompatibility = JavaVersion.VERSION_1_8
   }
 
-  kotlinOptions { jvmTarget = "1.8" }
+  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {
     minSdk = libs.versions.minSdkVersion.get().toInt()
