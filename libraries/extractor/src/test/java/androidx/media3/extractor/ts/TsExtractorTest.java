@@ -182,10 +182,22 @@ public final class TsExtractorTest {
   }
 
   @Test
-  public void sampleWithDtsHd() throws Exception {
+  public void sampleWithDtsExpress() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/ts/sample_dts_hd.ts",
+        "media/ts/sample_dts_express.ts",
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleWithDtsHdMa() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(
+            subtitlesParsedDuringExtraction,
+            MODE_SINGLE_PMT,
+            new TimestampAdjuster(0),
+            new DefaultTsPayloadReaderFactory(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)),
+        "media/ts/sample_dts_hd_ma.ts",
         simulationConfig);
   }
 
