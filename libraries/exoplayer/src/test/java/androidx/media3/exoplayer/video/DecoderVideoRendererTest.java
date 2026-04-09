@@ -494,9 +494,10 @@ public final class DecoderVideoRendererTest {
     int posUs = 0;
     while (!renderer.isEnded()) {
       renderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      posUs += 10_000;
+      posUs += 1_000;
+      // Ensure pending messages are delivered.
+      ShadowLooper.idleMainLooper();
     }
-    ShadowLooper.idleMainLooper();
 
     assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(2);
     assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(1);
@@ -540,9 +541,10 @@ public final class DecoderVideoRendererTest {
     int posUs = 0;
     while (!renderer.isEnded()) {
       renderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      posUs += 10_000;
+      posUs += 1_000;
+      // Ensure pending messages are delivered.
+      ShadowLooper.idleMainLooper();
     }
-    ShadowLooper.idleMainLooper();
 
     assertThat(renderer.decoderCounters.renderedOutputBufferCount).isEqualTo(3);
     assertThat(renderer.decoderCounters.skippedOutputBufferCount).isEqualTo(0);
