@@ -1813,7 +1813,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9)
             || (Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
                 && Objects.equals(
-                    MediaCodecUtil.getAlternativeCodecMimeType(newFormat), MimeTypes.VIDEO_AV1)))
+                    MediaCodecUtil.getDolbyVisionBlMimeType(newFormat), MimeTypes.VIDEO_AV1)))
         && !newFormat.initializationData.isEmpty()) {
       newFormat = newFormat.buildUpon().setInitializationData(null).build();
     }
