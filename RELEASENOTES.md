@@ -42,6 +42,9 @@
         deprecated method with custom implementation will still be called by
         default though, it is recommended to implement the new method and use
         `BandwidthMeter.getTransferListener()` to get parity to the old method.
+    *   Fix issue where video artifacts were caused by supplying initialization
+        data when using an AV1-based Dolby Vision codec
+        ([#3153](https://github.com/androidx/media/pull/3153)).
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.

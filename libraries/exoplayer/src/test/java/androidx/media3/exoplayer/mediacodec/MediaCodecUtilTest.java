@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.MediaCodecInfo;
+import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
@@ -223,6 +225,38 @@ public final class MediaCodecUtilTest {
             .setCodecs("hvc1.6.40.L120.BF.80")
             .build();
     assertThat(MediaCodecUtil.getHevcBaseLayerCodecProfileAndLevel(format)).isNull();
+  }
+
+  @Test
+  public void getAlternativeCodecMimeType_withNonFallbackCompatibleFormat_returnsNull() {
+    // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDav1NoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
+    Format formatDav1FallbackToAv1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1NoFallbackPossible)).isNull();
+    assertThat(MediaCodecUtil.getAlternativeCodecMimeType(formatDav1FallbackToAv1))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
   private static void assertHevcBaseLayerCodecProfileAndLevelForFormat(

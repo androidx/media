@@ -52,6 +52,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimedValueQueue;
@@ -1813,7 +1814,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             || Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_VP9)
             || (Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)
                 && Objects.equals(
-                    MediaCodecUtil.getAlternativeCodecMimeType(newFormat), MimeTypes.VIDEO_AV1)))
+                    CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(newFormat),
+                    MimeTypes.VIDEO_AV1)))
         && !newFormat.initializationData.isEmpty()) {
       newFormat = newFormat.buildUpon().setInitializationData(null).build();
     }
