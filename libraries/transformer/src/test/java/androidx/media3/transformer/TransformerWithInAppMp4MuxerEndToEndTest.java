@@ -55,6 +55,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class TransformerWithInAppMp4MuxerEndToEndTest {
   private static final String MP4_FILE_PATH = "asset:///media/mp4/sample_no_bframes.mp4";
+  private static final String MP4_AAC_FILE_PATH = "asset:///media/mp4/bbb_1ch_16kHz_aac.mp4";
 
   @Rule public final TemporaryFolder outputDir = new TemporaryFolder();
 
@@ -230,18 +231,18 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
   }
 
   @Test
-  public void transmux_withoutStreamingOutput_reportsCorrectFileSIze() throws Exception {
-    InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();
-    // TODO: b/494254802 - Improve API for non-streamable MP4 output.
-    inAppMuxerFactory.setFreeSpaceAfterFileTypeBoxBytes(1);
+  public void transmux_withoutStreamingOutput_reportsCorrectFileSize() throws Exception {
+    InAppMp4Muxer.Factory inAppMuxerFactory =
+        new InAppMp4Muxer.Factory().setAttemptStreamableOutputEnabled(false);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(inAppMuxerFactory).build();
-    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_FILE_PATH));
+    MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_AAC_FILE_PATH));
 
     transformer.start(mediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isEqualTo(new File(outputPath).length());
+    assertThat(exportResult.fileSizeBytes).isLessThan(400_000L);
   }
 
   @Test

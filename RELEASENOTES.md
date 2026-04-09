@@ -111,6 +111,8 @@
         the `ogg` file format.
     *   Add `WavMuxer` for WAV file generation (supports integer and
         floating-point PCM).
+    *   Add `setAttemptStreamableOutputEnabled` to `InAppMp4Muxer.Factory` to
+        allow writing smaller non-streamable files without reserved space.
 *   IMA extension:
     *   Add
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`

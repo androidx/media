@@ -63,6 +63,7 @@ public final class InAppMp4Muxer implements Muxer {
 
     private long videoDurationUs;
     private int freeSpaceAfterFileTypeBoxBytes;
+    private boolean attemptStreamableOutputEnabled;
 
     /** Creates an instance with default values. */
     public Factory() {
@@ -77,6 +78,7 @@ public final class InAppMp4Muxer implements Muxer {
     public Factory(@Nullable MetadataProvider metadataProvider) {
       this.metadataProvider = metadataProvider;
       videoDurationUs = C.TIME_UNSET;
+      attemptStreamableOutputEnabled = true;
     }
 
     /**
@@ -97,6 +99,26 @@ public final class InAppMp4Muxer implements Muxer {
     @CanIgnoreReturnValue
     public Factory setVideoDurationUs(long videoDurationUs) {
       this.videoDurationUs = videoDurationUs;
+      return this;
+    }
+
+    /**
+     * Sets whether to attempt to write a file where the metadata is stored at the start, which can
+     * make the file more efficient to read sequentially.
+     *
+     * <p>Setting to {@code true} does not guarantee a streamable MP4 output.
+     *
+     * <p>Setting to {@code true} reserves space at the start of the file which leads to increased
+     * file size. Set this to {@code false} for smaller file size.
+     *
+     * <p>The default value is {@code true}.
+     *
+     * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable file.
+     * @return This factory.
+     */
+    @CanIgnoreReturnValue
+    public Factory setAttemptStreamableOutputEnabled(boolean attemptStreamableOutputEnabled) {
+      this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
       return this;
     }
 
@@ -123,7 +145,9 @@ public final class InAppMp4Muxer implements Muxer {
         throw new MuxerException("Error creating file output stream", e);
       }
 
-      Mp4Muxer.Builder builder = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputStream));
+      Mp4Muxer.Builder builder =
+          new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputStream))
+              .setAttemptStreamableOutputEnabled(attemptStreamableOutputEnabled);
       if (freeSpaceAfterFileTypeBoxBytes > 0) {
         builder.experimentalSetFreeSpaceAfterFileTypeBox(freeSpaceAfterFileTypeBoxBytes);
       }
