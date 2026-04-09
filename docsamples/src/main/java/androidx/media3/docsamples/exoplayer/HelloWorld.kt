@@ -19,10 +19,14 @@ package androidx.media3.docsamples.exoplayer
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.OptIn
+import androidx.compose.runtime.Composable
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.compose.material3.Player
 
 object HelloWorldKt {
 
@@ -37,6 +41,15 @@ object HelloWorldKt {
     // Bind the player to the view.
     playerView.player = player
     // [END hello_world_attach_player]
+  }
+
+  @OptIn(UnstableApi::class)
+  @Composable
+  fun HelloWorldComposePlayer(player: Player) {
+    // [START hello_world_attach_player_compose]
+    // Bind the player to the composable.
+    Player(player = player)
+    // [END hello_world_attach_player_compose]
   }
 
   fun helloWorldPreparePlayer(videoUri: Uri, player: Player) {
