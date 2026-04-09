@@ -169,7 +169,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
       Player.Commands availablePlayerCommands,
-      Bundle legacyExtras) {
+      Bundle legacyExtras,
+      @Nullable String packageNameOverride) {
     this.sessionImpl = session;
     this.playIfSuppressed = playIfSuppressed;
     this.customLayout = customLayout;
@@ -251,7 +252,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionCompatId,
             SDK_INT < 31 ? receiverComponentName : null,
             SDK_INT < 31 ? mediaButtonIntent : null,
-            /* sessionInfo= */ tokenExtras);
+            /* sessionInfo= */ tokenExtras,
+            packageNameOverride);
     if (SDK_INT >= 31 && broadcastReceiverComponentName != null) {
       Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
     }

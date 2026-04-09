@@ -123,6 +123,10 @@
     *   Fix bug where `COMMAND_SEEK_TO_MEDIA_ITEM` is not available in a
         `MediaController` when connecting to a platform-only session that
         supports seeking to other items but no playlist modifications.
+    *   Add support to override package name while creating MediaSession via a
+        new API `MediaSession.Builder#setPackageNameOverride`. The caller must
+        have `android.permission.OVERRIDE_MEDIA_SESSION_OWNER` permission to
+        override the package name of the session.
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

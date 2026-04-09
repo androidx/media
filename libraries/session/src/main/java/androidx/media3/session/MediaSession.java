@@ -40,6 +40,7 @@ import android.view.WindowManager;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RequiresPermission;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.app.NotificationCompat;
 import androidx.media3.common.AudioAttributes;
@@ -69,6 +70,7 @@ import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.legacy.MediaControllerCompat;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.primitives.Longs;
@@ -509,6 +511,26 @@ public class MediaSession {
     }
 
     /**
+     * Overrides the package name of the session created.
+     *
+     * <p>This method must not be used if the provided {@code packageNameOverride} is same as the
+     * package name of the application creating the session.
+     *
+     * <p>Interoperability: The value set by this method is ignored on API levels below 37 for
+     * legacy sessions and controllers.
+     *
+     * @param packageNameOverride The package name override of the session when created.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    @RequiresPermission("android.permission.OVERRIDE_MEDIA_SESSION_OWNER")
+    @Override
+    public Builder setPackageNameOverride(String packageNameOverride) {
+      return super.setPackageNameOverride(packageNameOverride);
+    }
+
+    /**
      * Builds a {@link MediaSession}.
      *
      * @return A new session.
@@ -535,7 +557,8 @@ public class MediaSession {
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
           MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
-          useLegacySurfaceHandling);
+          useLegacySurfaceHandling,
+          packageNameOverride);
     }
   }
 
@@ -791,7 +814,8 @@ public class MediaSession {
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
-      boolean useLegacySurfaceHandling) {
+      boolean useLegacySurfaceHandling,
+      @Nullable String overridePackageName) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
         throw new IllegalStateException("Session ID must be unique. ID=" + id);
@@ -814,7 +838,8 @@ public class MediaSession {
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
             libraryErrorReplicationMode,
-            useLegacySurfaceHandling);
+            useLegacySurfaceHandling,
+            overridePackageName);
   }
 
   /* package */ MediaSessionImpl createImpl(
@@ -832,7 +857,8 @@ public class MediaSession {
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
-      boolean useLegacySurfaceHandling) {
+      boolean useLegacySurfaceHandling,
+      @Nullable String overridePackageName) {
     return new MediaSessionImpl(
         this,
         context,
@@ -848,7 +874,8 @@ public class MediaSession {
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
-        useLegacySurfaceHandling);
+        useLegacySurfaceHandling,
+        overridePackageName);
   }
 
   /* package */ MediaSessionImpl getImpl() {
@@ -2504,6 +2531,7 @@ public class MediaSession {
     /* package */ ImmutableList<CommandButton> mediaButtonPreferences;
     /* package */ ImmutableList<CommandButton> commandButtonsForMediaItems;
     /* package */ boolean isPeriodicPositionUpdateEnabled;
+    /* package */ @Nullable String packageNameOverride;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
       this.context = checkNotNull(context.getApplicationContext());
@@ -2598,6 +2626,15 @@ public class MediaSession {
     @SuppressWarnings("unchecked")
     public BuilderT setPeriodicPositionUpdateEnabled(boolean isPeriodicPositionUpdateEnabled) {
       this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
+      return (BuilderT) this;
+    }
+
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked") // Safe to cast
+    public BuilderT setPackageNameOverride(String packageNameOverride) {
+      checkArgument(!Strings.isNullOrEmpty(packageNameOverride));
+      checkArgument(!packageNameOverride.equals(context.getPackageName()));
+      this.packageNameOverride = packageNameOverride;
       return (BuilderT) this;
     }
 

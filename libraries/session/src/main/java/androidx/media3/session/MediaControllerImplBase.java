@@ -2870,10 +2870,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             SessionToken.TYPE_SESSION,
             result.libraryVersion,
             result.sessionInterfaceVersion,
-            token.getPackageName(),
+            token.getOriginalPackageName(),
             result.sessionBinder,
             result.tokenExtras,
-            platformToken);
+            platformToken,
+            result.packageNameOverride);
     sessionExtras = result.sessionExtras;
     getInstance().notifyAccepted();
   }

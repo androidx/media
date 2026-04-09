@@ -21,6 +21,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.media.session.MediaControllerCompat;
@@ -32,6 +33,8 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.SdkSuppress;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -95,6 +98,42 @@ public class MediaSessionWithMediaControllerCompatTest {
 
     assertThat(connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controllerVersionRef.get()).isLessThan(1_000_000);
+  }
+
+  @SuppressLint("MissingPermission") // Required permission is granted via Instrumentation.
+  @SuppressWarnings("deprecation") // Use of deprecated methods to test compatibility.
+  @SdkSuppress(minSdkVersion = 37)
+  @Test
+  public void overrideMediaSessionOwner_updatePackageName() throws Exception {
+    InstrumentationRegistry.getInstrumentation()
+        .getUiAutomation()
+        .adoptShellPermissionIdentity("android.permission.OVERRIDE_MEDIA_SESSION_OWNER");
+    CountDownLatch connectedLatch = new CountDownLatch(1);
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            connectedLatch.countDown();
+            return MediaSession.Callback.super.onConnect(session, controller);
+          }
+        };
+
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setId(TAG)
+                .setPackageNameOverride("com.test.app")
+                .setCallback(callback)
+                .build());
+    RemoteMediaControllerCompat controllerCompat =
+        remoteControllerTestRule.createRemoteControllerCompat(
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()));
+    // Invoke any command for session to recognize the controller compat.
+    controllerCompat.getTransportControls().prepare();
+
+    assertThat(connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerCompat.getPackageName()).isEqualTo("com.test.app");
   }
 
   @Test

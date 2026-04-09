@@ -139,6 +139,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean isPeriodicPositionUpdateEnabled;
   private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
+  @Nullable private final String packageNameOverride;
 
   private PlayerInfo playerInfo;
   private PlayerWrapper playerWrapper;
@@ -178,7 +179,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      boolean useLegacySurfaceHandling) {
+      boolean useLegacySurfaceHandling,
+      @Nullable String packageNameOverride) {
     Log.i(
         TAG,
         "Init "
@@ -201,6 +203,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.playIfSuppressed = playIfSuppressed;
     this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
     this.useLegacySurfaceHandling = useLegacySurfaceHandling;
+    this.packageNameOverride = packageNameOverride;
 
     @SuppressWarnings("nullness:assignment")
     @Initialized
@@ -234,7 +237,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             mediaButtonPreferences,
             connectionResult.availableSessionCommands,
             connectionResult.availablePlayerCommands,
-            sessionExtras);
+            sessionExtras,
+            packageNameOverride);
 
     Token platformToken = sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
     sessionToken =
@@ -246,7 +250,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             context.getPackageName(),
             sessionStub,
             tokenExtras,
-            platformToken);
+            platformToken,
+            packageNameOverride);
 
     PlayerWrapper playerWrapper = new PlayerWrapper(player);
     this.playerWrapper = playerWrapper;
@@ -487,6 +492,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   /** Returns whether the media notification controller is connected. */
   protected boolean isMediaNotificationControllerConnected() {
     return isMediaNotificationControllerConnected;
+  }
+
+  @Nullable
+  public String getPackageNameOverride() {
+    return packageNameOverride;
   }
 
   /**

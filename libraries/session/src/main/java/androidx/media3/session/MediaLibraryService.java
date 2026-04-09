@@ -39,6 +39,7 @@ import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresPermission;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -683,6 +684,26 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Overrides the package name of the session created.
+       *
+       * <p>This method must not be used if the provided {@code packageNameOverride} is same as the
+       * package name of the application creating the session.
+       *
+       * <p>Interoperability: The value set by this method is ignored on API levels below 37 for
+       * legacy sessions and controllers.
+       *
+       * @param packageNameOverride The package name override of the session when created.
+       * @return This builder.
+       */
+      @UnstableApi
+      @CanIgnoreReturnValue
+      @RequiresPermission("android.permission.OVERRIDE_MEDIA_SESSION_OWNER")
+      @Override
+      public Builder setPackageNameOverride(String packageNameOverride) {
+        return super.setPackageNameOverride(packageNameOverride);
+      }
+
+      /**
        * Builds a {@link MediaLibrarySession}.
        *
        * @return A new session.
@@ -708,7 +729,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
             bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
-            libraryErrorReplicationMode);
+            libraryErrorReplicationMode,
+            packageNameOverride);
       }
     }
 
@@ -726,7 +748,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
-        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode,
+        @Nullable String overridePackageName) {
       super(
           context,
           id,
@@ -742,7 +765,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
           libraryErrorReplicationMode,
-          /* useLegacySurfaceHandling= */ false);
+          /* useLegacySurfaceHandling= */ false,
+          overridePackageName);
     }
 
     @Override
@@ -761,7 +785,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
         @LibraryErrorReplicationMode int libraryErrorReplicationMode,
-        boolean useLegacySurfaceHandling) {
+        boolean useLegacySurfaceHandling,
+        @Nullable String overridePackageName) {
       return new MediaLibrarySessionImpl(
           this,
           context,
@@ -777,7 +802,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          libraryErrorReplicationMode);
+          libraryErrorReplicationMode,
+          overridePackageName);
     }
 
     @Override

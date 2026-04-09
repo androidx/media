@@ -15,6 +15,7 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.common.util.Util.convertToNullIfInvalid;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
@@ -37,6 +38,7 @@ import android.net.Uri;
 import android.os.BadParcelableException;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -64,6 +66,7 @@ import androidx.versionedparcelable.VersionedParcelable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -314,6 +317,8 @@ public class MediaSessionCompat {
    *     Bundle#EMPTY} if none. Controllers can get this information by calling {@link
    *     MediaControllerCompat#getSessionInfo()}. An {@link IllegalArgumentException} will be thrown
    *     if this contains any non-framework Parcelable objects.
+   * @param packageNameOverride Package name override for the session, if required. A {@link
+   *     SecurityException} will be thrown if the application does not hold the right permission.
    */
   @SuppressWarnings({
     "method.invocation.invalid",
@@ -325,9 +330,16 @@ public class MediaSessionCompat {
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo) {
+      @Nullable Bundle sessionInfo,
+      @Nullable String packageNameOverride) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
+    }
+    if (packageNameOverride != null
+        && context.checkSelfPermission("android.permission.OVERRIDE_MEDIA_SESSION_OWNER")
+            != PERMISSION_GRANTED) {
+      throw new SecurityException(
+          "must have OVERRIDE_MEDIA_SESSION_OWNER permission to override package name");
     }
 
     if (mbrComponent == null) {
@@ -349,12 +361,14 @@ public class MediaSessionCompat {
               Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
-    if (Build.VERSION.SDK_INT >= 29) {
-      impl = new MediaSessionImplApi29(context, tag, sessionInfo);
+    if (VERSION.SDK_INT >= 37) {
+      impl = new MediaSessionImplApi37(context, tag, sessionInfo, packageNameOverride);
+    } else if (Build.VERSION.SDK_INT >= 29) {
+      impl = new MediaSessionImplApi29(context, tag, sessionInfo, packageNameOverride);
     } else if (Build.VERSION.SDK_INT >= 28) {
-      impl = new MediaSessionImplApi28(context, tag, sessionInfo);
+      impl = new MediaSessionImplApi28(context, tag, sessionInfo, packageNameOverride);
     } else {
-      impl = new MediaSessionImplApi23(context, tag, sessionInfo);
+      impl = new MediaSessionImplApi23(context, tag, sessionInfo, packageNameOverride);
     }
     // Set default callback to respond to controllers' extra binder requests.
     Looper myLooper = Looper.myLooper();
@@ -1905,8 +1919,12 @@ public class MediaSessionCompat {
       "assignment.type.incompatible",
       "argument.type.incompatible"
     })
-    MediaSessionImplApi23(Context context, String tag, @Nullable Bundle sessionInfo) {
-      sessionFwk = createFwkMediaSession(context, tag, sessionInfo);
+    MediaSessionImplApi23(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      sessionFwk = createFwkMediaSession(context, tag, sessionInfo, packageNameOverride);
       extraSession = new ExtraSession(/* mediaSessionImpl= */ this);
       token = new Token(sessionFwk.getSessionToken(), extraSession);
       this.sessionInfo = sessionInfo;
@@ -1915,7 +1933,10 @@ public class MediaSessionCompat {
     }
 
     public MediaSession createFwkMediaSession(
-        Context context, String tag, @Nullable Bundle sessionInfo) {
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
       return new MediaSession(context, tag);
     }
 
@@ -2242,8 +2263,12 @@ public class MediaSessionCompat {
 
   @RequiresApi(28)
   static class MediaSessionImplApi28 extends MediaSessionImplApi23 {
-    MediaSessionImplApi28(Context context, String tag, @Nullable Bundle sessionInfo) {
-      super(context, tag, sessionInfo);
+    MediaSessionImplApi28(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
     }
 
     @Override
@@ -2262,14 +2287,55 @@ public class MediaSessionCompat {
 
   @RequiresApi(29)
   static class MediaSessionImplApi29 extends MediaSessionImplApi28 {
-    MediaSessionImplApi29(Context context, String tag, @Nullable Bundle sessionInfo) {
-      super(context, tag, sessionInfo);
+    MediaSessionImplApi29(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
     }
 
     @Override
     public MediaSession createFwkMediaSession(
-        Context context, String tag, @Nullable Bundle sessionInfo) {
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
       return new MediaSession(context, tag, sessionInfo);
+    }
+  }
+
+  @RequiresApi(37)
+  static class MediaSessionImplApi37 extends MediaSessionImplApi29 {
+    MediaSessionImplApi37(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      super(context, tag, sessionInfo, packageNameOverride);
+    }
+
+    @Override
+    public MediaSession createFwkMediaSession(
+        Context context,
+        String tag,
+        @Nullable Bundle sessionInfo,
+        @Nullable String packageNameOverride) {
+      if (packageNameOverride != null) {
+        // TODO: b/500320224- Replace reflection with actual API once the compileSdk version is
+        //  bumped to 37.
+        try {
+          Constructor<MediaSession> constructor =
+              MediaSession.class.getConstructor(
+                  Context.class, String.class, Bundle.class, String.class);
+          return constructor.newInstance(
+              context, tag, sessionInfo == null ? Bundle.EMPTY : sessionInfo, packageNameOverride);
+        } catch (ReflectiveOperationException e) {
+          throw new IllegalStateException("Unable to create session with overridden owner", e);
+        }
+      } else {
+        return new MediaSession(context, tag, sessionInfo);
+      }
     }
   }
 

@@ -66,6 +66,8 @@ import java.util.List;
 
   public final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
+  @Nullable public final String packageNameOverride;
+
   public ConnectionState(
       int libraryVersion,
       int sessionInterfaceVersion,
@@ -80,7 +82,8 @@ import java.util.List;
       Bundle tokenExtras,
       Bundle sessionExtras,
       PlayerInfo playerInfo,
-      @Nullable Token platformToken) {
+      @Nullable Token platformToken,
+      @Nullable String packageNameOverride) {
     this.libraryVersion = libraryVersion;
     this.sessionInterfaceVersion = sessionInterfaceVersion;
     this.sessionBinder = sessionBinder;
@@ -95,6 +98,7 @@ import java.util.List;
     this.sessionExtras = sessionExtras;
     this.playerInfo = playerInfo;
     this.platformToken = platformToken;
+    this.packageNameOverride = packageNameOverride;
   }
 
   private static final String FIELD_LIBRARY_VERSION = Util.intToStringMaxRadix(0);
@@ -112,8 +116,9 @@ import java.util.List;
   private static final String FIELD_SESSION_INTERFACE_VERSION = Util.intToStringMaxRadix(8);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(10);
   private static final String FIELD_PLATFORM_TOKEN = Util.intToStringMaxRadix(12);
+  private static final String FIELD_PACKAGE_NAME_OVERRIDE = Util.intToStringMaxRadix(15);
 
-  // Next field key = 15
+  // Next field key = 16
 
   public Bundle toBundleForRemoteProcess(int interfaceVersion) {
     Bundle bundle = new Bundle();
@@ -170,6 +175,9 @@ import java.util.List;
     bundle.putInt(FIELD_SESSION_INTERFACE_VERSION, sessionInterfaceVersion);
     if (platformToken != null) {
       bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);
+    }
+    if (packageNameOverride != null) {
+      bundle.putString(FIELD_PACKAGE_NAME_OVERRIDE, packageNameOverride);
     }
     return bundle;
   }
@@ -245,6 +253,7 @@ import java.util.List;
             ? PlayerInfo.DEFAULT
             : PlayerInfo.fromBundle(playerInfoBundle, sessionInterfaceVersion);
     @Nullable Token platformToken = bundle.getParcelable(FIELD_PLATFORM_TOKEN);
+    @Nullable String packageNameOverride = bundle.getString(FIELD_PACKAGE_NAME_OVERRIDE);
     return new ConnectionState(
         libraryVersion,
         sessionInterfaceVersion,
@@ -259,7 +268,8 @@ import java.util.List;
         tokenExtras == null ? Bundle.EMPTY : tokenExtras,
         sessionExtras == null ? Bundle.EMPTY : sessionExtras,
         playerInfo,
-        platformToken);
+        platformToken,
+        packageNameOverride);
   }
 
   private final class InProcessBinder extends Binder {

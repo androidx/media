@@ -579,7 +579,8 @@ import java.util.concurrent.ExecutionException;
                         ? connectionResult.sessionExtras
                         : sessionImpl.getSessionExtras(),
                     playerInfo,
-                    platformToken);
+                    platformToken,
+                    sessionImpl.getPackageNameOverride());
 
             // Double check if session is still there, because release() can be called in
             // another thread.

@@ -34,6 +34,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -59,6 +60,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
+import androidx.test.platform.app.InstrumentationRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -68,7 +70,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -137,6 +138,8 @@ public class MediaSessionTest {
     }
   }
 
+  @SuppressLint("MissingPermission") // Testing without the required permission as this does not
+  // create a MediaSession.
   @Test
   public void builder() {
     MediaSession.Builder builder;
@@ -166,6 +169,7 @@ public class MediaSessionTest {
     } catch (NullPointerException e) {
       // expected. pass-through
     }
+
     // Empty string as ID is allowed.
     sessionTestRule.ensureReleaseAfterTest(
         new MediaSession.Builder(context, player).setId("").build());
@@ -223,8 +227,7 @@ public class MediaSessionTest {
         new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
             .setId("sessionActivity");
 
-    Assert.assertThrows(
-        IllegalArgumentException.class, () -> builder.setSessionActivity(pendingIntent));
+    assertThrows(IllegalArgumentException.class, () -> builder.setSessionActivity(pendingIntent));
   }
 
   @Test
@@ -243,8 +246,56 @@ public class MediaSessionTest {
                 .setId("sessionActivity")
                 .build());
 
-    Assert.assertThrows(
-        IllegalArgumentException.class, () -> session.setSessionActivity(pendingIntent));
+    assertThrows(IllegalArgumentException.class, () -> session.setSessionActivity(pendingIntent));
+  }
+
+  @SuppressLint("MissingPermission") // Testing without the permission required.
+  @Test
+  public void builderSetPackageNameOverride_nullPackageName_throwsIllegalArgumentException() {
+    MediaSession.Builder builder =
+        new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build());
+
+    assertThrows(IllegalArgumentException.class, () -> builder.setPackageNameOverride(null));
+  }
+
+  @SuppressLint("MissingPermission") // Testing without the permission required.
+  @Test
+  public void builderSetPackageNameOverride_callerPackageName_throwsIllegalArgumentException() {
+    String applicationPackageName = getApplicationContext().getPackageName();
+    MediaSession.Builder builder =
+        new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build());
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> builder.setPackageNameOverride(applicationPackageName));
+  }
+
+  @SuppressLint("MissingPermission") // Testing without the permission required.
+  @Test
+  public void setPackageNameOverride_withoutPermission_throwsSecurityException() {
+    MediaSession.Builder sessionBuilder =
+        new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+            .setId("overridePackageName")
+            .setPackageNameOverride("com.test.app");
+
+    assertThrows(SecurityException.class, sessionBuilder::build);
+  }
+
+  @SuppressLint("MissingPermission") // Required permission is granted via Instrumentation.
+  @SdkSuppress(minSdkVersion = 37)
+  @Test
+  public void setPackageNameOverride_withPermission_createsSession() {
+    InstrumentationRegistry.getInstrumentation()
+        .getUiAutomation()
+        .adoptShellPermissionIdentity("android.permission.OVERRIDE_MEDIA_SESSION_OWNER");
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, new MockPlayer.Builder().build())
+                .setId("overridePackageName")
+                .setPackageNameOverride("com.test.app")
+                .build());
+
+    assertThat(session.getToken().getPackageName()).isEqualTo("com.test.app");
   }
 
   @Test

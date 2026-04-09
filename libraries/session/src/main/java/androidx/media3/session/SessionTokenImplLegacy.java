@@ -132,6 +132,11 @@ import java.util.Objects;
   }
 
   @Override
+  public String getOriginalPackageName() {
+    return packageName;
+  }
+
+  @Override
   public String getServiceName() {
     return componentName == null ? "" : componentName.getClassName();
   }

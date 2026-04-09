@@ -75,7 +75,8 @@ public class ConnectionStateTest {
             tokenExtras,
             sessionExtras,
             PlayerInfo.DEFAULT.copyWithIsPlaying(true),
-            session.getPlatformToken());
+            session.getPlatformToken(),
+            /* packageNameOverride= */ "com.example.session");
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(
@@ -102,6 +103,7 @@ public class ConnectionStateTest {
     assertThat(restoredConnectionState.sessionExtras.getString("key")).isEqualTo("session");
     assertThat(restoredConnectionState.playerInfo.isPlaying).isTrue();
     assertThat(restoredConnectionState.platformToken).isEqualTo(connectionState.platformToken);
+    assertThat(restoredConnectionState.packageNameOverride).isEqualTo("com.example.session");
   }
 
   @Test
@@ -128,7 +130,8 @@ public class ConnectionStateTest {
             /* tokenExtras= */ Bundle.EMPTY,
             /* sessionExtras= */ Bundle.EMPTY,
             PlayerInfo.DEFAULT,
-            session.getPlatformToken());
+            session.getPlatformToken(),
+            /* packageNameOverride= */ "androidx.media3.session");
 
     ConnectionState restoredConnectionState =
         ConnectionState.fromBundle(

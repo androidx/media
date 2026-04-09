@@ -177,7 +177,8 @@ public final class SessionToken {
       String packageName,
       IMediaSession iSession,
       Bundle tokenExtras,
-      @Nullable Token platformToken) {
+      @Nullable Token platformToken,
+      @Nullable String overridePackageName) {
     impl =
         new SessionTokenImplBase(
             uid,
@@ -187,7 +188,8 @@ public final class SessionToken {
             packageName,
             iSession,
             tokenExtras,
-            platformToken);
+            platformToken,
+            overridePackageName);
   }
 
   /** Creates a session token connected to a legacy media session. */
@@ -237,6 +239,16 @@ public final class SessionToken {
   /** Returns the package name of the session */
   public String getPackageName() {
     return impl.getPackageName();
+  }
+
+  /**
+   * Returns the package name of the application which originally created the session. This may be
+   * different from {@link #getPackageName()} if {@link MediaSession.Builder#setPackageNameOverride}
+   * was used to create the session.
+   */
+  @UnstableApi
+  public String getOriginalPackageName() {
+    return impl.getOriginalPackageName();
   }
 
   /**
@@ -538,6 +550,8 @@ public final class SessionToken {
     int getUid();
 
     String getPackageName();
+
+    String getOriginalPackageName();
 
     String getServiceName();
 
