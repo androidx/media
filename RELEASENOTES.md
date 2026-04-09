@@ -11,6 +11,9 @@
         ([#3099](https://github.com/androidx/media/issues/3099)).
     *   Fix possible app crashes when recovering from decoder errors with
         renderer prewarming.
+    *   Fix issue where video artifacts were caused by supplying initialization
+        data when using an AV1-based Dolby Vision codec
+        ([#3153](https://github.com/androidx/media/pull/3153)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:

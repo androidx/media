@@ -321,6 +321,40 @@ public class CodecSpecificDataUtilTest {
         0);
   }
 
+  @Test
+  public void
+      getDolbyVisionBaseLayerMimeType_withNonFallbackCompatibleFormat_returnsBaseEncoding() {
+    // Profile 10.0 (Full Range PQ) which does NOT allow fallback.
+    Format formatDav1NoFallbackPossible =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .build())
+            .build();
+    // Profile 10.1 (Limited Range PQ) which allows fallback to AV1.
+    Format formatDav1FallbackToAv1 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dav1.10.01")
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .build())
+            .build();
+
+    assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1NoFallbackPossible))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
+    assertThat(CodecSpecificDataUtil.getDolbyVisionBaseLayerMimeType(formatDav1FallbackToAv1))
+        .isEqualTo(MimeTypes.VIDEO_AV1);
+  }
+
   private static void assertCodecProfileAndLevelForCodecsString(
       String sampleMimeType, String codecs, int profile, int level) {
     Format format =
