@@ -94,9 +94,7 @@ fun Player(
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
-  shutter: @Composable () -> Unit = {
-    PlayerDefaults.Shutter()
-  }, // TODO: b/305035807 change to PlayerDefaults::Shutter with Kotlin 2.2
+  shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = true,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = defaultTopControls,
   centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = defaultCenterControls,
