@@ -23,6 +23,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.video.SyncFenceWrapper;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;

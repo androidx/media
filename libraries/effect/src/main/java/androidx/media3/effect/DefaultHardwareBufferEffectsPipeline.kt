@@ -40,6 +40,7 @@ import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlProgram
 import androidx.media3.common.util.GlUtil
+import androidx.media3.common.video.SyncFenceWrapper
 import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL
 import androidx.media3.effect.PacketConsumer.Packet

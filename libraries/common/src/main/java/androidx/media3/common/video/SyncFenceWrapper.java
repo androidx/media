@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.common.video;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.hardware.SyncFence;
 import androidx.annotation.RequiresApi;
@@ -24,13 +23,14 @@ import androidx.media3.common.util.ExperimentalApi;
 import java.time.Duration;
 
 /** A wrapper for {@link SyncFence} that exists on all API levels. */
-@ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+@ExperimentalApi // TODO: b/498176910 Remove once SyncFenceWrapper is production ready.
 public final class SyncFenceWrapper {
 
-  private final Object syncFence;
+  private final SyncFence syncFence;
 
-  private SyncFenceWrapper(Object syncFence) {
-    this.syncFence = checkNotNull(syncFence);
+  @RequiresApi(33)
+  private SyncFenceWrapper(SyncFence syncFence) {
+    this.syncFence = syncFence;
   }
 
   /** Returns a {@link SyncFenceWrapper} that wraps the given {@code syncFence}. */
@@ -46,14 +46,14 @@ public final class SyncFenceWrapper {
    */
   @RequiresApi(33)
   public SyncFence asSyncFence() {
-    return (SyncFence) syncFence;
+    return syncFence;
   }
 
   /** Waits for the fence to signal. */
   @RequiresApi(26)
   public boolean await(Duration timeout) {
     if (SDK_INT >= 33) {
-      return Api33.await((SyncFence) syncFence, timeout);
+      return syncFence.await(timeout);
     }
     return true;
   }
@@ -61,7 +61,7 @@ public final class SyncFenceWrapper {
   /** Waits for the fence to signal. */
   public boolean awaitMs(long timeoutMs) {
     if (SDK_INT >= 33) {
-      return Api33.await((SyncFence) syncFence, Duration.ofMillis(timeoutMs));
+      return syncFence.await(Duration.ofMillis(timeoutMs));
     }
     return true;
   }
@@ -69,29 +69,14 @@ public final class SyncFenceWrapper {
   /** Waits forever for the fence to signal. */
   public void awaitForever() {
     if (SDK_INT >= 33) {
-      Api33.awaitForever((SyncFence) syncFence);
+      syncFence.awaitForever();
     }
   }
 
   /** Closes the fence. */
   public void close() {
     if (SDK_INT >= 33) {
-      Api33.close((SyncFence) syncFence);
-    }
-  }
-
-  @RequiresApi(33)
-  private static final class Api33 {
-    static boolean await(SyncFence fence, Duration timeout) {
-      return fence.await(timeout);
-    }
-
-    static void awaitForever(SyncFence fence) {
-      fence.awaitForever();
-    }
-
-    static void close(SyncFence fence) {
-      fence.close();
+      syncFence.close();
     }
   }
 }

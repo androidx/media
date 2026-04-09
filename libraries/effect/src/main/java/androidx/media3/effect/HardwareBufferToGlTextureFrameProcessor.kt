@@ -34,6 +34,7 @@ import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.Log
+import androidx.media3.common.video.SyncFenceWrapper
 import androidx.media3.effect.PacketConsumer.Packet
 import androidx.media3.effect.PacketConsumer.Packet.Payload
 import com.google.common.util.concurrent.MoreExecutors.directExecutor
