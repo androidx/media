@@ -74,7 +74,7 @@ public final class TransformerMultiSequenceCompositionTest {
       "test-generated-goldens/transformer_multi_sequence_composition_test";
 
   // The duration of one frame of the 30 FPS test video, in milliseconds.
-  private static final long ONE_FRAME_DURATION_MS = 35;
+  private static final long ONE_FRAME_DURATION_MS = 33;
   private static final int EXPORT_WIDTH = 360;
   private static final int EXPORT_HEIGHT = 240;
 
