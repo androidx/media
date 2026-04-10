@@ -25,7 +25,7 @@ internal object PlayerTokens {
   val CenterControlsSpacing = 10.dp
   val ControlsHorizontalPadding = 15.dp
   val shutterColor: Color
-    @Composable get() = MaterialTheme.colorScheme.background
+    @Composable get() = MaterialTheme.colorScheme.scrim
 
   val buttonContentColor: Color
     @Composable get() = MaterialTheme.colorScheme.primary
@@ -34,5 +34,5 @@ internal object PlayerTokens {
     @Composable get() = MaterialTheme.colorScheme.primary
 
   val controlsBackgroundColor: Color
-    @Composable get() = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+    @Composable get() = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
 }
