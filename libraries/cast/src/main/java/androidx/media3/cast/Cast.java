@@ -176,7 +176,7 @@ public class Cast {
                 checkNotNull(context),
                 BackgroundExecutor.get(),
                 new DefaultCastOptionsProvider(),
-                castParams.toCastOptionsModifier()),
+                castParams.toCastOptionsModifier(context)),
         castParams);
   }
 
@@ -185,7 +185,7 @@ public class Cast {
       CastContextInitializer castContextInitializer, CastParams castParams) {
     verifyMainThread();
     if (castContext != null) {
-      castContext.applyOptionsModifier(castParams.toCastOptionsModifier());
+      castContext.applyOptionsModifier(castParams.toCastOptionsModifier(context));
       return;
     }
     if (castContextLoadFailure != null) {
@@ -355,7 +355,7 @@ public class Cast {
     isInitOngoing = false;
     this.castContext = castContext;
     if (pendingCastParams != null) {
-      castContext.applyOptionsModifier(pendingCastParams.toCastOptionsModifier());
+      castContext.applyOptionsModifier(pendingCastParams.toCastOptionsModifier(context));
       pendingCastParams = null;
     }
     SessionManager sessionManager = castContext.getSessionManager();

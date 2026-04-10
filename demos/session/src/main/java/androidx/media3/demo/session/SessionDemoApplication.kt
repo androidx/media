@@ -19,6 +19,7 @@ import android.app.Application
 import android.os.StrictMode
 import androidx.annotation.OptIn
 import androidx.media3.cast.Cast
+import androidx.media3.cast.CastParams
 import androidx.media3.common.util.UnstableApi
 
 /** Enables strict mode penalties for the session demo app. */
@@ -28,6 +29,7 @@ class SessionDemoApplication : Application() {
     super.onCreate()
     StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build())
     StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build())
-    Cast.getSingletonInstance(this).initialize()
+    Cast.getSingletonInstance(this)
+      .initialize(CastParams.Builder().setShowSystemOutputSwitcherOnCastButtonClick(true).build())
   }
 }

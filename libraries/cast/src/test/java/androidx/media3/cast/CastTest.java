@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 
 import android.app.Application;
 import android.content.Context;
+import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import androidx.annotation.Nullable;
 import androidx.media3.cast.Cast.MediaRouteSelectorListener;
@@ -78,10 +79,14 @@ public final class CastTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+    context.getApplicationInfo().targetSdkVersion =
+        CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
+    CastParams.sdkVersionForTesting = CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
     castParams =
         new CastParams.Builder()
             .setReceiverApplicationId(FAKE_RECEIVER_APP_ID)
             .setRemoteToLocalEnabled(true)
+            .setShowSystemOutputSwitcherOnCastButtonClick(false)
             .build();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     castContextTaskCompletionSource = new TaskCompletionSource<>();
@@ -93,6 +98,7 @@ public final class CastTest {
   @After
   public void tearDown() {
     Cast.reset();
+    CastParams.sdkVersionForTesting = Build.VERSION.SDK_INT;
   }
 
   @Test
@@ -295,13 +301,16 @@ public final class CastTest {
 
   @Test
   public void initialize_withExistingCastContext_appliesCastParams() {
-    Cast cast = Cast.getSingletonInstance(mockCastContext);
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
 
     cast.initialize(castParams);
 
     verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
     verifyCastOptionsModifierEquals(
-        castParams.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+        castParams.toCastOptionsModifier(context), optionsModifierCaptor.getValue());
   }
 
   @Test
@@ -329,7 +338,7 @@ public final class CastTest {
 
     verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
     verifyCastOptionsModifierEquals(
-        castParams.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+        castParams.toCastOptionsModifier(context), optionsModifierCaptor.getValue());
   }
 
   @Test
@@ -350,14 +359,17 @@ public final class CastTest {
 
     verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
     verifyCastOptionsModifierEquals(
-        castParams2.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+        castParams2.toCastOptionsModifier(context), optionsModifierCaptor.getValue());
   }
 
   @Test
   public void initialize_calledMultipleTimesAfterInit_appliesLatestCastParams() {
     String id1 = "ID_1";
     String id2 = "ID_2";
-    Cast cast = Cast.getSingletonInstance(mockCastContext);
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
     CastParams params1 = new CastParams.Builder().setReceiverApplicationId(id1).build();
     CastParams params2 = new CastParams.Builder().setReceiverApplicationId(id2).build();
 
@@ -375,13 +387,50 @@ public final class CastTest {
 
   @Test
   public void initialize_noArgs_appliesDefaultCastParams() {
-    Cast cast = Cast.getSingletonInstance(mockCastContext);
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
 
     cast.initialize();
 
     verify(mockCastContext).applyOptionsModifier(optionsModifierCaptor.capture());
     verifyCastOptionsModifierEquals(
-        CastParams.DEFAULT.toCastOptionsModifier(), optionsModifierCaptor.getValue());
+        CastParams.DEFAULT.toCastOptionsModifier(context), optionsModifierCaptor.getValue());
+  }
+
+  @Test
+  public void initialize_withTargetSdkAtMin_appliesDefaultTrue() {
+    context.getApplicationInfo().targetSdkVersion =
+        CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP;
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+    CastParams emptyParams = new CastParams.Builder().build();
+
+    cast.initialize(emptyParams);
+
+    verify(mockCastContext, atLeastOnce()).applyOptionsModifier(optionsModifierCaptor.capture());
+    assertThat(optionsModifierCaptor.getValue().getShowSystemOutputSwitcherOnCastIconClick())
+        .isTrue();
+  }
+
+  @Test
+  public void initialize_withTargetSdkBelowMin_appliesDefaultFalse() {
+    context.getApplicationInfo().targetSdkVersion =
+        CastParams.SDK_VERSION_MIN_SHOW_OUTPUT_SWITCHER_IN_APP - 1;
+    Cast cast = Cast.getSingletonInstance(context);
+    cast.initialize(mockCastContextInitializer);
+    castContextTaskCompletionSource.setResult(mockCastContext);
+    ShadowLooper.idleMainLooper();
+    CastParams emptyParams = new CastParams.Builder().build();
+
+    cast.initialize(emptyParams);
+
+    verify(mockCastContext, atLeastOnce()).applyOptionsModifier(optionsModifierCaptor.capture());
+    assertThat(optionsModifierCaptor.getValue().getShowSystemOutputSwitcherOnCastIconClick())
+        .isFalse();
   }
 
   @Test
@@ -514,5 +563,7 @@ public final class CastTest {
       CastOptions.Modifier expected, CastOptions.Modifier actual) {
     assertThat(actual.getReceiverApplicationId()).isEqualTo(expected.getReceiverApplicationId());
     assertThat(actual.getRemoteToLocalEnabled()).isEqualTo(expected.getRemoteToLocalEnabled());
+    assertThat(actual.getShowSystemOutputSwitcherOnCastIconClick())
+        .isEqualTo(expected.getShowSystemOutputSwitcherOnCastIconClick());
   }
 }

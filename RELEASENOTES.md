@@ -167,6 +167,9 @@
 *   Cast extension:
     *   Add new CastParams class to allow configuration of Cast by calling
         `Cast.initialize(CastParams)`.
+    *   Add new CastParams.getShowSystemOutputSwitcherOnCastIconClick() option,
+        which triggers the use of the SystemUI Output Switcher instead of the
+        in-app Cast device picker when available.
 *   Test utilities:
     *   Expand `DataSourceContractTest` to include support for `POST` requests
         with headers & bodies, add some `POST` resources to
