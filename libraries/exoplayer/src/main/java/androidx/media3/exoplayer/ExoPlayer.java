@@ -359,7 +359,7 @@ public interface ExoPlayer extends Player {
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
      *   <li>{@code playbackLooper}: {@code null} (create new thread)
-     *   <li>{@code dynamicSchedulingEnabled}: {@code false}
+     *   <li>{@code dynamicSchedulingEnabled}: {@code true}
      * </ul>
      *
      * @param context A {@link Context}.
@@ -533,6 +533,7 @@ public interface ExoPlayer extends Player {
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
       suitableOutputChecker = new DefaultSuitableOutputChecker();
+      dynamicSchedulingEnabled = true;
     }
 
     /**
@@ -562,12 +563,14 @@ public interface ExoPlayer extends Player {
      * <p>If a custom {@link AudioSink} is used then it must correctly implement {@link
      * AudioSink#getAudioTrackBufferSizeUs()} to enable dynamic scheduling for audio playback.
      *
+     * <p>Enabled by default (value is {@code true}).
+     *
      * <p>This method is experimental, and will be renamed or removed in a future release.
      *
      * @param dynamicSchedulingEnabled Whether to enable dynamic scheduling.
      */
     @CanIgnoreReturnValue
-    @ExperimentalApi // TODO: b/369523131 - Remove once feature is enabled by default.
+    @ExperimentalApi // TODO: b/500985770 - Remove this method.
     public Builder experimentalSetDynamicSchedulingEnabled(boolean dynamicSchedulingEnabled) {
       checkState(!buildCalled);
       this.dynamicSchedulingEnabled = dynamicSchedulingEnabled;

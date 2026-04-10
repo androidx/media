@@ -51,6 +51,8 @@
         creation of `DefaultBandwidthMeter` and on network type changes. The
         supplier can be set via
         `DefaultBandwidthMeter.Builder.setInitialBitrateSupplier()`.
+    *   Enable dynamic scheduling by default. `ExoPlayer` playback work loop
+        will run dynamically as opposed to on a static interval.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
