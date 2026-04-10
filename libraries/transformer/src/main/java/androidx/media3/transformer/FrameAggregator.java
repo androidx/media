@@ -29,8 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 
-// TODO: b/449956936 - This is a placeholder implementation, revisit the aggregation and flushing
-//  logic to make it more robust.
 /**
  * Combines multiple sequences of {@link HardwareBufferFrame}s into one sequence of {@link
  * ImmutableList<HardwareBufferFrame>}.
@@ -79,6 +77,8 @@ import java.util.Queue;
    *
    * <p>Once called, the caller must not modify the {@link HardwareBufferFrame}.
    *
+   * <p>If the aggregator {@link #isEnded}, the frame will be released immediately.
+   *
    * @param frame The {@link HardwareBufferFrame} to queue.
    * @param sequenceIndex The index of the sequence the queued {@link HardwareBufferFrame} is from.
    * @throws IllegalArgumentException If {@code sequenceIndex} is non-positive or greater than or
@@ -88,6 +88,11 @@ import java.util.Queue;
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
     checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    // Release frames immediately if the primary sequence has already ended
+    if (isEnded) {
+      frame.release(/* releaseFence= */ null);
+      return;
+    }
     inputFrameQueues.get(sequenceIndex).frames.add(frame);
     maybeAggregate();
   }
@@ -151,51 +156,67 @@ import java.util.Queue;
    * from each secondary stream.
    */
   private void maybeAggregate() {
-    if (isEnded) {
-      return;
-    }
-    // TODO: b/496904840 - This assumes the primary sequence can be aggregated against. Update it to
-    //  when this is not the case.
-    @Nullable
-    HardwareBufferFrame nextPrimaryFrame = checkNotNull(inputFrameQueues.get(0).frames).peek();
-    if (nextPrimaryFrame == null) {
-      // When the primary sequence ends, send an EOS frame downstream.
-      if (inputFrameQueues.get(0).getIsEnded()) {
-        downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
-        isEnded = true;
-      }
-      return;
-    }
-    ImmutableList.Builder<HardwareBufferFrame> outputFramesBuilder = new ImmutableList.Builder<>();
-    outputFramesBuilder.add(nextPrimaryFrame);
-    for (int i = 1; i < inputFrameQueues.size(); i++) {
-      FrameQueue frameQueue = inputFrameQueues.get(i);
-      @Nullable HardwareBufferFrame nextFrame = frameQueue.frames.peek();
-      while (nextFrame != null) {
-        // Release all frames from the secondary sequence that arrived before the primary sequence
-        // frame.
-        if (nextFrame.sequencePresentationTimeUs < nextPrimaryFrame.sequencePresentationTimeUs) {
-          nextFrame.release(/* releaseFence= */ null);
-          frameQueue.frames.poll();
-          nextFrame = frameQueue.frames.peek();
-        } else {
-          break;
-        }
-      }
-      if (nextFrame == null) {
-        if (frameQueue.getIsEnded()) {
-          continue;
-        }
+    while (!isEnded) {
+      // TODO: b/496904840 - This assumes the primary sequence can be aggregated against. Update it
+      //  to when this is not the case.
+      @Nullable
+      HardwareBufferFrame nextPrimaryFrame = checkNotNull(inputFrameQueues.get(0).frames).peek();
+      if (nextPrimaryFrame == null) {
+        handlePrimaryEndOfStream();
         return;
       }
-      outputFramesBuilder.add(nextFrame);
+
+      ImmutableList<HardwareBufferFrame> matches = findMatchingSecondaryFrames(nextPrimaryFrame);
+      if (matches == null) {
+        return;
+      }
+
+      ImmutableList.Builder<HardwareBufferFrame> outputFramesBuilder =
+          new ImmutableList.Builder<>();
+      outputFramesBuilder.add(nextPrimaryFrame);
+      // Retain the matched secondary frames. We need to reference count them because
+      // the same secondary frame might be reused for multiple future primary frames.
+      for (HardwareBufferFrame match : matches) {
+        outputFramesBuilder.add(match.retain());
+      }
+      // Remove the primary frame because each one is only matched once.
+      checkNotNull(inputFrameQueues.get(0).frames).poll();
+      downstreamConsumer.accept(outputFramesBuilder.build());
     }
-    downstreamConsumer.accept(outputFramesBuilder.build());
-    // TODO: b/449956936 - Allow reusing frames from secondary sequences to handle different frame
-    //  rates.
-    for (int i = 0; i < numSequences; i++) {
-      checkNotNull(inputFrameQueues.get(i).frames).poll();
+  }
+
+  private void handlePrimaryEndOfStream() {
+    // When the primary sequence ends, send an EOS frame downstream.
+    if (inputFrameQueues.get(0).isEnded) {
+      downstreamConsumer.accept(ImmutableList.of(HardwareBufferFrame.END_OF_STREAM_FRAME));
+      isEnded = true;
     }
+  }
+
+  /**
+   * Finds matching frames from secondary queues for the given primary frame. Returns null if any
+   * secondary queue is not yet at or past the primary frame's timestamp and is not yet ended.
+   */
+  @Nullable
+  private ImmutableList<HardwareBufferFrame> findMatchingSecondaryFrames(
+      HardwareBufferFrame nextPrimaryFrame) {
+    ImmutableList.Builder<HardwareBufferFrame> matchesBuilder = ImmutableList.builder();
+    for (int i = 1; i < numSequences; i++) {
+      FrameQueue secondaryQueue = inputFrameQueues.get(i);
+      @Nullable
+      HardwareBufferFrame matchingFrame = secondaryQueue.getMatchingFrame(nextPrimaryFrame);
+      if (matchingFrame == null) {
+        if (!secondaryQueue.getIsEnded()) {
+          // Need to wait for more frames in this secondary queue.
+          return null;
+        }
+        // Secondary queue ended before this primary frame no match is possible, so this sequence is
+        // ignored in the matching frames list.
+      } else {
+        matchesBuilder.add(matchingFrame);
+      }
+    }
+    return matchesBuilder.build();
   }
 
   /** A helper class representing a {@link Queue<HardwareBufferFrame>} that can end. */
@@ -224,6 +245,57 @@ import java.util.Queue;
     boolean getIsEnded() {
       checkState(isRegistered);
       return isEnded || !shouldAggregate;
+    }
+
+    /**
+     * Finds the best matching frame for the given target frame's sequence presentation timestamp.
+     *
+     * <p>This method iterates through the frame queue, releasing any frames with presentation
+     * timestamps strictly less than the {@code targetFrame}'s sequencePresentationTimeUs. This
+     * ensures that we don't hold onto frames that can no longer be used for matching.
+     *
+     * <p>The first frame remaining in the queue, which will have a presentation timestamp greater
+     * than or equal to the {@code targetFrame}'s sequencePresentationTimeUs, is considered the
+     * match. This frame is not removed from the queue by this method, as it might be needed to
+     * match subsequent primary frames (i.e., upsampling the secondary stream).
+     *
+     * <p>This matching strategy is deterministic: for a given state of the queue and a given {@code
+     * targetFrame}, the result of this method will always be the same. It's designed to be
+     * efficient by only retaining the necessary frames in the secondary queue – effectively keeping
+     * only the secondary frames that are current or in the future relative to the last processed
+     * primary frame timestamp.
+     *
+     * <p>Corner Cases:
+     *
+     * <ul>
+     *   <li>If the queue is empty, returns null.
+     *   <li>If all frames in the queue are older than {@code targetFrame}, all frames are released,
+     *       and it returns null.
+     * </ul>
+     *
+     * @param targetFrame The primary frame for which to find a matching secondary frame.
+     * @return The best matching frame from this queue, or null if no suitable frame is currently
+     *     available.
+     */
+    @Nullable
+    private HardwareBufferFrame getMatchingFrame(HardwareBufferFrame targetFrame) {
+      long targetTime = targetFrame.sequencePresentationTimeUs;
+      if (frames.isEmpty()) {
+        return null;
+      }
+
+      while (!frames.isEmpty()) {
+        HardwareBufferFrame nextFrame = checkNotNull(frames.peek());
+        if (nextFrame.sequencePresentationTimeUs < targetTime) {
+          frames.poll();
+          nextFrame.release(/* releaseFence= */ null);
+        } else {
+          // Found the first frame >= targetTime
+          break;
+        }
+      }
+
+      return frames.peek();
     }
   }
 }
