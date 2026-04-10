@@ -45,6 +45,12 @@
     *   Fix issue where video artifacts were caused by supplying initialization
         data when using an AV1-based Dolby Vision codec
         ([#3153](https://github.com/androidx/media/pull/3153)).
+    *   In `DefaultBandwidthMeter`, add support for a custom
+        `InitialBitrateSupplier`. This allows apps to provide their own logic
+        for determining the initial bitrate estimate, which will be used on
+        creation of `DefaultBandwidthMeter` and on network type changes. The
+        supplier can be set via
+        `DefaultBandwidthMeter.Builder.setInitialBitrateSupplier()`.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.

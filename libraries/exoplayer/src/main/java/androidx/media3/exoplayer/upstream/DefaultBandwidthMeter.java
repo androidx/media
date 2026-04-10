@@ -127,6 +127,28 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   @Nullable
   private static DefaultBandwidthMeter singletonInstance;
 
+  /**
+   * Supplies an initial bitrate estimate to the {@link DefaultBandwidthMeter}.
+   *
+   * <p>This interface allows applications to provide custom logic for determining the initial
+   * bitrate when a bandwidth estimate is unavailable.
+   */
+  public interface InitialBitrateSupplier {
+    /**
+     * Returns an initial bitrate estimate in bits per second (bps) for the given network type.
+     *
+     * <p>Implementations can return a specific value based on the {@code networkType}. If the
+     * supplier doesn't have a specific estimate for the given {@code networkType}, it should return
+     * {@link C#TIME_UNSET}. In this case, {@link DefaultBandwidthMeter} will fall back to its
+     * internal default logic for that network type.
+     *
+     * @param networkType The current {@link C.NetworkType}.
+     * @return The initial bitrate estimate in bps, or {@link C#TIME_UNSET} to use the default
+     *     fallback.
+     */
+    long getInitialBitrateEstimate(@C.NetworkType int networkType);
+  }
+
   /** Builder for a bandwidth meter. */
   public static final class Builder {
 
@@ -136,6 +158,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     private int slidingWindowMaxWeight;
     private Clock clock;
     private boolean resetOnNetworkTypeChange;
+    @Nullable private InitialBitrateSupplier initialBitrateSupplier;
 
     /**
      * Creates a builder with default parameters and without listener.
@@ -245,6 +268,21 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     }
 
     /**
+     * Sets the {@link InitialBitrateSupplier} to use for obtaining the initial bitrate estimate
+     * when a bandwidth estimate is unavailable.
+     *
+     * <p>By default, no supplier is set and the meter falls back to its internal default logic.
+     *
+     * @param initialBitrateSupplier The {@link InitialBitrateSupplier}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setInitialBitrateSupplier(InitialBitrateSupplier initialBitrateSupplier) {
+      this.initialBitrateSupplier = initialBitrateSupplier;
+      return this;
+    }
+
+    /**
      * Builds the bandwidth meter.
      *
      * @return A bandwidth meter with the configured properties.
@@ -255,7 +293,8 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
           initialBitrateEstimates,
           slidingWindowMaxWeight,
           clock,
-          resetOnNetworkTypeChange);
+          resetOnNetworkTypeChange,
+          initialBitrateSupplier);
     }
   }
 
@@ -280,6 +319,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   private final EventDispatcher eventDispatcher;
   private final Clock clock;
   private final boolean resetOnNetworkTypeChange;
+  @Nullable private final InitialBitrateSupplier initialBitrateSupplier;
 
   @GuardedBy("this") // Used in TransferListener methods that are called on a background thread.
   private final SlidingPercentile slidingPercentile;
@@ -315,13 +355,15 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       Map<Integer, Long> initialBitrateEstimates,
       int maxWeight,
       Clock clock,
-      boolean resetOnNetworkTypeChange) {
+      boolean resetOnNetworkTypeChange,
+      @Nullable InitialBitrateSupplier initialBitrateSupplier) {
     this.context = context == null ? null : context.getApplicationContext();
     this.initialBitrateEstimates = ImmutableMap.copyOf(initialBitrateEstimates);
     this.eventDispatcher = new EventDispatcher();
     this.slidingPercentile = new SlidingPercentile(maxWeight);
     this.clock = clock;
     this.resetOnNetworkTypeChange = resetOnNetworkTypeChange;
+    this.initialBitrateSupplier = initialBitrateSupplier;
     if (context != null) {
       NetworkTypeObserver networkTypeObserver = NetworkTypeObserver.getInstance(context);
       networkType = networkTypeObserver.getNetworkType();
@@ -470,6 +512,12 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   }
 
   private long getInitialBitrateEstimateForNetworkType(@C.NetworkType int networkType) {
+    if (initialBitrateSupplier != null) {
+      long supplierEstimate = initialBitrateSupplier.getInitialBitrateEstimate(networkType);
+      if (supplierEstimate != C.TIME_UNSET) {
+        return supplierEstimate;
+      }
+    }
     Long initialBitrateEstimate = initialBitrateEstimates.get(networkType);
     if (initialBitrateEstimate == null) {
       initialBitrateEstimate = initialBitrateEstimates.get(C.NETWORK_TYPE_UNKNOWN);
