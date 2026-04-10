@@ -16,19 +16,12 @@
 
 package androidx.media3.ui.compose.material3
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.UnstableApi
@@ -37,11 +30,12 @@ import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
 
 /**
- * A composable that provides a basic player UI layout, combining a [ContentFrame] for displaying
- * player content with customizable controls and a shutter.
+ * A composable that provides a basic player UI layout with default controls and a shutter.
  *
  * This composable consists of a [ContentFrame] that handles the rendering of the player's video,
- * overlaid with some default controls and a shutter.
+ * overlaid with default button controls, progress slider, and a shutter.
+ *
+ * To customize the UI components, use the overload that accepts these as parameters.
  *
  * @param player The [Player] instance to be controlled and whose content is displayed.
  * @param modifier The [Modifier] to be applied to the outer [Box].
@@ -57,9 +51,6 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
     keepContentOnReset = false,
     shutter = { PlayerDefaults.Shutter() },
     showControls = true,
-    topControls = defaultTopControls,
-    centerControls = defaultCenterControls,
-    bottomControls = defaultBottomControls,
   )
 }
 
@@ -96,9 +87,15 @@ fun Player(
   keepContentOnReset: Boolean = false,
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = true,
-  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = defaultTopControls,
-  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = defaultCenterControls,
-  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = defaultBottomControls,
+  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.TopControls(player, showControls)
+  },
+  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.CenterControls(player, showControls)
+  },
+  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.BottomControls(player, showControls)
+  },
 ) {
   Box(modifier) {
     ContentFrame(
@@ -116,47 +113,3 @@ fun Player(
     }
   }
 }
-
-private val defaultTopControls:
-  @Composable
-  BoxScope.(player: Player?, showControls: Boolean) -> Unit =
-  { player, showControls ->
-    PlayerDefaults.TopControls(
-      player,
-      showControls,
-      modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp),
-      innerModifier =
-        Modifier.background(
-          MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-          ButtonDefaults.shape,
-        ),
-    )
-  }
-
-private val defaultCenterControls:
-  @Composable
-  BoxScope.(player: Player?, showControls: Boolean) -> Unit =
-  { player, showControls ->
-    PlayerDefaults.CenterControls(
-      player,
-      showControls,
-      modifier = Modifier.fillMaxWidth(),
-      innerModifier =
-        Modifier.size(50.dp)
-          .background(
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-            ButtonDefaults.shape,
-          ),
-    )
-  }
-
-private val defaultBottomControls:
-  @Composable
-  BoxScope.(player: Player?, showControls: Boolean) -> Unit =
-  { player, showControls ->
-    PlayerDefaults.BottomControls(
-      player,
-      showControls,
-      Modifier.fillMaxWidth().padding(horizontal = 15.dp),
-    )
-  }

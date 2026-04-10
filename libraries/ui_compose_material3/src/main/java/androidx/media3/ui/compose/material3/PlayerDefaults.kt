@@ -20,18 +20,22 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.material3.buttons.NextButton
@@ -49,63 +53,61 @@ internal object PlayerDefaults {
 
   @get:Composable
   val defaultIconButtonColors: IconButtonColors
-    get() = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+    get() = IconButtonDefaults.iconButtonColors(contentColor = PlayerTokens.buttonContentColor)
 
   @get:Composable
   val defaultTextButtonColors: ButtonColors
-    get() = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-
-  @get:Composable
-  val defaultTextColor: Color
-    get() = MaterialTheme.colorScheme.primary
+    get() = ButtonDefaults.textButtonColors(contentColor = PlayerTokens.buttonContentColor)
 
   @Composable
-  fun TopControls(
-    player: Player?,
-    visible: Boolean,
-    modifier: Modifier = Modifier,
-    innerModifier: Modifier = Modifier,
-  ) {
+  fun TopControls(player: Player?, visible: Boolean) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Row(modifier = modifier, horizontalArrangement = Arrangement.End) {
-        MuteButton(player, innerModifier, colors = defaultIconButtonColors)
+      Row(
+        modifier =
+          Modifier.fillMaxWidth().padding(horizontal = PlayerTokens.ControlsHorizontalPadding),
+        horizontalArrangement = Arrangement.End,
+      ) {
+        MuteButton(
+          player,
+          Modifier.background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape),
+          colors = defaultIconButtonColors,
+        )
       }
     }
   }
 
   @Composable
-  fun CenterControls(
-    player: Player?,
-    showControls: Boolean,
-    modifier: Modifier = Modifier,
-    innerModifier: Modifier = Modifier,
-  ) {
+  fun CenterControls(player: Player?, showControls: Boolean) {
     AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
       Row(
-        modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+        Modifier.fillMaxWidth(),
+        horizontalArrangement =
+          Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
       ) {
-        PreviousButton(player, innerModifier, colors = defaultIconButtonColors)
-        SeekBackButton(player, innerModifier, colors = defaultIconButtonColors)
-        PlayPauseButton(player, innerModifier, colors = defaultIconButtonColors)
-        SeekForwardButton(player, innerModifier, colors = defaultIconButtonColors)
-        NextButton(player, innerModifier, colors = defaultIconButtonColors)
+        val buttonModifier =
+          Modifier.size(PlayerTokens.CenterControlsButtonSize)
+            .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
+        PreviousButton(player, buttonModifier, colors = defaultIconButtonColors)
+        SeekBackButton(player, buttonModifier, colors = defaultIconButtonColors)
+        PlayPauseButton(player, buttonModifier, colors = defaultIconButtonColors)
+        SeekForwardButton(player, buttonModifier, colors = defaultIconButtonColors)
+        NextButton(player, buttonModifier, colors = defaultIconButtonColors)
       }
     }
   }
 
   @Composable
-  fun BottomControls(player: Player?, showControls: Boolean, modifier: Modifier = Modifier) {
+  fun BottomControls(player: Player?, showControls: Boolean) {
     AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-      Column(modifier) {
+      Column(Modifier.fillMaxWidth().padding(horizontal = PlayerTokens.ControlsHorizontalPadding)) {
         ProgressSlider(player)
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.Start,
           verticalAlignment = Alignment.CenterVertically,
         ) {
-          PositionAndDurationText(player, color = defaultTextColor)
+          PositionAndDurationText(player, color = PlayerTokens.textColor)
           Spacer(Modifier.weight(1f))
           PlaybackSpeedToggleButton(player, colors = defaultTextButtonColors)
           ShuffleButton(player, colors = defaultIconButtonColors)
@@ -117,6 +119,6 @@ internal object PlayerDefaults {
 
   @Composable
   fun Shutter(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+    Box(modifier.fillMaxSize().background(PlayerTokens.shutterColor))
   }
 }
