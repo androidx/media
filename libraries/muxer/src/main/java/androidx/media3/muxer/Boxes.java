@@ -507,8 +507,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putShort((short) 1); // data_reference_index
 
     // it35 specific fields
-    contents.put((byte) 0x0); // description
-    contents.put(format.initializationData.get(0)); // itu_t_t35_data_prefix
+    if (format.initializationData.get(0).length > 255) {
+      throw new IllegalArgumentException("t35_identifier cannot be longer than 255 bytes.");
+    }
+    contents.put((byte) format.initializationData.get(0).length); // t35_identifier_length
+    contents.put(format.initializationData.get(0)); // t35_identifier
     contents.flip();
     return BoxUtils.wrapIntoBox("it35", contents);
   }
