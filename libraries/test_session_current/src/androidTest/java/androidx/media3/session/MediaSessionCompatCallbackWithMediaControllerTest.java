@@ -68,8 +68,8 @@ import org.junit.runner.RunWith;
 public class MediaSessionCompatCallbackWithMediaControllerTest {
   private static final String TAG = "MediaControllerTest";
 
-  // The maximum time to wait for an operation.
   private static final long TIMEOUT_MS = 3000L;
+  private static final long NO_OP_TIMEOUT_MS = 100L;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 
@@ -120,7 +120,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
+    setPlaybackStateAndActions(PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(1);
 
@@ -136,7 +136,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+    setPlaybackStateAndActions(PlaybackStateCompat.STATE_PLAYING, PlaybackStateCompat.ACTION_PAUSE);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(1);
 
@@ -152,6 +152,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(PlaybackStateCompat.STATE_NONE, PlaybackStateCompat.ACTION_PREPARE);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(1);
 
@@ -168,6 +169,9 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_NONE,
+        PlaybackStateCompat.ACTION_PREPARE | PlaybackStateCompat.ACTION_STOP);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(/* count= */ 2);
 
@@ -177,6 +181,32 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
     assertThat(sessionCallback.onPrepareCalled).isTrue();
     assertThat(sessionCallback.onStopCalled).isTrue();
+  }
+
+  @Test
+  public void stop_resetsInitializationState() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(2);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID
+            | PlaybackStateCompat.ACTION_PLAY
+            | PlaybackStateCompat.ACTION_STOP);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    controller.setMediaItems(testList);
+    sessionCallback.reset(2);
+    controller.play();
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+
+    sessionCallback.reset(1);
+    controller.stop();
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    sessionCallback.reset(2);
+    controller.prepare();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(1);
   }
 
   @Test
@@ -333,7 +363,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+    setPlaybackStateAndActions(PlaybackStateCompat.STATE_PLAYING, /* actions= */ 0);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(size);
 
@@ -360,7 +390,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     session.setQueue(MediaTestUtils.convertToQueueItemsWithoutBitmap(testList));
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_BUFFERING);
+    setPlaybackStateAndActions(PlaybackStateCompat.STATE_BUFFERING, /* actions= */ 0);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(count);
 
@@ -400,7 +430,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(size);
 
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PLAYING, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(size);
 
@@ -423,7 +454,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(size);
 
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PLAYING, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(size);
     int testStartIndex = 2;
@@ -450,7 +482,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
-    setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PLAYING, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(size);
 
@@ -466,6 +499,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   @Test
   public void setShuffleMode() throws Exception {
     session.setShuffleMode(PlaybackStateCompat.SHUFFLE_MODE_NONE);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_NONE, PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE);
     RemoteMediaController controller = createControllerAndWaitConnection();
     sessionCallback.reset(1);
 
@@ -806,22 +841,279 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     assertThat(sessionCallback.onSkipToPreviousCalled).isTrue();
   }
 
-  private void setPlaybackState(int state) {
-    long allActions =
-        PlaybackStateCompat.ACTION_PLAY
-            | PlaybackStateCompat.ACTION_PAUSE
-            | PlaybackStateCompat.ACTION_PLAY_PAUSE
-            | PlaybackStateCompat.ACTION_STOP
-            | PlaybackStateCompat.ACTION_SKIP_TO_NEXT
-            | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
-            | PlaybackStateCompat.ACTION_FAST_FORWARD
-            | PlaybackStateCompat.ACTION_REWIND;
+  @Test
+  public void setMediaItems_paused_doesNotInitializeUntilPlay() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(3);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList);
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+  }
+
+  @Test
+  public void setMediaItems_thenAddBeforeInitialize_doesNotInitializeUntilPlay() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(3);
+    List<MediaItem> addedList = MediaTestUtils.createMediaItemsWithArtworkData(1);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(4);
+
+    controller.setMediaItems(testList);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    controller.addMediaItems(addedList);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(0);
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(3);
+  }
+
+  @Test
+  public void setMediaItems_thenRemoveBeforeInitialize_doesNotInitializeUntilPlay()
+      throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(3);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    controller.removeMediaItem(2);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isFalse();
+    assertThat(sessionCallback.onRemoveQueueItemCalledCount).isEqualTo(0);
+
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onRemoveQueueItemCalledCount).isEqualTo(0);
+  }
+
+  @Test
+  public void setMediaItems_pausedAndSupportPrepare_initializesImmediately() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(3);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PREPARE
+            | PlaybackStateCompat.ACTION_PLAY
+            | PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+            | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList);
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isTrue();
+  }
+
+  @Test
+  public void setMediaItems_thenPrepare_initializes() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItems(3, /* buildWithUri= */ false);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_NONE, PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList);
+
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+
+    controller.prepare();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPrepareFromMediaIdCalled).isTrue();
+  }
+
+  @Test
+  public void setMediaItems_withMediaUri_initializesWithPlayFromUri() throws Exception {
+    Uri testUri = Uri.parse("http://test.com");
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setMediaUri(testUri).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_URI);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromUriCalled).isTrue();
+    assertThat(sessionCallback.uri).isEqualTo(testUri);
+  }
+
+  @Test
+  public void setMediaItems_withSearchQuery_initializesWithPlayFromSearch() throws Exception {
+    String testQuery = "test query";
+    MediaItem testItem =
+        new MediaItem.Builder()
+            .setMediaId("id")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setSearchQuery(testQuery).build())
+            .build();
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItem(testItem);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromSearchCalled).isTrue();
+    assertThat(sessionCallback.query).isEqualTo(testQuery);
+  }
+
+  @Test
+  public void setMediaItems_withStartPosition_seeksAfterPlayFromMediaId() throws Exception {
+    long startPositionMs = 1000L;
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(1);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED,
+        PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID | PlaybackStateCompat.ACTION_SEEK_TO);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(2);
+
+    controller.setMediaItems(testList, /* startIndex= */ 0, startPositionMs);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onSeekToCalled).isTrue();
+    assertThat(sessionCallback.seekPosition).isEqualTo(startPositionMs);
+  }
+
+  @Test
+  public void setMediaItems_replacementBeforeInitialize_initializesWithSecondList()
+      throws Exception {
+    List<MediaItem> testList1 = MediaTestUtils.createMediaItems(/* buildWithUri= */ false, "id1");
+    List<MediaItem> testList2 =
+        MediaTestUtils.createMediaItems(/* buildWithUri= */ false, "id2", "id3");
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList1);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    controller.setMediaItems(testList2);
+    assertThat(sessionCallback.await(NO_OP_TIMEOUT_MS)).isFalse();
+    sessionCallback.reset(2);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.mediaId).isEqualTo(testList2.get(0).mediaId);
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(1);
+    assertThat(sessionCallback.queueDescriptionListForAdd.get(0).getMediaId())
+        .isEqualTo(testList2.get(1).mediaId);
+  }
+
+  @Test
+  public void setMediaItems_withoutChangeMediaItemsCommand_initializesOnlyFirstItem()
+      throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(2);
+    session.setFlags(0); // No FLAG_HANDLES_QUEUE_COMMANDS
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    controller.setMediaItems(testList);
+    controller.play();
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onPlayFromMediaIdCalled).isTrue();
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(0);
+  }
+
+  @Test
+  public void addMediaItems_afterInitialize_addsImmediately() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(2);
+    List<MediaItem> addedList = MediaTestUtils.createMediaItemsWithArtworkData(1);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PAUSED, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    controller.setMediaItems(testList);
+    sessionCallback.reset(2);
+    controller.play();
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    session.setQueue(MediaTestUtils.convertToQueueItemsWithoutBitmap(testList));
+    // Wait until the controller accepts the new platform state for further operations.
+    Thread.sleep(2 * MediaController.DEFAULT_PLATFORM_CALLBACK_AGGREGATION_TIMEOUT_MS);
+
+    sessionCallback.reset(1);
+    controller.addMediaItems(addedList);
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onAddQueueItemAtCalledCount).isEqualTo(1);
+  }
+
+  @Test
+  public void removeMediaItem_afterInitialize_removesImmediately() throws Exception {
+    List<MediaItem> testList = MediaTestUtils.createMediaItemsWithArtworkData(2);
+    session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
+    setPlaybackStateAndActions(
+        PlaybackStateCompat.STATE_PLAYING, PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(2);
+    controller.setMediaItems(testList);
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    session.setQueue(MediaTestUtils.convertToQueueItemsWithoutBitmap(testList));
+    // Wait until the controller accepts the new platform state for further operations.
+    Thread.sleep(2 * MediaController.DEFAULT_PLATFORM_CALLBACK_AGGREGATION_TIMEOUT_MS);
+
+    sessionCallback.reset(1);
+    controller.removeMediaItem(1);
+
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onRemoveQueueItemCalledCount).isEqualTo(1);
+  }
+
+  private void setPlaybackStateAndActions(int state, long actions) {
     PlaybackStateCompat playbackState =
-        new PlaybackStateCompat.Builder().setActions(allActions).setState(state, 0L, 0.0f).build();
+        new PlaybackStateCompat.Builder()
+            .setActions(actions)
+            .setState(state, /* position= */ 0, /* playbackSpeed= */ 1.0f)
+            .build();
     session.setPlaybackState(playbackState);
   }
 
-  class TestVolumeProvider extends VolumeProviderCompat {
+  private static class TestVolumeProvider extends VolumeProviderCompat {
     CountDownLatch latch = new CountDownLatch(1);
     boolean setVolumeToCalled;
     boolean adjustVolumeCalled;
@@ -847,7 +1139,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     }
   }
 
-  private class MediaSessionCallback extends MediaSessionCompat.Callback {
+  private static class MediaSessionCallback extends MediaSessionCompat.Callback {
     public CountDownLatch latch = new CountDownLatch(1);
     public long seekPosition;
     public float speed;
@@ -857,9 +1149,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public String query;
     public Uri uri;
     public String action;
-    public String command;
     public Bundle extras;
-    public boolean captioningEnabled;
     @RepeatMode public int repeatMode;
     @ShuffleMode public int shuffleMode;
     public final List<Integer> queueIndices = new ArrayList<>();
@@ -883,12 +1173,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public boolean onCustomActionCalled;
     public boolean onPrepareCalled;
     public boolean onPrepareFromMediaIdCalled;
-    public boolean onPrepareFromSearchCalled;
-    public boolean onPrepareFromUriCalled;
-    public boolean onSetCaptioningEnabledCalled;
     public boolean onSetRepeatModeCalled;
     public boolean onSetShuffleModeCalled;
-    public boolean onAddQueueItemCalled;
     public int onAddQueueItemAtCalledCount;
     public int onRemoveQueueItemCalledCount;
 
@@ -903,8 +1189,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       uri = null;
       action = null;
       extras = null;
-      command = null;
-      captioningEnabled = false;
       repeatMode = PlaybackStateCompat.REPEAT_MODE_NONE;
       shuffleMode = PlaybackStateCompat.SHUFFLE_MODE_NONE;
       queueIndices.clear();
@@ -928,12 +1212,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       onCustomActionCalled = false;
       onPrepareCalled = false;
       onPrepareFromMediaIdCalled = false;
-      onPrepareFromSearchCalled = false;
-      onPrepareFromUriCalled = false;
-      onSetCaptioningEnabledCalled = false;
       onSetRepeatModeCalled = false;
       onSetShuffleModeCalled = false;
-      onAddQueueItemCalled = false;
       onAddQueueItemAtCalledCount = 0;
       onRemoveQueueItemCalledCount = 0;
     }
@@ -949,21 +1229,18 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     @Override
     public void onPlay() {
       onPlayCalledCount++;
-      setPlaybackState(PlaybackStateCompat.STATE_PLAYING);
       latch.countDown();
     }
 
     @Override
     public void onPause() {
       onPauseCalled = true;
-      setPlaybackState(PlaybackStateCompat.STATE_PAUSED);
       latch.countDown();
     }
 
     @Override
     public void onStop() {
       onStopCalled = true;
-      setPlaybackState(PlaybackStateCompat.STATE_STOPPED);
       latch.countDown();
     }
 
@@ -1067,7 +1344,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     @Override
     public void onPrepareFromSearch(String query, Bundle extras) {
-      onPrepareFromSearchCalled = true;
       this.query = query;
       this.extras = extras;
       latch.countDown();
@@ -1075,7 +1351,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     @Override
     public void onPrepareFromUri(Uri uri, Bundle extras) {
-      onPrepareFromUriCalled = true;
       this.uri = uri;
       this.extras = extras;
       latch.countDown();
@@ -1085,13 +1360,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public void onSetRepeatMode(@RepeatMode int repeatMode) {
       onSetRepeatModeCalled = true;
       this.repeatMode = repeatMode;
-      session.setRepeatMode(repeatMode);
       latch.countDown();
     }
 
     @Override
     public void onAddQueueItem(MediaDescriptionCompat description) {
-      onAddQueueItemCalled = true;
       queueDescriptionListForAdd.add(description);
       latch.countDown();
     }
@@ -1113,8 +1386,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
     @Override
     public void onSetCaptioningEnabled(boolean enabled) {
-      onSetCaptioningEnabledCalled = true;
-      captioningEnabled = enabled;
       latch.countDown();
     }
 
@@ -1122,7 +1393,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public void onSetShuffleMode(@ShuffleMode int shuffleMode) {
       onSetShuffleModeCalled = true;
       this.shuffleMode = shuffleMode;
-      session.setShuffleMode(shuffleMode);
       latch.countDown();
     }
   }

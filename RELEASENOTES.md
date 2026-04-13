@@ -43,6 +43,8 @@
     *   Fix bug where `COMMAND_SEEK_TO_MEDIA_ITEM` is not available in a
         `MediaController` when connecting to a platform-only session that
         supports seeking to other items but no playlist modifications.
+    *   Fix issue where `MediaController` can't set media items on platform
+        media sessions that don't allow `PREPARE_FROM` actions.
 *   UI:
 *   Downloads:
 *   OkHttp extension:

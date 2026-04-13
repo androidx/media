@@ -1001,7 +1001,7 @@ public final class LegacyConversionsTest {
 
   @Test
   public void
-      convertToPlayerCommands_withPlayFromActionsWithoutPrepareFromAction_setMediaItemCommandNotAvailable() {
+      convertToPlayerCommands_withPlayFromActionsWithoutPrepareFromAction_setMediaItemCommandAvailableWithoutPrepare() {
     PlaybackStateCompat playbackStateCompat =
         new PlaybackStateCompat.Builder()
             .setActions(
@@ -1017,8 +1017,8 @@ public final class LegacyConversionsTest {
             /* sessionFlags= */ 0,
             /* isSessionReady= */ true);
 
-    assertThat(getCommandsAsList(playerCommands))
-        .containsNoneOf(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_PREPARE);
+    assertThat(getCommandsAsList(playerCommands)).doesNotContain(Player.COMMAND_PREPARE);
+    assertThat(getCommandsAsList(playerCommands)).contains(Player.COMMAND_SET_MEDIA_ITEM);
   }
 
   @Test
@@ -1039,8 +1039,7 @@ public final class LegacyConversionsTest {
             /* sessionFlags= */ 0,
             /* isSessionReady= */ true);
 
-    assertThat(getCommandsAsList(playerCommands))
-        .containsNoneOf(Player.COMMAND_SET_MEDIA_ITEM, Player.COMMAND_PREPARE);
+    assertThat(getCommandsAsList(playerCommands)).doesNotContain(Player.COMMAND_SET_MEDIA_ITEM);
   }
 
   @Test
