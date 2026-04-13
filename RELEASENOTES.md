@@ -140,6 +140,8 @@
         new API `MediaSession.Builder#setPackageNameOverride`. The caller must
         have `android.permission.OVERRIDE_MEDIA_SESSION_OWNER` permission to
         override the package name of the session.
+    *   Fix issue where `MediaController` can't set media items on platform
+        media sessions that don't allow `PREPARE_FROM` actions.
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

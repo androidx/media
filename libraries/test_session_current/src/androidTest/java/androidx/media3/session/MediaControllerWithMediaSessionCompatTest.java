@@ -2143,6 +2143,9 @@ public class MediaControllerWithMediaSessionCompatTest {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(
+                PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+                    | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID)
             .build());
     session.setMetadata(
         new MediaMetadataCompat.Builder()
@@ -2186,6 +2189,9 @@ public class MediaControllerWithMediaSessionCompatTest {
         new PlaybackStateCompat.Builder()
             .setActiveQueueItemId(4)
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(
+                PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+                    | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID)
             .build());
     session.setMetadata(
         new MediaMetadataCompat.Builder()
@@ -2231,6 +2237,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(PlaybackStateCompat.ACTION_PREPARE | PlaybackStateCompat.ACTION_PLAY)
             .build());
     session.setQueue(testQueue);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -2270,6 +2277,7 @@ public class MediaControllerWithMediaSessionCompatTest {
         new PlaybackStateCompat.Builder()
             .setActiveQueueItemId(5)
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(PlaybackStateCompat.ACTION_PREPARE | PlaybackStateCompat.ACTION_PLAY)
             .build());
     session.setQueue(testQueue);
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -2308,6 +2316,9 @@ public class MediaControllerWithMediaSessionCompatTest {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(
+                PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
+                    | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID)
             .build());
     session.setMetadata(
         new MediaMetadataCompat.Builder()
@@ -2355,6 +2366,7 @@ public class MediaControllerWithMediaSessionCompatTest {
         new PlaybackStateCompat.Builder()
             .setActiveQueueItemId(4)
             .setState(PlaybackStateCompat.STATE_NONE, /* position= */ 0, /* playbackSpeed= */ 0.0f)
+            .setActions(PlaybackStateCompat.ACTION_PREPARE | PlaybackStateCompat.ACTION_PLAY)
             .build());
     session.setMetadata(
         new MediaMetadataCompat.Builder()
