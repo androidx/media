@@ -17,6 +17,7 @@
 package androidx.media3.demo.compose.layout
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
@@ -25,7 +26,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -106,12 +114,26 @@ internal fun Modifier.playerGestures(
   fastForwardActionArea: (Offset) -> Boolean = { false },
   onFastForward: (Boolean) -> Unit = {},
   fastForwardSpeed: Float = 2f,
+  onSpacebarRelease: (() -> Unit)? = null,
 ): Modifier {
   val seekBackButtonDescription = stringResource(R.string.seek_back_button)
   val seekForwardButtonDescription = stringResource(R.string.seek_forward_button)
   var isFastForwarding by remember { mutableStateOf(false) }
+  val focusRequester = remember { FocusRequester() }
 
-  return this.pointerInput(
+  return this.focusRequester(focusRequester)
+    .focusable()
+    .onKeyEvent { event ->
+      // Holding the spacebar will trigger multiple KeyDown events due to auto-repeat
+      // Avoid multifiring by handling KeyUp instead
+      if (event.type == KeyEventType.KeyUp && event.key == Key.Spacebar) {
+        onSpacebarRelease?.invoke()
+        true
+      } else {
+        false
+      }
+    }
+    .pointerInput(
       onPointerDownChange,
       seekBackButtonState,
       seekForwardButtonState,
@@ -122,6 +144,9 @@ internal fun Modifier.playerGestures(
           awaitPointerEventScope {
             while (true) {
               val event = awaitPointerEvent()
+              if (event.changes.any { it.pressed }) {
+                focusRequester.requestFocus()
+              }
               val isAnyPressed = event.changes.any { it.pressed }
               onPointerDownChange?.invoke(isAnyPressed)
             }

@@ -74,6 +74,7 @@ import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.buttons.RepeatButton
 import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
@@ -127,8 +128,10 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
 
   var showControls by remember { mutableStateOf(true) }
   var anyPointerDown by remember { mutableStateOf(false) }
-  LaunchedEffect(showControls, anyPointerDown) {
-    if (showControls && !anyPointerDown) {
+  val playPauseButtonState = rememberPlayPauseButtonState(player)
+  LaunchedEffect(showControls, anyPointerDown, playPauseButtonState.showPlay) {
+    if (showControls && !anyPointerDown && !playPauseButtonState.showPlay) {
+      // Fade out the controls when the user has the intent to keep watching (i.e. not paused)
       delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
       showControls = false
     }
@@ -162,6 +165,13 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
             onFastForward = {
               showControls = false
               showFastForward = it
+            },
+            onSpacebarRelease = {
+              if (!playPauseButtonState.showPlay) {
+                // Bring up the controls if we are about to pause
+                showControls = true
+              }
+              playPauseButtonState.onClick()
             },
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
