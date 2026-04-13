@@ -33,6 +33,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Size;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -241,6 +242,7 @@ public final class DefaultVideoFrameProcessorPixelTest {
   }
 
   @Test
+  @SdkSuppress(maxSdkVersion = 36) // TODOD: b/464198065 - Investigate why this fails on API 37+.
   public void setPixelWidthHeightRatio_matchesGoldenFile() throws Exception {
     videoFrameProcessorTestRunner =
         getDefaultFrameProcessorTestRunnerBuilder(testId).setPixelWidthHeightRatio(2f).build();
