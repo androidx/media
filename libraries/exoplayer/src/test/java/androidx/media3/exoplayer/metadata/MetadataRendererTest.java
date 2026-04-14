@@ -26,7 +26,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Timeline;
+import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.RendererConfiguration;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -36,6 +40,7 @@ import androidx.media3.extractor.metadata.emsg.EventMessageEncoder;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.extractor.metadata.scte35.TimeSignalCommand;
 import androidx.media3.test.utils.FakeSampleStream;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -344,6 +349,102 @@ public class MetadataRendererTest {
     assertThat(metadataOutput).hasSize(2);
     assertThat(metadataOutput.get(0).presentationTimeUs).isEqualTo(100_000);
     assertThat(metadataOutput.get(1).presentationTimeUs).isEqualTo(300_000);
+  }
+
+  @Test
+  public void renderMetadata_doesNotReadAheadTooFar() throws Exception {
+    EventMessage emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "",
+            /* durationMs= */ 1,
+            /* id= */ 0,
+            "Test data".getBytes(UTF_8));
+    byte[] encodedEmsg = eventMessageEncoder.encode(emsg);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            ImmutableList.of(
+                sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                sample(/* timeUs= */ 450_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                sample(/* timeUs= */ 2_000_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {EMSG_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 123_000_000,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+
+    // Render a few times to render as many samples as possible.
+    for (int i = 0; i < 5; i++) {
+      renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
+    }
+
+    // Verify that the last sample (at 2_000_000) is NOT yet read.
+    assertThat(renderer.getReadingPositionUs()).isEqualTo(123_450_000);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int result = fakeSampleStream.readData(new FormatHolder(), buffer, /* readFlags= */ 0);
+    assertThat(result).isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.timeUs).isEqualTo(2_000_000);
+  }
+
+  @Test
+  public void renderMetadata_doesNotReadEndOfStreamTooEarly() throws Exception {
+    EventMessage emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "",
+            /* durationMs= */ 1,
+            /* id= */ 0,
+            "Test data".getBytes(UTF_8));
+    byte[] encodedEmsg = eventMessageEncoder.encode(emsg);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            ImmutableList.of(
+                sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(5_000_000)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
+    renderer.setTimeline(timeline);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {EMSG_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 123_000_000,
+        new MediaSource.MediaPeriodId(timeline.getUidOfPeriod(0)));
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+
+    // Render a few times to render as many samples as possible.
+    for (int i = 0; i < 5; i++) {
+      renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
+    }
+
+    // EOS shouldn't be read yet.
+    assertThat(renderer.getReadingPositionUs()).isEqualTo(123_100_000);
+    DecoderInputBuffer buffer =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL);
+    int result = fakeSampleStream.readData(new FormatHolder(), buffer, /* readFlags= */ 0);
+    assertThat(result).isEqualTo(C.RESULT_BUFFER_READ);
+    assertThat(buffer.isEndOfStream()).isTrue();
   }
 
   private static List<Metadata> runRenderer(byte[] input) throws ExoPlaybackException {

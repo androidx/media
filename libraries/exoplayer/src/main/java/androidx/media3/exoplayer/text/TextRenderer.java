@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.extractor.text.CueDecoder;
 import androidx.media3.extractor.text.CuesWithTiming;
@@ -99,6 +100,13 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private static final int REPLACEMENT_STATE_WAIT_END_OF_STREAM = 2;
 
   private static final int MSG_UPDATE_OUTPUT = 1;
+
+  /**
+   * Maximum duration to read ahead from the current playback position in microseconds. Limiting the
+   * read ahead ensures the samples are not consumed too early to allow player changes affecting
+   * these samples (e.g. duration changes).
+   */
+  private static final long MAX_READ_AHEAD_DURATION_US = C.MICROS_PER_SECOND;
 
   // Fields used when handling CuesWithTiming objects from application/x-media3-cues samples.
   private final CueDecoder cueDecoder;
@@ -325,7 +333,29 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       return false;
     }
     @ReadDataResult
-    int readResult = readSource(formatHolder, cueDecoderInputBuffer, /* readFlags= */ 0);
+    int readResult =
+        readSource(
+            formatHolder,
+            cueDecoderInputBuffer,
+            SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+    if (readResult == C.RESULT_NOTHING_READ && !cueDecoderInputBuffer.isEndOfStream()) {
+      // Nothing to consume yet.
+      return false;
+    } else if (readResult == C.RESULT_BUFFER_READ && !cueDecoderInputBuffer.isEndOfStream()) {
+      // New buffer available, only consume if close enough to the current position.
+      if (positionUs < cueDecoderInputBuffer.timeUs - MAX_READ_AHEAD_DURATION_US) {
+        return false;
+      }
+    } else if (readResult == C.RESULT_BUFFER_READ || readResult == C.RESULT_NOTHING_READ) {
+      // EOS signal available, only consume if close enough to the stream duration.
+      long periodDurationUs = getPeriodDurationUs();
+      long positionInPeriodUs = positionUs - getStreamOffsetUs();
+      if (periodDurationUs == C.TIME_UNSET
+          || positionInPeriodUs < periodDurationUs - MAX_READ_AHEAD_DURATION_US) {
+        return false;
+      }
+    }
+    readResult = readSource(formatHolder, cueDecoderInputBuffer, /* readFlags= */ 0);
     switch (readResult) {
       case C.RESULT_BUFFER_READ:
         if (cueDecoderInputBuffer.isEndOfStream()) {
@@ -431,7 +461,30 @@ public final class TextRenderer extends BaseRenderer implements Callback {
           return;
         }
         // Try and read the next subtitle from the source.
-        @ReadDataResult int result = readSource(formatHolder, nextInputBuffer, /* readFlags= */ 0);
+        @ReadDataResult
+        int result =
+            readSource(
+                formatHolder,
+                nextInputBuffer,
+                SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+        if (result == C.RESULT_NOTHING_READ && !nextInputBuffer.isEndOfStream()) {
+          // Nothing to consume yet.
+          return;
+        } else if (result == C.RESULT_BUFFER_READ && !nextInputBuffer.isEndOfStream()) {
+          // New buffer available, only consume if close enough to the current position.
+          if (positionUs < nextInputBuffer.timeUs - MAX_READ_AHEAD_DURATION_US) {
+            return;
+          }
+        } else if (result == C.RESULT_BUFFER_READ || result == C.RESULT_NOTHING_READ) {
+          // EOS signal available, only consume if close enough to the stream duration.
+          long periodDurationUs = getPeriodDurationUs();
+          long positionInPeriodUs = positionUs - getStreamOffsetUs();
+          if (periodDurationUs == C.TIME_UNSET
+              || positionInPeriodUs < periodDurationUs - MAX_READ_AHEAD_DURATION_US) {
+            return;
+          }
+        }
+        result = readSource(formatHolder, nextInputBuffer, /* readFlags= */ 0);
         if (result == C.RESULT_BUFFER_READ) {
           if (nextInputBuffer.isEndOfStream()) {
             inputStreamEnded = true;

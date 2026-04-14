@@ -33,6 +33,7 @@ import androidx.media3.exoplayer.BaseRenderer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.extractor.metadata.MetadataDecoder;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
@@ -51,6 +52,13 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
 
   private static final String TAG = "MetadataRenderer";
   private static final int MSG_INVOKE_RENDERER = 1;
+
+  /**
+   * Maximum duration to read ahead from the current playback position in microseconds. Limiting the
+   * read ahead ensures the samples are not consumed too early to allow player changes affecting
+   * these samples (e.g. duration changes).
+   */
+  private static final long MAX_READ_AHEAD_DURATION_US = C.MICROS_PER_SECOND;
 
   private final MetadataDecoderFactory decoderFactory;
   private final MetadataOutput output;
@@ -167,7 +175,7 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   public void render(long positionUs, long elapsedRealtimeUs) {
     boolean working = true;
     while (working) {
-      readMetadata();
+      readMetadata(positionUs);
       working = outputMetadata(positionUs);
     }
   }
@@ -230,11 +238,32 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
     }
   }
 
-  private void readMetadata() {
+  private void readMetadata(long positionUs) {
     if (!inputStreamEnded && pendingMetadata == null) {
       buffer.clear();
       FormatHolder formatHolder = getFormatHolder();
-      @ReadDataResult int result = readSource(formatHolder, buffer, /* readFlags= */ 0);
+      @ReadDataResult
+      int result =
+          readSource(
+              formatHolder, buffer, SampleStream.FLAG_PEEK | SampleStream.FLAG_OMIT_SAMPLE_DATA);
+      if (result == C.RESULT_NOTHING_READ && !buffer.isEndOfStream()) {
+        // Nothing to consume yet.
+        return;
+      } else if (result == C.RESULT_BUFFER_READ && !buffer.isEndOfStream()) {
+        // New buffer available, only consume if close enough to the current position.
+        if (!outputMetadataEarly && positionUs < buffer.timeUs - MAX_READ_AHEAD_DURATION_US) {
+          return;
+        }
+      } else if (result == C.RESULT_BUFFER_READ || result == C.RESULT_NOTHING_READ) {
+        // EOS signal available, only consume if close enough to the stream duration.
+        long periodDurationUs = getPeriodDurationUs();
+        long positionInPeriodUs = positionUs - getStreamOffsetUs();
+        if (periodDurationUs == C.TIME_UNSET
+            || positionInPeriodUs < periodDurationUs - MAX_READ_AHEAD_DURATION_US) {
+          return;
+        }
+      }
+      result = readSource(formatHolder, buffer, /* readFlags= */ 0);
       if (result == C.RESULT_BUFFER_READ) {
         if (buffer.isEndOfStream()) {
           inputStreamEnded = true;

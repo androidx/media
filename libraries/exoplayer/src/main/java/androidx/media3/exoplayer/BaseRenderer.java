@@ -615,14 +615,19 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    */
   protected final @ReadDataResult int readSource(
       FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
+    boolean isPeeking = (readFlags & SampleStream.FLAG_PEEK) != 0;
     @ReadDataResult int result = checkNotNull(stream).readData(formatHolder, buffer, readFlags);
     if (result == C.RESULT_BUFFER_READ) {
       if (buffer.isEndOfStream()) {
-        readingPositionUs = C.TIME_END_OF_SOURCE;
+        if (!isPeeking) {
+          readingPositionUs = C.TIME_END_OF_SOURCE;
+        }
         return streamIsFinal ? C.RESULT_BUFFER_READ : C.RESULT_NOTHING_READ;
       }
       buffer.timeUs += streamOffsetUs;
-      readingPositionUs = max(readingPositionUs, buffer.timeUs);
+      if (!isPeeking) {
+        readingPositionUs = max(readingPositionUs, buffer.timeUs);
+      }
     } else if (result == C.RESULT_FORMAT_READ) {
       Format format = checkNotNull(formatHolder.format);
       if (format.subsampleOffsetUs != Format.OFFSET_SAMPLE_RELATIVE) {
