@@ -1390,9 +1390,6 @@ import java.util.Objects;
           maybeTriggerOnRendererReadyChanged(/* rendererIndex= */ i, /* allowsPlayback= */ false);
           continue;
         }
-        // TODO: Each renderer should return the maximum delay before which it wishes to be called
-        // again. The minimum of these values should then be used as the delay before the next
-        // invocation of this method.
         renderer.render(rendererPositionUs, rendererPositionElapsedRealtimeUs);
         // Determine whether the renderer allows playback to continue. Playback can
         // continue if the renderer is ready or ended. Also continue playback if the renderer is
