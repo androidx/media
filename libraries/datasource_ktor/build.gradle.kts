@@ -40,10 +40,13 @@ dependencies {
   androidTestImplementation(project(modulePrefix + "test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker.mockito)
+  androidTestImplementation(libs.ktor.client.okhttp)
   androidTestImplementation(libs.okhttp.mockwebserver)
+  androidTestImplementation(libs.test.parameter.injector)
 }
 
 extra["releaseArtifactId"] = "media3-datasource-ktor"
+
 extra["releaseName"] = "Media3 Ktor DataSource module"
 
 apply(from = "../../publish.gradle")

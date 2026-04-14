@@ -162,7 +162,6 @@ private constructor(
     } catch (e: CancellationException) {
       throw InterruptedIOException(e.message)
     } catch (e: IOException) {
-      if (e is HttpDataSource.HttpDataSourceException) throw e
       throw HttpDataSource.HttpDataSourceException.createForIOException(
         e,
         dataSpec,
@@ -233,8 +232,14 @@ private constructor(
     if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
       bytesToRead = dataSpec.length
     } else {
-      val contentLength = httpResponse.contentLength() ?: -1L
-      bytesToRead = if (contentLength >= 0) contentLength - bytesToSkip else C.LENGTH_UNSET.toLong()
+      val contentLength =
+        HttpUtil.getContentLength(
+          httpResponse.headers[HttpHeaders.CONTENT_LENGTH],
+          httpResponse.headers[HttpHeaders.CONTENT_RANGE],
+        )
+      bytesToRead =
+        if (contentLength != C.LENGTH_UNSET.toLong()) contentLength - bytesToSkip
+        else C.LENGTH_UNSET.toLong()
     }
 
     connectionEstablished = true

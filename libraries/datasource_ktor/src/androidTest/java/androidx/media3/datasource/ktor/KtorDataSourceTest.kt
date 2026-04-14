@@ -19,12 +19,17 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.common.net.HttpHeaders
 import com.google.common.truth.Truth.assertThat
+import com.google.testing.junit.testparameterinjector.TestParameter
+import com.google.testing.junit.testparameterinjector.TestParameterInjector
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.cookies.HttpCookies
 import java.nio.charset.StandardCharsets
-import java.util.HashMap
 import java.util.concurrent.TimeUnit
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -32,14 +37,24 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@RunWith(AndroidJUnit4::class)
+@RunWith(TestParameterInjector::class)
 class KtorDataSourceTest {
 
-  val httpClient = HttpClient(Android)
+  // TODO: b/502560161 - Switch to KotlinTestParameters.namedTestValues after upgrading to
+  //  TestParameterInjector v1.22+.
+  class ClientEngineFactoryProvider : TestParameterValuesProvider() {
+    override fun provideValues(context: Context?): List<*>? {
+      return listOf(value(Android).withName("Android"), value(OkHttp).withName("OkHttp"))
+    }
+  }
 
   @Test
   @Throws(Exception::class)
-  fun open_setsCorrectHeaders() {
+  fun open_setsCorrectHeaders(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -89,7 +104,11 @@ class KtorDataSourceTest {
   }
 
   @Test
-  fun open_invalidResponseCode() {
+  fun open_invalidResponseCode(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse().setResponseCode(404).setBody("failure msg"))
 
@@ -108,7 +127,11 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders() {
+  fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
@@ -128,7 +151,11 @@ class KtorDataSourceTest {
   }
 
   @Test
-  fun open_malformedUrl_throwsException() {
+  fun open_malformedUrl_throwsException(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri("not-a-valid-url").build()
@@ -141,7 +168,11 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun open_httpPost_sendsPostRequest() {
+  fun open_httpPost_sendsPostRequest(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -163,8 +194,71 @@ class KtorDataSourceTest {
   }
 
   @Test
+  @Throws(java.lang.Exception::class)
+  fun cookiesConfigured_cookiesPersistedBetweenRequests(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
+    MockWebServer().use { mockWebServer ->
+      mockWebServer.enqueue(
+        MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
+      )
+      mockWebServer.enqueue(MockResponse())
+
+      val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build()
+      val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
+      dataSource.open(dataSpec)
+      dataSource.close()
+      dataSource.open(dataSpec)
+
+      val firstRequest = mockWebServer.takeRequest()
+      assertThat(firstRequest.path).isEqualTo("/foo")
+      assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull()
+
+      val secondRequest = mockWebServer.takeRequest()
+      assertThat(secondRequest.path).isEqualTo("/foo")
+      assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
+    }
+  }
+
+  @Test
+  @Throws(java.lang.Exception::class)
+  fun cookiesConfigured_cookiesForwardedOnRedirect(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
+    MockWebServer().use { redirectWebServer ->
+      MockWebServer().use { originWebServer ->
+        val originUrl = originWebServer.url("bar").toString()
+        redirectWebServer.enqueue(
+          MockResponse()
+            .setResponseCode(302)
+            .setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val; Path=/")
+            .setHeader(HttpHeaders.LOCATION, originUrl)
+        )
+        originWebServer.enqueue(MockResponse())
+
+        val redirectUrl = redirectWebServer.url("foo").toString()
+        val dataSpec = DataSpec.Builder().setUri(redirectUrl).build()
+        val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
+        dataSource.open(dataSpec)
+
+        val originRequest = originWebServer.takeRequest()
+        assertThat(originRequest.path).isEqualTo("/bar")
+        assertThat(originRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val")
+      }
+    }
+  }
+
+  @Test
   @Throws(Exception::class)
-  fun factory_setUserAgent_setsCorrectHeader() {
+  fun factory_setUserAgent_setsCorrectHeader(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -181,7 +275,11 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setContentTypePredicate_filtersContentType() {
+  fun factory_setContentTypePredicate_filtersContentType(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(
       MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html")
@@ -205,7 +303,11 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setTransferListener_setsListener() {
+  fun factory_setTransferListener_setsListener(
+    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
+    httpClientEngineFactory: HttpClientEngineFactory<*>
+  ) {
+    val httpClient = HttpClient(httpClientEngineFactory)
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
