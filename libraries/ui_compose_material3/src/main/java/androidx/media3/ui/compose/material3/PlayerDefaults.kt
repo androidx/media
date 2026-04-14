@@ -100,7 +100,11 @@ internal object PlayerDefaults {
   @Composable
   fun BottomControls(player: Player?, showControls: Boolean) {
     AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-      Column(Modifier.fillMaxWidth().padding(horizontal = PlayerTokens.ControlsHorizontalPadding)) {
+      Column(
+        Modifier.fillMaxWidth()
+          .background(brush = PlayerTokens.bottomControlsGradient)
+          .padding(horizontal = PlayerTokens.ControlsHorizontalPadding)
+      ) {
         ProgressSlider(player)
         Row(
           modifier = Modifier.fillMaxWidth(),

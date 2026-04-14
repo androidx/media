@@ -17,6 +17,7 @@ package androidx.media3.ui.compose.material3
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -24,6 +25,14 @@ internal object PlayerTokens {
   val CenterControlsButtonSize = 50.dp
   val CenterControlsSpacing = 10.dp
   val ControlsHorizontalPadding = 15.dp
+
+  val bottomControlsGradient: Brush
+    @Composable
+    get() =
+      Brush.verticalGradient(
+        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+      )
+
   val shutterColor: Color
     @Composable get() = MaterialTheme.colorScheme.scrim
 

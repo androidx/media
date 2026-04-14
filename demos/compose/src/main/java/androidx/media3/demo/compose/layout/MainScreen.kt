@@ -50,6 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -180,9 +182,15 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           player,
           showControls,
           modifier =
-            Modifier.fillMaxWidth().padding(horizontal = 15.dp).onSizeChanged {
-              bottomControlsHeight = with(density) { it.height.toDp() }
-            },
+            Modifier.fillMaxWidth()
+              .background(
+                brush =
+                  Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background)
+                  )
+              )
+              .padding(horizontal = 15.dp)
+              .onSizeChanged { bottomControlsHeight = with(density) { it.height.toDp() } },
           interactionModifier = Modifier.reportPointerDown { anyPointerDown = it },
         )
       },
