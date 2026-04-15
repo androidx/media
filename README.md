@@ -1,16 +1,16 @@
 # AndroidX Media
 
 AndroidX Media is a collection of libraries for implementing media use cases on
-Android, including local playback (via ExoPlayer), video editing (via Transformer) and media sessions.
+Android, including local playback (via ExoPlayer), video editing (via
+Transformer) and media sessions.
 
 ## Documentation
 
-*   The [developer guide][] provides a wealth of information.
-*   The [class reference][] documents the classes and methods.
-*   The [release notes][] document the major changes in each release.
-*   The [media dev center][] provides samples and guidelines.
-*   Follow our [developer blog][] to keep up to date with the latest
-    developments!
+*   The [developer guide] provides a wealth of information.
+*   The [class reference] documents the classes and methods.
+*   The [release notes] document the major changes in each release.
+*   The [media dev center] provides samples and guidelines.
+*   Follow our [developer blog] to keep up to date with the latest developments!
 
 [developer guide]: https://developer.android.com/guide/topics/media/media3
 [class reference]: https://developer.android.com/reference/androidx/media3/common/package-summary
@@ -20,8 +20,8 @@ Android, including local playback (via ExoPlayer), video editing (via Transforme
 
 ## Migration for existing ExoPlayer and MediaSession projects
 
-You'll find a [migration guide for existing ExoPlayer and MediaSession users][]
-on developer.android.com.
+You'll find a [migration guide for existing ExoPlayer and MediaSession users] on
+developer.android.com.
 
 [migration guide for existing ExoPlayer and MediaSession users]: https://developer.android.com/guide/topics/media/media3/getting-started/migration-guide
 
@@ -31,14 +31,14 @@ AndroidX Media releases provide API stability guarantees, ensuring that the API
 surface remains backwards compatible for the most commonly used APIs. APIs
 intended for more advanced use cases are marked as unstable. To use an unstable
 method or class without lint warnings, you’ll need to add the OptIn annotation
-before using it. For more information see the [UnstableApi][] documentation.
+before using it. For more information see the [UnstableApi] documentation.
 
 [UnstableApi]: https://github.com/androidx/media/blob/main/libraries/common/src/main/java/androidx/media3/common/util/UnstableApi.java
 
 ## Using the libraries
 
-You can get the libraries from [the Google Maven repository][]. It's
-also possible to clone this GitHub repository and depend on the modules locally.
+You can get the libraries from [the Google Maven repository]. It's also possible
+to clone this GitHub repository and depend on the modules locally.
 
 [the Google Maven repository]: https://developer.android.com/studio/build/dependencies#google-maven
 
@@ -46,7 +46,7 @@ also possible to clone this GitHub repository and depend on the modules locally.
 
 #### 1. Add module dependencies
 
-The easiest way to get started using AndroidX Media is to add gradle
+The easiest way to get started using AndroidX Media is to add Gradle
 dependencies on the libraries you need in the `build.gradle.kts` file of your
 app module.
 
@@ -69,12 +69,12 @@ implementation 'androidx.media3:media3-ui:1.X.X'
 
 where `1.X.X` is your preferred version. All modules must be the same version.
 
-Please see the [AndroidX Media3 developer.android.com page][] for more
+Please see the [AndroidX Media3 developer.android.com page] for more
 information, including a full list of library modules.
 
 This repository includes some modules that depend on external libraries that
 need to be built manually, and are not available from the Maven repository.
-Please see the individual READMEs under the [libraries directory][] for more
+Please see the individual READMEs under the [libraries directory] for more
 details.
 
 [AndroidX Media3 developer.android.com page]: https://developer.android.com/jetpack/androidx/releases/media3#declaring_dependencies
@@ -96,7 +96,7 @@ Or in Gradle Groovy DSL `build.gradle`:
 
 ```groovy
 compileOptions {
-  targetCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
 }
 ```
 
@@ -147,7 +147,7 @@ implementation project(':media3-lib-ui')
 
 #### MIDI module
 
-By default the [MIDI module](libraries/decoder_midi) is disabled as a local
+By default, the [MIDI module](libraries/decoder_midi) is disabled as a local
 dependency, because it requires additional Maven repository config. If you want
 to use it as a local dependency, please configure the JitPack repository as
 [described in the module README](libraries/decoder_midi/README.md#getting-the-module),
