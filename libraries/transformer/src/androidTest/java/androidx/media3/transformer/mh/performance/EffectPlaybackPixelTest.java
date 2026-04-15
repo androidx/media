@@ -57,6 +57,7 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
+import androidx.media3.transformer.AndroidTestUtil.NoFrameDroppingVideoRenderer;
 import androidx.media3.transformer.AndroidTestUtil.ReplayVideoRenderer;
 import androidx.media3.transformer.SurfaceTestActivity;
 import androidx.test.core.app.ApplicationProvider;
@@ -186,8 +187,7 @@ public class EffectPlaybackPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           Context context = ApplicationProvider.getApplicationContext();
-          Renderer videoRenderer =
-              new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+          Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
           player =
               new ExoPlayer.Builder(context)
                   .setRenderersFactory(
@@ -443,8 +443,7 @@ public class EffectPlaybackPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           Context context = ApplicationProvider.getApplicationContext();
-          Renderer videoRenderer =
-              new NoFrameDroppedVideoRenderer(context, MediaCodecSelector.DEFAULT);
+          Renderer videoRenderer = new NoFrameDroppingVideoRenderer(context);
           player =
               new ExoPlayer.Builder(context)
                   .setRenderersFactory(
@@ -573,25 +572,6 @@ public class EffectPlaybackPixelTest {
     }
     if (imageReader != null) {
       imageReader.close();
-    }
-  }
-
-  private static class NoFrameDroppedVideoRenderer extends MediaCodecVideoRenderer {
-
-    public NoFrameDroppedVideoRenderer(Context context, MediaCodecSelector mediaCodecSelector) {
-      super(new Builder(context).setMediaCodecSelector(mediaCodecSelector));
-    }
-
-    @Override
-    protected boolean shouldDropOutputBuffer(
-        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
-      return false;
-    }
-
-    @Override
-    protected boolean shouldDropBuffersToKeyframe(
-        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
-      return false;
     }
   }
 

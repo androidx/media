@@ -30,6 +30,7 @@ import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
+import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -52,10 +53,13 @@ import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.BufferInfo;
@@ -71,6 +75,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -208,6 +213,50 @@ public final class AndroidTestUtil {
     @Nullable
     public ColorInfo getOutputColorInfo() {
       return outputColorInfo;
+    }
+  }
+
+  /**
+   * A {@link DefaultRenderersFactory} implementation that returns a {@link
+   * NoFrameDroppingVideoRenderer} video renderer.
+   */
+  public static final class NoFrameDroppingRendererFactory extends DefaultRenderersFactory {
+
+    public NoFrameDroppingRendererFactory(Context context) {
+      super(context);
+    }
+
+    @Override
+    protected void buildVideoRenderers(
+        Context context,
+        @ExtensionRendererMode int extensionRendererMode,
+        MediaCodecSelector mediaCodecSelector,
+        boolean enableDecoderFallback,
+        Handler eventHandler,
+        VideoRendererEventListener eventListener,
+        long allowedVideoJoiningTimeMs,
+        ArrayList<Renderer> out) {
+      out.add(new NoFrameDroppingVideoRenderer(context));
+    }
+  }
+
+  /** A {@link MediaCodecVideoRenderer} implementation that doesn't drop frames. */
+  public static final class NoFrameDroppingVideoRenderer extends MediaCodecVideoRenderer {
+
+    public NoFrameDroppingVideoRenderer(Context context) {
+      super(new Builder(context).experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
+    }
+
+    @Override
+    protected boolean shouldDropOutputBuffer(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
+    }
+
+    @Override
+    protected boolean shouldDropBuffersToKeyframe(
+        long earlyUs, long elapsedRealtimeUs, boolean isLastBuffer) {
+      return false;
     }
   }
 
