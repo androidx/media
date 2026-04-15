@@ -223,7 +223,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               eventHandler,
               audioRendererEventListener,
               /* audioSink= */ playbackAudioGraphWrapper.createInput(inputIndex),
-              playbackAudioGraphWrapper);
+              playbackAudioGraphWrapper,
+              hardwareBufferFrameReader);
     }
     if (compositionRendererListener != null) {
       audioRenderer.setOnRenderListener(compositionRendererListener);
@@ -319,20 +320,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return timeline.getIndexOfPeriod(mediaPeriodId.periodUid) == timeline.getPeriodCount() - 1;
   }
 
-  private static EditedMediaItem getEditedMediaItem(
+  private static EditedMediaItemSequence getEditedMediaItemSequence(
       Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
-    int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
     Timeline.Period period =
         timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
     checkState(period.id instanceof EditedMediaItemSequence);
-    EditedMediaItemSequence sequence = (EditedMediaItemSequence) period.id;
+    return (EditedMediaItemSequence) period.id;
+  }
+
+  private static EditedMediaItem getEditedMediaItem(
+      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
+    int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
+    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
     return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
+  }
+
+  private static boolean isAudioOnlySequence(
+      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
+    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
+    // If there is no video track, the sequence is audio-only
+    return !sequence.trackTypes.contains(C.TRACK_TYPE_VIDEO);
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
     private final AudioGraphInputAudioSink audioSink;
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
+    @Nullable private final HardwareBufferFrameReader hardwareBufferFrameReader;
     private long streamStartPositionUs;
     private long pendingOffsetToCompositionTimeUs;
     private long pendingOffsetToEditedMediaItemStartUs;
@@ -344,10 +358,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @Nullable Handler eventHandler,
         @Nullable AudioRendererEventListener eventListener,
         AudioGraphInputAudioSink audioSink,
-        PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+        PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
+        @Nullable HardwareBufferFrameReader hardwareBufferFrameReader) {
       super(context, MediaCodecSelector.DEFAULT, eventHandler, eventListener, audioSink);
       this.audioSink = audioSink;
       this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
+      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
     }
 
     // MediaCodecAudioRenderer methods
@@ -406,6 +422,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
       onMediaItemChanged();
+    }
+
+    @Override
+    protected void renderToEndOfStream() throws ExoPlaybackException {
+      super.renderToEndOfStream();
+      // For audio-only sequences, there is no video renderer to send the EOS.
+      // Send it here so the video pipeline doesn't hang indefinitely.
+      if (hardwareBufferFrameReader != null
+          && isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))
+          && isAudioOnlySequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
+        hardwareBufferFrameReader.queueEndOfStream();
+      }
     }
 
     // Other methods

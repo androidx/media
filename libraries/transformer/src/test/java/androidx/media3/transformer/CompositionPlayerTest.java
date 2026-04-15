@@ -20,6 +20,7 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
@@ -64,6 +65,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -78,6 +80,7 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
@@ -1364,6 +1367,83 @@ public class CompositionPlayerTest {
     assertThat(player.getPlayWhenReady()).isFalse();
     assertThat(queuedPackets.get()).isEqualTo(2);
     assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(500_000L);
+  }
+
+  @Test
+  public void playback_withAudioOnlySequenceAndPacketConsumer_endsSuccessfully() throws Exception {
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    CompositionPlayer compositionPlayer =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    EditedMediaItem audioItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+    Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(audioItem)))
+            .build();
+    compositionPlayer.setComposition(composition);
+    compositionPlayer.prepare();
+
+    play(compositionPlayer).untilState(STATE_ENDED);
+
+    // Verify that the EndOfStream packet was actually pushed down to the consumer
+    assertThat(packetConsumer.getQueuedPackets()).containsExactly(Packet.EndOfStream.INSTANCE);
+  }
+
+  @Test
+  public void playback_withImageAndAudioSequences_endsSuccessfully() throws Exception {
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    ImmutableList.Builder<Long> actualTimestampsUs = new ImmutableList.Builder<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            actualTimestampsUs.add(frame.presentationTimeUs);
+            frame.release(/* releaseFence= */ null);
+          }
+          return null;
+        });
+    CompositionPlayer compositionPlayer =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    EditedMediaItemSequence audioSequence =
+        EditedMediaItemSequence.withAudioFrom(
+            ImmutableList.of(
+                new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+                    .setDurationUs(1_000_000)
+                    .build()));
+    EditedMediaItemSequence imageSequence =
+        EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem()));
+    Composition composition = new Composition.Builder(imageSequence, audioSequence).build();
+    compositionPlayer.setComposition(composition);
+    compositionPlayer.prepare();
+
+    play(compositionPlayer).untilState(STATE_ENDED);
+
+    // The image sequence is 1_000_000 us (1 sec) long at 30 fps, so it should generate exactly 30
+    // frames.
+    ImmutableList.Builder<Long> expectedTimestampsUs = new ImmutableList.Builder<>();
+    for (int i = 0; i < 30; i++) {
+      expectedTimestampsUs.add(Math.round(i * 1_000_000.0 / 30));
+    }
+    assertThat(actualTimestampsUs.build())
+        .containsExactlyElementsIn(expectedTimestampsUs.build())
+        .inOrder();
+    List<Packet<ImmutableList<HardwareBufferFrame>>> queuedPackets =
+        packetConsumer.getQueuedPackets();
+    assertThat(queuedPackets).isNotEmpty();
+    // Verify EndOfStream is the final packet.
+    assertThat(Iterables.getLast(queuedPackets)).isEqualTo(Packet.EndOfStream.INSTANCE);
+    // Verify all prior packets are frame packets and that EOS was not fired prematurely.
+    for (int i = 0; i < queuedPackets.size() - 1; i++) {
+      assertThat(queuedPackets.get(i)).isNotEqualTo(Packet.EndOfStream.INSTANCE);
+    }
   }
 
   private static EditedMediaItem getImageItem() {
