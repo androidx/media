@@ -222,13 +222,13 @@ import com.google.common.collect.Iterables;
     if (format == null) {
       return null;
     }
-    // If the first asset is a gap, the the encoder will be configured with [1, 1], HEVC.
+    // If the first asset is a gap, the the encoder will be configured with [16, 16], HEVC.
     if (firstAsset.editedMediaItem != null && firstAsset.editedMediaItem.removeVideo) {
       format =
           format
               .buildUpon()
-              .setWidth(1)
-              .setHeight(1)
+              .setWidth(16)
+              .setHeight(16)
               .setSampleMimeType(MimeTypes.VIDEO_H265)
               .build();
     }

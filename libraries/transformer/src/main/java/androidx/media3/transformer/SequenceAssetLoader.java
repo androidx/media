@@ -67,8 +67,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           .setChannelCount(2)
           .build();
 
-  private static final int BLANK_IMAGE_BITMAP_WIDTH = 1;
-  private static final int BLANK_IMAGE_BITMAP_HEIGHT = 1;
+  // TODO: b/502556636 - Extract blank image constants to a shared location.
+  private static final int BLANK_IMAGE_BITMAP_WIDTH = 16;
+  private static final int BLANK_IMAGE_BITMAP_HEIGHT = 16;
   private static final Format BLANK_IMAGE_BITMAP_FORMAT =
       new Format.Builder()
           .setWidth(BLANK_IMAGE_BITMAP_WIDTH)
@@ -392,11 +393,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static Bitmap getBlankImageBitmap() {
-    return Bitmap.createBitmap(
-        new int[] {Color.BLACK},
-        BLANK_IMAGE_BITMAP_WIDTH,
-        BLANK_IMAGE_BITMAP_HEIGHT,
-        Bitmap.Config.ARGB_8888);
+    Bitmap bitmap =
+        Bitmap.createBitmap(
+            BLANK_IMAGE_BITMAP_WIDTH, BLANK_IMAGE_BITMAP_HEIGHT, Bitmap.Config.ARGB_8888);
+    bitmap.eraseColor(Color.BLACK);
+    return bitmap;
   }
 
   private static List<EditedMediaItem> applySequenceTrackTypeConstraints(

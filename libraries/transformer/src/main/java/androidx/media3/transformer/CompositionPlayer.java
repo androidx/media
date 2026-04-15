@@ -37,6 +37,7 @@ import static java.lang.Math.min;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -2296,8 +2297,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private static final class GapHandlingDecoderFactory implements ImageDecoder.Factory {
     private static final String BLANK_FRAMES_MEDIA_SOURCE_TYPE = "composition_player_blank_frames";
-    private static final int BLANK_IMAGE_BITMAP_WIDTH = 1;
-    private static final int BLANK_IMAGE_BITMAP_HEIGHT = 1;
+    // TODO: b/502556636 - Extract blank image constants to a shared location.
+    private static final int BLANK_IMAGE_BITMAP_WIDTH = 16;
+    private static final int BLANK_IMAGE_BITMAP_HEIGHT = 16;
 
     private final ImageDecoder.Factory imageDecoderFactory;
     private @MonotonicNonNull Format format;
@@ -2323,12 +2325,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           && format.sampleMimeType != null
           && format.sampleMimeType.equals(BLANK_FRAMES_MEDIA_SOURCE_TYPE)) {
         return new ExternallyLoadedImageDecoder.Factory(
-                request ->
-                    immediateFuture(
-                        Bitmap.createBitmap(
-                            BLANK_IMAGE_BITMAP_WIDTH,
-                            BLANK_IMAGE_BITMAP_HEIGHT,
-                            Bitmap.Config.ARGB_8888)))
+                request -> {
+                  Bitmap bitmap =
+                      Bitmap.createBitmap(
+                          BLANK_IMAGE_BITMAP_WIDTH,
+                          BLANK_IMAGE_BITMAP_HEIGHT,
+                          Bitmap.Config.ARGB_8888);
+                  bitmap.eraseColor(Color.BLACK);
+                  return immediateFuture(bitmap);
+                })
             .createImageDecoder();
       }
       return imageDecoderFactory.createImageDecoder();

@@ -51,6 +51,8 @@ public final class CompositionPlayerGapsTest {
   private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
   private static final long GAP_DURATION_US = 1_000_000;
+  private static final long EXPECTED_GAP_WIDTH = 16;
+  private static final long EXPECTED_GAP_HEIGHT = 16;
   private static final EditedMediaItem AUDIO_VIDEO_MEDIA_ITEM =
       new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
           .setDurationUs(AUDIO_VIDEO_MEDIA_ITEM_DURATION_US)
@@ -111,10 +113,10 @@ public final class CompositionPlayerGapsTest {
           // (b/292111083).
           if (presentationTimeUs >= gapStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < gapEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInGapCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInGap.set(true);
             }
           }
@@ -164,10 +166,10 @@ public final class CompositionPlayerGapsTest {
           //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= gapStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < gapEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInGapCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInGap.set(true);
             }
           }
@@ -217,10 +219,10 @@ public final class CompositionPlayerGapsTest {
           //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= gapStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < gapEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInGapCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInGap.set(true);
             }
           }
@@ -269,10 +271,10 @@ public final class CompositionPlayerGapsTest {
           // (b/292111083).
           if (presentationTimeUs >= audioOnlyItemStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInAudioOnlyItemCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInAudioOnlyItem.set(true);
             }
           }
@@ -323,10 +325,10 @@ public final class CompositionPlayerGapsTest {
           //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= audioOnlyItemStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInAudioOnlyItemCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInAudioOnlyItem.set(true);
             }
           }
@@ -377,10 +379,10 @@ public final class CompositionPlayerGapsTest {
           //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= audioOnlyItemStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < audioOnlyItemEndCompositionUs) {
-            if (format.width == 1 && format.height == 1) {
+            if (format.width == EXPECTED_GAP_WIDTH && format.height == EXPECTED_GAP_HEIGHT) {
               oneByOneFramesInAudioOnlyItemCount.set(true);
             } else {
-              // If we get a frame in the gap that is NOT 1x1, that's an error.
+              // If we get a frame that is not a gap (has the expected size), that's an error.
               incorrectFrameDimensionsInAudioOnlyItem.set(true);
             }
           }

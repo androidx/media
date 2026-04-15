@@ -261,6 +261,8 @@ public final class SurfaceHolderHardwareBufferFrameQueue
               .setAcquireFence(bufferWithFence.acquireFence)
               .build();
         } catch (IllegalStateException e) {
+          // TODO: b/502865100 - Ensure the error is propagated correctly to avoid pipeline
+          //  timeouts.
           listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
           return null;
         }
@@ -344,6 +346,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
         image.setTimestamp(frame.releaseTimeNs);
         imageWriterFromFrame.queueInputImage(image);
       } catch (IllegalStateException e) {
+        // TODO: b/502865100 - Ensure the error is propagated correctly to avoid pipeline timeouts.
         listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
         // If queueInputImage fails, the Image is not consumed. We must close it.
         image.close();
