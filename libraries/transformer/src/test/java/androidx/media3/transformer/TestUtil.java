@@ -47,6 +47,7 @@ public final class TestUtil {
   public static final String FILE_VIDEO_ONLY = "mp4/sample_18byte_nclx_colr.mp4";
   public static final String FILE_AUDIO_ONLY = "mp4/sample_audio_only.mp4";
   public static final String FILE_AUDIO_VIDEO = "mp4/sample.mp4";
+  public static final String FILE_AUDIO_RAW_AAC = "aac/bbb_1ch_8kHz_aac_lc.aac";
   public static final String FILE_AUDIO_VIDEO_STEREO = "mp4/testvid_1022ms.mp4";
   public static final String FILE_AUDIO_RAW_VIDEO = "mp4/sowt-with-video.mov";
   public static final String FILE_AUDIO_VIDEO_INCREASING_TIMESTAMPS_15S =
