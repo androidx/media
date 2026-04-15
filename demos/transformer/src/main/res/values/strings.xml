@@ -19,6 +19,8 @@
   <string name="select_preset_title" translatable="false">Choose preset input</string>
   <string name="select_local_file_title">Choose local file</string>
   <string name="local_file_picker_failed">File couldn\'t be opened. Please try again.</string>
+  <string name="enable_audio_track" translatable="false">Enable Audio Track</string>
+  <string name="enable_video_track" translatable="false">Enable Video Track</string>
   <string name="remove_audio" translatable="false">Remove audio</string>
   <string name="remove_video" translatable="false">Remove video</string>
   <string name="flatten_for_slow_motion" translatable="false">Flatten for slow motion</string>
@@ -39,6 +41,7 @@
   <string name="enable_packet_processor" translatable="false">Enable Packet Processor</string>
   <string name="enable_mp4_edit_list_trimming" translatable="false">Enable MP4 edit list trimming</string>
   <string name="enable_codecdb_lite" translatable="false">Enable CodecDB Lite</string>
+  <string name="error_select_track_type" translatable="false">At least one track must be enabled to start export.</string>
   <string name="select_audio_effects" translatable="false">Add audio effects</string>
   <string name="select_video_effects" translatable="false">Add video effects</string>
   <string name="periodic_vignette_options" translatable="false">Periodic vignette options</string>

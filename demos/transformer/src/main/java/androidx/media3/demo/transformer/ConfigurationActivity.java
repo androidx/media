@@ -65,6 +65,8 @@ import java.util.List;
 public final class ConfigurationActivity extends AppCompatActivity {
   public static final String SHOULD_REMOVE_AUDIO = "should_remove_audio";
   public static final String SHOULD_REMOVE_VIDEO = "should_remove_video";
+  public static final String ENABLE_AUDIO_TRACK = "enable_audio_track";
+  public static final String ENABLE_VIDEO_TRACK = "enable_video_track";
   public static final String SHOULD_FLATTEN_FOR_SLOW_MOTION = "should_flatten_for_slow_motion";
   public static final String AUDIO_MIME_TYPE = "audio_mime_type";
   public static final String VIDEO_MIME_TYPE = "video_mime_type";
@@ -169,6 +171,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private TextView selectedFileTextView;
   private CheckBox removeAudioCheckbox;
   private CheckBox removeVideoCheckbox;
+  private CheckBox enableAudioTrackCheckbox;
+  private CheckBox enableVideoTrackCheckbox;
   private CheckBox flattenForSlowMotionCheckbox;
   private Spinner audioMimeSpinner;
   private Spinner videoMimeSpinner;
@@ -249,6 +253,9 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
     removeVideoCheckbox = findViewById(R.id.remove_video_checkbox);
     removeVideoCheckbox.setOnClickListener(this::onRemoveVideo);
+
+    enableAudioTrackCheckbox = findViewById(R.id.enable_audio_track_checkbox);
+    enableVideoTrackCheckbox = findViewById(R.id.enable_video_track_checkbox);
 
     flattenForSlowMotionCheckbox = findViewById(R.id.flatten_for_slow_motion_checkbox);
 
@@ -380,8 +387,16 @@ public final class ConfigurationActivity extends AppCompatActivity {
   }
 
   private void startExport() {
+    if (!enableAudioTrackCheckbox.isChecked() && !enableVideoTrackCheckbox.isChecked()) {
+      Toast.makeText(getApplicationContext(), R.string.error_select_track_type, Toast.LENGTH_SHORT)
+          .show();
+      return;
+    }
+
     Intent transformerIntent = new Intent(/* packageContext= */ this, TransformerActivity.class);
     Bundle bundle = new Bundle();
+    bundle.putBoolean(ENABLE_AUDIO_TRACK, enableAudioTrackCheckbox.isChecked());
+    bundle.putBoolean(ENABLE_VIDEO_TRACK, enableVideoTrackCheckbox.isChecked());
     bundle.putBoolean(SHOULD_REMOVE_AUDIO, removeAudioCheckbox.isChecked());
     bundle.putBoolean(SHOULD_REMOVE_VIDEO, removeVideoCheckbox.isChecked());
     bundle.putBoolean(SHOULD_FLATTEN_FOR_SLOW_MOTION, flattenForSlowMotionCheckbox.isChecked());

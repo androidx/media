@@ -490,8 +490,15 @@ public final class TransformerActivity extends AppCompatActivity {
               bundle.getBoolean(ConfigurationActivity.SHOULD_FLATTEN_FOR_SLOW_MOTION))
           .setEffects(new Effects(audioProcessors, videoEffects));
     }
+    ImmutableSet.Builder<Integer> sequenceTrackTypesBuilder = new ImmutableSet.Builder<>();
+    if (bundle == null || bundle.getBoolean(ConfigurationActivity.ENABLE_AUDIO_TRACK, true)) {
+      sequenceTrackTypesBuilder.add(C.TRACK_TYPE_AUDIO);
+    }
+    if (bundle == null || bundle.getBoolean(ConfigurationActivity.ENABLE_VIDEO_TRACK, true)) {
+      sequenceTrackTypesBuilder.add(C.TRACK_TYPE_VIDEO);
+    }
     EditedMediaItemSequence.Builder editedMediaItemSequenceBuilder =
-        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+        new EditedMediaItemSequence.Builder(sequenceTrackTypesBuilder.build())
             .addItem(editedMediaItemBuilder.build());
 
     Composition.Builder compositionBuilder =
