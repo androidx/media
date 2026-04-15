@@ -32,6 +32,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
+import android.os.Build;
 import android.view.SurfaceView;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -56,6 +57,7 @@ import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -136,6 +138,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the first video
@@ -162,6 +165,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips the first three video frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -188,6 +192,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Seeks to the end of the first video
     long seekTimeMs = usToMs(VIDEO_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -213,6 +218,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips the first three image frames of the second image.
     long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -241,6 +247,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     assumeFalse(
         "Scrubbing mode does not show last frame because it tries to seek forward.",
         isScrubbingModeEnabled);
@@ -269,6 +276,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     assumeFalse(
         "Scrubbing mode does not show last frame because it tries to seek forward.",
         isScrubbingModeEnabled);
@@ -428,6 +436,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the video
@@ -454,6 +463,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips three video frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -481,6 +491,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips video frames and three image frames
     long seekTimeMs = usToMs(VIDEO_DURATION_US) + 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -508,6 +519,7 @@ public class CompositionPlayerSeekTest {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
     // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<Long> sequenceTimestampsUs =
         new ImmutableList.Builder<Long>()
             // Plays the image
@@ -534,6 +546,7 @@ public class CompositionPlayerSeekTest {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
     // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips three image frames
     long seekTimeMs = 100;
     ImmutableList<Long> sequenceTimestampsUs =
@@ -561,6 +574,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips to the first video frame.
     long seekTimeMs = usToMs(IMAGE_DURATION_US);
     ImmutableList<Long> sequenceTimestampsUs =
@@ -586,6 +600,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -614,6 +629,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -643,6 +659,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 45;
@@ -676,6 +693,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -703,6 +721,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -771,6 +790,7 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToVideo_atTransitionBetweenImages_completes() throws Exception {
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(IMAGE_MEDIA_ITEM, IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 2;
@@ -797,6 +817,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, IMAGE_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -825,6 +846,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // TODO: b/491766108 - Remove assumption once race condition with image renderer and scrubbing
     // mode is fixed.
     assumeFalse(
@@ -859,6 +881,7 @@ public class CompositionPlayerSeekTest {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
         isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // TODO: b/491821186 - Reenable once NPE in MediaCodecRenderer is fixed.
     assumeFalse(
         "Skipped due to race condition in renderer that causes test to crash.",
@@ -964,6 +987,7 @@ public class CompositionPlayerSeekTest {
       seekToSecondVideo_duringPlayingFirstVideoInSingleSequenceOfTwoVideosWithPrewarmingDisabled()
           throws Exception {
     assumeFalse("Skipped due to failing audio decoder", isRunningOnEmulator() && SDK_INT == 31);
+    assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
     int numberOfFramesBeforeSeeking = 15;
@@ -1502,6 +1526,15 @@ public class CompositionPlayerSeekTest {
         .setEffects(
             new Effects(/* audioProcessors= */ ImmutableList.of(), ImmutableList.of(videoEffect)))
         .build();
+  }
+
+  /**
+   * Returns {@code true} if the MediaCodec video decoder's output surface is sometimes dropping
+   * frames on the current device and the problem is not solved by using
+   * MediaFormat.KEY_ALLOW_FRAME_DROP.
+   */
+  private static boolean dropsFramesOnVideoDecoderSurface() {
+    return Ascii.equalsIgnoreCase(Build.MODEL, "google pixel watch");
   }
 
   private static final class ListenerCapturingVideoGraphFactory implements VideoGraph.Factory {
