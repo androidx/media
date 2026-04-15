@@ -459,19 +459,11 @@ public final class WebServerDispatcher extends Dispatcher {
 
     @Nullable String rangeHeader = request.getHeader(HttpHeaders.RANGE);
     if (!resource.supportsRangeRequests() || rangeHeader == null) {
-      switch (preferredContentCoding) {
-        case "gzip":
-          setResponseBody(
-              response, Util.gzip(resourceData), /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
-          break;
-        case "identity":
-          setResponseBody(response, resourceData, /* chunked= */ resource.resolvesToUnknownLength);
-          response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
-          break;
-        default:
-          throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
-      }
+      setResponseBody(
+          response,
+          preferredContentCoding,
+          resourceData,
+          /* chunked= */ resource.resolvesToUnknownLength());
       return response;
     }
 
@@ -497,22 +489,25 @@ public final class WebServerDispatcher extends Dispatcher {
         start = max(0, resourceData.length - checkNotNull(range.second));
       } else {
         // We're handling an unbounded range
+        if (resource.resolvesToUnknownLength()) {
+          // The Content-Range header requires defining the length of the returned data, which
+          // we can't fulfil for an unbounded range request to a resource with an unknown length, so
+          // we just return a 200 response instead.
+          setResponseBody(response, preferredContentCoding, resourceData, /* chunked= */ true);
+          return response;
+        }
         start = checkNotNull(range.first);
       }
+      // resource.resolvesToUnknownLength() == false
       response
           .setResponseCode(206)
           .setHeader(
               HttpHeaders.CONTENT_RANGE,
-              "bytes "
-                  + start
-                  + "-"
-                  + (resourceData.length - 1)
-                  + "/"
-                  + (resource.resolvesToUnknownLength() ? "*" : resourceData.length));
+              "bytes " + start + "-" + (resourceData.length - 1) + "/" + resourceData.length);
       setResponseBody(
           response,
           Arrays.copyOfRange(resourceData, start, resourceData.length),
-          /* chunked= */ resource.resolvesToUnknownLength);
+          /* chunked= */ false);
       return response;
     }
 
@@ -538,6 +533,26 @@ public final class WebServerDispatcher extends Dispatcher {
     setResponseBody(
         response, Arrays.copyOfRange(resourceData, range.first, end), /* chunked= */ false);
     return response;
+  }
+
+  /**
+   * Sets the response body, considering the preferred encoding value from an {@code
+   * Accept-Encoding} request header.
+   */
+  private static void setResponseBody(
+      MockResponse response, String preferredContentCoding, byte[] body, boolean chunked) {
+    switch (preferredContentCoding) {
+      case "gzip":
+        setResponseBody(response, Util.gzip(body), chunked);
+        response.setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
+        break;
+      case "identity":
+        setResponseBody(response, body, chunked);
+        response.setHeader(HttpHeaders.CONTENT_ENCODING, "identity");
+        break;
+      default:
+        throw new IllegalStateException("Unexpected content coding: " + preferredContentCoding);
+    }
   }
 
   /**
