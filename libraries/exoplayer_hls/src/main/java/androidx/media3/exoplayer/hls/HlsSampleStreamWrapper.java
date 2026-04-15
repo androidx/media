@@ -747,11 +747,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *     C#TIME_END_OF_SOURCE} to not set an end position.
    */
   public void setEndPositionUs(long endPositionUs) {
+    boolean continueLoadingNeeded =
+        loadingFinished
+            && this.endPositionUs != C.TIME_END_OF_SOURCE
+            && (endPositionUs == C.TIME_END_OF_SOURCE || endPositionUs > this.endPositionUs);
     this.endPositionUs = endPositionUs;
     if (sampleQueuesBuilt) {
       for (HlsSampleQueue sampleQueue : sampleQueues) {
         sampleQueue.setReadEndTimeUs(endPositionUs);
       }
+    }
+    if (continueLoadingNeeded) {
+      loadingFinished = false;
+      callback.onContinueLoadingRequested(this);
     }
   }
 
@@ -838,7 +846,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @Nullable Chunk loadable = nextChunkHolder.chunk;
     @Nullable Uri playlistUrlToLoad = nextChunkHolder.playlistUrl;
 
-    if (endOfStream) {
+    boolean nextChunkBeyondEndPositionUs =
+        loadable != null
+            && endPositionUs != C.TIME_END_OF_SOURCE
+            && loadable.startTimeUs >= endPositionUs;
+    if (endOfStream || nextChunkBeyondEndPositionUs) {
       pendingResetPositionUs = C.TIME_UNSET;
       loadingFinished = true;
       return true;
@@ -901,8 +913,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (loader.isLoading()) {
-      checkNotNull(loadingChunk);
-      if (chunkSource.shouldCancelLoad(positionUs, loadingChunk, readOnlyMediaChunks)) {
+      Chunk loadingChunk = checkNotNull(this.loadingChunk);
+      if (isMediaChunk(loadingChunk)
+          && !canDiscardUpstreamMediaChunksFromIndex(mediaChunks.size() - 1)) {
+        // Can't cancel anymore because the renderers have read from this chunk.
+        return;
+      }
+      if ((endPositionUs != C.TIME_END_OF_SOURCE && loadingChunk.startTimeUs >= endPositionUs)
+          || chunkSource.shouldCancelLoad(positionUs, loadingChunk, readOnlyMediaChunks)) {
         loader.cancelLoading();
       }
       return;
@@ -918,12 +936,22 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       discardUpstream(newQueueSize);
     }
 
-    int preferredQueueSize = chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks);
+    int preferredQueueSize =
+        min(mediaChunks.size(), chunkSource.getPreferredQueueSize(positionUs, readOnlyMediaChunks));
+    boolean discardedDataBeyondEndPositionUs = false;
+    if (endPositionUs != C.TIME_END_OF_SOURCE) {
+      while (preferredQueueSize > 0
+          && mediaChunks.get(preferredQueueSize - 1).startTimeUs >= endPositionUs) {
+        preferredQueueSize--;
+        discardedDataBeyondEndPositionUs = true;
+      }
+    }
     if (preferredQueueSize < mediaChunks.size()) {
       discardUpstream(preferredQueueSize);
     }
 
-    if (haveSampleQueuesReachedEndTimeUs()) {
+    if (discardedDataBeyondEndPositionUs) {
+      pendingResetPositionUs = C.TIME_UNSET;
       loadingFinished = true;
     }
   }
@@ -1137,21 +1165,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         sampleQueue.splice();
       }
     }
-  }
-
-  private boolean haveSampleQueuesReachedEndTimeUs() {
-    if (!sampleQueuesBuilt || endPositionUs == C.TIME_END_OF_SOURCE) {
-      return false;
-    }
-    boolean endPositionReached = true;
-    for (int i = 0; i < sampleQueues.length; i++) {
-      // Ignore non-AV tracks, which may be sparse or poorly interleaved.
-      if (sampleQueuesEnabledStates[i]
-          && (sampleQueueIsAudioVideoFlags[i] || !haveAudioVideoSampleQueues)) {
-        endPositionReached &= sampleQueues[i].hasQueuedTimestampsUpToReadEndTimeUs();
-      }
-    }
-    return endPositionReached;
   }
 
   private void discardUpstream(int preferredQueueSize) {
