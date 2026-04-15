@@ -116,33 +116,69 @@ Next, add the following to your project's `settings.gradle.kts` file, replacing
 `path/to/media` with the path to your local copy:
 
 ```kotlin
-(gradle as ExtensionAware).extra["androidxMediaModulePrefix"] = "media3-"
-apply(from = file("path/to/media/core_settings.gradle"))
+includeBuild("path/to/media") {
+  dependencySubstitution {
+    all {
+      val req = requested
+      if (
+        req is ModuleComponentSelector &&
+        req.group == "androidx.media3" &&
+        req.module.startsWith("media3-")
+      ) {
+        if (req.module == "media3-exoplayer-midi") {
+          useTarget(project(":lib-decoder-midi"))
+        } else {
+          useTarget(project(":${req.module.replaceFirst("media3-", "lib-")}"))
+        }
+      }
+    }
+  }
+}
 ```
 
 Or in Gradle Groovy DSL `settings.gradle`:
 
 ```groovy
-gradle.ext.androidxMediaModulePrefix = 'media3-'
-apply from: file("path/to/media/core_settings.gradle")
+includeBuild('path/to/media') {
+  dependencySubstitution {
+    all {
+      def req = requested
+      if (
+        req instanceof org.gradle.api.artifacts.component.ModuleComponentSelector &&
+        req.group == 'androidx.media3' &&
+        req.module.startsWith('media3-')
+      ) {
+        if (req.module == 'media3-exoplayer-midi') {
+          useTarget(project(":lib-decoder-midi"))
+        } else {
+          useTarget(project(":${req.module.replaceFirst('media3-', 'lib-')}"))
+        }
+      }
+    }
+  }
+}
 ```
 
-You should now see the AndroidX Media modules appear as part of your project.
-You can depend on them from `build.gradle.kts` as you would on any other local
-module, for example:
+The AndroidX Media checkout will now appear as a separate included build
+side-by-side with your main project. You can depend on the individual modules
+from your app's `build.gradle.kts` as you would on any other module. Gradle will
+resolve those seemingly published releases as a local checkout.
+
+If your project depends on a particular version of Media3 (here: 1.X.X), it will
+be completely ignored, so you can leave your build files intact. For example:
 
 ```kotlin
-implementation(project(":media3-lib-exoplayer"))
-implementation(project(":media3-lib-exoplayer-dash"))
-implementation(project(":media3-lib-ui"))
+implementation("androidx.media3:media3-exoplayer:1.X.X")
+implementation("androidx.media3:media3-exoplayer-dash:1.X.X")
+implementation("androidx.media3:media3-ui:1.X.X")
 ```
 
 Or in Gradle Groovy DSL `build.gradle`:
 
 ```groovy
-implementation project(':media3-lib-exoplayer')
-implementation project(':media3-lib-exoplayer-dash')
-implementation project(':media3-lib-ui')
+implementation 'androidx.media3:media3-exoplayer:1.X.X'
+implementation 'androidx.media3:media3-exoplayer-dash:1.X.X'
+implementation 'androidx.media3:media3-ui:1.X.X'
 ```
 
 #### MIDI module
