@@ -74,7 +74,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -568,12 +567,11 @@ public class CompositionPlayerSeekTest {
         .isEqualTo(sequenceTimestampsUs);
   }
 
-  @Ignore("Flaky: b/419821026")
   @Test
   public void seekToVideo_afterPlayingSingleSequenceOfImageAndVideo() throws Exception {
-    assumeFalse(
-        "Skipped due to failing audio decoder on API 31 emulator",
-        isRunningOnEmulator() && SDK_INT == 31);
+    // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+    // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     // Skips to the first video frame.
     long seekTimeMs = usToMs(IMAGE_DURATION_US);
@@ -597,9 +595,9 @@ public class CompositionPlayerSeekTest {
 
   @Test
   public void seekToZero_duringPlayingFirstVideoInSingleSequenceOfTwoVideos() throws Exception {
-    assumeFalse(
-        "Skipped due to failing audio decoder on API 31 emulator",
-        isRunningOnEmulator() && SDK_INT == 31);
+    // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+    // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     assumeFalse("Skipped due to surface dropping frames", dropsFramesOnVideoDecoderSurface());
     ImmutableList<MediaItemConfig> mediaItems =
         ImmutableList.of(VIDEO_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
