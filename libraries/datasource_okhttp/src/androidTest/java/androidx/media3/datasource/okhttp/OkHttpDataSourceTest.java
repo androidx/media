@@ -23,13 +23,18 @@ import static org.junit.Assert.assertThrows;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
+import com.google.common.net.HttpHeaders;
+import java.net.CookieManager;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import okhttp3.Headers;
+import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -119,6 +124,64 @@ public class OkHttpDataSourceTest {
 
     assertThat(exception.responseCode).isEqualTo(404);
     assertThat(exception.responseBody).isEqualTo("failure msg".getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 25) // Cookies aren't persisted on API <= 24: b/502906567
+  public void cookiejarConfigured_cookiesPersistedBetweenRequests() throws Exception {
+    try (MockWebServer mockWebServer = new MockWebServer()) {
+      mockWebServer.enqueue(
+          new MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val"));
+      mockWebServer.enqueue(new MockResponse());
+
+      DataSpec dataSpec =
+          new DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build();
+      OkHttpDataSource dataSource =
+          new OkHttpDataSource.Factory(
+                  new OkHttpClient.Builder()
+                      .cookieJar(new JavaNetCookieJar(new CookieManager()))
+                      .build())
+              .createDataSource();
+      dataSource.open(dataSpec);
+      dataSource.close();
+      dataSource.open(dataSpec);
+
+      RecordedRequest firstRequest = mockWebServer.takeRequest();
+      assertThat(firstRequest.getPath()).isEqualTo("/foo");
+      assertThat(firstRequest.getHeader(HttpHeaders.COOKIE)).isNull();
+
+      RecordedRequest secondRequest = mockWebServer.takeRequest();
+      assertThat(secondRequest.getPath()).isEqualTo("/foo");
+      assertThat(secondRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val");
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 25) // Cookies aren't persisted on API <= 24: b/502906567
+  public void cookiejarConfigured_cookiesForwardedOnRedirect() throws Exception {
+    try (MockWebServer redirectWebServer = new MockWebServer();
+        MockWebServer originWebServer = new MockWebServer()) {
+      redirectWebServer.enqueue(
+          new MockResponse()
+              .setResponseCode(302)
+              .setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
+              .setHeader(HttpHeaders.LOCATION, originWebServer.url("bar").toString()));
+      originWebServer.enqueue(new MockResponse());
+
+      DataSpec dataSpec =
+          new DataSpec.Builder().setUri(redirectWebServer.url("foo").toString()).build();
+      OkHttpDataSource dataSource =
+          new OkHttpDataSource.Factory(
+                  new OkHttpClient.Builder()
+                      .cookieJar(new JavaNetCookieJar(new CookieManager()))
+                      .build())
+              .createDataSource();
+      dataSource.open(dataSpec);
+
+      RecordedRequest originRequest = originWebServer.takeRequest();
+      assertThat(originRequest.getPath()).isEqualTo("/bar");
+      assertThat(originRequest.getHeader(HttpHeaders.COOKIE)).isEqualTo("cookie-name=cookie-val");
+    }
   }
 
   @Test

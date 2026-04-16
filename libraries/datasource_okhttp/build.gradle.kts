@@ -32,6 +32,7 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)
+  androidTestImplementation(libs.okhttp.urlconnection)
   api(libs.okhttp)
 }
 
