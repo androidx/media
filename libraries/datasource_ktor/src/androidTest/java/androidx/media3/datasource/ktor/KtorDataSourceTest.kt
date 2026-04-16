@@ -25,9 +25,11 @@ import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.engine.android.Android
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.cookies.HttpCookies
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
@@ -54,7 +56,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -108,7 +110,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse().setResponseCode(404).setBody("failure msg"))
 
@@ -131,7 +133,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
     val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("/test-path").toString()).build()
@@ -155,7 +157,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
     val dataSpec = DataSpec.Builder().setUri("not-a-valid-url").build()
@@ -172,7 +174,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -199,7 +201,11 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
+    val httpClient =
+      HttpClient(httpClientEngineFactory) {
+        configureTimeout()
+        install(HttpCookies)
+      }
     MockWebServer().use { mockWebServer ->
       mockWebServer.enqueue(
         MockResponse().setHeader(HttpHeaders.SET_COOKIE, "cookie-name=cookie-val")
@@ -228,7 +234,11 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory) { install(HttpCookies) }
+    val httpClient =
+      HttpClient(httpClientEngineFactory) {
+        configureTimeout()
+        install(HttpCookies)
+      }
     MockWebServer().use { redirectWebServer ->
       MockWebServer().use { originWebServer ->
         val originUrl = originWebServer.url("bar").toString()
@@ -258,7 +268,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -279,7 +289,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(
       MockResponse().setResponseCode(200).setHeader("Content-Type", "text/html")
@@ -307,7 +317,7 @@ class KtorDataSourceTest {
     @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
     httpClientEngineFactory: HttpClientEngineFactory<*>
   ) {
-    val httpClient = HttpClient(httpClientEngineFactory)
+    val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
 
@@ -363,5 +373,14 @@ class KtorDataSourceTest {
 
     dataSource.close()
     assertThat(transferEndCalled).isTrue()
+  }
+
+  // TODO: b/503301819 - Remove this when the OkHttp engine works without it.
+  private fun HttpClientConfig<*>.configureTimeout() {
+    install(HttpTimeout) {
+      requestTimeoutMillis = 800
+      connectTimeoutMillis = 800
+      socketTimeoutMillis = 800
+    }
   }
 }
