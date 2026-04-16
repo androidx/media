@@ -404,15 +404,10 @@ import java.util.List;
     return checkNotNull(reading);
   }
 
-  /**
-   * Continues pre-warming from the next period holder in the queue.
-   *
-   * @return The updated pre-warming period holder.
-   */
-  public MediaPeriodHolder advancePrewarmingPeriod() {
-    prewarming = checkNotNull(prewarming).getNext();
+  /** Continues pre-warming from the next period holder in the queue. */
+  public void advancePrewarmingPeriod() {
+    prewarming = checkNotNull(checkNotNull(prewarming).getNext());
     notifyQueueUpdate();
-    return checkNotNull(prewarming);
   }
 
   /**
