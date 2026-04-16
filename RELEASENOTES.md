@@ -179,6 +179,10 @@
         with headers & bodies, add some `POST` resources to
         `HttpDataSourceTestEnv`, and add assertions for the expected HTTP
         method, headers & body in `WebServerDispatcher`.
+    *   Tighten assertions in `DataSourceContractTest` for lengths returned from
+        `DataSource.open()`. Resources that may result in `C.LENGTH_UNSET`
+        should indicate this by using
+        `TestResource.Builder.setMayResolveToUnknownLength(boolean)`.
 *   Remove deprecated symbols:
     *   Remove `androidx.media3.exoplayer.MetadataRetriever`. Use
         `androidx.media3.inspector.MetadataRetriever` instead.

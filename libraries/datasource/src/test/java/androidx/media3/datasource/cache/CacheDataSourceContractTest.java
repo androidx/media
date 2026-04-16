@@ -72,6 +72,7 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
             .setName("unknown length")
             .setUri(unknownLengthUri)
             .setExpectedBytes(unknownLengthData)
+            .setMayResolveToUnknownLength(true)
             .build());
   }
 

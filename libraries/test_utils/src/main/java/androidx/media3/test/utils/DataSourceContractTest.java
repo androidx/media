@@ -180,6 +180,9 @@ public abstract class DataSourceContractTest {
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
                     : DataSourceUtil.readToEnd(dataSource);
 
+            if (!resource.mayResolveToUnknownLength()) {
+              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+            }
             if (length != C.LENGTH_UNSET) {
               assertThat(length).isEqualTo(resource.getExpectedBytes().length);
             }
@@ -237,6 +240,9 @@ public abstract class DataSourceContractTest {
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length - 3)
                     : DataSourceUtil.readToEnd(dataSource);
 
+            if (!resource.mayResolveToUnknownLength()) {
+              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+            }
             if (length != C.LENGTH_UNSET) {
               assertThat(length).isEqualTo(resource.getExpectedBytes().length - 3);
             }
@@ -466,6 +472,9 @@ public abstract class DataSourceContractTest {
                     ? DataSourceUtil.readExactly(dataSource, resource.getExpectedBytes().length)
                     : DataSourceUtil.readToEnd(dataSource);
 
+            if (!resource.mayResolveToUnknownLength()) {
+              assertThat(length).isNotEqualTo(C.LENGTH_UNSET);
+            }
             if (length != C.LENGTH_UNSET) {
               assertThat(length).isEqualTo(resource.getExpectedBytes().length);
             }
@@ -862,6 +871,7 @@ public abstract class DataSourceContractTest {
     private final Map<String, List<String>> responseHeaders;
     private final Set<String> unexpectedResponseHeaderKeys;
     private final byte[] expectedBytes;
+    private final boolean mayResolveToUnknownLength;
 
     private TestResource(
         @Nullable String name,
@@ -872,7 +882,8 @@ public abstract class DataSourceContractTest {
         byte[] requestBody,
         Map<String, List<String>> responseHeaders,
         Set<String> unexpectedResponseHeaderKeys,
-        byte[] expectedBytes) {
+        byte[] expectedBytes,
+        boolean mayResolveToUnknownLength) {
       this.name = name;
       this.uri = uri;
       this.resolvedUri = resolvedUri;
@@ -882,6 +893,7 @@ public abstract class DataSourceContractTest {
       this.responseHeaders = responseHeaders;
       this.unexpectedResponseHeaderKeys = unexpectedResponseHeaderKeys;
       this.expectedBytes = expectedBytes;
+      this.mayResolveToUnknownLength = mayResolveToUnknownLength;
     }
 
     /** Returns a human-readable name for the resource, for use in test failure messages. */
@@ -950,6 +962,11 @@ public abstract class DataSourceContractTest {
       return expectedBytes;
     }
 
+    /** Returns whether this resource may not report a length. */
+    public boolean mayResolveToUnknownLength() {
+      return mayResolveToUnknownLength;
+    }
+
     /** Returns a {@link Builder} initialized with the values of this instance. */
     public Builder buildUpon() {
       return new Builder(this);
@@ -966,6 +983,7 @@ public abstract class DataSourceContractTest {
       private Map<String, List<String>> responseHeaders;
       private Set<String> unexpectedResponseHeaderKeys;
       private byte[] expectedBytes;
+      private boolean mayResolveToUnknownLength;
 
       public Builder() {
         httpMethod = HTTP_METHOD_GET;
@@ -986,6 +1004,7 @@ public abstract class DataSourceContractTest {
         this.responseHeaders = resource.getResponseHeaders();
         this.unexpectedResponseHeaderKeys = resource.getUnexpectedResponseHeaderKeys();
         this.expectedBytes = resource.getExpectedBytes();
+        this.mayResolveToUnknownLength = resource.mayResolveToUnknownLength;
       }
 
       /**
@@ -1102,6 +1121,23 @@ public abstract class DataSourceContractTest {
         return this;
       }
 
+      /**
+       * Sets whether {@link DataSource#open(DataSpec)} may return {@link C#LENGTH_UNSET} when
+       * passed the URI of this resource and a {@link DataSpec} with {@code length ==
+       * C.LENGTH_UNSET}.
+       *
+       * <p>This may be because the underlying resource doesn't have an end (e.g. a 'live' MP3 file
+       * that is constantly appended to) or because the resource supports compression that means the
+       * 'true' length cannot be initially determined.
+       *
+       * <p>Defaults to {@code false}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMayResolveToUnknownLength(boolean value) {
+        this.mayResolveToUnknownLength = value;
+        return this;
+      }
+
       public TestResource build() {
         if (requestBody.length > 0) {
           checkState(httpMethod != HTTP_METHOD_GET, "requestBody must be empty for a GET request.");
@@ -1115,7 +1151,8 @@ public abstract class DataSourceContractTest {
             requestBody,
             ImmutableMap.copyOf(responseHeaders),
             ImmutableSet.copyOf(unexpectedResponseHeaderKeys),
-            expectedBytes);
+            expectedBytes,
+            mayResolveToUnknownLength);
       }
     }
   }

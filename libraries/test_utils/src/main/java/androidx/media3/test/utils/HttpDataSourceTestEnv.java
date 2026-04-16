@@ -130,8 +130,10 @@ public class HttpDataSourceTestEnv extends ExternalResource {
         createTestResource("range not supported", RANGE_NOT_SUPPORTED),
         createTestResource(
             "range not supported, length unknown", RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN),
-        createTestResource("gzip enabled", GZIP_ENABLED),
-        createTestResource("gzip forced", GZIP_FORCED),
+        // TODO: crbug.com/41313195 - Set these back to false when CronetDataSource and
+        //  HttpEngineDataSource are able to set Accept-Encoding: identity.
+        createTestResource("gzip enabled", GZIP_ENABLED, /* mayResolveToUnknownLength= */ true),
+        createTestResource("gzip forced", GZIP_FORCED, /* mayResolveToUnknownLength= */ true),
         createTestResource("post empty request", POST_EMPTY_REQUEST_BODY),
         createTestResource("post with body", POST_WITH_REQUEST_BODY),
         new DataSourceContractTest.TestResource.Builder()
@@ -218,6 +220,11 @@ public class HttpDataSourceTestEnv extends ExternalResource {
 
   private DataSourceContractTest.TestResource createTestResource(
       String name, WebServerDispatcher.Resource resource) {
+    return createTestResource(name, resource, /* mayResolveToUnknownLength= */ false);
+  }
+
+  private DataSourceContractTest.TestResource createTestResource(
+      String name, WebServerDispatcher.Resource resource, boolean mayResolveToUnknownLength) {
     DataSourceContractTest.TestResource.Builder testResource =
         new DataSourceContractTest.TestResource.Builder()
             .setName(name)
@@ -227,7 +234,9 @@ public class HttpDataSourceTestEnv extends ExternalResource {
                 Maps.transformValues(resource.getRequestHeaders().asMap(), Joiner.on(", ")::join))
             .setRequestBody(resource.getRequestBody())
             .setResponseHeaders(Maps.transformValues(EXTRA_HEADERS.asMap(), v -> (List<String>) v))
-            .setExpectedBytes(resource.getData());
+            .setExpectedBytes(resource.getData())
+            .setMayResolveToUnknownLength(
+                resource.resolvesToUnknownLength() || mayResolveToUnknownLength);
     if (resource.resolvesToUnknownLength()) {
       testResource.setUnexpectedResponseHeaderKeys(ImmutableSet.of(HttpHeaders.CONTENT_LENGTH));
     }
