@@ -208,9 +208,9 @@ class KtorDataSourceTest {
 
       val dataSpec = DataSpec.Builder().setUri(mockWebServer.url("foo").toString()).build()
       val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
-      dataSource.open(dataSpec)
+      assertThat(dataSource.open(dataSpec)).isEqualTo(0)
       dataSource.close()
-      dataSource.open(dataSpec)
+      assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
       val firstRequest = mockWebServer.takeRequest()
       assertThat(firstRequest.path).isEqualTo("/foo")
@@ -243,7 +243,7 @@ class KtorDataSourceTest {
         val redirectUrl = redirectWebServer.url("foo").toString()
         val dataSpec = DataSpec.Builder().setUri(redirectUrl).build()
         val dataSource: KtorDataSource = KtorDataSource.Factory(httpClient).createDataSource()
-        dataSource.open(dataSpec)
+        assertThat(dataSource.open(dataSpec)).isEqualTo(0)
 
         val originRequest = originWebServer.takeRequest()
         assertThat(originRequest.path).isEqualTo("/bar")
