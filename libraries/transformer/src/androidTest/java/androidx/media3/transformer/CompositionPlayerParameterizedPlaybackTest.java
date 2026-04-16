@@ -32,16 +32,21 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.MultipleInputVideoGraph;
-import androidx.media3.effect.PacketConsumer;
+import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
-import androidx.media3.test.utils.RecordingPacketConsumer;
+import androidx.media3.effect.ndk.HardwareBufferJni;
+import androidx.media3.effect.ndk.NdkCompositionPlayerBuilder;
+import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -176,6 +181,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 28)
   public void playback_packetConsumer(
       @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class)
           CompositionAssetInfo compositionAssetInfo)
@@ -186,24 +192,23 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
-        new RecordingPacketConsumer<>();
-    packetConsumer.setOnQueue(
-        (frames) -> {
-          for (HardwareBufferFrame frame : frames) {
-            frame.release(/* releaseFence= */ null);
-          }
-          return null;
-        });
+    List<ImmutableList<HardwareBufferFrame>> queuedPackets = new CopyOnWriteArrayList<>();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            context,
+            HardwareBufferJni.INSTANCE,
+            (frames) -> {
+              queuedPackets.add(frames);
+              return frames;
+            });
     ImmutableList<Long> expectedVideoTimestampsUs =
         compositionAssetInfo.getExpectedVideoTimestampsUs();
 
     Composition composition = compositionAssetInfo.getComposition();
-    runCompositionPlayer(composition, /* packetConsumerFactory= */ () -> packetConsumer);
+    runCompositionPlayer(composition, pipeline);
 
-    List<ImmutableList<HardwareBufferFrame>> queuedPackets = packetConsumer.getQueuedPayloads();
     // TODO: b/449956936 - add EOS to CompositionPlayer packet consumer and wait until its received.
-    assertThat(queuedPackets.size()).isAtLeast(expectedVideoTimestampsUs.size() - 2);
+    assertThat(queuedPackets).hasSize(expectedVideoTimestampsUs.size());
     for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
       long sequencePresentationTimeUs =
           queuedPackets.get(packetIndex).get(0).sequencePresentationTimeUs;
@@ -247,14 +252,15 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private void runCompositionPlayer(
       Composition composition,
-      PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory)
+      RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+          hardwareBufferEffectsPipeline)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player =
-                  new CompositionPlayer.Builder(context)
-                      .setPacketConsumerFactory(packetConsumerFactory)
+                  NdkCompositionPlayerBuilder.create(context)
+                      .setHardwareBufferEffectsPipeline(hardwareBufferEffectsPipeline)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
