@@ -142,6 +142,8 @@
         override the package name of the session.
     *   Fix issue where `MediaController` can't set media items on platform
         media sessions that don't allow `PREPARE_FROM` actions.
+    *   Fix bug where own process wasn't marked with `Controller.isTrusted()` on
+        API 27 or before when connecting via platform controllers.
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

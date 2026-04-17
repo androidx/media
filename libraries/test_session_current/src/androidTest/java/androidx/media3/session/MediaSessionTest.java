@@ -67,6 +67,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -529,6 +530,33 @@ public class MediaSessionTest {
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
     assertThat(player.seekPositionMs).isEqualTo(testSeekPositionMs);
+  }
+
+  @Test
+  public void getPlatformToken_inApp_ensuresControllerInfoIsTrusted() throws Exception {
+    AtomicBoolean controllerIsTrusted = new AtomicBoolean();
+    MediaSession session =
+        sessionTestRule.ensureReleaseAfterTest(
+            new MediaSession.Builder(context, player)
+                .setId("getPlatformToken_inApp_ensuresControllerInfoIsTrusted")
+                .setCallback(
+                    new MediaSession.Callback() {
+                      @Override
+                      public MediaSession.ConnectionResult onConnect(
+                          MediaSession session, ControllerInfo controller) {
+                        controllerIsTrusted.set(controller.isTrusted());
+                        return MediaSession.Callback.super.onConnect(session, controller);
+                      }
+                    })
+                .build());
+    android.media.session.MediaSession.Token token = session.getPlatformToken();
+
+    android.media.session.MediaController platformController =
+        new android.media.session.MediaController(context, token);
+    platformController.getTransportControls().seekTo(100);
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO, TIMEOUT_MS);
+
+    assertThat(controllerIsTrusted.get()).isTrue();
   }
 
   @Test
