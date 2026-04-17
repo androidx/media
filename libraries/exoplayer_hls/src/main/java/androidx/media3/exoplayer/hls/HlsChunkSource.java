@@ -458,6 +458,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Select the track.
     MediaChunkIterator[] mediaChunkIterators = createMediaChunkIterators(previous, loadPositionUs);
+    boolean oldTrackExcluded =
+        oldTrackIndex != C.INDEX_UNSET
+            // Check this before updating the track because of the realtime dependency of the logic.
+            && trackSelection.isTrackExcluded(
+                trackSelection.indexOf(oldTrackIndex), SystemClock.elapsedRealtime());
     trackSelection.updateSelectedTrack(
         playbackPositionUs, bufferedDurationUs, timeToLiveEdgeUs, queue, mediaChunkIterators);
     int selectedTrackIndex = trackSelection.getSelectedIndexInTrackGroup();
@@ -488,6 +493,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     boolean shouldForceKeepCurrentTrackSelection =
         shouldForceKeepCurrentTrackSelection(
             switchingTrack,
+            oldTrackExcluded,
             playlist,
             chunkMediaSequence,
             partIndex,
@@ -1081,6 +1087,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static boolean shouldForceKeepCurrentTrackSelection(
       boolean switchingTrack,
+      boolean oldTrackExcluded,
       HlsMediaPlaylist playlist,
       long mediaSequence,
       int part,
@@ -1089,6 +1096,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long largestReadPositionUs) {
     if (!switchingTrack) {
       // We are already keeping the current selection.
+      return false;
+    }
+    if (oldTrackExcluded) {
+      // The old track can't be kept because it was excluded.
       return false;
     }
     if (previousChunk == null) {
