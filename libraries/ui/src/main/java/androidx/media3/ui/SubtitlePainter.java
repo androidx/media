@@ -52,8 +52,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /** Ratio of inner padding to font size. */
   private static final float INNER_PADDING_RATIO = 0.125f;
 
-  /** The bottom Y position of the last drawn text cue, or 0 if no text cue was drawn. */
-  private int lastDrawnTextBottom;
+  /** The height of the last drawn cue, or 0 if no cue was drawn. */
+  private int lastDrawnCueHeight;
 
   // Styled dimensions.
   private final float outlineWidth;
@@ -221,26 +221,25 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (isTextCue) {
       checkNotNull(cueText);
       setupTextLayout();
-      lastDrawnTextBottom = textLayout != null ? textLayout.getHeight() : 0;
+      lastDrawnCueHeight = textLayout != null ? textLayout.getHeight() : 0;
     } else {
       checkNotNull(cueBitmap);
       setupBitmapLayout();
-      lastDrawnTextBottom = 0;
+      lastDrawnCueHeight = bitmapRect != null ? bitmapRect.height() : 0;
     }
     drawLayout(canvas, isTextCue);
   }
 
   /**
-   * Returns the bottom Y position of the last drawn text cue relative to the parent bounds.
+   * Returns the height of the last drawn cue.
    *
-   * <p>This can be used to stack multiple cues without overlap. For bottom-stacked cues (negative
-   * line numbers), this represents how far up from the bottom the cue extends. For top-stacked cues
-   * (positive line numbers), this represents how far down from the top the cue extends.
+   * <p>This can be used to stack multiple cues without overlap by adjusting the drawing bounds for
+   * subsequent cues by this amount.
    *
-   * @return The bottom Y position of the last drawn text cue, or 0 if no text cue was drawn.
+   * @return The height of the last drawn cue in pixels, or 0 if no cue was drawn.
    */
-  public int getLastDrawnTextBottom() {
-    return lastDrawnTextBottom;
+  public int getLastDrawnCueHeight() {
+    return lastDrawnCueHeight;
   }
 
   @RequiresNonNull("cueText")

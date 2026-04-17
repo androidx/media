@@ -1,5 +1,5 @@
 /*
- * Copyright 2026 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,12 +48,12 @@ public class SubtitlePainterTest {
   }
 
   @Test
-  public void getLastDrawnTextBottom_beforeDraw_returnsZero() {
-    assertThat(painter.getLastDrawnTextBottom()).isEqualTo(0);
+  public void getLastDrawnCueHeight_beforeDraw_returnsZero() {
+    assertThat(painter.getLastDrawnCueHeight()).isEqualTo(0);
   }
 
   @Test
-  public void getLastDrawnTextBottom_afterDrawingTextCue_returnsPositiveValue() {
+  public void getLastDrawnCueHeight_afterDrawingTextCue_returnsPositiveValue() {
     Cue cue = new Cue.Builder().setText("Test subtitle").build();
 
     painter.draw(
@@ -68,11 +68,11 @@ public class SubtitlePainterTest {
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
 
-    assertThat(painter.getLastDrawnTextBottom()).isGreaterThan(0);
+    assertThat(painter.getLastDrawnCueHeight()).isGreaterThan(0);
   }
 
   @Test
-  public void getLastDrawnTextBottom_multiLineText_returnsLargerValue() {
+  public void getLastDrawnCueHeight_multiLineText_returnsLargerValue() {
     Cue singleLineCue = new Cue.Builder().setText("Single line").build();
     painter.draw(
         singleLineCue,
@@ -85,7 +85,7 @@ public class SubtitlePainterTest {
         /* cueBoxTop= */ 0,
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
-    int singleLineBottom = painter.getLastDrawnTextBottom();
+    int singleLineHeight = painter.getLastDrawnCueHeight();
 
     Cue multiLineCue = new Cue.Builder().setText("Line 1\nLine 2\nLine 3").build();
     painter.draw(
@@ -99,13 +99,13 @@ public class SubtitlePainterTest {
         /* cueBoxTop= */ 0,
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
-    int multiLineBottom = painter.getLastDrawnTextBottom();
+    int multiLineHeight = painter.getLastDrawnCueHeight();
 
-    assertThat(multiLineBottom).isGreaterThan(singleLineBottom);
+    assertThat(multiLineHeight).isGreaterThan(singleLineHeight);
   }
 
   @Test
-  public void getLastDrawnTextBottom_emptyText_returnsZero() {
+  public void getLastDrawnCueHeight_emptyText_returnsZero() {
     Cue cue = new Cue.Builder().setText("").build();
 
     painter.draw(
@@ -120,11 +120,11 @@ public class SubtitlePainterTest {
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
 
-    assertThat(painter.getLastDrawnTextBottom()).isEqualTo(0);
+    assertThat(painter.getLastDrawnCueHeight()).isEqualTo(0);
   }
 
   @Test
-  public void getLastDrawnTextBottom_bitmapCue_returnsZero() {
+  public void getLastDrawnCueHeight_bitmapCue_returnsPositiveValue() {
     Bitmap cueBitmap = Bitmap.createBitmap(100, 50, Bitmap.Config.ARGB_8888);
     Cue cue =
         new Cue.Builder()
@@ -148,11 +148,11 @@ public class SubtitlePainterTest {
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
 
-    assertThat(painter.getLastDrawnTextBottom()).isEqualTo(0);
+    assertThat(painter.getLastDrawnCueHeight()).isGreaterThan(0);
   }
 
   @Test
-  public void getLastDrawnTextBottom_cueWithNegativeLine_returnsPositiveValue() {
+  public void getLastDrawnCueHeight_cueWithNegativeLine_returnsPositiveValue() {
     Cue cue =
         new Cue.Builder()
             .setText("Bottom-stacked subtitle")
@@ -172,11 +172,11 @@ public class SubtitlePainterTest {
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
 
-    assertThat(painter.getLastDrawnTextBottom()).isGreaterThan(0);
+    assertThat(painter.getLastDrawnCueHeight()).isGreaterThan(0);
   }
 
   @Test
-  public void getLastDrawnTextBottom_cueWithPositiveLine_returnsPositiveValue() {
+  public void getLastDrawnCueHeight_cueWithPositiveLine_returnsPositiveValue() {
     Cue cue =
         new Cue.Builder()
             .setText("Top-stacked subtitle")
@@ -196,6 +196,6 @@ public class SubtitlePainterTest {
         /* cueBoxRight= */ CANVAS_WIDTH,
         /* cueBoxBottom= */ CANVAS_HEIGHT);
 
-    assertThat(painter.getLastDrawnTextBottom()).isGreaterThan(0);
+    assertThat(painter.getLastDrawnCueHeight()).isGreaterThan(0);
   }
 }

@@ -150,9 +150,9 @@ import java.util.List;
 
       // Accumulate offset so subsequent cues don't overlap.
       if (isBottomStackedCue) {
-        cumulativeBottomOffset += painter.getLastDrawnTextBottom();
+        cumulativeBottomOffset += painter.getLastDrawnCueHeight();
       } else if (isTopStackedCue) {
-        cumulativeTopOffset += painter.getLastDrawnTextBottom();
+        cumulativeTopOffset += painter.getLastDrawnCueHeight();
       }
     }
   }
