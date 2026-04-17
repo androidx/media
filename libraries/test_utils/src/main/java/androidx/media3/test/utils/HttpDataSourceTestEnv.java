@@ -56,6 +56,14 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .supportsRangeRequests(true)
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
+  public static final WebServerDispatcher.Resource RANGE_SUPPORTED_NO_CONTENT_LENGTH =
+      new WebServerDispatcher.Resource.Builder()
+          .setPath("/supports/range-requests-no-content-length")
+          .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
+          .supportsRangeRequests(true)
+          .includesContentLengthInRangeResponses(false)
+          .setExtraResponseHeaders(EXTRA_HEADERS)
+          .build();
 
   public static final WebServerDispatcher.Resource RANGE_SUPPORTED_LENGTH_UNKNOWN =
       new WebServerDispatcher.Resource.Builder()
@@ -126,6 +134,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
   public ImmutableList<DataSourceContractTest.TestResource> getServedResources() {
     return ImmutableList.of(
         createTestResource("range supported", RANGE_SUPPORTED),
+        createTestResource("range supported, no Content-Length", RANGE_SUPPORTED_NO_CONTENT_LENGTH),
         createTestResource("range supported, length unknown", RANGE_SUPPORTED_LENGTH_UNKNOWN),
         createTestResource("range not supported", RANGE_NOT_SUPPORTED),
         createTestResource(
@@ -183,6 +192,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
         WebServerDispatcher.forResources(
             ImmutableList.of(
                 RANGE_SUPPORTED,
+                RANGE_SUPPORTED_NO_CONTENT_LENGTH,
                 RANGE_SUPPORTED_LENGTH_UNKNOWN,
                 RANGE_NOT_SUPPORTED,
                 RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN,
