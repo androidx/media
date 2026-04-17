@@ -45,6 +45,8 @@
         supports seeking to other items but no playlist modifications.
     *   Fix issue where `MediaController` can't set media items on platform
         media sessions that don't allow `PREPARE_FROM` actions.
+    *   Fix bug where own process wasn't marked with `Controller.isTrusted()` on
+        API 27 or before when connecting via platform controllers.
 *   UI:
 *   Downloads:
 *   OkHttp extension:
