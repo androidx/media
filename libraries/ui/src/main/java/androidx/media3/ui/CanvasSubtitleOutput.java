@@ -118,8 +118,10 @@ import java.util.List;
       }
 
       // Determine if this cue is stacked from bottom or top based on line number.
+      // Cues with DIMEN_UNSET (no explicit position) default to bottom stacking.
       boolean isBottomStackedCue =
-          cue.line != Cue.DIMEN_UNSET && cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line < 0;
+          cue.line == Cue.DIMEN_UNSET
+              || (cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line < 0);
       boolean isTopStackedCue =
           cue.line != Cue.DIMEN_UNSET && cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line >= 0;
 
