@@ -13,7 +13,7 @@ track 256:
     averageBitrate = 1536000
     id = 1/256
     containerMimeType = video/mp2t
-    sampleMimeType = audio/vnd.dts.hd;profile=lbr
+    sampleMimeType = audio/vnd.dts.hd
     channelCount = 8
     sampleRate = 48000
     language = en
