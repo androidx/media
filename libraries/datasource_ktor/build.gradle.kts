@@ -45,8 +45,9 @@ dependencies {
   androidTestImplementation(libs.test.parameter.injector)
 }
 
-extra["releaseArtifactId"] = "media3-datasource-ktor"
+// TODO: Add this once CI is expecting this module to be published.
+// extra["releaseArtifactId"] = "media3-datasource-ktor"
 
-extra["releaseName"] = "Media3 Ktor DataSource module"
+//extra["releaseName"] = "Media3 Ktor DataSource module"
 
-apply(from = "../../publish.gradle")
+//apply(from = "../../publish.gradle")
