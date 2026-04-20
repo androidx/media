@@ -126,6 +126,22 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
         "extractordumps/mp4/fragmented_captions_h265.mp4_without_gop_parsing_flags");
   }
 
+  @Test
+  public void extract_h264WithVariableLengthSgpdBox() throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            extractor,
+            ApplicationProvider.getApplicationContext(),
+            "media/mp4/sample_fragmented_variable_length_sgpd.mp4");
+
+    DumpFileAsserts.assertOutput(
+        ApplicationProvider.getApplicationContext(),
+        output,
+        "extractordumps/mp4/fragmented_variable_length_sgpd.mp4");
+  }
+
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {
     return new FakeExtractorInput.Builder()
         .setData(
