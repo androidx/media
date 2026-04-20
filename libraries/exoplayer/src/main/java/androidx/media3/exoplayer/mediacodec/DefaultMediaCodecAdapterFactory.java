@@ -66,6 +66,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
 
   private @Mode int asynchronousMode;
   private boolean asyncCryptoFlagEnabled;
+  private boolean asyncCryptoSynchronizationEnabled;
 
   /**
    * @deprecated Use {@link #DefaultMediaCodecAdapterFactory(Context)} instead.
@@ -73,7 +74,6 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   @Deprecated
   public DefaultMediaCodecAdapterFactory() {
     asynchronousMode = MODE_DEFAULT;
-    asyncCryptoFlagEnabled = true;
     context = null;
     callbackThreadSupplier = null;
     queueingThreadSupplier = null;
@@ -146,6 +146,27 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
     return this;
   }
 
+  /**
+   * Sets whether to force synchronization for queuing input buffers on API 31 and above for {@link
+   * AsynchronousMediaCodecAdapter} instances.
+   *
+   * <p>A known bug in the Android framework (b/149908061) prior to API 31 can cause garbled video
+   * when audio and video are sharing the same DRM session. A workaround was implemented that forces
+   * synchronization for queuing input buffers. This workaround is disabled for devices with API
+   * level &gt;= 31 but can be enabled using this method.
+   *
+   * <p>The default is {@code false}.
+   *
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/502930657 - Remove this method.
+  public DefaultMediaCodecAdapterFactory setAsyncCryptoSynchronizationEnabled(
+      boolean enableAsyncCryptoSynchronization) {
+    asyncCryptoSynchronizationEnabled = enableAsyncCryptoSynchronization;
+    return this;
+  }
+
   @Override
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
@@ -162,6 +183,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
                   callbackThreadSupplier, queueingThreadSupplier)
               : new AsynchronousMediaCodecAdapter.Factory(trackType);
       factory.experimentalSetAsyncCryptoFlagEnabled(asyncCryptoFlagEnabled);
+      factory.setAsyncCryptoSynchronizationEnabled(asyncCryptoSynchronizationEnabled);
       return factory.createAdapter(configuration);
     }
     return new SynchronousMediaCodecAdapter.Factory().createAdapter(configuration);

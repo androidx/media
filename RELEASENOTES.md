@@ -26,6 +26,10 @@
     *   Adjust logic for codec reuse at frame rate changes on API<30 to avoid
         codec resets where they are not beneficial
         ([#3120](https://github.com/androidx/media/issues/3120)).
+    *   Disable forced synchronization workaround in `queueSecureInputBuffer`
+        for API 31+. The workaround was an artificial bottleneck that forced
+        decryption to run serially which prevented garbled video due to a
+        framework issue existing prior to API 31.
 *   Text:
 *   Metadata:
 *   Image:
