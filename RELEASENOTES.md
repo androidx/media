@@ -78,6 +78,10 @@
     *   MP4: Add support for big-endian floating point PCM in `fpcm` boxes.
     *   Matroska: Parse chapter info to `Chapter` entries in a track's
         `Metadata`.
+    *   MPEG-TS: Improve extraction of DTS-HD and DTS Express streams by
+        combining the Core and Extension Substream into a single sample, fixing
+        playback issues where the two were previously output as separate samples
+        ([#3147](https://github.com/androidx/media/pull/3147)).
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
