@@ -82,7 +82,8 @@ public final class DefaultAudioOffloadSupportProviderTest {
   }
 
   @Test
-  @Config(minSdk = 33)
+  // TODO: b/503396834 - Remove maxSdk when this test passes with API 37 Robolectric behaviour.
+  @Config(minSdk = 33, maxSdk = 36)
   public void getAudioOffloadSupport_onApi33_correctlyInterpretsDirectPlaybackBitmask() {
     Format format =
         new Format.Builder()

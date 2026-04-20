@@ -73,7 +73,8 @@ public class AudioOffloadEndToEndTest {
   }
 
   @Test
-  @Config(minSdk = 30)
+  // TODO: b/503396834 - Remove maxSdk when this test passes with API 37 Robolectric behaviour.
+  @Config(minSdk = 30, maxSdk = 36)
   public void testOffloadPlayback_offloadEnabledAndPlayToEnd() throws Exception {
     AtomicBoolean isOffloadModeSet = new AtomicBoolean(false);
     DefaultRenderersFactory renderersFactory =

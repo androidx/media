@@ -128,6 +128,8 @@ public class AudioAttributesTest {
     assertThat(AudioAttributes.DEFAULT.getVolumeControlStream()).isEqualTo(C.STREAM_TYPE_MUSIC);
   }
 
+  // TODO: b/503396834 - Remove this when this test passes with API 37 Robolectric behaviour.
+  @Config(maxSdk = 36)
   @Test
   public void getVolumeControlStream_withUsageNotification_returnsNotification() {
     assertThat(
@@ -138,6 +140,8 @@ public class AudioAttributesTest {
         .isEqualTo(C.STREAM_TYPE_NOTIFICATION);
   }
 
+  // TODO: b/503396834 - Remove this when this test passes with API 37 Robolectric behaviour.
+  @Config(maxSdk = 36)
   @Test
   public void getVolumeControlStream_withUsageAlarm_returnsAlarm() {
     assertThat(
@@ -145,6 +149,8 @@ public class AudioAttributesTest {
         .isEqualTo(C.STREAM_TYPE_ALARM);
   }
 
+  // TODO: b/503396834 - Remove this when this test passes with API 37 Robolectric behaviour.
+  @Config(maxSdk = 36)
   @Test
   public void getVolumeControlStream_withUsageAssistanceSonification_returnsSystem() {
     assertThat(
