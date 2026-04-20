@@ -67,6 +67,7 @@ kotlinAnnotationsVersion = "1.9.0"
 kotlinBomVersion = "1.8.0"
 # Not the same as kotlin version, https://github.com/Kotlin/kotlinx.coroutines/releases
 kotlinxCoroutinesVersion = "1.9.0"
+ktorVersion = "3.0.3"
 leakCanaryVersion = "2.10"
 lottieVersion = "6.6.0"
 mockitoVersion = "3.12.4"
@@ -143,6 +144,9 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesVersion" }
+ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref="ktorVersion" }
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref="ktorVersion" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref="ktorVersion" }
 leakcanary-android = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakCanaryVersion" }
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottieVersion" }
 material = { group = "com.google.android.material", name = "material", version.ref = "androidxMaterialVersion" }
