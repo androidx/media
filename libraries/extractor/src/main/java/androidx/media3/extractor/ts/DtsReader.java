@@ -144,7 +144,9 @@ public final class DtsReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    timeUs = pesTimeUs;
+    if (pesTimeUs != C.TIME_UNSET) {
+      timeUs = pesTimeUs;
+    }
   }
 
   @Override
@@ -294,8 +296,7 @@ public final class DtsReader implements ElementaryStreamReader {
 
   @Override
   public void packetFinished(boolean isEndOfInput) {
-    if (state == STATE_CHECKING_FOR_EXTSS_AFTER_CORE) {
-      checkNotNull(output);
+    if (isEndOfInput && state == STATE_CHECKING_FOR_EXTSS_AFTER_CORE) {
       if (coreFormatPendingEmit) {
         output.format(checkNotNull(format));
         coreFormatPendingEmit = false;
