@@ -381,7 +381,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return CHUNK_PUBLICATION_STATE_PRELOAD;
     }
     Uri newUri = Uri.parse(UriUtil.resolve(mediaPlaylist.baseUri, newPart.url));
-    return Objects.equals(newUri, mediaChunk.dataSpec.uri)
+    Uri mediaChunkUri = mediaChunk.dataSpec.uri;
+    if (cmcdConfiguration != null) {
+      mediaChunkUri = CmcdData.removeFromUri(mediaChunkUri);
+    }
+    return Objects.equals(newUri, mediaChunkUri)
         ? CHUNK_PUBLICATION_STATE_PUBLISHED
         : CHUNK_PUBLICATION_STATE_REMOVED;
   }

@@ -709,6 +709,38 @@ public class HlsChunkSourceTest {
   }
 
   @Test
+  public void getChunkPublicationState_withCmcdQueryParameters_returnsPublished() throws Exception {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem ->
+            new CmcdConfiguration(
+                /* sessionId= */ "sessionId",
+                /* contentId= */ mediaItem.mediaId,
+                new CmcdConfiguration.RequestConfig() {},
+                CmcdConfiguration.MODE_QUERY_PARAMETER);
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(
+            PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_SINGLE_PRELOAD_PART, cmcdConfiguration);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 34_000_000,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk hlsMediaChunk = (HlsMediaChunk) output.chunk;
+    HlsChunkSource updatedChunkSource =
+        createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS, cmcdConfiguration);
+
+    int publicationState = updatedChunkSource.getChunkPublicationState(hlsMediaChunk);
+
+    assertThat(publicationState).isEqualTo(HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED);
+  }
+
+  @Test
   public void
       getNextChunk_changedTrackSelectionWithNonOverlappingSegments_returnsShouldSpliceInFalse()
           throws Exception {
