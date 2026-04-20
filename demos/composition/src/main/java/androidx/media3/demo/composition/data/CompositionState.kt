@@ -25,36 +25,40 @@ import androidx.media3.common.util.UnstableApi
  * This class aggregates all other state objects into one comprehensive model, following the
  * Unidirectional Data Flow (UDF) pattern.
  *
- * @param availableLayouts The list of available composition layouts.
- * @param compositionLayout The currently selected composition layout.
+ * @param sequenceTrackTypes The list of track types for each sequence.
  * @param snackbarMessage A message to be shown in the snackbar.
  * @param isDebugTracingEnabled Whether debug tracing for media transformations is enabled.
  * @param mediaState The state for media items and their effects.
  * @param outputSettingsState The state for all output settings.
  * @param exportState The state for the current export process.
+ * @param isCompositionSet Whether the composition is set.
+ * @param selectedPreset a key representing the selected preset.
+ * @param selectedSequenceIndex The selected sequence index.
  */
 @OptIn(UnstableApi::class)
 data class CompositionPreviewState(
-  val availableLayouts: List<String> = emptyList(),
-  val compositionLayout: String,
+  val sequenceTrackTypes: List<Set<Int>> = emptyList(),
   val snackbarMessage: String? = null,
   val isDebugTracingEnabled: Boolean = false,
   val mediaState: MediaState,
   val outputSettingsState: OutputSettingsState,
   val exportState: ExportState,
   val isCompositionSet: Boolean = false,
+  val selectedPreset: Preset,
+  val selectedSequenceIndex: Int = 0,
 )
 
 /**
  * Holds the state related to media items and their effects.
  *
  * @param availableItems The list of all possible media items the user can add.
- * @param selectedItems The list of media items currently on the editing timeline.
+ * @param selectedItemsBySequence The list of media items currently on the editing timeline
+ *   organized by sequence.
  * @param availableEffects The list of all available effects the user can apply.
  */
 data class MediaState(
   val availableItems: List<Item> = emptyList(),
-  val selectedItems: List<Item> = emptyList(),
+  val selectedItemsBySequence: List<List<Item>> = emptyList(),
   val availableEffects: List<String> = emptyList(),
 )
 
@@ -103,3 +107,11 @@ data class OutputSettingsState(
  * @param exportResultInfo A message describing the result of the export.
  */
 data class ExportState(val isExporting: Boolean = false, val exportResultInfo: String? = null)
+
+/** The available presets. */
+enum class Preset {
+  SEQUENCE,
+  GRID,
+  PIP,
+  CUSTOM,
+}

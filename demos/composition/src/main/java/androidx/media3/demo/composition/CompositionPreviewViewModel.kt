@@ -50,6 +50,7 @@ import androidx.media3.demo.composition.data.ExportState
 import androidx.media3.demo.composition.data.Item
 import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
+import androidx.media3.demo.composition.data.Preset
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline
 import androidx.media3.effect.HardwareBufferFrame
@@ -78,11 +79,12 @@ import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -96,19 +98,23 @@ import org.json.JSONException
 @OptIn(ExperimentalApi::class)
 class CompositionPreviewViewModel(application: Application) : AndroidViewModel(application) {
 
+  val compositionLayouts = listOf(Preset.SEQUENCE, Preset.GRID, Preset.PIP)
+
   private val _uiState = MutableStateFlow(createInitialState())
   val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
+  val FAILED_LOAD_MEDIA_MESSAGE = application.resources.getString(R.string.failed_load_media)
+  val FAILED_GET_DURATION_MESSAGE = application.resources.getString(R.string.failed_get_duration)
+  val API_33_REQUIRED_MESSAGE =
+    application.resources.getString(R.string.api_33_required_packet_consumer)
   internal var frameConsumerEnabled: Boolean = false
   internal var surfaceView: SurfaceView? = null
-  private val glExecutorService: ExecutorService by lazy {
-    Util.newSingleThreadExecutor("CompositionDemo::GlThread")
-  }
   private var transformer: Transformer? = null
   private var outputFile: File? = null
+  private var preparedComposition: Composition? = null
   private var exportStopwatch: Stopwatch =
     Stopwatch.createUnstarted(
       object : Ticker() {
@@ -130,9 +136,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   private fun createInitialState(): CompositionPreviewState {
     return CompositionPreviewState(
-      availableLayouts = COMPOSITION_LAYOUT,
-      compositionLayout = COMPOSITION_LAYOUT[0],
-      mediaState = MediaState(),
+      sequenceTrackTypes = listOf(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)),
+      mediaState = MediaState(selectedItemsBySequence = listOf(emptyList())),
       outputSettingsState =
         OutputSettingsState(
           resolutionHeight = SAME_AS_INPUT_OPTION,
@@ -142,6 +147,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           muxerOption = MUXER_OPTIONS[0],
         ),
       exportState = ExportState(),
+      selectedPreset = Preset.SEQUENCE,
+      selectedSequenceIndex = 0,
     )
   }
 
@@ -152,15 +159,32 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
-      initialMediaItems.add(Item(titles[i], uris[i], durations[i].toLong(), emptySet()))
+      initialMediaItems.add(
+        Item(
+          title = titles[i],
+          uri = uris[i],
+          durationUs = durations[i].toLong(),
+          selectedEffects = emptySet(),
+        )
+      )
     }
+    initialMediaItems.add(
+      Item(
+        title = application.resources.getString(R.string.background_audio_track),
+        uri = AUDIO_URI,
+        durationUs = 59_000_000L,
+        selectedEffects = emptySet(),
+      )
+    )
 
     _uiState.update { currentState ->
+      val numSequences = 1
       currentState.copy(
         mediaState =
           currentState.mediaState.copy(
             availableItems = initialMediaItems,
-            selectedItems = List(4) { initialMediaItems[0].copy() },
+            selectedItemsBySequence =
+              List(numSequences) { List(4) { initialMediaItems[0].copy() } },
             availableEffects = effectOptions.keys.toList(),
           )
       )
@@ -178,10 +202,113 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update { currentState -> currentState.copy(snackbarMessage = null) }
   }
 
-  fun onCompositionLayoutChanged(newLayout: String) {
+  fun onPresetSelected(preset: Preset) {
     _uiState.update { currentState ->
-      currentState.copy(compositionLayout = newLayout, isCompositionSet = false)
+      val numSequences =
+        when (preset) {
+          Preset.GRID -> 4 // 2x2 Grid
+          Preset.PIP -> 2 // PiP Overlay
+          else -> 1 // Sequence
+        }
+      val currentTrackTypes = currentState.sequenceTrackTypes
+      val newTrackTypes =
+        List(numSequences) { i ->
+          if (i < currentTrackTypes.size) currentTrackTypes[i]
+          else setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO)
+        }
+      val firstItem = currentState.mediaState.availableItems.firstOrNull()?.copy()
+      val newItemsBySequence: List<List<Item>> =
+        when (preset) {
+          Preset.GRID -> {
+            List(4) { if (firstItem != null) listOf(firstItem.copy()) else emptyList<Item>() }
+          }
+          Preset.PIP -> {
+            List(2) {
+              if (firstItem != null) listOf(firstItem.copy(), firstItem.copy())
+              else emptyList<Item>()
+            }
+          }
+          Preset.SEQUENCE -> {
+            List(1) { if (firstItem != null) List(4) { firstItem.copy() } else emptyList<Item>() }
+          }
+          Preset.CUSTOM -> {
+            val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
+            List(numSequences) { i -> currentItemsBySequence[i] }
+          }
+        }
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = preset,
+        selectedSequenceIndex = 0,
+      )
     }
+    setComposition()
+  }
+
+  fun onSequenceTrackTypeChanged(sequenceIndex: Int, newTrackTypes: Set<Int>) {
+    _uiState.update { currentState ->
+      val updatedTrackTypes = currentState.sequenceTrackTypes.toMutableList()
+      if (sequenceIndex < updatedTrackTypes.size) {
+        updatedTrackTypes[sequenceIndex] = newTrackTypes
+      }
+      currentState.copy(
+        sequenceTrackTypes = updatedTrackTypes,
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+      )
+    }
+  }
+
+  fun addSequence() {
+    _uiState.update { currentState ->
+      val newTrackTypes =
+        currentState.sequenceTrackTypes + listOf(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
+      val firstItem = currentState.mediaState.availableItems.firstOrNull()?.copy()
+      val newSequenceItems = if (firstItem != null) listOf(firstItem) else emptyList()
+      val newItemsBySequence =
+        currentState.mediaState.selectedItemsBySequence + listOf(newSequenceItems)
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+        selectedSequenceIndex = newTrackTypes.size - 1,
+      )
+    }
+  }
+
+  fun removeSequence(sequenceIndex: Int) {
+    _uiState.update { currentState ->
+      val currentTrackTypes = currentState.sequenceTrackTypes
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
+      if (currentTrackTypes.size <= 1) return@update currentState // Keep at least one sequence
+
+      val newTrackTypes = currentTrackTypes.filterIndexed { index, _ -> index != sequenceIndex }
+      val newItemsBySequence = currentItemsBySequence.filterIndexed { index, _ ->
+        index != sequenceIndex
+      }
+
+      val newSelectedSequenceIndex =
+        if (currentState.selectedSequenceIndex >= newTrackTypes.size) {
+          (newTrackTypes.size - 1).coerceAtLeast(0)
+        } else {
+          currentState.selectedSequenceIndex
+        }
+
+      currentState.copy(
+        sequenceTrackTypes = newTrackTypes,
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = newItemsBySequence),
+        isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
+        selectedSequenceIndex = newSelectedSequenceIndex,
+      )
+    }
+  }
+
+  fun onSequenceSelected(index: Int) {
+    _uiState.update { it.copy(selectedSequenceIndex = index) }
   }
 
   fun enableDebugTracing(enable: Boolean) {
@@ -261,24 +388,30 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
   }
 
-  fun addItem(index: Int) {
+  fun addItem(sequenceIndex: Int, itemIndex: Int) {
     _uiState.update { currentState ->
-      val itemToAdd = currentState.mediaState.availableItems[index].copy()
-      val newSelectedItems = currentState.mediaState.selectedItems + itemToAdd
+      val itemToAdd = currentState.mediaState.availableItems[itemIndex].copy()
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        updatedItems.add(itemToAdd)
+        currentItemsBySequence[sequenceIndex] = updatedItems
+      }
       currentState.copy(
-        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
         isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
       )
     }
   }
 
   /**
-   * Adds a local item represented by [uri] to the main sequence.
+   * Adds a local item represented by [uri] to the specified sequence.
    *
    * This method extracts the [display name][OpenableColumns.DISPLAY_NAME] of the file, and then
    * uses [MetadataRetriever] to extract the file type and duration.
    */
-  fun addLocalItem(uri: Uri) {
+  fun addLocalItem(sequenceIndex: Int, uri: Uri) {
     viewModelScope.launch(Dispatchers.IO) {
       val context = getApplication<Application>()
       // Use last path segment as default value if content resolver can't get one.
@@ -312,7 +445,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         MetadataRetriever.Builder(context, mediaItem).build().use {
           val trackGroups = it.retrieveTrackGroups().await()
           // Don't retrieve duration for images.
-          if (trackGroups[0].type != C.TRACK_TYPE_IMAGE) {
+          if (trackGroups.length > 0 && trackGroups[0].type != C.TRACK_TYPE_IMAGE) {
             durationUs = it.retrieveDurationUs().await()
           }
         }
@@ -320,14 +453,14 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         Log.e(TAG, "Failed to retrieve metadata", e)
         withContext(Dispatchers.Main) {
           _uiState.update { currentState ->
-            currentState.copy(snackbarMessage = "Failed to load media item.")
+            currentState.copy(snackbarMessage = FAILED_LOAD_MEDIA_MESSAGE)
           }
         }
         return@launch
       }
       if (durationUs == C.TIME_UNSET) {
         _uiState.update { currentState ->
-          currentState.copy(snackbarMessage = "Failed to get duration.")
+          currentState.copy(snackbarMessage = FAILED_GET_DURATION_MESSAGE)
         }
         return@launch
       }
@@ -342,48 +475,65 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
       withContext(Dispatchers.Main) {
         _uiState.update { currentState ->
-          val newSelectedItems = currentState.mediaState.selectedItems + newItem
+          val currentItemsBySequence =
+            currentState.mediaState.selectedItemsBySequence.toMutableList()
+          if (sequenceIndex < currentItemsBySequence.size) {
+            val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+            updatedItems.add(newItem)
+            currentItemsBySequence[sequenceIndex] = updatedItems
+          }
           currentState.copy(
-            mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+            mediaState =
+              currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
             isCompositionSet = false,
+            selectedPreset = Preset.CUSTOM,
           )
         }
       }
     }
   }
 
-  fun removeItem(index: Int) {
+  fun removeItem(sequenceIndex: Int, itemIndex: Int) {
     _uiState.update { currentState ->
-      val currentItems = currentState.mediaState.selectedItems
-      val newSelectedItems = currentItems.filterIndexed { i, _ -> i != index }
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        if (itemIndex < updatedItems.size) {
+          updatedItems.removeAt(itemIndex)
+          currentItemsBySequence[sequenceIndex] = updatedItems
+        }
+      }
       currentState.copy(
-        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
         isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
       )
     }
   }
 
-  fun updateEffectsForItem(index: Int, newEffects: Set<String>) {
+  fun updateEffectsForItem(sequenceIndex: Int, itemIndex: Int, newEffects: Set<String>) {
     _uiState.update { currentState ->
-      val currentItems = currentState.mediaState.selectedItems
-
-      val newSelectedItems = currentItems.mapIndexed { i, item ->
-        if (i == index) {
-          item.copy(selectedEffects = newEffects)
-        } else {
-          item
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        if (itemIndex < updatedItems.size) {
+          updatedItems[itemIndex] = updatedItems[itemIndex].copy(selectedEffects = newEffects)
+          currentItemsBySequence[sequenceIndex] = updatedItems
         }
       }
       currentState.copy(
-        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        mediaState = currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
         isCompositionSet = false,
+        selectedPreset = Preset.CUSTOM,
       )
     }
   }
 
   fun setComposition() {
     releaseAndRecreatePlayer()
-    compositionPlayer.setComposition(prepareComposition())
+    val composition = prepareComposition()
+    preparedComposition = composition
+    compositionPlayer.setComposition(composition)
     compositionPlayer.prepare()
     _uiState.update { it.copy(isCompositionSet = true) }
   }
@@ -396,7 +546,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     // Cancel and clean up files from any ongoing export.
     cancelExport()
 
-    val composition = prepareComposition()
+    val composition =
+      if (uiState.value.isCompositionSet) preparedComposition ?: prepareComposition()
+      else prepareComposition()
     val settings = uiState.value.outputSettingsState
 
     try {
@@ -404,7 +556,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         createExternalCacheFile("composition-preview-" + Clock.DEFAULT.elapsedRealtime() + ".mp4")
     } catch (e: IOException) {
       _uiState.update { currentState ->
-        currentState.copy(snackbarMessage = "Aborting export! Unable to create output file: $e")
+        currentState.copy(
+          snackbarMessage =
+            getApplication<Application>()
+              .resources
+              .getString(R.string.abort_export_output_file, e.toString())
+        )
       }
       Log.e(TAG, "Aborting export! Unable to create output file: ", e)
       return
@@ -415,10 +572,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       if (uiState.value.outputSettingsState.frameConsumerEnabled) {
         if (SDK_INT < 33) {
           _uiState.update {
-            it.copy(
-              snackbarMessage = "API 33+ required to export with PacketConsumer",
-              isCompositionSet = false,
-            )
+            it.copy(snackbarMessage = API_33_REQUIRED_MESSAGE, isCompositionSet = false)
           }
           return
         }
@@ -494,7 +648,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
               exportStopwatch.stop()
               _uiState.update {
                 it.copy(
-                  snackbarMessage = "Export error: $exportException",
+                  snackbarMessage =
+                    getApplication<Application>()
+                      .resources
+                      .getString(R.string.export_error_msg, exportException.toString()),
                   exportState =
                     it.exportState.copy(
                       isExporting = false,
@@ -522,8 +679,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   private fun prepareComposition(): Composition {
-    val editedMediaItems = mutableListOf<EditedMediaItem>()
     val settings = uiState.value.outputSettingsState
+    var compositionHasVideo = false
 
     val globalVideoEffects = mutableListOf<Effect>()
     if (settings.resolutionHeight != SAME_AS_INPUT_OPTION) {
@@ -533,60 +690,56 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       )
       globalVideoEffects.add(Presentation.createForShortSide(resolutionHeight))
     }
-    for (item in uiState.value.mediaState.selectedItems) {
-      val mediaItem =
-        MediaItem.Builder()
-          .setUri(item.uri)
-          .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
-          .build()
-      val effectsForItem = mutableListOf<Effect>()
-      for (effectName in item.selectedEffects) {
-        // TODO(b/433484977): Order of applied effects should be more clear in the UI
-        effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+
+    val explicitTrackTypes = uiState.value.sequenceTrackTypes
+    val numSequences = explicitTrackTypes.size
+    val itemsBySequence = uiState.value.mediaState.selectedItemsBySequence
+
+    val sequences = mutableListOf<EditedMediaItemSequence>()
+    for (sequenceIndex in 0 until numSequences) {
+      val sequenceItems =
+        if (sequenceIndex < itemsBySequence.size) itemsBySequence[sequenceIndex] else emptyList()
+      val trackTypes = explicitTrackTypes[sequenceIndex]
+      if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        compositionHasVideo = true
       }
-      val finalVideoEffects = globalVideoEffects + effectsForItem
-      val itemBuilder =
-        EditedMediaItem.Builder(mediaItem)
-          .setEffects(
-            Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
-          )
-          // Required for image inputs. For video inputs, it sets the target FPS.
-          .setFrameRate(DEFAULT_FRAME_RATE_FPS)
-          // Setting duration explicitly is only required for preview with CompositionPlayer, and
-          // is not needed for export with Transformer.
-          .setDurationUs(item.durationUs)
-      editedMediaItems.add(itemBuilder.build())
+
+      val editedMediaItems = mutableListOf<EditedMediaItem>()
+
+      for (item in sequenceItems) {
+        val mediaItem =
+          MediaItem.Builder()
+            .setUri(item.uri)
+            .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
+            .build()
+        val effectsForItem = mutableListOf<Effect>()
+        for (effectName in item.selectedEffects) {
+          // TODO(b/433484977): Order of applied effects should be more clear in the UI
+          effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+        }
+        val finalVideoEffects = globalVideoEffects + effectsForItem
+        val itemBuilder =
+          EditedMediaItem.Builder(mediaItem)
+            .setEffects(
+              Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+            )
+            // Required for image inputs. For video inputs, it sets the target FPS.
+            .setFrameRate(DEFAULT_FRAME_RATE_FPS)
+            // Setting duration explicitly is only required for preview with CompositionPlayer, and
+            // is not needed for export with Transformer.
+            .setDurationUs(item.durationUs)
+        editedMediaItems.add(itemBuilder.build())
+      }
+
+      val sequenceBuilder = EditedMediaItemSequence.Builder(trackTypes)
+      for (editedItem in editedMediaItems) {
+        sequenceBuilder.addItem(editedItem)
+      }
+      sequences.add(sequenceBuilder.build())
     }
 
-    val numSequences =
-      when (uiState.value.compositionLayout) {
-        COMPOSITION_LAYOUT[1] -> 4 // 2x2 Grid
-        COMPOSITION_LAYOUT[2] -> 2 // PiP Overlay
-        else -> 1 // Sequence
-      }
-    // TODO(b/417365294): Improve how sequences are built
-    val videoSequenceBuilders =
-      MutableList(numSequences) {
-        EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-      }
-    val videoSequences = mutableListOf<EditedMediaItemSequence>()
-    for (sequenceIndex in 0 until numSequences) {
-      var hasItem = false
-      for (item in sequenceIndex until editedMediaItems.size step numSequences) {
-        hasItem = true
-        Log.d(TAG, "Adding item $item to sequence $sequenceIndex")
-        videoSequenceBuilders[sequenceIndex].addItem(editedMediaItems[item])
-      }
-      if (hasItem) {
-        videoSequences.add(videoSequenceBuilders[sequenceIndex].build())
-        Log.d(
-          TAG,
-          "Sequence #$sequenceIndex has ${videoSequences.last().editedMediaItems.size} item(s)",
-        )
-      }
-    }
     if (settings.includeBackgroundAudio) {
-      videoSequences.add(getAudioBackgroundSequence())
+      sequences.add(getAudioBackgroundSequence())
     }
 
     val finalVideoEffects = globalVideoEffects.toMutableList()
@@ -601,96 +754,88 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       finalVideoEffects.add(presentation)
     }
 
-    return Composition.Builder(videoSequences)
-      .setEffects(
-        Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
-      )
-      .setVideoCompositorSettings(getVideoCompositorSettings())
-      .setHdrMode(settings.hdrMode)
-      .build()
+    val compositionBuilder = Composition.Builder(sequences).setHdrMode(settings.hdrMode)
+
+    if (compositionHasVideo) {
+      compositionBuilder
+        .setEffects(
+          Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+        )
+        .setVideoCompositorSettings(getVideoCompositorSettings())
+    }
+
+    return compositionBuilder.build()
   }
 
   // TODO(b/417362922): Improve accuracy of VideoCompositorSettings implementation
   private fun getVideoCompositorSettings(): VideoCompositorSettings {
-    return when (uiState.value.compositionLayout) {
-      COMPOSITION_LAYOUT[1] -> {
-        // 2x2 Grid
-        object : VideoCompositorSettings {
-          override fun getOutputSize(inputSizes: List<Size>): Size {
-            return inputSizes[0]
-          }
+    val videoSequenceIndices =
+      uiState.value.sequenceTrackTypes.mapIndexedNotNull { index, trackTypes ->
+        if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) index else null
+      }
+    val numVideoSequences = videoSequenceIndices.size
 
-          override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
-            return when (inputId) {
-              0 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(-0.5f, 0.5f) // Top-left section of background
-                  .build()
-              }
+    val mapInputId = { inputId: Int -> videoSequenceIndices.indexOf(inputId) }
 
-              1 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(0.5f, 0.5f) // Top-right section of background
-                  .build()
-              }
+    if (numVideoSequences >= 3) {
+      return object : VideoCompositorSettings {
+        override fun getOutputSize(inputSizes: List<Size>): Size {
+          return inputSizes[0]
+        }
 
-              2 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(-0.5f, -0.5f) // Bottom-left section of background
-                  .build()
-              }
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+          val videoInputIndex = mapInputId(inputId)
+          if (videoInputIndex == -1) return StaticOverlaySettings.Builder().build()
 
-              3 -> {
-                StaticOverlaySettings.Builder()
-                  .setScale(0.5f, 0.5f)
-                  .setOverlayFrameAnchor(0f, 0f) // Middle of overlay
-                  .setBackgroundFrameAnchor(0.5f, -0.5f) // Bottom-right section of background
-                  .build()
-              }
+          val cols = ceil(sqrt(numVideoSequences.toDouble())).toInt()
+          val rows = ceil(numVideoSequences.toDouble() / cols).toInt()
 
-              else -> {
-                StaticOverlaySettings.Builder().build()
-              }
-            }
-          }
+          val colIndex = videoInputIndex % cols
+          val rowIndex = videoInputIndex / cols
+
+          val scaleX = 1.0f / cols
+          val scaleY = 1.0f / rows
+
+          // x center in [-1, 1]
+          val anchorX = -1f + (colIndex + 0.5f) * (2.0f / cols)
+          // y center in [-1, 1], with 1 at top
+          val anchorY = 1f - (rowIndex + 0.5f) * (2.0f / rows)
+
+          return StaticOverlaySettings.Builder()
+            .setScale(scaleX, scaleY)
+            .setOverlayFrameAnchor(0f, 0f)
+            .setBackgroundFrameAnchor(anchorX, anchorY)
+            .build()
         }
       }
+    } else if (numVideoSequences == 2) {
+      // PiP Overlay
+      val cycleTimeUs = 3_000_000f // Time for overlay to complete a cycle in Us
 
-      COMPOSITION_LAYOUT[2] -> {
-        // PiP Overlay
-        val cycleTimeUs = 3_000_000f // Time for overlay to complete a cycle in Us
+      return object : VideoCompositorSettings {
+        override fun getOutputSize(inputSizes: List<Size>): Size {
+          return inputSizes[0]
+        }
 
-        object : VideoCompositorSettings {
-          override fun getOutputSize(inputSizes: List<Size>): Size {
-            return inputSizes[0]
-          }
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+          val videoInputIndex = mapInputId(inputId)
 
-          override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
-            return if (inputId == 0) {
-              val cycleRadians = 2 * Math.PI * (presentationTimeUs / cycleTimeUs)
-              StaticOverlaySettings.Builder()
-                .setScale(0.35f, 0.35f)
-                .setOverlayFrameAnchor(0f, 1f) // Top-middle of overlay
-                .setBackgroundFrameAnchor(sin(cycleRadians).toFloat() * 0.5f, -0.2f)
-                .setRotationDegrees(cos(cycleRadians).toFloat() * -10f)
-                .build()
-            } else {
-              StaticOverlaySettings.Builder().build()
-            }
+          return if (videoInputIndex == 0) {
+            val cycleRadians = 2 * Math.PI * (presentationTimeUs / cycleTimeUs)
+            StaticOverlaySettings.Builder()
+              .setScale(0.35f, 0.35f)
+              .setOverlayFrameAnchor(0f, 1f) // Top-middle of overlay
+              .setBackgroundFrameAnchor(sin(cycleRadians).toFloat() * 0.5f, -0.2f)
+              .setRotationDegrees(cos(cycleRadians).toFloat() * -10f)
+              .build()
+          } else {
+            StaticOverlaySettings.Builder().build()
           }
         }
-      }
-
-      else -> {
-        VideoCompositorSettings.DEFAULT
       }
     }
+
+    return VideoCompositorSettings.DEFAULT
   }
 
   private fun createCompositionPlayer(): CompositionPlayer {
@@ -705,10 +850,9 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           overlaySettingsProvider = CompositionPreviewViewModel::getOverlaySettings,
         )
       )
-      playerBuilder.setGlThreadExecutorService(glExecutorService)
     } else {
       playerBuilder = CompositionPlayer.Builder(getApplication())
-      if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
+      if (uiState.value.sequenceTrackTypes.size > 1) {
         playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
       }
     }
@@ -718,7 +862,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
           _uiState.update { currentState ->
-            currentState.copy(snackbarMessage = "Preview error: $error")
+            currentState.copy(
+              snackbarMessage =
+                getApplication<Application>()
+                  .resources
+                  .getString(R.string.preview_error_msg, error.toString())
+            )
           }
           Log.e(TAG, "Preview error", error)
         }
@@ -784,7 +933,6 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       listOf(SAME_AS_INPUT_OPTION, "144", "240", "360", "480", "720", "1080", "1440", "2160")
     val MUXER_OPTIONS =
       listOf("Use Platform MediaMuxer", "Use Media3 Mp4Muxer", "Use Media3 FragmentedMp4Muxer")
-    val COMPOSITION_LAYOUT = listOf("Sequential", "2x2 grid", "PiP overlay")
 
     fun getAudioBackgroundSequence(): EditedMediaItemSequence {
       val audioMediaItem: MediaItem = MediaItem.Builder().setUri(AUDIO_URI).build()

@@ -49,4 +49,27 @@
   <string name="play" translatable="false">Play</string>
   <string name="add_item">Add Item</string>
   <string name="add_local_file">Add Local File</string>
+  <string name="delete_sequence" translatable="false">Delete</string>
+  <string name="sequence_label" translatable="false">Sequence %d</string>
+  <string name="audio" translatable="false">Audio</string>
+  <string name="video" translatable="false">Video</string>
+  <string name="failed_load_media" translatable="false">Failed to load media item.</string>
+  <string name="failed_get_duration" translatable="false">Failed to get duration.</string>
+  <string name="abort_export_output_file" translatable="false">Aborting export! Unable to create output file: %s</string>
+  <string name="api_33_required_packet_consumer" translatable="false">API 33+ required to export with PacketConsumer</string>
+  <string name="export_error_msg" translatable="false">Export error: %s</string>
+  <string name="preview_error_msg" translatable="false">Preview error: %s</string>
+  <string name="preset_sequence" translatable="false">Sequential</string>
+  <string name="preset_grid" translatable="false">2x2 grid</string>
+  <string name="preset_pip" translatable="false">PiP overlay</string>
+  <string name="presets" translatable="false">Preset</string>
+  <string name="preview_composition_title" translatable="false">Preview: %s</string>
+  <string name="add_sequence" translatable="false">Add sequence</string>
+  <string name="item_index_label" translatable="false">%1$d. %2$s</string>
+  <string name="none" translatable="false">None</string>
+  <string name="effect_label" translatable="false">Effect: %s</string>
+  <string name="remove_item" translatable="false">Remove item %d</string>
+  <string name="item_with_duration" translatable="false">%1$s (%2$s)</string>
+  <string name="background_audio_track">Background audio track</string>
+  <string name="preset_custom" translatable="false">Custom</string>
 </resources>

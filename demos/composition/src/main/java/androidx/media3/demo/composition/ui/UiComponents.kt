@@ -41,11 +41,13 @@ fun <T> DropDownSpinner(
   changeDropDownOpen: (Boolean) -> Unit,
   changeSelectedOption: (T) -> Unit,
   modifier: Modifier = Modifier,
+  labelProvider: @Composable (T) -> String = { it.toString() },
 ) {
   Column(modifier = modifier) {
     Box {
+      val selectedLabel = selectedOption?.let { labelProvider(it) } ?: ""
       OutlinedTextField(
-        value = (selectedOption ?: "").toString(),
+        value = selectedLabel,
         onValueChange = {},
         trailingIcon = { Icon(Icons.Outlined.ArrowDropDown, null) },
         modifier =
@@ -62,7 +64,7 @@ fun <T> DropDownSpinner(
       DropdownMenu(expanded = isDropDownOpen, onDismissRequest = { changeDropDownOpen(false) }) {
         dropDownOptions.forEach { option ->
           DropdownMenuItem(
-            text = { Text(text = option.toString()) },
+            text = { Text(text = labelProvider(option)) },
             onClick = {
               changeDropDownOpen(false)
               changeSelectedOption(option)

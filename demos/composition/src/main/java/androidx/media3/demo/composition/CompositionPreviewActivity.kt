@@ -34,7 +34,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,9 +65,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.AnimatedPane
@@ -95,6 +96,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MEDIA_TYPES
@@ -104,8 +106,8 @@ import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SA
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
 import androidx.media3.demo.composition.data.Item
-import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
+import androidx.media3.demo.composition.data.Preset
 import androidx.media3.demo.composition.ui.DropDownSpinner
 import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 import androidx.media3.demo.composition.ui.theme.spacing
@@ -134,8 +136,11 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
     // Request permission in case the file is local. This is for manual testing only.
     val permission =
-      if (SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO
-      else Manifest.permission.READ_EXTERNAL_STORAGE
+      if (SDK_INT >= 33) {
+        Manifest.permission.READ_MEDIA_VIDEO
+      } else {
+        Manifest.permission.READ_EXTERNAL_STORAGE
+      }
     if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
       ActivityCompat.requestPermissions(
         this,
@@ -225,7 +230,11 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
     Column(modifier = modifier.fillMaxSize()) {
       Text(
-        text = "${uiState.compositionLayout} ${stringResource(R.string.preview_composition)}",
+        text =
+          stringResource(
+            R.string.preview_composition_title,
+            presetToString(uiState.selectedPreset),
+          ),
         fontWeight = FontWeight.Bold,
       )
 
@@ -257,28 +266,67 @@ class CompositionPreviewActivity : AppCompatActivity() {
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
         modifier = modifier.weight(1f).verticalScroll(scrollState),
       ) {
-        Box {
-          VideoSequenceList(
-            mediaState = uiState.mediaState,
+        if (uiState.sequenceTrackTypes.isNotEmpty()) {
+          ScrollableTabRow(
+            selectedTabIndex = uiState.selectedSequenceIndex,
+            edgePadding = 0.dp,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxWidth(),
+          ) {
+            uiState.sequenceTrackTypes.forEachIndexed { index, _ ->
+              Tab(
+                selected = uiState.selectedSequenceIndex == index,
+                onClick = { viewModel.onSequenceSelected(index) },
+                text = { Text(text = stringResource(R.string.sequence_label, index + 1)) },
+              )
+            }
+            // Add Sequence button
+            Tab(
+              selected = false,
+              onClick = { viewModel.addSequence() },
+              text = {
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_sequence))
+              },
+            )
+          }
+
+          SequencePane(
+            sequenceIndex = uiState.selectedSequenceIndex,
+            trackTypes = uiState.sequenceTrackTypes[uiState.selectedSequenceIndex],
+            selectedItems =
+              uiState.mediaState.selectedItemsBySequence.getOrNull(uiState.selectedSequenceIndex)
+                ?: emptyList(),
+            availableItems = uiState.mediaState.availableItems,
+            availableEffects = uiState.mediaState.availableEffects,
             isEnabled = true,
-            onAddItem = { index -> viewModel.addItem(index) },
-            onRemoveItem = { index -> viewModel.removeItem(index) },
-            onUpdateEffects = { index, effects -> viewModel.updateEffectsForItem(index, effects) },
-            onAddLocalItem = { uri -> viewModel.addLocalItem(uri) },
+            onTrackTypeChanged = viewModel::onSequenceTrackTypeChanged,
+            onAddItem = viewModel::addItem,
+            onRemoveItem = viewModel::removeItem,
+            onUpdateEffects = viewModel::updateEffectsForItem,
+            onAddLocalItem = viewModel::addLocalItem,
+            onRemoveSequence = viewModel::removeSequence,
           )
         }
 
-        DropDownSpinner(
-          isDropDownOpen = isLayoutDropdownExpanded,
-          selectedOption = uiState.compositionLayout,
-          dropDownOptions = uiState.availableLayouts,
-          changeDropDownOpen = { isLayoutDropdownExpanded = it },
-          changeSelectedOption = { newSelection ->
-            viewModel.onCompositionLayoutChanged(newSelection)
-            isLayoutDropdownExpanded = false
-          },
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
           modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        )
+        ) {
+          Text(text = stringResource(R.string.presets), modifier = Modifier.textPadding())
+          DropDownSpinner(
+            isDropDownOpen = isLayoutDropdownExpanded,
+            selectedOption = uiState.selectedPreset,
+            dropDownOptions = viewModel.compositionLayouts,
+            changeDropDownOpen = { isLayoutDropdownExpanded = it },
+            changeSelectedOption = { newSelection ->
+              viewModel.onPresetSelected(newSelection)
+              isLayoutDropdownExpanded = false
+            },
+            labelProvider = { preset -> presetToString(preset) },
+          )
+        }
 
         Row(
           verticalAlignment = Alignment.CenterVertically,
@@ -466,13 +514,19 @@ class CompositionPreviewActivity : AppCompatActivity() {
   }
 
   @Composable
-  fun VideoSequenceList(
-    mediaState: MediaState,
+  fun SequencePane(
+    sequenceIndex: Int,
+    trackTypes: Set<Int>,
+    selectedItems: List<Item>,
+    availableItems: List<Item>,
+    availableEffects: List<String>,
     isEnabled: Boolean,
-    onAddItem: (Int) -> Unit,
-    onRemoveItem: (Int) -> Unit,
-    onUpdateEffects: (index: Int, effects: Set<String>) -> Unit,
-    onAddLocalItem: (Uri) -> Unit,
+    onTrackTypeChanged: (Int, Set<Int>) -> Unit,
+    onAddItem: (Int, Int) -> Unit,
+    onRemoveItem: (Int, Int) -> Unit,
+    onUpdateEffects: (sequenceIndex: Int, itemIndex: Int, effects: Set<String>) -> Unit,
+    onAddLocalItem: (Int, Uri) -> Unit,
+    onRemoveSequence: (Int) -> Unit,
   ) {
     var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
     var showEditMediaItemsDialog by remember { mutableStateOf(false) }
@@ -480,84 +534,128 @@ class CompositionPreviewActivity : AppCompatActivity() {
     val filePickerLauncher =
       rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {
         uri: Uri? ->
-        uri?.let { onAddLocalItem(it) }
+        uri?.let { onAddLocalItem(sequenceIndex, it) }
       }
 
     if (showEditMediaItemsDialog) {
       VideoSequenceDialog(
         onDismissRequest = { showEditMediaItemsDialog = false },
-        itemOptions = mediaState.availableItems,
-        addSelectedVideo = { index -> onAddItem(index) },
+        itemOptions = availableItems,
+        addSelectedVideo = { itemIndex -> onAddItem(sequenceIndex, itemIndex) },
       )
     }
 
-    selectedMediaItemIndex?.let { index ->
-      val item = mediaState.selectedItems[index]
+    selectedMediaItemIndex?.let { itemIndex ->
+      val item = selectedItems[itemIndex]
       EffectSelectionDialog(
         onDismissRequest = { selectedMediaItemIndex = null },
-        effectOptions = mediaState.availableEffects,
+        effectOptions = availableEffects,
         currentSelections = item.selectedEffects,
-        onEffectsSelected = { newEffects -> onUpdateEffects(index, newEffects) },
+        onEffectsSelected = { newEffects -> onUpdateEffects(sequenceIndex, itemIndex, newEffects) },
       )
     }
 
-    Box(
+    Column(
       modifier =
-        Modifier.border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
+        Modifier.padding(vertical = 4.dp)
+          .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
           .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp))
+          .padding(MaterialTheme.spacing.small)
     ) {
-      Column(
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-        modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small),
+      // Track Settings
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
       ) {
         Text(
-          text = stringResource(R.string.video_sequence_items),
-          modifier = Modifier.align(Alignment.CenterHorizontally),
+          text = stringResource(R.string.sequence_label, sequenceIndex + 1),
+          fontWeight = FontWeight.Bold,
+          modifier = Modifier.weight(1f),
         )
-        Text(
-          text = stringResource(R.string.add_effects_hint),
-          fontSize = 12.sp,
-          fontStyle = FontStyle.Italic,
-          modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
-        LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-          itemsIndexed(mediaState.selectedItems) { index, item ->
-            Row(
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically,
-              modifier =
-                Modifier.fillMaxWidth().clickable(enabled = isEnabled) {
-                  selectedMediaItemIndex = index
-                },
-            ) {
-              Column(modifier = Modifier.textPadding().weight(1f)) {
-                Text(text = "${index + 1}. ${item.title}")
-                val effectsText = item.selectedEffects.joinToString().ifEmpty { "None" }
-                Text(
-                  text = "Effect: $effectsText",
-                  fontSize = 12.sp,
-                  fontStyle = FontStyle.Italic,
-                  color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                )
-              }
-              IconButton({ onRemoveItem(index) }, enabled = isEnabled) {
-                Icon(Icons.TwoTone.Delete, contentDescription = "Remove item ${index + 1}")
-              }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Checkbox(
+            checked = trackTypes.contains(C.TRACK_TYPE_AUDIO),
+            onCheckedChange = { checked ->
+              val newTypes =
+                if (checked) trackTypes + C.TRACK_TYPE_AUDIO else trackTypes - C.TRACK_TYPE_AUDIO
+              onTrackTypeChanged(sequenceIndex, newTypes)
+            },
+            enabled =
+              isEnabled && !(trackTypes.contains(C.TRACK_TYPE_AUDIO) && trackTypes.size == 1),
+          )
+          Text(text = stringResource(R.string.audio))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Checkbox(
+            checked = trackTypes.contains(C.TRACK_TYPE_VIDEO),
+            onCheckedChange = { checked ->
+              val newTypes =
+                if (checked) trackTypes + C.TRACK_TYPE_VIDEO else trackTypes - C.TRACK_TYPE_VIDEO
+              onTrackTypeChanged(sequenceIndex, newTypes)
+            },
+            enabled =
+              isEnabled && !(trackTypes.contains(C.TRACK_TYPE_VIDEO) && trackTypes.size == 1),
+          )
+          Text(text = stringResource(R.string.video))
+        }
+      }
+
+      HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
+
+      // Media Items List
+      Text(
+        text = stringResource(R.string.add_effects_hint),
+        fontSize = 12.sp,
+        fontStyle = FontStyle.Italic,
+        modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp),
+      )
+
+      LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+        itemsIndexed(selectedItems) { index, item ->
+          Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+              Modifier.fillMaxWidth().clickable(enabled = isEnabled) {
+                selectedMediaItemIndex = index
+              },
+          ) {
+            Column(modifier = Modifier.textPadding().weight(1f)) {
+              Text(text = stringResource(R.string.item_index_label, index + 1, item.title))
+              val effectsText =
+                item.selectedEffects.joinToString().ifEmpty { stringResource(R.string.none) }
+              Text(
+                text = stringResource(R.string.effect_label, effectsText),
+                fontSize = 12.sp,
+                fontStyle = FontStyle.Italic,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+              )
+            }
+            IconButton({ onRemoveItem(sequenceIndex, index) }, enabled = isEnabled) {
+              Icon(
+                Icons.TwoTone.Delete,
+                contentDescription = stringResource(R.string.remove_item, index + 1),
+              )
             }
           }
         }
-        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-          ElevatedButton(onClick = { showEditMediaItemsDialog = true }, enabled = isEnabled) {
-            Text(text = stringResource(R.string.edit))
-          }
-          ElevatedButton(
-            onClick = { filePickerLauncher.launch(MEDIA_TYPES) },
-            enabled = isEnabled,
-          ) {
-            Text(text = stringResource(R.string.add_local_file))
-          }
+      }
+
+      HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
+
+      Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+      ) {
+        ElevatedButton(onClick = { showEditMediaItemsDialog = true }, enabled = isEnabled) {
+          Text(text = stringResource(R.string.edit))
+        }
+        ElevatedButton(onClick = { filePickerLauncher.launch(MEDIA_TYPES) }, enabled = isEnabled) {
+          Text(text = stringResource(R.string.add_local_file))
+        }
+        ElevatedButton(onClick = { onRemoveSequence(sequenceIndex) }, enabled = isEnabled) {
+          Text(text = stringResource(R.string.delete_sequence))
         }
       }
     }
@@ -605,7 +703,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     duration.inWholeMinutes,
                     duration.inWholeSeconds % 60,
                   )
-                Text(text = "${item.title} ($durationString)")
+                Text(text = stringResource(R.string.item_with_duration, item.title, durationString))
               }
             }
           }
@@ -728,6 +826,16 @@ class CompositionPreviewActivity : AppCompatActivity() {
           }
         }
       }
+    }
+  }
+
+  @Composable
+  private fun presetToString(preset: Preset): String {
+    return when (preset) {
+      Preset.SEQUENCE -> stringResource(R.string.preset_sequence)
+      Preset.GRID -> stringResource(R.string.preset_grid)
+      Preset.PIP -> stringResource(R.string.preset_pip)
+      Preset.CUSTOM -> stringResource(R.string.preset_custom)
     }
   }
 
