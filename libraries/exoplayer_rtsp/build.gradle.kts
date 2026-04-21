@@ -30,13 +30,13 @@ dependencies {
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  api(project(modulePrefix + "lib-exoplayer"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-data"))
+  api(project(":lib-exoplayer"))
+  testImplementation(project(":test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-data"))
   testImplementation(libs.checkerframework.qual)
   testImplementation(libs.robolectric)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
 }
 

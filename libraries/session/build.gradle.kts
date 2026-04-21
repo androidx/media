@@ -30,20 +30,20 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   api(libs.androidx.lifecycle.service)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
-  implementation(project(modulePrefix + "lib-datasource"))
+  implementation(project(":lib-datasource"))
   implementation(libs.androidx.collection)
   implementation(libs.androidx.concurrent.futures)
   implementation(libs.androidx.media)
   implementation(libs.androidx.core)
   testImplementation(libs.okhttp.mockwebserver)
-  testImplementation(project(modulePrefix + "test-data"))
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
-  testImplementation(project(modulePrefix + "lib-exoplayer"))
+  testImplementation(project(":test-data"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-utils-robolectric"))
+  testImplementation(project(":lib-exoplayer"))
   testImplementation(libs.robolectric)
   testImplementation(libs.test.parameter.injector)
 }

@@ -34,19 +34,19 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-exoplayer"))
+  api(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.concurrent.futures)
   compileOnly(libs.androidx.exifinterface)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
   testImplementation(libs.truth)
   testImplementation(libs.junit)
   androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-inspector"

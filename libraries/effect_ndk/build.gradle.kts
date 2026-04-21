@@ -55,15 +55,15 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-effect"))
-  api(project(modulePrefix + "lib-transformer"))
+  api(project(":lib-common"))
+  api(project(":lib-effect"))
+  api(project(":lib-transformer"))
   implementation(libs.kotlinx.coroutines.guava)
   compileOnly(libs.errorprone.annotations)
   androidTestImplementation(libs.junit)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.truth)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-effect-ndk"

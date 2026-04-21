@@ -64,8 +64,8 @@ dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.material)
   implementation(libs.kotlinx.coroutines.guava)
-  implementation(project(modulePrefix + "lib-cast"))
-  implementation(project(modulePrefix + "lib-ui"))
-  implementation(project(modulePrefix + "lib-session"))
-  implementation(project(modulePrefix + "demo-session-service"))
+  implementation(project(":lib-cast"))
+  implementation(project(":lib-ui"))
+  implementation(project(":lib-session"))
+  implementation(project(":demo-session-service"))
 }

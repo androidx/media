@@ -16,13 +16,6 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.extra
 
 /**
- * Extension property to allow all build.gradle.kts files to access the 'modulePrefix' extra
- * property directly.
- */
-val Project.modulePrefix: String
-  get() = extra["modulePrefix"] as String
-
-/**
  * Extension property to allow all build.gradle.kts files to access the 'releaseVersion' extra
  * property directly.
  */

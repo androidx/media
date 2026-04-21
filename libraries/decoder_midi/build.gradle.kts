@@ -24,18 +24,18 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-exoplayer"))
-  api(project(modulePrefix + "lib-decoder"))
-  api(project(modulePrefix + "lib-extractor"))
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-exoplayer"))
+  api(project(":lib-decoder"))
+  api(project(":lib-extractor"))
+  api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   // Jsyn v17.2.0
   implementation("com.github.philburk:jsyn:3f6b44b853bccc0d2e3027104d575fcc5ccb6d4e")
   compileOnly(libs.checkerframework.qual)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-data"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-data"))
   testImplementation(libs.robolectric)
 }
 

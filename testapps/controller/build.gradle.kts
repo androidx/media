@@ -63,9 +63,9 @@ dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.material)
   implementation(libs.androidx.media)
-  implementation(project(modulePrefix + "lib-session"))
-  implementation(project(modulePrefix + "lib-datasource"))
+  implementation(project(":lib-session"))
+  implementation(project(":lib-datasource"))
 
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
 }

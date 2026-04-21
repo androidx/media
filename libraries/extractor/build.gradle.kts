@@ -30,20 +30,20 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-container"))
+  api(project(":lib-common"))
+  api(project(":lib-container"))
   // TODO(b/203752187): Remove this dependency.
-  implementation(project(modulePrefix + "lib-decoder"))
+  implementation(project(":lib-decoder"))
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  testImplementation(project(modulePrefix + "lib-exoplayer"))
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-data"))
+  testImplementation(project(":lib-exoplayer"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-data"))
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.robolectric)
   androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.dexmaker)
 }
 

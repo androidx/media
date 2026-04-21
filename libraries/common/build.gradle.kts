@@ -19,10 +19,7 @@ apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 // the Gradle properties of each library are populated and we can automatically
 // check if a 'releaseArtifactId' exists.
 rootProject.allprojects.forEach {
-  if (
-    (it.name.startsWith(modulePrefix.replace(":", "") + "lib-") ||
-      it.name.startsWith(modulePrefix.replace(":", "") + "test-")) && !it.name.endsWith("-common")
-  ) {
+  if ((it.name.startsWith("lib-") || it.name.startsWith("test-")) && !it.name.endsWith("-common")) {
     evaluationDependsOn(":" + it.name)
   }
 }
@@ -76,11 +73,11 @@ dependencies {
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.truth)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "lib-exoplayer"))
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":lib-exoplayer"))
+  testImplementation(project(":test-utils"))
 
   androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-common"

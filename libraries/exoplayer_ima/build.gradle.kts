@@ -30,17 +30,17 @@ dependencies {
   api("com.google.ads.interactivemedia.v3:interactivemedia:3.39.0") {
     exclude(group = "androidx.media3", module = "media3-common")
   }
-  api(project(modulePrefix + "lib-exoplayer"))
+  api(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.rules)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestCompileOnly(libs.checkerframework.qual)
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-utils-robolectric"))
   testImplementation(libs.robolectric)
 }
 

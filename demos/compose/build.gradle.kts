@@ -65,9 +65,9 @@ dependencies {
   implementation(libs.material)
   implementation(libs.kotlinx.coroutines.guava)
 
-  implementation(project(modulePrefix + "lib-exoplayer"))
-  implementation(project(modulePrefix + "lib-inspector"))
-  implementation(project(modulePrefix + "lib-ui-compose-material3"))
+  implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-inspector"))
+  implementation(project(":lib-ui-compose-material3"))
 
   // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
   debugImplementation(libs.leakcanary.android)

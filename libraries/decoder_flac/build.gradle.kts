@@ -53,17 +53,17 @@ if (project.file("src/main/jni/libflac").exists()) {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-decoder"))
+  api(project(":lib-decoder"))
   // TODO(b/203752526): Remove this dependency.
-  implementation(project(modulePrefix + "lib-exoplayer"))
+  implementation(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-data"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-data"))
   testImplementation(libs.robolectric)
 }

@@ -46,12 +46,12 @@ android {
 }
 
 dependencies {
-  implementation(project(modulePrefix + "lib-exoplayer"))
-  implementation(project(modulePrefix + "lib-exoplayer-dash"))
-  implementation(project(modulePrefix + "lib-exoplayer-hls"))
-  implementation(project(modulePrefix + "lib-exoplayer-rtsp"))
-  implementation(project(modulePrefix + "lib-exoplayer-smoothstreaming"))
-  implementation(project(modulePrefix + "lib-ui"))
+  implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-exoplayer-dash"))
+  implementation(project(":lib-exoplayer-hls"))
+  implementation(project(":lib-exoplayer-rtsp"))
+  implementation(project(":lib-exoplayer-smoothstreaming"))
+  implementation(project(":lib-ui"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.checkerframework.qual)
 }

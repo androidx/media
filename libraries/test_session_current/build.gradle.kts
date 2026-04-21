@@ -36,14 +36,14 @@ android {
 }
 
 dependencies {
-  implementation(project(modulePrefix + "lib-session"))
-  implementation(project(modulePrefix + "test-session-common"))
-  implementation(project(modulePrefix + "test-data"))
+  implementation(project(":lib-session"))
+  implementation(project(":test-session-common"))
+  implementation(project(":test-data"))
   implementation(libs.androidx.media)
   implementation(libs.androidx.test.core)
-  implementation(project(modulePrefix + "test-data"))
-  androidTestImplementation(project(modulePrefix + "lib-exoplayer"))
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  implementation(project(":test-data"))
+  androidTestImplementation(project(":lib-exoplayer"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.test.parameter.injector)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.truth)

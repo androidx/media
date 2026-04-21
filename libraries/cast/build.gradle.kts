@@ -34,8 +34,8 @@ dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.mediarouter)
   api(libs.gms.play.services.cast.framework)
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-exoplayer"))
+  api(project(":lib-common"))
+  api(project(":lib-exoplayer"))
   implementation(platform(libs.androidx.compose.bom))
   // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
   implementation(libs.androidx.compose.material3)
@@ -45,7 +45,7 @@ dependencies {
   compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
 }
 

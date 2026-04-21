@@ -21,8 +21,8 @@ dependencies {
   androidTestImplementation(libs.androidx.test.rules)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.annotation)
-  androidTestImplementation(project(modulePrefix + "lib-exoplayer"))
-  androidTestImplementation(project(modulePrefix + "lib-exoplayer-dash"))
-  androidTestImplementation(project(modulePrefix + "lib-exoplayer-hls"))
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":lib-exoplayer"))
+  androidTestImplementation(project(":lib-exoplayer-dash"))
+  androidTestImplementation(project(":lib-exoplayer-hls"))
+  androidTestImplementation(project(":test-utils"))
 }

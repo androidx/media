@@ -26,15 +26,15 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-exoplayer"))
-  api(project(modulePrefix + "lib-effect"))
+  api(project(":lib-exoplayer"))
+  api(project(":lib-effect"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.concurrent.futures)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
   androidTestImplementation(libs.androidx.test.runner)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-inspector-frame"

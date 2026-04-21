@@ -33,8 +33,8 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-common-ktx"))
+  api(project(":lib-common"))
+  api(project(":lib-common-ktx"))
 
   api(platform(libs.androidx.compose.bom))
   // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
@@ -42,8 +42,8 @@ dependencies {
 
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-utils-robolectric"))
   testImplementation(libs.robolectric)
 }
 

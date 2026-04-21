@@ -50,13 +50,13 @@ android {
 }
 
 dependencies {
-  implementation(project(modulePrefix + "lib-exoplayer"))
-  implementation(project(modulePrefix + "lib-exoplayer-dash"))
-  implementation(project(modulePrefix + "lib-exoplayer-hls"))
-  implementation(project(modulePrefix + "lib-exoplayer-rtsp"))
-  implementation(project(modulePrefix + "lib-exoplayer-smoothstreaming"))
-  implementation(project(modulePrefix + "lib-ui"))
-  implementation(project(modulePrefix + "lib-cast"))
+  implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-exoplayer-dash"))
+  implementation(project(":lib-exoplayer-hls"))
+  implementation(project(":lib-exoplayer-rtsp"))
+  implementation(project(":lib-exoplayer-smoothstreaming"))
+  implementation(project(":lib-ui"))
+  implementation(project(":lib-cast"))
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.recyclerview)
   implementation(libs.material)

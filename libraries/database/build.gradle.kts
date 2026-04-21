@@ -24,14 +24,14 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-database"

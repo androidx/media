@@ -43,15 +43,15 @@ if (project.file("src/main/jni/iamf_tools").exists()) {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-decoder"))
+  api(project(":lib-decoder"))
   // TODO(b/203752526): Remove this dependency.
-  implementation(project(modulePrefix + "lib-exoplayer"))
+  implementation(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.kotlin.annotations.jvm)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)
 }

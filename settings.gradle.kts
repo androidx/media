@@ -19,100 +19,89 @@ pluginManagement {
   }
 }
 
-gradle.extra["androidxMediaModulePrefix"] = ""
-
 gradle.extra["androidxMediaSettingsDir"] = settingsDir
 
-val modulePrefix =
-  ":" +
-    (gradle.extra.takeIf { it.has("androidxMediaModulePrefix") }?.get("androidxMediaModulePrefix")
-      as? String ?: "")
-
 rootProject.name = "androidx.media3"
-
-gradle.extra["rootProjectIsAndroidXMedia3"] = true
 
 gradle.extra["androidxMediaEnableMidiModule"] = true
 
 // All library modules should be configured in core_settings.gradle.kts. Below are
 // modules that no app should depend on.
-
 // Demo apps
-include("${modulePrefix}demo")
+include(":demo")
 
-project("${modulePrefix}demo").projectDir = file("demos/main")
+project(":demo").projectDir = file("demos/main")
 
-include("${modulePrefix}demo-cast")
+include(":demo-cast")
 
-project("${modulePrefix}demo-cast").projectDir = file("demos/cast")
+project(":demo-cast").projectDir = file("demos/cast")
 
-include("${modulePrefix}demo-compose")
+include(":demo-compose")
 
-project("${modulePrefix}demo-compose").projectDir = file("demos/compose")
+project(":demo-compose").projectDir = file("demos/compose")
 
-include("${modulePrefix}demo-composition")
+include(":demo-composition")
 
-project("${modulePrefix}demo-composition").projectDir = file("demos/composition")
+project(":demo-composition").projectDir = file("demos/composition")
 
-include("${modulePrefix}demo-effect")
+include(":demo-effect")
 
-project("${modulePrefix}demo-effect").projectDir = file("demos/effect")
+project(":demo-effect").projectDir = file("demos/effect")
 
-include("${modulePrefix}demo-gl")
+include(":demo-gl")
 
-project("${modulePrefix}demo-gl").projectDir = file("demos/gl")
+project(":demo-gl").projectDir = file("demos/gl")
 
-include("${modulePrefix}demo-session")
+include(":demo-session")
 
-project("${modulePrefix}demo-session").projectDir = file("demos/session")
+project(":demo-session").projectDir = file("demos/session")
 
-include("${modulePrefix}demo-session-service")
+include(":demo-session-service")
 
-project("${modulePrefix}demo-session-service").projectDir = file("demos/session_service")
+project(":demo-session-service").projectDir = file("demos/session_service")
 
-include("${modulePrefix}demo-session-automotive")
+include(":demo-session-automotive")
 
-project("${modulePrefix}demo-session-automotive").projectDir = file("demos/session_automotive")
+project(":demo-session-automotive").projectDir = file("demos/session_automotive")
 
-include("${modulePrefix}demo-shortform")
+include(":demo-shortform")
 
-project("${modulePrefix}demo-shortform").projectDir = file("demos/shortform")
+project(":demo-shortform").projectDir = file("demos/shortform")
 
-include("${modulePrefix}demo-surface")
+include(":demo-surface")
 
-project("${modulePrefix}demo-surface").projectDir = file("demos/surface")
+project(":demo-surface").projectDir = file("demos/surface")
 
-include("${modulePrefix}demo-transformer")
+include(":demo-transformer")
 
-project("${modulePrefix}demo-transformer").projectDir = file("demos/transformer")
+project(":demo-transformer").projectDir = file("demos/transformer")
 
 // Modules that only contain tests (not utils used by other test modules)
-include("${modulePrefix}test-exoplayer-playback")
+include(":test-exoplayer-playback")
 
-project("${modulePrefix}test-exoplayer-playback").projectDir =
-  file("libraries/test_exoplayer_playback")
+project(":test-exoplayer-playback").projectDir = file("libraries/test_exoplayer_playback")
 
-include("${modulePrefix}test-proguard")
+include(":test-proguard")
 
-project("${modulePrefix}test-proguard").projectDir = file("libraries/test_proguard")
+project(":test-proguard").projectDir = file("libraries/test_proguard")
 
-include("${modulePrefix}test-session-common")
+include(":test-session-common")
 
-project("${modulePrefix}test-session-common").projectDir = file("libraries/test_session_common")
+project(":test-session-common").projectDir = file("libraries/test_session_common")
 
-include("${modulePrefix}test-session-current")
+include(":test-session-current")
 
-project("${modulePrefix}test-session-current").projectDir = file("libraries/test_session_current")
+project(":test-session-current").projectDir = file("libraries/test_session_current")
 
 // MediaController test app.
-include("${modulePrefix}testapp-controller")
+include(":testapp-controller")
 
-project("${modulePrefix}testapp-controller").projectDir = file("testapps/controller")
+project(":testapp-controller").projectDir = file("testapps/controller")
 
 // Documentation samples.
-include("${modulePrefix}doc-samples")
+include(":doc-samples")
 
-project("${modulePrefix}doc-samples").projectDir = file("docsamples")
+project(":doc-samples").projectDir = file("docsamples")
 
 apply(
   from = "core_settings.gradle.kts"

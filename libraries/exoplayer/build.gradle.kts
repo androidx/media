@@ -37,13 +37,13 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-container"))
+  api(project(":lib-common"))
+  api(project(":lib-container"))
   // TODO(b/203754886): Revisit which modules are exported as API dependencies.
-  api(project(modulePrefix + "lib-datasource"))
-  api(project(modulePrefix + "lib-decoder"))
-  api(project(modulePrefix + "lib-extractor"))
-  api(project(modulePrefix + "lib-database"))
+  api(project(":lib-datasource"))
+  api(project(":lib-decoder"))
+  api(project(":lib-extractor"))
+  api(project(":lib-database"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.exifinterface)
   compileOnly(libs.jsr305)
@@ -53,13 +53,13 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker)
   androidTestImplementation(libs.dexmaker.mockito)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-utils-robolectric"))
 }
 
 extra["releaseArtifactId"] = "media3-exoplayer"

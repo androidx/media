@@ -26,9 +26,9 @@ dependencies {
   compileOnly(libs.kotlin.annotations.jvm)
   implementation(libs.androidx.annotation)
   implementation(libs.robolectric)
-  api(project(modulePrefix + "lib-exoplayer"))
-  api(project(modulePrefix + "lib-transformer"))
-  api(project(modulePrefix + "test-utils"))
+  api(project(":lib-exoplayer"))
+  api(project(":lib-transformer"))
+  api(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-test-utils-robolectric"

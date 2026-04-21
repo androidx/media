@@ -36,14 +36,14 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.recyclerview)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  testImplementation(project(modulePrefix + "lib-exoplayer"))
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":lib-exoplayer"))
+  testImplementation(project(":test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
 }
 

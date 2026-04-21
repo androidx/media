@@ -31,14 +31,14 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   implementation(libs.androidx.core)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.coroutines.android)
 
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-common-ktx"

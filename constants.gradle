@@ -24,8 +24,4 @@ project.ext {
     targetSdkVersion = libs.findVersion("targetSdkVersion").get().requiredVersion.toInteger()
     compileSdkVersion = libs.findVersion("compileSdkVersion").get().requiredVersion.toInteger()
     checkerframeworkVersion = libs.findVersion("checkerframeworkVersion").get().requiredVersion
-    modulePrefix = ':'
-    if (gradle.ext.has('androidxMediaModulePrefix')) {
-        modulePrefix += gradle.ext.androidxMediaModulePrefix
-    }
 }

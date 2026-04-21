@@ -65,10 +65,10 @@ dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(libs.material)
 
-  implementation(project(modulePrefix + "lib-exoplayer"))
-  implementation(project(modulePrefix + "lib-ui"))
-  implementation(project(modulePrefix + "lib-effect"))
-  implementation(project(modulePrefix + "lib-effect-lottie"))
+  implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-ui"))
+  implementation(project(":lib-effect"))
+  implementation(project(":lib-effect-lottie"))
 
   // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
   debugImplementation(libs.leakcanary.android)

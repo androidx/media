@@ -30,14 +30,14 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)
   testImplementation(libs.junit)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-container"

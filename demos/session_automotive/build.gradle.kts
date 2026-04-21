@@ -56,7 +56,7 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation.experimental)
-  implementation(project(modulePrefix + "lib-session"))
-  implementation(project(modulePrefix + "demo-session-service"))
-  implementation(project(modulePrefix + "lib-exoplayer"))
+  implementation(project(":lib-session"))
+  implementation(project(":demo-session-service"))
+  implementation(project(":lib-exoplayer"))
 }

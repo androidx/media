@@ -22,13 +22,13 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-datasource"))
+  api(project(":lib-common"))
+  api(project(":lib-datasource"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
   compileOnly(libs.kotlin.annotations.jvm)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)

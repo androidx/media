@@ -24,8 +24,8 @@ android {
 dependencies {
   runtimeOnly(libs.play.services.cronet)
   api(libs.cronet.api)
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-datasource"))
+  api(project(":lib-common"))
+  api(project(":lib-datasource"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
@@ -35,8 +35,8 @@ dependencies {
   androidTestImplementation(libs.dexmaker.mockito)
   // Instrumentation tests assume that an app-packaged version of cronet is available.
   androidTestImplementation(libs.cronet.embedded)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.robolectric)
 }

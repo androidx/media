@@ -24,7 +24,7 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-exoplayer"))
+  api(project(":lib-exoplayer"))
   implementation(libs.androidx.work.runtime)
   compileOnly(libs.kotlin.annotations.jvm)
 }

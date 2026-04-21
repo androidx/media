@@ -35,28 +35,28 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
-  implementation(project(modulePrefix + "lib-container"))
+  api(project(":lib-common"))
+  implementation(project(":lib-container"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)
-  testImplementation(project(modulePrefix + "lib-extractor"))
-  testImplementation(project(modulePrefix + "lib-inspector"))
+  testImplementation(project(":lib-extractor"))
+  testImplementation(project(":lib-inspector"))
   testImplementation(libs.test.parameter.injector)
-  testImplementation(project(modulePrefix + "test-utils-robolectric"))
-  testImplementation(project(modulePrefix + "test-utils"))
-  testImplementation(project(modulePrefix + "test-data"))
+  testImplementation(project(":test-utils-robolectric"))
+  testImplementation(project(":test-utils"))
+  testImplementation(project(":test-data"))
   testImplementation(libs.robolectric)
   testImplementation(libs.truth)
-  testImplementation(project(modulePrefix + "lib-exoplayer"))
+  testImplementation(project(":lib-exoplayer"))
 
   androidTestImplementation(libs.junit)
   androidTestImplementation(libs.test.parameter.injector)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.truth)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
-  androidTestImplementation(project(modulePrefix + "lib-extractor"))
-  androidTestImplementation(project(modulePrefix + "lib-inspector"))
+  androidTestImplementation(project(":test-utils"))
+  androidTestImplementation(project(":lib-extractor"))
+  androidTestImplementation(project(":lib-inspector"))
 }
 
 extra["releaseArtifactId"] = "media3-muxer"

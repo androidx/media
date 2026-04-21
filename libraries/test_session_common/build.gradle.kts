@@ -23,7 +23,7 @@ android {
 
 dependencies {
   api(libs.truth)
-  implementation(project(modulePrefix + "lib-common"))
+  implementation(project(":lib-common"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.test.core)
 }

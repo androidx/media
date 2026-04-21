@@ -63,8 +63,8 @@ android {
 dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.material)
-  implementation(project(modulePrefix + "lib-exoplayer"))
-  implementation(project(modulePrefix + "lib-exoplayer-dash"))
-  implementation(project(modulePrefix + "lib-exoplayer-hls"))
-  implementation(project(modulePrefix + "lib-ui"))
+  implementation(project(":lib-exoplayer"))
+  implementation(project(":lib-exoplayer-dash"))
+  implementation(project(":lib-exoplayer-hls"))
+  implementation(project(":lib-ui"))
 }

@@ -29,8 +29,8 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
-  api(project(modulePrefix + "lib-database"))
+  api(project(":lib-common"))
+  api(project(":lib-database"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.exifinterface)
   compileOnly(libs.jsr305)
@@ -41,14 +41,14 @@ dependencies {
   androidTestImplementation(libs.dexmaker)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(libs.okhttp.mockwebserver)
-  androidTestImplementation(project(modulePrefix + "test-utils"))
+  androidTestImplementation(project(":test-utils"))
   testImplementation(libs.mockito.core)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)
   testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.robolectric)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
 }
 
 extra["releaseArtifactId"] = "media3-datasource"

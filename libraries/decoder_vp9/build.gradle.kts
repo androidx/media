@@ -28,12 +28,12 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-decoder"))
+  api(project(":lib-decoder"))
   // TODO(b/203752526): Remove this dependency.
-  implementation(project(modulePrefix + "lib-exoplayer"))
+  implementation(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.kotlin.annotations.jvm)
-  testImplementation(project(modulePrefix + "test-utils"))
+  testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(libs.androidx.test.ext.junit)

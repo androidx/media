@@ -29,7 +29,7 @@ android {
 }
 
 dependencies {
-  api(project(modulePrefix + "lib-common"))
+  api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   compileOnly(libs.checkerframework.qual)
   testImplementation(libs.androidx.test.core)
