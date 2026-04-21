@@ -19,7 +19,7 @@ import org.gradle.api.artifacts.component.ModuleComponentSelector
 import org.gradle.api.initialization.Settings
 
 val mavenIdToGradleName =
-  Media3Modules.libraryModules.entries
+  Media3Modules.externalModules.entries
     .filter { it.value.artifactId != null }
     .associate { it.value.artifactId to it.key }
 

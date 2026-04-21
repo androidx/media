@@ -65,7 +65,7 @@ allprojects {
 
 subprojects {
   // If the map has a Maven ID for this module, dynamically inject it
-  Media3Modules.libraryModules[project.name]?.artifactId?.let { extra["releaseArtifactId"] = it }
+  Media3Modules.externalModules[project.name]?.artifactId?.let { extra["releaseArtifactId"] = it }
 }
 
 tasks.register("printReleaseArtifactIds") {
