@@ -63,19 +63,42 @@ data class MediaState(
 )
 
 /**
+ * Represents either a gap or media, that can be added to the composition.
+ *
+ * @param durationUs The duration of the item in microseconds.
+ */
+sealed interface Item {
+  val durationUs: Long
+
+  fun copy(): Item
+}
+
+/**
  * Represents a single media item, such as a video or image, that can be added to the composition.
  *
+ * @param durationUs The duration of the media item in microseconds.
  * @param title The display name of the media item.
  * @param uri The URI string pointing to the media content.
- * @param durationUs The duration of the media item in microseconds.
  * @param selectedEffects The set of effect names currently applied to this item.
  */
-data class Item(
+data class Media(
+  override val durationUs: Long,
   val title: String,
   val uri: String,
-  val durationUs: Long,
   val selectedEffects: Set<String> = emptySet(),
-)
+) : Item {
+  override fun copy(): Item =
+    copy(durationUs = durationUs, title = title, uri = uri, selectedEffects = selectedEffects)
+}
+
+/**
+ * Represents a gap media item, that can be added to the composition.
+ *
+ * @param durationUs The duration of the gap in microseconds.
+ */
+data class Gap(override val durationUs: Long) : Item {
+  override fun copy(): Item = copy(durationUs = durationUs)
+}
 
 /**
  * Holds the state for all user-configurable output and export settings.

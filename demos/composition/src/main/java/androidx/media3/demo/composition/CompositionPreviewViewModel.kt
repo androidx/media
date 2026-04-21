@@ -47,7 +47,9 @@ import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
+import androidx.media3.demo.composition.data.Gap
 import androidx.media3.demo.composition.data.Item
+import androidx.media3.demo.composition.data.Media
 import androidx.media3.demo.composition.data.MediaState
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
@@ -154,37 +156,37 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   init {
     // Load media items
-    val initialMediaItems = mutableListOf<Item>()
+    val initialMediaItems = mutableListOf<Media>()
     val titles = application.resources.getStringArray(/* id= */ R.array.preset_descriptions)
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
       initialMediaItems.add(
-        Item(
+        Media(
+          durationUs = durations[i].toLong(),
           title = titles[i],
           uri = uris[i],
-          durationUs = durations[i].toLong(),
           selectedEffects = emptySet(),
         )
       )
     }
     initialMediaItems.add(
-      Item(
+      Media(
+        durationUs = 59_000_000L,
         title = application.resources.getString(R.string.background_audio_track),
         uri = AUDIO_URI,
-        durationUs = 59_000_000L,
         selectedEffects = emptySet(),
       )
     )
 
     _uiState.update { currentState ->
       val numSequences = 1
+      val firstItem = initialMediaItems.firstOrNull()
       currentState.copy(
         mediaState =
           currentState.mediaState.copy(
             availableItems = initialMediaItems,
-            selectedItemsBySequence =
-              List(numSequences) { List(4) { initialMediaItems[0].copy() } },
+            selectedItemsBySequence = List(numSequences) { List(4) { firstItem!!.copy() } },
             availableEffects = effectOptions.keys.toList(),
           )
       )
@@ -265,8 +267,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     _uiState.update { currentState ->
       val newTrackTypes =
         currentState.sequenceTrackTypes + listOf(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-      val firstItem = currentState.mediaState.availableItems.firstOrNull()?.copy()
-      val newSequenceItems = if (firstItem != null) listOf(firstItem) else emptyList()
+      val firstAvailableItem = currentState.mediaState.availableItems.firstOrNull()
+      val newSequenceItems =
+        if (firstAvailableItem is Media) listOf(firstAvailableItem.copy())
+        else if (firstAvailableItem != null) listOf(firstAvailableItem) else emptyList()
       val newItemsBySequence =
         currentState.mediaState.selectedItemsBySequence + listOf(newSequenceItems)
       currentState.copy(
@@ -390,7 +394,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   fun addItem(sequenceIndex: Int, itemIndex: Int) {
     _uiState.update { currentState ->
-      val itemToAdd = currentState.mediaState.availableItems[itemIndex].copy()
+      val item = currentState.mediaState.availableItems[itemIndex]
+      val itemToAdd = item.copy()
       val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
       if (sequenceIndex < currentItemsBySequence.size) {
         val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
@@ -402,6 +407,25 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         isCompositionSet = false,
         selectedPreset = Preset.CUSTOM,
       )
+    }
+  }
+
+  fun addGap(sequenceIndex: Int, durationUs: Long) {
+    _uiState.update { currentState ->
+      val gapItem = Gap(durationUs = durationUs)
+      val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence.toMutableList()
+      if (sequenceIndex < currentItemsBySequence.size) {
+        val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
+        updatedItems.add(gapItem)
+        currentItemsBySequence[sequenceIndex] = updatedItems
+        currentState.copy(
+          mediaState =
+            currentState.mediaState.copy(selectedItemsBySequence = currentItemsBySequence),
+          isCompositionSet = false,
+        )
+      } else {
+        currentState
+      }
     }
   }
 
@@ -466,10 +490,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       }
 
       val newItem =
-        Item(
+        Media(
+          durationUs = durationUs,
           title = displayName,
           uri = uri.toString(),
-          durationUs = durationUs,
           selectedEffects = emptySet(),
         )
 
@@ -517,8 +541,11 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       if (sequenceIndex < currentItemsBySequence.size) {
         val updatedItems = currentItemsBySequence[sequenceIndex].toMutableList()
         if (itemIndex < updatedItems.size) {
-          updatedItems[itemIndex] = updatedItems[itemIndex].copy(selectedEffects = newEffects)
-          currentItemsBySequence[sequenceIndex] = updatedItems
+          val item = updatedItems[itemIndex]
+          if (item is Media) {
+            updatedItems[itemIndex] = item.copy(selectedEffects = newEffects)
+            currentItemsBySequence[sequenceIndex] = updatedItems
+          }
         }
       }
       currentState.copy(
@@ -704,36 +731,42 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         compositionHasVideo = true
       }
 
-      val editedMediaItems = mutableListOf<EditedMediaItem>()
+      val sequenceBuilder = EditedMediaItemSequence.Builder(trackTypes)
 
       for (item in sequenceItems) {
-        val mediaItem =
-          MediaItem.Builder()
-            .setUri(item.uri)
-            .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
-            .build()
-        val effectsForItem = mutableListOf<Effect>()
-        for (effectName in item.selectedEffects) {
-          // TODO(b/433484977): Order of applied effects should be more clear in the UI
-          effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+        when (item) {
+          is Gap -> {
+            sequenceBuilder.addGap(item.durationUs)
+          }
+          is Media -> {
+            val mediaItem =
+              MediaItem.Builder()
+                .setUri(item.uri)
+                .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
+                .build()
+            val effectsForItem = mutableListOf<Effect>()
+            for (effectName in item.selectedEffects) {
+              // TODO(b/433484977): Order of applied effects should be more clear in the UI
+              effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+            }
+            val finalVideoEffects = globalVideoEffects + effectsForItem
+            val itemBuilder =
+              EditedMediaItem.Builder(mediaItem)
+                .setEffects(
+                  Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+                )
+                // Required for image inputs. For video inputs, it sets the target FPS.
+                .setFrameRate(DEFAULT_FRAME_RATE_FPS)
+                // Setting duration explicitly is only required for preview with CompositionPlayer,
+                // and
+                // is not needed for export with Transformer.
+                .setDurationUs(item.durationUs)
+            sequenceBuilder.addItem(itemBuilder.build())
+          }
         }
-        val finalVideoEffects = globalVideoEffects + effectsForItem
-        val itemBuilder =
-          EditedMediaItem.Builder(mediaItem)
-            .setEffects(
-              Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
-            )
-            // Required for image inputs. For video inputs, it sets the target FPS.
-            .setFrameRate(DEFAULT_FRAME_RATE_FPS)
-            // Setting duration explicitly is only required for preview with CompositionPlayer, and
-            // is not needed for export with Transformer.
-            .setDurationUs(item.durationUs)
-        editedMediaItems.add(itemBuilder.build())
       }
-
-      val sequenceBuilder = EditedMediaItemSequence.Builder(trackTypes)
-      for (editedItem in editedMediaItems) {
-        sequenceBuilder.addItem(editedItem)
+      if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        compositionHasVideo = true
       }
       sequences.add(sequenceBuilder.build())
     }
@@ -769,15 +802,19 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   // TODO(b/417362922): Improve accuracy of VideoCompositorSettings implementation
   private fun getVideoCompositorSettings(): VideoCompositorSettings {
-    val videoSequenceIndices =
+    val addedSequenceIndices =
+      uiState.value.sequenceTrackTypes.indices.filter { index ->
+        uiState.value.mediaState.selectedItemsBySequence.getOrNull(index)?.isNotEmpty() == true
+      }
+
+    val videoEnabledUIIndices =
       uiState.value.sequenceTrackTypes.mapIndexedNotNull { index, trackTypes ->
         if (trackTypes.contains(C.TRACK_TYPE_VIDEO)) index else null
       }
-    val numVideoSequences = videoSequenceIndices.size
 
-    val mapInputId = { inputId: Int -> videoSequenceIndices.indexOf(inputId) }
-
-    if (numVideoSequences >= 3) {
+    val mapInputId = { inputId: Int -> videoEnabledUIIndices.indexOf(inputId) }
+    val totalVideoSlots = videoEnabledUIIndices.size
+    if (totalVideoSlots >= 3) {
       return object : VideoCompositorSettings {
         override fun getOutputSize(inputSizes: List<Size>): Size {
           return inputSizes[0]
@@ -787,8 +824,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
           val videoInputIndex = mapInputId(inputId)
           if (videoInputIndex == -1) return StaticOverlaySettings.Builder().build()
 
-          val cols = ceil(sqrt(numVideoSequences.toDouble())).toInt()
-          val rows = ceil(numVideoSequences.toDouble() / cols).toInt()
+          val cols = ceil(sqrt(totalVideoSlots.toDouble())).toInt()
+          val rows = ceil(totalVideoSlots.toDouble() / cols).toInt()
 
           val colIndex = videoInputIndex % cols
           val rowIndex = videoInputIndex / cols
@@ -808,7 +845,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
             .build()
         }
       }
-    } else if (numVideoSequences == 2) {
+    } else if (totalVideoSlots == 2) {
       // PiP Overlay
       val cycleTimeUs = 3_000_000f // Time for overlay to complete a cycle in Us
 

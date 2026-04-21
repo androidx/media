@@ -48,7 +48,13 @@
   <string name="set_composition" translatable="false">Prepare</string>
   <string name="play" translatable="false">Play</string>
   <string name="add_item">Add Item</string>
-  <string name="add_local_file">Add Local File</string>
+  <string name="add_remote_file">Add Remote</string>
+  <string name="add_local_file">Add Local</string>
+  <string name="add_gap">Add Gap</string>
+  <string name="gap_label" translatable="false">Gap</string>
+  <string name="duration_label">Duration: %.1f s</string>
+  <string name="gap_duration_title">Gap Duration</string>
+  <string name="seconds_label">%.1f seconds</string>
   <string name="delete_sequence" translatable="false">Delete</string>
   <string name="sequence_label" translatable="false">Sequence %d</string>
   <string name="audio" translatable="false">Audio</string>

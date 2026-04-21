@@ -43,6 +43,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -66,6 +67,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -105,7 +107,9 @@ import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RE
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SAME_AS_INPUT_OPTION
 import androidx.media3.demo.composition.data.CompositionPreviewState
 import androidx.media3.demo.composition.data.ExportState
+import androidx.media3.demo.composition.data.Gap
 import androidx.media3.demo.composition.data.Item
+import androidx.media3.demo.composition.data.Media
 import androidx.media3.demo.composition.data.OutputSettingsState
 import androidx.media3.demo.composition.data.Preset
 import androidx.media3.demo.composition.ui.DropDownSpinner
@@ -306,6 +310,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
             onUpdateEffects = viewModel::updateEffectsForItem,
             onAddLocalItem = viewModel::addLocalItem,
             onRemoveSequence = viewModel::removeSequence,
+            onAddGap = viewModel::addGap,
           )
         }
 
@@ -527,9 +532,11 @@ class CompositionPreviewActivity : AppCompatActivity() {
     onUpdateEffects: (sequenceIndex: Int, itemIndex: Int, effects: Set<String>) -> Unit,
     onAddLocalItem: (Int, Uri) -> Unit,
     onRemoveSequence: (Int) -> Unit,
+    onAddGap: (Int, Long) -> Unit,
   ) {
     var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
     var showEditMediaItemsDialog by remember { mutableStateOf(false) }
+    var showGapDurationDialog by remember { mutableStateOf(false) }
 
     val filePickerLauncher =
       rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) {
@@ -545,14 +552,30 @@ class CompositionPreviewActivity : AppCompatActivity() {
       )
     }
 
+    if (showGapDurationDialog) {
+      GapDurationDialog(
+        onDismissRequest = { showGapDurationDialog = false },
+        onConfirm = { durationUs ->
+          onAddGap(sequenceIndex, durationUs)
+          showGapDurationDialog = false
+        },
+      )
+    }
+
     selectedMediaItemIndex?.let { itemIndex ->
       val item = selectedItems[itemIndex]
-      EffectSelectionDialog(
-        onDismissRequest = { selectedMediaItemIndex = null },
-        effectOptions = availableEffects,
-        currentSelections = item.selectedEffects,
-        onEffectsSelected = { newEffects -> onUpdateEffects(sequenceIndex, itemIndex, newEffects) },
-      )
+      if (item is Media) {
+        EffectSelectionDialog(
+          onDismissRequest = { selectedMediaItemIndex = null },
+          effectOptions = availableEffects,
+          currentSelections = item.selectedEffects,
+          onEffectsSelected = { newEffects ->
+            onUpdateEffects(sequenceIndex, itemIndex, newEffects)
+          },
+        )
+      } else {
+        selectedMediaItemIndex = null
+      }
     }
 
     Column(
@@ -617,20 +640,40 @@ class CompositionPreviewActivity : AppCompatActivity() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier =
-              Modifier.fillMaxWidth().clickable(enabled = isEnabled) {
+              Modifier.fillMaxWidth().clickable(enabled = isEnabled && item is Media) {
                 selectedMediaItemIndex = index
               },
           ) {
             Column(modifier = Modifier.textPadding().weight(1f)) {
-              Text(text = stringResource(R.string.item_index_label, index + 1, item.title))
-              val effectsText =
-                item.selectedEffects.joinToString().ifEmpty { stringResource(R.string.none) }
-              Text(
-                text = stringResource(R.string.effect_label, effectsText),
-                fontSize = 12.sp,
-                fontStyle = FontStyle.Italic,
-                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-              )
+              when (item) {
+                is Gap -> {
+                  Text(
+                    text =
+                      stringResource(
+                        R.string.item_index_label,
+                        index + 1,
+                        stringResource(R.string.gap_label),
+                      )
+                  )
+                  Text(
+                    text = stringResource(R.string.duration_label, item.durationUs / 1_000_000f),
+                    fontSize = 12.sp,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                  )
+                }
+                is Media -> {
+                  Text(text = stringResource(R.string.item_index_label, index + 1, item.title))
+                  val effectsText =
+                    item.selectedEffects.joinToString().ifEmpty { stringResource(R.string.none) }
+                  Text(
+                    text = stringResource(R.string.effect_label, effectsText),
+                    fontSize = 12.sp,
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                  )
+                }
+              }
             }
             IconButton({ onRemoveItem(sequenceIndex, index) }, enabled = isEnabled) {
               Icon(
@@ -644,18 +687,41 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
       HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
 
-      Row(
+      Column(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
       ) {
-        ElevatedButton(onClick = { showEditMediaItemsDialog = true }, enabled = isEnabled) {
-          Text(text = stringResource(R.string.edit))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+          ElevatedButton(
+            onClick = { showEditMediaItemsDialog = true },
+            enabled = isEnabled,
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+          ) {
+            Text(text = stringResource(R.string.add_remote_file))
+          }
+          ElevatedButton(
+            onClick = { filePickerLauncher.launch(MEDIA_TYPES) },
+            enabled = isEnabled,
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+          ) {
+            Text(text = stringResource(R.string.add_local_file))
+          }
         }
-        ElevatedButton(onClick = { filePickerLauncher.launch(MEDIA_TYPES) }, enabled = isEnabled) {
-          Text(text = stringResource(R.string.add_local_file))
-        }
-        ElevatedButton(onClick = { onRemoveSequence(sequenceIndex) }, enabled = isEnabled) {
-          Text(text = stringResource(R.string.delete_sequence))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+          ElevatedButton(
+            onClick = { showGapDurationDialog = true },
+            enabled = isEnabled,
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+          ) {
+            Text(text = stringResource(R.string.add_gap))
+          }
+          ElevatedButton(
+            onClick = { onRemoveSequence(sequenceIndex) },
+            enabled = isEnabled,
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+          ) {
+            Text(text = stringResource(R.string.delete_sequence))
+          }
         }
       }
     }
@@ -695,6 +761,11 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 FilledIconButton(onClick = { addSelectedVideo(index) }) {
                   Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_item))
                 }
+                val title =
+                  when (item) {
+                    is Media -> item.title
+                    is Gap -> stringResource(R.string.gap_label)
+                  }
                 val duration = item.durationUs.toDuration(DurationUnit.MICROSECONDS)
                 val durationString =
                   String.format(
@@ -703,7 +774,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     duration.inWholeMinutes,
                     duration.inWholeSeconds % 60,
                   )
-                Text(text = stringResource(R.string.item_with_duration, item.title, durationString))
+                Text(text = stringResource(R.string.item_with_duration, title, durationString))
               }
             }
           }
@@ -712,6 +783,40 @@ class CompositionPreviewActivity : AppCompatActivity() {
             modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
           ) {
             Text(text = stringResource(R.string.ok))
+          }
+        }
+      }
+    }
+  }
+
+  @Composable
+  fun GapDurationDialog(onDismissRequest: () -> Unit, onConfirm: (Long) -> Unit) {
+    var durationSeconds by remember { mutableStateOf(5f) }
+
+    Dialog(onDismissRequest) {
+      Card(shape = RoundedCornerShape(16.dp)) {
+        Column(
+          modifier = Modifier.padding(MaterialTheme.spacing.standard),
+          horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+          Text(text = stringResource(R.string.gap_duration_title), fontWeight = FontWeight.Bold)
+          Spacer(modifier = Modifier.height(16.dp))
+          Text(text = stringResource(R.string.seconds_label, durationSeconds))
+          Slider(
+            value = durationSeconds,
+            onValueChange = { durationSeconds = it },
+            valueRange = 0.1f..30f,
+            steps = 299,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+          )
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(onClick = onDismissRequest) {
+              Text(text = stringResource(R.string.cancel))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = { onConfirm((durationSeconds * 1_000_000).toLong()) }) {
+              Text(text = stringResource(R.string.ok))
+            }
           }
         }
       }
