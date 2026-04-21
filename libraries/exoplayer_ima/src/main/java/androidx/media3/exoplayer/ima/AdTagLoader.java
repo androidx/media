@@ -490,7 +490,23 @@ import java.util.Objects;
     }
     Player player = this.player;
     this.timeline = timeline;
-    long contentDurationUs = timeline.getPeriod(player.getCurrentPeriodIndex(), period).durationUs;
+    long contentDurationUs;
+    int windowIndex = player.getCurrentMediaItemIndex();
+
+    Timeline.Window window = new Timeline.Window();
+    timeline.getWindow(windowIndex, window);
+    if (window.firstPeriodIndex == window.lastPeriodIndex) {
+      // may be TIME_UNSET for placeholder
+      contentDurationUs = timeline.getPeriod(window.firstPeriodIndex, period).durationUs;
+    } else {
+      // multi-period content
+      contentDurationUs = 0;
+      for (int i = window.firstPeriodIndex; i <= window.lastPeriodIndex; i++) {
+        long periodDurationUs = timeline.getPeriod(i, period).durationUs;
+        contentDurationUs += periodDurationUs != C.TIME_UNSET ? periodDurationUs : 0;
+      }
+    }
+
     contentDurationMs = Util.usToMs(contentDurationUs);
     if (contentDurationUs != adPlaybackState.contentDurationUs) {
       adPlaybackState = adPlaybackState.withContentDurationUs(contentDurationUs);
