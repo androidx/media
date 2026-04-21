@@ -40,8 +40,6 @@ dependencies {
   testImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-container"
-
 extra["releaseName"] = "Media3 Container module"
 
 apply(from = "../../publish.gradle")

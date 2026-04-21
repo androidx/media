@@ -49,8 +49,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-cast"
-
 extra["releaseName"] = "Media3 Cast module"
 
 apply(from = "../../publish.gradle")

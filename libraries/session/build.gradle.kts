@@ -48,8 +48,6 @@ dependencies {
   testImplementation(libs.test.parameter.injector)
 }
 
-extra["releaseArtifactId"] = "media3-session"
-
 extra["releaseName"] = "Media3 Session module"
 
 apply(from = "../../publish.gradle")

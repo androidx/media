@@ -51,8 +51,6 @@ dependencies {
   testImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-datasource"
-
 extra["releaseName"] = "Media3 DataSource module"
 
 apply(from = "../../publish.gradle")

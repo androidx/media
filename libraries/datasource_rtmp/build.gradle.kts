@@ -33,8 +33,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-datasource-rtmp"
-
 extra["releaseName"] = "Media3 RTMP DataSource module"
 
 apply(from = "../../publish.gradle")

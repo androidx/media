@@ -41,8 +41,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-smoothstreaming"
-
 extra["releaseName"] = "Media3 ExoPlayer SmoothStreaming module"
 
 apply(from = "../../publish.gradle")

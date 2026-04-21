@@ -39,8 +39,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-midi"
-
 extra["releaseName"] = "Media3 MIDI decoder module"
 
 apply(from = "../../publish.gradle")

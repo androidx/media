@@ -63,8 +63,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-transformer"
-
 extra["releaseName"] = "Media3 Transformer module"
 
 apply(from = "../../publish.gradle")

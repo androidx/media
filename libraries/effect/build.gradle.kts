@@ -66,8 +66,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-effect"
-
 extra["releaseName"] = "Media3 Effect module"
 
 apply(from = "../../publish.gradle")

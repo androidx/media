@@ -49,8 +49,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-inspector"
-
 extra["releaseName"] = "Media3 Inspector module"
 
 apply(from = "../../publish.gradle")

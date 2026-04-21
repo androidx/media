@@ -59,8 +59,6 @@ dependencies {
   androidTestImplementation(project(":lib-inspector"))
 }
 
-extra["releaseArtifactId"] = "media3-muxer"
-
 extra["releaseName"] = "Media3 Muxer module"
 
 apply(from = "../../publish.gradle")

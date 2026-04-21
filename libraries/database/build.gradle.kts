@@ -34,8 +34,6 @@ dependencies {
   testImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-database"
-
 extra["releaseName"] = "Media3 database module"
 
 apply(from = "../../publish.gradle")

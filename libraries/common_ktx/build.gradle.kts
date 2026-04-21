@@ -41,8 +41,6 @@ dependencies {
   testImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-common-ktx"
-
 extra["releaseName"] = "Media3 common KTX module"
 
 apply(from = "../../publish.gradle")

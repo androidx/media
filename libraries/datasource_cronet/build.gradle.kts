@@ -41,8 +41,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-datasource-cronet"
-
 extra["releaseName"] = "Media3 Cronet DataSource module"
 
 apply(from = "../../publish.gradle")

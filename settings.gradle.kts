@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 pluginManagement {
+  includeBuild("build-logic")
   repositories {
     google()
     mavenCentral()

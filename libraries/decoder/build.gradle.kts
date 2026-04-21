@@ -38,8 +38,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-decoder"
-
 extra["releaseName"] = "Media3 decoder module"
 
 apply(from = "../../publish.gradle")

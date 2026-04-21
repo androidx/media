@@ -47,8 +47,6 @@ dependencies {
   androidTestImplementation(libs.dexmaker)
 }
 
-extra["releaseArtifactId"] = "media3-extractor"
-
 extra["releaseName"] = "Media3 Extractor module"
 
 apply(from = "../../publish.gradle")

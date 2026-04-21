@@ -55,8 +55,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-ui-compose-material3"
-
 extra["releaseName"] = "Media3 UI Compose Material3 module"
 
 apply(from = "../../publish.gradle")

@@ -46,8 +46,6 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-hls"
-
 extra["releaseName"] = "Media3 ExoPlayer HLS module"
 
 apply(from = "../../publish.gradle")

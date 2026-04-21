@@ -36,8 +36,6 @@ dependencies {
   api(libs.okhttp)
 }
 
-extra["releaseArtifactId"] = "media3-datasource-okhttp"
-
 extra["releaseName"] = "Media3 OkHttp DataSource module"
 
 apply(from = "../../publish.gradle")

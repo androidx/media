@@ -28,8 +28,6 @@ dependencies {
   compileOnly(libs.kotlin.annotations.jvm)
 }
 
-extra["releaseArtifactId"] = "media3-ui-leanback"
-
 extra["releaseName"] = "Media3 Leanback UI module"
 
 apply(from = "../../publish.gradle")

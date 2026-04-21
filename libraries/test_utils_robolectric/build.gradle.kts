@@ -31,8 +31,6 @@ dependencies {
   api(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-test-utils-robolectric"
-
 extra["releaseName"] = "Media3 robolectric test utils module"
 
 apply(from = "../../publish.gradle")

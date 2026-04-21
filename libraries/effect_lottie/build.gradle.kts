@@ -45,8 +45,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-effect-lottie"
-
 extra["releaseName"] = "Media3 Effect Lottie module"
 
 apply(from = "../../publish.gradle")

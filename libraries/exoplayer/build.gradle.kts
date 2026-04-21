@@ -62,8 +62,6 @@ dependencies {
   testImplementation(project(":test-utils-robolectric"))
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer"
-
 extra["releaseName"] = "Media3 ExoPlayer module"
 
 apply(from = "../../publish.gradle")

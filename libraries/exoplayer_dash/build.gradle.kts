@@ -43,8 +43,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-dash"
-
 extra["releaseName"] = "Media3 ExoPlayer DASH module"
 
 apply(from = "../../publish.gradle")

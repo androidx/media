@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import androidx.media3.build.Media3Modules
 import java.io.File
 
 buildscript {
@@ -37,6 +38,7 @@ plugins {
   alias(libs.plugins.android.library) apply false
   alias(libs.plugins.kotlin.android) apply false
   alias(libs.plugins.kotlin.compose.compiler) apply false
+  id("gradlebuild.media3-build-logic")
 }
 
 allprojects {
@@ -59,6 +61,11 @@ allprojects {
     layout.buildDirectory.set(File(externalBuildDirFile, project.name))
   }
   group = "androidx.media3"
+}
+
+subprojects {
+  // If the map has a Maven ID for this module, dynamically inject it
+  Media3Modules.libraryModules[project.name]?.artifactId?.let { extra["releaseArtifactId"] = it }
 }
 
 tasks.register("printReleaseArtifactIds") {

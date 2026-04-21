@@ -80,8 +80,6 @@ dependencies {
   androidTestImplementation(project(":test-utils"))
 }
 
-extra["releaseArtifactId"] = "media3-common"
-
 extra["releaseName"] = "Media3 common module"
 
 apply(from = "../../publish.gradle")

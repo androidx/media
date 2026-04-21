@@ -29,8 +29,6 @@ dependencies {
   compileOnly(libs.kotlin.annotations.jvm)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-workmanager"
-
 extra["releaseName"] = "Media3 ExoPlayer WorkManager module"
 
 apply(from = "../../publish.gradle")

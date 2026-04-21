@@ -44,8 +44,6 @@ dependencies {
   testImplementation(libs.robolectric)
 }
 
-extra["releaseArtifactId"] = "media3-exoplayer-ima"
-
 extra["releaseName"] = "Media3 ExoPlayer IMA module"
 
 apply(from = "../../publish.gradle")
