@@ -1,4 +1,4 @@
-// Copyright 2026 The Android Open Source Project
+// Copyright (C) 2026 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package androidx.media3.build
+import androidx.media3.build.includeMedia3
+import java.io.File
 
-data class Media3Module(
-  val directory: String,
-  val artifactId: String? = null,
-  val includeInCompositeBuild: Boolean = true,
-)
+// Registering the function as a native Gradle extension
+// Gradle scripts can natively call includeMedia3
+settings.extensions.add("includeMedia3", Action<File> { includeMedia3(this) })

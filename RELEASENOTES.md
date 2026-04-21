@@ -210,6 +210,11 @@
         `androidx.media3.extractor.DiscardingTrackOutput` instead.
     *   Remove `androidx.media3.extractor.DummyExtractorOutput`. Use
         `androidx.media3.extractor.NoOpExtractorOutput` instead.
+*   Build
+    *   Updated the `README.md` instructions for depending on Media3 locally to
+        use Gradle Composite Builds (`includeBuild`). The `core_settings.gradle`
+        script has been removed, and the `androidxMediaModulePrefix` and
+        `androidxMediaEnableMidiModule` properties are no longer used.
 
 ## 1.10
 
