@@ -64,7 +64,8 @@ public class MediaLibraryServiceTest {
   }
 
   @Test
-  public void onConnect_controllerInfo_sameInstanceInOnGetSessionAndCallback() throws Exception {
+  public void onConnectAsync_controllerInfo_sameInstanceInOnGetSessionAndCallback()
+      throws Exception {
     TestServiceRegistry testServiceRegistry = TestServiceRegistry.getInstance();
     List<MediaSession.ControllerInfo> onGetSessionControllerInfos = new ArrayList<>();
     List<MediaSession.ControllerInfo> browserCommandControllerInfos = new ArrayList<>();

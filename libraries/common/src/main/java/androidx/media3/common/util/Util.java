@@ -150,6 +150,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -4308,6 +4309,12 @@ public final class Util {
       }
     }
     return languageTag;
+  }
+
+  /** Ignores the future to avoid static code analysis tools to complain. */
+  @UnstableApi
+  public static <T> void ignoreFuture(Future<T> unused) {
+    // Ignore return value of the future.
   }
 
   // Additional mapping from ISO3 to ISO2 language codes.

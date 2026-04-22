@@ -65,6 +65,9 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_Q
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_RESULT_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
+import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
@@ -191,6 +194,28 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     // Note: Cannot use equals() here because browser compat's extra contains server version,
     // extra binder, and extra messenger.
     assertThat(TestUtils.contains(browserCompat.getExtras(), ROOT_EXTRAS)).isTrue();
+  }
+
+  @Test
+  public void getRoot_browserConnectionAsync() throws Exception {
+    Bundle rootHints = new Bundle();
+    rootHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS, 200L);
+    rootHints.putString(KEY_CONTROLLER, "getRoot_connectionAsync");
+
+    connectAndWait(rootHints);
+
+    assertThat(browserCompat.getRoot()).isEqualTo(ROOT_ID);
+    assertThat(
+            browserCompat
+                .getExtras()
+                .getInt(ROOT_EXTRAS_KEY, /* defaultValue= */ ROOT_EXTRAS_VALUE + 1))
+        .isEqualTo(ROOT_EXTRAS_VALUE);
+    assertThat(TestUtils.contains(browserCompat.getExtras(), ROOT_EXTRAS)).isTrue();
+    assertThat(
+            browserCompat
+                .getExtras()
+                .getBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, /* defaultValue= */ false))
+        .isTrue();
   }
 
   @Test

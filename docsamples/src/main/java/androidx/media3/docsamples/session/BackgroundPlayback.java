@@ -19,6 +19,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -164,7 +165,7 @@ public class BackgroundPlayback {
 
     // [START media_notification_controller]
     @Override
-    public ConnectionResult onConnect(
+    public ListenableFuture<ConnectionResult> onConnectAsync(
         MediaSession session, MediaSession.ControllerInfo controller) {
       if (session.isMediaNotificationController(controller)) {
         Player.Commands playerCommands =
@@ -176,13 +177,14 @@ public class BackgroundPlayback {
                 .remove(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
                 .build();
         // Custom button preferences and commands to configure the platform session.
-        return new AcceptedResultBuilder(session)
-            .setMediaButtonPreferences(ImmutableList.of(seekBackButton, seekForwardButton))
-            .setAvailablePlayerCommands(playerCommands)
-            .build();
+        return immediateFuture(
+            new AcceptedResultBuilder(session)
+                .setMediaButtonPreferences(ImmutableList.of(seekBackButton, seekForwardButton))
+                .setAvailablePlayerCommands(playerCommands)
+                .build());
       }
       // Default commands with default button preferences for all other controllers.
-      return new AcceptedResultBuilder(session).build();
+      return immediateFuture(new AcceptedResultBuilder(session).build());
     }
     // [END media_notification_controller]
   }
@@ -197,7 +199,7 @@ public class BackgroundPlayback {
 
     // [START auto_companion_controller]
     @Override
-    public ConnectionResult onConnect(
+    public ListenableFuture<ConnectionResult> onConnectAsync(
         MediaSession session, MediaSession.ControllerInfo controller) {
       SessionCommands sessionCommands =
           ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(customCommand).build();
@@ -205,12 +207,13 @@ public class BackgroundPlayback {
         // ... See above.
       } else if (session.isAutoCompanionController(controller)) {
         // Available commands to accept incoming custom commands from Auto.
-        return new AcceptedResultBuilder(session)
-            .setAvailableSessionCommands(sessionCommands)
-            .build();
+        return immediateFuture(
+            new AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(sessionCommands)
+                .build());
       }
       // Default commands for all other controllers.
-      return new AcceptedResultBuilder(session).build();
+      return immediateFuture(new AcceptedResultBuilder(session).build());
     }
     // [END auto_companion_controller]
   }

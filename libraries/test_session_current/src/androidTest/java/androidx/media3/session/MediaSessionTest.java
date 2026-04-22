@@ -31,6 +31,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -61,6 +62,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -110,13 +112,13 @@ public class MediaSessionTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
                             context.getPackageName(), controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
-                        return MediaSession.ConnectionResult.reject();
+                        return immediateFuture(MediaSession.ConnectionResult.reject());
                       }
                     })
                 .build());
@@ -466,7 +468,7 @@ public class MediaSessionTest {
     MediaSession.Callback testSessionCallback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             Future<SessionResult> result =
                 session.sendCustomCommand(controller, testCommand, /* args= */ Bundle.EMPTY);
@@ -477,7 +479,7 @@ public class MediaSessionTest {
             } catch (ExecutionException | InterruptedException | TimeoutException e) {
               assertWithMessage("Fail to get result of the returned future.").fail();
             }
-            return MediaSession.Callback.super.onConnect(session, controller);
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
           }
 
           @Override
@@ -510,14 +512,14 @@ public class MediaSessionTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
                             getControllerCallerPackageName(controller),
                             controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
-                        return MediaSession.ConnectionResult.reject();
+                        return immediateFuture(MediaSession.ConnectionResult.reject());
                       }
                     })
                 .build());
@@ -566,11 +568,11 @@ public class MediaSessionTest {
     MediaSession.Callback sessionCallback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             controllerVersionRef.set(controller.getControllerVersion());
             connectedLatch.countDown();
-            return MediaSession.Callback.super.onConnect(session, controller);
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
           }
         };
 
@@ -658,13 +660,13 @@ public class MediaSessionTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
                             context.getPackageName(), controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
-                        return MediaSession.ConnectionResult.reject();
+                        return immediateFuture(MediaSession.ConnectionResult.reject());
                       }
                     })
                 .build()));
@@ -746,14 +748,14 @@ public class MediaSessionTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
                             getControllerCallerPackageName(controller),
                             controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
-                        return MediaSession.ConnectionResult.reject();
+                        return immediateFuture(MediaSession.ConnectionResult.reject());
                       }
                     })
                 .build()));
@@ -836,14 +838,14 @@ public class MediaSessionTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (TextUtils.equals(
                             getControllerCallerPackageName(controller),
                             controller.getPackageName())) {
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
-                        return MediaSession.ConnectionResult.reject();
+                        return immediateFuture(MediaSession.ConnectionResult.reject());
                       }
 
                       @Override

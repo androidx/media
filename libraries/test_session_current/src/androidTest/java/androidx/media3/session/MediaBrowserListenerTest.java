@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.Player.COMMAND_RELEASE;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
@@ -30,6 +31,9 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXT
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -38,6 +42,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestUtils;
@@ -86,6 +91,32 @@ public class MediaBrowserListenerTest extends MediaControllerListenerTest {
     assertThat(browser.getConnectedToken().isLegacySession()).isFalse();
     assertThat(browser.getConnectedToken().getType()).isEqualTo(SessionToken.TYPE_SESSION);
     assertThat(browser.getConnectedToken().getPlatformToken()).isNotNull();
+  }
+
+  @Test
+  public void connection_asyncLibrarySessionAccept() throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS, 100L);
+
+    MediaBrowser browser = createBrowser(connectionHints, /* listener= */ null);
+
+    Bundle sessionExtras =
+        threadTestRule.getHandler().postAndSync(() -> browser.getSessionExtras());
+    assertThat(sessionExtras.getBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION)).isTrue();
+  }
+
+  @Test
+  public void connection_asyncLibrarySessionReject() throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS, 100L);
+
+    MediaBrowser browser = createBrowser(connectionHints, /* listener= */ null);
+
+    assertThat(browser).isNotNull();
+    assertThat(threadTestRule.getHandler().postAndSync(browser::getAvailableCommands))
+        .isEqualTo(new Player.Commands.Builder().add(COMMAND_RELEASE).build());
+    assertThat(threadTestRule.getHandler().postAndSync(browser::getAvailableSessionCommands))
+        .isEqualTo(SessionCommands.EMPTY);
   }
 
   @Test

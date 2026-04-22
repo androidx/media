@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.ignoreFuture;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -82,7 +83,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
@@ -1845,10 +1845,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               listener -> listener.onError(getInstance(), newControllerInfo.sessionError));
     }
     listeners.flushEvents();
-  }
-
-  private static <T> void ignoreFuture(Future<T> unused) {
-    // Ignore return value of the future because legacy session cannot get result back.
   }
 
   private class ConnectionCallback extends MediaBrowserCompat.ConnectionCallback {

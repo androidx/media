@@ -58,19 +58,23 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
       .build()
 
   @OptIn(UnstableApi::class) // DEFAULT_ constants in MediaSession.ConnectionResult
-  override fun onConnect(
+  override fun onConnectAsync(
     session: MediaSession,
     controller: MediaSession.ControllerInfo,
-  ): MediaSession.ConnectionResult {
+  ): ListenableFuture<MediaSession.ConnectionResult> {
     return if (controller.isTrusted) {
       // Provide full information.
-      MediaSession.ConnectionResult.accept(
-        MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS,
-        MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
+      Futures.immediateFuture(
+        MediaSession.ConnectionResult.accept(
+          MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS,
+          MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
+        )
       )
     } else {
       // Restricted read-only view on currently playing item only.
-      MediaSession.ConnectionResult.accept(SessionCommands.EMPTY, restrictedAccessPlayerCommands)
+      Futures.immediateFuture(
+        MediaSession.ConnectionResult.accept(SessionCommands.EMPTY, restrictedAccessPlayerCommands)
+      )
     }
   }
 

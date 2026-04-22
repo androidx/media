@@ -59,6 +59,9 @@ import static androidx.media3.test.session.common.CommonConstants.KEY_TRACK_SELE
 import static androidx.media3.test.session.common.CommonConstants.KEY_VIDEO_SIZE;
 import static androidx.media3.test.session.common.CommonConstants.KEY_VOLUME;
 import static androidx.media3.test.session.common.MediaSessionConstants.BOUNCING_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
@@ -110,6 +113,8 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
+import androidx.media3.session.MediaSession.ConnectionResult;
+import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.ProgressReporter;
 import androidx.media3.test.session.common.IRemoteMediaSession;
@@ -219,14 +224,15 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return accept(
-                        new SessionCommands.Builder()
-                            .add(new SessionCommand("command1", Bundle.EMPTY))
-                            .add(new SessionCommand("command2", Bundle.EMPTY))
-                            .build(),
-                        new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build());
+                    return immediateFuture(
+                        accept(
+                            new SessionCommands.Builder()
+                                .add(new SessionCommand("command1", Bundle.EMPTY))
+                                .add(new SessionCommand("command2", Bundle.EMPTY))
+                                .build(),
+                            new Player.Commands.Builder().add(Player.COMMAND_PLAY_PAUSE).build()));
                   }
                 });
             break;
@@ -241,9 +247,9 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return accept(availableSessionCommands, Player.Commands.EMPTY);
+                    return immediateFuture(accept(availableSessionCommands, Player.Commands.EMPTY));
                   }
                 });
             break;
@@ -281,19 +287,20 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     if (sessionId.equals(
                         TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE)) {
-                      return MediaSession.Callback.super.onConnect(session, controller);
+                      return MediaSession.Callback.super.onConnectAsync(session, controller);
                     }
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                        .setAvailableSessionCommands(
-                            new SessionCommands.Builder()
-                                .add(checkNotNull(playlistAddButton.sessionCommand))
-                                .add(checkNotNull(radioButton.sessionCommand))
-                                .build())
-                        .build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                            .setAvailableSessionCommands(
+                                new SessionCommands.Builder()
+                                    .add(checkNotNull(playlistAddButton.sessionCommand))
+                                    .add(checkNotNull(radioButton.sessionCommand))
+                                    .build())
+                            .build());
                   }
 
                   @Override
@@ -325,9 +332,9 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return MediaSession.ConnectionResult.reject();
+                    return immediateFuture(MediaSession.ConnectionResult.reject());
                   }
                 });
             break;
@@ -339,9 +346,9 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return accept(availableSessionCommands, Player.Commands.EMPTY);
+                    return immediateFuture(accept(availableSessionCommands, Player.Commands.EMPTY));
                   }
                 });
             break;
@@ -359,7 +366,7 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     Player.Commands.Builder commandBuilder =
                         new Player.Commands.Builder().addAllCommands();
@@ -368,7 +375,7 @@ public class MediaSessionProviderService extends Service {
                         .getBoolean(KEY_COMMAND_GET_TASKS_UNAVAILABLE, /* defaultValue= */ false)) {
                       commandBuilder.remove(COMMAND_GET_TRACKS);
                     }
-                    return accept(SessionCommands.EMPTY, commandBuilder.build());
+                    return immediateFuture(accept(SessionCommands.EMPTY, commandBuilder.build()));
                   }
                 });
             break;
@@ -390,22 +397,20 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    MediaSession.ConnectionResult connectionResult =
-                        MediaSession.Callback.super.onConnect(session, controller);
-                    SessionCommands availableSessionCommands =
-                        connectionResult.availableSessionCommands;
+                    ConnectionResult result = new AcceptedResultBuilder(session).build();
+                    SessionCommands availableSessionCommands = result.availableSessionCommands;
                     if (session.isMediaNotificationController(controller)) {
                       availableSessionCommands =
-                          connectionResult
+                          result
                               .availableSessionCommands
                               .buildUpon()
                               .add(new SessionCommand("command1", Bundle.EMPTY))
                               .build();
                     }
-                    return accept(
-                        availableSessionCommands, connectionResult.availablePlayerCommands);
+                    return immediateFuture(
+                        accept(availableSessionCommands, result.availablePlayerCommands));
                   }
                 });
             break;
@@ -415,15 +420,16 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                        .setAvailableSessionCommands(
-                            new SessionCommands.Builder()
-                                .addAllSessionCommands()
-                                .add(new SessionCommand(CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY))
-                                .build())
-                        .build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                            .setAvailableSessionCommands(
+                                new SessionCommands.Builder()
+                                    .addAllSessionCommands()
+                                    .add(new SessionCommand(CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY))
+                                    .build())
+                            .build());
                   }
 
                   @Override
@@ -478,15 +484,51 @@ public class MediaSessionProviderService extends Service {
             builder.setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                        .setAvailableSessionCommands(
-                            new SessionCommands.Builder()
-                                .addAllSessionCommands()
-                                .add(new SessionCommand(BOUNCING_CUSTOM_COMMAND, Bundle.EMPTY))
-                                .build())
-                        .build();
+                    Bundle connectionHints = controller.getConnectionHints();
+                    if (connectionHints.containsKey(
+                        CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS)) {
+                      long delayMs =
+                          connectionHints.getLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS);
+                      SettableFuture<MediaSession.ConnectionResult> future =
+                          SettableFuture.create();
+                      Bundle bundle = new Bundle();
+                      bundle.putBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, true);
+                      handler.postDelayed(
+                          () ->
+                              future.set(
+                                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                                      .setSessionExtras(bundle)
+                                      .setAvailableSessionCommands(
+                                          new SessionCommands.Builder()
+                                              .addAllSessionCommands()
+                                              .add(
+                                                  new SessionCommand(
+                                                      BOUNCING_CUSTOM_COMMAND, Bundle.EMPTY))
+                                              .build())
+                                      .build()),
+                          delayMs);
+                      return future;
+                    } else if (connectionHints.containsKey(
+                        CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS)) {
+                      long delayMs =
+                          connectionHints.getLong(
+                              CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS);
+                      SettableFuture<MediaSession.ConnectionResult> future =
+                          SettableFuture.create();
+                      handler.postDelayed(
+                          () -> future.set(MediaSession.ConnectionResult.reject()), delayMs);
+                      return future;
+                    }
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                            .setAvailableSessionCommands(
+                                new SessionCommands.Builder()
+                                    .addAllSessionCommands()
+                                    .add(new SessionCommand(BOUNCING_CUSTOM_COMMAND, Bundle.EMPTY))
+                                    .build())
+                            .build());
                   }
 
                   @Override

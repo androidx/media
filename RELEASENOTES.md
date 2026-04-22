@@ -153,6 +153,12 @@
         media sessions that don't allow `PREPARE_FROM` actions.
     *   Fix bug where own process wasn't marked with `Controller.isTrusted()` on
         API 27 or before when connecting via platform controllers.
+    *   Add `MediaSession.Callback.onConnectAsync()`. The new method allows to
+        asynchronously process the connection attempt of a controller. Apps can
+        return an immediate `Future` with
+        `Futures.immediateFuture(ConnectionResult)` to achieve the previous
+        behaviour. It's recommended to migrate to the new method because
+        `Callback.onConnect` is a candidate to be deprecated.
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

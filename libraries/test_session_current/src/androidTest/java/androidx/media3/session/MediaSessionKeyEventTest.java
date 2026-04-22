@@ -23,6 +23,7 @@ import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PA
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
@@ -44,6 +45,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
@@ -490,13 +492,13 @@ public class MediaSessionKeyEventTest {
     }
 
     @Override
-    public MediaSession.ConnectionResult onConnect(
+    public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       if (session.isMediaNotificationController(controller)
           || getExpectedControllerPackageName(controller).equals(controller.getPackageName())) {
-        return MediaSession.Callback.super.onConnect(session, controller);
+        return MediaSession.Callback.super.onConnectAsync(session, controller);
       }
-      return MediaSession.ConnectionResult.reject();
+      return immediateFuture(MediaSession.ConnectionResult.reject());
     }
 
     @Override

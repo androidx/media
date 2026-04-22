@@ -21,6 +21,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.utils.TestUtil.getEventsAsList;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -1500,16 +1501,17 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon()
-                        .add(command1)
-                        .add(command3)
-                        .build())
-                .build();
+            return immediateFuture(
+                new AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .add(command1)
+                            .add(command3)
+                            .build())
+                    .build());
           }
         };
     MediaSession mediaSession =
@@ -1556,12 +1558,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
-                .build();
+            return immediateFuture(
+                new ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                    .build());
           }
         };
     MediaSession mediaSession = createMediaSession(player, callback);
@@ -1626,12 +1629,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
-                .build();
+            return immediateFuture(
+                new ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                    .build());
           }
         };
     MediaSession mediaSession = createMediaSession(player, callback);
@@ -1707,16 +1711,17 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon()
-                        .add(command1)
-                        .add(command3)
-                        .build())
-                .build();
+            return immediateFuture(
+                new AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .add(command1)
+                            .add(command3)
+                            .build())
+                    .build());
           }
         };
     MediaSession mediaSession =
@@ -1766,12 +1771,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
-                .build();
+            return immediateFuture(
+                new ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                    .build());
           }
         };
     MediaSession mediaSession = createMediaSession(player, callback);
@@ -1839,12 +1845,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
-                .build();
+            return immediateFuture(
+                new ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
+                    .build());
           }
         };
     MediaSession mediaSession = createMediaSession(player, callback);
@@ -1954,18 +1961,19 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon()
-                        .add(command1)
-                        .add(command2)
-                        .add(command3)
-                        .add(commandIgnored)
-                        .build())
-                .build();
+            return immediateFuture(
+                new AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .add(command1)
+                            .add(command2)
+                            .add(command3)
+                            .add(commandIgnored)
+                            .build())
+                    .build());
           }
         };
     MediaSession mediaSession =
@@ -2077,17 +2085,18 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new AcceptedResultBuilder(session)
-                .setAvailablePlayerCommands(Player.Commands.EMPTY)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon()
-                        .add(command1)
-                        .add(command2)
-                        .build())
-                .build();
+            return immediateFuture(
+                new AcceptedResultBuilder(session)
+                    .setAvailablePlayerCommands(Player.Commands.EMPTY)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .add(command1)
+                            .add(command2)
+                            .build())
+                    .build());
           }
         };
     MediaSession mediaSession =
@@ -2142,12 +2151,13 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new ConnectionResult.AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command).build())
-                .build();
+            return immediateFuture(
+                new ConnectionResult.AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command).build())
+                    .build());
           }
         };
     MediaSession mediaSession = createMediaSession(player, callback);
@@ -2219,17 +2229,18 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
-            return new AcceptedResultBuilder(session)
-                .setAvailableSessionCommands(
-                    ConnectionResult.DEFAULT_SESSION_COMMANDS
-                        .buildUpon()
-                        .add(command1)
-                        .add(command2)
-                        .add(command3)
-                        .build())
-                .build();
+            return immediateFuture(
+                new AcceptedResultBuilder(session)
+                    .setAvailableSessionCommands(
+                        ConnectionResult.DEFAULT_SESSION_COMMANDS
+                            .buildUpon()
+                            .add(command1)
+                            .add(command2)
+                            .add(command3)
+                            .build())
+                    .build());
           }
         };
     MediaSession mediaSession =

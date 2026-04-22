@@ -22,6 +22,7 @@ import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 
 import android.app.PendingIntent;
@@ -52,6 +53,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.Player.Commands;
 import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Player.RepeatMode;
@@ -255,6 +257,13 @@ public class MediaSession {
   /* package */ static final String DEFAULT_SESSION_ID = "";
 
   /**
+   * The key to mark the default {@link ConnectionResult} of the deprecated {@code
+   * Callback.onConnect} callback.
+   */
+  /* package */ static final String BUNDLE_KEY_NOT_IMPLEMENTED =
+      "androidx.media3.session.CALLBACK_NOT_IMPLEMENTED";
+
+  /**
    * A builder for {@link MediaSession}.
    *
    * <p>Any incoming requests from the {@link MediaController} will be handled on the application
@@ -399,7 +408,7 @@ public class MediaSession {
      *
      * <p>Controllers that connect have the custom layout of the session available with the initial
      * connection result by default. A custom layout specific to a controller can be set when the
-     * controller {@linkplain MediaSession.Callback#onConnect connects} by using an {@link
+     * controller {@linkplain MediaSession.Callback#onConnectAsync connects} by using an {@link
      * ConnectionResult.AcceptedResultBuilder}.
      *
      * <p>Use {@code MediaSession.setCustomLayout(..)} to update the custom layout during the life
@@ -430,8 +439,8 @@ public class MediaSession {
      *
      * <p>Controllers that connect have the media button preferences of the session available with
      * the initial connection result by default. Media button preferences specific to a controller
-     * can be set when the controller {@linkplain MediaSession.Callback#onConnect connects} by using
-     * an {@link ConnectionResult.AcceptedResultBuilder}.
+     * can be set when the controller {@linkplain MediaSession.Callback#onConnectAsync connects} by
+     * using an {@link ConnectionResult.AcceptedResultBuilder}.
      *
      * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
      * preferences during the life time of the session.
@@ -602,8 +611,8 @@ public class MediaSession {
      * @param trusted {@code true} if trusted, {@code false} otherwise.
      * @param cb ControllerCb. Can be {@code null} only when a {@code
      *     android.support.v4.media.MediaBrowserCompat} connects to {@link MediaSessionService} and
-     *     {@link ControllerInfo} is needed for {@link MediaSession.Callback#onConnect(MediaSession,
-     *     ControllerInfo)}.
+     *     {@link ControllerInfo} is needed for {@link
+     *     MediaSession.Callback#onConnectAsync(MediaSession, ControllerInfo)}.
      * @param connectionHints A session-specific argument sent from the controller for the
      *     connection. The contents of this bundle may affect the connection result.
      * @param maxCommandsForMediaItems The max commands the controller supports for media items.
@@ -796,6 +805,7 @@ public class MediaSession {
   }
 
   private final MediaSessionImpl impl;
+  private @MonotonicNonNull ConnectionResult deprecatedDefaultConnectionResult;
 
   // Suppress nullness check as `this` is under initialization.
   @SuppressWarnings({"nullness:argument", "nullness:method.invocation"})
@@ -1029,8 +1039,8 @@ public class MediaSession {
    * controller are executed.
    *
    * <p>Note: If you want to prevent a controller from calling a method, specify the {@link
-   * ConnectionResult#availablePlayerCommands available commands} in {@link Callback#onConnect} or
-   * set them via {@link #setAvailableCommands}.
+   * ConnectionResult#availablePlayerCommands available commands} in {@link Callback#onConnectAsync}
+   * or set them via {@link #setAvailableCommands}.
    *
    * <p>This method must be called on the {@linkplain Player#getApplicationLooper() application
    * thread} of the underlying player.
@@ -1127,10 +1137,10 @@ public class MediaSession {
    * <p>Make sure to have the session commands of all command buttons of the custom layout
    * {@linkplain MediaController#getAvailableSessionCommands() available for controllers}. Include
    * the custom session commands a controller should be able to send in the available commands of
-   * the connection result {@linkplain MediaSession.Callback#onConnect(MediaSession, ControllerInfo)
-   * that your app returns when the controller connects}. The {@link CommandButton#isEnabled} flag
-   * is set according to the available commands of the controller and overrides a value that may
-   * have been set by the app.
+   * the connection result {@linkplain MediaSession.Callback#onConnectAsync(MediaSession,
+   * ControllerInfo) that your app returns when the controller connects}. The {@link
+   * CommandButton#isEnabled} flag is set according to the available commands of the controller and
+   * overrides a value that may have been set by the app.
    *
    * <p>On the controller side, {@link
    * MediaController.Listener#onCustomLayoutChanged(MediaController, List)} is only called if the
@@ -1175,7 +1185,7 @@ public class MediaSession {
    *
    * <p>Controllers that connect after calling this method will have the new custom layout available
    * with the initial connection result. A custom layout specific to a controller can be set when
-   * the controller {@linkplain MediaSession.Callback#onConnect connects} by using an {@link
+   * the controller {@linkplain MediaSession.Callback#onConnectAsync connects} by using an {@link
    * ConnectionResult.AcceptedResultBuilder}.
    *
    * @param layout The ordered list of {@linkplain CommandButton command buttons}.
@@ -1192,8 +1202,8 @@ public class MediaSession {
    * preferences {@linkplain MediaController#getAvailableSessionCommands() available for
    * controllers}. Include the custom session commands a controller should be able to send in the
    * available commands of the connection result {@linkplain
-   * MediaSession.Callback#onConnect(MediaSession, ControllerInfo) that your app returns when the
-   * controller connects}. The {@link CommandButton#isEnabled} flag is set according to the
+   * MediaSession.Callback#onConnectAsync(MediaSession, ControllerInfo) that your app returns when
+   * the controller connects}. The {@link CommandButton#isEnabled} flag is set according to the
    * available commands of the controller and overrides a value that may have been set by the app.
    *
    * <p>On the controller side, {@link
@@ -1239,7 +1249,7 @@ public class MediaSession {
    *
    * <p>Controllers that connect after calling this method will have the new media button
    * preferences available with the initial connection result. Media button preferences specific to
-   * a controller can be set when the controller {@linkplain MediaSession.Callback#onConnect
+   * a controller can be set when the controller {@linkplain MediaSession.Callback#onConnectAsync
    * connects} by using an {@link ConnectionResult.AcceptedResultBuilder}.
    *
    * @param mediaButtonPreferences The ordered list of {@linkplain CommandButton command buttons}.
@@ -1390,7 +1400,7 @@ public class MediaSession {
    * Sends the session extras to the connected controller.
    *
    * <p>The initial extras for a specific controller can be set in {@link
-   * Callback#onConnect(MediaSession, ControllerInfo)} when {@link
+   * Callback#onConnectAsync(MediaSession, ControllerInfo)} when {@link
    * ConnectionResult.AcceptedResultBuilder#setSessionExtras(Bundle) building the connection
    * result}.
    *
@@ -1463,7 +1473,8 @@ public class MediaSession {
    *
    * @param controllerInfo The controller to send the error to.
    * @param sessionError The session error.
-   * @throws IllegalArgumentException If an error is sent to a legacy controller.
+   * @throws IllegalArgumentException thrown if an error is attempted to be sent to a legacy
+   *     controller.
    */
   @UnstableApi
   public final void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
@@ -1548,6 +1559,20 @@ public class MediaSession {
     return impl.getUri();
   }
 
+  private ConnectionResult getDeprecatedDefaultConnectionResult() {
+    if (deprecatedDefaultConnectionResult == null) {
+      Bundle notImplementedBundle = new Bundle();
+      notImplementedBundle.putBoolean(BUNDLE_KEY_NOT_IMPLEMENTED, true);
+      deprecatedDefaultConnectionResult =
+          new ConnectionResult.AcceptedResultBuilder(this)
+              .setAvailableSessionCommands(SessionCommands.EMPTY)
+              .setAvailablePlayerCommands(Commands.EMPTY)
+              .setSessionExtras(notImplementedBundle)
+              .build();
+    }
+    return deprecatedDefaultConnectionResult;
+  }
+
   /**
    * A progress reporter to report progress for a custom command sent by a controller.
    *
@@ -1583,10 +1608,19 @@ public class MediaSession {
   public interface Callback {
 
     /**
-     * Called when a controller is about to connect to this session. Return a {@link
+     * It's strongly recommended to override {@link #onConnectAsync(MediaSession, ControllerInfo)}
+     * instead of this method. This method will be deprecated as soon as the {@code @UnstableApi}
+     * annotation is removed.
+     *
+     * <p>Called when a controller is about to connect to this session. Return a {@link
      * ConnectionResult result} for the controller by using {@link
      * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
      * ConnectionResult.AcceptedResultBuilder}.
+     *
+     * <p>Return a {@link ListenableFuture} to send a {@link ConnectionResult} back to the
+     * controller asynchronously. You can also return a {@link ConnectionResult} wrapped in an
+     * immediate future by using {@link Futures#immediateFuture(Object)} which results in a blocking
+     * and immediate execution.
      *
      * <p>If this callback is not overridden, it allows all controllers to connect that can access
      * the session. All session and player commands are made available and the {@linkplain
@@ -1617,10 +1651,62 @@ public class MediaSession {
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
-     * @return The {@link ConnectionResult}.
+     * @return A {@link ListenableFuture} of the {@link ConnectionResult}.
      */
     default ConnectionResult onConnect(MediaSession session, ControllerInfo controller) {
-      return new ConnectionResult.AcceptedResultBuilder(session).build();
+      return session.getDeprecatedDefaultConnectionResult();
+    }
+
+    /**
+     * Called when a controller is about to connect to this session. Return a {@link
+     * ConnectionResult result} for the controller by using {@link
+     * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
+     * ConnectionResult.AcceptedResultBuilder}.
+     *
+     * <p>Return a {@link ListenableFuture} to send a {@link ConnectionResult} back to the
+     * controller asynchronously. You can also return a {@link ConnectionResult} wrapped in an
+     * immediate future by using {@link Futures#immediateFuture(Object)} which results in a blocking
+     * and immediate execution.
+     *
+     * <p>If this callback is not overridden, it allows all controllers to connect that can access
+     * the session. All session and player commands are made available and the {@linkplain
+     * MediaSession#getMediaButtonPreferences() media button preferences of the session} are
+     * included.
+     *
+     * <p>If both {@link #onConnect(MediaSession, ControllerInfo)} and this method are overridden,
+     * the deprecated {@link #onConnect(MediaSession, ControllerInfo)} takes precedence for backward
+     * compatibility.
+     *
+     * <p>You can use {@link ControllerInfo#isTrusted()} to filter by system apps, apps with media
+     * control permissions, and your own app.
+     *
+     * <p>Note that the player commands in {@link ConnectionResult#availablePlayerCommands} will be
+     * intersected with the {@link Player#getAvailableCommands() available commands} of the
+     * underlying {@link Player} and the controller will only be able to call the commonly available
+     * commands.
+     *
+     * <p>Returning {@link ConnectionResult#reject()} rejects the connection. In that case, the
+     * controller will get {@link SecurityException} when resolving the {@link ListenableFuture}
+     * returned by {@link MediaController.Builder#buildAsync()}.
+     *
+     * <p>The controller isn't connected yet, so calls to the controller (e.g. {@link
+     * #sendCustomCommand}, {@link #setMediaButtonPreferences}) will be ignored. Use {@link
+     * #onPostConnect} for custom initialization of the controller instead.
+     *
+     * <p>Interoperability: If a {@linkplain ControllerInfo#LEGACY_CONTROLLER_VERSION platform or
+     * legacy controller} is connecting to the session then this callback may block the main thread,
+     * even if it's called on a different application thread. If it's possible that platform or
+     * legacy controllers will connect to the session, you should ensure that the callback returns
+     * quickly to avoid blocking the main thread for a long period of time.
+     *
+     * @param session The session for this event.
+     * @param controller The {@linkplain ControllerInfo controller} information.
+     * @return A {@link ListenableFuture} of the {@link ConnectionResult}.
+     */
+    @UnstableApi
+    default ListenableFuture<ConnectionResult> onConnectAsync(
+        MediaSession session, ControllerInfo controller) {
+      return immediateFuture(new ConnectionResult.AcceptedResultBuilder(session).build());
     }
 
     /**
@@ -1628,8 +1714,8 @@ public class MediaSession {
      * controller.
      *
      * <p>Note that calls to the controller (e.g. {@link #sendCustomCommand}, {@link
-     * #setMediaButtonPreferences}) work here but don't work in {@link #onConnect} because the
-     * controller isn't connected yet in {@link #onConnect}.
+     * #setMediaButtonPreferences}) work here but don't work in {@link #onConnectAsync} because the
+     * controller isn't connected yet in {@link #onConnectAsync}.
      *
      * @param session The session for this event.
      * @param controller The {@linkplain ControllerInfo controller} information.
@@ -1679,7 +1765,7 @@ public class MediaSession {
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, String mediaId, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
+      return immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1701,7 +1787,7 @@ public class MediaSession {
      */
     default ListenableFuture<SessionResult> onSetRating(
         MediaSession session, ControllerInfo controller, Rating rating) {
-      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
+      return immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1717,7 +1803,8 @@ public class MediaSession {
      *
      * <p>{@link MediaController} instances are only allowed to send a command if the command has
      * been added to the {@link MediaSession.ConnectionResult#availableSessionCommands list of
-     * available session commands} in {@link #onConnect} or set via {@link #setAvailableCommands}.
+     * available session commands} in {@link #onConnectAsync} or set via {@link
+     * #setAvailableCommands}.
      *
      * <p>Interoperability: This will be also called by {@code
      * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
@@ -1741,7 +1828,7 @@ public class MediaSession {
         ControllerInfo controller,
         SessionCommand customCommand,
         Bundle args) {
-      return Futures.immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
+      return immediateFuture(new SessionResult(ERROR_NOT_SUPPORTED));
     }
 
     /**
@@ -1759,7 +1846,8 @@ public class MediaSession {
      *
      * <p>{@link MediaController} instances are only allowed to send a command if the command has
      * been added to the {@link MediaSession.ConnectionResult#availableSessionCommands list of
-     * available session commands} in {@link #onConnect} or set via {@link #setAvailableCommands}.
+     * available session commands} in {@link #onConnectAsync} or set via {@link
+     * #setAvailableCommands}.
      *
      * <p>Interoperability: This will be also called by {@code
      * android.support.v4.media.MediaBrowserCompat.sendCustomAction()}. If so, {@code extras} from
@@ -1851,7 +1939,7 @@ public class MediaSession {
           return Futures.immediateFailedFuture(new UnsupportedOperationException());
         }
       }
-      return Futures.immediateFuture(mediaItems);
+      return immediateFuture(mediaItems);
     }
 
     /**
@@ -1931,7 +2019,7 @@ public class MediaSession {
       return Util.transformFutureAsync(
           onAddMediaItems(mediaSession, controller, mediaItems),
           (mediaItemList) ->
-              Futures.immediateFuture(
+              immediateFuture(
                   new MediaItemsWithStartPosition(mediaItemList, startIndex, startPositionMs)));
     }
 
@@ -2111,7 +2199,7 @@ public class MediaSession {
   }
 
   /**
-   * A result for {@link Callback#onConnect(MediaSession, ControllerInfo)} to denote the set of
+   * A result for {@link Callback#onConnectAsync(MediaSession, ControllerInfo)} to denote the set of
    * available commands and the media button preferences for a {@link ControllerInfo controller}.
    */
   public static final class ConnectionResult {
@@ -2140,7 +2228,8 @@ public class MediaSession {
 
       /**
        * Sets the session commands that are available to the controller that gets this result
-       * returned when {@linkplain Callback#onConnect(MediaSession, ControllerInfo) connecting}.
+       * returned when {@linkplain Callback#onConnectAsync(MediaSession, ControllerInfo)
+       * connecting}.
        *
        * <p>The default is {@link ConnectionResult#DEFAULT_SESSION_AND_LIBRARY_COMMANDS} for a
        * {@link MediaLibrarySession} and {@link ConnectionResult#DEFAULT_SESSION_COMMANDS} for a
@@ -2155,7 +2244,8 @@ public class MediaSession {
 
       /**
        * Sets the player commands that are available to the controller that gets this result
-       * returned when {@linkplain Callback#onConnect(MediaSession, ControllerInfo) connecting}.
+       * returned when {@linkplain Callback#onConnectAsync(MediaSession, ControllerInfo)
+       * connecting}.
        *
        * <p>This set of available player commands is intersected with the actual player commands
        * supported by a player. The resulting intersection is the set of commands actually being

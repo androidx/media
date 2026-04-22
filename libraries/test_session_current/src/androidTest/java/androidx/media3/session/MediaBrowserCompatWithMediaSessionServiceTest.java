@@ -30,6 +30,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
+import androidx.media3.test.session.common.MediaSessionConstants;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -149,6 +150,17 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
   public void connect() throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     assertThat(connectionCallback.failedLatch.getCount()).isNotEqualTo(0);
+  }
+
+  @Test
+  public void getRoot_connectionAsync() throws Exception {
+    Bundle rootHints = new Bundle();
+    rootHints.putLong(MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS, 200L);
+    rootHints.putString(MediaSessionConstants.KEY_CONTROLLER, "getRoot_connectionAsync");
+
+    connectAndWait(rootHints);
+
+    assertThat(connectionCallback.connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   @Ignore

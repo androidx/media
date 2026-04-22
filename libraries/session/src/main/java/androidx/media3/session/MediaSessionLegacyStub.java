@@ -46,6 +46,7 @@ import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
@@ -71,6 +72,7 @@ import android.text.TextUtils;
 import android.view.KeyEvent;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.collection.ArrayMap;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -130,6 +132,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private static final int DEFAULT_CONNECTION_TIMEOUT_MS = 300_000; // 5 min.
 
   private final ConnectedControllersManager<RemoteUserInfo> connectedControllersManager;
+  private final ArrayMap<RemoteUserInfo, ListenableFuture<MediaSession.ConnectionResult>>
+      connectingControllers;
+  private final ArrayMap<RemoteUserInfo, List<SessionTask>> pendingTasks;
 
   private final MediaSessionImpl sessionImpl;
   private final MediaSessionManager sessionManager;
@@ -178,6 +183,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
     this.legacyExtras = new Bundle(legacyExtras);
+    this.connectingControllers = new ArrayMap<>();
+    this.pendingTasks = new ArrayMap<>();
     Context context = sessionImpl.getContext();
     sessionManager = MediaSessionManager.getSessionManager(context);
     controllerLegacyCbForBroadcast = new ControllerLegacyCbForBroadcast();
@@ -850,63 +857,49 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     postOrRun(
         sessionImpl.getApplicationHandler(),
-        () -> {
-          if (sessionImpl.isReleased()) {
-            return;
-          }
-          if (!sessionCompat.isActive()) {
-            Log.w(
-                TAG,
-                "Ignore incoming player command before initialization. command="
-                    + command
-                    + ", pid="
-                    + remoteUserInfo.getPid());
-            return;
-          }
-          @Nullable ControllerInfo controller = tryGetController(remoteUserInfo);
-          if (controller == null) {
-            // Failed to get controller since connection was rejected.
-            return;
-          }
-          if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
-            if (command == COMMAND_PLAY_PAUSE
-                && !sessionImpl.getPlayerWrapper().getPlayWhenReady()) {
-              Log.w(
-                  TAG,
-                  "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available. If this"
-                      + " play command has started the service for instance for playback"
-                      + " resumption, this may prevent the service from being started into the"
-                      + " foreground.");
-            }
-            return;
-          }
-          int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
-          if (resultCode != RESULT_SUCCESS) {
-            // Don't run rejected command.
-            return;
-          }
-
-          sessionImpl
-              .callWithControllerForCurrentRequestSet(
-                  controller,
-                  () -> {
-                    try {
-                      task.run(controller);
-                    } catch (RemoteException e) {
-                      // Currently it's TransactionTooLargeException or DeadSystemException.
-                      // We'd better to leave log for those cases because
-                      //   - TransactionTooLargeException means that we may need to fix our code.
-                      //     (e.g. add pagination or special way to deliver Bitmap)
-                      //   - DeadSystemException means that errors around it can be ignored.
-                      Log.w(TAG, "Exception in " + controller, e);
+        () ->
+            handleControllerTaskOnHandler(
+                remoteUserInfo,
+                controller -> {
+                  if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
+                    if (command == COMMAND_PLAY_PAUSE
+                        && !sessionImpl.getPlayerWrapper().getPlayWhenReady()) {
+                      Log.w(
+                          TAG,
+                          "Calling play() omitted due to COMMAND_PLAY_PAUSE not being available."
+                              + " If this play command has started the service for instance for"
+                              + " playback resumption, this may prevent the service from being"
+                              + " started into the foreground.");
                     }
-                  })
-              .run();
-          if (callOnPlayerInteractionFinished) {
-            sessionImpl.onPlayerInteractionFinishedOnHandler(
-                controller, new Player.Commands.Builder().add(command).build());
-          }
-        });
+                    return;
+                  }
+                  int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
+                  if (resultCode != RESULT_SUCCESS) {
+                    // Don't run rejected command.
+                    return;
+                  }
+
+                  sessionImpl
+                      .callWithControllerForCurrentRequestSet(
+                          controller,
+                          () -> {
+                            try {
+                              task.run(controller);
+                            } catch (RemoteException e) {
+                              // That's TransactionTooLargeException or DeadSystemException.
+                              // We'd better to leave log for those cases because
+                              //   - TransactionTooLargeException means that we may need to fix our
+                              //     code (e.g. add pagination or special way to deliver Bitmap).
+                              //   - DeadSystemException means that errors around it can be ignored.
+                              Log.w(TAG, "Exception in " + controller, e);
+                            }
+                          })
+                      .run();
+                  if (callOnPlayerInteractionFinished) {
+                    sessionImpl.onPlayerInteractionFinishedOnHandler(
+                        controller, new Player.Commands.Builder().add(command).build());
+                  }
+                }));
   }
 
   private void dispatchSessionTaskWithSetRatingSessionCommand(Rating rating) {
@@ -946,45 +939,32 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     postOrRun(
         sessionImpl.getApplicationHandler(),
-        () -> {
-          if (sessionImpl.isReleased()) {
-            return;
-          }
-          if (!sessionCompat.isActive()) {
-            Log.w(
-                TAG,
-                "Ignore incoming session command before initialization. command="
-                    + (sessionCommand == null ? commandCode : sessionCommand.customAction)
-                    + ", pid="
-                    + remoteUserInfo.getPid());
-            return;
-          }
-          @Nullable ControllerInfo controller = tryGetController(remoteUserInfo);
-          if (controller == null) {
-            // Failed to get controller since connection was rejected.
-            return;
-          }
-          if (sessionCommand != null) {
-            if (!connectedControllersManager.isSessionCommandAvailable(
-                controller, sessionCommand)) {
-              return;
-            }
-          } else {
-            if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
-              return;
-            }
-          }
-          try {
-            task.run(controller);
-          } catch (RemoteException e) {
-            // Currently it's TransactionTooLargeException or DeadSystemException.
-            // We'd better to leave log for those cases because
-            //   - TransactionTooLargeException means that we may need to fix our code.
-            //     (e.g. add pagination or special way to deliver Bitmap)
-            //   - DeadSystemException means that errors around it can be ignored.
-            Log.w(TAG, "Exception in " + controller, e);
-          }
-        });
+        () ->
+            handleControllerTaskOnHandler(
+                remoteUserInfo,
+                controller -> {
+                  if (sessionCommand != null) {
+                    if (!connectedControllersManager.isSessionCommandAvailable(
+                        controller, sessionCommand)) {
+                      return;
+                    }
+                  } else {
+                    if (!connectedControllersManager.isSessionCommandAvailable(
+                        controller, commandCode)) {
+                      return;
+                    }
+                  }
+                  try {
+                    task.run(controller);
+                  } catch (RemoteException e) {
+                    // That's TransactionTooLargeException or DeadSystemException.
+                    // We'd better to leave log for those cases because
+                    //   - TransactionTooLargeException means that we may need to fix our code (e.g.
+                    //     add pagination or special way to deliver Bitmap).
+                    //   - DeadSystemException means that errors around it can be ignored.
+                    Log.w(TAG, "Exception in " + controller, e);
+                  }
+                }));
   }
 
   private void dispatchCustomCommandAsPredefinedCommand(SessionCommand command) {
@@ -1022,38 +1002,102 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  @Nullable
-  private ControllerInfo tryGetController(RemoteUserInfo remoteUserInfo) {
-    @Nullable ControllerInfo controller = connectedControllersManager.getController(remoteUserInfo);
-    if (controller == null) {
-      // Try connect.
-      ControllerCb controllerCb = new ControllerLegacyCb(remoteUserInfo);
-      controller =
-          new ControllerInfo(
-              remoteUserInfo,
-              ControllerInfo.LEGACY_CONTROLLER_VERSION,
-              ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-              sessionManager.isTrustedForMediaControl(remoteUserInfo),
-              controllerCb,
-              /* connectionHints= */ Bundle.EMPTY,
-              /* maxCommandsForMediaItems= */ 0,
-              /* isPackageNameVerified= */ SDK_INT >= 33);
-      MediaSession.ConnectionResult connectionResult = sessionImpl.onConnectOnHandler(controller);
-      if (!connectionResult.isAccepted) {
-        controllerCb.onDisconnected(/* seq= */ 0);
-        return null;
-      }
-      connectedControllersManager.addController(
-          controller.getRemoteUserInfo(),
-          controller,
-          connectionResult.availableSessionCommands,
-          connectionResult.availablePlayerCommands);
-      sessionImpl.onPostConnectOnHandler(controller);
+  private void handleControllerTaskOnHandler(RemoteUserInfo remoteUserInfo, SessionTask task) {
+    if (sessionImpl.isReleased()) {
+      return;
     }
-    // Reset disconnect timeout.
-    connectionTimeoutHandler.disconnectControllerAfterTimeout(controller, connectionTimeoutMs);
+    if (!sessionCompat.isActive()) {
+      Log.w(TAG, "Ignore incoming command before initialization. pid=" + remoteUserInfo.getPid());
+      return;
+    }
+    @Nullable ControllerInfo controller = connectedControllersManager.getController(remoteUserInfo);
+    if (controller != null) {
+      // Reset disconnect timeout.
+      connectionTimeoutHandler.disconnectControllerAfterTimeout(controller, connectionTimeoutMs);
+      try {
+        task.run(controller);
+      } catch (RemoteException e) {
+        Log.w(TAG, "Exception in " + controller, e);
+      }
+      return;
+    }
 
-    return controller;
+    if (connectingControllers.containsKey(remoteUserInfo)) {
+      checkNotNull(pendingTasks.get(remoteUserInfo)).add(task);
+      return;
+    }
+
+    // Try connect.
+    ControllerCb controllerCb = new ControllerLegacyCb(remoteUserInfo);
+    ControllerInfo newController =
+        new ControllerInfo(
+            remoteUserInfo,
+            ControllerInfo.LEGACY_CONTROLLER_VERSION,
+            ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
+            sessionManager.isTrustedForMediaControl(remoteUserInfo),
+            controllerCb,
+            /* connectionHints= */ Bundle.EMPTY,
+            /* maxCommandsForMediaItems= */ 0,
+            /* isPackageNameVerified= */ SDK_INT >= 33);
+
+    ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
+        sessionImpl.onConnectOnHandler(newController);
+    ignoreFuture(connectingControllers.put(remoteUserInfo, connectionResultFuture));
+    List<SessionTask> tasks = new ArrayList<>();
+    tasks.add(task);
+    pendingTasks.put(remoteUserInfo, tasks);
+
+    Futures.addCallback(
+        connectionResultFuture,
+        new FutureCallback<MediaSession.ConnectionResult>() {
+          @Override
+          public void onSuccess(MediaSession.ConnectionResult connectionResult) {
+            postOrRun(
+                sessionImpl.getApplicationHandler(),
+                () -> {
+                  ignoreFuture(connectingControllers.remove(remoteUserInfo));
+                  List<SessionTask> tasks = pendingTasks.remove(remoteUserInfo);
+                  if (sessionImpl.isReleased()
+                      || connectionResult == null
+                      || !connectionResult.isAccepted) {
+                    controllerCb.onDisconnected(/* seq= */ 0);
+                    return;
+                  }
+                  connectedControllersManager.addController(
+                      newController.getRemoteUserInfo(),
+                      newController,
+                      connectionResult.availableSessionCommands,
+                      connectionResult.availablePlayerCommands);
+                  sessionImpl.onPostConnectOnHandler(newController);
+
+                  // Reset disconnect timeout.
+                  connectionTimeoutHandler.disconnectControllerAfterTimeout(
+                      newController, connectionTimeoutMs);
+
+                  if (tasks != null) {
+                    for (SessionTask task : tasks) {
+                      try {
+                        task.run(newController);
+                      } catch (RemoteException e) {
+                        Log.w(TAG, "Exception in " + newController, e);
+                      }
+                    }
+                  }
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            postOrRun(
+                sessionImpl.getApplicationHandler(),
+                () -> {
+                  ignoreFuture(connectingControllers.remove(remoteUserInfo));
+                  pendingTasks.remove(remoteUserInfo);
+                  controllerCb.onDisconnected(/* seq= */ 0);
+                });
+          }
+        },
+        directExecutor());
   }
 
   public void setLegacyControllerDisconnectTimeoutMs(long timeoutMs) {
@@ -1127,7 +1171,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   // Do nothing, the session is free to ignore these requests.
                 }
               },
-              MoreExecutors.directExecutor());
+              directExecutor());
         },
         sessionCompat.getCurrentControllerInfo(),
         /* callOnPlayerInteractionFinished= */ false);
@@ -1176,7 +1220,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   // Do nothing, the session is free to ignore these requests.
                 }
               },
-              MoreExecutors.directExecutor());
+              directExecutor());
         },
         sessionCompat.getCurrentControllerInfo(),
         /* callOnPlayerInteractionFinished= */ false);
@@ -1201,7 +1245,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         MoreExecutors.directExecutor());
   }
 
-  private static <T> void ignoreFuture(Future<T> unused) {
+  private static <T> void ignoreFuture(@Nullable Future<T> unused) {
     // no-op
   }
 

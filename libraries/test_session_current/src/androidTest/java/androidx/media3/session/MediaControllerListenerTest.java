@@ -42,6 +42,9 @@ import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_N
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_SESSION_SERVICE;
 import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
@@ -160,6 +163,36 @@ public class MediaControllerListenerTest {
   }
 
   @Test
+  public void connection_asyncSessionAccept() throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS, 100L);
+
+    MediaController controller =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints, /* listener= */ null);
+
+    Bundle sessionExtras =
+        threadTestRule.getHandler().postAndSync(() -> controller.getSessionExtras());
+    assertThat(sessionExtras.getBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION)).isTrue();
+  }
+
+  @Test
+  public void connection_asyncSessionReject() throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS, 100L);
+
+    MediaController controller =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints, /* listener= */ null);
+
+    assertThat(controller).isNotNull();
+    assertThat(threadTestRule.getHandler().postAndSync(controller::getAvailableCommands))
+        .isEqualTo(new Player.Commands.Builder().add(COMMAND_RELEASE).build());
+    assertThat(threadTestRule.getHandler().postAndSync(controller::getAvailableSessionCommands))
+        .isEqualTo(SessionCommands.EMPTY);
+  }
+
+  @Test
   public void connection_sessionInSameAppRejects_onlyReleaseCommandAvailable() throws Exception {
     RemoteMediaSession session = createRemoteMediaSession(TEST_CONTROLLER_LISTENER_SESSION_REJECTS);
     AtomicReference<Player.Commands> availablePlayerCommands = new AtomicReference<>();
@@ -191,8 +224,26 @@ public class MediaControllerListenerTest {
   @Test
   public void connection_toLibraryService() throws Exception {
     SessionToken token = new SessionToken(context, MOCK_MEDIA3_LIBRARY_SERVICE);
+
     MediaController controller = controllerTestRule.createController(token);
-    assertThat(controller).isNotNull();
+
+    Bundle sessionExtras =
+        threadTestRule.getHandler().postAndSync(() -> controller.getSessionExtras());
+    assertThat(sessionExtras.getBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION)).isFalse();
+  }
+
+  @Test
+  public void connection_toLibraryServiceAsync() throws Exception {
+    Bundle connectionHints = new Bundle();
+    connectionHints.putLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS, 100L);
+    SessionToken token = new SessionToken(context, MOCK_MEDIA3_LIBRARY_SERVICE);
+
+    MediaController controller =
+        controllerTestRule.createController(token, connectionHints, /* listener= */ null);
+
+    Bundle sessionExtras =
+        threadTestRule.getHandler().postAndSync(() -> controller.getSessionExtras());
+    assertThat(sessionExtras.getBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION)).isTrue();
   }
 
   @Test

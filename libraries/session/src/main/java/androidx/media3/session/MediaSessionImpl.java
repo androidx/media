@@ -34,6 +34,7 @@ import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 
 import android.app.PendingIntent;
@@ -82,6 +83,7 @@ import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ControllerCb;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
@@ -870,33 +872,50 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         (callback, seq) -> callback.onError(seq, sessionError));
   }
 
-  public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
+  @SuppressWarnings("deprecation") // Calling Callback.onConnect for backwards compatibility
+  public ListenableFuture<MediaSession.ConnectionResult> onConnectOnHandler(
+      ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
       // Hide System UI and provide the connection result from the platform state.
-      return sessionLegacyStub.getPlatformConnectionResult(instance);
+      return immediateFuture(sessionLegacyStub.getPlatformConnectionResult(instance));
     }
-    MediaSession.ConnectionResult connectionResult =
+    ConnectionResult deprecatedConnectionResult = callback.onConnect(instance, controller);
+    boolean isDefaultImplementationOfDeprecatedOnConnect =
+        deprecatedConnectionResult.isAccepted
+            && deprecatedConnectionResult.sessionExtras != null
+            && deprecatedConnectionResult.sessionExtras.getBoolean(
+                MediaSession.BUNDLE_KEY_NOT_IMPLEMENTED, /* defaultValue= */ false);
+    if (!isDefaultImplementationOfDeprecatedOnConnect) {
+      return immediateFuture(deprecatedConnectionResult);
+    }
+
+    ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
         checkNotNull(
-            callback.onConnect(instance, controller),
-            "Callback.onConnect must return non-null future");
-    if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
-      isMediaNotificationControllerConnected = true;
-      ImmutableList<CommandButton> mediaButtonPreferences =
-          connectionResult.mediaButtonPreferences != null
-              ? connectionResult.mediaButtonPreferences
-              : instance.getMediaButtonPreferences();
-      if (mediaButtonPreferences.isEmpty()) {
-        sessionLegacyStub.setPlatformCustomLayout(
-            connectionResult.customLayout != null
-                ? connectionResult.customLayout
-                : instance.getCustomLayout());
-      } else {
-        sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-      }
-      sessionLegacyStub.setAvailableCommands(
-          connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
-    }
-    return connectionResult;
+            callback.onConnectAsync(instance, controller),
+            "Callback.onConnectAsync must return non-null future");
+    return Util.transformFutureAsync(
+        connectionResultFuture,
+        connectionResult -> {
+          if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
+            isMediaNotificationControllerConnected = true;
+            ImmutableList<CommandButton> mediaButtonPreferences =
+                connectionResult.mediaButtonPreferences != null
+                    ? connectionResult.mediaButtonPreferences
+                    : instance.getMediaButtonPreferences();
+            if (mediaButtonPreferences.isEmpty()) {
+              sessionLegacyStub.setPlatformCustomLayout(
+                  connectionResult.customLayout != null
+                      ? connectionResult.customLayout
+                      : instance.getCustomLayout());
+            } else {
+              sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+            }
+            sessionLegacyStub.setAvailableCommands(
+                connectionResult.availableSessionCommands,
+                connectionResult.availablePlayerCommands);
+          }
+          return immediateFuture(connectionResult);
+        });
   }
 
   public void onPostConnectOnHandler(ControllerInfo controller) {
@@ -1364,12 +1383,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         seq = ((SequencedFuture<SessionResult>) future).getSequenceNumber();
       } else {
         if (!isConnected(controller)) {
-          return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
+          return immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
         }
         // 0 is OK for legacy controllers, because they didn't have sequence numbers.
         seq = 0;
         // Tell that operation is successful, although we don't know the actual result.
-        future = Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+        future = immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
       }
       ControllerCb cb = controller.getControllerCb();
       if (cb != null) {
@@ -1378,7 +1397,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       return future;
     } catch (DeadObjectException e) {
       onDeadObjectException(controller);
-      return Futures.immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
+      return immediateFuture(new SessionResult(ERROR_SESSION_DISCONNECTED));
     } catch (RemoteException e) {
       // Currently it's TransactionTooLargeException or DeadSystemException.
       // We'd better to leave log for those cases because
@@ -1387,7 +1406,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       //   - DeadSystemException means that errors around it can be ignored.
       Log.w(TAG, "Exception in " + controller, e);
     }
-    return Futures.immediateFuture(new SessionResult(ERROR_UNKNOWN));
+    return immediateFuture(new SessionResult(ERROR_UNKNOWN));
   }
 
   /** Removes controller. Call this when DeadObjectException is happened with binder call. */

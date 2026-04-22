@@ -153,13 +153,13 @@ public class MediaSessionServiceTest {
                   .setCallback(
                       new MediaSession.Callback() {
                         @Override
-                        public MediaSession.ConnectionResult onConnect(
+                        public ListenableFuture<ConnectionResult> onConnectAsync(
                             MediaSession session, ControllerInfo controller) {
                           if (!session.isMediaNotificationController(controller)) {
                             // The controllerInfo passed to MediaSession.Callback.onConnect()
                             onConnectControllerInfos.add(controllerInfo);
                           }
-                          return MediaSession.Callback.super.onConnect(session, controller);
+                          return MediaSession.Callback.super.onConnectAsync(session, controller);
                         }
 
                         @Override
@@ -315,20 +315,26 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     controllerInfoList.add(controller);
                     if (session.isMediaNotificationController(controller)) {
                       latch.countDown();
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              SessionCommands.EMPTY.buildUpon().add(command1).add(command3).build())
-                          .setAvailablePlayerCommands(Player.Commands.EMPTY)
-                          .setCustomLayout(ImmutableList.of(button1, button3))
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  SessionCommands.EMPTY
+                                      .buildUpon()
+                                      .add(command1)
+                                      .add(command3)
+                                      .build())
+                              .setAvailablePlayerCommands(Player.Commands.EMPTY)
+                              .setCustomLayout(ImmutableList.of(button1, button3))
+                              .build());
                     }
                     latch.countDown();
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
                   }
                 })
             .build();
@@ -431,20 +437,26 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     controllerInfoList.add(controller);
                     if (session.isMediaNotificationController(controller)) {
                       latch.countDown();
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              SessionCommands.EMPTY.buildUpon().add(command1).add(command3).build())
-                          .setAvailablePlayerCommands(Player.Commands.EMPTY)
-                          .setMediaButtonPreferences(ImmutableList.of(button1, button3))
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  SessionCommands.EMPTY
+                                      .buildUpon()
+                                      .add(command1)
+                                      .add(command3)
+                                      .build())
+                              .setAvailablePlayerCommands(Player.Commands.EMPTY)
+                              .setMediaButtonPreferences(ImmutableList.of(button1, button3))
+                              .build());
                     }
                     latch.countDown();
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
                   }
                 })
             .build();
@@ -705,16 +717,17 @@ public class MediaSessionServiceTest {
                           exoPlayer,
                           new MediaLibrarySession.Callback() {
                             @Override
-                            public ConnectionResult onConnect(
+                            public ListenableFuture<ConnectionResult> onConnectAsync(
                                 MediaSession session, ControllerInfo controller) {
-                              return new AcceptedResultBuilder(session)
-                                  .setAvailableSessionCommands(
-                                      new SessionCommands.Builder()
-                                          .addAllPredefinedCommands()
-                                          .addSessionCommands(
-                                              ImmutableList.of(expectedCustomCommand))
-                                          .build())
-                                  .build();
+                              return immediateFuture(
+                                  new AcceptedResultBuilder(session)
+                                      .setAvailableSessionCommands(
+                                          new SessionCommands.Builder()
+                                              .addAllPredefinedCommands()
+                                              .addSessionCommands(
+                                                  ImmutableList.of(expectedCustomCommand))
+                                              .build())
+                                      .build());
                             }
 
                             @Override
@@ -784,7 +797,7 @@ public class MediaSessionServiceTest {
   /**
    * Tests whether the controller is connected to the session which is returned from {@link
    * MediaSessionService#onGetSession(ControllerInfo)}. Also checks whether the connection hints are
-   * properly passed to {@link MediaSession.Callback#onConnect(MediaSession, ControllerInfo)}.
+   * properly passed to {@link MediaSession.Callback#onConnectAsync(MediaSession, ControllerInfo)}.
    */
   @Test
   public void onGetSession_returnsSession() throws Exception {
@@ -804,15 +817,16 @@ public class MediaSessionServiceTest {
                 .setCallback(
                     new MediaSession.Callback() {
                       @Override
-                      public MediaSession.ConnectionResult onConnect(
+                      public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                           MediaSession session, ControllerInfo controller) {
                         if (SUPPORT_APP_PACKAGE_NAME.equals(controller.getPackageName())
                             && TestUtils.equals(testHints, controller.getConnectionHints())) {
                           controllerInfoList.add(controller);
                           latch.countDown();
                         }
-                        return MediaSession.ConnectionResult.accept(
-                            SessionCommands.EMPTY, Player.Commands.EMPTY);
+                        return immediateFuture(
+                            MediaSession.ConnectionResult.accept(
+                                SessionCommands.EMPTY, Player.Commands.EMPTY));
                       }
                     })
                 .build());

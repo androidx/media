@@ -31,6 +31,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -86,18 +87,18 @@ public class MediaLibrarySessionCallbackTest {
   }
 
   @Test
-  public void onConnect_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
+  public void onConnectAsync_withMaxCommandsForMediaItems_correctMaxLimitInControllerInfo()
       throws Exception {
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);
     AtomicInteger maxCommandsForMediaItems = new AtomicInteger();
     MediaLibrarySession.Callback sessionCallback =
         new MediaLibrarySession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo browser) {
             maxCommandsForMediaItems.set(browser.getMaxCommandsForMediaItems());
             latch.countDown();
-            return MediaLibrarySession.Callback.super.onConnect(session, browser);
+            return MediaLibrarySession.Callback.super.onConnectAsync(session, browser);
           }
         };
     MockMediaLibraryService service =
@@ -106,7 +107,7 @@ public class MediaLibrarySessionCallbackTest {
     MediaLibrarySession session =
         sessionTestRule.ensureReleaseAfterTest(
             new MediaLibrarySession.Builder(service, player, sessionCallback)
-                .setId("onConnect_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
+                .setId("onConnectAsync_withMaxCommandForMediaItems_correctMaxLimitInControllerInfo")
                 .build());
     Bundle connectionHints = new Bundle();
     connectionHints.putInt(

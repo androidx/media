@@ -109,6 +109,7 @@ import androidx.media3.session.legacy.MediaSessionManager;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -489,122 +490,154 @@ import java.util.concurrent.ExecutionException;
     postOrRun(
         sessionImpl.getApplicationHandler(),
         () -> {
-          boolean connected = false;
-          try {
+          if (sessionImpl.isReleased()) {
             pendingControllers.remove(controllerInfo);
-            if (sessionImpl.isReleased()) {
-              return;
-            }
-            IBinder callbackBinder =
-                checkNotNull((Controller2Cb) controllerInfo.getControllerCb()).getCallbackBinder();
-            MediaSession.ConnectionResult connectionResult =
-                sessionImpl.onConnectOnHandler(controllerInfo);
-            // Don't reject connection for the request from trusted app.
-            // Otherwise server will fail to retrieve session's information to dispatch
-            // media keys to.
-            if (!connectionResult.isAccepted && !controllerInfo.isTrusted()) {
-              return;
-            }
-            if (!connectionResult.isAccepted) {
-              // For the accepted controller, send non-null allowed commands to keep connection.
-              connectionResult =
-                  MediaSession.ConnectionResult.accept(
-                      SessionCommands.EMPTY, Player.Commands.EMPTY);
-            }
-            SequencedFutureManager sequencedFutureManager;
-            if (connectedControllersManager.isConnected(controllerInfo)) {
-              Log.w(
-                  TAG,
-                  "Controller "
-                      + controllerInfo
-                      + " has sent connection"
-                      + " request multiple times");
-            }
-            connectedControllersManager.addController(
-                callbackBinder,
-                controllerInfo,
-                connectionResult.availableSessionCommands,
-                connectionResult.availablePlayerCommands);
-            sequencedFutureManager =
-                connectedControllersManager.getSequencedFutureManager(controllerInfo);
-            if (sequencedFutureManager == null) {
-              Log.w(TAG, "Ignoring connection request from unknown controller info");
-              return;
-            }
-            // If connection is accepted, notify the current state to the controller.
-            // It's needed because we cannot call synchronous calls between
-            // session/controller.
-            PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
-
-            Player.Commands controllerPlayerCommands;
-            PlayerInfo playerInfo = sessionImpl.getPlayerInfo();
-            @Nullable
-            PlaybackException sessionPlaybackException = sessionImpl.getPlaybackException();
-            if (sessionPlaybackException == null) {
-              controllerPlayerCommands = connectionResult.availablePlayerCommands;
-            } else {
-              connectedControllersManager.setPlaybackException(
-                  controllerInfo,
-                  sessionPlaybackException,
-                  connectionResult.availablePlayerCommands);
-              playerInfo =
-                  createPlayerInfoForCustomPlaybackException(playerInfo, sessionPlaybackException);
-              controllerPlayerCommands =
-                  checkNotNull(
-                      createPlayerCommandsForCustomErrorState(
-                          connectionResult.availablePlayerCommands));
-            }
-            playerInfo = updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
-            Token platformToken = sessionImpl.getPlatformToken();
-            ConnectionState state =
-                new ConnectionState(
-                    MediaLibraryInfo.VERSION_INT,
-                    MediaLibraryInfo.INTERFACE_VERSION,
-                    MediaSessionStub.this,
-                    connectionResult.sessionActivity != null
-                        ? connectionResult.sessionActivity
-                        : sessionImpl.getSessionActivity(),
-                    connectionResult.customLayout != null
-                        ? connectionResult.customLayout
-                        : sessionImpl.getCustomLayout(),
-                    connectionResult.mediaButtonPreferences != null
-                        ? connectionResult.mediaButtonPreferences
-                        : sessionImpl.getMediaButtonPreferences(),
-                    sessionImpl.getCommandButtonsForMediaItems(),
-                    connectionResult.availableSessionCommands,
-                    controllerPlayerCommands,
-                    playerWrapper.getAvailableCommands(),
-                    sessionImpl.getToken().getExtras(),
-                    connectionResult.sessionExtras != null
-                        ? connectionResult.sessionExtras
-                        : sessionImpl.getSessionExtras(),
-                    playerInfo,
-                    platformToken,
-                    sessionImpl.getPackageNameOverride());
-
-            // Double check if session is still there, because release() can be called in
-            // another thread.
-            if (sessionImpl.isReleased()) {
-              return;
-            }
-            try {
-              caller.onConnected(
-                  sequencedFutureManager.obtainNextSequenceNumber(),
-                  caller instanceof MediaControllerStub
-                      ? state.toBundleInProcess()
-                      : state.toBundleForRemoteProcess(controllerInfo.getInterfaceVersion()));
-              connected = true;
-            } catch (RemoteException e) {
-              // Controller may be died prematurely.
-            }
-            if (connected) {
-              sessionImpl.onPostConnectOnHandler(controllerInfo);
-            }
-          } finally {
-            if (!connected) {
-              SessionUtil.disconnectIMediaController(caller);
-            }
+            return;
           }
+          ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
+              sessionImpl.onConnectOnHandler(controllerInfo);
+          Futures.addCallback(
+              connectionResultFuture,
+              new FutureCallback<MediaSession.ConnectionResult>() {
+                @Override
+                public void onSuccess(MediaSession.ConnectionResult connectionResult) {
+                  postOrRun(
+                      sessionImpl.getApplicationHandler(),
+                      () -> {
+                        pendingControllers.remove(controllerInfo);
+                        boolean connected = false;
+                        try {
+                          if (sessionImpl.isReleased()) {
+                            return;
+                          }
+                          IBinder callbackBinder =
+                              checkNotNull((Controller2Cb) controllerInfo.getControllerCb())
+                                  .getCallbackBinder();
+                          // Don't reject connections of a trusted app without allowing connection.
+                          // Otherwise, server will fail to retrieve session's information to
+                          // dispatch media keys to.
+                          if (!connectionResult.isAccepted && !controllerInfo.isTrusted()) {
+                            return;
+                          }
+                          MediaSession.ConnectionResult connectionResultToUse = connectionResult;
+                          if (!connectionResult.isAccepted) {
+                            // For a rejected but trusted controller, send non-null allowed commands
+                            // to keep the connection but prevent interactions with the session.
+                            connectionResultToUse =
+                                MediaSession.ConnectionResult.accept(
+                                    SessionCommands.EMPTY, Player.Commands.EMPTY);
+                          }
+
+                          if (connectedControllersManager.isConnected(controllerInfo)) {
+                            Log.w(
+                                TAG,
+                                "Controller "
+                                    + controllerInfo
+                                    + " has sent connection"
+                                    + " request multiple times");
+                          }
+                          connectedControllersManager.addController(
+                              callbackBinder,
+                              controllerInfo,
+                              connectionResultToUse.availableSessionCommands,
+                              connectionResultToUse.availablePlayerCommands);
+                          SequencedFutureManager sequencedFutureManager =
+                              connectedControllersManager.getSequencedFutureManager(controllerInfo);
+                          if (sequencedFutureManager == null) {
+                            Log.w(TAG, "Ignoring connection request from unknown controller info");
+                            return;
+                          }
+                          // If connection is accepted, notify the current state to the controller.
+                          // It's needed because we cannot call synchronous calls between
+                          // session/controller.
+                          PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+                          Player.Commands controllerPlayerCommands;
+                          PlayerInfo playerInfo = sessionImpl.getPlayerInfo();
+                          @Nullable
+                          PlaybackException sessionPlaybackException =
+                              sessionImpl.getPlaybackException();
+                          if (sessionPlaybackException == null) {
+                            controllerPlayerCommands =
+                                connectionResultToUse.availablePlayerCommands;
+                          } else {
+                            connectedControllersManager.setPlaybackException(
+                                controllerInfo,
+                                sessionPlaybackException,
+                                connectionResultToUse.availablePlayerCommands);
+                            playerInfo =
+                                createPlayerInfoForCustomPlaybackException(
+                                    playerInfo, sessionPlaybackException);
+                            controllerPlayerCommands =
+                                checkNotNull(
+                                    createPlayerCommandsForCustomErrorState(
+                                        connectionResultToUse.availablePlayerCommands));
+                          }
+                          playerInfo = updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
+                          Token platformToken = sessionImpl.getPlatformToken();
+                          ConnectionState state =
+                              new ConnectionState(
+                                  MediaLibraryInfo.VERSION_INT,
+                                  MediaLibraryInfo.INTERFACE_VERSION,
+                                  MediaSessionStub.this,
+                                  connectionResultToUse.sessionActivity != null
+                                      ? connectionResultToUse.sessionActivity
+                                      : sessionImpl.getSessionActivity(),
+                                  connectionResultToUse.customLayout != null
+                                      ? connectionResultToUse.customLayout
+                                      : sessionImpl.getCustomLayout(),
+                                  connectionResultToUse.mediaButtonPreferences != null
+                                      ? connectionResultToUse.mediaButtonPreferences
+                                      : sessionImpl.getMediaButtonPreferences(),
+                                  sessionImpl.getCommandButtonsForMediaItems(),
+                                  connectionResultToUse.availableSessionCommands,
+                                  controllerPlayerCommands,
+                                  playerWrapper.getAvailableCommands(),
+                                  sessionImpl.getToken().getExtras(),
+                                  connectionResultToUse.sessionExtras != null
+                                      ? connectionResultToUse.sessionExtras
+                                      : sessionImpl.getSessionExtras(),
+                                  playerInfo,
+                                  platformToken,
+                                  sessionImpl.getPackageNameOverride());
+
+                          // Double check if session is still there, because release() can be called
+                          // in another thread.
+                          if (sessionImpl.isReleased()) {
+                            return;
+                          }
+                          try {
+                            caller.onConnected(
+                                sequencedFutureManager.obtainNextSequenceNumber(),
+                                caller instanceof MediaControllerStub
+                                    ? state.toBundleInProcess()
+                                    : state.toBundleForRemoteProcess(
+                                        controllerInfo.getInterfaceVersion()));
+                            connected = true;
+                          } catch (RemoteException e) {
+                            // Controller may be died prematurely.
+                          }
+                          if (connected) {
+                            sessionImpl.onPostConnectOnHandler(controllerInfo);
+                          }
+                        } finally {
+                          if (!connected) {
+                            SessionUtil.disconnectIMediaController(caller);
+                          }
+                        }
+                      });
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  postOrRun(
+                      sessionImpl.getApplicationHandler(),
+                      () -> {
+                        pendingControllers.remove(controllerInfo);
+                        SessionUtil.disconnectIMediaController(caller);
+                      });
+                }
+              },
+              MoreExecutors.directExecutor());
         });
   }
 

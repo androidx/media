@@ -33,10 +33,10 @@ import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PA
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
-import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
@@ -51,6 +51,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -58,7 +59,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Collections;
 import java.util.List;
@@ -498,7 +498,6 @@ public class MediaSessionPermissionTest {
 
     public @Player.Command int command;
     public String mediaId;
-    public Bundle extras;
     public Rating rating;
 
     public boolean onCommandRequestCalled;
@@ -534,7 +533,7 @@ public class MediaSessionPermissionTest {
       this.mediaId = mediaId;
       this.rating = rating;
       countDownLatch.countDown();
-      return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+      return immediateFuture(new SessionResult(RESULT_SUCCESS));
     }
 
     @Override
@@ -580,12 +579,12 @@ public class MediaSessionPermissionTest {
     callback =
         new MySessionCallback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             if (!TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())) {
-              return MediaSession.ConnectionResult.reject();
+              return immediateFuture(ConnectionResult.reject());
             }
-            return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands);
+            return immediateFuture(ConnectionResult.accept(sessionCommands, playerCommands));
           }
         };
     if (this.session != null) {

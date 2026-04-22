@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
@@ -28,6 +29,9 @@ import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -70,8 +74,25 @@ import java.util.concurrent.atomic.AtomicReference;
     postOrRun(
         sessionImpl.getApplicationHandler(),
         () -> {
-          resultReference.set(sessionImpl.onConnectOnHandler(controller));
-          haveResult.open();
+          ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
+              sessionImpl.onConnectOnHandler(controller);
+          Futures.addCallback(
+              connectionResultFuture,
+              new FutureCallback<MediaSession.ConnectionResult>() {
+                @Override
+                public void onSuccess(MediaSession.ConnectionResult result) {
+                  resultReference.set(result);
+                  haveResult.open();
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  // Should not happen, onConnect should at least return a rejected result.
+                  resultReference.set(MediaSession.ConnectionResult.reject());
+                  haveResult.open();
+                }
+              },
+              directExecutor());
         });
     try {
       haveResult.block();

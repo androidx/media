@@ -103,7 +103,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * <tr>
    *   <td>
    *     {@code SDK_INT < 28}<br>
-   *     for {@link Callback#onConnect onConnect}<br>
+   *     for {@link Callback#onConnectAsync onConnectAsync}<br>
    *     and {@link Callback#onGetLibraryRoot onGetLibraryRoot}
    *   </td>
    *   <td>Actual package name via {@link Context#getPackageName()}</td>
@@ -560,8 +560,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        *
        * <p>Controllers that connect have the custom layout of the session available with the
        * initial connection result by default. A custom layout specific to a controller can be set
-       * when the controller {@linkplain MediaLibrarySession.Callback#onConnect connects} by using
-       * an {@link ConnectionResult.AcceptedResultBuilder}.
+       * when the controller {@linkplain MediaLibrarySession.Callback#onConnectAsync connects} by
+       * using an {@link ConnectionResult.AcceptedResultBuilder}.
        *
        * <p>On the controller side, {@link CommandButton#isEnabled} is overridden according to the
        * available commands of the controller.
@@ -591,8 +591,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
        *
        * <p>Controllers that connect have the media button preferences of the session available with
        * the initial connection result by default. Media button preferences specific to a controller
-       * can be set when the controller {@linkplain MediaSession.Callback#onConnect connects} by
-       * using an {@link ConnectionResult.AcceptedResultBuilder}.
+       * can be set when the controller {@linkplain MediaSession.Callback#onConnectAsync connects}
+       * by using an {@link ConnectionResult.AcceptedResultBuilder}.
        *
        * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
        * preferences during the life time of the session.

@@ -17,6 +17,7 @@ package androidx.media3.session;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.NotificationManager;
@@ -415,20 +416,22 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                                  .buildUpon()
-                                  .add(command1)
-                                  .add(command2)
-                                  .add(command3)
-                                  .build())
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                                      .buildUpon()
+                                      .add(command1)
+                                      .add(command2)
+                                      .add(command3)
+                                      .build())
+                              .build());
                     }
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
                   }
                 })
             .build();
@@ -521,20 +524,22 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                                  .buildUpon()
-                                  .add(command1)
-                                  .add(command2)
-                                  .add(command3)
-                                  .build())
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                                      .buildUpon()
+                                      .add(command1)
+                                      .add(command2)
+                                      .add(command3)
+                                      .build())
+                              .build());
                     }
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
                   }
                 })
             .build();
@@ -614,18 +619,20 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
-                                  .buildUpon()
-                                  .add(command2)
-                                  .build())
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
+                                      .buildUpon()
+                                      .add(command2)
+                                      .build())
+                              .build());
                     }
-                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build();
+                    return immediateFuture(
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
                   }
                 })
             .build();
@@ -806,16 +813,17 @@ public class MediaSessionServiceTest {
             .setCallback(
                 new MediaSession.Callback() {
                   @Override
-                  public MediaSession.ConnectionResult onConnect(
+                  public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.getUri().equals(sessionRef.get().getUri())
                         && session.isMediaNotificationController(controller)) {
-                      return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                          .setAvailableSessionCommands(
-                              new SessionCommands.Builder().add(expectedCustomCommand).build())
-                          .build();
+                      return immediateFuture(
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                              .setAvailableSessionCommands(
+                                  new SessionCommands.Builder().add(expectedCustomCommand).build())
+                              .build());
                     } else {
-                      return MediaSession.ConnectionResult.reject();
+                      return immediateFuture(MediaSession.ConnectionResult.reject());
                     }
                   }
 
@@ -836,7 +844,7 @@ public class MediaSessionServiceTest {
                             .equals("expectedValue")) {
                       latch.countDown();
                     }
-                    return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+                    return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
                   }
                 })
             .build());
@@ -991,7 +999,7 @@ public class MediaSessionServiceTest {
                       // notification controller. So we call it here only if the callback is
                       // actually called from the media notification controller (or a fake of it).
                       if (mediaSession.isMediaNotificationController(controller)) {
-                        return Futures.immediateFuture(
+                        return immediateFuture(
                             new MediaSession.MediaItemsWithStartPosition(
                                 mediaItems,
                                 /* startIndex= */ 0,

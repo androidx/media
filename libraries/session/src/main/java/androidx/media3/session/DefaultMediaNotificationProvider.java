@@ -441,7 +441,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    * <p>To make the media button preferences and custom commands work, you need to {@linkplain
    * MediaSession#setMediaButtonPreferences set the media button preferences} and add the custom
    * commands to the available commands when a controller {@linkplain
-   * MediaSession.Callback#onConnect(MediaSession, MediaSession.ControllerInfo) connects to the
+   * MediaSession.Callback#onConnectAsync(MediaSession, MediaSession.ControllerInfo) connects to the
    * session}. Controllers that connect after you called {@link
    * MediaSession#setMediaButtonPreferences} need the custom command set in {@link
    * MediaSession.Callback#onPostConnect(MediaSession, MediaSession.ControllerInfo)} too.

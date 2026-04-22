@@ -97,12 +97,17 @@ object ControlPlaybackKt {
   private class CustomMediaSessionCallback : MediaSession.Callback {
 
     // Configure commands available to the controller in onConnect()
-    override fun onConnect(session: MediaSession, controller: ControllerInfo): ConnectionResult {
+    override fun onConnectAsync(
+      session: MediaSession,
+      controller: ControllerInfo,
+    ): ListenableFuture<ConnectionResult> {
       val sessionCommands =
         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
           .add(SessionCommand(SAVE_TO_FAVORITES, Bundle.EMPTY))
           .build()
-      return AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+      return Futures.immediateFuture(
+        AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+      )
     }
   }
 

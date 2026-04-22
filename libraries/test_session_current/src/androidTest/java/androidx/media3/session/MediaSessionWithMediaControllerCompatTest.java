@@ -19,6 +19,7 @@ import static androidx.media3.session.MediaSession.ConnectionResult.DEFAULT_PLAY
 import static androidx.media3.session.RemoteMediaControllerCompat.QUEUE_IS_NULL;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
@@ -36,6 +37,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Before;
@@ -79,11 +81,11 @@ public class MediaSessionWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             controllerVersionRef.set(controller.getControllerVersion());
             connectedLatch.countDown();
-            return MediaSession.Callback.super.onConnect(session, controller);
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
           }
         };
 
@@ -144,15 +146,16 @@ public class MediaSessionWithMediaControllerCompatTest {
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
-          public MediaSession.ConnectionResult onConnect(
+          public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             if (session.isMediaNotificationController(controller)) {
-              return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                  .setAvailablePlayerCommands(playerCommands)
-                  .build();
+              return immediateFuture(
+                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                      .setAvailablePlayerCommands(playerCommands)
+                      .build());
             }
             connectedLatch.countDown();
-            return MediaSession.Callback.super.onConnect(session, controller);
+            return MediaSession.Callback.super.onConnectAsync(session, controller);
           }
         };
     player.timeline =

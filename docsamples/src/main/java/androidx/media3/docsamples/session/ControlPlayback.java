@@ -94,15 +94,15 @@ public class ControlPlayback {
 
     // Configure commands available to the controller in onConnect()
     @Override
-    public ConnectionResult onConnect(MediaSession session, ControllerInfo controller) {
+    public ListenableFuture<ConnectionResult> onConnectAsync(
+        MediaSession session, ControllerInfo controller) {
       SessionCommands sessionCommands =
           ConnectionResult.DEFAULT_SESSION_COMMANDS
               .buildUpon()
               .add(new SessionCommand(SAVE_TO_FAVORITES, new Bundle()))
               .build();
-      return new AcceptedResultBuilder(session)
-          .setAvailableSessionCommands(sessionCommands)
-          .build();
+      return Futures.immediateFuture(
+          new AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build());
     }
   }
 

@@ -17,15 +17,25 @@ package androidx.media3.session;
 
 import static androidx.media3.test.session.common.CommonConstants.MEDIA_CONTROLLER_PACKAGE_NAME_API_21;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 import android.content.Intent;
+import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Log;
+import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.TestServiceRegistry.OnDestroyListener;
+import androidx.media3.test.session.common.TestHandler;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,6 +49,7 @@ public class MockMediaSessionService extends MediaSessionService {
 
   @Nullable public MediaSession session;
   @Nullable private HandlerThread handlerThread;
+  @Nullable private TestHandler handler;
   private boolean cleanupServiceRegistryOnDestroy;
 
   public MockMediaSessionService() {
@@ -84,6 +95,7 @@ public class MockMediaSessionService extends MediaSessionService {
     super.onCreate();
     handlerThread = new HandlerThread("MockMediaSessionService");
     handlerThread.start();
+    handler = new TestHandler(handlerThread.getLooper());
   }
 
   @Override
@@ -135,16 +147,40 @@ public class MockMediaSessionService extends MediaSessionService {
     return session;
   }
 
-  private static class TestSessionCallback implements MediaSession.Callback {
+  private class TestSessionCallback implements MediaSession.Callback {
 
     @Override
-    public MediaSession.ConnectionResult onConnect(
+    public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controller.getPackageName())
           || TextUtils.equals(MEDIA_CONTROLLER_PACKAGE_NAME_API_21, controller.getPackageName())) {
-        return MediaSession.Callback.super.onConnect(session, controller);
+        Bundle connectionHints = controller.getConnectionHints();
+        if (connectionHints.containsKey(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS)) {
+          long delayMs = connectionHints.getLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS);
+          Log.d("connect", "connecting async: " + delayMs);
+          SettableFuture<ConnectionResult> future = SettableFuture.create();
+          Bundle bundle = new Bundle();
+          bundle.putBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, true);
+          handler.postDelayed(
+              () -> {
+                future.set(
+                    new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setSessionExtras(bundle)
+                        .build());
+              },
+              delayMs);
+          return future;
+        } else if (connectionHints.containsKey(
+            CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS)) {
+          long delayMs =
+              connectionHints.getLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS);
+          SettableFuture<MediaSession.ConnectionResult> future = SettableFuture.create();
+          handler.postDelayed(() -> future.set(MediaSession.ConnectionResult.reject()), delayMs);
+          return future;
+        }
+        return MediaSession.Callback.super.onConnectAsync(session, controller);
       }
-      return MediaSession.ConnectionResult.reject();
+      return immediateFuture(MediaSession.ConnectionResult.reject());
     }
   }
 }

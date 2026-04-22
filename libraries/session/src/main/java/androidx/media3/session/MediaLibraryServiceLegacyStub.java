@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.ignoreFuture;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
 import static androidx.media3.session.LibraryResult.RESULT_SUCCESS;
@@ -57,7 +58,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -552,10 +552,6 @@ import java.util.concurrent.atomic.AtomicReference;
           MoreExecutors.directExecutor());
       return outputFuture;
     };
-  }
-
-  private static <T> void ignoreFuture(Future<T> unused) {
-    // no-op
   }
 
   private static class SearchRequest {

@@ -117,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * is created for the service, the controller binds to the service. {@link
  * #onGetSession(ControllerInfo)} will be called from {@link #onBind(Intent)}.
  *
- * <p>After binding, the session's {@link MediaSession.Callback#onConnect(MediaSession,
+ * <p>After binding, the session's {@link MediaSession.Callback#onConnectAsync(MediaSession,
  * MediaSession.ControllerInfo)} will be called to accept or reject the connection request from the
  * controller. If it's accepted, the controller will be available and keep the binding. If it's
  * rejected, the controller will unbind.

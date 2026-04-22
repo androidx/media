@@ -64,7 +64,11 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_R
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_TIME_IN_MS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS;
+import static androidx.media3.test.session.common.MediaSessionConstants.EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION;
+import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -82,6 +86,8 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
+import androidx.media3.session.MediaSession.ConnectionResult;
+import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.TestServiceRegistry.OnDestroyListener;
 import androidx.media3.test.session.common.CommonConstants;
@@ -89,13 +95,14 @@ import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -112,7 +119,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
   /**
    * Key used in connection hints to instruct the mock service to remove a {@link SessionCommand}
    * identified by its command code from the available commands in {@link
-   * MediaSession.Callback#onConnect(MediaSession, ControllerInfo)}.
+   * MediaSession.Callback#onConnectAsync(MediaSession, ControllerInfo)}.
    */
   public static final String CONNECTION_HINTS_KEY_REMOVE_COMMAND_CODE =
       "CONNECTION_HINTS_KEY_REMOVE_COMMAND_CODE";
@@ -235,7 +242,6 @@ public class MockMediaLibraryService extends MediaLibraryService {
       playlistAddExtras.putString("key-1", "playlist_add");
       Bundle radioExtras = new Bundle();
       radioExtras.putString("key-1", "radio");
-      Log.d("notifyChildrenChanged", "new TestLibrarySessionCallback()");
       session =
           new MediaLibrarySession.Builder(
                   MockMediaLibraryService.this,
@@ -293,35 +299,72 @@ public class MockMediaLibraryService extends MediaLibraryService {
 
   private class TestLibrarySessionCallback implements MediaLibrarySession.Callback {
 
+    private final Set<String> asyncConnectionControllerKeys = new HashSet<>();
+
     private int getChildrenCallCount = 0;
 
     @Override
-    public MediaSession.ConnectionResult onConnect(
+    public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       if (!SUPPORT_APP_PACKAGE_NAME.equals(controller.getPackageName())
           && !MEDIA_CONTROLLER_PACKAGE_NAME_API_21.equals(controller.getPackageName())) {
-        return MediaSession.ConnectionResult.reject();
+        return immediateFuture(MediaSession.ConnectionResult.reject());
       }
-      MediaSession.ConnectionResult connectionResult =
-          checkNotNull(MediaLibrarySession.Callback.super.onConnect(session, controller));
+      ConnectionResult connectionResult = new AcceptedResultBuilder(session).build();
       SessionCommands.Builder builder = connectionResult.availableSessionCommands.buildUpon();
       builder.add(new SessionCommand(CUSTOM_ACTION, /* extras= */ Bundle.EMPTY));
       builder.add(new SessionCommand(CUSTOM_ACTION_ASSERT_PARAMS, /* extras= */ Bundle.EMPTY));
       builder.add(new SessionCommand(CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY));
       Bundle connectionHints = controller.getConnectionHints();
+      if (connectionHints.containsKey(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS)) {
+        long delayMs = connectionHints.getLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_DELAY_MS);
+        if (connectionHints.containsKey(KEY_CONTROLLER)) {
+          asyncConnectionControllerKeys.add(connectionHints.getString(KEY_CONTROLLER));
+        }
+        Log.d("connect", "connecting async: " + delayMs);
+        SettableFuture<MediaSession.ConnectionResult> future = SettableFuture.create();
+        Bundle bundle = new Bundle();
+        bundle.putBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, true);
+        handler.postDelayed(
+            () -> {
+              future.set(
+                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                      .setAvailableSessionCommands(builder.build())
+                      .setAvailablePlayerCommands(connectionResult.availablePlayerCommands)
+                      .setSessionExtras(bundle)
+                      .build());
+            },
+            delayMs);
+        return future;
+      } else if (connectionHints.containsKey(
+          CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS)) {
+        long delayMs =
+            connectionHints.getLong(CONNECTION_HINT_KEY_ASYNC_CONNECTION_REJECT_DELAY_MS);
+        SettableFuture<MediaSession.ConnectionResult> future = SettableFuture.create();
+        handler.postDelayed(() -> future.set(MediaSession.ConnectionResult.reject()), delayMs);
+        return future;
+      }
+
       int commandCodeToRemove =
           connectionHints.getInt(CONNECTION_HINTS_KEY_REMOVE_COMMAND_CODE, /* defaultValue= */ -1);
       if (commandCodeToRemove != -1) {
         builder.remove(commandCodeToRemove);
       }
-      return MediaSession.ConnectionResult.accept(
-          /* availableSessionCommands= */ builder.build(),
-          connectionResult.availablePlayerCommands);
+      return immediateFuture(
+          MediaSession.ConnectionResult.accept(
+              /* availableSessionCommands= */ builder.build(),
+              connectionResult.availablePlayerCommands));
     }
 
     @Override
     public ListenableFuture<LibraryResult<MediaItem>> onGetLibraryRoot(
         MediaLibrarySession session, ControllerInfo browser, @Nullable LibraryParams params) {
+      boolean wasConnectingAsync = false;
+      if (browser.getConnectionHints().containsKey(KEY_CONTROLLER)) {
+        wasConnectingAsync =
+            asyncConnectionControllerKeys.remove(
+                browser.getConnectionHints().getString(KEY_CONTROLLER));
+      }
       assertLibraryParams(params);
       MediaItem rootItem = ROOT_ITEM;
       // Use connection hints to select the library root to test whether the legacy browser root
@@ -351,38 +394,44 @@ public class MockMediaLibraryService extends MediaLibraryService {
                   .build();
         }
       }
-      return Futures.immediateFuture(LibraryResult.ofItem(rootItem, ROOT_PARAMS));
+      LibraryParams rootParams = ROOT_PARAMS;
+      if (wasConnectingAsync) {
+        Bundle rootExtras = new Bundle(ROOT_EXTRAS);
+        rootExtras.putBoolean(EXTRA_KEY_ASYNC_CONNECTION_CONFIRMATION, true);
+        rootParams = new LibraryParams.Builder().setExtras(rootExtras).build();
+      }
+      return immediateFuture(LibraryResult.ofItem(rootItem, rootParams));
     }
 
     @Override
     public ListenableFuture<LibraryResult<MediaItem>> onGetItem(
         MediaLibrarySession session, ControllerInfo browser, String mediaId) {
       if (mediaId.startsWith(SUBSCRIBE_PARENT_ID_1)) {
-        return Futures.immediateFuture(
+        return immediateFuture(
             LibraryResult.ofItem(createBrowsableMediaItem(mediaId), /* params= */ null));
       }
       switch (mediaId) {
         case MEDIA_ID_GET_BROWSABLE_ITEM:
         case PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN:
         case SUBSCRIBE_PARENT_ID_2:
-          return Futures.immediateFuture(
+          return immediateFuture(
               LibraryResult.ofItem(createBrowsableMediaItem(mediaId), /* params= */ null));
         case MEDIA_ID_GET_PLAYABLE_ITEM:
-          return Futures.immediateFuture(
+          return immediateFuture(
               LibraryResult.ofItem(
                   createPlayableMediaItemWithArtworkData(mediaId), /* params= */ null));
         case MEDIA_ID_GET_ITEM_WITH_BROWSE_ACTIONS:
-          return Futures.immediateFuture(
+          return immediateFuture(
               LibraryResult.ofItem(
                   createPlayableMediaItemWithCommands(
                       mediaId, browser.getMaxCommandsForMediaItems()),
                   /* params= */ null));
         case MEDIA_ID_GET_ITEM_WITH_METADATA:
-          return Futures.immediateFuture(
+          return immediateFuture(
               LibraryResult.ofItem(createMediaItemWithMetadata(mediaId), /* params= */ null));
         default: // fall out
       }
-      return Futures.immediateFuture(LibraryResult.ofError(ERROR_SESSION_SKIP_LIMIT_REACHED));
+      return immediateFuture(LibraryResult.ofError(ERROR_SESSION_SKIP_LIMIT_REACHED));
     }
 
     @Override
@@ -396,10 +445,10 @@ public class MockMediaLibraryService extends MediaLibraryService {
       getChildrenCallCount++;
       assertLibraryParams(params);
       if (Objects.equals(parentId, PARENT_ID_NO_CHILDREN)) {
-        return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
+        return immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
       } else if (Objects.equals(parentId, PARENT_ID)
           || Objects.equals(parentId, SUBSCRIBE_PARENT_ID_2)) {
-        return Futures.immediateFuture(
+        return immediateFuture(
             LibraryResult.ofItemList(
                 getPaginatedResult(GET_CHILDREN_RESULT, page, pageSize), params));
       } else if (Objects.equals(parentId, PARENT_ID_LONG_LIST)) {
@@ -407,18 +456,18 @@ public class MockMediaLibraryService extends MediaLibraryService {
         for (int i = 0; i < LONG_LIST_COUNT; i++) {
           list.add(createPlayableMediaItem(TestUtils.getMediaIdInFakeTimeline(i)));
         }
-        return Futures.immediateFuture(LibraryResult.ofItemList(list, params));
+        return immediateFuture(LibraryResult.ofItemList(list, params));
       } else if (Objects.equals(parentId, PARENT_ID_ERROR)) {
         Bundle errorBundle = new Bundle();
         errorBundle.putString("key", "value");
-        return Futures.immediateFuture(
+        return immediateFuture(
             LibraryResult.ofError(new SessionError(ERROR_BAD_VALUE, "error message", errorBundle)));
       } else if (Objects.equals(parentId, PARENT_ID_ALLOW_FIRST_ON_GET_CHILDREN)) {
         return getChildrenCallCount == 1
-            ? Futures.immediateFuture(
+            ? immediateFuture(
                 LibraryResult.ofItemList(
                     getPaginatedResult(GET_CHILDREN_RESULT, page, pageSize), params))
-            : Futures.immediateFuture(
+            : immediateFuture(
                 LibraryResult.ofError(
                     SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED,
                     new LibraryParams.Builder().build()));
@@ -441,12 +490,12 @@ public class MockMediaLibraryService extends MediaLibraryService {
                 ? ERROR_SESSION_SKIP_LIMIT_REACHED
                 : ERROR_SESSION_AUTHENTICATION_EXPIRED;
         return Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR)
-            ? Futures.immediateFuture(
+            ? immediateFuture(
                 // error with SessionError
                 LibraryResult.ofError(
                     new SessionError(errorCode, "error message", bundle),
                     new LibraryParams.Builder().build()))
-            : Futures.immediateFuture(
+            : immediateFuture(
                 // deprecated error before SessionError was introduced
                 LibraryResult.ofError(
                     errorCode, new LibraryParams.Builder().setExtras(bundle).build()));
@@ -463,12 +512,12 @@ public class MockMediaLibraryService extends MediaLibraryService {
             PARENT_ID_AUTH_EXPIRED_ERROR_KEY_ERROR_RESOLUTION_ACTION_LABEL);
         session.sendError(
             new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message", bundle));
-        return Futures.immediateFuture(
+        return immediateFuture(
             LibraryResult.ofError(
                 new SessionError(ERROR_SESSION_AUTHENTICATION_EXPIRED, "error message"),
                 new LibraryParams.Builder().build()));
       }
-      return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE, params));
+      return immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE, params));
     }
 
     @Override
@@ -532,7 +581,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         // SEARCH_QUERY_EMPTY_RESULT and SEARCH_QUERY_ERROR will be handled here.
         MockMediaLibraryService.this.session.notifySearchResultChanged(browser, query, 0, params);
       }
-      return Futures.immediateFuture(LibraryResult.ofVoid(params));
+      return immediateFuture(LibraryResult.ofVoid(params));
     }
 
     @Override
@@ -545,19 +594,19 @@ public class MockMediaLibraryService extends MediaLibraryService {
         @Nullable LibraryParams params) {
       assertLibraryParams(params);
       if (SEARCH_QUERY.equals(query)) {
-        return Futures.immediateFuture(
+        return immediateFuture(
             LibraryResult.ofItemList(getPaginatedResult(SEARCH_RESULT, page, pageSize), params));
       } else if (SEARCH_QUERY_LONG_LIST.equals(query)) {
         List<MediaItem> list = new ArrayList<>(LONG_LIST_COUNT);
         for (int i = 0; i < LONG_LIST_COUNT; i++) {
           list.add(createPlayableMediaItem(TestUtils.getMediaIdInFakeTimeline(i)));
         }
-        return Futures.immediateFuture(LibraryResult.ofItemList(list, params));
+        return immediateFuture(LibraryResult.ofItemList(list, params));
       } else if (SEARCH_QUERY_EMPTY_RESULT.equals(query)) {
-        return Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
+        return immediateFuture(LibraryResult.ofItemList(ImmutableList.of(), params));
       } else {
         // SEARCH_QUERY_ERROR will be handled here.
-        return Futures.immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
+        return immediateFuture(LibraryResult.ofError(ERROR_BAD_VALUE));
       }
     }
 
@@ -570,7 +619,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         @Nullable MediaSession.ProgressReporter progressReporter) {
       switch (sessionCommand.customAction) {
         case CUSTOM_ACTION:
-          return Futures.immediateFuture(
+          return immediateFuture(
               new SessionResult(SessionResult.RESULT_SUCCESS, CUSTOM_ACTION_EXTRAS));
         case CUSTOM_ACTION_ASSERT_PARAMS:
           @Nullable Bundle paramsBundle = args.getBundle(CUSTOM_ACTION_ASSERT_PARAMS);
@@ -578,7 +627,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
           LibraryParams params =
               paramsBundle == null ? null : LibraryParams.fromBundle(paramsBundle);
           setAssertLibraryParams(params);
-          return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+          return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
         case CUSTOM_COMMAND_DOWNLOAD:
           SettableFuture<SessionResult> settable = SettableFuture.create();
           if (progressReporter != null) {
@@ -606,7 +655,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
           return settable;
         default: // fall out
       }
-      return Futures.immediateFuture(new SessionResult(ERROR_BAD_VALUE));
+      return immediateFuture(new SessionResult(ERROR_BAD_VALUE));
     }
 
     private void assertLibraryParams(@Nullable LibraryParams params) {

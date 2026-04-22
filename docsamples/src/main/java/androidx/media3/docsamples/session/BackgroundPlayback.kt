@@ -36,6 +36,7 @@ import androidx.media3.session.MediaSession.ConnectionResult
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
+import com.google.common.util.concurrent.Futures.immediateFuture
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.google.common.util.concurrent.SettableFuture
@@ -147,10 +148,10 @@ object BackgroundPlaybackKt {
     private val seekForwardButton: CommandButton,
   ) : MediaSession.Callback {
     // [START media_notification_controller]
-    override fun onConnect(
+    override fun onConnectAsync(
       session: MediaSession,
       controller: MediaSession.ControllerInfo,
-    ): ConnectionResult {
+    ): ListenableFuture<ConnectionResult> {
       if (session.isMediaNotificationController(controller)) {
         val playerCommands =
           ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
@@ -160,13 +161,15 @@ object BackgroundPlaybackKt {
             .remove(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
             .build()
         // Custom button preferences and commands to configure the platform session.
-        return AcceptedResultBuilder(session)
-          .setMediaButtonPreferences(listOf(seekBackButton, seekForwardButton))
-          .setAvailablePlayerCommands(playerCommands)
-          .build()
+        return immediateFuture(
+          AcceptedResultBuilder(session)
+            .setMediaButtonPreferences(listOf(seekBackButton, seekForwardButton))
+            .setAvailablePlayerCommands(playerCommands)
+            .build()
+        )
       }
       // Default commands with default button preferences for all other controllers.
-      return AcceptedResultBuilder(session).build()
+      return immediateFuture(AcceptedResultBuilder(session).build())
     }
     // [END media_notification_controller]
   }
@@ -174,20 +177,22 @@ object BackgroundPlaybackKt {
   @OptIn(UnstableApi::class)
   class AutoCompanionCallback(private val customCommand: SessionCommand) : MediaSession.Callback {
     // [START auto_companion_controller]
-    override fun onConnect(
+    override fun onConnectAsync(
       session: MediaSession,
       controller: MediaSession.ControllerInfo,
-    ): ConnectionResult {
+    ): ListenableFuture<ConnectionResult> {
       val sessionCommands =
         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(customCommand).build()
       if (session.isMediaNotificationController(controller)) {
         // ... See above.
       } else if (session.isAutoCompanionController(controller)) {
         // Available commands to accept incoming custom commands from Auto.
-        return AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+        return immediateFuture(
+          AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+        )
       }
       // Default commands for all other controllers.
-      return AcceptedResultBuilder(session).build()
+      return immediateFuture(AcceptedResultBuilder(session).build())
     }
     // [END auto_companion_controller]
   }
