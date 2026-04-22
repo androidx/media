@@ -15,11 +15,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.android.library)
+  id("media3.android-library")
   alias(libs.plugins.kotlin.android)
 }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 
 android {
   namespace = "androidx.media3.effect.ndk"
@@ -34,7 +32,6 @@ android {
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {
-    minSdk = libs.versions.minSdkVersion.get().toInt()
     externalNativeBuild {
       cmake {
         // TODO(b/505317653): Remove flexible page sizes once AGP is upgraded to 9.0 or

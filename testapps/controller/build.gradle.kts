@@ -15,7 +15,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.android.application)
+  id("media3.android-application")
   alias(libs.plugins.kotlin.android)
 }
 
@@ -24,19 +24,11 @@ apply(from = "../../constants.gradle")
 android {
   namespace = "androidx.media3.testapp.controller"
 
-  compileSdk = libs.versions.compileSdkVersion.get().toInt()
-
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-  }
-
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {
     versionName = releaseVersion
     versionCode = releaseVersionCode
-    minSdk = libs.versions.minSdkVersion.get().toInt()
     targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
     vectorDrawables.useSupportLibrary = true
   }
@@ -55,6 +47,8 @@ android {
     // The test app isn't indexed, and doesn't have translations.
     disable.add("GoogleAppIndexingWarning")
     disable.add("MissingTranslation")
+    // TODO: b/353490583 - Disable this once the violations (NewApi lint wrong location) are fixed.
+    ignoreTestSources = true
   }
 }
 

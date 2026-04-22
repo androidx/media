@@ -43,6 +43,7 @@ androidxRecyclerViewVersion = "1.3.0"
 androidxTestCoreVersion = "1.5.0"
 androidxTestEspressoVersion = "3.5.1"
 androidxTestJUnitVersion = "1.1.5"
+androidxTestOrchestratorVersion = "1.6.1"
 androidxTestRulesVersion = "1.5.0"
 androidxTestRunnerVersion = "1.6.2"
 androidxTestTruthVersion = "1.5.0"
@@ -81,6 +82,8 @@ truthVersion = "1.4.0"
 workRuntimeVersion = "2.8.1"
 
 [libraries]
+android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }
+android-gradle-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "androidGradlePlugin" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityComposeVersion" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidxAnnotationVersion" }
 androidx-annotation-experimental = { group = "androidx.annotation", name = "annotation-experimental", version.ref = "androidxAnnotationExperimentalVersion" }
@@ -118,6 +121,7 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCoreVersion" }
 androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidxTestEspressoVersion" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJUnitVersion" }
+androidx-test-orchestrator = { group = "androidx.test", name = "orchestrator", version.ref = "androidxTestOrchestratorVersion" }
 androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "androidxTestRulesVersion" }
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunnerVersion" }
 androidx-test-truth = { group = "androidx.test.ext", name = "truth", version.ref = "androidxTestTruthVersion" }
@@ -165,8 +169,6 @@ test-parameter-injector = { group = "com.google.testparameterinjector", name = "
 truth = { group = "com.google.truth", name = "truth", version.ref = "truthVersion" }
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
-android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlinGradlePlugin" }
 kotlin-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlinComposeCompiler" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobufGradlePlugin" }

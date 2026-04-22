@@ -17,19 +17,12 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 apply(from = "../../constants.gradle")
 
 plugins {
-  alias(libs.plugins.android.application)
+  id("media3.android-application")
   alias(libs.plugins.kotlin.android)
 }
 
 android {
   namespace = "androidx.media3.demo.session.automotive"
-
-  compileSdk = libs.versions.compileSdkVersion.get().toInt()
-
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-  }
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 

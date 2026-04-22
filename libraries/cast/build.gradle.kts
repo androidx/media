@@ -15,12 +15,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.android.library)
+  id("media3.android-library")
   alias(libs.plugins.kotlin.compose.compiler)
   alias(libs.plugins.kotlin.android)
 }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 
 android {
   namespace = "androidx.media3.cast"

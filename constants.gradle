@@ -17,11 +17,4 @@ def libs = project.extensions.getByType(VersionCatalogsExtension).named("libs")
 project.ext {
     releaseVersion = '1.10.0'
     releaseVersionCode = 1_010_000_3_00
-    // Bridge the TOML catalog into the legacy variables for consistency
-    minSdkVersion = libs.findVersion("minSdkVersion").get().requiredVersion.toInteger()
-    automotiveMinSdkVersion = libs.findVersion("automotiveMinSdkVersion").get().requiredVersion.toInteger()
-    appTargetSdkVersion = libs.findVersion("appTargetSdkVersion").get().requiredVersion.toInteger()
-    targetSdkVersion = libs.findVersion("targetSdkVersion").get().requiredVersion.toInteger()
-    compileSdkVersion = libs.findVersion("compileSdkVersion").get().requiredVersion.toInteger()
-    checkerframeworkVersion = libs.findVersion("checkerframeworkVersion").get().requiredVersion
 }

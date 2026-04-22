@@ -11,10 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-rootProject.name = "media3-build-logic"
+import androidx.media3.build.configureCommonConfig
 
-includeBuild("../build-logic-settings")
+plugins { id("com.android.application") }
 
-dependencyResolutionManagement {
-  versionCatalogs { create("libs") { from(files("../gradle/libs.versions.toml")) } }
+group = "androidx.media3"
+
+val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
+android {
+  configureCommonConfig(android = this, libs)
+
+  defaultConfig { targetSdk = libs.findVersion("targetSdkVersion").get().requiredVersion.toInt() }
 }
+
+dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }

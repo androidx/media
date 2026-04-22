@@ -13,22 +13,14 @@
 // limitations under the License.
 apply(from = "../../constants.gradle")
 
-plugins { alias(libs.plugins.android.application) }
+plugins { id("media3.android-application") }
 
 android {
   namespace = "androidx.media3.demo.gl"
 
-  compileSdk = libs.versions.compileSdkVersion.get().toInt()
-
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-  }
-
   defaultConfig {
     versionName = releaseVersion
     versionCode = releaseVersionCode
-    minSdk = libs.versions.minSdkVersion.get().toInt()
     targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
   }
 

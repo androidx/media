@@ -15,18 +15,15 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.android.library)
+  id("media3.android-library")
   alias(libs.plugins.kotlin.android)
 }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 
 android {
   namespace = "androidx.media3.common.ktx"
 
   buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
   publishing { singleVariant("release") { withSourcesJar() } }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 

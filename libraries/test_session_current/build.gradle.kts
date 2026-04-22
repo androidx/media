@@ -11,9 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { alias(libs.plugins.android.application) }
+apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/constants.gradle")
 
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
+plugins { id("media3.android-application") }
 
 android {
   namespace = "androidx.media3.test.session"

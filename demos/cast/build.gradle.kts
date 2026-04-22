@@ -14,24 +14,16 @@
 apply(from = "../../constants.gradle")
 
 plugins {
-  alias(libs.plugins.android.application)
+  id("media3.android-application")
   id("com.google.android.gms.strict-version-matcher-plugin")
 }
 
 android {
   namespace = "androidx.media3.demo.cast"
 
-  compileSdk = libs.versions.compileSdkVersion.get().toInt()
-
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-  }
-
   defaultConfig {
     versionName = releaseVersion
     versionCode = releaseVersionCode
-    minSdk = libs.versions.minSdkVersion.get().toInt()
     targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
   }
 

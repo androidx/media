@@ -11,9 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { alias(libs.plugins.android.library) }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
+plugins { id("media3.android-library") }
 
 // Make sure this project is evaluated after all other libraries. This ensures
 // the Gradle properties of each library are populated and we can automatically

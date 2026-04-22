@@ -15,12 +15,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-  alias(libs.plugins.android.library)
+  id("media3.android-library")
   alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose.compiler)
 }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
 
 android {
   namespace = "androidx.media3.ui.compose"
@@ -28,7 +26,6 @@ android {
   buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
   buildFeatures { compose = true }
   publishing { singleVariant("release") { withSourcesJar() } }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 

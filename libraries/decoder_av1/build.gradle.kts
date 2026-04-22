@@ -13,9 +13,7 @@
 // limitations under the License.
 import java.io.File
 
-plugins { alias(libs.plugins.android.library) }
-
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/common_config.gradle")
+plugins { id("media3.android-library") }
 
 android {
   namespace = "androidx.media3.decoder.av1"
