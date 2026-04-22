@@ -61,6 +61,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
   // Audio Codecs
   private static final String AMR_NB_3GP = "3gp/bbb_mono_8kHz_12.2kbps_amrnb.3gp";
   private static final String AMR_WB_3GP = "3gp/bbb_mono_16kHz_23.05kbps_amrwb.3gp";
+  private static final String IAMF_OPUS_MP4 = "mp4/5p1_iamf_opus.mp4";
   private static final String OPUS_OGG = "ogg/bbb_6ch_8kHz_opus.ogg";
   private static final String VORBIS_OGG = "ogg/bbb_1ch_16kHz_q10_vorbis.ogg";
   private static final String RAW_WAV = "wav/bbb_2ch_44kHz.wav";
@@ -86,6 +87,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
         VP9_WEB,
         AMR_NB_3GP,
         AMR_WB_3GP,
+        IAMF_OPUS_MP4,
         OPUS_OGG,
         VORBIS_OGG,
         RAW_WAV);

@@ -177,6 +177,7 @@ public final class FragmentedMp4Muxer implements Muxer {
           MimeTypes.AUDIO_AAC,
           MimeTypes.AUDIO_AMR_NB,
           MimeTypes.AUDIO_AMR_WB,
+          MimeTypes.AUDIO_IAMF,
           MimeTypes.AUDIO_OPUS,
           MimeTypes.AUDIO_VORBIS,
           MimeTypes.AUDIO_RAW);

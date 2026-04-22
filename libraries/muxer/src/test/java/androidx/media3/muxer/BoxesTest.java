@@ -1033,6 +1033,94 @@ public class BoxesTest {
   }
 
   @Test
+  public void createIacbBox_matchesExpected() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_IAMF)
+            .setInitializationData(ImmutableList.of(new byte[] {0x11, 0x22, 0x33}))
+            .build();
+
+    ByteBuffer iacbBox = Boxes.codecSpecificBox(format);
+
+    // Box header: size (4) and type (4)
+    // then iacb data: configuration version (1) + leb128 size (1) + config OBUs (3).
+    int expectedTotalSize = 4 + 4 + 1 + 1 + 3;
+    assertThat(iacbBox.getInt()).isEqualTo(expectedTotalSize); // total size
+    byte[] type = new byte[4];
+    iacbBox.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("iacb"));
+
+    assertThat(iacbBox.get()).isEqualTo((byte) 1); // configurationVersion
+    // This next field is a leb128, but because it's so small, we can read it like a single unsigned
+    // byte.
+    assertThat(iacbBox.get()).isEqualTo((byte) 3); // leb128 size
+
+    byte[] configObus = new byte[3];
+    iacbBox.get(configObus);
+    assertThat(configObus).isEqualTo(new byte[] {0x11, 0x22, 0x33});
+  }
+
+  @Test
+  public void createAudioSampleEntryBox_forIamf_matchesExpected() {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_IAMF)
+            .setInitializationData(ImmutableList.of(new byte[] {0x11, 0x22, 0x33}))
+            .build();
+
+    ByteBuffer box = Boxes.audioSampleEntry(format);
+
+    // Sum of all of the following fields.
+    // Box header size and type: 4 + 4 bytes
+    // reserved space: 6
+    // dataRefIndex: 2
+    // reserved space: 8
+    // channelcount: 2
+    // samplesize: 2
+    // predefined and reserved: 4
+    // samplerate: 4
+    // iacb child box: 13
+    int expectedBoxSize = 4 + 4 + 6 + 2 + 8 + 2 + 2 + 4 + 4 + 13;
+    assertThat(box.getInt()).isEqualTo(expectedBoxSize);
+    byte[] type = new byte[4];
+    box.get(type);
+    assertThat(type).isEqualTo(Util.getUtf8Bytes("iamf"));
+
+    // 6 bytes of reserved space
+    assertThat(box.getInt()).isEqualTo(0);
+    assertThat(box.getShort()).isEqualTo((short) 0);
+
+    // dataRefIndex
+    assertThat(box.getShort()).isEqualTo((short) 1);
+
+    // 8 bytes of reserved space
+    assertThat(box.getInt()).isEqualTo(0);
+    assertThat(box.getInt()).isEqualTo(0);
+
+    // channelcount should be 0
+    assertThat(box.getShort()).isEqualTo((short) 0);
+    // samplesize should be 16
+    assertThat(box.getShort()).isEqualTo((short) 16);
+
+    // Skip predefined and reserved (4 bytes)
+    box.position(box.position() + 4);
+
+    // samplerate should be 0
+    assertThat(box.getInt()).isEqualTo(0);
+
+    // Test iacb child box follows with appropriate size and then 'iacb' code.
+    // iacmb Box header: size (4) and type (4)
+    // then iacb data: configuration version (1) + leb128 size (1) + config OBUs (3).
+    int expectedIacbSize = 4 + 4 + 1 + 1 + 3;
+    assertThat(box.getInt()).isEqualTo(expectedIacbSize);
+    byte[] iacbType = new byte[4];
+    box.get(iacbType);
+    assertThat(iacbType).isEqualTo(Util.getUtf8Bytes("iacb"));
+  }
+
+  @Test
   public void createTrefBox_withMultipleTrackReferences_matchesExpected() throws IOException {
     Map<Integer, List<Integer>> trackReferences = new LinkedHashMap<>();
     trackReferences.put(Util.getIntegerCodeForString("cdsc"), ImmutableList.of(1, 2));

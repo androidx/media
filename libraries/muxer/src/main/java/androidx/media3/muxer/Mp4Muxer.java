@@ -413,7 +413,8 @@ public final class Mp4Muxer implements Muxer {
           MimeTypes.AUDIO_AMR_WB,
           MimeTypes.AUDIO_OPUS,
           MimeTypes.AUDIO_VORBIS,
-          MimeTypes.AUDIO_RAW);
+          MimeTypes.AUDIO_RAW,
+          MimeTypes.AUDIO_IAMF);
 
   // LINT.ThenChange(Boxes.java:codec_specific_boxes)
 

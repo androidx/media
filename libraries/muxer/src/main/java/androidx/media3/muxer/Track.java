@@ -121,6 +121,9 @@ import java.util.Map;
 
   public int videoUnitTimebase() {
     // TODO: b/270583563 - Use frame rate for video tracks.
-    return MimeTypes.isAudio(format.sampleMimeType) ? format.sampleRate : 90_000;
+    if (MimeTypes.isAudio(format.sampleMimeType)) {
+      return format.sampleRate != Format.NO_VALUE ? format.sampleRate : 48_000;
+    }
+    return 90_000;
   }
 }

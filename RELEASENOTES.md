@@ -132,6 +132,7 @@
         floating-point PCM).
     *   Add `setAttemptStreamableOutputEnabled` to `InAppMp4Muxer.Factory` to
         allow writing smaller non-streamable files without reserved space.
+    *   Add support for IAMF audio in `Mp4Muxer` and `FragmentedMp4Muxer`.
 *   IMA extension:
     *   Add
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`

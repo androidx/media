@@ -66,6 +66,31 @@ import java.util.List;
     return result;
   }
 
+  /** Returns the unsigned LEB128 representation of a given integer. */
+  public static byte[] getUleb128Bytes(int value) {
+    if (value < 0) {
+      throw new IllegalArgumentException("Value must be non-negative.");
+    }
+    int tempValue = value;
+    int size = 0;
+    do {
+      size++;
+      tempValue >>>= 7;
+    } while (tempValue != 0);
+
+    byte[] bytes = new byte[size];
+    int index = 0;
+    do {
+      byte b = (byte) (value & 0x7F);
+      value >>>= 7;
+      if (value != 0) {
+        b |= 0x80;
+      }
+      bytes[index++] = b;
+    } while (value != 0);
+    return bytes;
+  }
+
   /**
    * Concatenates multiple {@linkplain ByteBuffer byte buffers} into a single {@link ByteBuffer}.
    */

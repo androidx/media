@@ -748,13 +748,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putInt(0x0); // reserved
     contents.putInt(0x0); // reserved
 
-    int channelCount = format.channelCount;
+    final boolean isIamf = Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_IAMF);
+    final int channelCount = isIamf ? 0 : format.channelCount;
     contents.putShort((short) channelCount);
     contents.putShort((short) 16); // sample size
     contents.putShort((short) 0x0); // predefined
     contents.putShort((short) 0x0); // reserved
 
-    int sampleRate = format.sampleRate;
+    final int sampleRate = isIamf ? 0 : format.sampleRate;
     contents.putInt(sampleRate << 16);
 
     contents.put(codecSpecificBox);
@@ -778,6 +779,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_IAMF:
+        return iacbBox(format);
       case MimeTypes.AUDIO_RAW:
         return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
@@ -1842,6 +1845,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_IAMF:
+        return "iamf";
       case MimeTypes.AUDIO_RAW:
         if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
           return "sowt";
@@ -1964,6 +1969,34 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("damr", contents);
+  }
+
+  /**
+   * Returns the audio iacb box for IAMF codec.
+   *
+   * <p>Per the spec, the iacb box is a Box with the payload of:
+   *
+   * <ul>
+   *   <li>uint8 configurationVersion = 1;
+   *   <li>uleb128 configOBUs_size;
+   *   <li>(uint8 x configOBUs_size) configOBUs;
+   * </ul>
+   */
+  private static ByteBuffer iacbBox(Format format) {
+    checkArgument(
+        format.initializationData.size() == 1,
+        "Expected only 1 byte array of initialization data for IAMF codec, but found %s.",
+        format.initializationData.size());
+    ByteBuffer csd0 = ByteBuffer.wrap(format.initializationData.get(0));
+
+    int configObusSize = csd0.remaining();
+    byte[] leb128Bytes = BoxUtils.getUleb128Bytes(configObusSize);
+    ByteBuffer contents = ByteBuffer.allocate(1 + leb128Bytes.length + configObusSize);
+    contents.put((byte) 1); // configurationVersion = 1
+    contents.put(leb128Bytes);
+    contents.put(csd0);
+    contents.flip();
+    return BoxUtils.wrapIntoBox("iacb", contents);
   }
 
   /** Returns the audio dOps box for Opus codec as per RFC-7845: 5.1. */
