@@ -1,3 +1,5 @@
+import androidx.media3.build.Media3Modules
+
 // Copyright (C) 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,34 +13,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
-
-// Make sure this project is evaluated after all other libraries. This ensures
-// the Gradle properties of each library are populated and we can automatically
-// check if a 'releaseArtifactId' exists.
-rootProject.allprojects.forEach {
-  if ((it.name.startsWith("lib-") || it.name.startsWith("test-")) && !it.name.endsWith("-common")) {
-    evaluationDependsOn(":" + it.name)
-  }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
 }
 
 android {
   namespace = "androidx.media3.common"
 
   buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
   constraints {
     // List all released targets as constraints. This ensures they are all
     // resolved to the same version.
-    rootProject.allprojects.forEach {
-      if (
-        it.extra.has("releaseArtifactId") &&
-          (it.extra["releaseArtifactId"] as String).startsWith("media3-")
-      ) {
-        implementation(project(":" + it.name))
+    Media3Modules.externalModules.forEach { (gradleName, moduleInfo) ->
+      if (moduleInfo.artifactId?.startsWith("media3-") == true) {
+        implementation(project(":$gradleName"))
       }
     }
   }
@@ -77,7 +69,3 @@ dependencies {
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(project(":test-utils"))
 }
-
-extra["releaseName"] = "Media3 common module"
-
-apply(from = "../../publish.gradle")

@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply(from = "${gradle.extra["androidxMediaSettingsDir"]}/constants.gradle")
-
 plugins { id("media3.android-application") }
 
 android {
@@ -25,11 +23,7 @@ android {
 
   compileOptions.isCoreLibraryDesugaringEnabled = true
 
-  defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
 
   buildTypes {
     // Run R8 for all build types to discover potential proguard problems.

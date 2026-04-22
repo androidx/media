@@ -19,16 +19,12 @@ plugins {
   alias(libs.plugins.kotlin.android)
 }
 
-apply(from = "../../constants.gradle")
-
 android {
   namespace = "androidx.media3.testapp.controller"
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
     targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
     vectorDrawables.useSupportLibrary = true
   }

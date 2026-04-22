@@ -13,20 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins { id("media3.android-library") }
-
-android {
-  namespace = "androidx.media3.exoplayer.workmanager"
-
-  publishing { singleVariant("release") { withSourcesJar() } }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
 }
+
+android { namespace = "androidx.media3.exoplayer.workmanager" }
 
 dependencies {
   api(project(":lib-exoplayer"))
   implementation(libs.androidx.work.runtime)
   compileOnly(libs.kotlin.annotations.jvm)
 }
-
-extra["releaseName"] = "Media3 ExoPlayer WorkManager module"
-
-apply(from = "../../publish.gradle")

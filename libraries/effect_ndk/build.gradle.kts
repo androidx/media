@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.android)
 }
 
@@ -49,8 +50,6 @@ android {
     getByName("androidTest").assets.srcDir("../test_data/src/test/assets/")
     getByName("test").assets.srcDir("../test_data/src/test/assets/")
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
@@ -65,7 +64,3 @@ dependencies {
   androidTestImplementation(libs.truth)
   androidTestImplementation(project(":test-utils"))
 }
-
-extra["releaseName"] = "Media3 Effect NDK module"
-
-apply(from = "../../publish.gradle")

@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
-
-android {
-  namespace = "androidx.media3.datasource.okhttp"
-
-  publishing { singleVariant("release") { withSourcesJar() } }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
 }
+
+android { namespace = "androidx.media3.datasource.okhttp" }
 
 dependencies {
   api(project(":lib-common"))
@@ -33,7 +32,3 @@ dependencies {
   androidTestImplementation(libs.okhttp.urlconnection)
   api(libs.okhttp)
 }
-
-extra["releaseName"] = "Media3 OkHttp DataSource module"
-
-apply(from = "../../publish.gradle")

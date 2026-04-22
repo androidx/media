@@ -17,5 +17,6 @@ package androidx.media3.build
 data class Media3Module(
   val directory: String,
   val artifactId: String? = null,
+  val name: String? = null,
   val includeInCompositeBuild: Boolean = true,
 )

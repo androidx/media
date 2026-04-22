@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
+}
 
 android {
   namespace = "androidx.media3.transformer"
@@ -27,8 +30,6 @@ android {
     // TODO: b/353490583 - Disable this once the violations are fixed.
     ignoreTestSources = true
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
@@ -60,7 +61,3 @@ dependencies {
   androidTestImplementation(project(":lib-effect-ndk"))
   androidTestImplementation(project(":test-utils"))
 }
-
-extra["releaseName"] = "Media3 Transformer module"
-
-apply(from = "../../publish.gradle")

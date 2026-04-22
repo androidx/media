@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
-
-android {
-  namespace = "androidx.media3.ui.leanback"
-
-  publishing { singleVariant("release") { withSourcesJar() } }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
 }
+
+android { namespace = "androidx.media3.ui.leanback" }
 
 dependencies {
   api(project(":lib-common"))
@@ -25,7 +24,3 @@ dependencies {
   implementation(libs.androidx.leanback)
   compileOnly(libs.kotlin.annotations.jvm)
 }
-
-extra["releaseName"] = "Media3 Leanback UI module"
-
-apply(from = "../../publish.gradle")

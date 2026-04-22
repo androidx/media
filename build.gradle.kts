@@ -63,26 +63,17 @@ allprojects {
   group = "androidx.media3"
 }
 
-subprojects {
-  // If the map has a Maven ID for this module, dynamically inject it
-  Media3Modules.externalModules[project.name]?.artifactId?.let { extra["releaseArtifactId"] = it }
-}
-
 tasks.register("printReleaseArtifactIds") {
   description = "Prints the releaseArtifactId of modules configured for publishing."
   doLast {
     subprojects {
       // Check if the project is intended to be published by looking for a task
-      // added by the media/publish.gradle script.
+      // added by the maven-publish plugin.
       if (!tasks.names.contains("generatePomFileForReleasePublication")) {
         return@subprojects
       }
-
-      if (extra.has("releaseArtifactId")) {
-        println(extra["releaseArtifactId"])
-      } else {
-        logger.warn("WARN: Project ${path} has publish task but no releaseArtifactId.")
-      }
+      Media3Modules.externalModules[project.name]?.artifactId?.let { println(it) }
+        ?: logger.warn("WARN: Project $path has publish task but no releaseArtifactId.")
     }
   }
 }

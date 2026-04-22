@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-apply(from = "../../constants.gradle")
 
 plugins { id("media3.android-application") }
 
@@ -19,8 +18,6 @@ android {
   namespace = "androidx.media3.demo.surface"
 
   defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
     minSdk = 29
     targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
   }

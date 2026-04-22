@@ -22,7 +22,12 @@ val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().name
 android {
   configureCommonConfig(android = this, libs)
 
-  defaultConfig { targetSdk = libs.findVersion("targetSdkVersion").get().requiredVersion.toInt() }
+  defaultConfig {
+    versionName = libs.findVersion("releaseVersion").get().requiredVersion
+    versionCode = libs.findVersion("releaseVersionCode").get().requiredVersion.toInt()
+    // TODO: consider switching appTargetSdkVersion currently used in demos and downgrading locally
+    targetSdk = libs.findVersion("targetSdkVersion").get().requiredVersion.toInt()
+  }
 }
 
 dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }

@@ -11,7 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
+}
 
 android {
   namespace = "androidx.media3.decoder"
@@ -22,8 +25,6 @@ android {
       enableAndroidTestCoverage = true
     }
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
@@ -35,7 +36,3 @@ dependencies {
   testImplementation(libs.truth)
   testImplementation(libs.robolectric)
 }
-
-extra["releaseName"] = "Media3 decoder module"
-
-apply(from = "../../publish.gradle")

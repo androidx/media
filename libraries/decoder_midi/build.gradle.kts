@@ -11,14 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
+}
 
 android {
   namespace = "androidx.media3.decoder.midi"
 
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets") }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
@@ -36,7 +37,3 @@ dependencies {
   testImplementation(project(":test-data"))
   testImplementation(libs.robolectric)
 }
-
-extra["releaseName"] = "Media3 MIDI decoder module"
-
-apply(from = "../../publish.gradle")

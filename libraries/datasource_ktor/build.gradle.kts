@@ -15,13 +15,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.android)
 }
 
 android {
   namespace = "androidx.media3.datasource.ktor"
 
-  publishing { singleVariant("release") { withSourcesJar() } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
@@ -42,7 +42,3 @@ dependencies {
   androidTestImplementation(libs.okhttp.mockwebserver)
   androidTestImplementation(libs.test.parameter.injector)
 }
-
-extra["releaseName"] = "Media3 Ktor DataSource module"
-
-apply(from = "../../publish.gradle")

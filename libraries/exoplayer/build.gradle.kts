@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
   id("media3.android-library")
   alias(libs.plugins.kotlin.android)
+  id("media3.publish")
 }
 
 android {
@@ -28,8 +29,6 @@ android {
     getByName("androidTest").assets.srcDir("../test_data/src/test/assets")
     getByName("test").assets.srcDir("../test_data/src/test/assets/")
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
@@ -59,7 +58,3 @@ dependencies {
   testImplementation(project(":test-utils"))
   testImplementation(project(":test-utils-robolectric"))
 }
-
-extra["releaseName"] = "Media3 ExoPlayer module"
-
-apply(from = "../../publish.gradle")

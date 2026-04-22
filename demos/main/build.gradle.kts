@@ -13,7 +13,6 @@
 // limitations under the License.
 
 // LINT.IfChange
-apply(from = "../../constants.gradle")
 
 plugins {
   id("media3.android-application")
@@ -25,11 +24,7 @@ android {
 
   compileOptions { isCoreLibraryDesugaringEnabled = true }
 
-  defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
 
   buildTypes {
     getByName("release") {

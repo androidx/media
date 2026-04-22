@@ -13,18 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-apply(from = "../../constants.gradle")
 
 plugins { id("media3.android-application") }
 
 android {
   namespace = "androidx.media3.demo.transformer"
 
-  defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
 
   buildTypes {
     getByName("release") {

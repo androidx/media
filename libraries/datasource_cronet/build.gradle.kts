@@ -11,13 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-plugins { id("media3.android-library") }
-
-android {
-  namespace = "androidx.media3.datasource.cronet"
-
-  publishing { singleVariant("release") { withSourcesJar() } }
+plugins {
+  id("media3.android-library")
+  id("media3.publish")
 }
+
+android { namespace = "androidx.media3.datasource.cronet" }
 
 dependencies {
   runtimeOnly(libs.play.services.cronet)
@@ -38,7 +37,3 @@ dependencies {
   testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.robolectric)
 }
-
-extra["releaseName"] = "Media3 Cronet DataSource module"
-
-apply(from = "../../publish.gradle")

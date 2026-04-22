@@ -14,8 +14,6 @@
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-apply(from = "../../constants.gradle")
-
 plugins {
   id("media3.android-application")
   alias(libs.plugins.kotlin.android)
@@ -27,11 +25,7 @@ android {
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
-  defaultConfig {
-    versionName = releaseVersion
-    versionCode = releaseVersionCode
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
 
   buildTypes {
     getByName("release") {

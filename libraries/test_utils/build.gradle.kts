@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.android)
 }
 
@@ -24,7 +25,6 @@ android {
 
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets/") }
 
-  publishing { singleVariant("release") { withSourcesJar() } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
@@ -50,7 +50,3 @@ dependencies {
   testImplementation(libs.robolectric)
   testImplementation(libs.guava.testlib)
 }
-
-extra["releaseName"] = "Media3 test utils module"
-
-apply(from = "../../publish.gradle")

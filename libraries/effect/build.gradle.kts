@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.android)
 }
 
@@ -35,8 +36,6 @@ android {
     // TODO: b/353490583 - Disable this once the violations are fixed.
     ignoreTestSources = true
   }
-
-  publishing { singleVariant("release") { withSourcesJar() } }
 }
 
 dependencies {
@@ -63,7 +62,3 @@ dependencies {
   androidTestImplementation(libs.truth)
   androidTestImplementation(project(":test-utils"))
 }
-
-extra["releaseName"] = "Media3 Effect module"
-
-apply(from = "../../publish.gradle")

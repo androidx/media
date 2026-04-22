@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.compose.compiler)
   alias(libs.plugins.kotlin.android)
 }
@@ -23,7 +24,6 @@ plugins {
 android {
   namespace = "androidx.media3.cast"
 
-  publishing { singleVariant("release") { withSourcesJar() } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
@@ -46,7 +46,3 @@ dependencies {
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)
 }
-
-extra["releaseName"] = "Media3 Cast module"
-
-apply(from = "../../publish.gradle")

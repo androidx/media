@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
+  id("media3.publish")
   alias(libs.plugins.kotlin.android)
 }
 
@@ -23,7 +24,6 @@ android {
   namespace = "androidx.media3.common.ktx"
 
   buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-  publishing { singleVariant("release") { withSourcesJar() } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
@@ -37,7 +37,3 @@ dependencies {
   testImplementation(libs.robolectric)
   testImplementation(project(":test-utils"))
 }
-
-extra["releaseName"] = "Media3 common KTX module"
-
-apply(from = "../../publish.gradle")

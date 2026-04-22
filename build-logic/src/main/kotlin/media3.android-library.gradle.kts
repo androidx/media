@@ -18,10 +18,6 @@ plugins { id("com.android.library") }
 group = "androidx.media3"
 
 val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
-val androidxMediaSettingsDir = gradle.extra["androidxMediaSettingsDir"] as File
-
-// TODO: remove this, current workaround to populate project.extra["releaseVersion"]
-apply(from = "$androidxMediaSettingsDir/constants.gradle")
 
 android {
   configureCommonConfig(android = this, libs)
