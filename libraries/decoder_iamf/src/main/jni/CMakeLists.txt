@@ -47,5 +47,3 @@ target_link_libraries(iamfJNI
                       PRIVATE ${IAMF_TOOLS_LIB_PATH}
                       PRIVATE ${android_log_lib})
 
-target_link_options(iamfJNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")

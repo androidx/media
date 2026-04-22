@@ -22,7 +22,16 @@ android {
 
   sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
 
-  defaultConfig { externalNativeBuild { cmake { targets.add("opusV2JNI") } } }
+  defaultConfig {
+    externalNativeBuild {
+      cmake {
+        // TODO(b/505317653): Remove flexible page sizes once AGP is upgraded to 9.0 or
+        // higher (which uses NDK r28 by default where 16KB alignment is automatic).
+        arguments("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+        targets.add("opusV2JNI")
+      }
+    }
+  }
 }
 
 // Configure the native build only if libopus is present to avoid gradle sync

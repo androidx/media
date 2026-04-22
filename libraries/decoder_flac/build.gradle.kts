@@ -25,6 +25,9 @@ android {
   defaultConfig {
     externalNativeBuild {
       cmake {
+        // TODO(b/505317653): Remove flexible page sizes once AGP is upgraded to 9.0 or
+        // higher (which uses NDK r28 by default where 16KB alignment is automatic).
+        arguments("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
         arguments("-DWITH_OGG=OFF")
         arguments("-DINSTALL_MANPAGES=OFF")
         targets("flacJNI")

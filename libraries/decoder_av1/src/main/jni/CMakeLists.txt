@@ -65,6 +65,3 @@ target_link_libraries(dav1dJNI
                       PRIVATE ${DAV1D_LIB_PATH}
                       PRIVATE ${android_log_lib})
 
-# Enable 16 KB ELF alignment.
-target_link_options(dav1dJNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")
