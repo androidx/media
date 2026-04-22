@@ -16,7 +16,7 @@
 
 # LINT.IfChange
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
-# LINT.ThenChange(../../../build.gradle)
+# LINT.ThenChange(../../../build.gradle.kts)
 
 set(CMAKE_CXX_STANDARD 11)
 

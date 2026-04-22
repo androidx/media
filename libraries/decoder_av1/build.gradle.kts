@@ -30,7 +30,10 @@ android {
 if (project.file("src/main/jni/dav1d").exists()) {
   android.externalNativeBuild.cmake {
     path = file("src/main/jni/CMakeLists.txt")
+    // LINT.IfChange
+    // Should match cmake_minimum_required.
     version = "3.21.0+"
+    // LINT.ThenChange(src/main/jni/CMakeLists.txt)
     if (project.hasProperty("externalNativeBuildDir")) {
       val externalNativeBuildDirProp = project.property("externalNativeBuildDir") as String
       val externalNativeBuildDirFile =
