@@ -17,10 +17,7 @@ android {
   namespace = "androidx.media3.decoder.vp9"
 
   sourceSets {
-    getByName("main") {
-      jniLibs.srcDir("src/main/libs")
-      jni.setSrcDirs(listOf<String>()) // Disable the automatic ndk-build call by Android Studio.
-    }
+    getByName("main") { jniLibs.srcDir("src/main/libs") }
     getByName("androidTest").assets.srcDir("../test_data/src/test/assets")
   }
 }
