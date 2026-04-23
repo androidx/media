@@ -39,7 +39,7 @@ track 0:
     data = length 5312, hash D45D3CA0
   sample 2:
     time = 33366
-    flags = 0
+    flags = 67108864
     data = length 599, hash 1BE7812D
   sample 3:
     time = 200200
@@ -51,11 +51,11 @@ track 0:
     data = length 987, hash 560B5036
   sample 5:
     time = 100100
-    flags = 0
+    flags = 67108864
     data = length 673, hash ED7CD8C7
   sample 6:
     time = 166833
-    flags = 0
+    flags = 67108864
     data = length 523, hash 3020DF50
   sample 7:
     time = 333666
@@ -67,11 +67,11 @@ track 0:
     data = length 992, hash FE132F23
   sample 9:
     time = 233566
-    flags = 0
+    flags = 67108864
     data = length 623, hash 5B2C1816
   sample 10:
     time = 300300
-    flags = 0
+    flags = 67108864
     data = length 421, hash 742E69C1
   sample 11:
     time = 433766
@@ -83,7 +83,7 @@ track 0:
     data = length 568, hash 519A8E50
   sample 13:
     time = 367033
-    flags = 0
+    flags = 67108864
     data = length 620, hash 3990AA39
   sample 14:
     time = 567233
@@ -95,11 +95,11 @@ track 0:
     data = length 1051, hash 92DFA63A
   sample 16:
     time = 467133
-    flags = 0
+    flags = 67108864
     data = length 874, hash 69587FB4
   sample 17:
     time = 533866
-    flags = 0
+    flags = 67108864
     data = length 781, hash 36BE495B
   sample 18:
     time = 700700
@@ -111,11 +111,11 @@ track 0:
     data = length 1022, hash 5D8BFF34
   sample 20:
     time = 600600
-    flags = 0
+    flags = 67108864
     data = length 790, hash 99413A99
   sample 21:
     time = 667333
-    flags = 0
+    flags = 67108864
     data = length 610, hash 5E129290
   sample 22:
     time = 834166
@@ -127,11 +127,11 @@ track 0:
     data = length 745, hash B78A477A
   sample 24:
     time = 734066
-    flags = 0
+    flags = 67108864
     data = length 621, hash CF741E7A
   sample 25:
     time = 800800
-    flags = 0
+    flags = 67108864
     data = length 505, hash 1DB4894E
   sample 26:
     time = 967633
@@ -143,11 +143,11 @@ track 0:
     data = length 880, hash C2DE85D0
   sample 28:
     time = 867533
-    flags = 0
+    flags = 67108864
     data = length 530, hash C98BC6A8
   sample 29:
     time = 934266
-    flags = 536870912
+    flags = 603979776
     data = length 568, hash 4FE5C8EA
 track 1:
   total output bytes = 9529

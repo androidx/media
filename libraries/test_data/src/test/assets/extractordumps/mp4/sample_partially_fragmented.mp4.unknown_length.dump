@@ -35,7 +35,7 @@ track 0:
     data = length 5023, hash 30768D40
   sample 2:
     time = 100100
-    flags = 0
+    flags = 67108864
     data = length 497, hash 9E536CA2
   sample 3:
     time = 200200
@@ -43,7 +43,7 @@ track 0:
     data = length 5867, hash 56F9EE87
   sample 4:
     time = 166833
-    flags = 0
+    flags = 67108864
     data = length 570, hash 984421BD
   sample 5:
     time = 266933
@@ -51,7 +51,7 @@ track 0:
     data = length 3406, hash 9A33201E
   sample 6:
     time = 233566
-    flags = 0
+    flags = 67108864
     data = length 476, hash C59620F3
   sample 7:
     time = 333666
@@ -59,7 +59,7 @@ track 0:
     data = length 4310, hash 291E6161
   sample 8:
     time = 300300
-    flags = 0
+    flags = 67108864
     data = length 497, hash 398CBFAA
   sample 9:
     time = 467133
@@ -71,11 +71,11 @@ track 0:
     data = length 1076, hash B479B634
   sample 11:
     time = 367033
-    flags = 0
+    flags = 67108864
     data = length 365, hash 68C7D4C2
   sample 12:
     time = 433766
-    flags = 0
+    flags = 67108864
     data = length 463, hash A85F9769
   sample 13:
     time = 600600
@@ -87,11 +87,11 @@ track 0:
     data = length 1085, hash 47AFB6FE
   sample 15:
     time = 500500
-    flags = 0
+    flags = 67108864
     data = length 689, hash 3EB753A3
   sample 16:
     time = 567233
-    flags = 0
+    flags = 67108864
     data = length 516, hash E6DF9C1C
   sample 17:
     time = 734066
@@ -103,11 +103,11 @@ track 0:
     data = length 963, hash 684782FB
   sample 19:
     time = 633966
-    flags = 0
+    flags = 67108864
     data = length 625, hash ED1C8EF1
   sample 20:
     time = 700700
-    flags = 0
+    flags = 67108864
     data = length 492, hash E6E066EA
   sample 21:
     time = 867533
@@ -119,11 +119,11 @@ track 0:
     data = length 833, hash 41CA807D
   sample 23:
     time = 767433
-    flags = 0
+    flags = 67108864
     data = length 516, hash 5B21BB11
   sample 24:
     time = 834166
-    flags = 0
+    flags = 67108864
     data = length 384, hash A0E8FA50
   sample 25:
     time = 1001000
@@ -135,11 +135,11 @@ track 0:
     data = length 831, hash DDA0685B
   sample 27:
     time = 900900
-    flags = 0
+    flags = 67108864
     data = length 413, hash 886904C
   sample 28:
     time = 967633
-    flags = 0
+    flags = 67108864
     data = length 427, hash FC2FA8CC
   sample 29:
     time = 1034366
