@@ -23,7 +23,6 @@ plugins {
 android {
   namespace = "androidx.media3.common.ktx"
 
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 

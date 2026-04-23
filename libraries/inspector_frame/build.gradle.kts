@@ -19,8 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.inspector.frame"
 
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-
   sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
 }
 

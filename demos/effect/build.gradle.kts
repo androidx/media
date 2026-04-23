@@ -31,7 +31,6 @@ android {
       isMinifyEnabled = true
       signingConfig = signingConfigs.getByName("debug")
     }
-    getByName("debug") { isJniDebuggable = true }
   }
 
   // The demo app isn't indexed, and doesn't have translations.

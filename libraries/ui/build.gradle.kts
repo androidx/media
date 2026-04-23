@@ -19,13 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.ui"
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
-
   lint { baseline = file("lint-baseline.xml") }
 
   sourceSets {

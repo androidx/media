@@ -19,12 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.session"
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets/") }
 
   buildFeatures { aidl = true }

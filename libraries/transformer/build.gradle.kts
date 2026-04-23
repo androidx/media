@@ -19,8 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.transformer"
 
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-
   sourceSets {
     getByName("androidTest").assets.srcDir("../test_data/src/test/assets/")
     getByName("test").assets.srcDir("../test_data/src/test/assets/")

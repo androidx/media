@@ -26,12 +26,6 @@ android {
 
   lint { baseline = file("lint-baseline.xml") }
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
   buildFeatures { compose = true }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }

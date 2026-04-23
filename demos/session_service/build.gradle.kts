@@ -26,10 +26,7 @@ android {
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
-  buildTypes {
-    getByName("release") { signingConfig = signingConfigs.getByName("debug") }
-    getByName("debug") { isJniDebuggable = true }
-  }
+  buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("debug") } }
 
   defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
 

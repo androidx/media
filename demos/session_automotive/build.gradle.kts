@@ -33,7 +33,6 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
       signingConfig = signingConfigs.getByName("debug")
     }
-    getByName("debug") { isJniDebuggable = true }
   }
 
   // The demo app isn't indexed, and doesn't have translations.

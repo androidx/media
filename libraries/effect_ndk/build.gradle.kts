@@ -23,13 +23,6 @@ plugins {
 android {
   namespace = "androidx.media3.effect.ndk"
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
-
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig {

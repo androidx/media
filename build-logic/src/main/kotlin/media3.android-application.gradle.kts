@@ -22,6 +22,8 @@ val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().name
 android {
   configureCommonConfig(android = this, libs)
 
+  buildTypes { getByName("debug") { isJniDebuggable = true } }
+
   defaultConfig {
     versionName = libs.findVersion("releaseVersion").get().requiredVersion
     versionCode = libs.findVersion("releaseVersionCode").get().requiredVersion.toInt()

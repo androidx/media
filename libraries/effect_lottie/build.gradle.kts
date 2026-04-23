@@ -19,13 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.effect.lottie"
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
-
   sourceSets {
     getByName("androidTest").assets.srcDir("../test_data/src/test/assets/")
     getByName("test").assets.srcDir("../test_data/src/test/assets/")

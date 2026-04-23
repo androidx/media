@@ -19,8 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.exoplayer.rtsp"
 
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets/") }
 }
 

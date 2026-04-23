@@ -19,13 +19,6 @@ plugins {
 android {
   namespace = "androidx.media3.exoplayer.hls"
 
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
-
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets/") }
 }
 

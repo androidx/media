@@ -18,11 +18,7 @@ plugins {
   id("media3.publish")
 }
 
-android {
-  namespace = "androidx.media3.common"
-
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-}
+android { namespace = "androidx.media3.common" }
 
 dependencies {
   constraints {

@@ -33,7 +33,6 @@ android {
       proguardFiles("proguard-rules.txt", getDefaultProguardFile("proguard-android-optimize.txt"))
       signingConfig = signingConfigs.getByName("debug")
     }
-    getByName("debug") { isJniDebuggable = true }
   }
 
   lint {

@@ -22,6 +22,13 @@ val libs: VersionCatalog = extensions.getByType<VersionCatalogsExtension>().name
 android {
   configureCommonConfig(android = this, libs)
 
+  buildTypes {
+    getByName("debug") {
+      enableUnitTestCoverage = true
+      enableAndroidTestCoverage = true
+    }
+  }
+
   defaultConfig {
     consumerProguardFiles("proguard-rules.txt")
     aarMetadata {

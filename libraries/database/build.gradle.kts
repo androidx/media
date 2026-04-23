@@ -16,11 +16,7 @@ plugins {
   id("media3.publish")
 }
 
-android {
-  namespace = "androidx.media3.database"
-
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
-}
+android { namespace = "androidx.media3.database" }
 
 dependencies {
   api(project(":lib-common"))

@@ -24,7 +24,6 @@ plugins {
 android {
   namespace = "androidx.media3.ui.compose"
 
-  buildTypes { getByName("debug") { enableUnitTestCoverage = true } }
   buildFeatures { compose = true }
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }

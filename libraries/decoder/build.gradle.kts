@@ -16,16 +16,7 @@ plugins {
   id("media3.publish")
 }
 
-android {
-  namespace = "androidx.media3.decoder"
-
-  buildTypes {
-    getByName("debug") {
-      enableUnitTestCoverage = true
-      enableAndroidTestCoverage = true
-    }
-  }
-}
+android { namespace = "androidx.media3.decoder" }
 
 dependencies {
   api(project(":lib-common"))
