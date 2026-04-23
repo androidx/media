@@ -15,15 +15,23 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
+import android.media.Image;
+import android.os.Handler;
+import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -35,7 +43,9 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
 import java.util.StringJoiner;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -221,6 +231,118 @@ public final class TestUtil {
         throws UnhandledAudioFormatException {
       inputFormat.set(inputAudioFormat);
       return super.onConfigure(inputAudioFormat);
+    }
+  }
+
+  /**
+   * A fake implementation of {@link ImageAdapter} for testing.
+   *
+   * <p>This class simply holds a presentation timestamp and an optional {@link HardwareBuffer}
+   * without relying on a real platform {@link android.media.Image}.
+   */
+  public static final class FakeImageAdapter implements ImageAdapter {
+    private final long timestampNs;
+    @Nullable private final HardwareBuffer hardwareBuffer;
+
+    public FakeImageAdapter(long timestampNs, @Nullable HardwareBuffer hardwareBuffer) {
+      this.timestampNs = timestampNs;
+      this.hardwareBuffer = hardwareBuffer;
+    }
+
+    @Override
+    public long getTimestampNs() {
+      return timestampNs;
+    }
+
+    @Override
+    @Nullable
+    public HardwareBuffer getHardwareBuffer() {
+      return hardwareBuffer;
+    }
+
+    @Override
+    @Nullable
+    public Image getInternalImage() {
+      return null;
+    }
+
+    @Override
+    public void close() {
+      if (hardwareBuffer != null) {
+        hardwareBuffer.close();
+      }
+    }
+  }
+
+  /**
+   * A fake implementation of {@link ImageReaderAdapter} for testing.
+   *
+   * <p>Instead of receiving frames from a real hardware {@link Surface}, this fake manages an
+   * internal queue of {@link FakeImageAdapter} instances. Tests can simulate frames being queued by
+   * calling {@link #notifyFrameQueued(long)}.
+   */
+  public static final class FakeImageReaderAdapter implements ImageReaderAdapter {
+    private final Queue<ImageAdapter> images;
+    @Nullable private Consumer<ImageReaderAdapter> listener;
+    @Nullable private Handler handler;
+
+    public FakeImageReaderAdapter() {
+      images = new ArrayDeque<>();
+    }
+
+    @Override
+    @Nullable
+    public ImageAdapter acquireNextImage() {
+      return images.poll();
+    }
+
+    @Override
+    public Surface getSurface() {
+      return new Surface(new SurfaceTexture(/* texName= */ 0));
+    }
+
+    @Override
+    public void setOnImageAvailableListener(
+        Consumer<ImageReaderAdapter> listener, Handler handler) {
+      this.handler = handler;
+      this.listener = listener;
+    }
+
+    @Override
+    public void notifyFrameQueued(long presentationTimeUs) {
+      @Nullable HardwareBuffer hardwareBuffer = null;
+      if (SDK_INT >= 26) {
+        hardwareBuffer =
+            HardwareBuffer.create(
+                /* width= */ 16,
+                /* height= */ 16,
+                HardwareBuffer.RGBA_8888,
+                /* layers= */ 1,
+                HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+      }
+      images.add(
+          new FakeImageAdapter(/* timestampNs= */ presentationTimeUs * 1000, hardwareBuffer));
+      if (handler != null && listener != null) {
+        handler.post(() -> listener.accept(this));
+      }
+    }
+
+    @Override
+    public void close() {
+      while (!images.isEmpty()) {
+        checkNotNull(images.poll()).close();
+      }
+    }
+  }
+
+  /** A factory that returns a pre-configured {@link FakeImageReaderAdapter}. */
+  public static final class FakeImageReaderAdapterFactory implements ImageReaderAdapter.Factory {
+
+    public FakeImageReaderAdapterFactory() {}
+
+    @Override
+    public ImageReaderAdapter create(int width, int height, int format, int maxImages, long usage) {
+      return new FakeImageReaderAdapter();
     }
   }
 }

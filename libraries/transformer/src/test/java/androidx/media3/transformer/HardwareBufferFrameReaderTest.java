@@ -71,6 +71,7 @@ public class HardwareBufferFrameReaderTest {
             },
             handlerThread.getLooper(),
             /* defaultSurfacePixelFormat= */ ImageFormat.YUV_420_888,
+            new DefaultImageReaderAdapter.Factory(),
             /* listener= */ e -> hardwareBufferFrameReaderException.set(e),
             SystemClock.DEFAULT.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null));
   }

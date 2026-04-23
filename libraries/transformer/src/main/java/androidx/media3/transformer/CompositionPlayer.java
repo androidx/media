@@ -182,6 +182,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
+    private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
+
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
@@ -205,6 +207,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           () ->
               new BitmapFactoryImageDecoder.Factory(context)
                   .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
+      imageReaderAdapterFactorySupplier = DefaultImageReaderAdapter.Factory::new;
       videoPrewarmingEnabled = true;
       lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
       clock = Clock.DEFAULT;
@@ -537,6 +540,25 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
+     * Sets the {@link ImageReaderAdapter.Factory} used to create the video {@link
+     * ImageReaderAdapter}.
+     *
+     * <p>The default value is a {@link DefaultImageReaderAdapter.Factory}.
+     *
+     * @param imageReaderAdapterFactory The {@link ImageReaderAdapter.Factory} to create instances
+     *     of {@link ImageReaderAdapter}, which are used to receive video frames from a {@link
+     *     Surface}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    /* package */ Builder setImageReaderAdapterFactory(
+        ImageReaderAdapter.Factory imageReaderAdapterFactory) {
+      this.imageReaderAdapterFactorySupplier = () -> imageReaderAdapterFactory;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -613,6 +635,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
   @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
 
+  private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
+
   @Nullable
   private final SurfaceHolderHardwareBufferFrameQueue surfaceHolderHardwareBufferFrameQueue;
 
@@ -682,6 +706,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
+    imageReaderAdapterFactory = builder.imageReaderAdapterFactorySupplier.get();
     videoTracksSelected = new SparseBooleanArray();
     playerHolders = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
@@ -1583,6 +1608,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               },
               checkNotNull(playbackThread).getLooper(),
               /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+              imageReaderAdapterFactory,
               e ->
                   maybeUpdatePlaybackError(
                       "HardwareBufferFrameReader error",

@@ -21,8 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.hardware.HardwareBuffer;
-import android.media.Image;
-import android.media.ImageReader;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
@@ -87,7 +85,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final Composition composition;
   private final int sequenceIndex;
   private final Consumer<HardwareBufferFrame> frameConsumer;
-  private final ImageReader imageReader;
+  private final ImageReaderAdapter imageReader;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
   private final PlaybackExecutor playbackExecutor;
@@ -124,15 +122,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param playbackLooper The looper associated with the playback thread.
    * @param defaultSurfacePixelFormat The default pixel format used by the {@linkplain #getSurface()
    *     surface}. Some producers override this format, but the behavior is device-specific.
+   * @param imageReaderAdapterFactory The {@link ImageReaderAdapter.Factory} used to create the
+   *     internal {@link ImageReaderAdapter}.
    * @param listener The listener.
    * @param listenerHandler A {@link HandlerWrapper} to dispatch {@link Listener} callbacks.
    */
-  HardwareBufferFrameReader(
+  /* package */ HardwareBufferFrameReader(
       Composition composition,
       int sequenceIndex,
       Consumer<HardwareBufferFrame> frameConsumer,
       Looper playbackLooper,
       int defaultSurfacePixelFormat,
+      ImageReaderAdapter.Factory imageReaderAdapterFactory,
       Listener listener,
       HandlerWrapper listenerHandler) {
     this.composition = composition;
@@ -140,29 +141,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.frameConsumer = frameConsumer;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
+    // The width and height are sensible defaults for tests and are typically ignored when writing
+    // from MediaCodec.
+    this.imageReader =
+        imageReaderAdapterFactory.create(
+            /* width= */ 640,
+            /* height= */ 360,
+            defaultSurfacePixelFormat,
+            /* maxImages= */ CAPACITY,
+            /* usage= */ SDK_INT >= 29 ? HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE : 0);
     Handler playbackHandler = new Handler(playbackLooper);
     playbackExecutor = new PlaybackExecutor(playbackHandler);
     rendererWakeupListenerList = new ArrayList<>();
-    // The default width and height are ignored when writing from MediaCodec.
-    // Sensible values greater than 1 allow HardwareBufferFrameReaderTest to pass.
-    if (SDK_INT >= 29) {
-      imageReader =
-          ImageReader.newInstance(
-              /* width= */ 640,
-              /* height= */ 360,
-              defaultSurfacePixelFormat,
-              /* maxImages= */ CAPACITY,
-              // Setting the HardwareBuffer usage to GPU_SAMPLED_IMAGE allows the ImageReader to
-              // run on emulators.
-              /* usage= */ HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
-    } else {
-      imageReader =
-          ImageReader.newInstance(
-              /* width= */ 640,
-              /* height= */ 360,
-              defaultSurfacePixelFormat,
-              /* maxImages= */ CAPACITY);
-    }
     imageReader.setOnImageAvailableListener(playbackExecutor, playbackHandler);
     pendingFrameInfo = new ArrayDeque<>();
   }
@@ -214,6 +204,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           FrameInfo.createForSurface(
               presentationTimeUs, sequenceOffsetUs, indexOfItem, getAdjustedFormat(format)));
     }
+    imageReader.notifyFrameQueued(presentationTimeUs);
   }
 
   /**
@@ -257,7 +248,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (framesInUse >= CAPACITY) {
         return;
       }
-      Image image = imageReader.acquireNextImage();
+      ImageAdapter image = imageReader.acquireNextImage();
       if (image == null) {
         return;
       }
@@ -279,9 +270,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long sequenceOffsetUs = frameInfo.sequenceOffsetUs;
         int indexOfItem = frameInfo.itemIndex;
         checkState(
-            image.getTimestamp() == itemPresentationTimeUs * 1000,
+            image.getTimestampNs() == itemPresentationTimeUs * 1000,
             "%s != %s",
-            image.getTimestamp(),
+            image.getTimestampNs(),
             itemPresentationTimeUs * 1000);
 
         frameConsumer.accept(
@@ -398,7 +389,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private HardwareBufferFrame createHardwareBufferFrameFromImage(
-      Image image, long presentationTimeUs, long sequenceOffsetUs, int indexOfItem, Format format) {
+      ImageAdapter image,
+      long presentationTimeUs,
+      long sequenceOffsetUs,
+      int indexOfItem,
+      Format format) {
     HardwareBufferFrame.Builder frameBuilder;
     // TODO: b/449956936 - Add support for HardwareBuffer on API 26 using Media NDK methods such as
     // AImage_getHardwareBuffer.
@@ -425,7 +420,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               });
     }
     // TODO: b/449956936 - Set the acquire fence from image on the frameBuilder.
-    frameBuilder.setInternalFrame(image);
+    frameBuilder.setInternalFrame(image.getInternalImage());
     return createHardwareBufferFrame(
         frameBuilder, presentationTimeUs, sequenceOffsetUs, indexOfItem, format);
   }
@@ -483,7 +478,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void releaseFrame(
-      @Nullable Image image,
+      @Nullable ImageAdapter image,
       @Nullable HardwareBuffer hardwareBuffer,
       @Nullable SyncFenceWrapper releaseFence) {
     synchronized (this) {
@@ -514,7 +509,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * A {@link Executor} which executes commands on a {@link Handler} and propagates {@linkplain
    * RuntimeException errors} to the {@link Listener}.
    */
-  private class PlaybackExecutor implements ImageReader.OnImageAvailableListener, Executor {
+  private class PlaybackExecutor implements Consumer<ImageReaderAdapter>, Executor {
 
     final Handler playbackHandler;
 
@@ -535,7 +530,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public void onImageAvailable(ImageReader reader) {
+    public void accept(ImageReaderAdapter reader) {
       try {
         pollImage();
       } catch (RuntimeException e) {

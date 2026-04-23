@@ -91,6 +91,7 @@ import androidx.media3.transformer.HardwareBufferFrameReader.Listener;
             intermediateConsumer,
             playbackLooper,
             /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+            new DefaultImageReaderAdapter.Factory(),
             e -> errorConsumer.accept(ExportException.createForUnexpected(e)),
             listenerHandler);
   }
