@@ -214,6 +214,34 @@ public final class Mp4ExtractorNonParameterizedTest {
     assertThat(output.trackOutputs.get(1).getSampleCount()).isEqualTo(0);
   }
 
+  @Test
+  public void extract_h264WithoutGopParsingFlags() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+  }
+
+  @Test
+  public void extract_h265WithoutGopParsingFlags() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/h265_bframes.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(new DefaultSubtitleParserFactory(), /* flags= */ 0);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    String dumpFilePath = getDumpFilePath(inputFilePath, "_without_gop_parsing_flags");
+    DumpFileAsserts.assertOutput(context, output, dumpFilePath);
+  }
+
   private static String getDumpFilePath(String inputFilePath, String suffix) {
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }
