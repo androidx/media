@@ -72,7 +72,7 @@ tasks.register("printReleaseArtifactIds") {
       if (!tasks.names.contains("generatePomFileForReleasePublication")) {
         return@subprojects
       }
-      Media3Modules.externalModules[project.name]?.artifactId?.let { println(it) }
+      Media3Modules.EXTERNAL_MODULES[project.name]?.artifactId?.let { println(it) }
         ?: logger.warn("WARN: Project $path has publish task but no releaseArtifactId.")
     }
   }

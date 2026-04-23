@@ -29,7 +29,7 @@ gradle.extra["androidxMediaSettingsDir"] = settingsDir
 
 rootProject.name = "androidx.media3"
 
-Media3Modules.externalModules.forEach { (gradleName, moduleInfo) ->
+Media3Modules.EXTERNAL_MODULES.forEach { (gradleName, moduleInfo) ->
   if (moduleInfo.includeInCompositeBuild || gradle.parent == null) {
     include(":$gradleName")
     project(":$gradleName").projectDir = file(moduleInfo.directory)

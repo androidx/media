@@ -25,7 +25,7 @@ dependencies {
   constraints {
     // List all released targets as constraints. This ensures they are all
     // resolved to the same version.
-    Media3Modules.externalModules.forEach { (gradleName, moduleInfo) ->
+    Media3Modules.EXTERNAL_MODULES.forEach { (gradleName, moduleInfo) ->
       if (moduleInfo.artifactId?.startsWith("media3-") == true) {
         implementation(project(":$gradleName"))
       }

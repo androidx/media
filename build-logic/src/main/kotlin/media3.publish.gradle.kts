@@ -42,11 +42,11 @@ afterEvaluate {
         register<MavenPublication>("release") {
           from(components["release"])
           groupId = "androidx.media3"
-          artifactId = Media3Modules.externalModules[project.name]?.artifactId ?: ""
+          artifactId = Media3Modules.EXTERNAL_MODULES[project.name]?.artifactId ?: ""
           version = libs.findVersion("releaseVersion").get().requiredVersion
 
           pom {
-            name.set(Media3Modules.externalModules[project.name]?.name ?: "")
+            name.set(Media3Modules.EXTERNAL_MODULES[project.name]?.name ?: "")
 
             licenses {
               license {
