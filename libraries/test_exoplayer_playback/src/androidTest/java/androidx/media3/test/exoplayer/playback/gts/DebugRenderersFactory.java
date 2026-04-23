@@ -100,7 +100,9 @@ import java.util.ArrayList;
               .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
-              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify));
+              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
+              // TODO: b/501235190 - Remove workaround once operating rate is always set.
+              .setAssumedMinimumCodecOperatingRate(0));
       timestampsList = new long[ARRAY_SIZE];
     }
 
