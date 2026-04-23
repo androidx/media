@@ -6,6 +6,12 @@ Provides functionality for applying lottie effects to video frames.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
+```kotlin
+implementation("androidx.media3:media3-effect-lottie:1.X.X")
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
 ```groovy
 implementation 'androidx.media3:media3-effect-lottie:1.X.X'
 ```

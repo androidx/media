@@ -6,6 +6,12 @@ Provides functionality for extracting and processing decoded video frames.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
+```kotlin
+implementation("androidx.media3:media3-inspector-frame:1.X.X")
+```
+
+Or in Gradle Groovy DSL `build.gradle`:
+
 ```groovy
 implementation 'androidx.media3:media3-inspector-frame:1.X.X'
 ```
