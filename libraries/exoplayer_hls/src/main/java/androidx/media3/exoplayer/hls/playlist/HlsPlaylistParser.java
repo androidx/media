@@ -827,7 +827,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     long partTargetDurationUs = C.TIME_UNSET;
     boolean hasIndependentSegmentsTag = multivariantPlaylist.hasIndependentSegments;
     boolean hasEndTag = false;
-    @Nullable Segment initializationSegment = null;
+    @Nullable
+    Segment initializationSegment =
+        (previousMediaPlaylist != null) ? previousMediaPlaylist.lastSeenInitSegment : null;
     HashMap<String, String> variableDefinitions = new HashMap<>();
     HashMap<String, Segment> urlToInferredInitSegment = new HashMap<>();
     List<Segment> segments = new ArrayList<>();
@@ -1514,7 +1516,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         trailingParts,
         serverControl,
         renditionReportMap,
-        interstitials);
+        interstitials,
+        initializationSegment);
   }
 
   private static DrmInitData getPlaylistProtectionSchemes(

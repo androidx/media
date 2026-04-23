@@ -60,6 +60,10 @@
     *   Fix a bug where an `ArrayIndexOutOfBoundsException` is thrown during
         stream fallback if the track selection is a subset of the available
         tracks ([#3161](https://github.com/androidx/media/issues/3161)).
+    *   Fix an issue where the initialization segment was not carried over
+        across media playlist updates if the `#EXT-X-MAP` tag was not repeated
+        in subsequent updates
+        ([#3105](https://github.com/androidx/media/issues/3105)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

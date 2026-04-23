@@ -696,6 +696,54 @@ public class DefaultHlsPlaylistTrackerTest {
     assertRequestUrlsCalled(httpUrls);
   }
 
+  @Test
+  public void start_playlistUpdateWithoutInitSegment_persistsInitSegmentFromPreviousPlaylist()
+      throws Exception {
+    String playlist =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-TARGETDURATION:10\n"
+            + "#EXT-X-MEDIA-SEQUENCE:1\n"
+            + "#EXT-X-MAP:URI=\"init0.mp4\"\n"
+            + "#EXTINF:10.0,\n"
+            + "file0.mp4\n"
+            + "#EXT-X-DISCONTINUITY\n"
+            + "#EXT-X-MAP:URI=\"init1.mp4\"\n"
+            + "#EXTINF:10.0,\n"
+            + "file1.mp4\n";
+    String playlistUpdate =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-TARGETDURATION:10\n"
+            + "#EXT-X-MEDIA-SEQUENCE:2\n"
+            + "#EXTINF:10.0,\n"
+            + "file2.mp4\n";
+
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {"/multivariant.m3u8", "/media0/playlist.m3u8", "/media0/playlist.m3u8"},
+            getMockResponse(SAMPLE_M3U8_LIVE_MULTIVARIANT),
+            new MockResponse().setResponseCode(200).setBody(playlist),
+            new MockResponse().setResponseCode(200).setBody(playlistUpdate));
+
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            new DefaultHttpDataSource.Factory(),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    HlsMediaPlaylist.Segment segment0 = mediaPlaylists.get(0).segments.get(0);
+    HlsMediaPlaylist.Segment segment1 = mediaPlaylists.get(0).segments.get(1);
+    HlsMediaPlaylist.Segment segment2 = mediaPlaylists.get(1).segments.get(0);
+    assertThat(segment0.url).isEqualTo("file0.mp4");
+    assertThat(segment0.initializationSegment.url).isEqualTo("init0.mp4");
+    assertThat(segment1.url).isEqualTo("file1.mp4");
+    assertThat(segment1.initializationSegment.url).isEqualTo("init1.mp4");
+    assertThat(segment2.url).isEqualTo("file2.mp4");
+    assertThat(segment2.initializationSegment.url).isEqualTo("init1.mp4");
+  }
+
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
     assertThat(paths).hasLength(mockResponses.length);
     for (MockResponse mockResponse : mockResponses) {
