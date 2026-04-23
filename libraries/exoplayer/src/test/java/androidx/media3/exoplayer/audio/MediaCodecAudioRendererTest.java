@@ -377,8 +377,28 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
-  public void
-      render_callsAudioRendererEventListener_whenAudioSinkListenerOnAudioSinkErrorIsCalled() {
+  public void render_callsAudioRendererEventListener_whenAudioSinkListenerOnAudioSinkErrorIsCalled()
+      throws Exception {
+    Format format = AUDIO_AAC;
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(END_OF_STREAM_ITEM));
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
     final ArgumentCaptor<AudioSink.Listener> listenerCaptor =
         ArgumentCaptor.forClass(AudioSink.Listener.class);
     verify(audioSink, atLeastOnce()).setListener(listenerCaptor.capture());
@@ -395,7 +415,28 @@ public class MediaCodecAudioRendererTest {
 
   @Test
   public void
-      renderer_callsRendererCapabilitiesListener_whenAudioSinkListenerOnAudioCapabilitiesChangedIsCalled() {
+      renderer_callsRendererCapabilitiesListener_whenAudioSinkListenerOnAudioCapabilitiesChangedIsCalled()
+          throws Exception {
+    Format format = AUDIO_AAC;
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ format,
+            ImmutableList.of(END_OF_STREAM_ITEM));
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
     final ArgumentCaptor<AudioSink.Listener> listenerCaptor =
         ArgumentCaptor.forClass(AudioSink.Listener.class);
     verify(audioSink, atLeastOnce()).setListener(listenerCaptor.capture());

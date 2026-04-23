@@ -22,6 +22,8 @@
         ([#3117](https://github.com/androidx/media/issues/3117)).
 *   Inspector:
 *   Audio:
+    *   Fix bug where audio events may be misrouted if multiple audio renderers
+        are added to the player.
 *   Video:
     *   Adjust logic for codec reuse at frame rate changes on API<30 to avoid
         codec resets where they are not beneficial
