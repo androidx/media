@@ -1424,6 +1424,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
   public final ImmutableList<Interstitial> interstitials;
 
   /**
+   * The last seen initialization segment defined by {@code #EXT-X-MAP}, or {@code null} if no
+   * {@code #EXT-X-MAP} has been declared for the corresponding stream.
+   */
+  @Nullable public final Segment lastSeenInitSegment;
+
+  /**
    * Constructs an instance.
    *
    * @param playlistType See {@link #playlistType}.
@@ -1447,6 +1453,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
    * @param serverControl See {@link #serverControl}
    * @param renditionReports See {@link #renditionReports}.
    * @param interstitials See {@link #interstitials}.
+   * @param lastSeenInitSegment See {@link #lastSeenInitSegment}.
    */
   public HlsMediaPlaylist(
       @PlaylistType int playlistType,
@@ -1469,7 +1476,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       List<Part> trailingParts,
       ServerControl serverControl,
       Map<Uri, RenditionReport> renditionReports,
-      List<Interstitial> interstitials) {
+      List<Interstitial> interstitials,
+      @Nullable Segment lastSeenInitSegment) {
     super(baseUri, tags, hasIndependentSegments);
     this.playlistType = playlistType;
     this.startTimeUs = startTimeUs;
@@ -1487,6 +1495,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     this.trailingParts = ImmutableList.copyOf(trailingParts);
     this.renditionReports = ImmutableMap.copyOf(renditionReports);
     this.interstitials = ImmutableList.copyOf(interstitials);
+    this.lastSeenInitSegment = lastSeenInitSegment;
     if (!trailingParts.isEmpty()) {
       Part lastPart = Iterables.getLast(trailingParts);
       durationUs = lastPart.relativeStartTimeUs + lastPart.durationUs;
@@ -1574,7 +1583,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         trailingParts,
         serverControl,
         renditionReports,
-        interstitials);
+        interstitials,
+        lastSeenInitSegment);
   }
 
   /**
@@ -1606,6 +1616,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         trailingParts,
         serverControl,
         renditionReports,
-        interstitials);
+        interstitials,
+        lastSeenInitSegment);
   }
 }
