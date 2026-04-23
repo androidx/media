@@ -104,12 +104,36 @@ import java.util.List;
       return;
     }
 
+    // Track cumulative offsets for stacked cues to prevent overlapping.
+    // Bottom-stacked cues (negative line numbers) stack upward from the bottom.
+    // Top-stacked cues (positive line numbers) stack downward from the top.
+    int cumulativeBottomOffset = 0;
+    int cumulativeTopOffset = 0;
+
     int cueCount = cues.size();
     for (int i = 0; i < cueCount; i++) {
       Cue cue = cues.get(i);
       if (cue.verticalType != Cue.TYPE_UNSET) {
         cue = repositionVerticalCue(cue);
       }
+
+      // Determine if this cue is stacked from bottom or top based on line number.
+      // Cues with DIMEN_UNSET (no explicit position) default to bottom stacking.
+      boolean isBottomStackedCue =
+          cue.line == Cue.DIMEN_UNSET
+              || (cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line < 0);
+      boolean isTopStackedCue =
+          cue.line != Cue.DIMEN_UNSET && cue.lineType == Cue.LINE_TYPE_NUMBER && cue.line >= 0;
+
+      // Adjust boundaries to account for previously drawn cues.
+      int adjustedTop = top;
+      int adjustedBottom = bottom;
+      if (isBottomStackedCue && cumulativeBottomOffset > 0) {
+        adjustedBottom = bottom - cumulativeBottomOffset;
+      } else if (isTopStackedCue && cumulativeTopOffset > 0) {
+        adjustedTop = top + cumulativeTopOffset;
+      }
+
       float cueTextSizePx =
           SubtitleViewUtils.resolveTextSize(
               cue.textSizeType, cue.textSize, rawViewHeight, viewHeightMinusPadding);
@@ -122,9 +146,16 @@ import java.util.List;
           bottomPaddingFraction,
           canvas,
           left,
-          top,
+          adjustedTop,
           right,
-          bottom);
+          adjustedBottom);
+
+      // Accumulate offset so subsequent cues don't overlap.
+      if (isBottomStackedCue) {
+        cumulativeBottomOffset += painter.getLastDrawnCueHeight();
+      } else if (isTopStackedCue) {
+        cumulativeTopOffset += painter.getLastDrawnCueHeight();
+      }
     }
   }
 
