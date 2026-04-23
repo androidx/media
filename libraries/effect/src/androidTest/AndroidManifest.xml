@@ -23,7 +23,14 @@
   <application
       android:allowBackup="false"
       tools:ignore="MissingApplicationIcon,HardcodedDebugMode"
-      android:usesCleartextTraffic="true"/>
+      android:usesCleartextTraffic="true">
+    <!--
+    Force the use of FreeType regardless of the feature flag state.
+    Once the feature is fully released, update the Goldens and remove this metadata.
+    TODO(b/505597191): Update Golden images with Fontation text backend.
+    -->
+    <meta-data android:name="android.graphics.text_renderer" android:value="1" />
+  </application>
 
   <instrumentation
       android:targetPackage="androidx.media3.effect.test"
