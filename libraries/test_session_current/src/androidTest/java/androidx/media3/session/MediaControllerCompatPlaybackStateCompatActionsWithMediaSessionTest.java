@@ -1504,7 +1504,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS
                             .buildUpon()
@@ -1561,7 +1561,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new ConnectionResult.AcceptedResultBuilder(session)
+                new ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
                     .build());
@@ -1632,7 +1632,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new ConnectionResult.AcceptedResultBuilder(session)
+                new ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
                     .build());
@@ -1714,7 +1714,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS
                             .buildUpon()
@@ -1774,7 +1774,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new ConnectionResult.AcceptedResultBuilder(session)
+                new ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
                     .build());
@@ -1848,7 +1848,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new ConnectionResult.AcceptedResultBuilder(session)
+                new ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command1).build())
                     .build());
@@ -1964,7 +1964,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS
                             .buildUpon()
@@ -2088,7 +2088,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailablePlayerCommands(Player.Commands.EMPTY)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS
@@ -2154,7 +2154,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new ConnectionResult.AcceptedResultBuilder(session)
+                new ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command).build())
                     .build());
@@ -2232,7 +2232,7 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
           public ListenableFuture<ConnectionResult> onConnectAsync(
               MediaSession session, MediaSession.ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_COMMANDS
                             .buildUpon()

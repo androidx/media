@@ -19,6 +19,7 @@ package androidx.media3.common;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,6 +27,39 @@ import org.junit.runner.RunWith;
 /** Tests for {@link Player}. */
 @RunWith(AndroidJUnit4.class)
 public class PlayerTest {
+
+  @Test
+  public void commandsBuilder_addAllCommands_addsAllCommands() throws Exception {
+    Player.Commands commands = new Player.Commands.Builder().addAllCommands().build();
+    for (Field field : Player.class.getFields()) {
+      if (field.getName().startsWith("COMMAND_") && field.getType() == int.class) {
+        int commandCode = field.getInt(null);
+        if (commandCode != Player.COMMAND_INVALID) {
+          assertThat(commands.contains(commandCode)).isTrue();
+        }
+      }
+    }
+  }
+
+  @Test
+  public void commandsBuilder_addAllReadOnlyCommands_doesNotOverlapWithWriteCommands()
+      throws Exception {
+    Player.Commands readCommands = new Player.Commands.Builder().addAllReadOnlyCommands().build();
+    Field writeCommandsField =
+        Player.Commands.Builder.class.getDeclaredField("SUPPORTED_WRITE_COMMANDS");
+    writeCommandsField.setAccessible(true);
+    FlagSet writeCommands = (FlagSet) writeCommandsField.get(null);
+    for (Field field : Player.class.getFields()) {
+      if (field.getName().startsWith("COMMAND_") && field.getType() == int.class) {
+        int commandCode = field.getInt(null);
+        if (commandCode != Player.COMMAND_INVALID) {
+          if (readCommands.contains(commandCode)) {
+            assertThat(writeCommands.contains(commandCode)).isFalse();
+          }
+        }
+      }
+    }
+  }
 
   /**
    * This test picks a method on the {@link Player} interface that is known will never be

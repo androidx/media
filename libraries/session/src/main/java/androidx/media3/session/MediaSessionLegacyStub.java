@@ -317,7 +317,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   public MediaSession.ConnectionResult getPlatformConnectionResult(MediaSession mediaSession) {
     MediaSession.ConnectionResult.AcceptedResultBuilder result =
-        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession)
+        new MediaSession.ConnectionResult.AcceptedResultBuilder()
             .setAvailableSessionCommands(availableSessionCommands)
             .setAvailablePlayerCommands(availablePlayerCommands);
     if (!mediaButtonPreferences.isEmpty()) {

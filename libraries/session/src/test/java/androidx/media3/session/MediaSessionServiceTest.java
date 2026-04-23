@@ -420,7 +420,8 @@ public class MediaSessionServiceTest {
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                                       .buildUpon()
@@ -431,7 +432,8 @@ public class MediaSessionServiceTest {
                               .build());
                     }
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
                   }
                 })
             .build();
@@ -528,7 +530,8 @@ public class MediaSessionServiceTest {
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                                       .buildUpon()
@@ -539,7 +542,8 @@ public class MediaSessionServiceTest {
                               .build());
                     }
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
                   }
                 })
             .build();
@@ -623,7 +627,8 @@ public class MediaSessionServiceTest {
                       MediaSession session, MediaSession.ControllerInfo controller) {
                     if (session.isMediaNotificationController(controller)) {
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                                       .buildUpon()
@@ -632,7 +637,8 @@ public class MediaSessionServiceTest {
                               .build());
                     }
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
                   }
                 })
             .build();
@@ -818,7 +824,8 @@ public class MediaSessionServiceTest {
                     if (session.getUri().equals(sessionRef.get().getUri())
                         && session.isMediaNotificationController(controller)) {
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   new SessionCommands.Builder().add(expectedCustomCommand).build())
                               .build());

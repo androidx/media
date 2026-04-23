@@ -74,7 +74,9 @@ public final class SessionCommand {
   /** Command code for {@link MediaController#setRating(String, Rating)}. */
   public static final int COMMAND_CODE_SESSION_SET_RATING = 40010;
 
-  /* package */ static final ImmutableList<Integer> SESSION_COMMANDS =
+  /* package */ static final ImmutableList<Integer> SESSION_READ_COMMANDS = ImmutableList.of();
+
+  /* package */ static final ImmutableList<Integer> SESSION_WRITE_COMMANDS =
       ImmutableList.of(COMMAND_CODE_SESSION_SET_RATING);
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,7 +104,7 @@ public final class SessionCommand {
   /** Command code for {@link MediaBrowser#getSearchResult(String, int, int, LibraryParams)}. */
   public static final int COMMAND_CODE_LIBRARY_GET_SEARCH_RESULT = 50006;
 
-  /* package */ static final ImmutableList<Integer> LIBRARY_COMMANDS =
+  /* package */ static final ImmutableList<Integer> LIBRARY_READ_COMMANDS =
       ImmutableList.of(
           COMMAND_CODE_LIBRARY_GET_LIBRARY_ROOT,
           COMMAND_CODE_LIBRARY_SUBSCRIBE,
@@ -111,6 +113,8 @@ public final class SessionCommand {
           COMMAND_CODE_LIBRARY_GET_ITEM,
           COMMAND_CODE_LIBRARY_SEARCH,
           COMMAND_CODE_LIBRARY_GET_SEARCH_RESULT);
+
+  /* package */ static final ImmutableList<Integer> LIBRARY_WRITE_COMMANDS = ImmutableList.of();
 
   /**
    * The command code of a predefined command. It will be {@link #COMMAND_CODE_CUSTOM} for a custom

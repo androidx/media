@@ -226,8 +226,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // For MediaSessionLegacyStub, use the same default commands as the proxy controller gets when
     // the app doesn't overrides the default commands in `onConnect`. When the default is overridden
     // by the app in `onConnect`, the default set here will be overridden with these values.
-    MediaSession.ConnectionResult connectionResult =
-        new MediaSession.ConnectionResult.AcceptedResultBuilder(instance).build();
+    SessionCommands defaultSessionCommands =
+        instance instanceof MediaLibraryService.MediaLibrarySession
+            ? MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+            : MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS;
+    Player.Commands defaultPlayerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS;
     sessionLegacyStub =
         new MediaSessionLegacyStub(
             /* session= */ thisRef,
@@ -237,8 +240,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             playIfSuppressed,
             customLayout,
             mediaButtonPreferences,
-            connectionResult.availableSessionCommands,
-            connectionResult.availablePlayerCommands,
+            defaultSessionCommands,
+            defaultPlayerCommands,
             sessionExtras,
             packageNameOverride);
 

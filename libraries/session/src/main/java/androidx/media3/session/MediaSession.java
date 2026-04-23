@@ -1564,7 +1564,7 @@ public class MediaSession {
       Bundle notImplementedBundle = new Bundle();
       notImplementedBundle.putBoolean(BUNDLE_KEY_NOT_IMPLEMENTED, true);
       deprecatedDefaultConnectionResult =
-          new ConnectionResult.AcceptedResultBuilder(this)
+          new ConnectionResult.AcceptedResultBuilder()
               .setAvailableSessionCommands(SessionCommands.EMPTY)
               .setAvailablePlayerCommands(Commands.EMPTY)
               .setSessionExtras(notImplementedBundle)
@@ -1612,20 +1612,15 @@ public class MediaSession {
      * instead of this method. This method will be deprecated as soon as the {@code @UnstableApi}
      * annotation is removed.
      *
-     * <p>Called when a controller is about to connect to this session. Return a {@link
-     * ConnectionResult result} for the controller by using {@link
+     * <p>Called when a controller is about to connect to this session.
+     *
+     * <p>If this callback is not overridden, it allows all controllers to connect. If the
+     * controller is {@linkplain ControllerInfo#isTrusted() trusted}, all session and player
+     * commands are made available. Untrusted controllers obtain read access only.
+     *
+     * <p>Return a {@link ConnectionResult result} for the controller by using {@link
      * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
      * ConnectionResult.AcceptedResultBuilder}.
-     *
-     * <p>Return a {@link ListenableFuture} to send a {@link ConnectionResult} back to the
-     * controller asynchronously. You can also return a {@link ConnectionResult} wrapped in an
-     * immediate future by using {@link Futures#immediateFuture(Object)} which results in a blocking
-     * and immediate execution.
-     *
-     * <p>If this callback is not overridden, it allows all controllers to connect that can access
-     * the session. All session and player commands are made available and the {@linkplain
-     * MediaSession#getMediaButtonPreferences() media button preferences of the session} are
-     * included.
      *
      * <p>You can use {@link ControllerInfo#isTrusted()} to filter by system apps, apps with media
      * control permissions, and your own app.
@@ -1658,8 +1653,13 @@ public class MediaSession {
     }
 
     /**
-     * Called when a controller is about to connect to this session. Return a {@link
-     * ConnectionResult result} for the controller by using {@link
+     * Called when a controller is about to connect to this session.
+     *
+     * <p>If this callback is not overridden, it allows all controllers to connect. If the
+     * controller is {@linkplain ControllerInfo#isTrusted() trusted}, all session and player
+     * commands are made available. Untrusted controllers obtain read access only.
+     *
+     * <p>Return a {@link ConnectionResult result} for the controller by using {@link
      * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
      * ConnectionResult.AcceptedResultBuilder}.
      *
@@ -1667,11 +1667,6 @@ public class MediaSession {
      * controller asynchronously. You can also return a {@link ConnectionResult} wrapped in an
      * immediate future by using {@link Futures#immediateFuture(Object)} which results in a blocking
      * and immediate execution.
-     *
-     * <p>If this callback is not overridden, it allows all controllers to connect that can access
-     * the session. All session and player commands are made available and the {@linkplain
-     * MediaSession#getMediaButtonPreferences() media button preferences of the session} are
-     * included.
      *
      * <p>If both {@link #onConnect(MediaSession, ControllerInfo)} and this method are overridden,
      * the deprecated {@link #onConnect(MediaSession, ControllerInfo)} takes precedence for backward
@@ -1706,7 +1701,8 @@ public class MediaSession {
     @UnstableApi
     default ListenableFuture<ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
-      return immediateFuture(new ConnectionResult.AcceptedResultBuilder(session).build());
+      return immediateFuture(
+          new ConnectionResult.AcceptedResultBuilder(session, controller).build());
     }
 
     /**
@@ -2208,22 +2204,70 @@ public class MediaSession {
     @UnstableApi
     public static class AcceptedResultBuilder {
       private SessionCommands availableSessionCommands;
-      private Player.Commands availablePlayerCommands = DEFAULT_PLAYER_COMMANDS;
+      private Player.Commands availablePlayerCommands;
       @Nullable private ImmutableList<CommandButton> customLayout;
       @Nullable private ImmutableList<CommandButton> mediaButtonPreferences;
       @Nullable private Bundle sessionExtras;
       @Nullable private PendingIntent sessionActivity;
 
       /**
-       * Creates an instance.
-       *
-       * @param mediaSession The session for which to create a {@link ConnectionResult}.
+       * @deprecated Use {@link #AcceptedResultBuilder(MediaSession, ControllerInfo)} instead to
+       *     start with defaults for the given session and controller, or use {@link
+       *     #AcceptedResultBuilder()} to initialize the builder with empty commands.
        */
+      @Deprecated
       public AcceptedResultBuilder(MediaSession mediaSession) {
         availableSessionCommands =
             mediaSession instanceof MediaLibrarySession
                 ? DEFAULT_SESSION_AND_LIBRARY_COMMANDS
                 : DEFAULT_SESSION_COMMANDS;
+        availablePlayerCommands = DEFAULT_PLAYER_COMMANDS;
+      }
+
+      /**
+       * Creates an instance to configure the result of an accepted connection from a controller.
+       *
+       * <p>The available {@link SessionCommands} and {@link Player.Commands} default to empty and
+       * need to be configured.
+       */
+      public AcceptedResultBuilder() {
+        availableSessionCommands = SessionCommands.EMPTY;
+        availablePlayerCommands = Player.Commands.EMPTY;
+      }
+
+      /**
+       * Creates an instance to configure the result of an accepted connection from a controller
+       * with the default available commands given the provided {@link MediaSession} and {@link
+       * ControllerInfo}.
+       *
+       * <p>If the controller is {@linkplain ControllerInfo#isTrusted() trusted}, the {@link
+       * #DEFAULT_PLAYER_COMMANDS} and either {@link #DEFAULT_SESSION_COMMANDS} or {@link
+       * #DEFAULT_SESSION_AND_LIBRARY_COMMANDS} are set by default (depending on whether the {@code
+       * mediaSession} is a {@link MediaLibrarySession}).
+       *
+       * <p>If the controller is not {@linkplain ControllerInfo#isTrusted() trusted}, only {@link
+       * #DEFAULT_UNTRUSTED_PLAYER_COMMANDS} and either {@link #DEFAULT_UNTRUSTED_SESSION_COMMANDS}
+       * or {@link #DEFAULT_UNTRUSTED_SESSION_AND_LIBRARY_COMMANDS} are set by default.
+       *
+       * @param mediaSession The {@link MediaSession} for which to create a {@link
+       *     ConnectionResult}.
+       * @param controllerInfo The {@link ControllerInfo} for which to create a {@link
+       *     ConnectionResult}.
+       */
+      public AcceptedResultBuilder(MediaSession mediaSession, ControllerInfo controllerInfo) {
+        if (controllerInfo.isTrusted()) {
+          availableSessionCommands =
+              mediaSession instanceof MediaLibrarySession
+                  ? DEFAULT_SESSION_AND_LIBRARY_COMMANDS
+                  : DEFAULT_SESSION_COMMANDS;
+          availablePlayerCommands = DEFAULT_PLAYER_COMMANDS;
+        } else {
+          availableSessionCommands =
+              mediaSession instanceof MediaLibrarySession
+                  ? DEFAULT_UNTRUSTED_SESSION_AND_LIBRARY_COMMANDS
+                  : DEFAULT_UNTRUSTED_SESSION_COMMANDS;
+          availablePlayerCommands = DEFAULT_UNTRUSTED_PLAYER_COMMANDS;
+        }
       }
 
       /**
@@ -2340,17 +2384,57 @@ public class MediaSession {
       }
     }
 
+    /**
+     * The default {@link SessionCommands} used when a controller is {@link
+     * ControllerInfo#isTrusted()} and the session is not a {@link MediaLibrarySession}.
+     */
     @UnstableApi
     public static final SessionCommands DEFAULT_SESSION_COMMANDS =
         new SessionCommands.Builder().addAllSessionCommands().build();
 
+    /**
+     * The default {@link SessionCommands} used when a controller is not {@link
+     * ControllerInfo#isTrusted()} and the session is not a {@link MediaLibrarySession}.
+     */
+    @UnstableApi
+    public static final SessionCommands DEFAULT_UNTRUSTED_SESSION_COMMANDS =
+        new SessionCommands.Builder().addAllReadOnlySessionCommands().build();
+
+    /**
+     * The default {@link SessionCommands} used when a controller is {@link
+     * ControllerInfo#isTrusted()} and the session is a {@link MediaLibrarySession}.
+     */
     @UnstableApi
     public static final SessionCommands DEFAULT_SESSION_AND_LIBRARY_COMMANDS =
         new SessionCommands.Builder().addAllLibraryCommands().addAllSessionCommands().build();
 
+    /**
+     * The default {@link SessionCommands} used when a controller is not {@link
+     * ControllerInfo#isTrusted()} and the session is a {@link MediaLibrarySession}.
+     */
+    @UnstableApi
+    public static final SessionCommands DEFAULT_UNTRUSTED_SESSION_AND_LIBRARY_COMMANDS =
+        new SessionCommands.Builder()
+            .addAllReadOnlyLibraryCommands()
+            .addAllReadOnlySessionCommands()
+            .build();
+
+    /**
+     * The default {@link Player.Commands} used when a controller is {@link
+     * ControllerInfo#isTrusted()}.
+     */
     @UnstableApi
     public static final Player.Commands DEFAULT_PLAYER_COMMANDS =
         new Player.Commands.Builder().addAllCommands().build();
+
+    /**
+     * The default {@link Player.Commands} used when a controller is not {@link
+     * ControllerInfo#isTrusted()}. Contains all commands from {@link
+     * Player.Commands.Builder#addAllReadOnlyCommands()}.
+     */
+    @UnstableApi
+    public static final Player.Commands DEFAULT_UNTRUSTED_PLAYER_COMMANDS =
+        new Player.Commands.Builder().addAllReadOnlyCommands().build();
 
     /** Whether the connection request is accepted or not. */
     public final boolean isAccepted;

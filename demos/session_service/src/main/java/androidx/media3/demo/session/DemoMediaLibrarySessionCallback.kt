@@ -21,14 +21,12 @@ import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
-import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -45,37 +43,6 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
 
   init {
     MediaItemTree.initialize(service.assets)
-  }
-
-  @OptIn(UnstableApi::class) // Player.Commands.Builder
-  private val restrictedAccessPlayerCommands =
-    Player.Commands.Builder()
-      .addAll(
-        Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
-        Player.COMMAND_GET_TRACKS,
-        Player.COMMAND_GET_METADATA,
-      )
-      .build()
-
-  @OptIn(UnstableApi::class) // DEFAULT_ constants in MediaSession.ConnectionResult
-  override fun onConnectAsync(
-    session: MediaSession,
-    controller: MediaSession.ControllerInfo,
-  ): ListenableFuture<MediaSession.ConnectionResult> {
-    return if (controller.isTrusted) {
-      // Provide full information.
-      Futures.immediateFuture(
-        MediaSession.ConnectionResult.accept(
-          MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS,
-          MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS,
-        )
-      )
-    } else {
-      // Restricted read-only view on currently playing item only.
-      Futures.immediateFuture(
-        MediaSession.ConnectionResult.accept(SessionCommands.EMPTY, restrictedAccessPlayerCommands)
-      )
-    }
   }
 
   override fun onGetLibraryRoot(

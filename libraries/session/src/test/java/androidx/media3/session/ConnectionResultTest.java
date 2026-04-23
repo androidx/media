@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
@@ -96,6 +97,146 @@ public class ConnectionResultTest {
         .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
     assertThat(connectionResult.customLayout).isNull();
     assertThat(connectionResult.isAccepted).isTrue();
+    mediaLibrarySession.getPlayer().release();
+    mediaLibrarySession.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void acceptedResultBuilder_emptyConstructor_emptyCommands() {
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder().build();
+
+    assertThat(connectionResult.availableSessionCommands.commands).isEmpty();
+    assertThat(connectionResult.availablePlayerCommands.size()).isEqualTo(0);
+    assertThat(connectionResult.isAccepted).isTrue();
+  }
+
+  @Test
+  public void acceptedResultBuilder_trustedController_correctDefaults() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, new TestExoPlayerBuilder(context).build()).build();
+    MediaSession.ControllerInfo controllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "package",
+            /* pid= */ 0,
+            /* uid= */ 0,
+            /* libraryVersion= */ 0,
+            /* interfaceVersion= */ 0,
+            /* trusted= */ true,
+            Bundle.EMPTY,
+            /* isPackageNameVerified= */ true);
+
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession, controllerInfo)
+            .build();
+
+    assertThat(connectionResult.availableSessionCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS);
+    assertThat(connectionResult.availablePlayerCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+
+    mediaSession.getPlayer().release();
+    mediaSession.release();
+  }
+
+  @Test
+  public void acceptedResultBuilder_untrustedController_correctDefaults() {
+    Context context = ApplicationProvider.getApplicationContext();
+    MediaSession mediaSession =
+        new MediaSession.Builder(context, new TestExoPlayerBuilder(context).build()).build();
+    MediaSession.ControllerInfo controllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "package",
+            /* pid= */ 0,
+            /* uid= */ 0,
+            /* libraryVersion= */ 0,
+            /* interfaceVersion= */ 0,
+            /* trusted= */ false,
+            Bundle.EMPTY,
+            /* isPackageNameVerified= */ true);
+
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession, controllerInfo)
+            .build();
+
+    assertThat(connectionResult.availableSessionCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS);
+    assertThat(connectionResult.availablePlayerCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS);
+
+    mediaSession.getPlayer().release();
+    mediaSession.release();
+  }
+
+  @Test
+  public void acceptedResultBuilder_trustedControllerWithLibrarySession_correctDefaults() {
+    Context context = ApplicationProvider.getApplicationContext();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    MediaSession mediaLibrarySession =
+        new MediaLibraryService.MediaLibrarySession.Builder(
+                service,
+                new TestExoPlayerBuilder(context).build(),
+                new MediaLibraryService.MediaLibrarySession.Callback() {})
+            .build();
+    MediaSession.ControllerInfo controllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "package",
+            /* pid= */ 0,
+            /* uid= */ 0,
+            /* libraryVersion= */ 0,
+            /* interfaceVersion= */ 0,
+            /* trusted= */ true,
+            Bundle.EMPTY,
+            /* isPackageNameVerified= */ true);
+
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaLibrarySession, controllerInfo)
+            .build();
+
+    assertThat(connectionResult.availableSessionCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS);
+    assertThat(connectionResult.availablePlayerCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS);
+
+    mediaLibrarySession.getPlayer().release();
+    mediaLibrarySession.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void acceptedResultBuilder_untrustedControllerWithLibrarySession_correctDefaults() {
+    Context context = ApplicationProvider.getApplicationContext();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    MediaSession mediaLibrarySession =
+        new MediaLibraryService.MediaLibrarySession.Builder(
+                service,
+                new TestExoPlayerBuilder(context).build(),
+                new MediaLibraryService.MediaLibrarySession.Callback() {})
+            .build();
+    MediaSession.ControllerInfo controllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "package",
+            /* pid= */ 0,
+            /* uid= */ 0,
+            /* libraryVersion= */ 0,
+            /* interfaceVersion= */ 0,
+            /* trusted= */ false,
+            Bundle.EMPTY,
+            /* isPackageNameVerified= */ true);
+
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaLibrarySession, controllerInfo)
+            .build();
+
+    assertThat(connectionResult.availableSessionCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_AND_LIBRARY_COMMANDS);
+    assertThat(connectionResult.availablePlayerCommands)
+        .isEqualTo(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_PLAYER_COMMANDS);
+
     mediaLibrarySession.getPlayer().release();
     mediaLibrarySession.release();
     serviceController.destroy();

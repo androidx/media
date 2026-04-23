@@ -294,7 +294,7 @@ public class MediaSessionProviderService extends Service {
                       return MediaSession.Callback.super.onConnectAsync(session, controller);
                     }
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                             .setAvailableSessionCommands(
                                 new SessionCommands.Builder()
                                     .add(checkNotNull(playlistAddButton.sessionCommand))
@@ -423,7 +423,7 @@ public class MediaSessionProviderService extends Service {
                   public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
                       MediaSession session, ControllerInfo controller) {
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                             .setAvailableSessionCommands(
                                 new SessionCommands.Builder()
                                     .addAllSessionCommands()
@@ -498,7 +498,8 @@ public class MediaSessionProviderService extends Service {
                       handler.postDelayed(
                           () ->
                               future.set(
-                                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                                  new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                          session, controller)
                                       .setSessionExtras(bundle)
                                       .setAvailableSessionCommands(
                                           new SessionCommands.Builder()
@@ -522,7 +523,7 @@ public class MediaSessionProviderService extends Service {
                       return future;
                     }
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                             .setAvailableSessionCommands(
                                 new SessionCommands.Builder()
                                     .addAllSessionCommands()

@@ -257,7 +257,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         new SessionCommands.Builder().add(button2.sessionCommand).build())
                     .setAvailablePlayerCommands(
@@ -313,7 +313,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         new SessionCommands.Builder().add(button2.sessionCommand).build())
                     .setMediaButtonPreferences(ImmutableList.of(button1, button2))
@@ -353,7 +353,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailablePlayerCommands(Player.Commands.EMPTY)
                     .build());
           }
@@ -379,7 +379,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailablePlayerCommands(Player.Commands.EMPTY)
                     .build());
           }
@@ -411,7 +411,7 @@ public class MediaSessionCallbackTest {
             Bundle sessionExtras = new Bundle();
             sessionExtras.putString("origin", "controller");
             return immediateFuture(
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setSessionExtras(sessionExtras)
                     .setAvailablePlayerCommands(Player.Commands.EMPTY)
                     .build());
@@ -448,7 +448,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
             AcceptedResultBuilder connectionResult =
-                new AcceptedResultBuilder(session)
+                new AcceptedResultBuilder(session, controller)
                     .setAvailablePlayerCommands(Player.Commands.EMPTY);
             if (controller.getConnectionHints().getBoolean("want_session_activity", false)) {
               connectionResult.setSessionActivity(controllerSpecificSessionActivity);

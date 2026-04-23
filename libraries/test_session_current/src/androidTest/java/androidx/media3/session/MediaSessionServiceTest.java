@@ -321,7 +321,8 @@ public class MediaSessionServiceTest {
                     if (session.isMediaNotificationController(controller)) {
                       latch.countDown();
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   SessionCommands.EMPTY
                                       .buildUpon()
@@ -334,7 +335,8 @@ public class MediaSessionServiceTest {
                     }
                     latch.countDown();
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
                   }
                 })
             .build();
@@ -443,7 +445,8 @@ public class MediaSessionServiceTest {
                     if (session.isMediaNotificationController(controller)) {
                       latch.countDown();
                       return immediateFuture(
-                          new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                          new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                                  session, controller)
                               .setAvailableSessionCommands(
                                   SessionCommands.EMPTY
                                       .buildUpon()
@@ -456,7 +459,8 @@ public class MediaSessionServiceTest {
                     }
                     latch.countDown();
                     return immediateFuture(
-                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
+                        new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
+                            .build());
                   }
                 })
             .build();
@@ -720,7 +724,7 @@ public class MediaSessionServiceTest {
                             public ListenableFuture<ConnectionResult> onConnectAsync(
                                 MediaSession session, ControllerInfo controller) {
                               return immediateFuture(
-                                  new AcceptedResultBuilder(session)
+                                  new AcceptedResultBuilder(session, controller)
                                       .setAvailableSessionCommands(
                                           new SessionCommands.Builder()
                                               .addAllPredefinedCommands()

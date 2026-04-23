@@ -150,7 +150,7 @@ public class MediaSessionWithMediaControllerCompatTest {
               MediaSession session, MediaSession.ControllerInfo controller) {
             if (session.isMediaNotificationController(controller)) {
               return immediateFuture(
-                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                  new MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
                       .setAvailablePlayerCommands(playerCommands)
                       .build());
             }
