@@ -146,6 +146,7 @@ import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil.DecoderQueryException;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
@@ -13681,6 +13682,155 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  public void multipleAudioRenderers_listenerRegisteredOnEnabledRendererOnly() throws Exception {
+    DefaultAudioSink defaultAudioSink = new DefaultAudioSink.Builder(context).build();
+    TestAudioSink testAudioSink = new TestAudioSink(defaultAudioSink);
+    AudioRendererEventListener listenerA = mock(AudioRendererEventListener.class);
+    AudioRendererEventListener listenerB = mock(AudioRendererEventListener.class);
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildAudioRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              AudioSink audioSinkParam,
+              Handler eventHandler,
+              AudioRendererEventListener eventListener,
+              ArrayList<Renderer> out) {
+            out.add(
+                new MediaCodecAudioRenderer(
+                    context,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    listenerA,
+                    testAudioSink));
+            out.add(
+                new MediaCodecAudioRenderer(
+                    context,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    listenerB,
+                    testAudioSink));
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+    player.play();
+
+    advance(player).untilState(Player.STATE_READY);
+    testAudioSink.listener.onAudioSinkError(new Exception("Test Error"));
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    verify(listenerA).onAudioSinkError(any());
+    verify(listenerB, never()).onAudioSinkError(any());
+  }
+
+  @Test
+  public void listenerUpdatedOnRendererSwitch() throws Exception {
+    DefaultAudioSink defaultAudioSink = new DefaultAudioSink.Builder(context).build();
+    TestAudioSink testAudioSink = new TestAudioSink(defaultAudioSink);
+    AudioRendererEventListener listenerA = mock(AudioRendererEventListener.class);
+    AudioRendererEventListener listenerB = mock(AudioRendererEventListener.class);
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildAudioRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              AudioSink audioSinkParam,
+              Handler eventHandler,
+              AudioRendererEventListener eventListener,
+              ArrayList<Renderer> out) {
+            out.add(
+                new MediaCodecAudioRenderer(
+                    context,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    listenerA,
+                    testAudioSink) {
+                  @Override
+                  protected @Capabilities int supportsFormat(
+                      MediaCodecSelector mediaCodecSelector, Format format)
+                      throws DecoderQueryException {
+                    if (MimeTypes.AUDIO_AAC.equals(format.sampleMimeType)) {
+                      return RendererCapabilities.create(C.FORMAT_HANDLED);
+                    }
+                    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+                  }
+                });
+            out.add(
+                new MediaCodecAudioRenderer(
+                    context,
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    listenerB,
+                    testAudioSink) {
+                  @Override
+                  protected @Capabilities int supportsFormat(
+                      MediaCodecSelector mediaCodecSelector, Format format)
+                      throws DecoderQueryException {
+                    if (MimeTypes.AUDIO_OPUS.equals(format.sampleMimeType)) {
+                      return RendererCapabilities.create(C.FORMAT_HANDLED);
+                    }
+                    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+                  }
+                });
+          }
+        };
+
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    Format formatA =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setPcmEncoding(C.ENCODING_PCM_16BIT)
+            .setChannelCount(2)
+            .setSampleRate(44100)
+            .build();
+    Format formatB =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setChannelCount(2)
+            .setSampleRate(48000)
+            .build();
+    MediaSource sourceA = new FakeMediaSource(new FakeTimeline(), formatA);
+    MediaSource sourceB = new FakeMediaSource(new FakeTimeline(), formatB);
+    player.setMediaSources(ImmutableList.of(sourceA, sourceB));
+    player.prepare();
+    player.play();
+
+    advance(player).untilState(Player.STATE_READY);
+    testAudioSink.listener.onAudioSinkError(new Exception("Test Error A"));
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    verify(listenerA).onAudioSinkError(any());
+    verify(listenerB, never()).onAudioSinkError(any());
+    reset(listenerA);
+    reset(listenerB);
+
+    player.seekToNextMediaItem();
+    advance(player).untilState(Player.STATE_READY);
+    testAudioSink.listener.onAudioSinkError(new Exception("Test Error B"));
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    verify(listenerA, never()).onAudioSinkError(any());
+    verify(listenerB).onAudioSinkError(any());
+  }
+
+  @Test
   public void multipleAudioSessionIdChangesOnAudioRenderer_propagatesToRenderersAndListener()
       throws Exception {
     ArrayList<Integer> configuredAudioSessionIdsOnAudioRenderer = new ArrayList<>();
@@ -15060,6 +15210,20 @@ public final class ExoPlayerTest {
      */
     ImmutableList<Integer> getReasonChangedList() {
       return playbackSuppressionList.build();
+    }
+  }
+
+  private static class TestAudioSink extends ForwardingAudioSink {
+    @Nullable private Listener listener = null;
+
+    public TestAudioSink(AudioSink sink) {
+      super(sink);
+    }
+
+    @Override
+    public void setListener(Listener listener) {
+      this.listener = listener;
+      super.setListener(listener);
     }
   }
 }

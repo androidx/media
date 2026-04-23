@@ -326,7 +326,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
-    audioSink.setListener(new AudioSinkListener());
   }
 
   @Override
@@ -730,6 +729,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     }
     audioSink.setPlayerId(getPlayerId());
     audioSink.setClock(getClock());
+    audioSink.setListener(new AudioSinkListener());
   }
 
   @Override

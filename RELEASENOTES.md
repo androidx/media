@@ -106,6 +106,8 @@
         time-based audio processing
         ([#418](https://github.com/androidx/media/issues/418)).
     *   Add support for big endian 32-bit and 64-bit floating point PCM.
+    *   Fix bug where audio events may be misrouted if multiple audio renderers
+        are added to the player.
 *   Video:
     *   Adjust logic for codec reuse at frame rate changes on API below 30 to
         avoid codec resets where they are not beneficial
