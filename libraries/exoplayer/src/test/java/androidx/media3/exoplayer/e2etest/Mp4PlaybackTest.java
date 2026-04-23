@@ -75,7 +75,8 @@ public class Mp4PlaybackTest {
         Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
         Sample.forFile("testvid_1022ms.mp4"),
         Sample.forFile("sample_edit_list.mp4"),
-        Sample.forFile("sample_edit_list_no_sync_frame_before_edit.mp4"));
+        Sample.forFile("sample_edit_list_no_sync_frame_before_edit.mp4"),
+        Sample.forFile("h265_4k_bframes_emulation_prevention.mp4"));
   }
 
   @Parameter public Sample sample;

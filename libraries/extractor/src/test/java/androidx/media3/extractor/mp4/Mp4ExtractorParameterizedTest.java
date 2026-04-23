@@ -251,6 +251,13 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/h265_bframes.mp4", /* peekLimit= */ 50);
   }
 
+  @Test
+  public void mp4SampleWithNonReferenceH265FramesAndEmulationPrevention() throws Exception {
+    // Regression test for b/489688575 and b/492381421.
+    assertExtractorBehavior(
+        "media/mp4/h265_4k_bframes_emulation_prevention.mp4", /* peekLimit= */ 50);
+  }
+
   // b/386847142
   @Test
   public void mp4SampleWithTwoByteNalLength() throws Exception {
