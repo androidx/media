@@ -20,8 +20,6 @@ plugins {
 android {
   namespace = "androidx.media3.demo.cast"
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true

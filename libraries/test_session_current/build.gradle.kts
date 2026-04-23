@@ -16,8 +16,6 @@ plugins { id("media3.android-application") }
 android {
   namespace = "androidx.media3.test.session"
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   lint {
     // TODO: b/353490583 - Disable this once the violations are fixed.
     ignoreTestSources = true

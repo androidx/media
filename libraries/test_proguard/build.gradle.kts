@@ -23,8 +23,6 @@ android {
 
   compileOptions.isCoreLibraryDesugaringEnabled = true
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   buildTypes {
     // Run R8 for all build types to discover potential proguard problems.
     configureEach {

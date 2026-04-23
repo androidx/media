@@ -19,8 +19,6 @@ plugins { id("media3.android-application") }
 android {
   namespace = "androidx.media3.demo.transformer"
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true

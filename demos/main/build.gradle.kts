@@ -24,8 +24,6 @@ android {
 
   compileOptions { isCoreLibraryDesugaringEnabled = true }
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true

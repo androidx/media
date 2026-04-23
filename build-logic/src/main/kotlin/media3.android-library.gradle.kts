@@ -29,7 +29,7 @@ android {
     }
   }
 
-  testOptions.targetSdk = libs.findVersion("targetSdkVersion").get().requiredVersion.toInt()
+  testOptions.targetSdk = libs.findVersion("libTestTargetSdkVersion").get().requiredVersion.toInt()
 }
 
 dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }

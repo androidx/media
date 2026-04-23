@@ -24,10 +24,7 @@ android {
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
-  defaultConfig {
-    minSdk = libs.versions.automotiveMinSdkVersion.get().toInt()
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { minSdk = libs.versions.automotiveMinSdkVersion.get().toInt() }
 
   buildTypes {
     getByName("release") {

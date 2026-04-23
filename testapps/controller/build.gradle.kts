@@ -24,10 +24,7 @@ android {
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
-  defaultConfig {
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-    vectorDrawables.useSupportLibrary = true
-  }
+  defaultConfig { vectorDrawables.useSupportLibrary = true }
 
   buildTypes {
     getByName("release") {

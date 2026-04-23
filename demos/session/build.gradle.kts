@@ -24,8 +24,6 @@ android {
 
   kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   buildTypes {
     getByName("release") {
       isShrinkResources = true

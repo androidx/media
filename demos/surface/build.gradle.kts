@@ -17,10 +17,7 @@ plugins { id("media3.android-application") }
 android {
   namespace = "androidx.media3.demo.surface"
 
-  defaultConfig {
-    minSdk = 29
-    targetSdk = libs.versions.appTargetSdkVersion.get().toInt()
-  }
+  defaultConfig { minSdk = 29 }
 
   buildTypes {
     getByName("release") {

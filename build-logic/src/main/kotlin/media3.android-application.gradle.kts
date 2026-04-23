@@ -25,8 +25,7 @@ android {
   defaultConfig {
     versionName = libs.findVersion("releaseVersion").get().requiredVersion
     versionCode = libs.findVersion("releaseVersionCode").get().requiredVersion.toInt()
-    // TODO: consider switching appTargetSdkVersion currently used in demos and downgrading locally
-    targetSdk = libs.findVersion("targetSdkVersion").get().requiredVersion.toInt()
+    targetSdk = libs.findVersion("appTargetSdkVersion").get().requiredVersion.toInt()
   }
 }
 
