@@ -35,13 +35,7 @@ android {
 
   // The demo app isn't indexed, doesn't have translations, and has a
   // banner for AndroidTV that's only in xhdpi density.
-  lint.disable +=
-    listOf(
-      "GoogleAppIndexingWarning",
-      "MissingTranslation",
-      "IconDensities",
-      "ExpiredTargetSdkVersion",
-    )
+  lint.disable += listOf("GoogleAppIndexingWarning", "MissingTranslation", "IconDensities")
 
   flavorDimensions += "decoderExtensions"
 
