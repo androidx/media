@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package androidx.media3.build
+package androidx.media3.buildlogic
 
 import com.android.build.api.dsl.CommonExtension
 import java.io.File

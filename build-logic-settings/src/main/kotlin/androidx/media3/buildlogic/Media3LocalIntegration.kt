@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package androidx.media3.build
+package androidx.media3.buildlogic
 
 import java.io.File
 import org.gradle.api.artifacts.component.ModuleComponentSelector

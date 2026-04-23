@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package androidx.media3.build
+package androidx.media3.buildlogic
 
 object Media3Modules {
   val externalModules: Map<String, Media3Module> =

@@ -1,5 +1,3 @@
-import androidx.media3.build.Media3Modules
-
 // Copyright (C) 2020 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +11,9 @@ import androidx.media3.build.Media3Modules
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+import androidx.media3.buildlogic.Media3Modules
+
 plugins {
   id("media3.android-library")
   id("media3.publish")

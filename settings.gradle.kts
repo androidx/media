@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import androidx.media3.build.Media3Modules
+import androidx.media3.buildlogic.Media3Modules
 
 pluginManagement {
   includeBuild("build-logic-settings")

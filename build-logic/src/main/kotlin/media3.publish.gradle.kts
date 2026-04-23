@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import androidx.media3.build.Media3Modules
-import androidx.media3.build.addMissingAarTypeToXml
+import androidx.media3.buildlogic.Media3Modules
+import androidx.media3.buildlogic.addMissingAarTypeToXml
 import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.publish.PublishingExtension

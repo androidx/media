@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import androidx.media3.build.includeMedia3
+import androidx.media3.buildlogic.includeMedia3
 import java.io.File
 
 // Registering the function as a native Gradle extension
