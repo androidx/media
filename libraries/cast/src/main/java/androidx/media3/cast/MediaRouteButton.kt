@@ -50,8 +50,8 @@ import androidx.mediarouter.media.MediaTransferReceiver
  * system's route chooser / controller dialog if available and falls back to an in-app dialog
  * otherwise.
  *
- * The button's tint color can be customized by providing a [LocalContentColor] in the composition
- * hierarchy.
+ * The button's tint color can be customized by providing a
+ * [androidx.compose.material3.LocalContentColor] in the composition hierarchy.
  *
  * ```kotlin
  *  CompositionLocalProvider(LocalContentColor provides Color.Blue) {

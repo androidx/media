@@ -461,7 +461,7 @@ public class RemoteCastPlayerTest {
         .thenReturn(mockPendingResult);
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 1.234f);
 
-    // Change the playback speed and and capture the result callback.
+    // Change the playback speed and capture the result callback.
     remoteCastPlayer.setPlaybackParameters(playbackParameters);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
     verify(mockListener).onPlaybackParametersChanged(new PlaybackParameters(/* speed= */ 1.234f));

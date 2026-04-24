@@ -250,7 +250,7 @@ public final class CastPlayerTest {
 
   @Test
   public void playerTransfer_whenSourcePlayerIsNonIdle_callsPrepare() {
-    // We need a non empty timeline to be in a non-idle state, and check that the target player is
+    // We need a non-empty timeline to be in a non-idle state, and check that the target player is
     // prepared as a result.
     when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);

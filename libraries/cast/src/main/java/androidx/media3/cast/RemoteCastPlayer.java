@@ -1124,7 +1124,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   /**
-   * @deprecated Use {@link #decreaseDeviceVolume(int)} (int)} instead.
+   * @deprecated Use {@link #decreaseDeviceVolume(int)} instead.
    */
   @InlineMe(replacement = "this.decreaseDeviceVolume(0)")
   @Deprecated

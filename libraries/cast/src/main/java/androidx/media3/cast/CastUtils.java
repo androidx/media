@@ -155,7 +155,7 @@ import com.google.android.gms.cast.MediaTrack;
   }
 
   /**
-   * Returns a MIME type with a type that matches the given track type and unknown sub-type, or null
+   * Returns a MIME type with a type that matches the given track type and unknown subtype, or null
    * if the track type is not one of {@link C#TRACK_TYPE_AUDIO}, {@link C#TRACK_TYPE_TEXT}, or
    * {@link C#TRACK_TYPE_VIDEO}, which are the types supported by the Cast SDK.
    */
