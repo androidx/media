@@ -1216,16 +1216,23 @@ public class CompositionPlayerSeekTest {
             });
     playerTestListener.waitUntilPlayerReady();
 
-    assertThat(lastPositionOffsetUsFirstSequence.get()).isEqualTo(/* positionOffsetUs */ 400_000);
-    assertThat(lastPositionOffsetUsSecondSequence.get()).isEqualTo(/* positionOffsetUs */ 100_000);
+    assertThat(lastPositionOffsetUsFirstSequence.get())
+        .isEqualTo(
+            /* positionOffsetUs */
+            400_000);
+    assertThat(lastPositionOffsetUsSecondSequence.get())
+        .isEqualTo(
+            /* positionOffsetUs */
+            100_000);
   }
 
   @Test
   @SdkSuppress(minSdkVersion = 28)
-  public void seekWhilePaused_withPacketConsumer_outputsPacket() throws Exception {
+  public void packetConsumer_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     AtomicBoolean isPlaying = new AtomicBoolean();
-    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
     AtomicInteger queuedPackets = new AtomicInteger();
     RecordingHardwareBufferEffectsPipeline pipeline =
@@ -1233,7 +1240,7 @@ public class CompositionPlayerSeekTest {
             applicationContext,
             HardwareBufferJni.INSTANCE,
             /* onQueue= */ frames -> {
-              queuedFrame.set(frames.get(0));
+              lastQueuedFrame.set(frames.get(0));
               queuedPackets.incrementAndGet();
               packetQueued.open();
               return frames;
@@ -1264,28 +1271,298 @@ public class CompositionPlayerSeekTest {
     listener.waitUntilFirstFrameRendered();
     assertThat(packetQueued.isOpen()).isTrue();
     assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(0);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
     getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
 
-    queuedPackets.set(0);
-    queuedFrame.set(null);
+    // Seek forwards
     packetQueued.close();
-
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
-              player.get().seekTo(100);
+              player.get().seekTo(500);
               player.get().setScrubbingModeEnabled(false);
             });
 
     assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(100_100L);
-
-    // Even after seeking and rendering a frame, the video should not be playing.
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(500_500L);
     getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
     assertThat(isPlaying.get()).isFalse();
+
+    // Seek backwards
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(200);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(3);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(200_200L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+
+    // Seek forwards
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(750);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(4);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void packetConsumer_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicBoolean isPlaying = new AtomicBoolean();
+    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            applicationContext,
+            HardwareBufferJni.INSTANCE,
+            /* onQueue= */ frames -> {
+              lastQueuedFrame.set(frames.get(0));
+              queuedPackets.incrementAndGet();
+              packetQueued.open();
+              return frames;
+            });
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  NdkCompositionPlayerBuilder.create(applicationContext)
+                      .setHardwareBufferEffectsPipeline(pipeline)
+                      .build());
+              player.get().setVideoSurfaceView(surfaceView);
+              player.get().addListener(listener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(packetQueued.isOpen()).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
+
+    // Seek forwards
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(500);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(500_500L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+
+    // Seek backwards
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(200);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(3);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(200_200L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+
+    // Seek forwards
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(750);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(4);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void packetConsumer_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicBoolean isPlaying = new AtomicBoolean();
+    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            applicationContext,
+            HardwareBufferJni.INSTANCE,
+            /* onQueue= */ frames -> {
+              lastQueuedFrame.set(frames.get(0));
+              queuedPackets.incrementAndGet();
+              packetQueued.open();
+              return frames;
+            });
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  NdkCompositionPlayerBuilder.create(applicationContext)
+                      .setHardwareBufferEffectsPipeline(pipeline)
+                      .build());
+              player.get().setVideoSurfaceView(surfaceView);
+              player.get().addListener(listener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(packetQueued.isOpen()).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
+
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(750);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+
+    getInstrumentation().runOnMainSync(() -> player.get().play());
+
+    listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void packetConsumer_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()
+      throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicBoolean isPlaying = new AtomicBoolean();
+    AtomicReference<HardwareBufferFrame> lastQueuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingHardwareBufferEffectsPipeline pipeline =
+        RecordingHardwareBufferEffectsPipeline.create(
+            applicationContext,
+            HardwareBufferJni.INSTANCE,
+            /* onQueue= */ frames -> {
+              lastQueuedFrame.set(frames.get(0));
+              queuedPackets.incrementAndGet();
+              packetQueued.open();
+              return frames;
+            });
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(MP4_SIMPLE_ASSET.videoDurationUs)
+                            .build())))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  NdkCompositionPlayerBuilder.create(applicationContext)
+                      .setHardwareBufferEffectsPipeline(pipeline)
+                      .build());
+              player.get().setVideoSurfaceView(surfaceView);
+              player.get().addListener(listener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(packetQueued.isOpen()).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(1);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(0);
+    getInstrumentation().runOnMainSync(() -> assertThat(player.get().getPlayWhenReady()).isFalse());
+
+    packetQueued.close();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(750);
+              player.get().setScrubbingModeEnabled(false);
+            });
+
+    assertThat(packetQueued.block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(lastQueuedFrame.get().presentationTimeUs).isEqualTo(767_433L);
+    getInstrumentation().runOnMainSync(() -> isPlaying.set(player.get().getPlayWhenReady()));
+    assertThat(isPlaying.get()).isFalse();
+
+    getInstrumentation().runOnMainSync(() -> player.get().play());
+
+    listener.waitUntilPlayerEnded();
   }
 
   /**

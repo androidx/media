@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -31,7 +32,6 @@ import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
-import androidx.media3.exoplayer.video.VideoSink.FirstFrameReleaseInstruction;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
@@ -69,6 +69,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     this.downstreamConsumer.run();
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
+    // Allow the first frame to be rendered before playback starts.
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
 
   /**
@@ -82,19 +84,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    */
   public void queue(List<HardwareBufferFrame> packet) {
     checkArgument(!packet.isEmpty());
-    if (!packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
-      // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
-      // manually release all frames to handle this discontinuity.
-      // TODO: b/449956936 - There is still a race condition in this check that could result in an
-      //  extra dropped frame on a seek backwards, update VideoFrameReleaseControl to handle this
-      //  case, or handle queueFrame and onRender on a single internal thread to fix this.
-      @Nullable ImmutableList<HardwareBufferFrame> nextRenderedFrames = packetQueue.peek();
-      if (nextRenderedFrames != null
-          && packet.get(0).sequencePresentationTimeUs
-              < nextRenderedFrames.get(0).sequencePresentationTimeUs) {
-        reset();
-      }
-    }
     packetQueue.add(ImmutableList.copyOf(packet));
   }
 
@@ -144,16 +133,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       }
       videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
     }
-  }
-
-  @Override
-  public void onEnabled(
-      @FirstFrameReleaseInstruction int firstFrameReleaseInstruction, int sequenceIndex) {
-    // Only update based on stream changes in the primary sequence.
-    if (sequenceIndex != 0) {
-      return;
-    }
-    videoFrameReleaseControl.onStreamChanged(firstFrameReleaseInstruction);
   }
 
   /**

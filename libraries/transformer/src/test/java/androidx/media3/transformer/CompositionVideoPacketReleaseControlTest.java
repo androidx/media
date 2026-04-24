@@ -17,9 +17,6 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
-import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
-import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
-import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -178,7 +175,22 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void queue_backwardSeek_flushesAndReleasesHeldFrames() {
+  public void onRender_forwardsFirstFrameImmediately() throws ExoPlaybackException {
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertOutputPackets(/* ignoreReleaseTime= */ true, packet);
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void queue_backwardSeekWithoutFlush_doesNotReleaseHeldFrames() {
     ImmutableList<HardwareBufferFrame> packet1 =
         createPacket(/* presentationTimeUs= */ 200, /* sequencePresentationTimeUs= */ 200);
     ImmutableList<HardwareBufferFrame> packet2 =
@@ -187,7 +199,63 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
 
-    assertThat(releasedFrameTimestamps).containsExactly(packet1.get(0).presentationTimeUs);
+    // Held frames are not released automatically on an implicit backwards seek.
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void queueWhenStopped_afterFlush_forwardsFirstFrameAfterFlushImmediately()
+      throws ExoPlaybackException {
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.onStopped();
+
+    // The first frame is always released immediately, so queue and release it now.
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    // The next frame after the flush should also be released immediately.
+    compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
+    compositionVideoPacketReleaseControl.queue(packet2);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertOutputPackets(/* ignoreReleaseTime= */ true, packet1, packet2);
+    assertThat(releasedFrameTimestamps).isEmpty();
+  }
+
+  @Test
+  public void queueWhenStopped_withoutFlush_doesNotForwardFirstFrame() throws ExoPlaybackException {
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+    compositionVideoPacketReleaseControl.onStarted();
+    compositionVideoPacketReleaseControl.onStopped();
+
+    // The first frame is always released immediately, so queue and release it now.
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    compositionVideoPacketReleaseControl.queue(packet2);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertOutputPackets(/* ignoreReleaseTime= */ true, packet1);
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   @Test
@@ -434,123 +502,6 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
-  }
-
-  @Test
-  public void onEnabled_releaseFirstFrameWhenStarted_keepsFrameIfStopped()
-      throws ExoPlaybackException {
-    compositionVideoPacketReleaseControl.onStarted();
-    compositionVideoPacketReleaseControl.onStopped();
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
-
-    compositionVideoPacketReleaseControl.queue(packet);
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100_000,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 0);
-
-    assertOutputPackets(/* ignoreReleaseTime= */ true);
-    assertThat(releasedFrameTimestamps).isEmpty();
-  }
-
-  @Test
-  public void onEnabled_releaseFirstFrameWhenStarted_releasesFrameIfStarted()
-      throws ExoPlaybackException {
-    compositionVideoPacketReleaseControl.onStarted();
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
-
-    compositionVideoPacketReleaseControl.queue(packet);
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100_000,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 0);
-
-    assertOutputPackets(/* ignoreReleaseTime= */ true, packet);
-    assertThat(releasedFrameTimestamps).isEmpty();
-  }
-
-  @Test
-  public void onEnabled_releaseFirstFrameImmediately_releasesFrameEvenIfStopped()
-      throws ExoPlaybackException {
-    compositionVideoPacketReleaseControl.onStarted();
-    compositionVideoPacketReleaseControl.onStopped();
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_IMMEDIATELY, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
-
-    compositionVideoPacketReleaseControl.queue(packet);
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100_000,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 0);
-
-    assertOutputPackets(/* ignoreReleaseTime= */ true, packet);
-    assertThat(releasedFrameTimestamps).isEmpty();
-  }
-
-  @Test
-  public void onEnabled_releaseFirstFrameImmediatelySecondarySequence_doesNotReleaseFrameIfStopped()
-      throws ExoPlaybackException {
-    compositionVideoPacketReleaseControl.onStarted();
-    compositionVideoPacketReleaseControl.onStopped();
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_WHEN_STARTED, /* sequenceIndex= */ 1);
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_IMMEDIATELY, /* sequenceIndex= */ 1);
-    ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
-
-    compositionVideoPacketReleaseControl.queue(packet);
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100_000,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 0);
-
-    assertThat(outputConsumer.getQueuedPayloads()).isEmpty();
-    assertThat(releasedFrameTimestamps).isEmpty();
-  }
-
-  @Test
-  public void onEnabled_releaseFirstFrameWhenPreviousStreamProcessed_releasesFrameOnlyWhenAtStart()
-      throws ExoPlaybackException {
-    compositionVideoPacketReleaseControl.onStarted();
-    compositionVideoPacketReleaseControl.queue(firstPacket);
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 0,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 0);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-
-    compositionVideoPacketReleaseControl.onEnabled(
-        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* sequenceIndex= */ 0);
-    ImmutableList<HardwareBufferFrame> packet =
-        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
-
-    compositionVideoPacketReleaseControl.queue(packet);
-    // Position is well before the stream start position, making the frame 100ms early (> 50ms).
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 0,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 100_000);
-
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-    assertThat(releasedFrameTimestamps).isEmpty();
-
-    // Position is at the stream start position.
-    compositionVideoPacketReleaseControl.onRender(
-        /* compositionTimePositionUs= */ 100_000,
-        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* compositionTimeOutputStreamStartPositionUs= */ 100_000);
-
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
-    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(

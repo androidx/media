@@ -1337,7 +1337,8 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void packetConsumer_seekWhilePaused_outputsPacket() throws Exception {
+  public void packetConsumer_oneImageSequence_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
     AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
     ConditionVariable packetQueued = new ConditionVariable();
     AtomicInteger queuedPackets = new AtomicInteger();
@@ -1367,11 +1368,7 @@ public class CompositionPlayerTest {
 
     advance(player).untilState(STATE_READY);
 
-    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
-    assertThat(player.getPlayWhenReady()).isFalse();
-    assertThat(queuedPackets.get()).isEqualTo(1);
-    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(0);
-
+    // Seek forwards
     player.setScrubbingModeEnabled(true);
     player.seekTo(/* positionMs= */ 500);
     player.setScrubbingModeEnabled(false);
@@ -1381,6 +1378,189 @@ public class CompositionPlayerTest {
     assertThat(player.getPlayWhenReady()).isFalse();
     assertThat(queuedPackets.get()).isEqualTo(2);
     assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(500_000L);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(3);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(200_000L);
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(4);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(750_000L);
+  }
+
+  @Test
+  public void packetConsumer_twoImageSequences_seekForwardsAndBackwards_outputsCorrectFrames()
+      throws Exception {
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrame.set(frames.get(0));
+          queuedPackets.incrementAndGet();
+          packetQueued.open();
+          return null;
+        });
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 500);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(500_000L);
+
+    // Seek backwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 200);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(3);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(200_000L);
+
+    // Seek forwards
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(4);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(750_000L);
+  }
+
+  @Test
+  public void packetConsumer_oneImageSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrame.set(frames.get(0));
+          queuedPackets.incrementAndGet();
+          packetQueued.open();
+          return null;
+        });
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(750_000L);
+
+    player.play();
+
+    advance(player).untilState(STATE_ENDED);
+  }
+
+  @Test
+  public void packetConsumer_twoImageSequences_seekThenPlay_outputsPacketAndEnds()
+      throws Exception {
+    AtomicReference<HardwareBufferFrame> queuedFrame = new AtomicReference<>();
+    ConditionVariable packetQueued = new ConditionVariable();
+    AtomicInteger queuedPackets = new AtomicInteger();
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrame.set(frames.get(0));
+          queuedPackets.incrementAndGet();
+          packetQueued.open();
+          return null;
+        });
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 750);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_READY);
+    assertThat(player.getPlayWhenReady()).isFalse();
+    assertThat(queuedPackets.get()).isEqualTo(2);
+    assertThat(queuedFrame.get().presentationTimeUs).isEqualTo(750_000L);
+
+    player.play();
+
+    advance(player).untilState(STATE_ENDED);
   }
 
   @Test
