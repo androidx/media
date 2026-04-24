@@ -30,7 +30,6 @@ import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -91,7 +90,7 @@ class MediaRouteButtonTest {
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
 
     composeTestRule.setContent { MediaRouteButtonContainer(content) }
-    advanceUntilIdle()
+    composeTestRule.waitForIdle()
 
     assertThat(isContentComposed.get()).isFalse()
   }
@@ -103,7 +102,7 @@ class MediaRouteButtonTest {
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
 
     composeTestRule.setContent { MediaRouteButtonContainer(content) }
-    advanceUntilIdle()
+    composeTestRule.waitForIdle()
 
     assertThat(isContentComposed.get()).isTrue()
   }
@@ -116,7 +115,7 @@ class MediaRouteButtonTest {
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
 
     composeTestRule.setContent { MediaRouteButtonContainer(content) }
-    advanceUntilIdle()
+    composeTestRule.waitForIdle()
 
     assertThat(isContentComposed.get()).isTrue()
   }
@@ -130,7 +129,7 @@ class MediaRouteButtonTest {
     val content: @Composable MediaRouteButtonState.() -> Unit = { isContentComposed.set(true) }
 
     composeTestRule.setContent { MediaRouteButtonContainer(content) }
-    advanceUntilIdle()
+    composeTestRule.waitForIdle()
 
     assertThat(cast.castContextLoadFailure).isEqualTo(exception)
     assertThat(isContentComposed.get()).isFalse()
