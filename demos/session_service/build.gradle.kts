@@ -28,8 +28,6 @@ android {
 
   buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("debug") } }
 
-  defaultConfig { targetSdk = libs.versions.appTargetSdkVersion.get().toInt() }
-
   // The demo service module isn't indexed, and doesn't have translations.
   lint.disable += listOf("GoogleAppIndexingWarning", "MissingTranslation")
 }
