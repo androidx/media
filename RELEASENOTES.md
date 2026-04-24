@@ -17,6 +17,9 @@
 *   CompositionPlayer:
 *   Transformer:
 *   Track selection:
+    *   Adjust track selection logic in `VideoTrackInfo` to resolve fallback
+        MIME types and move HDR and codec score preferences to quality
+        preferences ([#3135](https://github.com/androidx/media/issues/3135)).
 *   Extractors:
     *   MP3: Ignore Xing data length if it's longer than the known stream length
         ([#3117](https://github.com/androidx/media/issues/3117)).
