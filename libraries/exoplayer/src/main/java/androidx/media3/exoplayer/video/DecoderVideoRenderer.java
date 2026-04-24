@@ -27,6 +27,7 @@ import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
@@ -54,6 +55,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.PlayerMessage;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -64,6 +66,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayDeque;
+import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Decodes and renders video using a {@link Decoder}.
@@ -81,7 +85,7 @@ import java.util.ArrayDeque;
  * </ul>
  */
 @UnstableApi
-public abstract class DecoderVideoRenderer extends BaseRenderer {
+public abstract class DecoderVideoRenderer extends BaseRenderer implements Decoder.Callback {
 
   private static final String TAG = "DecoderVideoRenderer";
 
@@ -161,6 +165,9 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
 
   /** Decoder event counters used for debugging purposes. */
   protected DecoderCounters decoderCounters;
+
+  @Nullable private Renderer.WakeupListener wakeupListener;
+  private @MonotonicNonNull Executor playbackThreadExecutor;
 
   /**
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which this video renderer
@@ -272,8 +279,24 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
       setOutput(message);
     } else if (messageType == MSG_SET_VIDEO_FRAME_METADATA_LISTENER) {
       frameMetadataListener = (VideoFrameMetadataListener) message;
+    } else if (messageType == MSG_SET_WAKEUP_LISTENER) {
+      wakeupListener = (Renderer.WakeupListener) message;
     } else {
       super.handleMessage(messageType, message);
+    }
+  }
+
+  @Override
+  public void onInputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
+    }
+  }
+
+  @Override
+  public void onOutputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
     }
   }
 
@@ -773,8 +796,13 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
 
     try {
       long decoderInitializingTimestamp = SystemClock.elapsedRealtime();
+      if (playbackThreadExecutor == null) {
+        Handler handler = new Handler(checkNotNull(Looper.myLooper()));
+        playbackThreadExecutor = handler::post;
+      }
       decoder = createDecoder(checkNotNull(inputFormat), cryptoConfig);
       decoder.setOutputStartTimeUs(getLastResetPositionUs());
+      decoder.setCallback(this, playbackThreadExecutor);
       setDecoderOutputMode(outputMode);
       long decoderInitializedTimestamp = SystemClock.elapsedRealtime();
       eventDispatcher.decoderInitialized(

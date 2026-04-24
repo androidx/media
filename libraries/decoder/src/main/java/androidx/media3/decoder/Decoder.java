@@ -17,6 +17,7 @@ package androidx.media3.decoder;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
+import java.util.concurrent.Executor;
 
 /**
  * A media decoder.
@@ -82,4 +83,23 @@ public interface Decoder<I, O, E extends DecoderException> {
 
   /** Releases the decoder. Must be called when the decoder is no longer needed. */
   void release();
+
+  /** Callback for asynchronous events. */
+  interface Callback {
+    /** Called when an input buffer becomes available to be dequeued. */
+    void onInputBufferAvailable();
+
+    /** Called when an output buffer becomes available to be dequeued. */
+    void onOutputBufferAvailable();
+  }
+
+  /**
+   * Sets the callback and executor.
+   *
+   * @param callback The callback to receive events.
+   * @param executor The executor on which the callback will be invoked.
+   */
+  default void setCallback(Callback callback, Executor executor) {
+    // Do nothing by default.
+  }
 }

@@ -29,6 +29,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.VideoDecoderOutputBuffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.concurrent.Executor;
 
 /** dAV1d decoder. */
 @UnstableApi
@@ -92,6 +93,14 @@ public final class Dav1dDecoder
 
   @GuardedBy("lock")
   private long outputStartTimeUs;
+
+  @GuardedBy("lock")
+  @Nullable
+  private Callback callback;
+
+  @GuardedBy("lock")
+  @Nullable
+  private Executor executor;
 
   @Nullable private Surface surface;
 
@@ -238,6 +247,14 @@ public final class Dav1dDecoder
   }
 
   @Override
+  public final void setCallback(Callback callback, Executor executor) {
+    synchronized (lock) {
+      this.callback = callback;
+      this.executor = executor;
+    }
+  }
+
+  @Override
   public void release() {
     synchronized (lock) {
       released = true;
@@ -352,6 +369,11 @@ public final class Dav1dDecoder
           outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
           skippedOutputBufferCount = 0;
           queuedOutputBuffers.addLast(outputBuffer);
+          Decoder.Callback currentCallback = this.callback;
+          Executor currentExecutor = this.executor;
+          if (currentCallback != null && currentExecutor != null) {
+            currentExecutor.execute(currentCallback::onOutputBufferAvailable);
+          }
         }
       }
     } else {
@@ -415,6 +437,11 @@ public final class Dav1dDecoder
               outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount;
               skippedOutputBufferCount = 0;
               queuedOutputBuffers.addLast(outputBuffer);
+              Decoder.Callback currentCallback = this.callback;
+              Executor currentExecutor = this.executor;
+              if (currentCallback != null && currentExecutor != null) {
+                currentExecutor.execute(currentCallback::onOutputBufferAvailable);
+              }
             }
             while (!released && !canDecodeOutputBuffer() && !flushed) {
               lock.wait();
@@ -485,6 +512,11 @@ public final class Dav1dDecoder
   private void releaseInputBufferInternal(DecoderInputBuffer inputBuffer) {
     inputBuffer.clear();
     availableInputBuffers[availableInputBufferCount++] = inputBuffer;
+    Decoder.Callback currentCallback = this.callback;
+    Executor currentExecutor = this.executor;
+    if (currentCallback != null && currentExecutor != null) {
+      currentExecutor.execute(currentCallback::onInputBufferAvailable);
+    }
   }
 
   @GuardedBy("lock")

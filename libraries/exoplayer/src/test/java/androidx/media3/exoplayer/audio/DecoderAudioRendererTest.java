@@ -40,6 +40,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
 import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.decoder.Decoder;
 import androidx.media3.decoder.DecoderException;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -55,6 +56,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
@@ -907,6 +909,103 @@ public class DecoderAudioRendererTest {
             /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
 
     assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
+  @Test
+  public void maybeInitDecoder_setsCallbackOnDecoder() throws Exception {
+    AtomicReference<Decoder.Callback> callbackReference = new AtomicReference<>();
+    AtomicReference<Executor> executorReference = new AtomicReference<>();
+
+    DecoderAudioRenderer<Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException>>
+        testRenderer =
+            new DecoderAudioRenderer<
+                Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException>>(
+                null, null, mockAudioSink) {
+              @Override
+              public String getName() {
+                return "TestAudioRenderer";
+              }
+
+              @Override
+              protected @C.FormatSupport int supportsFormatInternal(Format format) {
+                return FORMAT_HANDLED;
+              }
+
+              @Override
+              protected Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException>
+                  createDecoder(Format format, @Nullable CryptoConfig cryptoConfig) {
+                return new Decoder<
+                    DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException>() {
+                  @Override
+                  public void setCallback(Decoder.Callback callback, Executor executor) {
+                    callbackReference.set(callback);
+                    executorReference.set(executor);
+                  }
+
+                  @Override
+                  public String getName() {
+                    return "TestDecoder";
+                  }
+
+                  @Override
+                  public void setOutputStartTimeUs(long outputStartTimeUs) {}
+
+                  @Override
+                  public DecoderInputBuffer dequeueInputBuffer() throws DecoderException {
+                    return null;
+                  }
+
+                  @Override
+                  public void queueInputBuffer(DecoderInputBuffer inputBuffer)
+                      throws DecoderException {}
+
+                  @Override
+                  public SimpleDecoderOutputBuffer dequeueOutputBuffer() throws DecoderException {
+                    return null;
+                  }
+
+                  @Override
+                  public void flush() {}
+
+                  @Override
+                  public void release() {}
+                };
+              }
+
+              @Override
+              protected Format getOutputFormat(
+                  Decoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, DecoderException>
+                      decoder) {
+                return FORMAT;
+              }
+            };
+    testRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            FORMAT,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    testRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
+    testRenderer.render(0, 0);
+
+    assertThat(callbackReference.get()).isNotNull();
+    assertThat(executorReference.get()).isNotNull();
   }
 
   private static DecoderAudioRenderer<FakeDecoder> createAudioRenderer(AudioSink audioSink) {

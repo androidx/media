@@ -28,6 +28,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
@@ -56,6 +57,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
 import androidx.media3.exoplayer.MediaClock;
 import androidx.media3.exoplayer.PlayerMessage.Target;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener.EventDispatcher;
 import androidx.media3.exoplayer.audio.AudioSink.SinkFormatSupport;
@@ -68,6 +70,8 @@ import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.concurrent.Executor;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Decodes and renders audio using a {@link Decoder}.
@@ -106,7 +110,7 @@ public abstract class DecoderAudioRenderer<
                     DecoderInputBuffer,
                     ? extends SimpleDecoderOutputBuffer,
                     ? extends DecoderException>>
-    extends BaseRenderer implements MediaClock {
+    extends BaseRenderer implements MediaClock, Decoder.Callback {
 
   private static final String TAG = "DecoderAudioRenderer";
 
@@ -178,6 +182,9 @@ public abstract class DecoderAudioRenderer<
   private long largestQueuedPresentationTimeUs;
   private long lastBufferInStreamPresentationTimeUs;
   private long nextBufferToWritePresentationTimeUs;
+
+  @Nullable private Renderer.WakeupListener wakeupListener;
+  private @MonotonicNonNull Executor playbackThreadExecutor;
 
   public DecoderAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -783,15 +790,31 @@ public abstract class DecoderAudioRenderer<
       case MSG_SET_AUDIO_OUTPUT_PROVIDER:
         audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
         break;
+      case MSG_SET_WAKEUP_LISTENER:
+        wakeupListener = (Renderer.WakeupListener) message;
+        break;
       case MSG_SET_CAMERA_MOTION_LISTENER:
       case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
       case MSG_SET_SCALING_MODE:
       case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
       case MSG_SET_VIDEO_OUTPUT:
-      case MSG_SET_WAKEUP_LISTENER:
       default:
         super.handleMessage(messageType, message);
         break;
+    }
+  }
+
+  @Override
+  public void onInputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
+    }
+  }
+
+  @Override
+  public void onOutputBufferAvailable() {
+    if (wakeupListener != null) {
+      wakeupListener.onWakeup();
     }
   }
 
@@ -823,10 +846,15 @@ public abstract class DecoderAudioRenderer<
     }
 
     try {
+      if (playbackThreadExecutor == null) {
+        Handler handler = new Handler(Looper.myLooper());
+        playbackThreadExecutor = handler::post;
+      }
       long codecInitializingTimestamp = SystemClock.elapsedRealtime();
       TraceUtil.beginSection("createAudioDecoder");
       decoder = createDecoder(inputFormat, cryptoConfig);
       decoder.setOutputStartTimeUs(getLastResetPositionUs());
+      decoder.setCallback(this, playbackThreadExecutor);
       TraceUtil.endSection();
       long codecInitializedTimestamp = SystemClock.elapsedRealtime();
       eventDispatcher.decoderInitialized(
