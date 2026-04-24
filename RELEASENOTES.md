@@ -70,6 +70,8 @@
         in subsequent updates
         ([#3105](https://github.com/androidx/media/issues/3105)).
 *   DASH extension:
+    *   Fix crash in `SampleQueue` when seeking into a chunk that is currently
+        being canceled.
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):

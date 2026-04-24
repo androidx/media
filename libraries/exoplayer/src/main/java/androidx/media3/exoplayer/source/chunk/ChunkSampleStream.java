@@ -315,6 +315,13 @@ public class ChunkSampleStream<T extends ChunkSource>
       seekInsideBuffer = primarySampleQueue.seekTo(positionUs, allowTimeBeyondBuffer);
     }
 
+    if (seekInsideBuffer && canceledMediaChunk != null) {
+      // Do not allow seeking into a chunk that is being canceled.
+      if (canceledMediaChunk.getFirstSampleIndex(0) <= primarySampleQueue.getReadIndex()) {
+        seekInsideBuffer = false;
+      }
+    }
+
     if (seekInsideBuffer) {
       // We can seek inside the buffer.
       nextNotifyPrimaryFormatMediaChunkIndex =
