@@ -688,6 +688,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private boolean playWhenReadyBeforeScrubbingEnabled;
   private AudioAttributes audioAttributes;
   private boolean handleAudioFocus;
+  private boolean waitingForFrameAfterSeek;
+  private long pendingSeekPositionMs;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -717,6 +719,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
     audioAttributes = builder.audioAttributes;
     handleAudioFocus = builder.handleAudioFocus;
+    pendingSeekPositionMs = C.TIME_UNSET;
     appNeedsToPrepareCompositionPlayer = true;
     internalListener = new InternalListener();
     audioFocusManager =
@@ -773,9 +776,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
-              videoFrameReleaseControl,
-              packetConsumer,
-              e -> internalListener.onError(VideoFrameProcessingException.from(e)));
+              videoFrameReleaseControl, packetConsumer, internalListener);
     } else {
       hardwareBufferPostProcessor = null;
       packetConsumer = null;
@@ -899,6 +900,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           this.playWhenReadyBeforeScrubbingEnabled
               ? PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
               : this.playWhenReadyChangeReason);
+
+      // Bypass debouncing for the final seek when scrubbing ends.
+      waitingForFrameAfterSeek = false;
+      if (pendingSeekPositionMs != C.TIME_UNSET) {
+        long pendingSeekPosition = pendingSeekPositionMs;
+        pendingSeekPositionMs = C.TIME_UNSET;
+        handleSeekInternal(pendingSeekPosition);
+      }
     }
 
     // This is not a SimpleBasePlayer method, so we need to manually invalidate the state.
@@ -1032,6 +1041,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       playerHolders.get(i).player.stop();
     }
     appNeedsToPrepareCompositionPlayer = true;
+    waitingForFrameAfterSeek = false;
+    pendingSeekPositionMs = C.TIME_UNSET;
     updatePlaybackState();
     return Futures.immediateVoidFuture();
   }
@@ -1052,6 +1063,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     playerHolders.clear();
     boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
+    waitingForFrameAfterSeek = false;
+    pendingSeekPositionMs = C.TIME_UNSET;
     removeSurfaceCallbacks();
     if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
       surfaceHolderHardwareBufferFrameQueue.release();
@@ -1132,6 +1145,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   @Override
   protected ListenableFuture<?> handleSeek(
       int mediaItemIndex, long positionMs, @Command int seekCommand) {
+    handleSeekInternal(positionMs);
+    return Futures.immediateVoidFuture();
+  }
+
+  private void handleSeekInternal(long positionMs) {
     resetLivePositionSuppliers();
     DebugTraceUtil.logEvent(
         COMPONENT_COMPOSITION_PLAYER,
@@ -1139,6 +1157,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         /* presentationTimeUs= */ C.TIME_UNSET,
         "positionMs=%d",
         positionMs);
+
+    if (packetConsumer != null) {
+      if (waitingForFrameAfterSeek) {
+        pendingSeekPositionMs = positionMs;
+        return;
+      }
+      waitingForFrameAfterSeek = true;
+    }
     CompositionPlayerInternal compositionPlayerInternal =
         checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
@@ -1163,7 +1189,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       playerHolders.get(i).player.seekTo(positionMs);
     }
     compositionPlayerInternal.endSeek();
-    return Futures.immediateVoidFuture();
   }
 
   @Override
@@ -1497,6 +1522,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setCompositionInternal(Composition composition, long startPositionMs) {
+    waitingForFrameAfterSeek = false;
+    pendingSeekPositionMs = C.TIME_UNSET;
     for (int i = 0; i < playerHolders.size(); i++) {
       // TODO: b/412585856 - Optimize for the case where we can keep some resources.
       playerHolders.get(i).release();
@@ -1957,6 +1984,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private void maybeUpdatePlaybackError(
       String errorMessage, Exception cause, @PlaybackException.ErrorCode int errorCode) {
+    waitingForFrameAfterSeek = false;
+    pendingSeekPositionMs = C.TIME_UNSET;
     if (playbackException == null) {
       playbackException = new PlaybackException(errorMessage, cause, errorCode);
       for (int i = 0; i < playerHolders.size(); i++) {
@@ -2373,7 +2402,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           CompositionPlayerInternal.Listener,
           SurfaceHolder.Callback,
           PlaybackVideoGraphWrapper.Listener,
-          SurfaceHolderHardwareBufferFrameQueue.Listener {
+          SurfaceHolderHardwareBufferFrameQueue.Listener,
+          CompositionVideoPacketReleaseControl.Listener {
 
     // AudioFocusManager.PlayerControl methods. Called on the application thread.
 
@@ -2468,6 +2498,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               presentationTimeUs, releaseTimeNs, format, /* mediaFormat= */ null);
         }
       }
+    }
+
+    // CompositionVideoPacketReleaseControl.Listener methods. Called on the playback thread.
+
+    @Override
+    public void onFrameProcessed() {
+      applicationHandler.post(
+          () -> {
+            if (waitingForFrameAfterSeek) {
+              waitingForFrameAfterSeek = false;
+              if (pendingSeekPositionMs != C.TIME_UNSET) {
+                long pendingSeekPosition = pendingSeekPositionMs;
+                pendingSeekPositionMs = C.TIME_UNSET;
+                handleSeekInternal(pendingSeekPosition);
+              }
+            }
+          });
+    }
+
+    @Override
+    public void onError(Exception e) {
+      onError(VideoFrameProcessingException.from(e));
     }
 
     @Override

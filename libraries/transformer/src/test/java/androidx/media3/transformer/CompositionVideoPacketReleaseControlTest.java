@@ -27,6 +27,7 @@ import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl.FrameTimingEvaluator;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.RecordingPacketConsumer;
+import androidx.media3.transformer.CompositionVideoPacketReleaseControl.Listener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -67,8 +68,14 @@ public class CompositionVideoPacketReleaseControlTest {
         new CompositionVideoPacketReleaseControl(
             videoFrameReleaseControl,
             outputConsumer,
-            exception -> {
-              throw new IllegalStateException(exception);
+            new Listener() {
+              @Override
+              public void onFrameProcessed() {}
+
+              @Override
+              public void onError(Exception e) {
+                throw new IllegalStateException(e);
+              }
             });
   }
 
@@ -259,7 +266,7 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void queue_lowerPresentationTimeButHigherSequenceTime_doesNotReset() {
+  public void queue_lowerPresentationTimeButHigherSequenceTime_doesNotFlush() {
     // Simulate a frame from the end of the first media item.
     ImmutableList<HardwareBufferFrame> packet1 =
         createPacket(
@@ -441,7 +448,7 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void onStarted_afterEos_doesNotResetIsEndedToFalse() throws ExoPlaybackException {
+  public void onStarted_afterEos_doesNotFlushIsEndedToFalse() throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
     compositionVideoPacketReleaseControl.onRender(
@@ -471,7 +478,7 @@ public class CompositionVideoPacketReleaseControlTest {
   }
 
   @Test
-  public void flushSecondarySequence_afterEos_doesNotResetIsEndedToFalse()
+  public void resetSecondarySequence_afterEos_doesNotFlushIsEndedToFalse()
       throws ExoPlaybackException {
     compositionVideoPacketReleaseControl.onStarted();
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));

@@ -22,7 +22,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.GlTextureFrame;
@@ -48,24 +47,39 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private volatile boolean isEnded;
+  private final Listener listener;
+
+  /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
+  public interface Listener {
+    /**
+     * Called when a frame, or EOS has been sent to the downstream consumer, or a frame is dropped.
+     */
+    void onFrameProcessed();
+
+    /** Called when an error occurs during packet processing. */
+    void onError(Exception e);
+  }
 
   /**
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
    *
+   * @param videoFrameReleaseControl Controls when frames are released.
    * @param downstreamConsumer Receives the {@linkplain List<HardwareBufferFrame> packet}, with each
    *     {@link HardwareBufferFrame} having the same {@linkplain HardwareBufferFrame#releaseTimeNs}
    *     release time}.
+   * @param listener The listener for {@link CompositionVideoPacketReleaseControl} events.
    */
   public CompositionVideoPacketReleaseControl(
       VideoFrameReleaseControl videoFrameReleaseControl,
       PacketConsumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
-      Consumer<Exception> exceptionConsumer) {
+      Listener listener) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
+    this.listener = listener;
     // Call the downstream PacketConsumer on the calling thread to reduce unnecessary thread hops.
     this.downstreamConsumer =
         PacketConsumerCaller.create(
-            downstreamConsumer, newDirectExecutorService(), exceptionConsumer);
+            downstreamConsumer, newDirectExecutorService(), listener::onError);
     this.downstreamConsumer.run();
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
@@ -111,6 +125,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         if (packetQueue.peek() == null) {
           isEnded = true;
           downstreamConsumer.queueEndOfStream();
+          listener.onFrameProcessed();
           return;
         }
         // Ignore EOS frames if there are more frames to be rendered.
@@ -131,6 +146,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         packetQueue.addFirst(packet);
         return;
       }
+      listener.onFrameProcessed();
       videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
     }
   }
