@@ -48,6 +48,7 @@ import android.content.Context;
 import android.media.Spatializer;
 import android.view.accessibility.CaptioningManager;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
@@ -2851,12 +2852,16 @@ public final class DefaultTrackSelectorTest {
   @Test
   public void selectTracks_withDecoderSupportFallbackMimetype_selectsTrackWithPrimaryDecoder()
       throws Exception {
-    Format formatDV =
-        new Format.Builder().setId("0").setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+    Format formatDv =
+        new Format.Builder()
+            .setId("0")
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvh1.04.01")
+            .build();
     Format formatHevc =
         new Format.Builder().setId("1").setSampleMimeType(MimeTypes.VIDEO_H265).build();
     TrackGroupArray trackGroups =
-        new TrackGroupArray(new TrackGroup(formatDV), new TrackGroup(formatHevc));
+        new TrackGroupArray(new TrackGroup(formatDv), new TrackGroup(formatHevc));
     @Capabilities
     int capabilitiesDecoderSupportPrimary =
         RendererCapabilities.create(
@@ -2903,7 +2908,222 @@ public final class DefaultTrackSelectorTest {
             periodId,
             TIMELINE);
 
-    assertFixedSelection(result.selections[0], trackGroups, formatDV);
+    assertFixedSelection(result.selections[0], trackGroups, formatDv);
+  }
+
+  @Test
+  public void selectTracks_withAvcAndDolbyVisionFallbackToHevc_selectsDolbyVision()
+      throws Exception {
+    Format formatAvc =
+        new Format.Builder().setId("avc").setSampleMimeType(MimeTypes.VIDEO_H264).build();
+    Format formatDv =
+        new Format.Builder().setId("dv").setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatAvc), new TrackGroup(formatDv));
+
+    @Capabilities
+    int capabilitiesAvc =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    int capabilitiesDv =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_FALLBACK_MIMETYPE);
+
+    ImmutableMap<String, Integer> rendererCapabilitiesMap =
+        ImmutableMap.of("avc", capabilitiesAvc, "dv", capabilitiesDv);
+    RendererCapabilities rendererCapabilities =
+        new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {rendererCapabilities}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatDv);
+  }
+
+  @Test
+  public void selectTracks_withHevcHdrAndDolbyVisionFallbackToHevc_prefersHevcHdrOverFallbackDv()
+      throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format formatHevcHdr =
+        new Format.Builder()
+            .setId("hevc_hdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    Format formatDv =
+        new Format.Builder().setId("dv").setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION).build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatHevcHdr), new TrackGroup(formatDv));
+
+    @Capabilities
+    int capabilitiesHevc =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    int capabilitiesDv =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_FALLBACK_MIMETYPE);
+
+    ImmutableMap<String, Integer> rendererCapabilitiesMap =
+        ImmutableMap.of("hevc_hdr", capabilitiesHevc, "dv", capabilitiesDv);
+    RendererCapabilities rendererCapabilities =
+        new FakeMappedRendererCapabilities(C.TRACK_TYPE_VIDEO, rendererCapabilitiesMap);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {rendererCapabilities}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatHevcHdr);
+  }
+
+  @Test
+  public void selectTracks_withAvc1080pAndHevc720p_prefersResolutionOverCodec() throws Exception {
+    Format formatAvc1080p =
+        new Format.Builder()
+            .setId("avc_1080p")
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    Format formatHevc720p =
+        new Format.Builder()
+            .setId("hevc_720p")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1280)
+            .setHeight(720)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatAvc1080p), new TrackGroup(formatHevc720p));
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatAvc1080p);
+  }
+
+  @Test
+  public void selectTracks_with720pHdrAnd1080pSdr_prefersHdrOverResolution() throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format format720pHdr =
+        new Format.Builder()
+            .setId("720p_hdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1280)
+            .setHeight(720)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    Format format1080pSdr =
+        new Format.Builder()
+            .setId("1080p_sdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(format720pHdr), new TrackGroup(format1080pSdr));
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {VIDEO_CAPABILITIES}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, format720pHdr);
+  }
+
+  @Test
+  public void selectTracks_withAvcAndHevcSameResolution_prefersHevcOverAvc() throws Exception {
+    Format formatAvc =
+        new Format.Builder()
+            .setId("avc")
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setAverageBitrate(5000000)
+            .build();
+    Format formatHevc =
+        new Format.Builder()
+            .setId("hevc")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setAverageBitrate(2000000)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatAvc), new TrackGroup(formatHevc));
+
+    int capabilities =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    RendererCapabilities videoCapabilitiesWithHw =
+        new FakeRendererCapabilities(C.TRACK_TYPE_VIDEO, capabilities);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {videoCapabilitiesWithHw}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatHevc);
+  }
+
+  @Test
+  public void selectTracks_withAvcHdrAndHevcSdrSameResolution_prefersHdrOverCodec()
+      throws Exception {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder().setColorTransfer(C.COLOR_TRANSFER_ST2084).build();
+    Format formatAvcHdr =
+        new Format.Builder()
+            .setId("avc_hdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setWidth(1920)
+            .setHeight(1080)
+            .setColorInfo(hdrColorInfo)
+            .build();
+    Format formatHevcSdr =
+        new Format.Builder()
+            .setId("hevc_sdr")
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setWidth(1920)
+            .setHeight(1080)
+            .build();
+    TrackGroupArray trackGroups =
+        new TrackGroupArray(new TrackGroup(formatAvcHdr), new TrackGroup(formatHevcSdr));
+
+    int capabilities =
+        RendererCapabilities.create(
+            FORMAT_HANDLED,
+            ADAPTIVE_NOT_SEAMLESS,
+            TUNNELING_NOT_SUPPORTED,
+            HARDWARE_ACCELERATION_SUPPORTED,
+            DECODER_SUPPORT_PRIMARY);
+    RendererCapabilities videoCapabilitiesWithHw =
+        new FakeRendererCapabilities(C.TRACK_TYPE_VIDEO, capabilities);
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {videoCapabilitiesWithHw}, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, formatAvcHdr);
   }
 
   @Test

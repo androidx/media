@@ -57,6 +57,9 @@
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
 *   Track selection:
+    *   Adjust track selection logic in `VideoTrackInfo` to resolve fallback
+        MIME types and move HDR and codec score preferences to quality
+        preferences ([#3135](https://github.com/androidx/media/issues/3135)).
 *   Extractors:
     *   MP4: Add support for extracting chapter metadata (both Nero and
         QuickTime formats). QuickTime chapters are preferred if both are
