@@ -61,7 +61,6 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -99,7 +98,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.initialization.qual.Initialized;
 
 /* package */ class MediaSessionImpl {
@@ -1168,23 +1166,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         });
   }
 
-  /* package */ boolean onPlayRequested() {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      try {
-        return CallbackToFutureAdapter.<Boolean>getFuture(
-                completer -> {
-                  mainHandler.post(() -> completer.set(onPlayRequested()));
-                  return "onPlayRequested";
-                })
-            .get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw new IllegalStateException(e);
-      }
-    }
+  /* package */ ListenableFuture<Boolean> onPlayRequested() {
     if (this.mediaSessionListener != null) {
       return this.mediaSessionListener.onPlayRequested(instance);
     }
-    return true;
+    return immediateFuture(true);
   }
 
   /**
@@ -1197,10 +1183,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   /* package */ void handleMediaControllerPlayRequest(
       ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
-    if (!onPlayRequested()) {
-      // Request denied, e.g. due to missing foreground service abilities.
-      return;
-    }
+    ListenableFuture<Boolean> playRequestFuture = onPlayRequested();
+    Futures.addCallback(
+        playRequestFuture,
+        new FutureCallback<Boolean>() {
+          @Override
+          public void onSuccess(Boolean result) {
+            if (result) {
+              handleMediaControllerPlayRequestInternal(controller, callOnPlayerInteractionFinished);
+            }
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            Log.e(TAG, "Failed calling onPlayRequested", t);
+          }
+        },
+        this::postOrRunOnApplicationHandler);
+  }
+
+  private void handleMediaControllerPlayRequestInternal(
+      ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
     boolean hasCurrentMediaItem =
         playerWrapper.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
             && playerWrapper.getCurrentMediaItem() != null;

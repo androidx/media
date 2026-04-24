@@ -2675,9 +2675,10 @@ public class MediaSession {
      * the listener on whether the media can be played.
      *
      * @param session The media session which requests if the media can be played.
-     * @return True if the media can be played, false otherwise.
+     * @return A {@link ListenableFuture} that resolves to {@code true} if the media can be played,
+     *     {@code false} otherwise.
      */
-    boolean onPlayRequested(MediaSession session);
+    ListenableFuture<Boolean> onPlayRequested(MediaSession session);
   }
 
   /**

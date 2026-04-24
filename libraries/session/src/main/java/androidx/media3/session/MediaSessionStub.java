@@ -513,16 +513,17 @@ import java.util.concurrent.ExecutionException;
                           IBinder callbackBinder =
                               checkNotNull((Controller2Cb) controllerInfo.getControllerCb())
                                   .getCallbackBinder();
-                          // Don't reject connections of a trusted app without allowing connection.
-                          // Otherwise, server will fail to retrieve session's information to
-                          // dispatch media keys to.
+                          // Don't reject connection for trusted app.
                           if (!connectionResult.isAccepted && !controllerInfo.isTrusted()) {
                             return;
                           }
                           MediaSession.ConnectionResult connectionResultToUse = connectionResult;
                           if (!connectionResult.isAccepted) {
-                            // For a rejected but trusted controller, send non-null allowed commands
-                            // to keep the connection but prevent interactions with the session.
+                            // Keep connection to rejected trusted controllers. Rejected controller
+                            // can keep the
+                            // connection without available commands. Otherwise, the server will
+                            // fail to retrieve
+                            // session's information to dispatch media keys too.
                             connectionResultToUse =
                                 MediaSession.ConnectionResult.accept(
                                     SessionCommands.EMPTY, Player.Commands.EMPTY);
