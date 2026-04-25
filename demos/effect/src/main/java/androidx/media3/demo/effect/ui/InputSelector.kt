@@ -140,6 +140,8 @@ private fun LocalFileChooser(
   onFileSelected: (List<MediaItem>) -> Unit,
 ) {
   val context = LocalContext.current
+  val canNotOpenFileError = stringResource(R.string.can_not_open_file_error)
+  val permissionNotGrantedError = stringResource(R.string.permission_not_granted_error)
   val localFileChooserLauncher =
     rememberLauncherForActivityResult(
       contract = ActivityResultContracts.OpenDocument(),
@@ -147,7 +149,7 @@ private fun LocalFileChooser(
         if (uri != null) {
           onFileSelected(listOf(MediaItem.fromUri(uri)))
         } else {
-          onException(context.getString(R.string.can_not_open_file_error))
+          onException(canNotOpenFileError)
         }
       },
     )
@@ -158,7 +160,7 @@ private fun LocalFileChooser(
         if (isGranted) {
           localFileChooserLauncher.launch(arrayOf("video/*"))
         } else {
-          onException(context.getString(R.string.permission_not_granted_error))
+          onException(permissionNotGrantedError)
         }
       },
     )

@@ -23,7 +23,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
@@ -413,9 +413,6 @@ class ProgressStateWithTickCountTest {
       player.setPosition(10_000)
       player.setBufferedPositionMs(10_000)
       composeTestRule.waitForIdle()
-      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
-      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
-      testScheduler.runCurrent()
 
       // Check state before change to ENDED
       assertThat(state.currentPositionProgress).isEqualTo(1f)
@@ -428,9 +425,6 @@ class ProgressStateWithTickCountTest {
       assertThat(state.bufferedPositionProgress).isEqualTo(1f)
 
       composeTestRule.waitForIdle()
-      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
-      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
-      testScheduler.runCurrent()
 
       // After completing any pending updates to ensure the main thread is not blocked.
       assertThat(state.currentPositionProgress).isEqualTo(1f)

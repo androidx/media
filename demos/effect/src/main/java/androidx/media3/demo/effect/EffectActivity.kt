@@ -150,10 +150,9 @@ class EffectActivity : ComponentActivity() {
   @OptIn(UnstableApi::class)
   @Composable
   private fun EffectControls(enabled: Boolean, onApplyEffectsClicked: (List<Effect>) -> Unit) {
+    val initialLottieOverlayName = stringResource(R.string.lottie_effect_name_counter)
     var effectControlsState by remember {
-      mutableStateOf(
-        EffectControlsState(lottieOverlayName = getString(R.string.lottie_effect_name_counter))
-      )
+      mutableStateOf(EffectControlsState(lottieOverlayName = initialLottieOverlayName))
     }
 
     Button(

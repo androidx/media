@@ -26,10 +26,10 @@ androidxAppCompatVersion = "1.6.1"
 androidxCollectionVersion = "1.2.0"
 # Remove non-bom version numbers of androidxCompose* once b/385138624 is fixed
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
-androidxComposeBomVersion = "2024.12.01"
-androidxComposeFoundation = "1.7.6"
-androidxComposeMaterial3 = "1.3.1"
-androidxComposeMaterial3Adaptive = "1.0.0"
+androidxComposeBomVersion = "2026.04.01"
+androidxComposeFoundation = "1.11.0"
+androidxComposeMaterial3 = "1.4.0"
+androidxComposeMaterial3Adaptive = "1.2.0"
 androidxConcurrentFuturesVersion = "1.2.0"
 androidxConstraintLayoutVersion = "2.1.4"
 androidxCoreVersion = "1.8.0"
@@ -93,6 +93,8 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-collection = { group = "androidx.collection", name = "collection", version.ref = "androidxCollectionVersion" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBomVersion" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "androidxComposeFoundation" }
+# Consider removing it, only used in demos, https://developer.android.com/develop/ui/compose/graphics/images/material explains the migration
+androidx-compose-material-icons-core = { group = "androidx.compose.material", name="material-icons-core", version.ref = "androidxComposeMaterial3" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "androidxComposeMaterial3" }
 androidx-compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "androidxComposeMaterial3Adaptive" }
 androidx-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "androidxComposeMaterial3Adaptive" }
