@@ -89,11 +89,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
   /**
    * The session that provides the notification the foreground service is started with, or null if
-   * the service is not in foreground at the moment. Each service can only have one foreground
-   * notification, so we have to switch this around as needed if we have multiple sessions.
+   * the service is not in foreground at the moment. Each service must have exactly one foreground
+   * service notification as long as it is in foreground, so we have to switch this around as needed
+   * if we have multiple sessions.
    */
   @GuardedBy("#lock")
-  private @Nullable MediaSession foregroundSession;
+  private @Nullable MediaSession foregroundNotificationSession;
 
   @GuardedBy("#lock")
   private boolean isUserEngaged;
@@ -307,7 +308,7 @@ import java.util.concurrent.atomic.AtomicInteger;
   // This method can be called on any thread.
   public boolean isStartedInForeground() {
     synchronized (lock) {
-      return foregroundSession != null;
+      return foregroundNotificationSession != null;
     }
   }
 
@@ -721,14 +722,14 @@ import java.util.concurrent.atomic.AtomicInteger;
   private boolean startForeground(MediaSession session, MediaNotification newMediaNotification) {
     MediaNotification mediaNotification;
     boolean hasOtherForegroundSession;
-    if (foregroundSession != null && foregroundSession != session) {
-      // If we would use the newly updated notification, the old foreground session's notification
+    if (foregroundNotificationSession != null && foregroundNotificationSession != session) {
+      // If we used the newly updated notification, the old foreground session's notification
       // would be canceled by the system because the service switched to another foreground service
       // notification. However, we don't want to cancel it, so we just keep using the old session's
       // notification as long as we can, and post our new notification as normal notification.
       // We still need to call startForeground() in any case to avoid
       // ForegroundServiceDidNotStartInTimeException.
-      mediaNotification = checkNotNull(mediaNotifications.get(foregroundSession));
+      mediaNotification = checkNotNull(mediaNotifications.get(foregroundNotificationSession));
       hasOtherForegroundSession = true;
     } else {
       mediaNotification = newMediaNotification;
@@ -750,11 +751,11 @@ import java.util.concurrent.atomic.AtomicInteger;
       throw e;
     }
     if (hasOtherForegroundSession) {
-      // startForeground() normally does this, but as we passed another notification to it, we have
-      // to do it manually here.
+      // startForeground() does this, but because we passed another notification to it, we have to
+      // do it manually here.
       notify(newMediaNotification);
     } else {
-      foregroundSession = session;
+      foregroundNotificationSession = session;
     }
     return true;
   }
@@ -762,18 +763,33 @@ import java.util.concurrent.atomic.AtomicInteger;
   @GuardedBy("#lock")
   private void stopForeground(
       MediaSession session, boolean removeNotifications, boolean startInForegroundRequired) {
-    if (foregroundSession != session) {
-      // This happens if there is another session in foreground since before this session wanted to
-      // go in the foreground. As this other session still wants to be in the foreground, we don't
-      // need to stop the foreground service. cancel() will be called by the caller if
-      // removeNotifications is true, so we don't need to do anything here.
-      return;
-    }
-    foregroundSession = null;
     if (startInForegroundRequired) {
-      // If we shouldn't show a notification for this session anymore, but there's another session
-      // and it wants to stay in foreground, we have to change the foreground service notification
-      // to the other session.
+      // There is another session that wants to stay in the foreground, so we won't need to stop the
+      // foreground service. The only question is whether we change the notification used by the
+      // foreground service or not.
+      if (foregroundNotificationSession != session) {
+        // The foreground service notification is provided by another session, so we don't need to
+        // do anything here.
+        return;
+      }
+      if (!removeNotifications) {
+        // We want to keep this session's notification, but the session doesn't need foreground
+        // service anymore. We have two options:
+        // 1. Call startForeground() on another session to cancel this session's notification (not
+        //    desired) and change the service notification (desired), or
+        // 2. Do nothing.
+        // Because the user will notice if the notification dis- and reappears, we will do nothing
+        // here. It's okay to provide the foreground service notification from a session which
+        // doesn't want to be in foreground because which notification allows this service to stay
+        // in foreground is not displayed to the user. Hence, we don't need to do anything.
+        return;
+      }
+    }
+    foregroundNotificationSession = null;
+    if (startInForegroundRequired) {
+      // We shouldn't show a notification for this session anymore and hence must remove the current
+      // foreground service notification, but there's another session which wants to stay in
+      // foreground. We'll have to change the foreground service notification to the other session.
       List<MediaSession> sessions = mediaSessionService.getSessions();
       for (MediaSession candidateSession : sessions) {
         // Just take the first one willing to show a notification, it doesn't matter which one.
@@ -781,12 +797,8 @@ import java.util.concurrent.atomic.AtomicInteger;
           // Because we are already a foreground service, this should not fail.
           startForeground(candidateSession, checkNotNull(mediaNotifications.get(candidateSession)));
           // When calling startForeground() with a different notification ID, the old notification
-          // will be canceled by the system. It's an unfortunate limitation of the API we can't do
-          // anything about. Hence, if removeNotifications is false, we have to send the
-          // notification out again using notify() as we didn't want it to be canceled.
-          if (!removeNotifications) {
-            notify(checkNotNull(mediaNotifications.get(session)));
-          }
+          // will be canceled by the system, so we are done. (Even if that doesn't work, the caller
+          // will call cancel() to make sure the notification is removed.)
           return;
         }
       }
