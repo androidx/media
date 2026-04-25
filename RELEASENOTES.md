@@ -120,6 +120,8 @@
         decryption to run serially which prevented garbled video due to a
         framework issue existing prior to API 31.
 *   Text:
+    *   TTML: Fallback to `displayAlign` from `style` for regions
+        ([#2559](https://github.com/androidx/media/issues/2559)).
 *   Metadata:
 *   Image:
 *   DataSource:
