@@ -13,8 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="androidx.media3.exoplayer.ima">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-sdk />
   <application>
     <meta-data android:name="com.google.android.gms.ads.AD_MANAGER_APP"
