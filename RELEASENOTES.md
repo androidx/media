@@ -53,6 +53,9 @@
         `DefaultBandwidthMeter.Builder.setInitialBitrateSupplier()`.
     *   Enable dynamic scheduling by default. `ExoPlayer` playback work loop
         will run dynamically as opposed to on a static interval.
+    *   Add a descriptive error message when `MediaSource` is prepared on a
+        different looper than it was originally bound to, making this previously
+        silent 1004 failure easier to diagnose.
 *   CompositionPlayer:
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.

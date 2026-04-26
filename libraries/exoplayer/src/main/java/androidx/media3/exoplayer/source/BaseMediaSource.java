@@ -265,7 +265,13 @@ public abstract class BaseMediaSource implements MediaSource {
   public final void prepareSource(
       MediaSourceCaller caller, PlayerId playerId, BandwidthMeter bandwidthMeter) {
     Looper looper = Looper.myLooper();
-    checkArgument(this.looper == null || this.looper == looper);
+    checkArgument(
+        this.looper == null || this.looper == looper,
+        "MediaSource already bound to looper %s, cannot prepare on looper %s. "
+            + "Use ExoPlayer.Builder.setPlaybackLooper() to share a looper across players, "
+            + "or create a separate MediaSource per player.",
+        this.looper,
+        looper);
     this.playerId = playerId;
     this.bandwidthMeter = bandwidthMeter;
     @Nullable Timeline timeline = this.timeline;
