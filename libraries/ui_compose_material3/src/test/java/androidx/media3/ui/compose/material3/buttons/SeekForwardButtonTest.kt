@@ -18,56 +18,55 @@ package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player.COMMAND_SEEK_FORWARD
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [SeekForwardButton]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class SeekForwardButtonTest {
 
-  @get:Rule val composeRule = createComposeRule()
-
   @Test
-  fun onClick_callsSeekForward() {
+  fun onClick_callsSeekForward() = runComposeUiTest {
     val player =
       FakePlayer(playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build()))
     player.setSeekForwardIncrementMs(1_000)
-    composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
+    setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    onNodeWithTag("seekForwardButton").performClick()
 
     assertThat(player.currentPosition).isEqualTo(1_000)
   }
 
   @Test
-  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
+  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() = runComposeUiTest {
     val player = FakePlayer()
     player.removeCommands(COMMAND_SEEK_FORWARD)
 
-    composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
+    setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    onNodeWithTag("seekForwardButton").performClick()
 
-    composeRule.onNodeWithTag("seekForwardButton").assertIsNotEnabled()
+    onNodeWithTag("seekForwardButton").assertIsNotEnabled()
     assertThat(player.currentPosition).isEqualTo(0)
   }
 
   @Test
-  fun customizeContentDescription() {
+  fun customizeContentDescription() = runComposeUiTest {
     val player = FakePlayer()
 
-    composeRule.setContent {
+    setContent {
       SeekForwardButton(
         player,
         Modifier.testTag("seekForwardButton"),
@@ -75,15 +74,15 @@ class SeekForwardButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Go Forward")
+    onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Go Forward")
   }
 
   @Test
-  fun customizeOnClick() {
+  fun customizeOnClick() = runComposeUiTest {
     val player =
       FakePlayer(playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build()))
     var onClickCalled = false
-    composeRule.setContent {
+    setContent {
       SeekForwardButton(
         player,
         Modifier.testTag("seekForwardButton"),
@@ -94,7 +93,7 @@ class SeekForwardButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    onNodeWithTag("seekForwardButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

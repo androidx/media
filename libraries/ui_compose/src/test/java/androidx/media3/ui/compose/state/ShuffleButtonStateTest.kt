@@ -20,14 +20,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -39,21 +39,20 @@ import org.robolectric.shadows.ShadowLooper
 
 /** Unit test for [ShuffleButtonState]. */
 @RunWith(AndroidJUnit4::class)
+@OptIn(ExperimentalTestApi::class)
 class ShuffleButtonStateTest {
 
-  @get:Rule val composeTestRule = createComposeRule()
-
   @Test
-  fun playerShuffleModeChanged_buttonShuffleModeChanged() {
+  fun playerShuffleModeChanged_buttonShuffleModeChanged() = runComposeUiTest {
     val player = FakePlayer()
 
     lateinit var state: ShuffleButtonState
-    composeTestRule.setContent { state = rememberShuffleButtonState(player = player) }
+    setContent { state = rememberShuffleButtonState(player = player) }
 
     assertThat(state.shuffleOn).isFalse()
 
     player.shuffleModeEnabled = true
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.shuffleOn).isTrue()
   }
@@ -83,29 +82,29 @@ class ShuffleButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_isNoOp() {
+  fun onClick_stateBecomesDisabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: ShuffleButtonState
-    composeTestRule.setContent { state = rememberShuffleButtonState(spyPlayer) }
+    setContent { state = rememberShuffleButtonState(spyPlayer) }
 
-    player.removeCommands(Player.COMMAND_SET_SHUFFLE_MODE)
-    composeTestRule.waitForIdle()
+    player.removeCommands(COMMAND_SET_SHUFFLE_MODE)
+    waitForIdle()
     state.onClick()
 
     verify(spyPlayer, never()).setShuffleModeEnabled(anyBoolean())
   }
 
   @Test
-  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.shuffleModeEnabled = true
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: ShuffleButtonState
-    composeTestRule.setContent { state = rememberShuffleButtonState(spyPlayer) }
+    setContent { state = rememberShuffleButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
-    player.removeCommands(Player.COMMAND_SET_SHUFFLE_MODE)
+    player.removeCommands(COMMAND_SET_SHUFFLE_MODE)
     check(state.isEnabled)
     state.onClick()
 
@@ -113,63 +112,65 @@ class ShuffleButtonStateTest {
   }
 
   @Test
-  fun playerSetShuffleModeAndOnClick_inTheSameHandlerMessage_uiStateSynchronises() {
-    // The UDF model of Compose relies on holding the Player as the single source of truth with
-    // ShuffleButtonState changing its state in sync with the relevant Player events. This means
-    // that we should never find ourselves in a situation where a button's icon (here: determined by
-    // ShuffleButtonState.shuffleOn) is out of sync with the Player's shuffle mode. It can cause
-    // confusion for a human user whose intent to toggle the mode will not be fulfilled. The
-    // following test tries to simulate this scenario by squeezing the 2 actions together (setter +
-    // onClick) into a single Looper iteration. This is a practically unlikely scenario for a human
-    // user's tapping to race with a programmatic change to the Player.
+  fun playerSetShuffleModeAndOnClick_inTheSameHandlerMessage_uiStateSynchronises() =
+    runComposeUiTest {
+      // The UDF model of Compose relies on holding the Player as the single source of truth with
+      // ShuffleButtonState changing its state in sync with the relevant Player events. This means
+      // that we should never find ourselves in a situation where a button's icon (here: determined
+      // by ShuffleButtonState.shuffleOn) is out of sync with the Player's shuffle mode. It can
+      // cause confusion for a human user whose intent to toggle the mode will not be fulfilled. The
+      // following test tries to simulate this scenario by squeezing the 2 actions together (setter
+      // + onClick) into a single Looper iteration. This is a practically unlikely scenario for a
+      // human user's tapping to race with a programmatic change to the Player.
 
-    // However, it is possible to achieve by changing the Player and straight away programmatically
-    // invoking the tapping operation (via the ButtonState object) that internally sends an inverse
-    // setting command to the Player in its new configuration (the onEvents message here is
-    // irrelevant because we are operating on the live mutable Player object). The expectation then
-    // is that the State object and Player finally synchronise, even if it means the UI interaction
-    // would have been confusing.
-    val player = FakePlayer()
-    lateinit var state: ShuffleButtonState
-    composeTestRule.setContent { state = rememberShuffleButtonState(player = player) }
-    assertThat(state.shuffleOn).isFalse() // Correct UI state in sync with Player
+      // However, it is possible to achieve by changing the Player and straight away
+      // programmatically invoking the tapping operation (via the ButtonState object) that
+      // internally sends an inverse setting command to the Player in its new configuration (the
+      // onEvents message here is irrelevant because we are operating on the live mutable Player
+      // object). The expectation then is that the State object and Player finally synchronise, even
+      // if it means the UI interaction had been confusing.
+      val player = FakePlayer()
+      lateinit var state: ShuffleButtonState
+      setContent { state = rememberShuffleButtonState(player = player) }
+      assertThat(state.shuffleOn).isFalse() // Correct UI state in sync with Player
 
-    player.shuffleModeEnabled = true
-    // pretend like State didn't catch the EVENT in observe() by omitting
-    // ShadowLooper.idleMainLooper()
-    assertThat(state.shuffleOn).isFalse() // Temporarily out-of-sync incorrect UI
-    // A click operated on Player's true state at the time (= Shuffle On)
-    // A potential human user would have the intention of toggling Off->On
-    // But this is a programmatic user who had just set the mode and hence expects the reverse
-    // On->Off
-    state.onClick()
-    ShadowLooper.idleMainLooper()
+      player.shuffleModeEnabled = true
+      // pretend like State didn't catch the EVENT in observe() by omitting
+      // ShadowLooper.idleMainLooper()
+      assertThat(state.shuffleOn).isFalse() // Temporarily out-of-sync incorrect UI
+      // A click operated on Player's true state at the time (= Shuffle On)
+      // A potential human user would have the intention of toggling Off->On
+      // But this is a programmatic user who had just set the mode and hence expects the reverse
+      // On->Off
+      state.onClick()
+      ShadowLooper.idleMainLooper()
 
-    assertThat(player.shuffleModeEnabled).isFalse()
-    assertThat(state.shuffleOn).isFalse() // UI state synchronises with Player
-  }
-
-  @Test
-  fun playerChangesShuffleModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = FakePlayer()
-
-    lateinit var state: ShuffleButtonState
-    composeTestRule.setContent {
-      // Schedule LaunchedEffect to update player state before ShuffleButtonState is created.
-      // This update could end up being executed *before* ShuffleButtonState schedules the start of
-      // event listening and we don't want to lose it.
-      LaunchedEffect(player) { player.shuffleModeEnabled = !player.shuffleModeEnabled }
-      state = rememberShuffleButtonState(player)
+      assertThat(player.shuffleModeEnabled).isFalse()
+      assertThat(state.shuffleOn).isFalse() // UI state synchronises with Player
     }
 
-    // UI syncs up with the fact that shuffle mode got flipped to true
-    assertThat(state.shuffleOn).isTrue()
-  }
+  @Test
+  fun playerChangesShuffleModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() =
+    runComposeUiTest {
+      val player = FakePlayer()
+
+      lateinit var state: ShuffleButtonState
+      setContent {
+        // Schedule LaunchedEffect to update player state before ShuffleButtonState is created.
+        // This update could end up being executed *before* ShuffleButtonState schedules the start
+        // of event listening, and we don't want to lose it.
+        LaunchedEffect(player) { player.shuffleModeEnabled = !player.shuffleModeEnabled }
+        state = rememberShuffleButtonState(player)
+      }
+
+      // UI syncs up with the fact that shuffle mode got flipped to true
+      assertThat(state.shuffleOn).isTrue()
+    }
 
   @Test
-  fun nullPlayer_buttonStateIsDisabled() {
+  fun nullPlayer_buttonStateIsDisabled() = runComposeUiTest {
     lateinit var state: ShuffleButtonState
-    composeTestRule.setContent { state = rememberShuffleButtonState(player = null) }
+    setContent { state = rememberShuffleButtonState(player = null) }
 
     assertThat(state.isEnabled).isFalse()
     assertThat(state.shuffleOn).isFalse()
@@ -184,25 +185,25 @@ class ShuffleButtonStateTest {
   }
 
   @Test
-  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: ShuffleButtonState
     lateinit var isPlayerNull: MutableState<Boolean>
-    composeTestRule.setContent {
+    setContent {
       isPlayerNull = remember { mutableStateOf(false) }
       state = rememberShuffleButtonState(player = if (isPlayerNull.value) null else player)
     }
     assertThat(state.isEnabled).isTrue()
 
     isPlayerNull.value = true
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
     assertThat(state.shuffleOn).isFalse()
 
     isPlayerNull.value = false
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
     assertThat(state.shuffleOn).isFalse()

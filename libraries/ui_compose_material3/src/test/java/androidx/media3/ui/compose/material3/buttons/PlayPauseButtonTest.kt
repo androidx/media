@@ -18,93 +18,92 @@ package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player.COMMAND_PLAY_PAUSE
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [PlayPauseButton]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PlayPauseButtonTest {
 
-  @get:Rule val composeRule = createComposeRule()
-
   @Test
-  fun onClick_callsPlay() {
+  fun onClick_callsPlay() = runComposeUiTest {
     val player =
       FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
-    composeRule.setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
+    setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
 
-    composeRule.onNodeWithTag("ppButton").performClick()
+    onNodeWithTag("ppButton").performClick()
 
     assertThat(player.isPlaying).isTrue()
   }
 
   @Test
-  fun onClick_callsPause() {
+  fun onClick_callsPause() = runComposeUiTest {
     val player =
       FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = true,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
-    composeRule.setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
+    setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
 
-    composeRule.onNodeWithTag("ppButton").performClick()
+    onNodeWithTag("ppButton").performClick()
 
     assertThat(player.isPlaying).isFalse()
   }
 
   @Test
-  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
+  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() = runComposeUiTest {
     val player = FakePlayer()
     player.removeCommands(COMMAND_PLAY_PAUSE)
-    composeRule.setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
+    setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
 
-    composeRule.onNodeWithTag("ppButton").performClick()
+    onNodeWithTag("ppButton").performClick()
 
-    composeRule.onNodeWithTag("ppButton").assertIsNotEnabled()
+    onNodeWithTag("ppButton").assertIsNotEnabled()
     assertThat(player.isPlaying).isFalse()
   }
 
   @Test
-  fun customizeContentDescription() {
+  fun customizeContentDescription() = runComposeUiTest {
     val player =
       FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
-    composeRule.setContent {
+    setContent {
       PlayPauseButton(
         player,
         Modifier.testTag("ppButton"),
         contentDescription = { if (showPlay) "Triangle" else "Bars" },
       )
     }
-    composeRule.onNodeWithTag("ppButton").assertContentDescriptionEquals("Triangle")
+    onNodeWithTag("ppButton").assertContentDescriptionEquals("Triangle")
 
-    composeRule.onNodeWithTag("ppButton").performClick()
+    onNodeWithTag("ppButton").performClick()
 
-    composeRule.onNodeWithTag("ppButton").assertContentDescriptionEquals("Bars")
+    onNodeWithTag("ppButton").assertContentDescriptionEquals("Bars")
   }
 
   @Test
-  fun customizeOnClick() {
+  fun customizeOnClick() = runComposeUiTest {
     val player =
       FakePlayer(
         playbackState = STATE_READY,
@@ -112,7 +111,7 @@ class PlayPauseButtonTest {
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
     var onClickCalled = false
-    composeRule.setContent {
+    setContent {
       PlayPauseButton(
         player,
         Modifier.testTag("ppButton"),
@@ -123,7 +122,7 @@ class PlayPauseButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("ppButton").performClick()
+    onNodeWithTag("ppButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

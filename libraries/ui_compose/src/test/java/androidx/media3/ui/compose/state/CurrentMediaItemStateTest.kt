@@ -16,7 +16,8 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -26,20 +27,18 @@ import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [CurrentMediaItemState]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class CurrentMediaItemStateTest {
 
-  @get:Rule val composeTestRule = createComposeRule()
-
   @Test
-  fun initialState_withNullPlayer_hasDefaultValues() {
+  fun initialState_withNullPlayer_hasDefaultValues() = runComposeUiTest {
     lateinit var state: CurrentMediaItemState
-    composeTestRule.setContent { state = rememberCurrentMediaItemState(player = null) }
+    setContent { state = rememberCurrentMediaItemState(player = null) }
 
     assertThat(state.mediaItem).isNull()
     assertThat(state.mediaMetadata).isEqualTo(MediaMetadata.EMPTY)
@@ -48,7 +47,7 @@ class CurrentMediaItemStateTest {
   }
 
   @Test
-  fun playerWithItem_updatesStateCorrectly() {
+  fun playerWithItem_updatesStateCorrectly() = runComposeUiTest {
     val testMediaMetadata = MediaMetadata.Builder().setTitle("Test Title").build()
     val player =
       FakePlayer(
@@ -61,7 +60,7 @@ class CurrentMediaItemStateTest {
           )
       )
     lateinit var state: CurrentMediaItemState
-    composeTestRule.setContent { state = rememberCurrentMediaItemState(player = player) }
+    setContent { state = rememberCurrentMediaItemState(player = player) }
 
     assertThat(state.mediaMetadata).isEqualTo(testMediaMetadata)
     assertThat(state.isLive).isFalse()
@@ -69,7 +68,7 @@ class CurrentMediaItemStateTest {
   }
 
   @Test
-  fun playerMetadataChange_updatesMetadata() {
+  fun playerMetadataChange_updatesMetadata() = runComposeUiTest {
     val initialMetadata = MediaMetadata.Builder().setTitle("Initial").build()
     val updatedMetadata = MediaMetadata.Builder().setTitle("Updated").build()
     val player =
@@ -81,18 +80,18 @@ class CurrentMediaItemStateTest {
           )
       )
     lateinit var state: CurrentMediaItemState
-    composeTestRule.setContent { state = rememberCurrentMediaItemState(player = player) }
+    setContent { state = rememberCurrentMediaItemState(player = player) }
 
     assertThat(state.mediaMetadata).isEqualTo(initialMetadata)
 
     player.seekToNext()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.mediaMetadata).isEqualTo(updatedMetadata)
   }
 
   @Test
-  fun playerLiveState_updatesStateCorrectly() {
+  fun playerLiveState_updatesStateCorrectly() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -110,15 +109,14 @@ class CurrentMediaItemStateTest {
           )
       )
     lateinit var state: CurrentMediaItemState
-    composeTestRule.setContent { state = rememberCurrentMediaItemState(player = player) }
-    composeTestRule.waitForIdle()
+    setContent { state = rememberCurrentMediaItemState(player = player) }
 
     assertThat(state.isLive).isTrue()
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
   }
 
   @Test
-  fun commandChanges_updateProperties() {
+  fun commandChanges_updateProperties() = runComposeUiTest {
     val testMediaMetadata = MediaMetadata.Builder().setTitle("Test Title").build()
     val player =
       FakePlayer(
@@ -131,28 +129,28 @@ class CurrentMediaItemStateTest {
           )
       )
     lateinit var state: CurrentMediaItemState
-    composeTestRule.setContent { state = rememberCurrentMediaItemState(player = player) }
+    setContent { state = rememberCurrentMediaItemState(player = player) }
 
     assertThat(state.durationMs).isEqualTo(1000)
     assertThat(state.mediaMetadata).isEqualTo(testMediaMetadata)
 
     // Remove metadata access, but not media item
     player.removeCommands(Player.COMMAND_GET_METADATA)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.durationMs).isEqualTo(1000)
     assertThat(state.mediaMetadata).isEqualTo(MediaMetadata.EMPTY)
 
     // Both are removed
     player.removeCommands(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
     assertThat(state.mediaMetadata).isEqualTo(MediaMetadata.EMPTY)
 
     // Both are added back
     player.addCommands(Player.COMMAND_GET_CURRENT_MEDIA_ITEM, Player.COMMAND_GET_METADATA)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.durationMs).isEqualTo(1000)
     assertThat(state.mediaMetadata).isEqualTo(testMediaMetadata)

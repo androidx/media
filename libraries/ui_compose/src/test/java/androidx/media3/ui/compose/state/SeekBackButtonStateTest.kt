@@ -20,14 +20,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -36,37 +36,36 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 
 /** Unit test for [SeekBackButtonState]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class SeekBackButtonStateTest {
 
-  @get:Rule val composeTestRule = createComposeRule()
-
   @Test
-  fun addSeekBackCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
+  fun addSeekBackCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_BACK)
 
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
+    setContent { state = rememberSeekBackButtonState(player = player) }
 
     assertThat(state.isEnabled).isFalse()
 
     player.addCommands(Player.COMMAND_SEEK_BACK)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
   }
 
   @Test
-  fun removeSeekBackCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
+  fun removeSeekBackCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
+    setContent { state = rememberSeekBackButtonState(player = player) }
 
     assertThat(state.isEnabled).isTrue()
 
     player.removeCommands(Player.COMMAND_SEEK_BACK)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
   }
@@ -85,27 +84,27 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_isNoOp() {
+  fun onClick_stateBecomesDisabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(spyPlayer) }
+    setContent { state = rememberSeekBackButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_SEEK_BACK)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     state.onClick()
 
     verify(spyPlayer, never()).seekBack()
   }
 
   @Test
-  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.playWhenReady = false
     player.setPosition(1000)
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(spyPlayer) }
+    setContent { state = rememberSeekBackButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_SEEK_BACK)
@@ -116,16 +115,16 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun playerChangeSeekBackIncrement_buttonStateGetsUpdatedValue() {
+  fun playerChangeSeekBackIncrement_buttonStateGetsUpdatedValue() = runComposeUiTest {
     val player = FakePlayer()
 
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
+    setContent { state = rememberSeekBackButtonState(player = player) }
 
     assertThat(state.seekBackAmountMs).isEqualTo(C.DEFAULT_SEEK_BACK_INCREMENT_MS)
 
     player.setSeekBackIncrementMs(1_230)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.seekBackAmountMs).isEqualTo(1_230)
   }
@@ -158,26 +157,28 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = FakePlayer()
+  fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() =
+    runComposeUiTest {
+      val player = FakePlayer()
 
-    lateinit var state: SeekBackButtonState
-    composeTestRule.setContent {
-      // Schedule LaunchedEffect to update player state before SeekBackButtonState is created.
-      // This update could end up being executed *before* SeekBackButtonState schedules the start of
-      // event listening and we don't want to lose it.
-      LaunchedEffect(player) { player.removeCommands(Player.COMMAND_SEEK_BACK) }
-      state = rememberSeekBackButtonState(player = player)
+      lateinit var state: SeekBackButtonState
+      setContent {
+        // Schedule LaunchedEffect to update player state before SeekBackButtonState is created.
+        // This update could end up being executed *before* SeekBackButtonState schedules the start
+        // of
+        // event listening and we don't want to lose it.
+        LaunchedEffect(player) { player.removeCommands(Player.COMMAND_SEEK_BACK) }
+        state = rememberSeekBackButtonState(player = player)
+      }
+
+      // UI syncs up with the fact that SeekBackButton is now disabled
+      assertThat(state.isEnabled).isFalse()
     }
 
-    // UI syncs up with the fact that SeekBackButton is now disabled
-    assertThat(state.isEnabled).isFalse()
-  }
-
   @Test
-  fun nullPlayer_buttonStateIsDisabled() {
+  fun nullPlayer_buttonStateIsDisabled() = runComposeUiTest {
     lateinit var state: SeekBackButtonState
-    composeTestRule.setContent { state = rememberSeekBackButtonState(player = null) }
+    setContent { state = rememberSeekBackButtonState(player = null) }
 
     assertThat(state.isEnabled).isFalse()
     assertThat(state.seekBackAmountMs).isEqualTo(0)
@@ -192,25 +193,25 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: SeekBackButtonState
     lateinit var isPlayerNull: MutableState<Boolean>
-    composeTestRule.setContent {
+    setContent {
       isPlayerNull = remember { mutableStateOf(false) }
       state = rememberSeekBackButtonState(player = if (isPlayerNull.value) null else player)
     }
     assertThat(state.isEnabled).isTrue()
 
     isPlayerNull.value = true
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
     assertThat(state.seekBackAmountMs).isEqualTo(0)
 
     isPlayerNull.value = false
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
     assertThat(state.seekBackAmountMs).isEqualTo(C.DEFAULT_SEEK_BACK_INCREMENT_MS)

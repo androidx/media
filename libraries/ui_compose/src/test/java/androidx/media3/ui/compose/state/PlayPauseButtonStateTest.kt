@@ -20,7 +20,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
@@ -28,7 +29,6 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.AdditionalAnswers.delegatesTo
@@ -37,37 +37,36 @@ import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 
 /** Unit test for [PlayPauseButtonState]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PlayPauseButtonStateTest {
 
-  @get:Rule val composeTestRule = createComposeRule()
-
   @Test
-  fun playerIsBuffering_pausePlayer_playIconShowing() {
+  fun playerIsBuffering_pausePlayer_playIconShowing() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_BUFFERING
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
+    setContent { state = rememberPlayPauseButtonState(player = player) }
 
     assertThat(state.showPlay).isFalse()
 
     player.pause()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.showPlay).isTrue()
   }
 
   @Test
-  fun playerIsIdling_preparePlayer_pauseIconShowing() {
+  fun playerIsIdling_preparePlayer_pauseIconShowing() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_IDLE
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
+    setContent { state = rememberPlayPauseButtonState(player = player) }
 
     assertThat(state.showPlay).isTrue()
 
     player.prepare()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.showPlay).isFalse()
   }
@@ -168,14 +167,14 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabled_isNoOp() {
+  fun onClick_stateBecomesDisabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(spyPlayer) }
+    setContent { state = rememberPlayPauseButtonState(spyPlayer) }
 
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     state.onClick()
 
     verify(spyPlayer, never()).play()
@@ -183,11 +182,11 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     val spyPlayer = mock(Player::class.java, delegatesTo<Player>(player))
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(spyPlayer) }
+    setContent { state = rememberPlayPauseButtonState(spyPlayer) }
 
     // Simulate command becoming disabled without yet receiving the event callback
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
@@ -199,17 +198,17 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun addPlayPauseCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
+  fun addPlayPauseCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
 
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
+    setContent { state = rememberPlayPauseButtonState(player = player) }
 
     assertThat(state.isEnabled).isFalse()
 
     player.addCommands(Player.COMMAND_PLAY_PAUSE)
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
   }
@@ -265,28 +264,30 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun playerIsScheduledToPlayBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = createReadyPlayerWithTwoItems()
-    player.playbackState = Player.STATE_BUFFERING
+  fun playerIsScheduledToPlayBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() =
+    runComposeUiTest {
+      val player = createReadyPlayerWithTwoItems()
+      player.playbackState = Player.STATE_BUFFERING
 
-    lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent {
-      // Schedule LaunchedEffect to update player state before PlayPauseButtonState is created.
-      // This update could end up being executed *before* PlayPauseButtonState schedules the start
-      // of event listening and we don't want to lose it.
-      LaunchedEffect(player) { player.play() }
-      state = rememberPlayPauseButtonState(player = player)
+      lateinit var state: PlayPauseButtonState
+      setContent {
+        // Schedule LaunchedEffect to update player state before PlayPauseButtonState is created.
+        // This update could end up being executed *before* PlayPauseButtonState schedules the start
+        // of event listening and we don't want to lose it.
+        LaunchedEffect(player) { player.play() }
+        state = rememberPlayPauseButtonState(player = player)
+      }
+
+      // UI catches up with the fact that player.play() happened because observe() started by
+      // getting
+      // the most recent values
+      assertThat(state.showPlay).isFalse()
     }
 
-    // UI catches up with the fact that player.play() happened because observe() started by getting
-    // the most recent values
-    assertThat(state.showPlay).isFalse()
-  }
-
   @Test
-  fun nullPlayer_buttonStateIsDisabled() {
+  fun nullPlayer_buttonStateIsDisabled() = runComposeUiTest {
     lateinit var state: PlayPauseButtonState
-    composeTestRule.setContent { state = rememberPlayPauseButtonState(player = null) }
+    setContent { state = rememberPlayPauseButtonState(player = null) }
 
     assertThat(state.isEnabled).isFalse()
   }
@@ -300,24 +301,24 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() {
+  fun playerBecomesNullRoundTrip_buttonStateBecomesDisabledAndEnabled() = runComposeUiTest {
     val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: PlayPauseButtonState
     lateinit var isPlayerNull: MutableState<Boolean>
-    composeTestRule.setContent {
+    setContent {
       isPlayerNull = remember { mutableStateOf(false) }
       state = rememberPlayPauseButtonState(player = if (isPlayerNull.value) null else player)
     }
     assertThat(state.isEnabled).isTrue()
 
     isPlayerNull.value = true
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
 
     isPlayerNull.value = false
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.isEnabled).isTrue()
   }

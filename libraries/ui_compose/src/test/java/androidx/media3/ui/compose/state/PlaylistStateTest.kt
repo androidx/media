@@ -16,7 +16,8 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -26,20 +27,18 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [PlaylistState]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PlaylistStateTest {
 
-  @get:Rule val composeTestRule = createComposeRule()
-
   @Test
-  fun initialState_withNullPlayer_hasDefaultValues() {
+  fun initialState_withNullPlayer_hasDefaultValues() = runComposeUiTest {
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = null) }
+    setContent { state = rememberPlaylistState(player = null) }
 
     assertThat(state.mediaItemCount).isEqualTo(0)
     assertThat(state.currentMediaItemIndex).isEqualTo(C.INDEX_UNSET)
@@ -47,15 +46,15 @@ class PlaylistStateTest {
   }
 
   @Test
-  fun playerWithItems_updatesStateCorrectly() {
+  fun playerWithItems_updatesStateCorrectly() = runComposeUiTest {
     val mediaItem1 = MediaItem.Builder().setMediaId("id1").build()
     val mediaItem2 = MediaItem.Builder().setMediaId("id2").build()
     val player = FakePlayer()
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     player.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.mediaItemCount).isEqualTo(2)
     assertThat(state.currentMediaItemIndex).isEqualTo(0)
@@ -64,15 +63,15 @@ class PlaylistStateTest {
   }
 
   @Test
-  fun get_withWrongIndex_throwsIndexOutOfBoundsException() {
+  fun get_withWrongIndex_throwsIndexOutOfBoundsException() = runComposeUiTest {
     val mediaItem1 = MediaItem.Builder().setMediaId("id1").build()
     val mediaItem2 = MediaItem.Builder().setMediaId("id2").build()
     val player = FakePlayer()
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     player.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThrows(IndexOutOfBoundsException::class.java) {
       val unused = state.getMediaItemAt(-1)
@@ -84,77 +83,77 @@ class PlaylistStateTest {
   }
 
   @Test
-  fun playerMetadata_updatesStateCorrectly() {
+  fun playerMetadata_updatesStateCorrectly() = runComposeUiTest {
     val testMediaMetadata = MediaMetadata.Builder().setTitle("Test Title").build()
     val testPlaylistMetadata = MediaMetadata.Builder().setAlbumTitle("Playlist Album").build()
     val mediaItemWithMetadata =
       MediaItem.Builder().setMediaId("id1").setMediaMetadata(testMediaMetadata).build()
     val player = FakePlayer()
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     player.playlistMetadata = testPlaylistMetadata
     player.setMediaItems(ImmutableList.of(mediaItemWithMetadata))
     player.prepare()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     assertThat(state.playlistMetadata).isEqualTo(testPlaylistMetadata)
   }
 
   @Test
-  fun seekToMediaItem_callsPlayerSeekTo() {
+  fun seekToMediaItem_callsPlayerSeekTo() = runComposeUiTest {
     val mediaItem1 = MediaItem.Builder().setMediaId("id1").build()
     val mediaItem2 = MediaItem.Builder().setMediaId("id2").build()
     val player = FakePlayer()
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     player.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2))
     player.prepare()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     state.seekToMediaItem(1)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     assertThat(player.currentMediaItemIndex).isEqualTo(1)
   }
 
   @Test
-  fun seekToMediaItem_withoutCommand_doesNothing() {
+  fun seekToMediaItem_withoutCommand_doesNothing() = runComposeUiTest {
     val mediaItem1 = MediaItem.Builder().setMediaId("id1").build()
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SEEK_TO_MEDIA_ITEM)
     player.addCommands(Player.COMMAND_GET_TIMELINE)
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     player.setMediaItems(ImmutableList.of(mediaItem1))
     player.prepare()
-    composeTestRule.waitForIdle()
+    waitForIdle()
 
     val initialIndex = player.currentMediaItemIndex
     state.seekToMediaItem(0)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     assertThat(player.currentMediaItemIndex).isEqualTo(initialIndex)
   }
 
   @Test
-  fun commandChanges_updateProperties() {
+  fun commandChanges_updateProperties() = runComposeUiTest {
     val mediaItem1 = MediaItem.Builder().setMediaId("id1").build()
     val player = FakePlayer()
     player.setMediaItems(ImmutableList.of(mediaItem1))
     player.prepare()
     player.removeCommands(Player.COMMAND_GET_TIMELINE)
     lateinit var state: PlaylistState
-    composeTestRule.setContent { state = rememberPlaylistState(player = player) }
+    setContent { state = rememberPlaylistState(player = player) }
 
     assertThat(state.mediaItemCount).isEqualTo(0)
 
     player.addCommands(Player.COMMAND_GET_TIMELINE)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     assertThat(state.mediaItemCount).isEqualTo(1)
 
     player.removeCommands(Player.COMMAND_GET_TIMELINE)
-    composeTestRule.waitForIdle()
+    waitForIdle()
     assertThat(state.mediaItemCount).isEqualTo(0)
   }
 }

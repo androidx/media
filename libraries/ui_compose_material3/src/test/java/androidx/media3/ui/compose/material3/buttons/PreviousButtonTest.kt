@@ -18,29 +18,28 @@ package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [PreviousButton]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PreviousButtonTest {
 
-  @get:Rule val composeRule = createComposeRule()
-
   @Test
-  fun onClick_callsPrevious() {
+  fun onClick_callsPrevious() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -51,15 +50,15 @@ class PreviousButtonTest {
       )
     player.seekToNext()
 
-    composeRule.setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
+    setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
 
-    composeRule.onNodeWithTag("previousButton").performClick()
+    onNodeWithTag("previousButton").performClick()
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
   }
 
   @Test
-  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
+  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -71,27 +70,27 @@ class PreviousButtonTest {
     player.seekToNext()
     player.removeCommands(COMMAND_SEEK_TO_PREVIOUS)
 
-    composeRule.setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
+    setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
 
-    composeRule.onNodeWithTag("previousButton").performClick()
+    onNodeWithTag("previousButton").performClick()
 
-    composeRule.onNodeWithTag("previousButton").assertIsNotEnabled()
+    onNodeWithTag("previousButton").assertIsNotEnabled()
     assertThat(player.currentMediaItemIndex).isEqualTo(1)
   }
 
   @Test
-  fun customizeContentDescription() {
+  fun customizeContentDescription() = runComposeUiTest {
     val player = FakePlayer()
 
-    composeRule.setContent {
+    setContent {
       PreviousButton(player, Modifier.testTag("previousButton"), contentDescription = { "Go back" })
     }
 
-    composeRule.onNodeWithTag("previousButton").assertContentDescriptionEquals("Go back")
+    onNodeWithTag("previousButton").assertContentDescriptionEquals("Go back")
   }
 
   @Test
-  fun customizeOnClick() {
+  fun customizeOnClick() = runComposeUiTest {
     val player =
       FakePlayer(
         playbackState = STATE_READY,
@@ -99,7 +98,7 @@ class PreviousButtonTest {
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
     var onClickCalled = false
-    composeRule.setContent {
+    setContent {
       PreviousButton(
         player,
         Modifier.testTag("previousButton"),
@@ -110,7 +109,7 @@ class PreviousButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("previousButton").performClick()
+    onNodeWithTag("previousButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

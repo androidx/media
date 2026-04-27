@@ -18,28 +18,27 @@ package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [NextButton]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class NextButtonTest {
 
-  @get:Rule val composeRule = createComposeRule()
-
   @Test
-  fun onClick_callsNext() {
+  fun onClick_callsNext() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -48,15 +47,15 @@ class NextButtonTest {
             MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
           )
       )
-    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
+    setContent { NextButton(player, Modifier.testTag("nextButton")) }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    onNodeWithTag("nextButton").performClick()
 
     assertThat(player.currentMediaItemIndex).isEqualTo(1)
   }
 
   @Test
-  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
+  fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -67,27 +66,27 @@ class NextButtonTest {
       )
     player.removeCommands(COMMAND_SEEK_TO_NEXT)
 
-    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
+    setContent { NextButton(player, Modifier.testTag("nextButton")) }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    onNodeWithTag("nextButton").performClick()
 
-    composeRule.onNodeWithTag("nextButton").assertIsNotEnabled()
+    onNodeWithTag("nextButton").assertIsNotEnabled()
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
   }
 
   @Test
-  fun customizeContentDescription() {
+  fun customizeContentDescription() = runComposeUiTest {
     val player = FakePlayer()
 
-    composeRule.setContent {
+    setContent {
       NextButton(player, Modifier.testTag("nextButton"), contentDescription = { "Go next" })
     }
 
-    composeRule.onNodeWithTag("nextButton").assertContentDescriptionEquals("Go next")
+    onNodeWithTag("nextButton").assertContentDescriptionEquals("Go next")
   }
 
   @Test
-  fun customizeOnClick() {
+  fun customizeOnClick() = runComposeUiTest {
     val player =
       FakePlayer(
         playlist =
@@ -97,7 +96,7 @@ class NextButtonTest {
           )
       )
     var onClickCalled = false
-    composeRule.setContent {
+    setContent {
       NextButton(
         player,
         Modifier.testTag("nextButton"),
@@ -108,7 +107,7 @@ class NextButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    onNodeWithTag("nextButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

@@ -19,71 +19,71 @@ package androidx.media3.ui.compose.material3.buttons
 import android.content.Context
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Unit test for [PlaybackSpeedToggleButton]. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class PlaybackSpeedButtonTest {
-
-  @get:Rule val composeRule = createComposeRule()
 
   private lateinit var context: Context
 
   @Test
-  fun playbackSpeedToggleButton_noCommandAvailable_disabled() {
+  fun playbackSpeedToggleButton_noCommandAvailable_disabled() = runComposeUiTest {
     val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
-    composeRule.setContent { PlaybackSpeedToggleButton(player, Modifier.testTag("toggle")) }
+    setContent { PlaybackSpeedToggleButton(player, Modifier.testTag("toggle")) }
 
-    composeRule.onNodeWithTag("toggle").assertIsNotEnabled()
+    onNodeWithTag("toggle").assertIsNotEnabled()
   }
 
   @Test
-  fun playbackSpeedToggleButton_cyclesThroughSpeeds() {
+  fun playbackSpeedToggleButton_cyclesThroughSpeeds() = runComposeUiTest {
     val player = FakePlayer()
     val speeds = listOf(1.0f, 2.0f)
-    composeRule.setContent {
+    setContent {
       PlaybackSpeedToggleButton(player, Modifier.testTag("toggle"), speedSelection = speeds)
     }
 
     assertThat(player.playbackParameters.speed).isEqualTo(1.0f)
 
-    composeRule.onNodeWithTag("toggle").performClick()
+    onNodeWithTag("toggle").performClick()
     assertThat(player.playbackParameters.speed).isEqualTo(2.0f)
 
-    composeRule.onNodeWithTag("toggle").performClick()
+    onNodeWithTag("toggle").performClick()
     assertThat(player.playbackParameters.speed).isEqualTo(1.0f) // Wraps around
   }
 
   @Test
-  fun playbackSpeedToggleButton_initialSpeedNotInSelection_togglesToNextGreater() {
-    val player = FakePlayer()
-    player.setPlaybackSpeed(1.1f)
-    composeRule.setContent {
-      PlaybackSpeedToggleButton(
-        player,
-        Modifier.testTag("toggle"),
-        speedSelection = listOf(0.5f, 1.0f, 1.5f, 2.0f),
-      )
+  fun playbackSpeedToggleButton_initialSpeedNotInSelection_togglesToNextGreater() =
+    runComposeUiTest {
+      val player = FakePlayer()
+      player.setPlaybackSpeed(1.1f)
+      setContent {
+        PlaybackSpeedToggleButton(
+          player,
+          Modifier.testTag("toggle"),
+          speedSelection = listOf(0.5f, 1.0f, 1.5f, 2.0f),
+        )
+      }
+
+      onNodeWithTag("toggle").performClick()
+      assertThat(player.playbackParameters.speed).isEqualTo(1.5f) // Next greater speed
+
+      onNodeWithTag("toggle").performClick()
+      assertThat(player.playbackParameters.speed).isEqualTo(2.0f)
+
+      onNodeWithTag("toggle").performClick()
+      assertThat(player.playbackParameters.speed).isEqualTo(0.5f) // Wraps around
     }
-
-    composeRule.onNodeWithTag("toggle").performClick()
-    assertThat(player.playbackParameters.speed).isEqualTo(1.5f) // Next greater speed
-
-    composeRule.onNodeWithTag("toggle").performClick()
-    assertThat(player.playbackParameters.speed).isEqualTo(2.0f)
-
-    composeRule.onNodeWithTag("toggle").performClick()
-    assertThat(player.playbackParameters.speed).isEqualTo(0.5f) // Wraps around
-  }
 }
