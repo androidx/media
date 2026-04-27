@@ -21,8 +21,6 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -32,6 +30,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
+import androidx.media3.demo.composition.R
 
 @Composable
 fun <T> DropDownSpinner(
@@ -49,7 +49,7 @@ fun <T> DropDownSpinner(
       OutlinedTextField(
         value = selectedLabel,
         onValueChange = {},
-        trailingIcon = { Icon(Icons.Outlined.ArrowDropDown, null) },
+        trailingIcon = { Icon(painterResource(R.drawable.arrow_drop_down), null) },
         modifier =
           Modifier.fillMaxWidth().pointerInput(Unit) {
             // Detect click event on TextField to expand/close dropdown

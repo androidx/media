@@ -45,7 +45,6 @@ android {
 dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.material)
-  implementation(libs.androidx.compose.material.icons.core)
   implementation(project(":lib-effect"))
   implementation(project(":lib-effect-ndk"))
   implementation(project(":lib-exoplayer"))

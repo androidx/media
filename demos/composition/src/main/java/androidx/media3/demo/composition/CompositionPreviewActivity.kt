@@ -51,9 +51,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -88,6 +85,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontStyle
@@ -290,7 +288,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
               selected = false,
               onClick = { viewModel.addSequence() },
               text = {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_sequence))
+                Icon(
+                  painterResource(R.drawable.add),
+                  contentDescription = stringResource(R.string.add_sequence),
+                )
               },
             )
           }
@@ -677,7 +678,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
             }
             IconButton({ onRemoveItem(sequenceIndex, index) }, enabled = isEnabled) {
               Icon(
-                Icons.TwoTone.Delete,
+                painterResource(R.drawable.delete),
                 contentDescription = stringResource(R.string.remove_item, index + 1),
               )
             }
@@ -759,7 +760,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
                 modifier = Modifier.fillMaxWidth(),
               ) {
                 FilledIconButton(onClick = { addSelectedVideo(index) }) {
-                  Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_item))
+                  Icon(
+                    painterResource(R.drawable.add),
+                    contentDescription = stringResource(R.string.add_item),
+                  )
                 }
                 val title =
                   when (item) {
