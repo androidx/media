@@ -27,8 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size as geometrySize
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -222,16 +220,15 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
       val newItemsBySequence: List<List<Item>> =
         when (preset) {
           Preset.GRID -> {
-            List(4) { if (firstItem != null) listOf(firstItem.copy()) else emptyList<Item>() }
+            List(4) { if (firstItem != null) listOf(firstItem.copy()) else emptyList() }
           }
           Preset.PIP -> {
             List(2) {
-              if (firstItem != null) listOf(firstItem.copy(), firstItem.copy())
-              else emptyList<Item>()
+              if (firstItem != null) listOf(firstItem.copy(), firstItem.copy()) else emptyList()
             }
           }
           Preset.SEQUENCE -> {
-            List(1) { if (firstItem != null) List(4) { firstItem.copy() } else emptyList<Item>() }
+            List(1) { if (firstItem != null) List(4) { firstItem.copy() } else emptyList() }
           }
           Preset.CUSTOM -> {
             val currentItemsBySequence = currentState.mediaState.selectedItemsBySequence
@@ -988,17 +985,5 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         frame.presentationTimeUs,
       )
     }
-  }
-}
-
-class CompositionPreviewViewModelFactory(private val application: Application) :
-  ViewModelProvider.Factory {
-
-  override fun <T : ViewModel> create(modelClass: Class<T>): T {
-    return CompositionPreviewViewModel(application) as T
-  }
-
-  companion object {
-    private const val TAG = "CPVMF"
   }
 }

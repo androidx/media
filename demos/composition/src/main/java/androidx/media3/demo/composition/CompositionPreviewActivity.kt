@@ -79,6 +79,7 @@ import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -96,6 +97,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
@@ -152,7 +155,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
     }
 
     val viewModel: CompositionPreviewViewModel by viewModels {
-      CompositionPreviewViewModelFactory(application)
+      viewModelFactory { initializer { CompositionPreviewViewModel(application) } }
     }
 
     setContent {
@@ -795,7 +798,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
   @Composable
   fun GapDurationDialog(onDismissRequest: () -> Unit, onConfirm: (Long) -> Unit) {
-    var durationSeconds by remember { mutableStateOf(5f) }
+    var durationSeconds by remember { mutableFloatStateOf(5f) }
 
     Dialog(onDismissRequest) {
       Card(shape = RoundedCornerShape(16.dp)) {
