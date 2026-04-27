@@ -43,11 +43,6 @@ dependencies {
   }
   api(libs.androidx.annotation.experimental)
   implementation(libs.androidx.annotation)
-  // Workaround for 'duplicate class' error caused by incomplete version
-  // metadata in Kotlin std lib (https://issuetracker.google.com/278545487).
-  // This can be removed when one of the other deps here (probably
-  // androidx.annotation) depends on kotlin-stdlib:1.9.20.
-  implementation(platform(libs.kotlin.bom))
   compileOnly(libs.jsr305)
   compileOnly(libs.errorprone.annotations)
   compileOnly(libs.checkerframework.qual)

@@ -67,7 +67,6 @@ jsr305Version = "3.0.2"
 # https://cs.android.com/android/platform/superproject/main/+/main:external/junit/METADATA
 junitVersion = "4.13.2"
 kotlinAnnotationsVersion = "1.9.0"
-kotlinBomVersion = "1.8.0"
 # Not the same as kotlin version, https://github.com/Kotlin/kotlinx.coroutines/releases
 kotlinxCoroutinesVersion = "1.9.0"
 ktorVersion = "3.0.3"
@@ -147,7 +146,6 @@ guava-testlib = { group = "com.google.guava", name = "guava-testlib", version.re
 jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305Version" }
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 kotlin-annotations-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-annotations-jvm", version.ref = "kotlinAnnotationsVersion" }
-kotlin-bom = { group = "org.jetbrains.kotlin", name = "kotlin-bom", version.ref = "kotlinBomVersion" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesVersion" }
