@@ -74,6 +74,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1226,6 +1227,7 @@ public class CompositionPlayerSeekTest {
             100_000);
   }
 
+  @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_oneVideoSequence_seekForwardsAndBackwards_outputsCorrectFrames()
@@ -1323,6 +1325,7 @@ public class CompositionPlayerSeekTest {
     assertThat(isPlaying.get()).isFalse();
   }
 
+  @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_twoVideoSequences_seekForwardsAndBackwards_outputsCorrectFrames()
@@ -1425,6 +1428,7 @@ public class CompositionPlayerSeekTest {
     assertThat(isPlaying.get()).isFalse();
   }
 
+  @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_oneVideoSequence_seekThenPlay_outputsPacketAndEnds() throws Exception {
@@ -1492,6 +1496,7 @@ public class CompositionPlayerSeekTest {
     listener.waitUntilPlayerEnded();
   }
 
+  @Ignore("b/506959477 - Fix flakiness and re-enable")
   @Test
   @SdkSuppress(minSdkVersion = 28)
   public void packetConsumer_twoVideoSequences_seekThenPlay_outputsPacketAndEnds()

@@ -951,8 +951,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private @MonotonicNonNull Format nextFormat;
+    @Nullable private VideoFrameMetadataListener frameMetadataListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
+    private boolean hasOutputSurface = false;
 
     private HardwareBufferVideoRenderer(
         Context context,
@@ -1033,22 +1035,34 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         boolean isLastBuffer,
         Format format)
         throws ExoPlaybackException {
+      // When prewarming is enabled this method will be called when the renderer is enabled, which
+      // is well before item should be displayed. Frames should not be rendered until a Surface is
+      // set on this renderer.
+      if (!hasOutputSurface) {
+        return false;
+      }
+      checkNotNull(codec);
+      nextFormat = format;
+      long outputStreamOffsetUs = getOutputStreamOffsetUs();
+      long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
+      if (isDecodeOnlyBuffer && !isLastBuffer) {
+        skipOutputBuffer(codec, bufferIndex, bufferPresentationTimeUs);
+        return true;
+      }
       if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
         return false;
       }
-      nextFormat = format;
-      return super.processOutputBuffer(
-          positionUs,
-          elapsedRealtimeUs,
-          codec,
-          buffer,
-          bufferIndex,
-          bufferFlags,
-          sampleCount,
-          bufferPresentationTimeUs,
-          isDecodeOnlyBuffer,
-          isLastBuffer,
-          format);
+      long releaseTimeNs = getClock().nanoTime();
+      if (frameMetadataListener != null) {
+        frameMetadataListener.onVideoFrameAboutToBeRendered(
+            presentationTimeUs, releaseTimeNs, format, getCodecOutputMediaFormat());
+      }
+      // Force frames to be released to the FrameAggregator as soon as they are decoded, regardless
+      // of the wall-clock time. This ensures that the aggregator can immediately find matching
+      // frames for all sequences and avoids stalling the pipeline while waiting for frames that
+      // have already been decoded.
+      renderOutputBufferV21(codec, bufferIndex, presentationTimeUs, releaseTimeNs);
+      return true;
     }
 
     @Override
@@ -1111,12 +1125,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
-      // Force frames to be released to the FrameAggregator as soon as they are decoded, regardless
-      // of the wall-clock time. This ensures that the aggregator can immediately find matching
-      // frames for all sequences and avoids stalling the pipeline while waiting for frames that
-      // have already been decoded.
-      return true;
+    public void handleMessage(@MessageType int messageType, @Nullable Object message)
+        throws ExoPlaybackException {
+      switch (messageType) {
+        case MSG_SET_VIDEO_OUTPUT:
+          hasOutputSurface = (message != null);
+          break;
+        case MSG_TRANSFER_RESOURCES:
+          hasOutputSurface = false;
+          break;
+        case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
+          frameMetadataListener = (VideoFrameMetadataListener) checkNotNull(message);
+          break;
+        default:
+          break;
+      }
+      super.handleMessage(messageType, message);
     }
 
     // RendererWakeupListener methods

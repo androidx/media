@@ -20,6 +20,8 @@ import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.test.utils.AssetInfo.MP4_12_5FPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_15FPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
@@ -64,6 +66,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -2406,6 +2409,70 @@ public class CompositionPlayerTest {
             ImmutableList.of(934_266L, 934_266L),
             ImmutableList.of(967_633L, 967_633L))
         .inOrder();
+    player.release();
+  }
+
+  @Test
+  public void
+      packetConsumer_twoVideoSequencesMismatchedFrameRates_seek_decodesExtraSecondaryFrames()
+          throws Exception {
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          return null;
+        });
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_12_5FPS.uri))
+                            .setDurationUs(MP4_12_5FPS.videoDurationUs)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_15FPS.uri))
+                            .setDurationUs(MP4_15FPS.videoDurationUs)
+                            .build())))
+            .build();
+
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder()
+            .setPacketConsumerFactory(() -> packetConsumer)
+            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
+            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+            .build();
+    player.setComposition(composition);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    // Seek to 466ms, primary will resolve to 480_000, secondary will resolve to 466_667, then
+    // decode an extra frame and output 533_333.
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(466);
+    player.setScrubbingModeEnabled(false);
+
+    runMainLooperUntil(
+        () -> packetConsumer.getQueuedPayloads().size() >= 2, TEST_TIMEOUT_MS, Clock.DEFAULT);
+
+    assertThat(packetConsumer.getQueuedPayloads()).isNotEmpty();
+
+    List<List<Long>> actualPackets = new ArrayList<>();
+    for (ImmutableList<HardwareBufferFrame> frames : packetConsumer.getQueuedPayloads()) {
+      List<Long> packetTimestamps = new ArrayList<>();
+      for (HardwareBufferFrame frame : frames) {
+        packetTimestamps.add(frame.presentationTimeUs);
+      }
+      actualPackets.add(packetTimestamps);
+    }
+    assertThat(actualPackets)
+        .containsExactly(ImmutableList.of(0L, 0L), ImmutableList.of(480_000L, 533_333L))
+        .inOrder();
+
     player.release();
   }
 

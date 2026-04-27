@@ -241,6 +241,40 @@ public final class AssetInfo {
                   .build())
           .build();
 
+  public static final AssetInfo MP4_12_5FPS =
+      new AssetInfo.Builder("asset:///media/mp4/sample_12_5fps_720p_1s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(12.5f)
+                  .build())
+          .setVideoDurationUs(1_030_000L)
+          .setVideoFrameCount(13)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 80_000L, 160_000L, 240_000L, 320_000L, 400_000L, 480_000L, 560_000L, 640_000L,
+                  720_000L, 800_000L, 880_000L, 960_000L))
+          .build();
+
+  public static final AssetInfo MP4_15FPS =
+      new AssetInfo.Builder("asset:///media/mp4/sample_15fps_720p_1s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(15f)
+                  .build())
+          .setVideoDurationUs(1_030_000L)
+          .setVideoFrameCount(15)
+          .setVideoTimestampsUs(
+              ImmutableList.of(
+                  0L, 66_666L, 133_333L, 200_000L, 266_666L, 333_333L, 400_000L, 466_666L, 533_333L,
+                  600_000L, 666_666L, 733_333L, 800_000L, 866_666L, 933_333L))
+          .build();
+
   /**
    * This file has been edited to show a visual stopwatch to make it easier to know when frames were
    * presented in the original video.
