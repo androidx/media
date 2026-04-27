@@ -53,7 +53,9 @@ import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
@@ -923,6 +925,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
             | PlaybackStateCompat.ACTION_PREPARE_FROM_MEDIA_ID
             | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID);
     RemoteMediaController controller = createControllerAndWaitConnection();
+    waitForCondition(() -> controller.hasQueueCommandsSupport(), TIMEOUT_MS);
     sessionCallback.reset(1);
 
     controller.setMediaItems(testList);
@@ -1113,6 +1116,17 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     session.setPlaybackState(playbackState);
   }
 
+  private static void waitForCondition(Callable<Boolean> condition, long timeoutMs)
+      throws Exception {
+    long startTime = System.currentTimeMillis();
+    while (!condition.call()) {
+      if (System.currentTimeMillis() - startTime > timeoutMs) {
+        throw new TimeoutException("Condition not met within " + timeoutMs + " ms");
+      }
+      Thread.sleep(100);
+    }
+  }
+
   private static class TestVolumeProvider extends VolumeProviderCompat {
     CountDownLatch latch = new CountDownLatch(1);
     boolean setVolumeToCalled;
@@ -1140,45 +1154,45 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   private static class MediaSessionCallback extends MediaSessionCompat.Callback {
-    public CountDownLatch latch = new CountDownLatch(1);
-    public long seekPosition;
-    public float speed;
-    public long queueItemId;
-    public RatingCompat rating;
-    public String mediaId;
-    public String query;
-    public Uri uri;
-    public String action;
-    public Bundle extras;
-    @RepeatMode public int repeatMode;
-    @ShuffleMode public int shuffleMode;
-    public final List<Integer> queueIndices = new ArrayList<>();
-    public final List<MediaDescriptionCompat> queueDescriptionListForAdd = new ArrayList<>();
-    public final List<MediaDescriptionCompat> queueDescriptionListForRemove = new ArrayList<>();
+    private CountDownLatch latch = new CountDownLatch(1);
+    private long seekPosition;
+    private float speed;
+    private long queueItemId;
+    private RatingCompat rating;
+    private String mediaId;
+    private String query;
+    private Uri uri;
+    private String action;
+    private Bundle extras;
+    @RepeatMode private int repeatMode;
+    @ShuffleMode private int shuffleMode;
+    private final List<Integer> queueIndices = new ArrayList<>();
+    private final List<MediaDescriptionCompat> queueDescriptionListForAdd = new ArrayList<>();
+    private final List<MediaDescriptionCompat> queueDescriptionListForRemove = new ArrayList<>();
 
-    public int onPlayCalledCount;
-    public boolean onPauseCalled;
-    public boolean onStopCalled;
-    public boolean onSkipToPreviousCalled;
-    public boolean onSkipToNextCalled;
-    public boolean onSeekToCalled;
-    public boolean onFastForwardCalled;
-    public boolean onRewindCalled;
-    public boolean onSetPlaybackSpeedCalled;
-    public boolean onSkipToQueueItemCalled;
-    public boolean onSetRatingCalled;
-    public boolean onPlayFromMediaIdCalled;
-    public boolean onPlayFromSearchCalled;
-    public boolean onPlayFromUriCalled;
-    public boolean onCustomActionCalled;
-    public boolean onPrepareCalled;
-    public boolean onPrepareFromMediaIdCalled;
-    public boolean onSetRepeatModeCalled;
-    public boolean onSetShuffleModeCalled;
-    public int onAddQueueItemAtCalledCount;
-    public int onRemoveQueueItemCalledCount;
+    private int onPlayCalledCount;
+    private boolean onPauseCalled;
+    private boolean onStopCalled;
+    private boolean onSkipToPreviousCalled;
+    private boolean onSkipToNextCalled;
+    private boolean onSeekToCalled;
+    private boolean onFastForwardCalled;
+    private boolean onRewindCalled;
+    private boolean onSetPlaybackSpeedCalled;
+    private boolean onSkipToQueueItemCalled;
+    private boolean onSetRatingCalled;
+    private boolean onPlayFromMediaIdCalled;
+    private boolean onPlayFromSearchCalled;
+    private boolean onPlayFromUriCalled;
+    private boolean onCustomActionCalled;
+    private boolean onPrepareCalled;
+    private boolean onPrepareFromMediaIdCalled;
+    private boolean onSetRepeatModeCalled;
+    private boolean onSetShuffleModeCalled;
+    private int onAddQueueItemAtCalledCount;
+    private int onRemoveQueueItemCalledCount;
 
-    public void reset(int count) {
+    private void reset(int count) {
       latch = new CountDownLatch(count);
       seekPosition = -1;
       speed = -1.0f;
@@ -1218,7 +1232,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       onRemoveQueueItemCalledCount = 0;
     }
 
-    public boolean await(long timeoutMs) {
+    private boolean await(long timeoutMs) {
       try {
         return latch.await(timeoutMs, MILLISECONDS);
       } catch (InterruptedException e) {

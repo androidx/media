@@ -573,7 +573,7 @@ public final class MediaControllerCompat {
    */
   public abstract static class Callback implements IBinder.DeathRecipient {
     @Nullable final MediaController.Callback callbackFwk;
-    @Nullable MessageHandler handler;
+    @Nullable private MessageHandler handler;
     @Nullable IMediaControllerCallback iControllerCallback;
 
     // Sharing this in constructor
@@ -1368,8 +1368,7 @@ public final class MediaControllerCompat {
     public void addQueueItem(MediaDescriptionCompat description) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
@@ -1383,8 +1382,7 @@ public final class MediaControllerCompat {
     public void addQueueItem(MediaDescriptionCompat description, int index) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
@@ -1399,8 +1397,7 @@ public final class MediaControllerCompat {
     public void removeQueueItem(MediaDescriptionCompat description) {
       long flags = getFlags();
       if ((flags & MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS) == 0) {
-        throw new UnsupportedOperationException(
-            "This session doesn't support queue management operations");
+        return;
       }
       Bundle params = new Bundle();
       params.putParcelable(
