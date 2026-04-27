@@ -141,7 +141,7 @@ public final class Dav1dDecoder
           @Override
           public void run() {
             Dav1dDecoder.this.dav1dDecoderContext =
-                dav1dInit(threads, maxFrameDelay, useCustomAllocator);
+                dav1dInit(threads, maxFrameDelay, useCustomAllocator, numInputBuffers);
             if (dav1dCheckError(Dav1dDecoder.this.dav1dDecoderContext) == DAV1D_ERROR) {
               synchronized (lock) {
                 Dav1dDecoder.this.exception =
@@ -512,9 +512,11 @@ public final class Dav1dDecoder
    * @param threads Number of threads to be used by a libdav1d decoder.
    * @param maxFrameDelay Max frame delay permitted for libdav1d decoder.
    * @param useCustomAllocator Whether to use a custom picture allocator.
+   * @param numInputBuffers Number of input buffers to be allocated for the decoder.
    * @return The address of the decoder context or {@link #DAV1D_ERROR} if there was an error.
    */
-  private native long dav1dInit(int threads, int maxFrameDelay, boolean useCustomAllocator);
+  private native long dav1dInit(
+      int threads, int maxFrameDelay, boolean useCustomAllocator, int numInputBuffers);
 
   /**
    * Deallocates the decoder context.
@@ -531,7 +533,7 @@ public final class Dav1dDecoder
    * @param inputOffset Offset of the data buffer.
    * @param inputSize Length of the data buffer
    * @param decodeOnly Whether the input data is decode only.
-   * @param flags {@link androidx.media3.common.C#BufferFlags} Information about output buffer.
+   * @param flags {@link androidx.media3.common.C.BufferFlags} Information about output buffer.
    * @param timeUs Time of input data.
    * @param outputMode Output mode for output buffer.
    * @return {@link #DAV1D_OK} if successful, {@link #DAV1D_ERROR} if an error occurred, {@link

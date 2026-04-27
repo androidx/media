@@ -204,10 +204,6 @@ const int GetThreadCount(jint threads) {
   }
 }
 
-// TODO: b/446178978 - Refactor buffer management to remove global JNI
-// references. Remove global_ref_input_buffer and global_ref_dav1d_data from
-// Cookie. Instead, manage buffers by passing an index into a Java-side
-// DecoderInputBuffer array.
 struct Cookie {
   jint buffer_index;
   jlong jni_context;
@@ -300,12 +296,13 @@ struct JniContext {
 
   int libdav1d_status_code = kLibdav1dDecoderStatusOk;
   JniStatusCode jni_status_code = kJniStatusOk;
-  // TODO: b/446178978 - Replace unused_cookies std::vector with a fixed-size
-  // array. The size should be bounded by the number of input buffers to avoid
-  // dynamic allocations.
-  std::vector<std::unique_ptr<Cookie>> unused_cookies;
+  int num_input_buffers;
+  std::unique_ptr<Cookie[]> cookies_array;
+  std::unique_ptr<Cookie*[]> unused_cookies_array;
+  int unused_cookies_count;
   std::mutex state_mutex;           // NOLINT(build/c++11)
   std::mutex unused_cookies_mutex;  // NOLINT(build/c++11)
+  std::vector<Cookie*> cookies_to_release;
   std::vector<std::unique_ptr<PictureAllocatorData>>
       unused_picture_allocator_data;
   std::mutex unused_picture_allocator_data_mutex;  // NOLINT(build/c++11)
@@ -363,12 +360,11 @@ void Dav1dDataFreeCallback(const uint8_t* data, void* cookie) {
       reinterpret_cast<JniContext*>(cookie_ptr->jni_context);
   std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
       context->unused_cookies_mutex);
-  try {
-    context->unused_cookies.emplace_back(cookie_ptr);
-  } catch (const std::bad_alloc&) {
-    // Allocation failed for unique_ptr, prevent memory leak
-    LOGE("Failed to emplace Cookie: Out of memory");
-    delete cookie_ptr;
+  if (context->unused_cookies_count < context->num_input_buffers) {
+    context->unused_cookies_array[context->unused_cookies_count++] = cookie_ptr;
+  } else {
+    LOGE("unused_cookies_array is full! buffer_index: %d",
+         cookie_ptr->buffer_index);
   }
 }
 
@@ -483,9 +479,30 @@ void CleanUpAllocatorData(jlong jContext, JNIEnv* env) {
 }  // namespace
 
 DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
-             jboolean use_custom_allocator) {
+             jboolean use_custom_allocator, jint num_input_buffers) {
   JniContext* context = new (std::nothrow) JniContext();
   if (context == nullptr) {
+    return kStatusError;
+  }
+
+  if (num_input_buffers <= 0) {
+    delete context;
+    return kStatusError;
+  }
+  context->num_input_buffers = num_input_buffers;
+  context->cookies_array.reset(new (std::nothrow) Cookie[num_input_buffers]);
+  context->unused_cookies_array.reset(new (std::nothrow)
+                                          Cookie*[num_input_buffers]);
+  context->unused_cookies_count = 0;
+  if (!context->cookies_array || !context->unused_cookies_array) {
+    delete context;
+    return kStatusError;
+  }
+
+  try {
+    context->cookies_to_release.reserve(num_input_buffers);
+  } catch (const std::bad_alloc&) {
+    delete context;
     return kStatusError;
   }
 
@@ -656,9 +673,7 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
   {
     std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
-    while (!context->unused_cookies.empty()) {
-      context->unused_cookies.pop_back();
-    }
+    context->unused_cookies_count = 0;
   }
   {
     if (context->use_custom_allocator) {
@@ -691,7 +706,11 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
 
   Dav1dData data = {};
 
-  Cookie* cookie = new Cookie();
+  if (bufferIndex < 0 || bufferIndex >= context->num_input_buffers) {
+    LOGE("Invalid buffer index: %d", bufferIndex);
+    return kStatusError;
+  }
+  Cookie* cookie = &context->cookies_array[bufferIndex];
   cookie->buffer_index = bufferIndex;
   cookie->jni_context = jContext;
 
@@ -699,7 +718,6 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
       &data, buf, length, Dav1dDataFreeCallback, static_cast<void*>(cookie));
 
   if (context->libdav1d_status_code != 0) {
-    delete cookie;
     {
       std::lock_guard<std::mutex> lock(  // NOLINT(build/c++11)
           context->state_mutex);
@@ -1070,22 +1088,25 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
-  std::vector<std::unique_ptr<Cookie>> cookies_to_release;
   {
     std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
-    cookies_to_release.swap(context->unused_cookies);
+    if (context->unused_cookies_count > 0) {
+      context->cookies_to_release.assign(
+          context->unused_cookies_array.get(),
+          context->unused_cookies_array.get() + context->unused_cookies_count);
+      context->unused_cookies_count = 0;
+    }
   }
-
-  while (!cookies_to_release.empty()) {
-    Cookie* cookie = cookies_to_release.back().get();
+  for (Cookie* cookie : context->cookies_to_release) {
     env->CallVoidMethod(decoder, context->release_input_buffer_method,
                         cookie->buffer_index);
     if (ClearPendingException(env)) {
       LOGE("Failed to release input buffer.");
     }
-    cookies_to_release.pop_back();
   }
+  context->cookies_to_release.clear();
+
   if (context->use_custom_allocator) {
     CleanUpAllocatorData(jContext, env);
   }
