@@ -34,6 +34,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.BundleCollectionUtil;
@@ -839,6 +840,24 @@ public class MediaControllerProviderService extends Service {
             CommandButton button = controller.getCustomLayout().get(buttonIndex);
             ListenableFuture<SessionResult> unused =
                 controller.sendCustomCommand(button.sessionCommand, button.extras);
+          });
+    }
+
+    @Override
+    public int getTimelineWindowCount(String controllerId) throws RemoteException {
+      return runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            return controller.getCurrentTimeline().getWindowCount();
+          });
+    }
+
+    @Override
+    public boolean hasQueueCommandsSupport(String controllerId) throws RemoteException {
+      return runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            return controller.getAvailableCommands().contains(Player.COMMAND_CHANGE_MEDIA_ITEMS);
           });
     }
 

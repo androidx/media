@@ -460,6 +460,14 @@ public class RemoteMediaController {
     binder.executeCustomLayoutAction(controllerId, buttonIndex);
   }
 
+  public int getTimelineWindowCount() throws RemoteException {
+    return binder.getTimelineWindowCount(controllerId);
+  }
+
+  public boolean hasQueueCommandsSupport() throws RemoteException {
+    return binder.hasQueueCommandsSupport(controllerId);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // Non-public methods
   ////////////////////////////////////////////////////////////////////////////////
