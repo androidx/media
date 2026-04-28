@@ -1653,7 +1653,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink != null
         && codecInfo != null
         && (codecInfo.name.equals("c2.mtk.avc.decoder")
-            || codecInfo.name.equals("c2.mtk.hevc.decoder"))) {
+            || codecInfo.name.equals("c2.mtk.hevc.decoder")
+            || codecInfo.name.equals("c2.mtk.vp9.decoder"))) {
       // Flushing a c2.mtk decoder that outputs to a SurfaceTexture often fails and leaves
       // the SurfaceTexture's BufferQueue in an unrecoverable state. Release the codec instead.
       // See b/362904942 for more details.
