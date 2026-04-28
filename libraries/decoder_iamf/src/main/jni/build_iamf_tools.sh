@@ -31,7 +31,7 @@ echo "Cleaned old pre-built libraries."
 # settings in files such as iamf_tools/.bazelrc.
 cd ${IAMF_MODULE_PATH}/jni/iamf_tools
 
-if ! command -v bazelisk > /dev/null 2 >&1
+if ! command -v bazelisk > /dev/null 2>&1
 then
     echo "bazelisk required but not found.  Install and try again."
     exit 1
