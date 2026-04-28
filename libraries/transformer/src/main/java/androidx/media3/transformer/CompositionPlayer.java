@@ -825,7 +825,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         COMPONENT_COMPOSITION_PLAYER,
         EVENT_SET_COMPOSITION,
         /* presentationTimeUs= */ C.TIME_UNSET,
-        composition.toJsonObject());
+        composition.toJsonObject().toString());
 
     composition = applyPreProcessingEffects(composition);
 

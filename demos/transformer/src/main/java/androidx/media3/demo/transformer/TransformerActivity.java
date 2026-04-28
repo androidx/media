@@ -804,7 +804,7 @@ public final class TransformerActivity extends AppCompatActivity {
     Log.d(TAG, DebugTraceUtil.generateTraceSummary());
     File file = new File(getExternalFilesDir(null), "trace.tsv");
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-      DebugTraceUtil.dumpTsv(writer);
+      writer.write(DebugTraceUtil.generateTraceSummary());
       Log.d(TAG, file.getAbsolutePath());
     } catch (IOException e) {
       throw new RuntimeException(e);

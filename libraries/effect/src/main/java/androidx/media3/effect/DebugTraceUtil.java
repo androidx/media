@@ -33,7 +33,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.io.Writer;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -44,7 +43,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import org.json.JSONObject;
 
 /** A debugging tracing utility. Debug logging is disabled at compile time by default. */
 @UnstableApi
@@ -81,7 +79,6 @@ public final class DebugTraceUtil {
     EVENT_OUTPUT_TEXTURE_RENDERED,
     EVENT_RENDERED_TO_OUTPUT_SURFACE,
     EVENT_RECEIVE_END_OF_ALL_INPUT,
-    EVENT_RECEIVE_EOS,
     EVENT_SIGNAL_EOS,
     EVENT_SIGNAL_ENDED,
     EVENT_CAN_WRITE_SAMPLE
@@ -110,7 +107,6 @@ public final class DebugTraceUtil {
   public static final String EVENT_OUTPUT_TEXTURE_RENDERED = "OutputTextureRendered";
   public static final String EVENT_RENDERED_TO_OUTPUT_SURFACE = "RenderedToOutputSurface";
   public static final String EVENT_RECEIVE_END_OF_ALL_INPUT = "ReceiveEndOfAllInput";
-  public static final String EVENT_RECEIVE_EOS = "ReceiveEOS";
   public static final String EVENT_SIGNAL_EOS = "SignalEOS";
   public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
   public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
@@ -286,19 +282,6 @@ public final class DebugTraceUtil {
             presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));
   }
 
-  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
-  public static synchronized void logEvent(
-      @Component String component,
-      @Event String event,
-      long presentationTimeUs,
-      JSONObject jsonObject) {
-    if (!enableTracing) {
-      return;
-    }
-    logEventInternal(
-        component, event, new JsonEventLog(presentationTimeUs, getEventTimeMs(), jsonObject));
-  }
-
   /**
    * Logs a new event, if debug logging is enabled.
    *
@@ -379,34 +362,6 @@ public final class DebugTraceUtil {
     }
   }
 
-  /** Dumps all the logged events to the {@link Writer} as tab separated values (tsv). */
-  public static synchronized void dumpTsv(Writer writer) throws IOException {
-    if (!enableTracing) {
-      writer.write("Tracing disabled");
-      return;
-    }
-    writer.write("component\tevent\ttimestamp\tpresentation\textra\n");
-    for (Map.Entry<@Component String, Map<@Event String, EventLogger>> componentToEventsToLogs :
-        componentsToEventsToLogs.entrySet()) {
-      @Component String component = componentToEventsToLogs.getKey();
-      Map<@Event String, EventLogger> eventsToLogs = componentToEventsToLogs.getValue();
-      for (Map.Entry<@Event String, EventLogger> eventToLogs : eventsToLogs.entrySet()) {
-        @Event String componentEvent = eventToLogs.getKey();
-        ImmutableList<EventLog> eventLogs = eventToLogs.getValue().getLogs();
-        for (EventLog eventLog : eventLogs) {
-          writer.write(
-              formatInvariant(
-                  "%s\t%s\t%dms\t%s\t%s\n",
-                  component,
-                  componentEvent,
-                  eventLog.eventTimeMs,
-                  presentationTimeToString(eventLog.presentationTimeUs),
-                  eventLog.toString()));
-        }
-      }
-    }
-  }
-
   private static synchronized long getEventTimeMs() {
     return SystemClock.DEFAULT.elapsedRealtime() - startTimeMs;
   }
@@ -480,20 +435,6 @@ public final class DebugTraceUtil {
     }
   }
 
-  private static final class JsonEventLog extends EventLog {
-    public final JSONObject jsonObject;
-
-    public JsonEventLog(long presentationTimeUs, long eventTimeMs, JSONObject jsonObject) {
-      super(presentationTimeUs, eventTimeMs);
-      this.jsonObject = jsonObject;
-    }
-
-    @Override
-    public String toString() {
-      return jsonObject.toString();
-    }
-  }
-
   private static final class EventLogger {
     private final List<EventLog> firstLogs;
     private final Queue<EventLog> lastLogs;
@@ -515,10 +456,6 @@ public final class DebugTraceUtil {
         }
       }
       totalCount++;
-    }
-
-    public ImmutableList<EventLog> getLogs() {
-      return new ImmutableList.Builder<EventLog>().addAll(firstLogs).addAll(lastLogs).build();
     }
 
     public void toJson(JsonWriter jsonWriter) throws IOException {
