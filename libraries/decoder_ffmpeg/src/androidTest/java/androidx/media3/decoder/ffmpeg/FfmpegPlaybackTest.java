@@ -100,7 +100,9 @@ public class FfmpegPlaybackTest {
               audioRendererEventListener,
               textRendererOutput,
               metadataRendererOutput) ->
-              new Renderer[] {new FfmpegAudioRenderer(eventHandler, audioRendererEventListener)};
+              new Renderer[] {
+                new FfmpegAudioRenderer(context, eventHandler, audioRendererEventListener)
+              };
       player = new ExoPlayer.Builder(context, renderersFactory).build();
       player.addListener(this);
       MediaSource mediaSource =

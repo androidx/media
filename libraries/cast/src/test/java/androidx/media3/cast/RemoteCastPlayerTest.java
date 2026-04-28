@@ -1645,6 +1645,7 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Deprecated volume commands.
   public void isCommandAvailable_isTrueForAvailableCommands() {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
@@ -1685,6 +1686,7 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // Deprecated volume commands.
   public void isCommandAvailable_setVolumeIsSupported() {
     when(mockMediaStatus.isMediaCommandSupported(MediaStatus.COMMAND_SET_VOLUME)).thenReturn(true);
 

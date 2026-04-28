@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.app.Activity;
 import android.content.Context;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
@@ -228,6 +229,8 @@ public class Hls {
 
     private List<HlsInterstitialsAdsLoader.AdsResumptionState> adsResumptionStates;
 
+    @SuppressWarnings(
+        "deprecation") // getParcelableArrayList without class type is deprecated in API 33+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
       super.onCreate(savedInstanceState);
@@ -235,8 +238,13 @@ public class Hls {
       hlsInterstitialsAdsLoader = new HlsInterstitialsAdsLoader(this);
       // Restore ad resumption states.
       if (savedInstanceState != null) {
-        ArrayList<Bundle> bundles =
-            savedInstanceState.getParcelableArrayList(ADS_RESUMPTION_STATE_KEY);
+        ArrayList<Bundle> bundles;
+        if (Build.VERSION.SDK_INT >= 33) {
+          bundles =
+              savedInstanceState.getParcelableArrayList(ADS_RESUMPTION_STATE_KEY, Bundle.class);
+        } else {
+          bundles = savedInstanceState.getParcelableArrayList(ADS_RESUMPTION_STATE_KEY);
+        }
         if (bundles != null) {
           adsResumptionStates = new ArrayList<>();
           for (Bundle bundle : bundles) {

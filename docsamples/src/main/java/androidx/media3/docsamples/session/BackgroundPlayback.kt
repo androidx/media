@@ -162,14 +162,14 @@ object BackgroundPlaybackKt {
             .build()
         // Custom button preferences and commands to configure the platform session.
         return immediateFuture(
-          AcceptedResultBuilder(session)
+          AcceptedResultBuilder(session, controller)
             .setMediaButtonPreferences(listOf(seekBackButton, seekForwardButton))
             .setAvailablePlayerCommands(playerCommands)
             .build()
         )
       }
       // Default commands with default button preferences for all other controllers.
-      return immediateFuture(AcceptedResultBuilder(session).build())
+      return immediateFuture(AcceptedResultBuilder(session, controller).build())
     }
     // [END media_notification_controller]
   }
@@ -188,11 +188,13 @@ object BackgroundPlaybackKt {
       } else if (session.isAutoCompanionController(controller)) {
         // Available commands to accept incoming custom commands from Auto.
         return immediateFuture(
-          AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+          AcceptedResultBuilder(session, controller)
+            .setAvailableSessionCommands(sessionCommands)
+            .build()
         )
       }
       // Default commands for all other controllers.
-      return immediateFuture(AcceptedResultBuilder(session).build())
+      return immediateFuture(AcceptedResultBuilder(session, controller).build())
     }
     // [END auto_companion_controller]
   }

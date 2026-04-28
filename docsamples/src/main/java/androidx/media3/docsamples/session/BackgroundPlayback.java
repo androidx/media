@@ -178,13 +178,13 @@ public class BackgroundPlayback {
                 .build();
         // Custom button preferences and commands to configure the platform session.
         return immediateFuture(
-            new AcceptedResultBuilder(session)
+            new AcceptedResultBuilder(session, controller)
                 .setMediaButtonPreferences(ImmutableList.of(seekBackButton, seekForwardButton))
                 .setAvailablePlayerCommands(playerCommands)
                 .build());
       }
       // Default commands with default button preferences for all other controllers.
-      return immediateFuture(new AcceptedResultBuilder(session).build());
+      return immediateFuture(new AcceptedResultBuilder(session, controller).build());
     }
     // [END media_notification_controller]
   }
@@ -208,12 +208,12 @@ public class BackgroundPlayback {
       } else if (session.isAutoCompanionController(controller)) {
         // Available commands to accept incoming custom commands from Auto.
         return immediateFuture(
-            new AcceptedResultBuilder(session)
+            new AcceptedResultBuilder(session, controller)
                 .setAvailableSessionCommands(sessionCommands)
                 .build());
       }
       // Default commands for all other controllers.
-      return immediateFuture(new AcceptedResultBuilder(session).build());
+      return immediateFuture(new AcceptedResultBuilder(session, controller).build());
     }
     // [END auto_companion_controller]
   }

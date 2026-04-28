@@ -106,7 +106,9 @@ object ControlPlaybackKt {
           .add(SessionCommand(SAVE_TO_FAVORITES, Bundle.EMPTY))
           .build()
       return Futures.immediateFuture(
-        AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build()
+        AcceptedResultBuilder(session, controller)
+          .setAvailableSessionCommands(sessionCommands)
+          .build()
       )
     }
   }

@@ -26,6 +26,7 @@ package androidx.media3.docsamples.exoplayer
 import android.app.Activity
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
@@ -229,15 +230,19 @@ object HlsKt {
     private var player: ExoPlayer? = null
     private var adsResumptionStates: List<HlsInterstitialsAdsLoader.AdsResumptionState>? = null
 
+    @Suppress("DEPRECATION") // getParcelableArrayList without class type is deprecated in API 33+
     override fun onCreate(savedInstanceState: Bundle?) {
       super.onCreate(savedInstanceState)
       // Create the ads loader instance.
       hlsInterstitialsAdsLoader = HlsInterstitialsAdsLoader(this)
       // Restore ad resumption states.
-      savedInstanceState?.getParcelableArrayList<Bundle>(ADS_RESUMPTION_STATE_KEY)?.let { bundles ->
-        adsResumptionStates =
-          bundles.map { HlsInterstitialsAdsLoader.AdsResumptionState.fromBundle(it) }
-      }
+      val bundles =
+        if (Build.VERSION.SDK_INT >= 33) {
+          savedInstanceState?.getParcelableArrayList(ADS_RESUMPTION_STATE_KEY, Bundle::class.java)
+        } else {
+          savedInstanceState?.getParcelableArrayList(ADS_RESUMPTION_STATE_KEY)
+        }
+      adsResumptionStates = bundles?.map(HlsInterstitialsAdsLoader.AdsResumptionState::fromBundle)
     }
 
     override fun onStart() {

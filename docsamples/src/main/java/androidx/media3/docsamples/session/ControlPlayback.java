@@ -102,7 +102,9 @@ public class ControlPlayback {
               .add(new SessionCommand(SAVE_TO_FAVORITES, new Bundle()))
               .build();
       return Futures.immediateFuture(
-          new AcceptedResultBuilder(session).setAvailableSessionCommands(sessionCommands).build());
+          new AcceptedResultBuilder(session, controller)
+              .setAvailableSessionCommands(sessionCommands)
+              .build());
     }
   }
 
