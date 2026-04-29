@@ -140,6 +140,10 @@ enum JniStatusCode {
   kJniStatusDataWrapError = -11,
   kJniStatusUserDataWrapError = -12,
   kJniStatusSendDataError = -13,
+  kJniStatusRenderMaybeAcquireFailedError = -14,
+  kJniStatusRenderNativeWindowNullError = -15,
+  kJniStatusRenderPictureNullError = -16,
+  kJniStatusRenderLockFailedError = -17,
 };
 
 const int kLibdav1dDecoderStatusOk = 0;
@@ -175,6 +179,14 @@ const char* GetJniErrorMessage(JniStatusCode error_code) {
       return "User data wrap error.";
     case kJniStatusSendDataError:
       return "Send data error.";
+    case kJniStatusRenderMaybeAcquireFailedError:
+      return "Acquire Native Window failed.";
+    case kJniStatusRenderNativeWindowNullError:
+      return "ANativeWindow null natively.";
+    case kJniStatusRenderPictureNullError:
+      return "Picture unallocated null natively.";
+    case kJniStatusRenderLockFailedError:
+      return "ANativeWindow raw lock broke natively.";
     default:
       return "Unrecognized error code.";
   }
@@ -253,12 +265,12 @@ struct JniContext {
     native_window_height = 0;
     if (new_surface == nullptr) {
       LOGE("MaybeAcquireNativeWindow: new_surface is null.");
-      jni_status_code = kJniStatusANativeWindowError;
+      jni_status_code = kJniStatusRenderMaybeAcquireFailedError;
       return false;
     }
     native_window = ANativeWindow_fromSurface(env, new_surface);
     if (native_window == nullptr) {
-      jni_status_code = kJniStatusANativeWindowError;
+      jni_status_code = kJniStatusRenderMaybeAcquireFailedError;
       return false;
     }
     surface = env->NewGlobalRef(new_surface);
@@ -910,6 +922,7 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
 
   if (context->native_window == nullptr) {
     LOGE("Failed to render frame. native_window is null.");
+    context->jni_status_code = kJniStatusRenderNativeWindowNullError;
     return kStatusError;
   }
 
@@ -921,6 +934,7 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
   }
   if (dav1d_picture == nullptr) {
     LOGE("Failed to get dav1d picture.");
+    context->jni_status_code = kJniStatusRenderPictureNullError;
     return kStatusError;
   }
 
@@ -952,7 +966,7 @@ DECODER_FUNC(jint, dav1dRenderFrame, jlong jContext, jobject jSurface,
   if (ANativeWindow_lock(context->native_window, &native_window_buffer,
                          /*inOutDirtyBounds=*/nullptr) ||
       native_window_buffer.bits == nullptr) {
-    context->jni_status_code = kJniStatusANativeWindowError;
+    context->jni_status_code = kJniStatusRenderLockFailedError;
     LOGE("Failed to lock native window.");
     return kStatusError;
   }
@@ -1057,6 +1071,14 @@ DECODER_FUNC(jstring, dav1dGetErrorMessage, jlong jContext) {
     return env->NewStringUTF(GetJniErrorMessage(context->jni_status_code));
   }
   return env->NewStringUTF("None.");
+}
+
+DECODER_FUNC(jint, dav1dGetLastErrorJniStatusCode, jlong jContext) {
+  if (jContext == kStatusError) {
+    return kJniStatusOk;
+  }
+  JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+  return context->jni_status_code;
 }
 
 DECODER_FUNC(jint, dav1dCheckError, jlong jContext) {
