@@ -17,20 +17,16 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.util.Util.formatInvariant;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.util.JsonWriter;
 import androidx.annotation.GuardedBy;
-import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.lang.annotation.Documented;
@@ -42,6 +38,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 
 /** A debugging tracing utility. Debug logging is disabled at compile time by default. */
@@ -150,86 +147,6 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_VIDEO_ENCODER = "VideoEncoder";
   public static final String COMPONENT_MUXER = "Muxer";
 
-  // For a given component, events are in the rough expected order that they occur.
-  private static final ImmutableMap<@Component String, List<@Event String>> COMPONENTS_TO_EVENTS =
-      ImmutableMap.<String, List<String>>builder()
-          .put(
-              COMPONENT_COMPOSITION_PLAYER,
-              ImmutableList.of(
-                  EVENT_SET_COMPOSITION, EVENT_SEEK_TO, EVENT_SET_VIDEO_OUTPUT, EVENT_RELEASE))
-          .put(COMPONENT_TRANSFORMER_INTERNAL, ImmutableList.of(EVENT_START))
-          .put(COMPONENT_ASSET_LOADER, ImmutableList.of(EVENT_INPUT_FORMAT, EVENT_OUTPUT_FORMAT))
-          .put(
-              COMPONENT_AUDIO_DECODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_AUDIO_GRAPH,
-              ImmutableList.of(EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_AUDIO_MIXER,
-              ImmutableList.of(
-                  EVENT_REGISTER_NEW_INPUT_STREAM, EVENT_OUTPUT_FORMAT, EVENT_PRODUCED_OUTPUT))
-          .put(
-              COMPONENT_AUDIO_ENCODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_VIDEO_DECODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_VFP,
-              ImmutableList.of(
-                  EVENT_REGISTER_NEW_INPUT_STREAM,
-                  EVENT_SURFACE_TEXTURE_INPUT,
-                  EVENT_QUEUE_FRAME,
-                  EVENT_QUEUE_BITMAP,
-                  EVENT_QUEUE_TEXTURE,
-                  EVENT_RENDERED_TO_OUTPUT_SURFACE,
-                  EVENT_OUTPUT_TEXTURE_RENDERED,
-                  EVENT_RECEIVE_END_OF_ALL_INPUT,
-                  EVENT_SIGNAL_ENDED))
-          .put(
-              COMPONENT_EXTERNAL_TEXTURE_MANAGER,
-              ImmutableList.of(EVENT_SIGNAL_EOS, EVENT_SURFACE_TEXTURE_TRANSFORM_FIX))
-          .put(COMPONENT_BITMAP_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
-          .put(COMPONENT_TEX_ID_TEXTURE_MANAGER, ImmutableList.of(EVENT_SIGNAL_EOS))
-          .put(COMPONENT_COMPOSITOR, ImmutableList.of(EVENT_OUTPUT_TEXTURE_RENDERED))
-          .put(
-              COMPONENT_VIDEO_ENCODER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_OUTPUT_FORMAT,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_PRODUCED_OUTPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .put(
-              COMPONENT_MUXER,
-              ImmutableList.of(
-                  EVENT_INPUT_FORMAT,
-                  EVENT_CAN_WRITE_SAMPLE,
-                  EVENT_ACCEPTED_INPUT,
-                  EVENT_INPUT_ENDED,
-                  EVENT_OUTPUT_ENDED))
-          .buildOrThrow();
-
   /**
    * Whether to {@linkplain Log#d(String, String) log} tracing events to the logcat as they occur.
    * Should be set to {@code true} for testing and debugging purposes only.
@@ -334,26 +251,19 @@ public final class DebugTraceUtil {
     JsonWriter jsonWriter = new JsonWriter(stringWriter);
     try {
       jsonWriter.beginObject();
-      for (Map.Entry<@Component String, List<@Event String>> componentToEvents :
-          COMPONENTS_TO_EVENTS.entrySet()) {
-        @Component String component = componentToEvents.getKey();
-        List<@Event String> componentEvents = componentToEvents.getValue();
-
-        jsonWriter.name(component);
-        @Nullable
-        Map<@Event String, EventLogger> eventsToLogs = componentsToEventsToLogs.get(component);
-        jsonWriter.beginObject();
-        for (@Event String event : componentEvents) {
-          jsonWriter.name(event);
-          if (eventsToLogs != null && eventsToLogs.containsKey(event)) {
-            checkNotNull(eventsToLogs.get(event)).toJson(jsonWriter);
-          } else {
-            jsonWriter.value("No events");
-          }
+      for (Entry<@Component String, Map<@Event String, EventLogger>> entry :
+          componentsToEventsToLogs.entrySet()) {
+        @Component String component = entry.getKey();
+        Map<@Event String, EventLogger> eventsToLogs = entry.getValue();
+        jsonWriter.name(component).beginObject();
+        for (Entry<@Event String, EventLogger> eventEntry : eventsToLogs.entrySet()) {
+          jsonWriter.name(eventEntry.getKey());
+          eventEntry.getValue().toJson(jsonWriter);
         }
         jsonWriter.endObject();
       }
       jsonWriter.endObject();
+      stringWriter.append("--- End of summary---");
       return stringWriter.toString();
     } catch (IOException e) {
       return "\"Error generating trace summary\"";
