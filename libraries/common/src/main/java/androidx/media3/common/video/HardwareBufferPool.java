@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.effect;
+package androidx.media3.common.video;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -22,23 +22,24 @@ import android.hardware.HardwareBuffer;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.util.Consumer;
-import androidx.media3.common.video.SyncFenceWrapper;
+import androidx.media3.common.ColorInfo;
+import androidx.media3.common.Format;
+import androidx.media3.common.util.ExperimentalApi;
 import java.util.ArrayDeque;
 import java.util.Queue;
-import java.util.concurrent.Executor;
 
 /**
  * A pool of {@link HardwareBuffer}s.
  *
  * <p>This class manages a fixed-capacity pool of {@link HardwareBuffer}s that can be dequeued with
- * a specific {@link HardwareBufferFrameQueue.FrameFormat}. Dequeued buffers should be returned to
- * the pool using {@link #recycle(HardwareBuffer, SyncFenceWrapper)} for reuse.
+ * a specific {@link Format} and usage flags. Dequeued buffers should be returned to the pool using
+ * {@link #recycle(HardwareBuffer, SyncFenceWrapper)} for reuse.
  *
  * <p>Methods can be called from any thread.
  */
+@ExperimentalApi // TODO: b/498176910 - Remove once Frame is production ready.
 @RequiresApi(26)
-/* package */ final class HardwareBufferPool {
+public final class HardwareBufferPool {
 
   /** Wrapper around a {@link HardwareBuffer} and an {@linkplain SyncFenceWrapper acquireFence}. */
   public static final class HardwareBufferWithFence {
@@ -58,8 +59,6 @@ import java.util.concurrent.Executor;
     }
   }
 
-  private final Executor errorExecutor;
-  private final Consumer<Exception> errorCallback;
   private final int capacity;
   private final Object lock = new Object();
 
@@ -80,19 +79,15 @@ import java.util.concurrent.Executor;
    * Creates a new instance.
    *
    * @param capacity The maximum number of buffers allowed to exist (pooled + in-flight).
-   * @param errorExecutor The {@link Executor} to call {@code errorCallback} on.
-   * @param errorCallback A callback to accept {@link Exception}s if errors occur.
    */
-  public HardwareBufferPool(
-      int capacity, Executor errorExecutor, Consumer<Exception> errorCallback) {
+  public HardwareBufferPool(int capacity) {
     this.capacity = capacity;
-    this.errorExecutor = errorExecutor;
-    this.errorCallback = errorCallback;
     this.pool = new ArrayDeque<>(capacity);
   }
 
   /**
-   * Attempts to fetch a {@link HardwareBufferWithFence} matching the specified {@code format}.
+   * Attempts to fetch a {@link HardwareBufferWithFence} matching the specified {@code format} and
+   * {@code usageFlags}.
    *
    * <p>If the pool has reached its capacity and no buffers are available for reuse, this method
    * returns {@code null}. In this case, the {@code wakeupListener} will be invoked when a buffer is
@@ -101,13 +96,14 @@ import java.util.concurrent.Executor;
    * <p>If this method is called multiple times without returning a buffer, only the most recent
    * {@code wakeupListener} is guaranteed to be invoked.
    *
-   * @param format The required format for the dequeued buffer.
+   * @param format The required {@link Format} for the dequeued buffer.
+   * @param usageFlags The requested usage flags for the buffer.
    * @param wakeupListener A callback to notify the caller when a buffer becomes available.
    * @return A {@link HardwareBufferWithFence}, or {@code null} if the pool is currently full.
    */
   @Nullable
   public HardwareBufferWithFence get(
-      HardwareBufferFrameQueue.FrameFormat format, Runnable wakeupListener) {
+      Format format, @Frame.Usage long usageFlags, Runnable wakeupListener) {
     synchronized (lock) {
       if (isReleased) {
         return null;
@@ -115,7 +111,7 @@ import java.util.concurrent.Executor;
       @Nullable HardwareBufferWithFence hardwareBufferWithFence;
       while ((hardwareBufferWithFence = pool.poll()) != null) {
         HardwareBuffer buffer = hardwareBufferWithFence.hardwareBuffer;
-        if (isCompatible(buffer, format)) {
+        if (isCompatible(buffer, format, usageFlags)) {
           return hardwareBufferWithFence;
         } else {
           buffer.close();
@@ -129,7 +125,7 @@ import java.util.concurrent.Executor;
       }
       allocatedBufferCount++;
     }
-    return createNewBufferWithFence(format);
+    return createNewBufferWithFence(format, usageFlags);
   }
 
   /**
@@ -190,14 +186,14 @@ import java.util.concurrent.Executor;
   }
 
   private static HardwareBufferWithFence createNewBufferWithFence(
-      HardwareBufferFrameQueue.FrameFormat format) {
+      Format format, @Frame.Usage long usageFlags) {
     HardwareBuffer buffer =
         HardwareBuffer.create(
             format.width,
             format.height,
-            format.pixelFormat,
+            getPixelFormat(format),
             /* layers= */ 1,
-            adjustUsageFlags(format.usageFlags));
+            adjustUsageFlags(usageFlags));
     checkState(!buffer.isClosed());
     return new HardwareBufferWithFence(buffer, /* acquireFence= */ null);
   }
@@ -219,15 +215,22 @@ import java.util.concurrent.Executor;
   }
 
   private static boolean isCompatible(
-      HardwareBuffer buffer, HardwareBufferFrameQueue.FrameFormat format) {
+      HardwareBuffer buffer, Format format, @Frame.Usage long usageFlags) {
     return buffer.getWidth() == format.width
         && buffer.getHeight() == format.height
-        && buffer.getFormat() == format.pixelFormat
-        && buffer.getUsage() == adjustUsageFlags(format.usageFlags);
+        && buffer.getFormat() == getPixelFormat(format)
+        && buffer.getUsage() == adjustUsageFlags(usageFlags);
   }
 
   private static long adjustUsageFlags(long requestedUsageFlags) {
     // Ensure usage flags required by the consumer of this buffer are added.
     return requestedUsageFlags | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+  }
+
+  private static int getPixelFormat(Format format) {
+    // TODO: b/498547782 - Add pixel format to media3 Format.
+    return ColorInfo.isTransferHdr(format.colorInfo)
+        ? HardwareBuffer.RGBA_1010102
+        : HardwareBuffer.RGBA_8888;
   }
 }

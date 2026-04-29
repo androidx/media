@@ -26,7 +26,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.effect.HardwareBufferPool.HardwareBufferWithFence;
+import androidx.media3.common.video.HardwareBufferPool;
+import androidx.media3.common.video.HardwareBufferPool.HardwareBufferWithFence;
 import androidx.media3.effect.PacketConsumer.Packet;
 
 /**
@@ -79,12 +80,7 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
    */
   public PacketConsumerHardwareBufferFrameQueue(
       RenderingPacketConsumer<HardwareBufferFrame, SurfaceInfo> packetRenderer, Listener listener) {
-    pool =
-        new HardwareBufferPool(
-            CAPACITY,
-            // TODO: b/484926720 - add executor to the Listener callbacks.
-            /* errorExecutor= */ directExecutor(),
-            /* errorCallback= */ e -> listener.onError(VideoFrameProcessingException.from(e)));
+    pool = new HardwareBufferPool(CAPACITY);
     this.packetRenderer = packetRenderer;
     this.listener = listener;
     packetRenderer.setErrorConsumer(e -> listener.onError(VideoFrameProcessingException.from(e)));
@@ -108,7 +104,15 @@ public class PacketConsumerHardwareBufferFrameQueue implements HardwareBufferFra
   @Nullable
   public HardwareBufferFrame dequeue(
       HardwareBufferFrameQueue.FrameFormat format, Runnable wakeupListener) {
-    @Nullable HardwareBufferWithFence bufferWithFence = pool.get(format, wakeupListener);
+    Format requestedFormat =
+        new Format.Builder()
+            .setWidth(format.width)
+            .setHeight(format.height)
+            .setColorInfo(format.colorInfo)
+            .build();
+    @Nullable
+    HardwareBufferWithFence bufferWithFence =
+        pool.get(requestedFormat, format.usageFlags, wakeupListener);
     if (bufferWithFence != null) {
       return new HardwareBufferFrame.Builder(
               bufferWithFence.hardwareBuffer,

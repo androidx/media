@@ -33,7 +33,9 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
-import androidx.media3.effect.HardwareBufferPool.HardwareBufferWithFence;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.HardwareBufferPool;
+import androidx.media3.common.video.HardwareBufferPool.HardwareBufferWithFence;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 
@@ -170,11 +172,7 @@ public final class SurfaceHolderHardwareBufferFrameQueue
     this.listener = listener;
     this.listenerExecutor = listenerExecutor;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
-    this.hardwareBufferPool =
-        new HardwareBufferPool(
-            CAPACITY,
-            listenerExecutor,
-            (e) -> listener.onError(VideoFrameProcessingException.from(e)));
+    this.hardwareBufferPool = new HardwareBufferPool(CAPACITY);
     if (surfaceHolder != null) {
       surfaceHolder.addCallback(this);
     }
@@ -236,14 +234,16 @@ public final class SurfaceHolderHardwareBufferFrameQueue
           // can also be read by the CPU. This will be filled be the caller, then copied into the
           // buffer dequeued from ImageWriter via the JNI.
           checkState(hardwareBufferJniWrapper != null);
-          FrameFormat intermediateFormat =
-              format
-                  .buildUpon()
-                  .setUsageFlags(format.usageFlags | HardwareBuffer.USAGE_CPU_READ_OFTEN)
+          Format requestedFormat =
+              new Format.Builder()
+                  .setWidth(format.width)
+                  .setHeight(format.height)
+                  .setColorInfo(format.colorInfo)
                   .build();
           @Nullable
           HardwareBufferWithFence bufferWithFence =
-              hardwareBufferPool.get(intermediateFormat, wakeupListener);
+              hardwareBufferPool.get(
+                  requestedFormat, format.usageFlags | Frame.USAGE_CPU_READ_OFTEN, wakeupListener);
           // The pool is at capacity, wakeupListener will be invoked when there is an available
           // buffer.
           if (bufferWithFence == null) {
