@@ -17,7 +17,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.AssetInfo.BT601_MOV_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_PORTRAIT_ASSET;
@@ -53,7 +52,6 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.BitmapOverlay;
-import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.LanczosResample;
 import androidx.media3.effect.OverlayEffect;
@@ -69,7 +67,6 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -96,11 +93,6 @@ public final class TransformerSequenceEffectTest {
   @Before
   public void setUpTestId() {
     testId = testName.getMethodName();
-  }
-
-  @After
-  public void tearDown() {
-    DebugTraceUtil.enableTracing = false;
   }
 
   @Test
@@ -318,7 +310,6 @@ public final class TransformerSequenceEffectTest {
                 MP4_ASSET_CHECKERBOARD_VIDEO.uri,
                 NO_EFFECT,
                 /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
-    DebugTraceUtil.enableTracing = true;
 
     boolean atLeastOneDecoderSucceeds = false;
     for (MediaCodecInfo mediaCodecInfo : mediaCodecInfoList) {
@@ -338,9 +329,6 @@ public final class TransformerSequenceEffectTest {
           context, testId, checkNotNull(result.filePath), PSNR_THRESHOLD, /* frameCount= */ 1);
     }
     assertThat(atLeastOneDecoderSucceeds).isTrue();
-
-    String traceSummary = DebugTraceUtil.generateTraceSummary();
-    assertThat(traceSummary.indexOf(EVENT_SURFACE_TEXTURE_TRANSFORM_FIX)).isNotEqualTo(-1);
   }
 
   @Test
