@@ -304,7 +304,10 @@ public final class Dav1dDecoder
       }
       int error = dav1dRenderFrame(dav1dDecoderContext, surface, outputBuffer);
       if (error != DAV1D_OK) {
-        throw new Dav1dDecoderException("Failed to render output buffer to surface.");
+        String errorMsg = dav1dGetErrorMessage(dav1dDecoderContext);
+        int jniCode = dav1dGetLastErrorJniStatusCode(dav1dDecoderContext);
+        throw new Dav1dDecoderException(
+            "Failed to render output buffer to surface. " + errorMsg, jniCode);
       }
     }
   }
@@ -674,6 +677,14 @@ public final class Dav1dDecoder
    * @return A string describing the last encountered error.
    */
   private native String dav1dGetErrorMessage(long context);
+
+  /**
+   * Returns the JNI status code of the last error encountered in the given context.
+   *
+   * @param context Decoder context.
+   * @return The JNI status code of the last encountered error.
+   */
+  private native int dav1dGetLastErrorJniStatusCode(long context);
 
   /**
    * Returns whether an error occurred.
