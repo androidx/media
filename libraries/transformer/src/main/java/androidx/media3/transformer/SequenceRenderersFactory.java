@@ -51,6 +51,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.image.ImageMetadataListener;
 import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
@@ -735,6 +736,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private @MonotonicNonNull WakeupListener wakeupListener;
+    @Nullable private ImageMetadataListener imageMetadataListener;
+    private @MonotonicNonNull Format outputFormat;
+    private long streamOffsetUs;
 
     public SequenceImageRenderer(ImageDecoder.Factory imageDecoderFactory, VideoSink videoSink) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
@@ -834,6 +838,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = editedMediaItem.effects.videoEffects;
       inputStreamPending = true;
+      streamOffsetUs = offsetUs;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -858,15 +863,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long positionUs, long elapsedRealtimeUs, Bitmap outputImage, long timeUs) {
       if (inputStreamPending) {
         checkState(streamStartPositionUs != C.TIME_UNSET);
-        videoSink.onInputStreamChanged(
-            VideoSink.INPUT_TYPE_BITMAP,
+        outputFormat =
             new Format.Builder()
                 .setSampleMimeType(MimeTypes.IMAGE_RAW)
                 .setWidth(outputImage.getWidth())
                 .setHeight(outputImage.getHeight())
                 .setColorInfo(ColorInfo.SRGB_BT709_FULL)
                 .setFrameRate(/* frameRate= */ DEFAULT_FRAME_RATE)
-                .build(),
+                .build();
+        videoSink.onInputStreamChanged(
+            VideoSink.INPUT_TYPE_BITMAP,
+            outputFormat,
             streamStartPositionUs,
             nextFirstFrameReleaseInstruction,
             videoEffects);
@@ -879,6 +886,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoSink.signalEndOfCurrentInputStream();
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
         videoSink.signalEndOfInput();
+      }
+      if (imageMetadataListener != null) {
+        imageMetadataListener.onImageAboutToBeAvailable(
+            timeUs - streamOffsetUs, checkNotNull(outputFormat));
       }
       return true;
     }
@@ -893,6 +904,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
           videoSink.setVideoFrameMetadataListener(
               (VideoFrameMetadataListener) checkNotNull(message));
+          break;
+        case Renderer.MSG_SET_IMAGE_METADATA_LISTENER:
+          imageMetadataListener = (ImageMetadataListener) message;
           break;
         default:
           super.handleMessage(messageType, message);
@@ -1085,6 +1099,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
+    @Nullable private ImageMetadataListener imageMetadataListener;
+    private @MonotonicNonNull Format outputFormat;
+    private long streamOffsetUs;
 
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
@@ -1094,6 +1111,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.compositionRendererListener = compositionRendererListener;
       this.hardwareBufferFrameReader = hardwareBufferFrameReader;
       streamStartPositionUs = C.TIME_UNSET;
+    }
+
+    @Override
+    public void handleMessage(@Renderer.MessageType int messageType, @Nullable Object message)
+        throws ExoPlaybackException {
+      if (messageType == Renderer.MSG_SET_IMAGE_METADATA_LISTENER) {
+        imageMetadataListener = (ImageMetadataListener) message;
+        return;
+      }
+      super.handleMessage(messageType, message);
     }
 
     // ImageRenderer methods
@@ -1125,6 +1152,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
+      streamOffsetUs = offsetUs;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -1152,6 +1180,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
         hardwareBufferFrameReader.queueEndOfStream();
+      }
+      if (imageMetadataListener != null) {
+        if (outputFormat == null
+            || outputFormat.width != outputImage.getWidth()
+            || outputFormat.height != outputImage.getHeight()) {
+          outputFormat =
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.IMAGE_RAW)
+                  .setWidth(outputImage.getWidth())
+                  .setHeight(outputImage.getHeight())
+                  .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                  .setFrameRate(DEFAULT_FRAME_RATE)
+                  .build();
+        }
+        checkNotNull(imageMetadataListener)
+            .onImageAboutToBeAvailable(timeUs - streamOffsetUs, outputFormat);
       }
       return true;
     }

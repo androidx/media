@@ -69,6 +69,7 @@ import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.image.ImageMetadataListener;
 import androidx.media3.exoplayer.source.BehindLiveWindowException;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -180,6 +181,7 @@ import java.util.Objects;
   private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
   private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
   private static final int MSG_SET_SCRUBBING_MODE_PARAMETERS = 38;
+  private static final int MSG_SET_IMAGE_METADATA_LISTENER = 39;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -379,6 +381,16 @@ import java.util.Objects;
     handler
         .obtainMessage(MSG_SET_VIDEO_FRAME_METADATA_LISTENER, internalVideoFrameMetadataListener)
         .sendToTarget();
+
+    ImageMetadataListener internalOnImageAvailableListener =
+        (presentationTimeUs, format) -> {
+          if (seekIsPendingWhileScrubbing) {
+            handler.obtainMessage(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE).sendToTarget();
+          }
+        };
+    handler
+        .obtainMessage(MSG_SET_IMAGE_METADATA_LISTENER, internalOnImageAvailableListener)
+        .sendToTarget();
   }
 
   private MediaPeriodHolder createMediaPeriodHolder(
@@ -536,6 +548,13 @@ import java.util.Objects;
       VideoFrameMetadataListener videoFrameMetadataListener) throws ExoPlaybackException {
     for (RendererHolder renderer : renderers) {
       renderer.setVideoFrameMetadataListener(videoFrameMetadataListener);
+    }
+  }
+
+  private void setImageMetadataListenerInternal(ImageMetadataListener imageMetadataListener)
+      throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setImageMetadataListener(imageMetadataListener);
     }
   }
 
@@ -810,6 +829,9 @@ import java.util.Objects;
           break;
         case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
           setVideoFrameMetadataListenerInternal((VideoFrameMetadataListener) msg.obj);
+          break;
+        case MSG_SET_IMAGE_METADATA_LISTENER:
+          setImageMetadataListenerInternal((ImageMetadataListener) msg.obj);
           break;
         case MSG_RELEASE:
           releaseInternal(/* processedCondition= */ (ConditionVariable) msg.obj);
@@ -1661,17 +1683,6 @@ import java.util.Objects;
           }
         }
 
-        if (scrubbingModeEnabled) {
-          for (RendererHolder renderer : renderers) {
-            // TODO: b/451939261 - Remove video-only condition once image-playback scrubbing mode
-            //  supports skipping intermittent seeks.
-            if (renderer.isRendererEnabled() && renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
-              seekIsPendingWhileScrubbing = true;
-              break;
-            }
-          }
-        }
-
         newPeriodPositionUs =
             seekToPeriodPosition(
                 periodId,
@@ -1775,6 +1786,17 @@ import java.util.Objects;
 
     // Disable pre-warming as following logic will reset any pre-warming media periods.
     disableAndResetPrewarmingRenderers();
+
+    if (scrubbingModeEnabled) {
+      for (RendererHolder renderer : renderers) {
+        if (renderer.isRendererEnabled()
+            && (renderer.getTrackType() == C.TRACK_TYPE_VIDEO
+                || renderer.getTrackType() == C.TRACK_TYPE_IMAGE)) {
+          seekIsPendingWhileScrubbing = true;
+          break;
+        }
+      }
+    }
 
     // Do the actual seeking.
     if (newPlayingPeriodHolder != null) {

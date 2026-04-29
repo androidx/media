@@ -33,6 +33,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
+import androidx.media3.exoplayer.image.ImageMetadataListener;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -833,7 +834,7 @@ import java.util.Objects;
 
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener)
       throws ExoPlaybackException {
-    if (getTrackType() != TRACK_TYPE_VIDEO && getTrackType() != TRACK_TYPE_IMAGE) {
+    if (getTrackType() != TRACK_TYPE_VIDEO) {
       return;
     }
     primaryRenderer.handleMessage(
@@ -841,6 +842,18 @@ import java.util.Objects;
     if (secondaryRenderer != null) {
       secondaryRenderer.handleMessage(
           Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER, videoFrameMetadataListener);
+    }
+  }
+
+  public void setImageMetadataListener(ImageMetadataListener imageMetadataListener)
+      throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_IMAGE) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_IMAGE_METADATA_LISTENER, imageMetadataListener);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(
+          Renderer.MSG_SET_IMAGE_METADATA_LISTENER, imageMetadataListener);
     }
   }
 

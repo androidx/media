@@ -38,6 +38,9 @@
 *   Text:
 *   Metadata:
 *   Image:
+    *   Fix issue in scrubbing mode where image updates would only take effect
+        when the user "stops scrubbing"
+        ([#2815](https://github.com/androidx/media/issues/2815)).
 *   DataSource:
 *   DRM:
 *   Effect:
