@@ -17,12 +17,18 @@
 
 # Builds the iamf_tools native library for all supported architectures.
 # Usage
-# ./build_iamf.sh ${IAMF_MODULE_PATH}
+# ./build_iamf_tools.sh ${IAMF_MODULE_PATH} ${NDK_PATH}
 
 set -eu
 
 IAMF_MODULE_PATH="$1"
 echo "IAMF_MODULE_PATH is ${IAMF_MODULE_PATH}"
+NDK_PATH="${2:-}"
+# Bazel's android_ndk_repository rule requires this environment variable
+if [[ -n "${NDK_PATH}" ]]; then
+  export ANDROID_NDK_HOME="${NDK_PATH}"
+  echo "ANDROID_NDK_HOME is ${ANDROID_NDK_HOME}"
+fi
 
 rm -rf "${IAMF_MODULE_PATH}/jni/nativelib"
 echo "Cleaned old pre-built libraries."

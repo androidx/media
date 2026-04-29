@@ -24,47 +24,47 @@ In addition, it's necessary to fetch iamf_tools with dependencies as follows:
 *   Download the [Android NDK][] and set its location in a shell variable. This
     build configuration has been tested on NDK r29.
 
-    ```
-    export ANDROID_NDK_HOME="<path to Android NDK>"
-    ```
+```shell
+NDK_PATH="<path to Android NDK>"
+```
 
 *   Set the following environment variables.
 
-    ```shell
-    cd "<path to project checkout>"
-    export IAMF_MODULE_PATH="$(pwd)/libraries/decoder_iamf/src/main"
-    ```
+```shell
+cd "<path to project checkout>"
+export IAMF_MODULE_PATH="$(pwd)/libraries/decoder_iamf/src/main"
+```
 
 *   Fetch iamf_tools. These build instructions have been tested at this
     particular commit but may work fine at head.
 
-    ```shell
-    cd "${IAMF_MODULE_PATH}/jni" && \
-    git clone https://github.com/AOMediaCodec/iamf-tools.git \
-        --depth=1 \
-        --revision=e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 \
-        iamf_tools
-    ```
+```shell
+cd "${IAMF_MODULE_PATH}/jni" && \
+git clone https://github.com/AOMediaCodec/iamf-tools.git \
+    --depth=1 \
+    --revision=e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 \
+    iamf_tools
+```
 
     *   If you are using an old version of `git` without the `--revision` flag
         (added in 2.49), run this instead:
 
-        ```shell
-        cd "${IAMF_MODULE_PATH}/jni" && \
-        mkdir iamf_tools && \
-        cd iamf_tools && \
-        git init && \
-        git remote add origin https://github.com/AOMediaCodec/iamf-tools.git \
-        git fetch --depth=1 origin e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 && \
-        git checkout FETCH_HEAD
-        ```
+```shell
+cd "${IAMF_MODULE_PATH}/jni" && \
+mkdir iamf_tools && \
+cd iamf_tools && \
+git init && \
+git remote add origin https://github.com/AOMediaCodec/iamf-tools.git \
+git fetch --depth=1 origin e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 && \
+git checkout FETCH_HEAD
+```
 
 *   Build the library.
 
-    ```shell
-    cd "${IAMF_MODULE_PATH}/jni" && \
-    ./build_iamf_tools.sh ${IAMF_MODULE_PATH}
-    ```
+```shell
+cd "${IAMF_MODULE_PATH}/jni" && \
+./build_iamf_tools.sh "${IAMF_MODULE_PATH}" "${NDK_PATH}"
+```
 
 *   [Install CMake][]
 
