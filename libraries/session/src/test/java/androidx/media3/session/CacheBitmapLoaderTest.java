@@ -45,12 +45,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
-/**
- * Tests for {@link CacheBitmapLoader}.
- *
- * <p>This test needs to run as an androidTest because robolectric's {@link BitmapFactory} is not
- * fully functional.
- */
+/** Tests for {@link CacheBitmapLoader}. */
 @RunWith(AndroidJUnit4.class)
 public class CacheBitmapLoaderTest {
 
