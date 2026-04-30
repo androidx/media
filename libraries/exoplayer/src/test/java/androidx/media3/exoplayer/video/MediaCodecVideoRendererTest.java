@@ -2725,7 +2725,8 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekWithFlushingEnabled_rendersFramesAsExpected() throws Exception {
+  public void render_afterSeekWithFlushingEnabledAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+      throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -2769,6 +2770,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(false)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -2791,7 +2793,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_afterSeekWithFlushingDisabledAndNonZeroMaxNumReorderSamples_rendersFramesAsExpected()
+      render_afterSeekWithFlushingAndDecodeOnlyFlagDisabledAndNonZeroMaxNumReorderSamples_rendersFramesAsExpected()
           throws Exception {
     Format h264FormatWithNonZeroMaxNumReorderSamples =
         VIDEO_H264.buildUpon().setMaxNumReorderSamples(2).build();
@@ -2838,6 +2840,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -2859,7 +2862,8 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekWithFlushingDisabled_rendersFramesAsExpected() throws Exception {
+  public void render_afterSeekWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+      throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -2903,6 +2907,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -2924,8 +2929,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekBackwardsWithFlushingDisabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeekBackwardsWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -2967,6 +2973,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -2989,7 +2996,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_afterSeekBackwardsWithFlushingDisabledToSamePresentationTimeUs_rendersFramesAsExpected()
+      render_afterSeekBackwardsWithFlushingAndDecodeOnlyFlagDisabledToSamePresentationTimeUs_rendersFramesAsExpected()
           throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
@@ -3054,7 +3061,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_afterSeekBackwardsWithFlushingDisabledAndZeroInputBuffersQueued_rendersFramesAsExpected()
+      render_afterSeekBackwardsWithFlushingAndDecodeOnlyFlagDisabledAndZeroInputBuffersQueued_rendersFramesAsExpected()
           throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
@@ -3108,6 +3115,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3129,8 +3137,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekBackwardsTwiceWithFlushingDisabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeekBackwardsTwiceWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3174,6 +3183,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3205,8 +3215,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekBackwardsFromLastSampleWithFlushingDisabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeekBackwardsFromLastSampleWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3249,6 +3260,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3270,8 +3282,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekBackwardsFromEoSWithFlushingDisabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeekBackwardsFromEoSWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3314,6 +3327,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3335,7 +3349,8 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekToEoSWithFlushingDisabled_rendersFramesAsExpected() throws Exception {
+  public void render_afterSeekToEoSWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+      throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3379,6 +3394,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3400,8 +3416,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeeksWithFlushingDisabledThenEnabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeeksWithFlushingDisabledThenEnabledAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3448,6 +3465,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3479,8 +3497,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeeksWithFlushingEnabledThenDisabled_rendersFramesAsExpected()
-      throws Exception {
+  public void
+      render_afterSeeksWithFlushingEnabledThenDisabledAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3527,6 +3546,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(false)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3559,7 +3579,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_afterSeekWithFlushingDisabledAndSkippedFlushOffsetOverflow_rendersFramesAsExpected()
+      render_afterSeekWithFlushingDisabledAndSkippedFlushOffsetOverflowAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
           throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
@@ -3615,6 +3635,8 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            // Set decode-only flag to false so that we ensure skip frame due to flush.
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3648,7 +3670,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_afterSeekWithFlushingDisabledAndLastSampleFlushResetsSkippedFlushOffset_rendersFramesAsExpected()
+      render_afterSeekWithFlushingAndDecodeOnlyFlagDisabledAndLastSampleFlushResetsSkippedFlushOffset_rendersFramesAsExpected()
           throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
@@ -3704,6 +3726,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(true)
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3750,7 +3773,9 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void render_afterSeekWithSkipKeyFrameReset_rendersFramesAsExpected() throws Exception {
+  public void
+      render_afterSeekWithSkipKeyFrameResetAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
+          throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
     FakeSampleStream fakeSampleStream =
@@ -3791,7 +3816,10 @@ public class MediaCodecVideoRendererTest {
 
     // Enable skip key frame reset
     ScrubbingModeParameters scrubbingModeParameters =
-        new ScrubbingModeParameters.Builder().setAllowSkippingKeyFrameReset(true).build();
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingKeyFrameReset(true)
+            .setUseDecodeOnlyFlag(false)
+            .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     long seekPositionUs = 100_000;
     assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(seekPositionUs))
@@ -3816,7 +3844,7 @@ public class MediaCodecVideoRendererTest {
 
   @Test
   public void
-      render_withSeekAfterReplaceStreamAndSkipKeyFrameReset_doesNotRenderFirstFrameOfNewStream()
+      render_withSeekAfterReplaceStreamAndSkipKeyFrameResetAndDecodeOnlyFlagDisabled_doesNotRenderFirstFrameOfNewStream()
           throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
@@ -3883,6 +3911,7 @@ public class MediaCodecVideoRendererTest {
         new ScrubbingModeParameters.Builder()
             .setAllowSkippingMediaCodecFlush(false)
             .setAllowSkippingKeyFrameReset(true)
+            .setUseDecodeOnlyFlag(false)
             .build();
     mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
     seekToUs(
@@ -3970,7 +3999,10 @@ public class MediaCodecVideoRendererTest {
 
     mediaCodecVideoRenderer.handleMessage(
         Renderer.MSG_SET_SCRUBBING_MODE,
-        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(true).build());
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(true)
+            .setUseDecodeOnlyFlag(true)
+            .build());
 
     if (mediaCodecVideoRenderer.getState() == Renderer.STATE_STARTED) {
       mediaCodecVideoRenderer.stop();
@@ -4058,7 +4090,10 @@ public class MediaCodecVideoRendererTest {
 
     mediaCodecVideoRenderer.handleMessage(
         Renderer.MSG_SET_SCRUBBING_MODE,
-        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(true).build());
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(true)
+            .setUseDecodeOnlyFlag(true)
+            .build());
 
     if (mediaCodecVideoRenderer.getState() == Renderer.STATE_STARTED) {
       mediaCodecVideoRenderer.stop();
