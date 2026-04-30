@@ -73,8 +73,8 @@ public final class IdlingMediaCodecAdapterFactory implements MediaCodecAdapter.F
   }
 
   private IdlingMediaCodecAdapterFactory(Context context, @Nullable HandlerWrapper handler) {
-    queueingThreadSupplier = new ThreadSupplier("IdlingMediaCodecCallback");
-    callbackThreadSupplier = new ThreadSupplier("IdlingMediaCodecQueueing");
+    queueingThreadSupplier = new ThreadSupplier("IdlingMediaCodecQueueing");
+    callbackThreadSupplier = new ThreadSupplier("IdlingMediaCodecCallback");
     delegate =
         new DefaultMediaCodecAdapterFactory(
             context, callbackThreadSupplier, queueingThreadSupplier);
