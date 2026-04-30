@@ -582,7 +582,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       /**
        * Sets the media button preferences.
        *
-       * <p>The button are converted to custom actions in the platform media session playback state
+       * <p>The button is converted to custom actions in the platform media session playback state
        * for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
        * controllers (see {@code
        * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
@@ -595,7 +595,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * by using an {@link ConnectionResult.AcceptedResultBuilder}.
        *
        * <p>Use {@code MediaSession.setMediaButtonPreferences(..)} to update the media button
-       * preferences during the life time of the session.
+       * preferences during the lifetime of the session.
        *
        * <p>On the controller side, the {@linkplain CommandButton#isEnabled enabled} flag is set to
        * {@code false} if the available commands of a controller do not allow to use a button.

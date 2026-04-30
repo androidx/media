@@ -80,8 +80,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *
  * <p>It's highly recommended for an app to use this class if media playback should continue while
  * in the background. The service allows other apps to know that your app supports {@link
- * MediaSession} even when your app isn't running. This way, a user voice command may be able start
- * your app to play media.
+ * MediaSession} even when your app isn't running. This way, a user voice command may be able to
+ * start your app to play media.
  *
  * <p>To extend this class, declare the intent filter in your {@code AndroidManifest.xml}:
  *
@@ -310,7 +310,7 @@ public abstract class MediaSessionService extends LifecycleService {
    *
    * <ul>
    *   <li>When the service is started by a media button event. In such a case the {@linkplain
-   *       ControllerInfo#getConnectionHints() connection hints} are marked with an string bundle
+   *       ControllerInfo#getConnectionHints() connection hints} are marked with a string bundle
    *       entry with key {@link #CONNECTION_HINT_KEY_CONTROLLER_INFO_TYPE} with value {@link
    *       Intent#ACTION_MEDIA_BUTTON}. If the media button intent requests a specific session to be
    *       started the requested session ID can be looked up as a string entry with key {@link

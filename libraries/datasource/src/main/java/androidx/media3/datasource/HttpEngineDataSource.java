@@ -792,7 +792,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   /**
    * Attempts to skip the specified number of bytes in full.
    *
-   * <p>The methods throws an {@link OpenException} with {@link OpenException#reason} set to {@link
+   * <p>The method throws an {@link OpenException} with {@link OpenException#reason} set to {@link
    * PlaybackException#ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE} when the data ended before the
    * specified number of bytes were skipped.
    *

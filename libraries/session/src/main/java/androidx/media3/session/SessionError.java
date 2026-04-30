@@ -129,7 +129,7 @@ public final class SessionError {
   public static final int ERROR_SESSION_SETUP_REQUIRED =
       PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 
-  /** Error code representing that navigation failed because the the playlist was exhausted. */
+  /** Error code representing that navigation failed because the playlist was exhausted. */
   public static final int ERROR_SESSION_END_OF_PLAYLIST =
       PlaybackException.ERROR_CODE_END_OF_PLAYLIST;
 

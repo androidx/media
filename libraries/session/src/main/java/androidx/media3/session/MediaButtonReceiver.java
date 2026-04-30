@@ -64,11 +64,11 @@ import java.util.Objects;
  * <p>This class assumes you have a {@link Service} in your app's manifest that controls media
  * playback via a {@link MediaSession}. Once a key event is received by this receiver, it tries to
  * find a {@link Service} that can handle the action {@link Intent#ACTION_MEDIA_BUTTON}, {@link
- * MediaSessionService#SERVICE_INTERFACE} or {@link MediaSessionService#SERVICE_INTERFACE}. If an
+ * MediaSessionService#SERVICE_INTERFACE} or {@link MediaLibraryService#SERVICE_INTERFACE}. If an
  * appropriate service is found, this class starts the service as a foreground service and sends the
  * key event to the service by an {@link Intent} with action {@link Intent#ACTION_MEDIA_BUTTON}. If
- * neither is available or more than one valid service is found for one of the actions, an {@link
- * IllegalStateException} is thrown.
+ * neither one is available or more than one valid service is found for one of the actions, an
+ * {@link IllegalStateException} is thrown.
  *
  * <h3>Service handling ACTION_MEDIA_BUTTON</h3>
  *

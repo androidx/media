@@ -97,8 +97,8 @@ public final class CustomCommandPendingIntentBuilder {
   /**
    * Sets the ID of the session.
    *
-   * <p>The default value is {@code null}, which which corresponds to the default ID used when
-   * {@link MediaSession.Builder#setId(String)} was not called when building the session.
+   * <p>The default value is {@code null}, which corresponds to the default ID used when {@link
+   * MediaSession.Builder#setId(String)} was not called when building the session.
    *
    * @param sessionId The ID of the session as set with {@link MediaSession.Builder#setId(String)}
    *     or null if the default ID was used when building the session.

@@ -35,8 +35,8 @@ public final class MediaNotification {
    * Event key to indicate a media notification was dismissed.
    *
    * <p>This event key can be used as an extras key for a boolean extra on a media button pending
-   * intent, and as as custom session command action to inform the media notification controller
-   * that a notification was dismissed.
+   * intent, and as custom session command action to inform the media notification controller that a
+   * notification was dismissed.
    */
   @UnstableApi
   public static final String NOTIFICATION_DISMISSED_EVENT_KEY =
@@ -95,7 +95,7 @@ public final class MediaNotification {
      * provider} that provided them.
      *
      * <p>The returned {@link NotificationCompat.Action} will have a {@link PendingIntent} with the
-     * extras from {@link SessionCommand#customExtras}. Accordingly the {@linkplain
+     * extras from {@link SessionCommand#customExtras}. Accordingly, the {@linkplain
      * SessionCommand#customExtras command's extras} will be passed to {@link
      * Provider#handleCustomCommand(MediaSession, String, Bundle)} when the action is executed.
      *

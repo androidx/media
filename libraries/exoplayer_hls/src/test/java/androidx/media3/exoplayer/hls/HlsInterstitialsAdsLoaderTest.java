@@ -1108,7 +1108,7 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void handleContentTimelineChanged_durationPlayouLimitAndContentOffset_correctPrecendence()
+  public void handleContentTimelineChanged_durationPlayoutLimitAndContentOffset_correctPrecedence()
       throws IOException {
     String playlistString =
         "#EXTM3U\n"

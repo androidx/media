@@ -118,7 +118,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.initialization.qual.Initialized;
 
-// Getting the commands from MediaControllerCompat'
+// Getting the commands from MediaControllerCompat
 /* package */ class MediaSessionLegacyStub extends MediaSessionCompat.Callback {
 
   private static final String TAG = "MediaSessionLegacyStub";
@@ -371,7 +371,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   /**
-   * Sets the legacy error that will be used when the next {@link PlaybackStateCompat} legacy
+   * Sets the legacy error that will be used when the next {@linkplain PlaybackStateCompat legacy
    * playback state is created}.
    *
    * <p>This sets the legacy {@link PlaybackStateCompat} to {@link PlaybackStateCompat#STATE_ERROR}

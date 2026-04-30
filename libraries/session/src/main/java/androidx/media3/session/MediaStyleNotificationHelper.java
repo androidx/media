@@ -38,8 +38,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Class containing media specfic {@link androidx.core.app.NotificationCompat.Style styles} that you
- * can use with {@link androidx.core.app.NotificationCompat.Builder#setStyle}.
+ * Class containing media specific {@link androidx.core.app.NotificationCompat.Style styles} that
+ * you can use with {@link androidx.core.app.NotificationCompat.Builder#setStyle}.
  */
 @UnstableApi
 public class MediaStyleNotificationHelper {
@@ -53,7 +53,7 @@ public class MediaStyleNotificationHelper {
    *
    * <p>In the expanded form, up to 5 {@link androidx.core.app.NotificationCompat.Action actions}
    * specified with {@link androidx.core.app.NotificationCompat.Builder #addAction(int,
-   * CharSequence, PendingIntent) addAction} will be shown as icon-only pushbuttons, suitable for
+   * CharSequence, PendingIntent) addAction} will be shown as icon-only push buttons, suitable for
    * transport controls. The Bitmap given to {@link androidx.core.app.NotificationCompat.Builder
    * #setLargeIcon(android.graphics.Bitmap) setLargeIcon()} will be treated as album artwork.
    *
