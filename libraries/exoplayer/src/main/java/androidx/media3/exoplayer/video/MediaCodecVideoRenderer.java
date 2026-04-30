@@ -653,7 +653,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         new VideoFrameReleaseControl(
             this.context, /* frameTimingEvaluator= */ thisRef, builder.allowedJoiningTimeMs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-    frameRateEstimator = new FixedFrameRateEstimator();
+    frameRateEstimator =
+        new FixedFrameRateEstimator(
+            frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     outputResolution = Size.UNKNOWN;
     scalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
@@ -1879,8 +1881,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       nextVideoSinkFirstFrameReleaseInstruction =
           RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
     } else {
-      frameRateEstimator.reset();
-      videoFrameReleaseControl.setFrameRate(format.frameRate, frameRateEstimator);
+      frameRateEstimator.onFormatChanged(format.frameRate);
     }
     pendingVideoSinkInputStreamChange = false;
   }

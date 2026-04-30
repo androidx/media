@@ -77,7 +77,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       Listener listener) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
-    this.frameRateEstimator = new FixedFrameRateEstimator();
+    this.frameRateEstimator =
+        new FixedFrameRateEstimator(
+            frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     this.listener = listener;
     // Call the downstream PacketConsumer on the calling thread to reduce unnecessary thread hops.
     this.downstreamConsumer =

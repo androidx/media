@@ -40,7 +40,6 @@ public class VideoFrameReleaseControlTest {
   @Before
   public void setUp() {
     surface = new Surface(new SurfaceTexture(/* texName= */ 0));
-    frameRateEstimator = new FixedFrameRateEstimator();
   }
 
   @After
@@ -1174,6 +1173,9 @@ public class VideoFrameReleaseControlTest {
             new TestFrameTimingEvaluator(),
             allowedJoiningTimeMs);
     videoFrameReleaseControl.setOutputSurface(surface);
+    frameRateEstimator =
+        new FixedFrameRateEstimator(
+            frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     return videoFrameReleaseControl;
   }
 

@@ -258,9 +258,9 @@ public final class VideoFrameReleaseControl {
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
   }
 
-  /** Sets the frame rate. */
-  public void setFrameRate(float frameRate, FixedFrameRateEstimator frameRateEstimator) {
-    frameReleaseHelper.onFormatChanged(frameRate, frameRateEstimator);
+  /** Sets the surface media frame rate. */
+  public void setSurfaceMediaFrameRate(float surfaceMediaFrameRate) {
+    frameReleaseHelper.setSurfaceMediaFrameRate(surfaceMediaFrameRate);
   }
 
   /**
@@ -375,7 +375,7 @@ public final class VideoFrameReleaseControl {
       initialPositionUs = positionUs;
     }
     if (lastPresentationTimeUs != presentationTimeUs) {
-      frameReleaseHelper.onNextFrame(presentationTimeUs, frameRateEstimator);
+      frameReleaseHelper.onNextFrame(presentationTimeUs);
       lastPresentationTimeUs = presentationTimeUs;
     }
 

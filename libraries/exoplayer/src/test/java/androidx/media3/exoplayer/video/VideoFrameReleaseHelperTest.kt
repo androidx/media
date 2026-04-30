@@ -660,7 +660,7 @@ class VideoFrameReleaseHelperTest {
     testData: TestData,
     onFrameAdjusted: (Int) -> Unit = {},
   ): List<Long> = buildList {
-    val frameRateEstimator = FixedFrameRateEstimator()
+    val frameRateEstimator = FixedFrameRateEstimator {}
     var nextVsyncUpdateTimeNs = testData.releaseTimeNs.first()
     for (i in 0..<testData.releaseTimeNs.size) {
       if (testData.releaseTimeNs[i] >= nextVsyncUpdateTimeNs) {
@@ -670,7 +670,7 @@ class VideoFrameReleaseHelperTest {
         )
         nextVsyncUpdateTimeNs += VideoFrameReleaseHelper.VSYNC_SAMPLE_UPDATE_PERIOD_MS * 1_000_000
       }
-      videoFrameReleaseHelper.onNextFrame(testData.frameTimeUs[i], frameRateEstimator)
+      videoFrameReleaseHelper.onNextFrame(testData.frameTimeUs[i])
       add(
         videoFrameReleaseHelper.adjustReleaseTime(
           testData.releaseTimeNs[i],

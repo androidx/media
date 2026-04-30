@@ -49,7 +49,7 @@ public class VideoFrameRenderControlTest {
   @Before
   public void setUp() {
     surface = new Surface(new SurfaceTexture(/* texName= */ 0));
-    frameRateEstimator = new FixedFrameRateEstimator();
+    frameRateEstimator = new FixedFrameRateEstimator(frameRate -> {});
   }
 
   @After

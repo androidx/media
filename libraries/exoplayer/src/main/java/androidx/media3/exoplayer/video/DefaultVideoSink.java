@@ -74,7 +74,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
     videoFrameReleaseControl.setClock(clock);
-    frameRateEstimator = new FixedFrameRateEstimator();
+    frameRateEstimator =
+        new FixedFrameRateEstimator(
+            frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     videoFrameRenderControl =
         new VideoFrameRenderControl(
             new FrameRendererImpl(),
@@ -227,8 +229,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
     }
     if (format.frameRate != inputFormat.frameRate) {
-      frameRateEstimator.reset();
-      videoFrameReleaseControl.setFrameRate(format.frameRate, frameRateEstimator);
+      frameRateEstimator.onFormatChanged(format.frameRate);
     }
     inputFormat = format;
     if (startPositionUs != this.streamStartPositionUs) {
