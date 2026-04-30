@@ -215,6 +215,32 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void extract_withOmitTrackSampleTableFlagAndNoStssBox_extractsCorrectMetadata()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_without_stss.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(),
+            /* flags= */ Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(1001000);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+    assertThat(output.numberOfTracks).isEqualTo(1);
+    // Check Video Track Format
+    Format videoFormat = output.trackOutputs.get(0).lastFormat;
+    assertThat(videoFormat.sampleMimeType).isEqualTo("video/avc");
+    assertThat(videoFormat.width).isEqualTo(1080);
+    assertThat(videoFormat.height).isEqualTo(720);
+    // Importantly, check that no actual sample data was output
+    assertThat(output.trackOutputs.get(0).getSampleCount()).isEqualTo(0);
+  }
+
+  @Test
   public void extract_h264WithoutGopParsingFlags() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     String inputFilePath = "media/mp4/sample.mp4";

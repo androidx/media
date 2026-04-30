@@ -31,19 +31,22 @@ public final class TrackSampleTable {
   /** Number of samples. */
   public final int sampleCount;
 
-  /** Sample offsets in bytes. */
+  /** Sample offsets in bytes. Populated only if {@link #hasSampleTableData()} is {@code true}. */
   public final long[] offsets;
 
-  /** Sample sizes in bytes. */
+  /** Sample sizes in bytes. Populated only if {@link #hasSampleTableData()} is {@code true}. */
   public final int[] sizes;
 
   /** Maximum sample size in {@link #sizes}. */
   public final int maximumSize;
 
-  /** Sample timestamps in microseconds. */
+  /**
+   * Sample timestamps in microseconds. Populated only if {@link #hasSampleTableData()} is {@code
+   * true}.
+   */
   public final long[] timestampsUs;
 
-  /** Sample flags. */
+  /** Sample flags. Populated only if {@link #hasSampleTableData()} is {@code true}. */
   public final int[] flags;
 
   /**
@@ -89,6 +92,17 @@ public final class TrackSampleTable {
   }
 
   /**
+   * Returns whether the per-sample mapping arrays (such as {@link #offsets}, {@link #sizes}, {@link
+   * #timestampsUs}, and {@link #flags}) are populated.
+   *
+   * <p>When {@link Mp4Extractor#FLAG_OMIT_TRACK_SAMPLE_TABLE} is set, this returns {@code false}
+   * while {@link #sampleCount} may still be greater than {@code 0}.
+   */
+  public boolean hasSampleTableData() {
+    return timestampsUs.length > 0;
+  }
+
+  /**
    * Returns the sample index of the closest synchronization sample at or before the given
    * timestamp, if one is available.
    *
@@ -96,6 +110,9 @@ public final class TrackSampleTable {
    * @return Index of the synchronization sample, or {@link C#INDEX_UNSET} if none.
    */
   public int getIndexOfEarlierOrEqualSynchronizationSample(long timeUs) {
+    if (!hasSampleTableData()) {
+      return C.INDEX_UNSET;
+    }
     if (hasOnlySyncSamples) {
       return Util.binarySearchFloor(
           timestampsUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ false);
@@ -140,6 +157,9 @@ public final class TrackSampleTable {
    * @return index Index of the synchronization sample, or {@link C#INDEX_UNSET} if none.
    */
   public int getIndexOfLaterOrEqualSynchronizationSample(long timeUs) {
+    if (!hasSampleTableData()) {
+      return C.INDEX_UNSET;
+    }
     if (hasOnlySyncSamples) {
       return Util.binarySearchCeil(
           timestampsUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ false);

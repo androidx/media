@@ -85,6 +85,9 @@
         combining the Core and Extension Substream into a single sample, fixing
         playback issues where the two were previously output as separate samples
         ([#3147](https://github.com/androidx/media/pull/3147)).
+    *   Fix `ArrayIndexOutOfBoundsException` in `Mp4Extractor` when
+        `FLAG_OMIT_TRACK_SAMPLE_TABLE` is set and the track lacks a sync sample
+        (`stss`) box.
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
