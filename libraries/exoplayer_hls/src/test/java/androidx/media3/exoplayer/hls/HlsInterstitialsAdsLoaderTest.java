@@ -102,7 +102,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 /** Unit tests for {@link HlsInterstitialsAdsLoaderTest}. */
-@SuppressWarnings({"DataFlowIssue", "TextBlockMigration", "EnhancedSwitchMigration"})
+@SuppressWarnings({"DataFlowIssue"})
 @RunWith(AndroidJUnit4.class)
 public class HlsInterstitialsAdsLoaderTest {
 
@@ -125,36 +125,7 @@ public class HlsInterstitialsAdsLoaderTest {
 
   @Before
   public void setUp() {
-    adsLoader =
-        new HlsInterstitialsAdsLoader(
-            /* dataSourceFactory= */ () ->
-                new ByteArrayDataSource(
-                    uri -> {
-                      switch (uri.toString()) {
-                        case "http://invalid":
-                          return "]".getBytes(Charset.defaultCharset());
-                        case "http://empty":
-                          return getJsonAssetList(/* assetCount= */ 0, /* delayMs= */ 0);
-                        case "http://three-assets":
-                          return getJsonAssetList(/* assetCount= */ 3, /* delayMs= */ 0);
-                        case "http://three-assets-skip-info":
-                          return getJsonAssetListWithSkipInformation(
-                              /* assetCount= */ 3,
-                              /* skipInfoOffsetSeconds= */ 5.5f,
-                              /* skipInfoDurationSeconds= */ 6.5f,
-                              /* skipInfoLabelId= */ null);
-                        case "http://three-assets-skip-info-label-only":
-                          return getJsonAssetListWithSkipInformation(
-                              /* assetCount= */ 3,
-                              /* skipInfoOffsetSeconds= */ null,
-                              /* skipInfoDurationSeconds= */ null,
-                              /* skipInfoLabelId= */ "skip_label_from_json");
-                        case "http://slow_loading":
-                          return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 150);
-                        default:
-                          return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 0);
-                      }
-                    }));
+    adsLoader = new HlsInterstitialsAdsLoader(() -> new ByteArrayDataSource(new JsonUriResolver()));
     adsLoader.addListener(mockAdsLoaderListener);
     assetListLoadingListener = new AssetListLoadingListener();
     adsLoader.addListener(assetListLoadingListener);
@@ -6829,6 +6800,36 @@ public class HlsInterstitialsAdsLoaderTest {
         @Nullable IOException ioException,
         boolean cancelled) {
       assetListLoadFailedCounter.incrementAndGet();
+    }
+  }
+
+  private final class JsonUriResolver implements ByteArrayDataSource.UriResolver {
+    @Override
+    public byte[] resolve(Uri uri) {
+      switch (uri.toString()) {
+        case "http://invalid":
+          return "]".getBytes(Charset.defaultCharset());
+        case "http://empty":
+          return getJsonAssetList(/* assetCount= */ 0, /* delayMs= */ 0);
+        case "http://three-assets":
+          return getJsonAssetList(/* assetCount= */ 3, /* delayMs= */ 0);
+        case "http://three-assets-skip-info":
+          return getJsonAssetListWithSkipInformation(
+              /* assetCount= */ 3,
+              /* skipInfoOffsetSeconds= */ 5.5f,
+              /* skipInfoDurationSeconds= */ 6.5f,
+              /* skipInfoLabelId= */ null);
+        case "http://three-assets-skip-info-label-only":
+          return getJsonAssetListWithSkipInformation(
+              /* assetCount= */ 3,
+              /* skipInfoOffsetSeconds= */ null,
+              /* skipInfoDurationSeconds= */ null,
+              /* skipInfoLabelId= */ "skip_label_from_json");
+        case "http://slow_loading":
+          return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 150);
+        default:
+          return getJsonAssetList(/* assetCount= */ 1, /* delayMs= */ 0);
+      }
     }
   }
 }
