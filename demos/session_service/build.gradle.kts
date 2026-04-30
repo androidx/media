@@ -40,6 +40,7 @@ protobuf {
 dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.datastore)
+  implementation(libs.androidx.lifecycle.runtime)
   implementation(libs.kotlinx.coroutines.guava)
   implementation(libs.protobuf.java)
   implementation(project(":lib-cast"))
