@@ -217,19 +217,18 @@ public final class VideoFrameReleaseHelper {
    * @param releaseTimeNs The frame's unadjusted release time, in nanoseconds and in the same time
    *     base as {@link System#nanoTime()}.
    * @param presentationTimeUs The frame's presentation timestamp in microsecond.
-   * @param frameRateEstimator The {@link FixedFrameRateEstimator} used to estimate the frame rate.
+   * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
+   *     C#TIME_UNSET} if unknown.
    * @return The adjusted frame release timestamp, in nanoseconds and in the same time base as
    *     {@link System#nanoTime()}.
    */
-  public long adjustReleaseTime(
-      long releaseTimeNs, long presentationTimeUs, FixedFrameRateEstimator frameRateEstimator) {
+  public long adjustReleaseTime(long releaseTimeNs, long presentationTimeUs, long frameDurationNs) {
     // Until we know better, the adjustment will be a no-op.
     long adjustedReleaseTimeNs = releaseTimeNs;
 
     if (lastAdjustedFrameIndex != C.INDEX_UNSET) {
       long elapsedReleaseTimeSinceLastFrameNs;
-      if (frameRateEstimator.isSynced()) {
-        long frameDurationNs = frameRateEstimator.getFrameDurationNs();
+      if (frameDurationNs != C.TIME_UNSET) {
         elapsedReleaseTimeSinceLastFrameNs =
             (long) ((frameDurationNs * (frameIndex - lastAdjustedFrameIndex)) / playbackSpeed);
       } else {

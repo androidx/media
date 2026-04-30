@@ -1556,7 +1556,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               getOutputStreamStartPositionUs(),
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
-              frameRateEstimator,
+              frameRateEstimator.getFrameDurationNs(),
               videoFrameReleaseInfo);
       if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
         return 0;
@@ -1990,7 +1990,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             getOutputStreamStartPositionUs(),
             isDecodeOnlyBuffer,
             isLastBuffer,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             videoFrameReleaseInfo);
     if (videoFrameReleaseEarlyTimeForecaster != null
         && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER

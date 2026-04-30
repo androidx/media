@@ -675,7 +675,7 @@ class VideoFrameReleaseHelperTest {
         videoFrameReleaseHelper.adjustReleaseTime(
           testData.releaseTimeNs[i],
           testData.frameTimeUs[i],
-          frameRateEstimator,
+          frameRateEstimator.frameDurationNs,
         )
       )
       onFrameAdjusted(i)

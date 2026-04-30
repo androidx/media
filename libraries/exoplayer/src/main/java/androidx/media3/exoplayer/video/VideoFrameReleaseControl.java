@@ -45,7 +45,7 @@ public final class VideoFrameReleaseControl {
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, boolean, FixedFrameRateEstimator, FrameReleaseInfo)}.
+   * boolean, boolean, long, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
    * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
@@ -192,8 +192,8 @@ public final class VideoFrameReleaseControl {
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, FixedFrameRateEstimator,
-   *     FrameReleaseInfo) frame release actions}.
+   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, long, FrameReleaseInfo)
+   *     frame release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
    */
@@ -352,7 +352,8 @@ public final class VideoFrameReleaseControl {
    * @param isDecodeOnlyFrame Whether the frame is decode-only because its presentation time is
    *     before the intended start time.
    * @param isLastFrame Whether the frame is known to contain the last frame of the current stream.
-   * @param frameRateEstimator The {@link FixedFrameRateEstimator} used to estimate the frame rate.
+   * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
+   *     C#TIME_UNSET} if unknown.
    * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with detailed data only
    *     if the method returns {@link #FRAME_RELEASE_IMMEDIATELY} or {@link
    *     #FRAME_RELEASE_SCHEDULED}.
@@ -366,7 +367,7 @@ public final class VideoFrameReleaseControl {
       long outputStreamStartPositionUs,
       boolean isDecodeOnlyFrame,
       boolean isLastFrame,
-      FixedFrameRateEstimator frameRateEstimator,
+      long frameDurationNs,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
     frameReleaseInfo.reset();
@@ -415,9 +416,7 @@ public final class VideoFrameReleaseControl {
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
         frameReleaseHelper.adjustReleaseTime(
-            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000),
-            presentationTimeUs,
-            frameRateEstimator);
+            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000), presentationTimeUs, frameDurationNs);
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
     // While joining, late frames are skipped while we catch up with the playback position.
     boolean treatDropAsSkip =

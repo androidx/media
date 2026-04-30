@@ -166,18 +166,13 @@ public final class FixedFrameRateEstimator {
     updateReportedFrameRate();
   }
 
-  /** Returns whether the estimator has detected a fixed frame rate. */
-  public boolean isSynced() {
-    return currentMatcher.isSynced();
-  }
-
   /**
    * The currently detected fixed frame duration estimate in nanoseconds, or {@link C#TIME_UNSET} if
-   * {@link #isSynced()} is {@code false}. Whilst synced, the estimate is refined each time {@link
-   * #onNextFrame} is called with a new frame presentation timestamp.
+   * the estimator has not detected a fixed frame rate. Whilst synced, the estimate is refined each
+   * time {@link #onNextFrame} is called with a new frame presentation timestamp.
    */
   public long getFrameDurationNs() {
-    return isSynced() ? currentMatcher.getFrameDurationNs() : C.TIME_UNSET;
+    return currentMatcher.isSynced() ? currentMatcher.getFrameDurationNs() : C.TIME_UNSET;
   }
 
   /** Tries to match frame durations against the duration of the first frame it receives. */

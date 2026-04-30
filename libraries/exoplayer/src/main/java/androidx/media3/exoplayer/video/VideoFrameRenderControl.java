@@ -155,7 +155,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
               outputStreamStartPositionUs,
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
-              frameRateEstimator,
+              frameRateEstimator.getFrameDurationNs(),
               videoFrameReleaseInfo);
       if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
           && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {

@@ -147,7 +147,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
               compositionTimeOutputStreamStartPositionUs,
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
-              frameRateEstimator,
+              frameRateEstimator.getFrameDurationNs(),
               videoFrameReleaseInfo);
       if (!maybeQueuePacketDownstream(frameReleaseAction, packet)) {
         packetQueue.addFirst(packet);

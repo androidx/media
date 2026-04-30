@@ -37,48 +37,36 @@ public final class FixedFrameRateEstimatorTest {
     // Initial frame.
     long framePresentationTimestampNs = 0;
     estimator.onNextFrame(framePresentationTimestampNs);
-
-    assertThat(estimator.isSynced()).isFalse();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
 
     // Frames with consistent durations, working toward establishing sync.
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC - 1; i++) {
       framePresentationTimestampNs += frameDurationNs;
       estimator.onNextFrame(framePresentationTimestampNs);
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
 
     // This frame should establish sync.
     framePresentationTimestampNs += frameDurationNs;
     estimator.onNextFrame(framePresentationTimestampNs);
-
-    assertThat(estimator.isSynced()).isTrue();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(frameDurationNs);
 
     framePresentationTimestampNs += frameDurationNs;
     // Make the frame duration just shorter enough to lose sync.
     framePresentationTimestampNs -= MAX_MATCHING_FRAME_DIFFERENCE_NS + 1;
     estimator.onNextFrame(framePresentationTimestampNs);
-
-    assertThat(estimator.isSynced()).isFalse();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
 
     // Frames with consistent durations, working toward re-establishing sync.
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC - 1; i++) {
       framePresentationTimestampNs += frameDurationNs;
       estimator.onNextFrame(framePresentationTimestampNs);
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
 
     // This frame should re-establish sync.
     framePresentationTimestampNs += frameDurationNs;
     estimator.onNextFrame(framePresentationTimestampNs);
-
-    assertThat(estimator.isSynced()).isTrue();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(frameDurationNs);
   }
 
@@ -93,16 +81,12 @@ public final class FixedFrameRateEstimatorTest {
 
     framePresentationTimestampNs += frameDurationNs * 2;
     estimator.onNextFrame(framePresentationTimestampNs);
-
-    assertThat(estimator.isSynced()).isFalse();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
 
     // Frames with consistent durations, working toward establishing sync.
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC - 1; i++) {
       framePresentationTimestampNs += frameDurationNs;
       estimator.onNextFrame(framePresentationTimestampNs);
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
 
@@ -123,7 +107,6 @@ public final class FixedFrameRateEstimatorTest {
       estimator.onNextFrame(framePresentationTimestampNs);
     }
 
-    assertThat(estimator.isSynced()).isTrue();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(frameDurationNs);
 
     // Frames durations are halved from this point.
@@ -133,8 +116,6 @@ public final class FixedFrameRateEstimatorTest {
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC - 1; i++) {
       framePresentationTimestampNs += halfFrameRateDuration;
       estimator.onNextFrame(framePresentationTimestampNs);
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
 
@@ -142,7 +123,6 @@ public final class FixedFrameRateEstimatorTest {
     framePresentationTimestampNs += halfFrameRateDuration;
     estimator.onNextFrame(framePresentationTimestampNs);
 
-    assertThat(estimator.isSynced()).isTrue();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(halfFrameRateDuration);
   }
 
@@ -155,23 +135,18 @@ public final class FixedFrameRateEstimatorTest {
     long framePresentationTimestampNs = 0;
     estimator.onNextFrame(getNsWithMsPrecision(framePresentationTimestampNs));
 
-    assertThat(estimator.isSynced()).isFalse();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
 
     // Frames with consistent durations, working toward establishing sync.
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC - 1; i++) {
       framePresentationTimestampNs += frameDurationNs;
       estimator.onNextFrame(getNsWithMsPrecision(framePresentationTimestampNs));
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
 
     // This frame should establish sync.
     framePresentationTimestampNs += frameDurationNs;
     estimator.onNextFrame(getNsWithMsPrecision(framePresentationTimestampNs));
-
-    assertThat(estimator.isSynced()).isTrue();
     // The estimated frame duration should be strictly better than millisecond precision.
     long estimatedFrameDurationNs = estimator.getFrameDurationNs();
     long estimatedFrameDurationErrorNs = Math.abs(estimatedFrameDurationNs - frameDurationNs);
@@ -187,7 +162,6 @@ public final class FixedFrameRateEstimatorTest {
     long framePresentationTimestampNs = 0;
     estimator.onNextFrame(framePresentationTimestampNs);
 
-    assertThat(estimator.isSynced()).isFalse();
     assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
 
     for (int i = 0; i < CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC * 10; i++) {
@@ -197,8 +171,6 @@ public final class FixedFrameRateEstimatorTest {
         framePresentationTimestampNs += MAX_MATCHING_FRAME_DIFFERENCE_NS + 1;
       }
       estimator.onNextFrame(framePresentationTimestampNs);
-
-      assertThat(estimator.isSynced()).isFalse();
       assertThat(estimator.getFrameDurationNs()).isEqualTo(C.TIME_UNSET);
     }
   }

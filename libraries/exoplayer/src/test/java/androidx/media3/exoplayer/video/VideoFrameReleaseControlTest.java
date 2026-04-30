@@ -40,6 +40,7 @@ public class VideoFrameReleaseControlTest {
   @Before
   public void setUp() {
     surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    frameRateEstimator = new FixedFrameRateEstimator(frameRate -> {});
   }
 
   @After
@@ -88,7 +89,7 @@ public class VideoFrameReleaseControlTest {
             /* outputStreamStartPositionUs= */ 0,
             /* isDecodeOnlyFrame= */ true,
             /* isLastFrame= */ false,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             frameReleaseInfo);
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
@@ -110,7 +111,7 @@ public class VideoFrameReleaseControlTest {
             /* outputStreamStartPositionUs= */ 0,
             /* isDecodeOnlyFrame= */ false,
             /* isLastFrame= */ false,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             frameReleaseInfo);
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
@@ -132,7 +133,7 @@ public class VideoFrameReleaseControlTest {
             /* outputStreamStartPositionUs= */ 0,
             /* isDecodeOnlyFrame= */ false,
             /* isLastFrame= */ false,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             frameReleaseInfo);
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
 
@@ -158,7 +159,7 @@ public class VideoFrameReleaseControlTest {
             /* outputStreamStartPositionUs= */ 0,
             /* isDecodeOnlyFrame= */ false,
             /* isLastFrame= */ false,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             frameReleaseInfo);
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
@@ -181,7 +182,7 @@ public class VideoFrameReleaseControlTest {
             /* outputStreamStartPositionUs= */ 0,
             /* isDecodeOnlyFrame= */ false,
             /* isLastFrame= */ false,
-            frameRateEstimator,
+            frameRateEstimator.getFrameDurationNs(),
             frameReleaseInfo);
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
 
@@ -292,7 +293,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
@@ -313,7 +314,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -339,7 +340,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
@@ -364,7 +365,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -378,7 +379,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
   }
@@ -402,7 +403,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -416,7 +417,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -441,7 +442,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -455,7 +456,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -480,7 +481,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -495,7 +496,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
 
@@ -508,7 +509,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
   }
@@ -534,7 +535,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -549,7 +550,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -583,7 +584,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -597,7 +598,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
@@ -629,7 +630,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -643,7 +644,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -676,7 +677,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -690,7 +691,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -723,7 +724,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -738,7 +739,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
@@ -771,7 +772,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -786,7 +787,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
 
@@ -799,7 +800,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
@@ -832,7 +833,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -847,7 +848,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
   }
@@ -884,7 +885,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
     // Late frame should be marked as skipped
@@ -896,7 +897,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
   }
@@ -933,7 +934,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -946,7 +947,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_DROP);
   }
@@ -979,7 +980,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
@@ -993,7 +994,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IGNORE);
   }
@@ -1013,7 +1014,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ true,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
   }
@@ -1034,7 +1035,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ true,
                 /* isLastFrame= */ true,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
@@ -1055,7 +1056,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ true,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
   }
@@ -1078,7 +1079,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -1108,7 +1109,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IGNORE);
   }
@@ -1132,7 +1133,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
   }
@@ -1157,7 +1158,7 @@ public class VideoFrameReleaseControlTest {
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
-                frameRateEstimator,
+                frameRateEstimator.getFrameDurationNs(),
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SKIP);
   }
