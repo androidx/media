@@ -40,6 +40,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.annotation.Config.NEWEST_SDK;
 
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
@@ -937,6 +938,7 @@ public class UtilTest {
   }
 
   @Test
+  @Config(sdk = NEWEST_SDK) // Too slow to run on all SDKs.
   public void sampleCountToDuration_thenDurationToSampleCount_returnsOriginalValue() {
     // Use co-prime increments, to maximise 'discord' between sampleCount and sampleRate.
     for (long originalSampleCount = 0; originalSampleCount < 100_000; originalSampleCount += 97) {

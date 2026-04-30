@@ -27,9 +27,11 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link MediaFormatUtil}. */
 @RunWith(AndroidJUnit4.class)
@@ -69,6 +71,8 @@ public class MediaFormatUtilTest {
   }
 
   @Test
+  // ColorInfo support in MediaFormat was added in API 24.
+  @Config(minSdk = 24)
   public void createFormatFromMediaFormat_withPopulatedMap_generatesExpectedFormat() {
     MediaFormat mediaFormat = new MediaFormat();
     mediaFormat.setString(MediaFormat.KEY_MIME, MimeTypes.VIDEO_H264);
@@ -137,8 +141,8 @@ public class MediaFormatUtilTest {
     MediaFormat mediaFormat =
         MediaFormatUtil.createMediaFormatFromFormat(new Format.Builder().build());
     // Assert that no invalid keys are accidentally being populated.
-    assertThat(mediaFormat.getKeys())
-        .containsExactly(
+    ImmutableSet<String> expectedKeys =
+        ImmutableSet.of(
             MediaFormatUtil.KEY_PIXEL_WIDTH_HEIGHT_RATIO_FLOAT,
             MediaFormat.KEY_ENCODER_DELAY,
             MediaFormat.KEY_ENCODER_PADDING,
@@ -148,6 +152,15 @@ public class MediaFormatUtilTest {
             MediaFormat.KEY_IS_FORCED_SUBTITLE,
             MediaFormat.KEY_IS_AUTOSELECT,
             MediaFormat.KEY_ROTATION);
+    if (Util.SDK_INT >= 29) {
+      assertThat(mediaFormat.getKeys()).containsExactlyElementsIn(expectedKeys);
+    } else {
+      // MediaFormat.getKeys() is not available on SDK < 29.
+      // Just assert expected keys are present.
+      for (String key : expectedKeys) {
+        assertThat(mediaFormat.containsKey(key)).isTrue();
+      }
+    }
     assertThat(mediaFormat.getFloat(MediaFormatUtil.KEY_PIXEL_WIDTH_HEIGHT_RATIO_FLOAT))
         .isEqualTo(1.f);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_ENCODER_DELAY)).isEqualTo(0);

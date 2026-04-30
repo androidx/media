@@ -36,9 +36,12 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.annotation.Config;
 
 /** Parameterized robolectric test for {@link Sonic}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
+// This test is too slow to run on all SDK levels.
+@Config(sdk = Config.NEWEST_SDK)
 public final class RandomParameterizedSonicTest {
 
   private static final int BLOCK_SIZE = 8192;
