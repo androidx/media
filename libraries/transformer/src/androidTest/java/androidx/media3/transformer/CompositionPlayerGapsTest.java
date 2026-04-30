@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
@@ -48,7 +47,7 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public final class CompositionPlayerGapsTest {
-  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
+  private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 10_000;
   private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_SIMPLE_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
   private static final long GAP_DURATION_US = 1_000_000;
@@ -94,7 +93,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapAtStart_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long gapStartCompositionUs = 0;
     long gapEndCompositionUs = GAP_DURATION_US;
@@ -156,7 +154,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapInMiddle_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long gapStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
@@ -218,7 +215,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withTwoMediaItemsAndGapAtTheEnd_inAudioVideoSequence_rendersOneByOneBlackFramesForGap()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long gapStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long gapEndCompositionUs = gapStartCompositionUs + GAP_DURATION_US;
@@ -280,7 +276,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndFirstMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForFirstMediaItem()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long audioOnlyItemStartCompositionUs = 0;
     long audioOnlyItemEndCompositionUs = AUDIO_ONLY_MEDIA_ITEM_DURATION_US;
@@ -342,7 +337,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndSecondMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForSecondMediaItem()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long audioOnlyItemStartCompositionUs = AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long audioOnlyItemEndCompositionUs =
@@ -405,7 +399,6 @@ public final class CompositionPlayerGapsTest {
   public void
       playback_withThreeMediaItemsAndLastMediaItemHavingNoVideo_inAudioVideoSequence_rendersOneByOneBlackFramesForLastMediaItem()
           throws Exception {
-    assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
     long audioOnlyItemStartCompositionUs = 2 * AUDIO_VIDEO_MEDIA_ITEM_DURATION_US;
     long audioOnlyItemEndCompositionUs =
