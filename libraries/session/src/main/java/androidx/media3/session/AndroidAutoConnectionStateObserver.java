@@ -23,6 +23,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
+import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.BackgroundExecutor;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,7 +63,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
           if (SDK_INT >= 33) {
             this.context.registerReceiver(changeReceiver, intentFilter, Context.RECEIVER_EXPORTED);
           } else {
-            this.context.registerReceiver(changeReceiver, intentFilter);
+            ContextCompat.registerReceiver(
+                this.context, changeReceiver, intentFilter, ContextCompat.RECEIVER_EXPORTED);
           }
           updateConnectionState();
         });
