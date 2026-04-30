@@ -745,7 +745,8 @@ public final class Mp4Extractor implements Extractor {
 
   private static long findBestThumbnailPresentationTimeUs(
       TrackSampleTable sampleTable, long durationUs) {
-    if (!MimeTypes.isVideo(sampleTable.track.format.sampleMimeType)) {
+    if (!MimeTypes.isVideo(sampleTable.track.format.sampleMimeType)
+        || !sampleTable.hasSampleTableData()) {
       return C.TIME_UNSET;
     }
 

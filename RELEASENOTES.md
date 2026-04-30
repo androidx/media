@@ -23,6 +23,9 @@
 *   Extractors:
     *   MP3: Ignore Xing data length if it's longer than the known stream length
         ([#3117](https://github.com/androidx/media/issues/3117)).
+    *   Fix `ArrayIndexOutOfBoundsException` in `Mp4Extractor` when
+        `FLAG_OMIT_TRACK_SAMPLE_TABLE` is set and the track lacks a sync sample
+        (`stss`) box.
 *   Inspector:
 *   Audio:
     *   Fix bug where audio events may be misrouted if multiple audio renderers
