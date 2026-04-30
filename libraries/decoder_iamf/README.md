@@ -54,7 +54,7 @@ cd "${IAMF_MODULE_PATH}/jni" && \
 mkdir iamf_tools && \
 cd iamf_tools && \
 git init && \
-git remote add origin https://github.com/AOMediaCodec/iamf-tools.git \
+git remote add origin https://github.com/AOMediaCodec/iamf-tools.git && \
 git fetch --depth=1 origin e552e7d6d8b55530d201fd2764ca7e12d2c66cd6 && \
 git checkout FETCH_HEAD
 ```
