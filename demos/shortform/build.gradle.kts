@@ -46,6 +46,7 @@ android {
 dependencies {
   implementation(libs.androidx.appcompat)
   implementation(libs.material)
+  implementation(libs.androidx.recyclerview)
   implementation(project(":lib-exoplayer"))
   implementation(project(":lib-exoplayer-dash"))
   implementation(project(":lib-exoplayer-hls"))
