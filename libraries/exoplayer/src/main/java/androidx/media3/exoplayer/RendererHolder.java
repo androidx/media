@@ -834,7 +834,8 @@ import java.util.Objects;
 
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener)
       throws ExoPlaybackException {
-    if (getTrackType() != TRACK_TYPE_VIDEO) {
+    // TODO: b/507835122 - Remove image track type once metadata listener handling is refined.
+    if (getTrackType() != TRACK_TYPE_VIDEO && getTrackType() != TRACK_TYPE_IMAGE) {
       return;
     }
     primaryRenderer.handleMessage(
