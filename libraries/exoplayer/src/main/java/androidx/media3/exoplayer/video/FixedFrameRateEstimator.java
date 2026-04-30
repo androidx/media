@@ -18,12 +18,14 @@ package androidx.media3.exoplayer.video;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.UnstableApi;
 import java.util.Arrays;
 
 /**
  * Attempts to detect and refine a fixed frame rate estimate based on frame presentation timestamps.
  */
-/* package */ final class FixedFrameRateEstimator {
+@UnstableApi
+public final class FixedFrameRateEstimator {
 
   /** The number of consecutive matching frame durations required to detect a fixed frame rate. */
   public static final int CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC = 15;
@@ -67,6 +69,9 @@ import java.util.Arrays;
    * @param framePresentationTimeNs The frame presentation timestamp, in nanoseconds.
    */
   public void onNextFrame(long framePresentationTimeNs) {
+    if (framePresentationTimeNs == lastFramePresentationTimeNs) {
+      return;
+    }
     currentMatcher.onNextFrame(framePresentationTimeNs);
     if (currentMatcher.isSynced() && !switchToCandidateMatcherWhenSynced) {
       candidateMatcherActive = false;

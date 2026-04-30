@@ -58,6 +58,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
+  private final FixedFrameRateEstimator frameRateEstimator;
 
   @Nullable private Surface outputSurface;
   private Format inputFormat;
@@ -73,11 +74,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
     videoFrameReleaseControl.setClock(clock);
+    frameRateEstimator = new FixedFrameRateEstimator();
     videoFrameRenderControl =
         new VideoFrameRenderControl(
             new FrameRendererImpl(),
             videoFrameReleaseControl,
-            videoFrameReleaseEarlyTimeForecaster);
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
     videoFrameHandlers = new ArrayDeque<>();
     inputFormat = new Format.Builder().build();
     streamStartPositionUs = C.TIME_UNSET;
@@ -224,7 +227,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       videoFrameRenderControl.onVideoSizeChanged(format.width, format.height);
     }
     if (format.frameRate != inputFormat.frameRate) {
-      videoFrameReleaseControl.setFrameRate(format.frameRate);
+      frameRateEstimator.reset();
+      videoFrameReleaseControl.setFrameRate(format.frameRate, frameRateEstimator);
     }
     inputFormat = format;
     if (startPositionUs != this.streamStartPositionUs) {

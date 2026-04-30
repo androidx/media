@@ -30,6 +30,7 @@ import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.video.FixedFrameRateEstimator;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +47,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
+  private final FixedFrameRateEstimator frameRateEstimator;
   private volatile boolean isEnded;
   private final Listener listener;
 
@@ -75,6 +77,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       Listener listener) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
+    this.frameRateEstimator = new FixedFrameRateEstimator();
     this.listener = listener;
     // Call the downstream PacketConsumer on the calling thread to reduce unnecessary thread hops.
     this.downstreamConsumer =
@@ -132,6 +135,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         continue;
       }
       long presentationTimeUs = checkNotNull(packet).get(0).sequencePresentationTimeUs;
+      frameRateEstimator.onNextFrame(presentationTimeUs * 1000);
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
@@ -141,6 +145,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
               compositionTimeOutputStreamStartPositionUs,
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
+              frameRateEstimator,
               videoFrameReleaseInfo);
       if (!maybeQueuePacketDownstream(frameReleaseAction, packet)) {
         packetQueue.addFirst(packet);

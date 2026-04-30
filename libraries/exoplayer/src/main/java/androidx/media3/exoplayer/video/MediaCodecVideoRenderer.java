@@ -214,6 +214,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private final boolean deviceNeedsNoPostProcessWorkaround;
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
+  private final FixedFrameRateEstimator frameRateEstimator;
   @Nullable private final Av1SampleDependencyParser av1SampleDependencyParser;
 
   /**
@@ -652,6 +653,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         new VideoFrameReleaseControl(
             this.context, /* frameTimingEvaluator= */ thisRef, builder.allowedJoiningTimeMs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
+    frameRateEstimator = new FixedFrameRateEstimator();
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     outputResolution = Size.UNKNOWN;
     scalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
@@ -1542,6 +1544,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     try {
+      frameRateEstimator.onNextFrame(nextOutputBufferToProcessPresentationTimeUs * 1000);
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
@@ -1551,6 +1554,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               getOutputStreamStartPositionUs(),
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
+              frameRateEstimator,
               videoFrameReleaseInfo);
       if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
         return 0;
@@ -1875,7 +1879,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       nextVideoSinkFirstFrameReleaseInstruction =
           RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
     } else {
-      videoFrameReleaseControl.setFrameRate(format.frameRate);
+      frameRateEstimator.reset();
+      videoFrameReleaseControl.setFrameRate(format.frameRate, frameRateEstimator);
     }
     pendingVideoSinkInputStreamChange = false;
   }
@@ -1974,6 +1979,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           });
     }
 
+    frameRateEstimator.onNextFrame(bufferPresentationTimeUs * 1000);
     @VideoFrameReleaseControl.FrameReleaseAction
     int frameReleaseAction =
         videoFrameReleaseControl.getFrameReleaseAction(
@@ -1983,6 +1989,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             getOutputStreamStartPositionUs(),
             isDecodeOnlyBuffer,
             isLastBuffer,
+            frameRateEstimator,
             videoFrameReleaseInfo);
     if (videoFrameReleaseEarlyTimeForecaster != null
         && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER

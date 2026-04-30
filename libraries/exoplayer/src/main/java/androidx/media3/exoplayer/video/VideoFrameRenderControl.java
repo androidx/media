@@ -78,6 +78,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   private final LongArrayQueue presentationTimestampsUs;
 
   private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
+  private final FixedFrameRateEstimator frameRateEstimator;
 
   private long latestInputPresentationTimeUs;
   private long latestOutputPresentationTimeUs;
@@ -92,10 +93,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   public VideoFrameRenderControl(
       FrameRenderer frameRenderer,
       VideoFrameReleaseControl videoFrameReleaseControl,
-      VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster) {
+      VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster,
+      FixedFrameRateEstimator frameRateEstimator) {
     this.frameRenderer = frameRenderer;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
+    this.frameRateEstimator = frameRateEstimator;
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     videoSizes = new TimedValueQueue<>();
     streamStartPositionsUs = new TimedValueQueue<>();
@@ -142,6 +145,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
         videoFrameReleaseControl.onStreamChanged(
             RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED);
       }
+      frameRateEstimator.onNextFrame(presentationTimeUs * 1000);
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
@@ -151,6 +155,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
               outputStreamStartPositionUs,
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
+              frameRateEstimator,
               videoFrameReleaseInfo);
       if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
           && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {

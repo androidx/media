@@ -92,7 +92,6 @@ public final class VideoFrameReleaseHelper {
    */
   private static final long VSYNC_OFFSET_PERCENTAGE = 80;
 
-  private final FixedFrameRateEstimator frameRateEstimator;
   private final Context context;
 
   private boolean vsyncSampleBuilt;
@@ -134,7 +133,6 @@ public final class VideoFrameReleaseHelper {
    */
   public VideoFrameReleaseHelper(Context context) {
     this.context = context;
-    frameRateEstimator = new FixedFrameRateEstimator();
     formatFrameRate = Format.NO_VALUE;
     playbackSpeed = 1f;
     changeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS;
@@ -201,19 +199,21 @@ public final class VideoFrameReleaseHelper {
    * Called when the output format changes.
    *
    * @param formatFrameRate The format's frame rate, or {@link Format#NO_VALUE} if unknown.
+   * @param frameRateEstimator The {@link FixedFrameRateEstimator} used to estimate the frame rate.
    */
-  public void onFormatChanged(float formatFrameRate) {
+  public void onFormatChanged(float formatFrameRate, FixedFrameRateEstimator frameRateEstimator) {
     this.formatFrameRate = formatFrameRate;
-    frameRateEstimator.reset();
-    updateSurfaceMediaFrameRate();
+    updateSurfaceMediaFrameRate(frameRateEstimator);
   }
 
   /**
    * Called for each frame, prior to it being skipped, dropped or rendered.
    *
    * @param framePresentationTimeUs The frame presentation timestamp, in microseconds.
+   * @param frameRateEstimator The {@link FixedFrameRateEstimator} used to estimate the frame rate.
    */
-  public void onNextFrame(long framePresentationTimeUs) {
+  public void onNextFrame(
+      long framePresentationTimeUs, FixedFrameRateEstimator frameRateEstimator) {
     if (pendingLastAdjustedFrameIndex != C.INDEX_UNSET) {
       lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
       lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
@@ -221,8 +221,7 @@ public final class VideoFrameReleaseHelper {
       lastVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
     }
     frameIndex++;
-    frameRateEstimator.onNextFrame(framePresentationTimeUs * 1000);
-    updateSurfaceMediaFrameRate();
+    updateSurfaceMediaFrameRate(frameRateEstimator);
   }
 
   /** Called when rendering stops. */
@@ -248,10 +247,12 @@ public final class VideoFrameReleaseHelper {
    * @param releaseTimeNs The frame's unadjusted release time, in nanoseconds and in the same time
    *     base as {@link System#nanoTime()}.
    * @param presentationTimeUs The frame's presentation timestamp in microsecond.
+   * @param frameRateEstimator The {@link FixedFrameRateEstimator} used to estimate the frame rate.
    * @return The adjusted frame release timestamp, in nanoseconds and in the same time base as
    *     {@link System#nanoTime()}.
    */
-  public long adjustReleaseTime(long releaseTimeNs, long presentationTimeUs) {
+  public long adjustReleaseTime(
+      long releaseTimeNs, long presentationTimeUs, FixedFrameRateEstimator frameRateEstimator) {
     // Until we know better, the adjustment will be a no-op.
     long adjustedReleaseTimeNs = releaseTimeNs;
 
@@ -319,7 +320,7 @@ public final class VideoFrameReleaseHelper {
    * {@link #surface}. If the frame rate is updated then {@link #updateSurfacePlaybackFrameRate} is
    * called to update the surface.
    */
-  private void updateSurfaceMediaFrameRate() {
+  private void updateSurfaceMediaFrameRate(FixedFrameRateEstimator frameRateEstimator) {
     if (SDK_INT < 30 || surface == null) {
       return;
     }

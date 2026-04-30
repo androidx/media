@@ -44,10 +44,12 @@ public class VideoFrameRenderControlTest {
   private static final int VIDEO_HEIGHT = 480;
 
   private Surface surface;
+  private FixedFrameRateEstimator frameRateEstimator;
 
   @Before
   public void setUp() {
     surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    frameRateEstimator = new FixedFrameRateEstimator();
   }
 
   @After
@@ -63,7 +65,8 @@ public class VideoFrameRenderControlTest {
     VideoFrameReleaseEarlyTimeForecaster forecaster =
         mock(VideoFrameReleaseEarlyTimeForecaster.class);
     VideoFrameRenderControl videoFrameRenderControl =
-        new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl, forecaster);
+        new VideoFrameRenderControl(
+            frameRenderer, videoFrameReleaseControl, forecaster, frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
@@ -95,7 +98,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
@@ -142,7 +148,8 @@ public class VideoFrameRenderControlTest {
     VideoFrameReleaseEarlyTimeForecaster forecaster =
         mock(VideoFrameReleaseEarlyTimeForecaster.class);
     VideoFrameRenderControl videoFrameRenderControl =
-        new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl, forecaster);
+        new VideoFrameRenderControl(
+            frameRenderer, videoFrameReleaseControl, forecaster, frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
@@ -181,7 +188,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
@@ -233,7 +243,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
@@ -274,7 +287,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
@@ -312,7 +328,8 @@ public class VideoFrameRenderControlTest {
         new VideoFrameRenderControl(
             mock(VideoFrameRenderControl.FrameRenderer.class),
             videoFrameReleaseControl,
-            videoFrameReleaseEarlyTimeForecaster);
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
@@ -326,7 +343,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
@@ -347,7 +367,10 @@ public class VideoFrameRenderControlTest {
         new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
-            frameRenderer, videoFrameReleaseControl, videoFrameReleaseEarlyTimeForecaster);
+            frameRenderer,
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster,
+            frameRateEstimator);
 
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
