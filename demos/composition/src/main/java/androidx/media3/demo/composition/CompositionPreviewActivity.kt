@@ -23,7 +23,6 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
 import android.view.SurfaceView
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -55,11 +54,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -70,19 +72,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.layout.AnimatedPane
-import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
-import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
-import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
-import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,16 +118,13 @@ import androidx.media3.ui.PlayerView
 import java.util.Locale
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
-import kotlinx.coroutines.launch
 
 /**
  * An Activity ([AppCompatActivity]) that previews compositions, using
  * [androidx.media3.transformer.CompositionPlayer].
  */
+@OptIn(ExperimentalMaterial3Api::class)
 class CompositionPreviewActivity : AppCompatActivity() {
-  // Experimental opt-in is needed for adaptive composables
-  // https://developer.android.com/develop/ui/compose/layouts/adaptive/build-a-supporting-pane-layout
-  @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
@@ -171,61 +164,52 @@ class CompositionPreviewActivity : AppCompatActivity() {
       }
 
       CompositionDemoTheme {
+        var showExportSheet by remember { mutableStateOf(false) }
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
         Scaffold(
           modifier = Modifier.fillMaxSize(),
           snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { innerPadding ->
-          val scope = rememberCoroutineScope()
-          val navigator = rememberSupportingPaneScaffoldNavigator()
-
-          BackHandler(navigator.canNavigateBack()) { scope.launch { navigator.navigateBack() } }
-
-          SupportingPaneScaffold(
-            directive = navigator.scaffoldDirective,
-            value = navigator.scaffoldValue,
-            mainPane = {
-              AnimatedPane {
-                CompositionPreviewPane(
-                  shouldShowSupportingPaneButton =
-                    navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
-                  onNavigateToSupportingPane = {
-                    scope.launch { navigator.navigateTo(ThreePaneScaffoldRole.Secondary) }
-                  },
-                  viewModel,
-                  uiState = uiState,
-                )
-              }
-            },
-            supportingPane = {
-              AnimatedPane {
-                ExportOptionsPane(
-                  outputSettings = uiState.outputSettingsState,
-                  exportState = uiState.exportState,
-                  isDebugTracingEnabled = uiState.isDebugTracingEnabled,
-                  onAudioMimeTypeChanged = viewModel::onAudioMimeTypeChanged,
-                  onVideoMimeTypeChanged = viewModel::onVideoMimeTypeChanged,
-                  onMuxerOptionChanged = viewModel::onMuxerOptionChanged,
-                  onDebugTracingChanged = viewModel::enableDebugTracing,
-                  onExport = viewModel::exportComposition,
-                  shouldShowBackButton = navigator.scaffoldValue.primary == PaneAdaptedValue.Hidden,
-                  onBack = { scope.launch { navigator.navigateBack() } },
-                )
-              }
-            },
+          CompositionPreviewPane(
             modifier =
               Modifier.padding(innerPadding)
                 .padding(MaterialTheme.spacing.standard, MaterialTheme.spacing.small),
+            onOpenExportOptions = { showExportSheet = true },
+            viewModel = viewModel,
+            uiState = uiState,
           )
+
+          if (showExportSheet) {
+            ModalBottomSheet(
+              onDismissRequest = { showExportSheet = false },
+              sheetState = sheetState,
+            ) {
+              ExportOptions(
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .padding(horizontal = MaterialTheme.spacing.standard)
+                    .padding(bottom = MaterialTheme.spacing.standard.times(2)),
+                outputSettings = uiState.outputSettingsState,
+                exportState = uiState.exportState,
+                isDebugTracingEnabled = uiState.isDebugTracingEnabled,
+                onAudioMimeTypeChanged = viewModel::onAudioMimeTypeChanged,
+                onVideoMimeTypeChanged = viewModel::onVideoMimeTypeChanged,
+                onMuxerOptionChanged = viewModel::onMuxerOptionChanged,
+                onDebugTracingChanged = viewModel::enableDebugTracing,
+                onExport = viewModel::exportComposition,
+                onCancel = { showExportSheet = false },
+              )
+            }
+          }
         }
       }
     }
   }
 
-  @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   @Composable
   fun CompositionPreviewPane(
-    shouldShowSupportingPaneButton: Boolean,
-    onNavigateToSupportingPane: () -> Unit,
+    onOpenExportOptions: () -> Unit,
     viewModel: CompositionPreviewViewModel,
     uiState: CompositionPreviewState,
     modifier: Modifier = Modifier,
@@ -269,7 +253,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
       Column(
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-        modifier = modifier.weight(1f).verticalScroll(scrollState),
+        modifier = Modifier.weight(1f).verticalScroll(scrollState),
       ) {
         if (uiState.sequenceTrackTypes.isNotEmpty()) {
           ScrollableTabRow(
@@ -389,18 +373,15 @@ class CompositionPreviewActivity : AppCompatActivity() {
         Button(onClick = { viewModel.play() }, enabled = uiState.isCompositionSet) {
           Text(text = stringResource(R.string.play))
         }
-        if (shouldShowSupportingPaneButton) {
-          Button(onClick = onNavigateToSupportingPane) {
-            Text(text = stringResource(R.string.export_settings))
-          }
+        Button(onClick = onOpenExportOptions) {
+          Text(text = stringResource(R.string.export_settings))
         }
       }
     }
   }
 
-  @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   @Composable
-  fun ExportOptionsPane(
+  fun ExportOptions(
     outputSettings: OutputSettingsState,
     exportState: ExportState,
     isDebugTracingEnabled: Boolean,
@@ -409,8 +390,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
     onMuxerOptionChanged: (String) -> Unit,
     onDebugTracingChanged: (Boolean) -> Unit,
     onExport: () -> Unit,
-    shouldShowBackButton: Boolean,
-    onBack: () -> Unit,
+    onCancel: () -> Unit,
     modifier: Modifier = Modifier,
   ) {
     var isAudioTypeExpanded by remember { mutableStateOf(false) }
@@ -506,19 +486,22 @@ class CompositionPreviewActivity : AppCompatActivity() {
         modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
       )
       Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
-        if (shouldShowBackButton) {
-          OutlinedButton({ onBack() }) { Text(text = stringResource(R.string.cancel)) }
-        }
+        OutlinedButton({ onCancel() }) { Text(text = stringResource(R.string.cancel)) }
         Spacer(Modifier.weight(1f))
-        Button(onClick = onExport) { Text(text = stringResource(R.string.export)) }
+        Button(onClick = onExport, enabled = !exportState.isExporting) {
+          Text(text = stringResource(R.string.export))
+        }
       }
-      exportState.exportResultInfo?.let {
+      if (exportState.isExporting || exportState.exportResultInfo != null) {
         HorizontalDivider(
           thickness = 2.dp,
           modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
         )
-        Text(text = it)
       }
+      if (exportState.isExporting) {
+        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
+      }
+      exportState.exportResultInfo?.let { Text(text = it) }
     }
   }
 
