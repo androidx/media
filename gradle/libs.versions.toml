@@ -14,6 +14,7 @@ automotiveMinSdkVersion = "28"
 # Gradle Plugins
 androidGradlePlugin = "9.0.1"
 kotlinComposeCompiler = "2.2.0"
+kotlinGradlePlugin = "2.2.0"
 protobufGradlePlugin = "0.10.0"
 strictVersionMatcherPlugin = "1.2.4"
 
@@ -139,6 +140,7 @@ guava-testlib = { group = "com.google.guava", name = "guava-testlib", version.re
 jsr305 = { group = "com.google.code.findbugs", name = "jsr305", version.ref = "jsr305Version" }
 junit = { group = "junit", name = "junit", version.ref = "junitVersion" }
 kotlin-annotations-jvm = { group = "org.jetbrains.kotlin", name = "kotlin-annotations-jvm", version.ref = "kotlinAnnotationsVersion" }
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlinGradlePlugin" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesVersion" }
 kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version.ref = "kotlinxCoroutinesVersion" }

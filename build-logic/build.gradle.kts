@@ -23,4 +23,5 @@ dependencies {
   implementation("androidx.media3.buildlogic:build-logic-settings")
   implementation(libs.android.gradle.plugin)
   implementation(libs.android.gradle.api)
+  implementation(libs.kotlin.gradle.plugin)
 }
