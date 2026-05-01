@@ -91,6 +91,9 @@
     *   Fix `ArrayIndexOutOfBoundsException` in `Mp4Extractor` when
         `FLAG_OMIT_TRACK_SAMPLE_TABLE` is set and the track lacks a sync sample
         (`stss`) box.
+    *   MP4: Prevent infinite loops and out-of-bounds reads when parsing empty
+        `ilst` metadata tag items
+        ([#3191](https://github.com/androidx/media/pull/3191)).
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from

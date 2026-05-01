@@ -152,7 +152,7 @@ import com.google.common.collect.ImmutableList;
     int type = ilst.readInt();
     int typeTopByte = (type >> 24) & 0xFF;
     try {
-      if (ilst.bytesLeft() == 0) {
+      if (endPosition - ilst.getPosition() < Mp4Box.HEADER_SIZE) {
         Log.d(TAG, "Skipped empty metadata entry: " + Mp4Box.getBoxTypeString(type));
         return null;
       }
