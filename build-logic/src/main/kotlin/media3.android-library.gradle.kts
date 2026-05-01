@@ -35,6 +35,8 @@ android {
       minCompileSdk = libs.findVersion("compileSdkVersion").get().requiredVersion.toInt()
     }
   }
+
+  testOptions.targetSdk = libs.findVersion("libTestTargetSdkVersion").get().requiredVersion.toInt()
 }
 
 dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }
