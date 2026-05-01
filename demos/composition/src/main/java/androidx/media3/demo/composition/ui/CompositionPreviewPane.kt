@@ -31,7 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -103,7 +103,7 @@ internal fun CompositionPreviewPane(
       modifier = Modifier.weight(1f).verticalScroll(scrollState),
     ) {
       if (uiState.sequenceTrackTypes.isNotEmpty()) {
-        ScrollableTabRow(
+        PrimaryScrollableTabRow(
           selectedTabIndex = uiState.selectedSequenceIndex,
           edgePadding = 0.dp,
           containerColor = MaterialTheme.colorScheme.surface,
