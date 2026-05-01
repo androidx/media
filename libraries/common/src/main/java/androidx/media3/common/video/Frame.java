@@ -91,6 +91,12 @@ public interface Frame {
   @SuppressWarnings("InlinedApi")
   long USAGE_VIDEO_ENCODE = HardwareBuffer.USAGE_VIDEO_ENCODE;
 
+  /**
+   * Metadata key for storing the system time that this frame should be displayed at to maintain A/V
+   * sync. The returned value if set will be a {@code Long}.
+   */
+  String KEY_DISPLAY_TIME_NS = "KEY_DISPLAY_TIME_NS";
+
   /** The frame format. */
   Format getFormat();
 
