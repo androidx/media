@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
   id("media3.android-library")
   id("media3.publish")
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose.compiler)
 }
 
@@ -25,7 +22,6 @@ android {
   namespace = "androidx.media3.ui.compose"
 
   buildFeatures { compose = true }
-  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
 dependencies {

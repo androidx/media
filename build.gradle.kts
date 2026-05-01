@@ -36,7 +36,6 @@ buildscript {
 plugins {
   id("media3.android-application") apply false
   id("media3.android-library") apply false
-  alias(libs.plugins.kotlin.android) apply false
   alias(libs.plugins.kotlin.compose.compiler) apply false
   id("gradlebuild.media3-build-logic")
 }

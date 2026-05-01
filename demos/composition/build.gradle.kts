@@ -14,18 +14,13 @@
  * limitations under the License.
  */
 
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
   id("media3.android-application")
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose.compiler)
 }
 
 android {
   namespace = "androidx.media3.demo.composition"
-
-  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   buildTypes {
     getByName("release") {

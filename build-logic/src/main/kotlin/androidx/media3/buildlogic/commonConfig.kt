@@ -26,14 +26,11 @@ import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.extra
 import org.gradle.kotlin.dsl.withType
 
-fun Project.configureCommonConfig(
-  android: CommonExtension<*, *, *, *, *, *>,
-  libs: VersionCatalog,
-) {
+fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog) {
   android.apply {
     compileSdk = libs.findVersion("compileSdkVersion").get().requiredVersion.toInt()
 
-    defaultConfig {
+    defaultConfig.apply {
       minSdk = libs.findVersion("minSdkVersion").get().requiredVersion.toInt()
 
       testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -46,13 +43,13 @@ fun Project.configureCommonConfig(
 
     lint.checkTestSources = true
 
-    compileOptions {
+    compileOptions.apply {
       sourceCompatibility = JavaVersion.VERSION_1_8
       targetCompatibility = JavaVersion.VERSION_1_8
     }
     tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("-Xlint:-options") }
 
-    testOptions {
+    testOptions.apply {
       unitTests.all {
         it.jvmArgs("-Xmx2g")
         it.systemProperty("robolectric.graphicsMode", "NATIVE")

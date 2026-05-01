@@ -11,11 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose.compiler)
 }
 
@@ -23,8 +21,6 @@ android {
   namespace = "androidx.media3.docsamples"
 
   compileOptions { isCoreLibraryDesugaringEnabled = true }
-
-  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   defaultConfig { minSdk = 23 }
 }

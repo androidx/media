@@ -13,18 +13,14 @@
 // limitations under the License.
 
 import org.gradle.kotlin.dsl.implementation
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   id("media3.android-library")
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.protobuf)
 }
 
 android {
   namespace = "androidx.media3.demo.session.service"
-
-  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 
   buildTypes { getByName("release") { signingConfig = signingConfigs.getByName("debug") } }
 

@@ -12,20 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
   id("media3.android-library")
   id("media3.publish")
-  alias(libs.plugins.kotlin.android)
 }
 
 android {
   namespace = "androidx.media3.test.utils"
 
   sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets/") }
-
-  kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_1_8) } }
 }
 
 dependencies {
