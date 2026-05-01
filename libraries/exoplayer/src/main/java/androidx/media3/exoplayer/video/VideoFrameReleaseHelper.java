@@ -90,7 +90,6 @@ public final class VideoFrameReleaseHelper {
   private long lastVsyncHysteresisOffsetNs;
   private long pendingVsyncHysteresisOffsetNs;
 
-  private long frameIndex;
   private long pendingLastAdjustedFrameIndex;
   private long pendingLastAdjustedReleaseTimeNs;
   private long pendingLastPresentationTimeUs;
@@ -167,21 +166,6 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Called for each frame, prior to it being skipped, dropped or rendered.
-   *
-   * @param framePresentationTimeUs The frame presentation timestamp, in microseconds.
-   */
-  public void onNextFrame(long framePresentationTimeUs) {
-    if (pendingLastAdjustedFrameIndex != C.INDEX_UNSET) {
-      lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
-      lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
-      lastAdjustedPresentationTimeUs = pendingLastPresentationTimeUs;
-      lastVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
-    }
-    frameIndex++;
-  }
-
-  /**
    * Sets the media frame rate used to calculate the playback frame rate of the surface.
    *
    * @param surfaceMediaFrameRate The media frame rate, or {@link Format#NO_VALUE} if unknown.
@@ -206,8 +190,7 @@ public final class VideoFrameReleaseHelper {
   // Frame release time adjustment.
 
   /**
-   * Adjusts the release timestamp for the next frame. This is the frame whose presentation
-   * timestamp was most recently passed to {@link #onNextFrame}.
+   * Adjusts the release timestamp for the frame with the given presentation timestamp.
    *
    * <p>This method may be called any number of times for each frame, including zero times (for
    * skipped frames, or when rendering the first frame prior to playback starting), or more than
@@ -219,10 +202,20 @@ public final class VideoFrameReleaseHelper {
    * @param presentationTimeUs The frame's presentation timestamp in microsecond.
    * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
    *     C#TIME_UNSET} if unknown.
+   * @param frameIndex A monotonically increasing index for the frame, or {@link C#INDEX_UNSET} if
+   *     unknown.
    * @return The adjusted frame release timestamp, in nanoseconds and in the same time base as
    *     {@link System#nanoTime()}.
    */
-  public long adjustReleaseTime(long releaseTimeNs, long presentationTimeUs, long frameDurationNs) {
+  public long adjustReleaseTime(
+      long releaseTimeNs, long presentationTimeUs, long frameDurationNs, long frameIndex) {
+    if (presentationTimeUs != pendingLastPresentationTimeUs) {
+      lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
+      lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
+      lastAdjustedPresentationTimeUs = pendingLastPresentationTimeUs;
+      lastVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
+    }
+
     // Until we know better, the adjustment will be a no-op.
     long adjustedReleaseTimeNs = releaseTimeNs;
 
@@ -270,9 +263,9 @@ public final class VideoFrameReleaseHelper {
   }
 
   private void resetAdjustment() {
-    frameIndex = 0;
     lastAdjustedFrameIndex = C.INDEX_UNSET;
     pendingLastAdjustedFrameIndex = C.INDEX_UNSET;
+    pendingLastPresentationTimeUs = C.TIME_UNSET;
     lastVsyncHysteresisOffsetNs = 0;
     pendingVsyncHysteresisOffsetNs = 0;
   }

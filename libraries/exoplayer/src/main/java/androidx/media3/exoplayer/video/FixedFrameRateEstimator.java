@@ -65,6 +65,7 @@ public final class FixedFrameRateEstimator {
   private int framesWithoutSyncCount;
   private float formatFrameRate;
   private float frameRateEstimate;
+  private long frameIndex;
   private final Listener listener;
 
   /**
@@ -139,6 +140,7 @@ public final class FixedFrameRateEstimator {
     if (framePresentationTimeNs == lastFramePresentationTimeNs) {
       return;
     }
+    frameIndex++;
     currentMatcher.onNextFrame(framePresentationTimeNs);
     if (currentMatcher.isSynced() && !switchToCandidateMatcherWhenSynced) {
       candidateMatcherActive = false;
@@ -173,6 +175,14 @@ public final class FixedFrameRateEstimator {
    */
   public long getFrameDurationNs() {
     return currentMatcher.isSynced() ? currentMatcher.getFrameDurationNs() : C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the current frame index. The index increases monotonically for each new frame timestamp
+   * given to {@link #onNextFrame}.
+   */
+  public long getFrameIndex() {
+    return frameIndex;
   }
 
   /** Tries to match frame durations against the duration of the first frame it receives. */

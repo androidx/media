@@ -1557,6 +1557,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
               frameRateEstimator.getFrameDurationNs(),
+              frameRateEstimator.getFrameIndex(),
               videoFrameReleaseInfo);
       if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER) {
         return 0;
@@ -1991,6 +1992,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             isDecodeOnlyBuffer,
             isLastBuffer,
             frameRateEstimator.getFrameDurationNs(),
+            frameRateEstimator.getFrameIndex(),
             videoFrameReleaseInfo);
     if (videoFrameReleaseEarlyTimeForecaster != null
         && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER

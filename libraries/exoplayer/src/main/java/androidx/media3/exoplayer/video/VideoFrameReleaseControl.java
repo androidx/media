@@ -45,7 +45,7 @@ public final class VideoFrameReleaseControl {
 
   /**
    * The frame release action returned by {@link #getFrameReleaseAction(long, long, long, long,
-   * boolean, boolean, long, FrameReleaseInfo)}.
+   * boolean, boolean, long, long, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
    * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
@@ -177,7 +177,6 @@ public final class VideoFrameReleaseControl {
   private @C.FirstFrameState int firstFrameState;
   private long initialPositionUs;
   private long lastReleaseRealtimeUs;
-  private long lastPresentationTimeUs;
   private long joiningDeadlineMs;
   private boolean joiningRenderNextFrameImmediately;
   private float playbackSpeed;
@@ -192,8 +191,8 @@ public final class VideoFrameReleaseControl {
    *
    * @param applicationContext The application context.
    * @param frameTimingEvaluator The {@link FrameTimingEvaluator} that will assist in {@linkplain
-   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, long, FrameReleaseInfo)
-   *     frame release actions}.
+   *     #getFrameReleaseAction(long, long, long, long, boolean, boolean, long, long,
+   *     FrameReleaseInfo) frame release actions}.
    * @param allowedJoiningTimeMs The maximum duration in milliseconds for which the caller can
    *     attempt to seamlessly join an ongoing playback.
    */
@@ -206,7 +205,6 @@ public final class VideoFrameReleaseControl {
     frameReleaseHelper = new VideoFrameReleaseHelper(applicationContext);
     firstFrameState = C.FIRST_FRAME_NOT_RENDERED_ONLY_ALLOWED_IF_STARTED;
     initialPositionUs = C.TIME_UNSET;
-    lastPresentationTimeUs = C.TIME_UNSET;
     joiningDeadlineMs = C.TIME_UNSET;
     playbackSpeed = 1f;
     clock = Clock.DEFAULT;
@@ -354,6 +352,8 @@ public final class VideoFrameReleaseControl {
    * @param isLastFrame Whether the frame is known to contain the last frame of the current stream.
    * @param frameDurationNs The estimated fixed frame duration in nanoseconds, or {@link
    *     C#TIME_UNSET} if unknown.
+   * @param frameIndex A monotonically increasing index for the frame, or {@link C#INDEX_UNSET} if
+   *     unknown.
    * @param frameReleaseInfo A {@link FrameReleaseInfo} that will be filled with detailed data only
    *     if the method returns {@link #FRAME_RELEASE_IMMEDIATELY} or {@link
    *     #FRAME_RELEASE_SCHEDULED}.
@@ -368,16 +368,13 @@ public final class VideoFrameReleaseControl {
       boolean isDecodeOnlyFrame,
       boolean isLastFrame,
       long frameDurationNs,
+      long frameIndex,
       FrameReleaseInfo frameReleaseInfo)
       throws ExoPlaybackException {
     frameReleaseInfo.reset();
 
     if (started && initialPositionUs == C.TIME_UNSET) {
       initialPositionUs = positionUs;
-    }
-    if (lastPresentationTimeUs != presentationTimeUs) {
-      frameReleaseHelper.onNextFrame(presentationTimeUs);
-      lastPresentationTimeUs = presentationTimeUs;
     }
 
     frameReleaseInfo.earlyUs =
@@ -416,7 +413,10 @@ public final class VideoFrameReleaseControl {
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
         frameReleaseHelper.adjustReleaseTime(
-            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000), presentationTimeUs, frameDurationNs);
+            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000),
+            presentationTimeUs,
+            frameDurationNs,
+            frameIndex);
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
     // While joining, late frames are skipped while we catch up with the playback position.
     boolean treatDropAsSkip =
@@ -437,7 +437,6 @@ public final class VideoFrameReleaseControl {
   /** Resets the release control. */
   public void reset() {
     frameReleaseHelper.onPositionReset();
-    lastPresentationTimeUs = C.TIME_UNSET;
     initialPositionUs = C.TIME_UNSET;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);
     joiningDeadlineMs = C.TIME_UNSET;

@@ -670,12 +670,13 @@ class VideoFrameReleaseHelperTest {
         )
         nextVsyncUpdateTimeNs += VideoFrameReleaseHelper.VSYNC_SAMPLE_UPDATE_PERIOD_MS * 1_000_000
       }
-      videoFrameReleaseHelper.onNextFrame(testData.frameTimeUs[i])
+      frameRateEstimator.onNextFrame(testData.frameTimeUs[i] * 1000)
       add(
         videoFrameReleaseHelper.adjustReleaseTime(
           testData.releaseTimeNs[i],
           testData.frameTimeUs[i],
           frameRateEstimator.frameDurationNs,
+          frameRateEstimator.frameIndex,
         )
       )
       onFrameAdjusted(i)
