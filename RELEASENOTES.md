@@ -115,6 +115,8 @@
     *   Fix bug where audio events may be misrouted if multiple audio renderers
         are added to the player.
 *   Video:
+    *   Fix frame rate estimation in `MediaCodecVideoRenderer` to be more
+        accurate by accounting for dropped or skipped frames.
     *   Adjust logic for codec reuse at frame rate changes on API below 30 to
         avoid codec resets where they are not beneficial
         ([#3120](https://github.com/androidx/media/issues/3120)).

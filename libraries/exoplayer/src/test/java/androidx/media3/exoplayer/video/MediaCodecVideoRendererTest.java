@@ -239,6 +239,15 @@ public class MediaCodecVideoRendererTest {
           }
 
           @Override
+          public long getDurationToProgressUs(
+              long positionUs,
+              long elapsedRealtimeUs,
+              boolean isOnBufferAvailableListenerRegistered) {
+            return super.getDurationToProgressUs(
+                positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
+          }
+
+          @Override
           protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
             super.onOutputFormatChanged(format, mediaFormat);
             currentOutputFormat = format;
@@ -259,6 +268,62 @@ public class MediaCodecVideoRendererTest {
   @After
   public void cleanUp() {
     surface.release();
+  }
+
+  @Test
+  public void render_withSkippedInputBuffers_updatesFrameRateEstimator() throws Exception {
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    List<FakeSampleStream.FakeSampleStreamItem> samples = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    samples.add(END_OF_STREAM_ITEM);
+
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ formatNoFrameRate,
+            samples);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    long startPositionUs = 200_000; // Skips first ~6 samples.
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {formatNoFrameRate},
+        fakeSampleStream,
+        /* positionUs= */ startPositionUs,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ startPositionUs,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+
+    mediaCodecVideoRenderer.start();
+
+    for (int i = 0; i < 25; i++) {
+      mediaCodecVideoRenderer.render(startPositionUs, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      ShadowLooper.idleMainLooper();
+    }
+
+    // Verify that skipped buffers are counted.
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    // We expect 7 buffers to be skipped at output (timestamps < 200_000).
+    assertThat(decoderCounters.skippedOutputBufferCount).isEqualTo(7);
+
+    // Verify that frame rate is estimated and used in getDurationToProgressUs.
+    long durationToProgressUs =
+        mediaCodecVideoRenderer.getDurationToProgressUs(
+            startPositionUs, SystemClock.elapsedRealtime() * 1000, true);
+    // It should not be the default duration if it synced.
+    assertThat(durationToProgressUs).isNotEqualTo(10_000L);
   }
 
   @Test

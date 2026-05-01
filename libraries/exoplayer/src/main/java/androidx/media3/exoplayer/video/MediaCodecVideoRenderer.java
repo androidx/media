@@ -224,7 +224,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Nullable private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
-  private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
+  private final PriorityQueue<Long> discardedDecoderInputBufferTimestamps;
   private final boolean enableMediaCodecBufferDecodeOnlyFlag;
   private final boolean enableDurationToProgressUs;
 
@@ -667,7 +667,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     startPositionUs = C.TIME_UNSET;
     av1SampleDependencyParser =
         builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
-    droppedDecoderInputBufferTimestamps = new PriorityQueue<>();
+    discardedDecoderInputBufferTimestamps = new PriorityQueue<>();
     if (builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET) {
       minEarlyUsToDropDecoderInput = -builder.lateThresholdToDropDecoderInputUs;
       videoFrameReleaseEarlyTimeForecaster =
@@ -1420,7 +1420,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected void resetCodecStateForFlush() {
     super.resetCodecStateForFlush();
-    droppedDecoderInputBufferTimestamps.clear();
+    discardedDecoderInputBufferTimestamps.clear();
     buffersInCodecCount = 0;
     consecutiveDroppedInputBufferCount = 0;
     isFlushRequired = false;
@@ -1546,7 +1546,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
 
     try {
-      frameRateEstimator.onNextFrame(nextOutputBufferToProcessPresentationTimeUs * 1000);
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
@@ -1801,9 +1800,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (shouldSkipDecoderInputBuffer) {
         decoderCounters.skippedInputBufferCount += 1;
       } else {
-        droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
         consecutiveDroppedInputBufferCount += 1;
       }
+      discardedDecoderInputBufferTimestamps.add(buffer.timeUs);
     }
     return bufferDiscarded;
   }
@@ -1958,7 +1957,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     long outputStreamOffsetUs = getOutputStreamOffsetUs();
     long presentationTimeUs = bufferPresentationTimeUs - outputStreamOffsetUs;
-    updateDroppedBufferCountersWithInputBuffers(bufferPresentationTimeUs);
+    updateDiscardedBufferCountersWithInputBuffers(bufferPresentationTimeUs);
+    frameRateEstimator.onNextFrame(bufferPresentationTimeUs * 1000);
 
     if (videoSink != null) {
       // Skip decode-only buffers, e.g. after seeking, immediately.
@@ -1981,7 +1981,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
           });
     }
 
-    frameRateEstimator.onNextFrame(bufferPresentationTimeUs * 1000);
     @VideoFrameReleaseControl.FrameReleaseAction
     int frameReleaseAction =
         videoFrameReleaseControl.getFrameReleaseAction(
@@ -2239,15 +2238,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (DEBUG_LOG_ENABLED) {
       Log.d(DEBUG_LOG_TAG, "video, discard input to keyframe, count=" + droppedSourceBufferCount);
     }
+    int droppedInQueue = 0;
+    for (long timeUs : discardedDecoderInputBufferTimestamps) {
+      if (timeUs >= getLastResetPositionUs()) {
+        droppedInQueue++;
+      }
+    }
     if (treatDroppedBuffersAsSkipped) {
       decoderCounters.skippedInputBufferCount += droppedSourceBufferCount;
       decoderCounters.skippedOutputBufferCount += buffersInCodecCount;
-      decoderCounters.skippedInputBufferCount += droppedDecoderInputBufferTimestamps.size();
+      decoderCounters.skippedInputBufferCount += droppedInQueue;
     } else {
       decoderCounters.droppedToKeyframeCount++;
       updateDroppedBufferCounters(
-          /* droppedInputBufferCount= */ droppedSourceBufferCount
-              + droppedDecoderInputBufferTimestamps.size(),
+          /* droppedInputBufferCount= */ droppedSourceBufferCount + droppedInQueue,
           /* droppedDecoderBufferCount= */ buffersInCodecCount);
     }
     flushOrReinitializeCodec();
@@ -2280,18 +2284,21 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   /**
-   * Updates counters to reflect dropped input buffers prior to {@code bufferPresentationTimeUs}.
+   * Updates counters to reflect discarded input buffers prior to {@code bufferPresentationTimeUs}.
    *
    * @param bufferPresentationTimeUs The presentation timestamp of the last processed output buffer,
    *     in microseconds.
    */
-  private void updateDroppedBufferCountersWithInputBuffers(long bufferPresentationTimeUs) {
+  private void updateDiscardedBufferCountersWithInputBuffers(long bufferPresentationTimeUs) {
     int droppedInputBufferCount = 0;
-    Long minDroppedDecoderBufferTimeUs;
-    while ((minDroppedDecoderBufferTimeUs = droppedDecoderInputBufferTimestamps.peek()) != null
-        && minDroppedDecoderBufferTimeUs < bufferPresentationTimeUs) {
-      droppedInputBufferCount++;
-      droppedDecoderInputBufferTimestamps.poll();
+    Long minDiscardedDecoderBufferTimeUs;
+    while ((minDiscardedDecoderBufferTimeUs = discardedDecoderInputBufferTimestamps.peek()) != null
+        && minDiscardedDecoderBufferTimeUs < bufferPresentationTimeUs) {
+      discardedDecoderInputBufferTimestamps.poll();
+      frameRateEstimator.onNextFrame(minDiscardedDecoderBufferTimeUs * 1000);
+      if (minDiscardedDecoderBufferTimeUs >= getLastResetPositionUs()) {
+        droppedInputBufferCount++;
+      }
     }
     updateDroppedBufferCounters(droppedInputBufferCount, /* droppedDecoderBufferCount= */ 0);
   }
