@@ -21,8 +21,10 @@ import java.io.File
 import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
+import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.extra
+import org.gradle.kotlin.dsl.withType
 
 fun Project.configureCommonConfig(
   android: CommonExtension<*, *, *, *, *, *>,
@@ -48,6 +50,7 @@ fun Project.configureCommonConfig(
       sourceCompatibility = JavaVersion.VERSION_1_8
       targetCompatibility = JavaVersion.VERSION_1_8
     }
+    tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("-Xlint:-options") }
 
     testOptions {
       unitTests.all {
