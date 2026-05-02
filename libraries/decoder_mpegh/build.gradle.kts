@@ -20,16 +20,7 @@ android {
 
   sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets") }
 
-  defaultConfig {
-    externalNativeBuild {
-      cmake {
-        // TODO(b/505317653): Remove flexible page sizes once AGP is upgraded to 9.0 or
-        // higher (which uses NDK r28 by default where 16KB alignment is automatic).
-        arguments("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
-        targets.add("mpeghJNI")
-      }
-    }
-  }
+  defaultConfig { externalNativeBuild { cmake { targets.add("mpeghJNI") } } }
 }
 
 // Configure the native build only if libmpegh is present to avoid gradle sync
