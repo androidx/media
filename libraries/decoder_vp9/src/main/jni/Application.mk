@@ -19,5 +19,3 @@ APP_STL := c++_static
 APP_CPPFLAGS := -frtti
 APP_PLATFORM := android-21
 APP_ABI :=armeabi-v7a x86 arm64-v8a x86_64
-# TODO(b/505317653): Remove flexible page sizes once the NDK version required by the README is updated to r28 or higher (where 16KB alignment is enabled by default).
-APP_SUPPORT_FLEXIBLE_PAGE_SIZES := true

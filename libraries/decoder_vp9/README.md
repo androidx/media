@@ -26,8 +26,8 @@ cd "<path to project checkout>"
 VP9_MODULE_PATH="$(pwd)/libraries/decoder_vp9/src/main"
 ```
 
-* Download the [Android NDK][] and set its location in an environment variable.
-  This build configuration has been tested on NDK r27.
+*   Download the [Android NDK][] and set its location in an environment
+    variable. This build configuration has been tested on NDK r29.
 
 ```
 NDK_PATH="<path to Android NDK>"
