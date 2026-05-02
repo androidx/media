@@ -43,6 +43,7 @@ public class TextInformationFrameTest {
     String composer = "composer";
     String conductor = "conductor";
     String writer = "writer";
+    String discSubtitle = "disc subtitle";
 
     List<Metadata.Entry> entries =
         ImmutableList.of(
@@ -81,7 +82,9 @@ public class TextInformationFrameTest {
                 /* description= */ null,
                 /* values= */ ImmutableList.of(conductor)),
             new TextInformationFrame(
-                /* id= */ "TXT", /* description= */ null, /* values= */ ImmutableList.of(writer)));
+                /* id= */ "TXT", /* description= */ null, /* values= */ ImmutableList.of(writer)),
+            new TextInformationFrame(
+                /* id= */ "TSST", /* description= */ null, /* values= */ ImmutableList.of(discSubtitle)));
     MediaMetadata.Builder builder = MediaMetadata.EMPTY.buildUpon();
 
     for (Metadata.Entry entry : entries) {
@@ -105,6 +108,7 @@ public class TextInformationFrameTest {
     assertThat(mediaMetadata.composer.toString()).isEqualTo(composer);
     assertThat(mediaMetadata.conductor.toString()).isEqualTo(conductor);
     assertThat(mediaMetadata.writer.toString()).isEqualTo(writer);
+    assertThat(mediaMetadata.discSubtitle).isEqualTo(discSubtitle);
   }
 
   @Test

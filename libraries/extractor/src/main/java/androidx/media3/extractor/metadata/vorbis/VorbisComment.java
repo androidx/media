@@ -80,6 +80,9 @@ public final class VorbisComment implements Metadata.Entry {
           builder.setDiscNumber(discNumber);
         }
         break;
+      case "DISCSUBTITLE":
+        builder.setDiscSubtitle(value);
+        break;
       case "TOTALDISCS":
         @Nullable Integer totalDiscs = Ints.tryParse(value);
         if (totalDiscs != null) {

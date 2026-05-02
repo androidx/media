@@ -178,7 +178,10 @@ public final class TextInformationFrame extends Id3Frame {
         }
         // Don't set a numeric genre that we don't recognize.
         break;
-      default:
+     case "TSST":
+        builder.setDiscSubtitle(values.get(0));
+        break;
+     default:
         break;
     }
   }

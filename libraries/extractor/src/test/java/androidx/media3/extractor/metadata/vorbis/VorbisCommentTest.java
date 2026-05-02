@@ -37,6 +37,7 @@ public final class VorbisCommentTest {
     int trackNumber = 3;
     int totalTracks = 12;
     int discNumber = 1;
+    String discSubtitle = "disc subtitle";
     int totalDiscs = 3;
     String genre = "Metal";
     String description = "a description about the audio.";
@@ -49,6 +50,7 @@ public final class VorbisCommentTest {
             new VorbisComment("TRACKNUMBER", String.valueOf(trackNumber)),
             new VorbisComment("TOTALTRACKS", String.valueOf(totalTracks)),
             new VorbisComment("DISCNUMBER", String.valueOf(discNumber)),
+            new VorbisComment("DISCSUBTITLE", discSubtitle),
             new VorbisComment("TOTALDISCS", String.valueOf(totalDiscs)),
             new VorbisComment("GENRE", genre),
             new VorbisComment("DESCRIPTION", description));
@@ -66,6 +68,7 @@ public final class VorbisCommentTest {
     assertThat(mediaMetadata.trackNumber).isEqualTo(trackNumber);
     assertThat(mediaMetadata.totalTrackCount).isEqualTo(totalTracks);
     assertThat(mediaMetadata.discNumber).isEqualTo(discNumber);
+    assertThat(mediaMetadata.discSubtitle).isEqualTo(discSubtitle);
     assertThat(mediaMetadata.totalDiscCount).isEqualTo(totalDiscs);
     assertThat(mediaMetadata.genre.toString()).isEqualTo(genre);
     assertThat(mediaMetadata.description.toString()).isEqualTo(description);

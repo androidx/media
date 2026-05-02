@@ -230,6 +230,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
       dumper.addIfNonDefault("composer", mediaMetadata.composer, null);
       dumper.addIfNonDefault("conductor", mediaMetadata.conductor, null);
       dumper.addIfNonDefault("discNumber", mediaMetadata.discNumber, null);
+      dumper.addIfNonDefault("discSubtitle", mediaMetadata.discSubtitle, null);
       dumper.addIfNonDefault("totalDiscCount", mediaMetadata.totalDiscCount, null);
       dumper.addIfNonDefault("genre", mediaMetadata.genre, null);
       dumper.addIfNonDefault("compilation", mediaMetadata.compilation, null);

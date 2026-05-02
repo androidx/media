@@ -85,6 +85,7 @@ public final class MediaMetadata {
     @Nullable private CharSequence composer;
     @Nullable private CharSequence conductor;
     @Nullable private Integer discNumber;
+    @Nullable private CharSequence discSubtitle;
     @Nullable private Integer totalDiscCount;
     @Nullable private CharSequence genre;
     @Nullable private CharSequence compilation;
@@ -129,6 +130,7 @@ public final class MediaMetadata {
       this.composer = mediaMetadata.composer;
       this.conductor = mediaMetadata.conductor;
       this.discNumber = mediaMetadata.discNumber;
+      this.discSubtitle = mediaMetadata.discSubtitle;
       this.totalDiscCount = mediaMetadata.totalDiscCount;
       this.genre = mediaMetadata.genre;
       this.compilation = mediaMetadata.compilation;
@@ -419,6 +421,13 @@ public final class MediaMetadata {
       return this;
     }
 
+    /** Sets the disc subtitle. */
+    @CanIgnoreReturnValue
+    public Builder setDiscSubtitle(@Nullable CharSequence discSubtitle) {
+      this.discSubtitle = discSubtitle;
+      return this;
+    }
+
     /** Sets the total number of discs. */
     @CanIgnoreReturnValue
     public Builder setTotalDiscCount(@Nullable Integer totalDiscCount) {
@@ -609,6 +618,9 @@ public final class MediaMetadata {
       }
       if (mediaMetadata.discNumber != null) {
         setDiscNumber(mediaMetadata.discNumber);
+      }
+      if (mediaMetadata.discSubtitle != null) {
+        setDiscSubtitle(mediaMetadata.discSubtitle);
       }
       if (mediaMetadata.totalDiscCount != null) {
         setTotalDiscCount(mediaMetadata.totalDiscCount);
@@ -1142,6 +1154,9 @@ public final class MediaMetadata {
   /** Optional disc number. */
   @Nullable public final Integer discNumber;
 
+  /** Optional disc subtitle. */
+  @Nullable public final CharSequence discSubtitle;
+
   /** Optional total number of discs. */
   @Nullable public final Integer totalDiscCount;
 
@@ -1221,6 +1236,7 @@ public final class MediaMetadata {
     this.composer = builder.composer;
     this.conductor = builder.conductor;
     this.discNumber = builder.discNumber;
+    this.discSubtitle = builder.discSubtitle;
     this.totalDiscCount = builder.totalDiscCount;
     this.genre = builder.genre;
     this.compilation = builder.compilation;
@@ -1274,6 +1290,7 @@ public final class MediaMetadata {
         && TextUtils.equals(composer, that.composer)
         && TextUtils.equals(conductor, that.conductor)
         && Objects.equals(discNumber, that.discNumber)
+        && TextUtils.equals(discSubtitle, that.discSubtitle)
         && Objects.equals(totalDiscCount, that.totalDiscCount)
         && TextUtils.equals(genre, that.genre)
         && TextUtils.equals(compilation, that.compilation)
@@ -1315,6 +1332,7 @@ public final class MediaMetadata {
         composer,
         conductor,
         discNumber,
+        discSubtitle,
         totalDiscCount,
         genre,
         compilation,
@@ -1359,6 +1377,7 @@ public final class MediaMetadata {
   private static final String FIELD_IS_BROWSABLE = Util.intToStringMaxRadix(32);
   private static final String FIELD_DURATION_MS = Util.intToStringMaxRadix(33);
   private static final String FIELD_SUPPORTED_COMMANDS = Util.intToStringMaxRadix(34);
+  private static final String FIELD_DISC_SUBTITLE = Util.intToStringMaxRadix(35);
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(1000);
 
   // Use a fairly lenient threshold for sending byte array to legacy processes that don't support
@@ -1483,6 +1502,9 @@ public final class MediaMetadata {
     }
     if (discNumber != null) {
       bundle.putInt(FIELD_DISC_NUMBER, discNumber);
+    }
+    if (discSubtitle != null) {
+      bundle.putCharSequence(FIELD_DISC_SUBTITLE, discSubtitle);
     }
     if (totalDiscCount != null) {
       bundle.putInt(FIELD_TOTAL_DISC_COUNT, totalDiscCount);
