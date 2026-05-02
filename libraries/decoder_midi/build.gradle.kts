@@ -19,7 +19,7 @@ plugins {
 android {
   namespace = "androidx.media3.decoder.midi"
 
-  sourceSets { getByName("test").assets.srcDir("../test_data/src/test/assets") }
+  sourceSets { getByName("test").assets.directories.add("../test_data/src/test/assets") }
 }
 
 dependencies {

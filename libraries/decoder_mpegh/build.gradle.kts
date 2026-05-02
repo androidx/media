@@ -18,7 +18,7 @@ plugins { id("media3.android-library") }
 android {
   namespace = "androidx.media3.decoder.mpegh"
 
-  sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
+  sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets") }
 
   defaultConfig {
     externalNativeBuild {

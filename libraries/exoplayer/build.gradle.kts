@@ -22,8 +22,8 @@ android {
   namespace = "androidx.media3.exoplayer"
 
   sourceSets {
-    getByName("androidTest").assets.srcDir("../test_data/src/test/assets")
-    getByName("test").assets.srcDir("../test_data/src/test/assets/")
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets")
+    getByName("test").assets.directories.add("../test_data/src/test/assets/")
   }
 }
 

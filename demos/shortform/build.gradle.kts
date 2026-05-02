@@ -31,8 +31,8 @@ android {
 
   buildFeatures { viewBinding = true }
   sourceSets {
-    getByName("main") { java { srcDirs("src/main/java") } }
-    getByName("test") { java { srcDirs("src/test/java") } }
+    getByName("main").java.directories.add("src/main/java")
+    getByName("test").java.directories.add("src/test/java")
   }
 }
 

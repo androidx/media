@@ -22,8 +22,8 @@ android {
   }
 
   sourceSets {
-    getByName("androidTest").assets.srcDir("../test_data/src/test/assets")
-    getByName("main").assets.srcDir("../test_data/src/test/assets")
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets")
+    getByName("main").assets.directories.add("../test_data/src/test/assets")
   }
 }
 

@@ -21,7 +21,7 @@ android {
 
   compileOptions.isCoreLibraryDesugaringEnabled = true
 
-  sourceSets { getByName("androidTest").assets.srcDir("../test_data/src/test/assets") }
+  sourceSets { getByName("androidTest").assets.directories.add("../test_data/src/test/assets") }
 }
 
 dependencies {

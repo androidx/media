@@ -17,8 +17,8 @@ android {
   namespace = "androidx.media3.decoder.vp9"
 
   sourceSets {
-    getByName("main") { jniLibs.srcDir("src/main/libs") }
-    getByName("androidTest").assets.srcDir("../test_data/src/test/assets")
+    getByName("main").jniLibs.directories.add("src/main/libs")
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets")
   }
 }
 

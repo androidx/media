@@ -17,8 +17,8 @@ android {
   namespace = "androidx.media3.test.proguard"
 
   sourceSets {
-    getByName("androidTest").assets.srcDir("../test_data/src/test/assets/")
-    getByName("test").assets.srcDir("../test_data/src/test/assets/")
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
+    getByName("test").assets.directories.add("../test_data/src/test/assets/")
   }
 
   compileOptions.isCoreLibraryDesugaringEnabled = true
