@@ -43,6 +43,27 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
 
     lint.checkTestSources = true
 
+    dependencies {
+      // Add the missing annotations to all compile classpaths to satisfy Javac
+      // when it parses Guava and other dependencies, without bundling them in the release.
+      val annotationLibs =
+        listOf(
+          "jsr305", // E.g. javax.annotation.meta.When.MAYBE
+          "errorprone-annotations",
+          "checkerframework-qual",
+          "kotlin-annotations-jvm", // E.g. MigrationStatus.STRICT
+          "j2objc-annotations", // E.g. j2objc.annotations.ReflectionSupport.Level.FULL
+          "animal-sniffer-annotations",
+        )
+
+      for (libName in annotationLibs) {
+        val lib = libs.findLibrary(libName).get()
+        add("compileOnly", lib)
+        add("testCompileOnly", lib)
+        add("androidTestCompileOnly", lib)
+      }
+    }
+
     compileOptions.apply {
       sourceCompatibility = JavaVersion.VERSION_1_8
       targetCompatibility = JavaVersion.VERSION_1_8

@@ -31,8 +31,6 @@ dependencies {
   api(libs.junit)
   api(libs.truth)
   api(libs.okhttp.mockwebserver)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   implementation(libs.androidx.annotation)
   implementation(libs.test.parameter.injector)
   implementation(libs.kotlinx.coroutines.test)

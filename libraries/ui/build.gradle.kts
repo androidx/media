@@ -31,8 +31,6 @@ dependencies {
   api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.recyclerview)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(project(":lib-exoplayer"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(project(":test-utils"))

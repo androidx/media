@@ -27,8 +27,6 @@ android {
 dependencies {
   api(project(":lib-common"))
   api(libs.androidx.lifecycle.service)
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
   implementation(project(":lib-datasource"))
   implementation(libs.androidx.collection)
   implementation(libs.androidx.concurrent.futures)

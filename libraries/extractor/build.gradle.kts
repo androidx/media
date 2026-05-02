@@ -31,9 +31,6 @@ dependencies {
   api(project(":lib-container"))
   // TODO(b/203752187): Remove this dependency.
   implementation(project(":lib-decoder"))
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(project(":lib-exoplayer"))
   testImplementation(project(":test-utils"))
   testImplementation(project(":test-data"))

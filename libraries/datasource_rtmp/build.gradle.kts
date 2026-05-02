@@ -23,8 +23,6 @@ dependencies {
   api(project(":lib-datasource"))
   implementation("io.antmedia:rtmp-client:3.2.0")
   implementation(libs.androidx.annotation)
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(project(":lib-exoplayer"))
   testImplementation(project(":test-utils"))
   testImplementation(libs.robolectric)

@@ -24,9 +24,6 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   api(project(":lib-exoplayer"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(project(":test-utils"))

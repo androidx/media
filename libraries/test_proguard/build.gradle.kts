@@ -53,7 +53,6 @@ dependencies {
   implementation(project(":lib-decoder-iamf"))
   implementation(libs.androidx.appcompat)
   implementation(libs.guava)
-  compileOnly(libs.kotlin.annotations.jvm)
   androidTestImplementation(libs.androidx.test.core)
   androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.test.runner)

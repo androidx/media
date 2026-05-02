@@ -55,8 +55,6 @@ dependencies {
   // TODO(b/203752526): Remove this dependency.
   implementation(project(":lib-exoplayer"))
   implementation(libs.androidx.annotation)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   androidTestImplementation(project(":test-utils"))
   androidTestImplementation(libs.androidx.test.runner)
   testImplementation(libs.androidx.test.core)

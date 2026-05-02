@@ -52,7 +52,6 @@ androidComponents {
 
 dependencies {
   implementation(libs.androidx.core)
-  compileOnly(libs.checkerframework.qual)
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.appcompat)
   implementation(libs.androidx.constraintlayout)

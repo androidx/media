@@ -21,7 +21,6 @@ android { namespace = "androidx.media3.decoder" }
 dependencies {
   api(project(":lib-common"))
   implementation(libs.androidx.annotation)
-  compileOnly(libs.checkerframework.qual)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)

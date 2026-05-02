@@ -21,7 +21,6 @@ android { namespace = "androidx.media3.database" }
 dependencies {
   api(project(":lib-common"))
   implementation(libs.androidx.annotation)
-  compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(libs.androidx.test.core)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)

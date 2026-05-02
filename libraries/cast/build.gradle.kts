@@ -31,9 +31,6 @@ dependencies {
   // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
   implementation(libs.androidx.compose.material3)
 
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(project(":test-utils"))

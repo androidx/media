@@ -43,10 +43,6 @@ dependencies {
   }
   api(libs.androidx.annotation.experimental)
   implementation(libs.androidx.annotation)
-  compileOnly(libs.jsr305)
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
 
   testImplementation(libs.mockito.core)
   testImplementation(libs.androidx.test.core)

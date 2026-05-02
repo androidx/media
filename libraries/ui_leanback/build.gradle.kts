@@ -22,5 +22,4 @@ dependencies {
   api(project(":lib-common"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.leanback)
-  compileOnly(libs.kotlin.annotations.jvm)
 }

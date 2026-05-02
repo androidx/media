@@ -19,8 +19,6 @@ plugins {
 android { namespace = "androidx.media3.test.utils.robolectric" }
 
 dependencies {
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   implementation(libs.androidx.annotation)
   implementation(libs.robolectric)
   api(project(":lib-exoplayer"))

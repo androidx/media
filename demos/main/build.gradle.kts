@@ -55,7 +55,6 @@ android {
 
 dependencies {
   coreLibraryDesugaring(libs.desugar.jdk.libs)
-  compileOnly(libs.checkerframework.qual)
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.appcompat)
   implementation(libs.material)

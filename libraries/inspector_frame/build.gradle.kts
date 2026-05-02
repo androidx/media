@@ -27,9 +27,6 @@ dependencies {
   api(project(":lib-effect"))
   implementation(libs.androidx.annotation)
   implementation(libs.androidx.concurrent.futures)
-  compileOnly(libs.errorprone.annotations)
-  compileOnly(libs.checkerframework.qual)
-  compileOnly(libs.kotlin.annotations.jvm)
   androidTestImplementation(libs.androidx.test.runner)
   androidTestImplementation(project(":test-utils"))
 }

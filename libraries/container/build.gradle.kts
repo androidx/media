@@ -29,7 +29,6 @@ android {
 dependencies {
   api(project(":lib-common"))
   implementation(libs.androidx.annotation)
-  compileOnly(libs.errorprone.annotations)
   testImplementation(libs.androidx.test.ext.junit)
   testImplementation(libs.truth)
   testImplementation(libs.junit)

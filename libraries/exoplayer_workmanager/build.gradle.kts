@@ -23,5 +23,4 @@ android { namespace = "androidx.media3.exoplayer.workmanager" }
 dependencies {
   api(project(":lib-exoplayer"))
   implementation(libs.androidx.work.runtime)
-  compileOnly(libs.kotlin.annotations.jvm)
 }
