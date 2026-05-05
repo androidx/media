@@ -18,6 +18,12 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_AUDIO_GRAPH_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_FLUSH;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RELEASE;
 import static androidx.media3.transformer.AudioGraph.isInputAudioFormatValid;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -39,6 +45,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -105,6 +112,7 @@ import java.util.concurrent.atomic.AtomicLong;
   private long currentItemExpectedInputDurationUs;
   private boolean isCurrentItemLast;
   private boolean isReleased;
+  private boolean isEndLogged;
 
   /**
    * Creates an instance.
@@ -170,12 +178,21 @@ import java.util.concurrent.atomic.AtomicLong;
     ByteBuffer outputBuffer = getOutputInternal();
 
     if (outputBuffer.hasRemaining()) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_AUDIO_GRAPH_INPUT,
+          Integer.toHexString(this.hashCode()),
+          EVENT_PRODUCED_OUTPUT,
+          C.TIME_UNSET,
+          "size(bytes):%s",
+          outputBuffer.remaining());
       return outputBuffer;
     }
 
     if (!hasDataToOutput() && !pendingMediaItemChanges.isEmpty()) {
       configureForPendingMediaItemChange();
     }
+
+    maybeLogIsEnded();
 
     return EMPTY_BUFFER;
   }
@@ -241,6 +258,12 @@ import java.util.concurrent.atomic.AtomicLong;
     pendingInputBuffers.add(inputBuffer);
     startTimeUs.compareAndSet(
         /* expectedValue= */ C.TIME_UNSET, /* newValue= */ inputBuffer.timeUs);
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT,
+        Integer.toHexString(this.hashCode()),
+        EVENT_ACCEPTED_INPUT,
+        inputBuffer.timeUs,
+        "");
     return true;
   }
 
@@ -312,6 +335,13 @@ import java.util.concurrent.atomic.AtomicLong;
     startTimeUs.set(C.TIME_UNSET);
     currentItemExpectedInputDurationUs = C.TIME_UNSET;
     isCurrentItemLast = false;
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT,
+        Integer.toHexString(this.hashCode()),
+        EVENT_FLUSH,
+        C.TIME_UNSET,
+        "positionOffset:%s",
+        positionOffsetUs);
   }
 
   /**
@@ -330,6 +360,12 @@ import java.util.concurrent.atomic.AtomicLong;
     availableInputBuffers.clear();
     pendingInputBuffers.clear();
     isReleased = true;
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT,
+        Integer.toHexString(this.hashCode()),
+        EVENT_RELEASE,
+        C.TIME_UNSET,
+        "");
   }
 
   /** Returns whether the instance has been {@linkplain #release() released.} */
@@ -362,6 +398,18 @@ import java.util.concurrent.atomic.AtomicLong;
     // For a looping sequence, currentItemExpectedInputDurationUs is unset, and
     // there isn't a last item -- end of stream is passed through directly.
     return receivedEndOfStreamFromInput;
+  }
+
+  private void maybeLogIsEnded() {
+    if (!isEndLogged && isEnded()) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_AUDIO_GRAPH_INPUT,
+          Integer.toHexString(this.hashCode()),
+          EVENT_OUTPUT_ENDED,
+          C.TIME_UNSET,
+          "");
+      isEndLogged = true;
+    }
   }
 
   private ByteBuffer getOutputInternal() {

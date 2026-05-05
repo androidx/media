@@ -60,10 +60,13 @@ public final class DebugTraceUtil {
     EVENT_SEEK_TO,
     EVENT_SET_VIDEO_OUTPUT,
     EVENT_RELEASE,
+    EVENT_RESET,
     EVENT_START,
     EVENT_INPUT_FORMAT,
     EVENT_OUTPUT_FORMAT,
     EVENT_ACCEPTED_INPUT,
+    EVENT_BLOCK_INPUT,
+    EVENT_UNBLOCK_INPUT,
     EVENT_PRODUCED_OUTPUT,
     EVENT_INPUT_ENDED,
     EVENT_OUTPUT_ENDED,
@@ -78,7 +81,8 @@ public final class DebugTraceUtil {
     EVENT_RECEIVE_END_OF_ALL_INPUT,
     EVENT_SIGNAL_EOS,
     EVENT_SIGNAL_ENDED,
-    EVENT_CAN_WRITE_SAMPLE
+    EVENT_CAN_WRITE_SAMPLE,
+    EVENT_FLUSH
   })
   @Target(TYPE_USE)
   public @interface Event {}
@@ -88,10 +92,13 @@ public final class DebugTraceUtil {
   public static final String EVENT_SEEK_TO = "SeekTo";
   public static final String EVENT_SET_VIDEO_OUTPUT = "SetVideoOutput";
   public static final String EVENT_RELEASE = "Release";
+  public static final String EVENT_RESET = "Reset";
   public static final String EVENT_START = "Start";
   public static final String EVENT_INPUT_FORMAT = "InputFormat";
   public static final String EVENT_OUTPUT_FORMAT = "OutputFormat";
   public static final String EVENT_ACCEPTED_INPUT = "AcceptedInput";
+  public static final String EVENT_BLOCK_INPUT = "BlockInput";
+  public static final String EVENT_UNBLOCK_INPUT = "UnblockInput";
   public static final String EVENT_PRODUCED_OUTPUT = "ProducedOutput";
   public static final String EVENT_INPUT_ENDED = "InputEnded";
   public static final String EVENT_OUTPUT_ENDED = "OutputEnded";
@@ -107,6 +114,7 @@ public final class DebugTraceUtil {
   public static final String EVENT_SIGNAL_EOS = "SignalEOS";
   public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
   public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
+  public static final String EVENT_FLUSH = "Flush";
 
   /** Components logged by {@link #logEvent}. */
   @Documented
@@ -117,6 +125,7 @@ public final class DebugTraceUtil {
     COMPONENT_ASSET_LOADER,
     COMPONENT_AUDIO_DECODER,
     COMPONENT_AUDIO_GRAPH,
+    COMPONENT_AUDIO_GRAPH_INPUT,
     COMPONENT_AUDIO_MIXER,
     COMPONENT_AUDIO_ENCODER,
     COMPONENT_VIDEO_DECODER,
@@ -136,6 +145,7 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_ASSET_LOADER = "AssetLoader";
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
   public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
+  public static final String COMPONENT_AUDIO_GRAPH_INPUT = "AudioGraphInput";
   public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
   public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
@@ -194,6 +204,36 @@ public final class DebugTraceUtil {
     }
     logEventInternal(
         component,
+        event,
+        new StringEventLog(
+            presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));
+  }
+
+  /**
+   * Logs a new event, if debug logging is enabled.
+   *
+   * @param component The {@link Component} to log.
+   * @param componentId The identifier of the logging {@link Component}.
+   * @param event The {@link Event} to log.
+   * @param presentationTimeUs The current presentation time of the media. Use {@link C#TIME_UNSET}
+   *     if unknown, {@link C#TIME_END_OF_SOURCE} if EOS.
+   * @param extraFormat Format string for optional extra information. See {@link
+   *     Util#formatInvariant(String, Object...)}.
+   * @param extraArgs Arguments for optional extra information.
+   */
+  @SuppressWarnings("ComputeIfAbsentContainsKey") // Avoid Java8 for visibility
+  public static synchronized void logEvent(
+      @Component String component,
+      String componentId,
+      @Event String event,
+      long presentationTimeUs,
+      String extraFormat,
+      Object... extraArgs) {
+    if (!enableTracing) {
+      return;
+    }
+    logEventInternal(
+        component + "[" + componentId + "]",
         event,
         new StringEventLog(
             presentationTimeUs, getEventTimeMs(), formatInvariant(extraFormat, extraArgs)));

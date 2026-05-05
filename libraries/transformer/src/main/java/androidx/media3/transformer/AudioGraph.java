@@ -17,7 +17,17 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_AUDIO_GRAPH;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_BLOCK_INPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_FLUSH;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RESET;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_UNBLOCK_INPUT;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Integer.toHexString;
 
 import androidx.annotation.IntRange;
 import androidx.media3.common.C;
@@ -48,6 +58,7 @@ import java.util.Objects;
   private boolean isMixerReady;
   private long pendingStartTimeUs;
   private ByteBuffer mixerOutput;
+  private boolean isEndLogged;
 
   /**
    * Number of {@link InputInfo} instances whose underlying {@link AudioGraphInput} have ended, but
@@ -100,6 +111,12 @@ import java.util.Objects;
         audioProcessingPipeline.configure(mixerAudioFormat);
         audioProcessingPipeline.flush(
             new StreamMetadata.Builder().setPositionOffsetUs(pendingStartTimeUs).build());
+        DebugTraceUtil.logEvent(
+            COMPONENT_AUDIO_GRAPH,
+            EVENT_OUTPUT_FORMAT,
+            C.TIME_UNSET,
+            /* extraFormat= */ "%s",
+            getOutputAudioFormat());
       }
     } catch (UnhandledAudioFormatException e) {
       throw ExportException.createForAudioProcessing(
@@ -107,10 +124,11 @@ import java.util.Objects;
     }
     inputInfos.add(new InputInfo(audioGraphInput));
     DebugTraceUtil.logEvent(
-        DebugTraceUtil.COMPONENT_AUDIO_GRAPH,
-        DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM,
+        COMPONENT_AUDIO_GRAPH,
+        EVENT_REGISTER_NEW_INPUT_STREAM,
         C.TIME_UNSET,
-        "%s",
+        /* extraFormat= */ "[%s]: %s",
+        toHexString(audioGraphInput.hashCode()),
         format);
     return audioGraphInput;
   }
@@ -141,11 +159,21 @@ import java.util.Objects;
       mixerOutput = mixer.getOutput();
     }
 
+    ByteBuffer output = mixerOutput;
+
     if (audioProcessingPipeline.isOperational()) {
       feedProcessingPipelineFromMixer();
-      return audioProcessingPipeline.getOutput();
+      output = audioProcessingPipeline.getOutput();
     }
-    return mixerOutput;
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH,
+        EVENT_PRODUCED_OUTPUT,
+        C.TIME_UNSET,
+        "pos:%s,remaining:%s",
+        output.position(),
+        output.remaining());
+    maybeLogGraphEnded(isEnded());
+    return output;
   }
 
   /** Instructs the {@code AudioGraph} to not queue any input buffer. */
@@ -153,6 +181,8 @@ import java.util.Objects;
     for (InputInfo info : getActiveInputs()) {
       info.audioGraphInput.blockInput();
     }
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH, EVENT_BLOCK_INPUT, /* presentationTimeUs= */ C.TIME_UNSET);
   }
 
   /** Unblocks incoming data if {@linkplain #blockInput() blocked}. */
@@ -160,6 +190,8 @@ import java.util.Objects;
     for (InputInfo info : getActiveInputs()) {
       info.audioGraphInput.unblockInput();
     }
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH, EVENT_UNBLOCK_INPUT, /* presentationTimeUs= */ C.TIME_UNSET);
   }
 
   /**
@@ -191,6 +223,7 @@ import java.util.Objects;
     audioProcessingPipeline.flush(
         new StreamMetadata.Builder().setPositionOffsetUs(pendingStartTimeUs).build());
     finishedInputs = 0;
+    DebugTraceUtil.logEvent(COMPONENT_AUDIO_GRAPH, EVENT_FLUSH, positionOffsetUs);
   }
 
   /**
@@ -208,14 +241,25 @@ import java.util.Objects;
     finishedInputs = 0;
     mixerOutput = EMPTY_BUFFER;
     mixerAudioFormat = AudioFormat.NOT_SET;
+    isEndLogged = false;
+    DebugTraceUtil.logEvent(COMPONENT_AUDIO_GRAPH, EVENT_RESET, C.TIME_UNSET);
   }
 
   /** Returns whether the input has ended and all queued data has been output. */
   public boolean isEnded() {
+    boolean isEnded = isMixerEnded();
     if (audioProcessingPipeline.isOperational()) {
-      return audioProcessingPipeline.isEnded();
+      isEnded = audioProcessingPipeline.isEnded();
     }
-    return isMixerEnded();
+    maybeLogGraphEnded(isEnded);
+    return isEnded;
+  }
+
+  private void maybeLogGraphEnded(boolean isEnded) {
+    if (isEnded && !isEndLogged) {
+      DebugTraceUtil.logEvent(COMPONENT_AUDIO_GRAPH, EVENT_OUTPUT_ENDED, C.TIME_UNSET);
+      isEndLogged = true;
+    }
   }
 
   /**
