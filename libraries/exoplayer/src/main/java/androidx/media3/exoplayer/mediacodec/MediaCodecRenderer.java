@@ -762,7 +762,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               + offsetUs);
     }
     long durationUs = getPeriodDurationUs();
-    boolean isDurationStrict = isPeriodDurationStrict();
+    @SampleStream.Flags int streamFlags = checkNotNull(getStream()).getFlags();
     if (outputStreamInfo.streamOffsetUs == C.TIME_UNSET) {
       // This is the first stream.
       setOutputStreamInfo(
@@ -771,7 +771,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               startPositionUs,
               offsetUs,
               durationUs,
-              isDurationStrict));
+              streamFlags));
       if (experimentalEnableProcessedStreamChangedAtStart) {
         onProcessedStreamChange();
       }
@@ -786,7 +786,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               startPositionUs,
               offsetUs,
               durationUs,
-              isDurationStrict));
+              streamFlags));
       if (outputStreamInfo.streamOffsetUs != C.TIME_UNSET) {
         onProcessedStreamChange();
       }
@@ -797,7 +797,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               startPositionUs,
               offsetUs,
               durationUs,
-              isDurationStrict));
+              streamFlags));
     }
   }
 
@@ -837,7 +837,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   protected void onTimelineChanged(Timeline timeline) {
     OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
     lastOutputStreamInfo.durationUs = getPeriodDurationUs();
-    lastOutputStreamInfo.isDurationStrict = isPeriodDurationStrict();
   }
 
   @Override
@@ -1499,6 +1498,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @throws ExoPlaybackException If an error occurs feeding the input buffer.
    */
   private boolean feedInputBuffer() throws ExoPlaybackException {
+    getLastOutputStreamInfo().streamFlags = checkNotNull(getStream()).getFlags();
     if (codec == null || codecDrainState == DRAIN_STATE_WAIT_END_OF_STREAM || inputStreamEnded) {
       return false;
     }
@@ -1713,7 +1713,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private long getLargestValidQueuedPresentationTimeUs() {
-    return isPeriodDurationStrict()
+    return getLastOutputStreamInfo().isDurationStrict()
         ? largestQueuedPresentationTimeWithinDurationUs
         : largestQueuedPresentationTimeUs;
   }
@@ -2314,7 +2314,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
 
     boolean isStrictDurationExceeded =
-        outputStreamInfo.isDurationStrict
+        outputStreamInfo.isDurationStrict()
             && outputStreamInfo.durationUs != C.TIME_UNSET
             && outputBufferInfo.presentationTimeUs - getOutputStreamOffsetUs()
                 >= outputStreamInfo.durationUs;
@@ -2945,7 +2945,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             /* startPositionUs= */ C.TIME_UNSET,
             /* streamOffsetUs= */ C.TIME_UNSET,
             /* durationUs= */ C.TIME_UNSET,
-            /* isDurationStrict= */ false);
+            /* streamFlags= */ 0);
 
     private final long previousStreamLastBufferTimeUs;
     private final long startPositionUs;
@@ -2953,7 +2953,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     private final TimedValueQueue<Format> formatQueue;
 
     private long durationUs;
-    private boolean isDurationStrict;
+    private @SampleStream.Flags int streamFlags;
     private boolean queuedBufferAfterReset;
     private long lastBufferTimeUs;
 
@@ -2962,14 +2962,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         long startPositionUs,
         long streamOffsetUs,
         long durationUs,
-        boolean isDurationStrict) {
+        @SampleStream.Flags int streamFlags) {
       this.previousStreamLastBufferTimeUs = previousStreamLastBufferTimeUs;
       this.startPositionUs = startPositionUs;
       this.streamOffsetUs = streamOffsetUs;
       this.durationUs = durationUs;
-      this.isDurationStrict = isDurationStrict;
+      this.streamFlags = streamFlags;
       this.formatQueue = new TimedValueQueue<>();
       this.lastBufferTimeUs = C.TIME_UNSET;
+    }
+
+    private boolean isDurationStrict() {
+      return (streamFlags & SampleStream.FLAG_STRICT_DURATION) != 0;
     }
   }
 

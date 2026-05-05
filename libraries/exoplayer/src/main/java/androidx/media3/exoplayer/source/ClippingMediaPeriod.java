@@ -447,6 +447,15 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       }
       return childStream.skipData(positionUs);
     }
+
+    @Override
+    public @SampleStream.Flags int getFlags() {
+      int flags = childStream.getFlags();
+      if (endUs != C.TIME_END_OF_SOURCE) {
+        flags |= FLAG_STRICT_DURATION;
+      }
+      return flags;
+    }
   }
 
   private static void updateDecoderDelayPaddingForClipping(

@@ -59,6 +59,7 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.drm.DrmSession;
 import androidx.media3.exoplayer.drm.DrmSession.DrmSessionException;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.video.VideoRendererEventListener.EventDispatcher;
 import java.lang.annotation.Documented;
@@ -392,6 +393,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
     // TODO: This code should make sure to render the first frame of the next stream if the playback
     //  position reached the new stream.
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
+    @SampleStream.Flags int streamFlags = checkNotNull(getStream()).getFlags();
     if (outputStreamInfo == null
         || (pendingOutputStreamChanges.isEmpty() && buffersInCodecCount == 0)) {
       outputStreamInfo =
@@ -399,26 +401,22 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
               /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
               offsetUs,
               getPeriodDurationUs(),
-              isPeriodDurationStrict());
+              streamFlags);
     } else {
       pendingOutputStreamChanges.add(
           new OutputStreamInfo(
               /* previousStreamLastBufferTimeUs= */ largestQueuedPresentationTimeUs,
               offsetUs,
               getPeriodDurationUs(),
-              isPeriodDurationStrict()));
+              streamFlags));
     }
   }
 
   @Override
   protected void onTimelineChanged(Timeline timeline) {
-    OutputStreamInfo lastOutputStreamInfo =
-        pendingOutputStreamChanges.isEmpty()
-            ? outputStreamInfo
-            : pendingOutputStreamChanges.getLast();
+    OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
     if (lastOutputStreamInfo != null) {
       lastOutputStreamInfo.durationUs = getPeriodDurationUs();
-      lastOutputStreamInfo.isDurationStrict = isPeriodDurationStrict();
     }
   }
 
@@ -822,6 +820,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
   }
 
   private boolean feedInputBuffer() throws DecoderException, ExoPlaybackException {
+    checkNotNull(getLastOutputStreamInfo()).streamFlags = checkNotNull(getStream()).getFlags();
     if (decoder == null
         || decoderReinitializationState == REINITIALIZATION_STATE_WAIT_END_OF_STREAM
         || inputStreamEnded) {
@@ -951,7 +950,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
 
     checkNotNull(this.outputStreamInfo);
     long presentationTimeUs = bufferTimeUs - outputStreamInfo.streamOffsetUs;
-    if (outputStreamInfo.isDurationStrict
+    if (outputStreamInfo.isDurationStrict()
         && outputStreamInfo.durationUs != C.TIME_UNSET
         && presentationTimeUs >= outputStreamInfo.durationUs) {
       skipOutputBuffer(outputBuffer);
@@ -1099,22 +1098,34 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
     return earlyUs < -500000;
   }
 
+  @Nullable
+  private OutputStreamInfo getLastOutputStreamInfo() {
+    if (!pendingOutputStreamChanges.isEmpty()) {
+      return pendingOutputStreamChanges.getLast();
+    }
+    return outputStreamInfo;
+  }
+
   private static final class OutputStreamInfo {
 
     private final long previousStreamLastBufferTimeUs;
     private final long streamOffsetUs;
     private long durationUs;
-    private boolean isDurationStrict;
+    private @SampleStream.Flags int streamFlags;
 
     private OutputStreamInfo(
         long previousStreamLastBufferTimeUs,
         long streamOffsetUs,
         long durationUs,
-        boolean isDurationStrict) {
+        @SampleStream.Flags int streamFlags) {
       this.previousStreamLastBufferTimeUs = previousStreamLastBufferTimeUs;
       this.streamOffsetUs = streamOffsetUs;
       this.durationUs = durationUs;
-      this.isDurationStrict = isDurationStrict;
+      this.streamFlags = streamFlags;
+    }
+
+    private boolean isDurationStrict() {
+      return (streamFlags & SampleStream.FLAG_STRICT_DURATION) != 0;
     }
   }
 }

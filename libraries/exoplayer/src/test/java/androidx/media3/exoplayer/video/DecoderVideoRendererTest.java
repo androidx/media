@@ -47,6 +47,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
@@ -587,6 +588,7 @@ public final class DecoderVideoRendererTest {
                 oneByteSample(/* timeUs= */ 100_000),
                 END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    fakeSampleStream.setFlags(SampleStream.FLAG_STRICT_DURATION);
     renderer.enable(
         RendererConfiguration.DEFAULT,
         new Format[] {H264_FORMAT},

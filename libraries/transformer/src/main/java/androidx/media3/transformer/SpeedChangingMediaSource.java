@@ -366,6 +366,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return sampleStream.skipData(
             getOriginalPeriodTimeUs(positionUs, speedProviderMapper, clipStartUs));
       }
+
+      @Override
+      public @SampleStream.Flags int getFlags() {
+        return sampleStream.getFlags();
+      }
     }
   }
 }

@@ -73,6 +73,23 @@ public interface SampleStream {
    */
   int FLAG_OMIT_SAMPLE_DATA = 1 << 2;
 
+  /**
+   * Flags that can be specified on the stream. Possible flag values are {@link
+   * #FLAG_STRICT_DURATION}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {
+        FLAG_STRICT_DURATION,
+      })
+  @interface Flags {}
+
+  /** Specifies that playout of the stream should be stopped once the duration is reached. */
+  int FLAG_STRICT_DURATION = 1;
+
   /** Return values of {@link #readData}. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -127,4 +144,14 @@ public interface SampleStream {
    * @return The number of samples that were skipped.
    */
   int skipData(long positionUs);
+
+  /**
+   * Returns the {@link Flags} set on this stream.
+   *
+   * <p>The value returned by this method is allowed to change during playback. Callers should check
+   * the flags when needed.
+   */
+  default @Flags int getFlags() {
+    return 0;
+  }
 }

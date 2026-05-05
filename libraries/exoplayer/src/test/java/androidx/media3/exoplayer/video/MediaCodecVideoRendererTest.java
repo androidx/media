@@ -4205,6 +4205,7 @@ public class MediaCodecVideoRendererTest {
                 oneByteSample(/* timeUs= */ 100_000),
                 END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    fakeSampleStream.setFlags(SampleStream.FLAG_STRICT_DURATION);
     mediaCodecVideoRenderer.enable(
         RendererConfiguration.DEFAULT,
         new Format[] {VIDEO_H264},

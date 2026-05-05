@@ -224,5 +224,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public int skipData(long positionUs) {
       return sampleStream.skipData(positionUs - timeOffsetUs);
     }
+
+    @Override
+    public @SampleStream.Flags int getFlags() {
+      return sampleStream.getFlags();
+    }
   }
 }

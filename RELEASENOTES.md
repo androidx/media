@@ -10,6 +10,9 @@
         `ForwardingSimpleBasePlayer`.
     *   Upgrade Kotlin from 2.0.20 to 2.2.0.
 *   ExoPlayer:
+    *   Add `getFlags()` and `FLAG_STRICT_DURATION` to `SampleStream` to allow
+        streams to report flags, and update renderers to check these flags
+        dynamically.
     *   Remove clipping of content for client-side inserted ads in the core
         player. Instead, `AdsMediaSource` takes care of the clipping logic.
         Custom client-side inserted ads sources need to be updated to implement

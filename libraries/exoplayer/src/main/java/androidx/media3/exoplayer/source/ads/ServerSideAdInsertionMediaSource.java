@@ -1318,5 +1318,21 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     public int skipData(long positionUs) {
       return mediaPeriod.sharedPeriod.skipData(mediaPeriod, streamIndex, positionUs);
     }
+
+    @Override
+    public @SampleStream.Flags int getFlags() {
+      @Nullable SampleStream childStream = mediaPeriod.sharedPeriod.sampleStreams[streamIndex];
+      @SampleStream.Flags int childFlags = childStream == null ? 0 : childStream.getFlags();
+      // The strict duration flag should only be applied to the very last stream of the content,
+      // not for in-stream transitions (e.g. ad to content or content to ad).
+      boolean isAtEndOfSourceStream =
+          mediaPeriod.mediaPeriodId.nextAdGroupIndex == C.INDEX_UNSET
+              && !mediaPeriod.mediaPeriodId.isAd();
+      if (isAtEndOfSourceStream) {
+        return childFlags;
+      } else {
+        return childFlags & ~SampleStream.FLAG_STRICT_DURATION;
+      }
+    }
   }
 }

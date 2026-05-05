@@ -121,6 +121,7 @@ public class FakeSampleStream implements SampleStream {
   private boolean loadingFinished;
   @Nullable private Format downstreamFormat;
   @Nullable private Format notifiedDownstreamFormat;
+  private @SampleStream.Flags int flags;
 
   /**
    * Creates a fake sample stream which outputs the given {@link Format} followed by the provided
@@ -147,6 +148,11 @@ public class FakeSampleStream implements SampleStream {
     this.sampleStreamItems = new ArrayList<>();
     sampleStreamItems.add(FakeSampleStreamItem.format(initialFormat));
     sampleStreamItems.addAll(fakeSampleStreamItems);
+  }
+
+  /** Sets the flags to be returned by {@link #getFlags()}. */
+  public void setFlags(@SampleStream.Flags int flags) {
+    this.flags = flags;
   }
 
   /**
@@ -254,6 +260,11 @@ public class FakeSampleStream implements SampleStream {
   /** Release the stream and its underlying sample queue. */
   public void release() {
     sampleQueue.release();
+  }
+
+  @Override
+  public @SampleStream.Flags int getFlags() {
+    return flags;
   }
 
   @Override
