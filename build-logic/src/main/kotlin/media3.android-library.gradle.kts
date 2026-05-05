@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import androidx.media3.buildlogic.configureCommonConfig
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 plugins { id("com.android.library") }
 
@@ -38,10 +37,6 @@ android {
   }
 
   testOptions.targetSdk = libs.findVersion("libTestTargetSdkVersion").get().requiredVersion.toInt()
-}
-
-extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
-  compilerOptions { freeCompilerArgs.add("-Xannotation-default-target=param-property") }
 }
 
 dependencies { "androidTestUtil"(libs.findLibrary("androidx-test-orchestrator").get()) }
