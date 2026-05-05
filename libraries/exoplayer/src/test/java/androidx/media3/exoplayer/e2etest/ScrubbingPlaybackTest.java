@@ -331,9 +331,8 @@ public class ScrubbingPlaybackTest {
     player.prepare();
     // Play until renderer has reached the specified blocked presentation time and playback position
     // has advanced beyond the keyframe at 600 ms.
-    play(player)
-        .untilBackgroundThreadCondition(
-            () -> hasReceivedOutputBufferPastBlockTime.get() && player.getCurrentPosition() > 610);
+    play(player).untilPositionAtLeast(611);
+    play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
 
     player.setScrubbingModeEnabled(true);
     TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
