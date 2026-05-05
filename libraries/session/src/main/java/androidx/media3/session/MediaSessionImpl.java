@@ -887,6 +887,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             && deprecatedConnectionResult.sessionExtras.getBoolean(
                 MediaSession.BUNDLE_KEY_NOT_IMPLEMENTED, /* defaultValue= */ false);
     if (!isDefaultImplementationOfDeprecatedOnConnect) {
+      updateLegacySessionConfigurationOnConnectOnHandler(controller, deprecatedConnectionResult);
       return immediateFuture(deprecatedConnectionResult);
     }
 
@@ -897,26 +898,30 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return Util.transformFutureAsync(
         connectionResultFuture,
         connectionResult -> {
-          if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
-            isMediaNotificationControllerConnected = true;
-            ImmutableList<CommandButton> mediaButtonPreferences =
-                connectionResult.mediaButtonPreferences != null
-                    ? connectionResult.mediaButtonPreferences
-                    : instance.getMediaButtonPreferences();
-            if (mediaButtonPreferences.isEmpty()) {
-              sessionLegacyStub.setPlatformCustomLayout(
-                  connectionResult.customLayout != null
-                      ? connectionResult.customLayout
-                      : instance.getCustomLayout());
-            } else {
-              sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-            }
-            sessionLegacyStub.setAvailableCommands(
-                connectionResult.availableSessionCommands,
-                connectionResult.availablePlayerCommands);
-          }
+          updateLegacySessionConfigurationOnConnectOnHandler(controller, connectionResult);
           return immediateFuture(connectionResult);
         });
+  }
+
+  private void updateLegacySessionConfigurationOnConnectOnHandler(
+      ControllerInfo controller, ConnectionResult connectionResult) {
+    if (isMediaNotificationController(controller) && connectionResult.isAccepted) {
+      isMediaNotificationControllerConnected = true;
+      ImmutableList<CommandButton> mediaButtonPreferences =
+          connectionResult.mediaButtonPreferences != null
+              ? connectionResult.mediaButtonPreferences
+              : instance.getMediaButtonPreferences();
+      if (mediaButtonPreferences.isEmpty()) {
+        sessionLegacyStub.setPlatformCustomLayout(
+            connectionResult.customLayout != null
+                ? connectionResult.customLayout
+                : instance.getCustomLayout());
+      } else {
+        sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+      }
+      sessionLegacyStub.setAvailableCommands(
+          connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
+    }
   }
 
   public void onPostConnectOnHandler(ControllerInfo controller) {
