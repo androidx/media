@@ -19,47 +19,49 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
 import android.os.HandlerThread;
+import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Sets;
 import java.lang.reflect.Constructor;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link AsynchronousMediaCodecAdapter}. */
+// TODO: b/507008072 - Remove this when it's the default for the whole module
+@Config(sdk = ALL_SDKS)
 @RunWith(AndroidJUnit4.class)
 public class AsynchronousMediaCodecAdapterTest {
   private AsynchronousMediaCodecAdapter adapter;
-  private HandlerThread callbackThread;
-  private HandlerThread queueingThread;
+  private ThreadSupplier queueingThreadSupplier;
+  private ThreadSupplier callbackThreadSupplier;
   private MediaCodec.BufferInfo bufferInfo;
 
   @Before
   public void setUp() throws Exception {
-    MediaCodecInfo codecInfo = createMediaCodecInfo("aac", "audio/aac");
-    MediaCodecAdapter.Configuration configuration =
-        MediaCodecAdapter.Configuration.createForAudioDecoding(
-            codecInfo,
-            createMediaFormat("format"),
-            new Format.Builder().build(),
-            /* crypto= */ null,
-            /* loudnessCodecController= */ null);
-    callbackThread = new HandlerThread("TestCallbackThread");
-    queueingThread = new HandlerThread("TestQueueingThread");
+    MediaCodecAdapter.Configuration configuration = createAdapterConfiguration();
+    queueingThreadSupplier = new ThreadSupplier("TestMediaCodecQueueing");
+    callbackThreadSupplier = new ThreadSupplier("TestMediaCodecCallback");
     adapter =
-        new AsynchronousMediaCodecAdapter.Factory(
-                /* callbackThreadSupplier= */ () -> callbackThread,
-                /* queueingThreadSupplier= */ () -> queueingThread)
+        new AsynchronousMediaCodecAdapter.Factory(callbackThreadSupplier, queueingThreadSupplier)
             .createAdapter(configuration);
     bufferInfo = new MediaCodec.BufferInfo();
     // After starting the MediaCodec, the ShadowMediaCodec offers input buffer 0. We advance the
     // looper to make sure any messages have been propagated to the adapter.
-    shadowOf(callbackThread.getLooper()).idle();
+    idleThreads(callbackThreadSupplier.createdThreads);
   }
 
   @After
@@ -81,7 +83,11 @@ public class AsynchronousMediaCodecAdapterTest {
   }
 
   @Test
-  public void dequeueInputBufferIndex_withPendingQueueingError_throwsException() {
+  public void
+      dequeueInputBufferIndex_withAsynchronousEnqueuerAndPendingQueueingError_throwsException()
+          throws Exception {
+    createAdapterWithSynchronousEnqueuerDisabled();
+
     // Force MediaCodec to throw an error by attempting to queue input buffer -1.
     adapter.queueInputBuffer(
         /* index= */ -1,
@@ -89,7 +95,7 @@ public class AsynchronousMediaCodecAdapterTest {
         /* size= */ 0,
         /* presentationTimeUs= */ 0,
         /* flags= */ 0);
-    shadowOf(queueingThread.getLooper()).idle();
+    idleThreads(queueingThreadSupplier.createdThreads);
 
     assertThrows(IllegalStateException.class, () -> adapter.dequeueInputBufferIndex());
   }
@@ -118,8 +124,8 @@ public class AsynchronousMediaCodecAdapterTest {
     // the ShadowMediaCodec processes the input buffer and produces an output buffer. Then, progress
     // the callback looper so that the available output buffer callback is handled and the output
     // buffer reaches the adapter.
-    shadowOf(queueingThread.getLooper()).idle();
-    shadowOf(callbackThread.getLooper()).idle();
+    idleThreads(queueingThreadSupplier.createdThreads);
+    idleThreads(callbackThreadSupplier.createdThreads);
 
     // The ShadowMediaCodec will first offer an output format and then the output buffer.
     assertThat(adapter.dequeueOutputBufferIndex(bufferInfo))
@@ -138,7 +144,11 @@ public class AsynchronousMediaCodecAdapterTest {
   }
 
   @Test
-  public void dequeueOutputBufferIndex_withPendingQueueingError_throwsException() {
+  public void
+      dequeueOutputBufferIndex_withAsynchronousEnqueuerAndPendingQueueingError_throwsException()
+          throws Exception {
+    createAdapterWithSynchronousEnqueuerDisabled();
+
     // Force MediaCodec to throw an error by attempting to queue input buffer -1.
     adapter.queueInputBuffer(
         /* index= */ -1,
@@ -146,7 +156,7 @@ public class AsynchronousMediaCodecAdapterTest {
         /* size= */ 0,
         /* presentationTimeUs= */ 0,
         /* flags= */ 0);
-    shadowOf(queueingThread.getLooper()).idle();
+    idleThreads(queueingThreadSupplier.createdThreads);
 
     assertThrows(IllegalStateException.class, () -> adapter.dequeueOutputBufferIndex(bufferInfo));
   }
@@ -156,7 +166,7 @@ public class AsynchronousMediaCodecAdapterTest {
     int index = adapter.dequeueInputBufferIndex();
     adapter.queueInputBuffer(index, 0, 0, 0, 0);
     // Progress the looper so that the ShadowMediaCodec processes the input buffer.
-    shadowOf(callbackThread.getLooper()).idle();
+    idleThreads(callbackThreadSupplier.createdThreads);
     adapter.release();
 
     assertThat(adapter.dequeueOutputBufferIndex(bufferInfo))
@@ -191,7 +201,7 @@ public class AsynchronousMediaCodecAdapterTest {
     MediaFormat outputFormat = adapter.getOutputFormat();
     // Flush the adapter and progress the looper so that flush is completed.
     adapter.flush();
-    shadowOf(callbackThread.getLooper()).idle();
+    idleThreads(callbackThreadSupplier.createdThreads);
 
     assertThat(adapter.getOutputFormat()).isEqualTo(outputFormat);
   }
@@ -209,6 +219,16 @@ public class AsynchronousMediaCodecAdapterTest {
         /* forceSecure= */ false);
   }
 
+  private static MediaCodecAdapter.Configuration createAdapterConfiguration() {
+    MediaCodecInfo codecInfo = createMediaCodecInfo("aac", "audio/aac");
+    return MediaCodecAdapter.Configuration.createForAudioDecoding(
+        codecInfo,
+        createMediaFormat("format"),
+        new Format.Builder().build(),
+        /* crypto= */ null,
+        /* loudnessCodecController= */ null);
+  }
+
   private static MediaFormat createMediaFormat(String name) {
     MediaFormat format = new MediaFormat();
     format.setString("name", name);
@@ -223,5 +243,54 @@ public class AsynchronousMediaCodecAdapterTest {
     constructor.setAccessible(true);
     return constructor.newInstance(
         /* errorCode */ 0, /* actionCode */ 0, /* detailMessage */ "error from codec");
+  }
+
+  private static void idleThreads(Set<HandlerThread> threads) {
+    for (HandlerThread thread : threads) {
+      if (thread.isAlive()) {
+        @Nullable Looper looper = thread.getLooper();
+        if (looper != null) {
+          ShadowLooper shadowLooper = shadowOf(looper);
+          try {
+            shadowLooper.idle();
+          } catch (IllegalStateException e) {
+            // Ignorable, may happen if Looper is already quitting.
+          }
+        }
+      }
+    }
+  }
+
+  private void createAdapterWithSynchronousEnqueuerDisabled() throws Exception {
+    // Release adapter configured in setup.
+    adapter.release();
+    AsynchronousMediaCodecAdapter.Factory factory =
+        new AsynchronousMediaCodecAdapter.Factory(callbackThreadSupplier, queueingThreadSupplier);
+    factory.setAsyncCryptoFlagEnabled(false);
+    MediaCodecAdapter.Configuration configuration = createAdapterConfiguration();
+    adapter = factory.createAdapter(configuration);
+    // After starting the MediaCodec, the ShadowMediaCodec offers input buffer 0. We advance the
+    // looper to make sure any messages have been propagated to the adapter.
+    idleThreads(callbackThreadSupplier.createdThreads);
+  }
+
+  private static final class ThreadSupplier implements Supplier<HandlerThread> {
+
+    private final String label;
+    private final Set<HandlerThread> createdThreads;
+    private final AtomicInteger counter;
+
+    private ThreadSupplier(String label) {
+      this.label = label;
+      this.createdThreads = Sets.newConcurrentHashSet();
+      this.counter = new AtomicInteger();
+    }
+
+    @Override
+    public HandlerThread get() {
+      HandlerThread thread = new HandlerThread(label + ":" + counter.getAndIncrement());
+      createdThreads.add(thread);
+      return thread;
+    }
   }
 }
