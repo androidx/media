@@ -148,10 +148,20 @@ import com.google.common.collect.ImmutableList;
   @Nullable
   public static Metadata.Entry parseIlstElement(ParsableByteArray ilst) {
     int position = ilst.getPosition();
-    int endPosition = position + ilst.readInt();
+    int size = ilst.readInt();
+    if (size < Mp4Box.HEADER_SIZE) {
+      Log.w(TAG, "Skipped empty metadata entry");
+      return null;
+    }
+    int endPosition = position + size;
     int type = ilst.readInt();
     int typeTopByte = (type >> 24) & 0xFF;
     try {
+      int remainingPayloadSize = endPosition - ilst.getPosition();
+      if (remainingPayloadSize < Mp4Box.HEADER_SIZE) {
+        Log.w(TAG, "Skipped empty metadata entry: " + Mp4Box.getBoxTypeString(type));
+        return null;
+      }
       if (typeTopByte == TYPE_TOP_BYTE_COPYRIGHT || typeTopByte == TYPE_TOP_BYTE_REPLACEMENT) {
         int shortType = type & 0x00FFFFFF;
         if (shortType == SHORT_TYPE_COMMENT) {
