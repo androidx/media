@@ -148,12 +148,18 @@ import com.google.common.collect.ImmutableList;
   @Nullable
   public static Metadata.Entry parseIlstElement(ParsableByteArray ilst) {
     int position = ilst.getPosition();
-    int endPosition = position + ilst.readInt();
+    int size = ilst.readInt();
+    if (size < Mp4Box.HEADER_SIZE) {
+      Log.w(TAG, "Skipped empty metadata entry");
+      return null;
+    }
+    int endPosition = position + size;
     int type = ilst.readInt();
     int typeTopByte = (type >> 24) & 0xFF;
     try {
-      if (endPosition - ilst.getPosition() < Mp4Box.HEADER_SIZE) {
-        Log.d(TAG, "Skipped empty metadata entry: " + Mp4Box.getBoxTypeString(type));
+      int remainingPayloadSize = endPosition - ilst.getPosition();
+      if (remainingPayloadSize < Mp4Box.HEADER_SIZE) {
+        Log.w(TAG, "Skipped empty metadata entry: " + Mp4Box.getBoxTypeString(type));
         return null;
       }
       if (typeTopByte == TYPE_TOP_BYTE_COPYRIGHT || typeTopByte == TYPE_TOP_BYTE_REPLACEMENT) {
@@ -317,7 +323,7 @@ import com.google.common.collect.ImmutableList;
     if (value >= 0) {
       return isTextInformationFrame
           ? new TextInformationFrame(
-              id, /* description= */ null, ImmutableList.of(Integer.toString(value)))
+          id, /* description= */ null, ImmutableList.of(Integer.toString(value)))
           : new CommentFrame(C.LANGUAGE_UNDETERMINED, id, Integer.toString(value));
     }
     Log.w(TAG, "Failed to parse uint8 attribute: " + Mp4Box.getBoxTypeString(type));

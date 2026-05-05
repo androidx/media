@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 public final class MetadataUtilTest {
 
   @Test
-  public void parseIlstElement_withEmptyTagPayload_returnsNullWithoutCrashing() {
+  public void parseIlstElement_withEmptyTagPayload_returnsNullAndAdvancesPosition() {
     ParsableByteArray ilst =
         new ParsableByteArray(
             new byte[] {
@@ -45,5 +45,63 @@ public final class MetadataUtilTest {
     Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
 
     assertThat(entry).isNull();
+    assertThat(ilst.getPosition()).isEqualTo(8);
+  }
+
+  @Test
+  public void parseIlstElement_withBoxSizeZero_returnsNullAndAdvancesPosition() {
+    ParsableByteArray ilst =
+        new ParsableByteArray(
+            new byte[] {
+                0, 0, 0, 0 // Size = 0 bytes
+            });
+
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+
+    assertThat(entry).isNull();
+    assertThat(ilst.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void parseIlstElement_withBoxSizeSmallerThanHeaderSize_returnsNullAndAdvancesPosition() {
+    ParsableByteArray ilst =
+        new ParsableByteArray(
+            new byte[] {
+                0, 0, 0, 4 // Size = 4 bytes
+            });
+
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+
+    assertThat(entry).isNull();
+    assertThat(ilst.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void
+  parseIlstElement_withRemainingPayloadSmallerThanAtomHeader_returnsNullAndAdvancesPosition() {
+    ParsableByteArray ilst =
+        new ParsableByteArray(
+            new byte[] {
+                0,
+                0,
+                0,
+                15, // Size = 15 bytes
+                (byte) 0xA9,
+                'n',
+                'a',
+                'm', // Type = ©nam
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0 // 7 trailing bytes
+            });
+
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+
+    assertThat(entry).isNull();
+    assertThat(ilst.getPosition()).isEqualTo(15);
   }
 }
