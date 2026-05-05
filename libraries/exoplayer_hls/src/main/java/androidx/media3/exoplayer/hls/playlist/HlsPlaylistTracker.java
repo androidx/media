@@ -22,8 +22,10 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import java.io.IOException;
@@ -136,11 +138,13 @@ public interface HlsPlaylistTracker {
    *     multivariant playlist.
    * @param eventDispatcher A dispatcher to notify of events.
    * @param primaryPlaylistListener A callback for the primary playlist change events.
+   * @param bandwidthMeter A {@link BandwidthMeter}.
    */
   void start(
       Uri initialPlaylistUri,
       EventDispatcher eventDispatcher,
-      PrimaryPlaylistListener primaryPlaylistListener);
+      PrimaryPlaylistListener primaryPlaylistListener,
+      BandwidthMeter bandwidthMeter);
 
   /**
    * Stops the playlist tracker and releases any acquired resources.
@@ -173,6 +177,15 @@ public interface HlsPlaylistTracker {
    */
   @Nullable
   HlsMultivariantPlaylist getMultivariantPlaylist();
+
+  /**
+   * Returns the {@linkplain ContentSteeringTracker content steering tracker}.
+   *
+   * @return The content steering tracker. Null if the initial playlist has yet to be loaded, or no
+   *     information for content steering is declared in the initial playlist.
+   */
+  @Nullable
+  ContentSteeringTracker getContentSteeringTracker();
 
   /**
    * Returns the {@link HlsRedundantGroup} list corresponding to the {@code type}.

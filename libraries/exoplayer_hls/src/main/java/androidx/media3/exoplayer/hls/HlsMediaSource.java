@@ -545,7 +545,8 @@ public final class HlsMediaSource extends BaseMediaSource
     playlistTracker.start(
         checkNotNull(getMediaItem().localConfiguration).uri,
         eventDispatcher,
-        /* primaryPlaylistListener= */ this);
+        /* primaryPlaylistListener= */ this,
+        getBandwidthMeter());
   }
 
   @Override

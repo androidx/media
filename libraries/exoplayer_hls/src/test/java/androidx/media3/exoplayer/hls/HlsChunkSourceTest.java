@@ -55,6 +55,7 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackOptions;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.FallbackSelection;
+import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
@@ -70,16 +71,22 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit tests for {@link HlsChunkSource}. */
 @RunWith(AndroidJUnit4.class)
 public class HlsChunkSourceTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private static final String PLAYLIST = "media/m3u8/media_playlist";
   private static final String PLAYLIST_INDEPENDENT_SEGMENTS =
@@ -107,6 +114,16 @@ public class HlsChunkSourceTest {
           .setRoleFlags(C.ROLE_FLAG_TRICK_PLAY)
           .build();
   private static final String DEFAULT_PATHWAY_ID = ".";
+
+  @Mock private HlsPlaylistTracker mockPlaylistTracker;
+  @Mock private ContentSteeringTracker mockContentSteeringTracker;
+
+  @Before
+  public void setUp() {
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockContentSteeringTracker.excludeCurrentPathway(anyLong())).thenReturn(true);
+    when(mockContentSteeringTracker.isActive()).thenReturn(true);
+  }
 
   @Test
   public void getAdjustedSeekPositionUs_previousSync() throws Exception {
@@ -1039,8 +1056,7 @@ public class HlsChunkSourceTest {
   public void createFallbackOptionsForPlaylistError_withAllTracksSelected_returnsCorrectResult()
       throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
 
     Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
     FallbackOptions fallbackOptions = testChunkSource.createFallbackOptions(playlistUrl);
@@ -1049,8 +1065,8 @@ public class HlsChunkSourceTest {
     assertThat(fallbackOptions.numberOfTracks).isEqualTo(4);
     assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(0);
 
-    when(mockHlsPlaylistTracker.isExcluded(eq(redundantGroups[1]), anyLong())).thenReturn(true);
-    when(mockHlsPlaylistTracker.isExcluded(
+    when(mockPlaylistTracker.isExcluded(eq(redundantGroups[1]), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.isExcluded(
             eq(Uri.parse("https://test/media-b/playlist0.m3u8")), anyLong()))
         .thenReturn(true);
 
@@ -1066,7 +1082,6 @@ public class HlsChunkSourceTest {
   public void createFallbackOptionsForChunkError_withAllTracksSelected_returnsCorrectResult()
       throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
     HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
     testChunkSource.getNextChunk(
@@ -1138,15 +1153,71 @@ public class HlsChunkSourceTest {
   }
 
   @Test
+  public void createFallbackOptionsForPlaylistError_withContentSteeringActive_returnsCorrectResult()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    Uri failingPlaylistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
+    // There is a playlist url from the same pathway but of a different track has been excluded.
+    when(mockPlaylistTracker.isExcluded(
+            eq(Uri.parse("https://test/media-a/playlist1.m3u8")), anyLong()))
+        .thenReturn(true);
+    // The playlist url of the same track but from a different pathway has been excluded.
+    when(mockPlaylistTracker.isExcluded(
+            eq(Uri.parse("https://test/media-c/playlist0.m3u8")), anyLong()))
+        .thenReturn(true);
+
+    FallbackOptions fallbackOptions = testChunkSource.createFallbackOptions(failingPlaylistUrl);
+
+    assertThat(fallbackOptions.numberOfLocations).isEqualTo(3);
+    assertThat(fallbackOptions.numberOfExcludedLocations).isEqualTo(1);
+    assertThat(fallbackOptions.numberOfTracks).isEqualTo(4);
+    assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(1);
+    assertThat(fallbackOptions.locationSteeringActive).isTrue();
+  }
+
+  @Test
+  public void createFallbackOptionsForChunkError_withContentSteeringActive_returnsCorrectResult()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    // There is a playlist url from the same pathway but of a different track has been excluded.
+    when(mockPlaylistTracker.isExcluded(
+            eq(Uri.parse("https://test/media-a/playlist1.m3u8")), anyLong()))
+        .thenReturn(true);
+    // The playlist url of the same track but from a different pathway has been excluded.
+    when(mockPlaylistTracker.isExcluded(
+            eq(Uri.parse("https://test/media-c/playlist0.m3u8")), anyLong()))
+        .thenReturn(true);
+
+    FallbackOptions fallbackOptions = testChunkSource.createFallbackOptions(output.chunk);
+
+    assertThat(fallbackOptions.numberOfLocations).isEqualTo(3);
+    assertThat(fallbackOptions.numberOfExcludedLocations).isEqualTo(1);
+    assertThat(fallbackOptions.numberOfTracks).isEqualTo(4);
+    assertThat(fallbackOptions.numberOfExcludedTracks).isEqualTo(1);
+    assertThat(fallbackOptions.locationSteeringActive).isTrue();
+  }
+
+  @Test
   public void onPlaylistError_fallbackSelectionIsNull_returnsFalse() throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
 
     Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
     assertThat(testChunkSource.onPlaylistError(playlistUrl, /* fallbackSelection= */ null))
@@ -1154,16 +1225,15 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void onPlaylistError_fallbackSelectionIsTrackType_excludeTrackAndPlaylist()
+  public void onPlaylistError_fallbackSelectionIsTrackType_excludesTrackAndPlaylist()
       throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
 
     Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
     boolean exclusionResult =
@@ -1172,20 +1242,19 @@ public class HlsChunkSourceTest {
 
     assertThat(exclusionResult).isTrue();
     assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isTrue();
-    verify(mockHlsPlaylistTracker).excludeMediaPlaylist(playlistUrl, 10_000);
+    verify(mockPlaylistTracker).excludeMediaPlaylist(playlistUrl, 10_000);
   }
 
   @Test
-  public void onPlaylistError_fallbackSelectionIsLocationType_excludePlaylistOnly()
+  public void onPlaylistError_fallbackSelectionIsLocationType_excludesPlaylistOnly()
       throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
 
     Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
     boolean exclusionResult =
@@ -1194,19 +1263,87 @@ public class HlsChunkSourceTest {
 
     assertThat(exclusionResult).isTrue();
     assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isFalse();
-    verify(mockHlsPlaylistTracker).excludeMediaPlaylist(playlistUrl, 10_000);
+    verify(mockPlaylistTracker).excludeMediaPlaylist(playlistUrl, 10_000);
+  }
+
+  @Test
+  public void onPlaylistErrorWithContentSteeringActive_fallbackSelectionIsNull_returnsFalse()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+
+    Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
+    assertThat(testChunkSource.onPlaylistError(playlistUrl, /* fallbackSelection= */ null))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      onPlaylistErrorWithContentSteeringActive_fallbackSelectionIsTrackType_excludesTrackAndPlaylist()
+          throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+
+    Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
+    boolean exclusionResult =
+        testChunkSource.onPlaylistError(
+            playlistUrl, new FallbackSelection(FALLBACK_TYPE_TRACK, 10_000));
+
+    assertThat(exclusionResult).isTrue();
+    assertThat(trackSelection.isTrackExcluded(/* index= */ 0, SystemClock.elapsedRealtime()))
+        .isTrue();
+    verify(mockPlaylistTracker).excludeMediaPlaylist(playlistUrl, 10_000);
+    verify(mockContentSteeringTracker, never()).excludeCurrentPathway(anyLong());
+  }
+
+  @Test
+  public void
+      onPlaylistErrorWithContentSteeringActive_fallbackSelectionIsLocationType_excludesCurrentPathway()
+          throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    // We intentionally exclude another track, so that we can verify that the track exclusion has
+    // been cleared after onPlaylistError().
+    boolean unused = trackSelection.excludeTrack(/* index= */ 1, 10_000);
+    assertThat(trackSelection.isTrackExcluded(/* index= */ 1, SystemClock.elapsedRealtime()))
+        .isTrue();
+
+    Uri playlistUrl = Uri.parse("https://test/media-a/playlist0.m3u8");
+    boolean exclusionResult =
+        testChunkSource.onPlaylistError(
+            playlistUrl, new FallbackSelection(FALLBACK_TYPE_LOCATION, 10_000));
+
+    assertThat(exclusionResult).isTrue();
+    verify(mockContentSteeringTracker).excludeCurrentPathway(10_000);
+    assertThat(trackSelection.isTrackExcluded(/* index= */ 1, SystemClock.elapsedRealtime()))
+        .isFalse();
   }
 
   @Test
   public void onChunkError_fallbackSelectionIsNull_returnsFalse() throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
@@ -1220,15 +1357,14 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void onChunkError_fallbackSelectionIsTrackType_excludeTrackOnly() throws IOException {
+  public void onChunkError_fallbackSelectionIsTrackType_excludesTrackOnly() throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
@@ -1243,20 +1379,19 @@ public class HlsChunkSourceTest {
 
     assertThat(exclusionResult).isTrue();
     assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isTrue();
-    verify(mockHlsPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
+    verify(mockPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
   }
 
   @Test
-  public void onChunkError_fallbackSelectionIsLocationType_excludePlaylistOnly()
+  public void onChunkError_fallbackSelectionIsLocationType_excludesPlaylistOnly()
       throws IOException {
     HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
-    HlsPlaylistTracker mockHlsPlaylistTracker = mock(HlsPlaylistTracker.class);
-    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockHlsPlaylistTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
     TrackGroup trackGroup = testChunkSource.getTrackGroup();
     FakeTrackSelection trackSelection = new FakeTrackSelection(trackGroup);
     trackSelection.enable();
     testChunkSource.setTrackSelection(trackSelection);
-    when(mockHlsPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
@@ -1271,7 +1406,94 @@ public class HlsChunkSourceTest {
 
     assertThat(exclusionResult).isTrue();
     assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isFalse();
-    verify(mockHlsPlaylistTracker).excludeMediaPlaylist(any(), anyLong());
+    verify(mockPlaylistTracker).excludeMediaPlaylist(any(), anyLong());
+  }
+
+  @Test
+  public void onChunkErrorWithContentSteeringActive_fallbackSelectionIsNull_returnsFalse()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(testChunkSource.onChunkError(output.chunk, /* fallbackSelection= */ null)).isFalse();
+  }
+
+  @Test
+  public void onChunkErrorWithContentSteeringActive_fallbackSelectionIsTrackType_excludesTrackOnly()
+      throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    when(mockPlaylistTracker.excludeMediaPlaylist(any(), anyLong())).thenReturn(true);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    boolean exclusionResult =
+        testChunkSource.onChunkError(
+            output.chunk, new FallbackSelection(FALLBACK_TYPE_TRACK, 10_000));
+
+    assertThat(exclusionResult).isTrue();
+    assertThat(trackSelection.isTrackExcluded(0, SystemClock.elapsedRealtime())).isTrue();
+    verify(mockPlaylistTracker, never()).excludeMediaPlaylist(any(), anyLong());
+    verify(mockContentSteeringTracker, never()).excludeCurrentPathway(anyLong());
+  }
+
+  @Test
+  public void
+      onChunkErrorWithContentSteeringActive_fallbackSelectionIsLocationType_excludesCurrentPathway()
+          throws IOException {
+    HlsRedundantGroup[] redundantGroups = createSampleRedundantGroups();
+    when(mockPlaylistTracker.getContentSteeringTracker()).thenReturn(mockContentSteeringTracker);
+    HlsChunkSource testChunkSource = createHlsChunkSource(redundantGroups, mockPlaylistTracker);
+    TrackGroup trackGroup = testChunkSource.getTrackGroup();
+    TestTrackSelection trackSelection = new TestTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection.enable();
+    testChunkSource.setTrackSelection(trackSelection);
+    // We intentionally exclude another track, so that we can verify that the track exclusion has
+    // been cleared after onChunkError().
+    boolean unused = trackSelection.excludeTrack(/* index= */ 1, 10_000);
+    assertThat(trackSelection.isTrackExcluded(/* index= */ 1, SystemClock.elapsedRealtime()))
+        .isTrue();
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+
+    boolean exclusionResult =
+        testChunkSource.onChunkError(
+            output.chunk, new FallbackSelection(FALLBACK_TYPE_LOCATION, 10_000));
+
+    assertThat(exclusionResult).isTrue();
+    verify(mockContentSteeringTracker).excludeCurrentPathway(10_000);
+    assertThat(trackSelection.isTrackExcluded(/* index= */ 1, SystemClock.elapsedRealtime()))
+        .isFalse();
   }
 
   private static HlsChunkSource createHlsChunkSource(String playlistPath) throws IOException {
@@ -1514,5 +1736,31 @@ public class HlsChunkSourceTest {
 
   private static long periodTimeToPlaylistTimeUs(long periodTimeUs) {
     return periodTimeUs - PLAYLIST_START_PERIOD_OFFSET_US;
+  }
+
+  private static final class TestTrackSelection extends FakeTrackSelection {
+
+    private final long[] excludeUntilMs;
+
+    private TestTrackSelection(TrackGroup rendererTrackGroup, int selectedIndex) {
+      super(rendererTrackGroup, selectedIndex);
+      excludeUntilMs = new long[rendererTrackGroup.length];
+    }
+
+    @Override
+    public boolean excludeTrack(int index, long exclusionDurationMs) {
+      excludeUntilMs[index] = exclusionDurationMs;
+      return true;
+    }
+
+    @Override
+    public boolean isTrackExcluded(int index, long nowMs) {
+      return nowMs <= excludeUntilMs[index];
+    }
+
+    @Override
+    public void clearTrackExclusions() {
+      Arrays.fill(excludeUntilMs, 0);
+    }
   }
 }

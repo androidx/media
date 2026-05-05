@@ -197,6 +197,11 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
     return excludeUntilTimes[index] > nowMs;
   }
 
+  @Override
+  public void clearTrackExclusions() {
+    Arrays.fill(excludeUntilTimes, 0);
+  }
+
   @CallSuper
   @Override
   public void onPlayWhenReadyChanged(boolean playWhenReady) {

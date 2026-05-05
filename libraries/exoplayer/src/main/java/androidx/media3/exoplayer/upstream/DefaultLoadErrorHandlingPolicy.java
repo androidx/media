@@ -85,8 +85,10 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
    * <ul>
    *   <li>This policy will only specify a fallback if {@link #isEligibleForFallback} returns {@code
    *       true} for the error.
-   *   <li>This policy will always specify a location fallback rather than a track fallback if both
-   *       {@link FallbackOptions#isFallbackAvailable(int) are available}.
+   *   <li>If location steering is {@linkplain FallbackOptions#locationSteeringActive active}, this
+   *       policy will specify a track fallback rather than a location fallback if both {@link
+   *       FallbackOptions#isFallbackAvailable(int) are available}. Otherwise, this policy will
+   *       specify a location fallback rather than a track fallback if both are available.
    *   <li>When a fallback is specified, the duration for which the failing resource will be
    *       excluded is {@link #DEFAULT_LOCATION_EXCLUSION_MS} or {@link
    *       #DEFAULT_TRACK_EXCLUSION_MS}, depending on the fallback type.
@@ -99,11 +101,18 @@ public class DefaultLoadErrorHandlingPolicy implements LoadErrorHandlingPolicy {
     if (!isEligibleForFallback(loadErrorInfo.exception)) {
       return null;
     }
-    // Prefer location fallbacks to track fallbacks, when both are available.
-    if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
-      return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
-    } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
-      return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+    if (!fallbackOptions.locationSteeringActive) {
+      if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
+        return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
+      } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
+        return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+      }
+    } else {
+      if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_TRACK)) {
+        return new FallbackSelection(FALLBACK_TYPE_TRACK, DEFAULT_TRACK_EXCLUSION_MS);
+      } else if (fallbackOptions.isFallbackAvailable(FALLBACK_TYPE_LOCATION)) {
+        return new FallbackSelection(FALLBACK_TYPE_LOCATION, DEFAULT_LOCATION_EXCLUSION_MS);
+      }
     }
     return null;
   }

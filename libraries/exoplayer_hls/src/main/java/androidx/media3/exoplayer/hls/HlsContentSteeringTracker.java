@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
 import androidx.media3.exoplayer.hls.playlist.HlsRedundantGroup;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
+import androidx.media3.exoplayer.upstream.contentsteering.ContentSteeringTracker;
 import androidx.media3.exoplayer.upstream.contentsteering.SteeringManifest;
 import androidx.media3.exoplayer.upstream.contentsteering.SteeringManifestTracker;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
@@ -44,7 +45,7 @@ import java.util.Set;
 
 /** Tracks the content steering states for an HLS stream. */
 @UnstableApi
-public final class HlsContentSteeringTracker {
+public final class HlsContentSteeringTracker implements ContentSteeringTracker {
 
   /** A callback to be notified of {@link HlsContentSteeringTracker} events. */
   public interface Callback {
@@ -113,17 +114,12 @@ public final class HlsContentSteeringTracker {
   }
 
   /**
-   * Starts the {@link HlsContentSteeringTracker}.
+   * {@inheritDoc}
    *
-   * @param initialSteeringManifestUri The initial {@link Uri} of the steering manifest.
-   * @param initialPathwayId The ID of the initial pathway to use before the first steering manifest
-   *     is loaded, or {@code null} to allow the tracker to pick any available pathway in the
-   *     redundant group before the first steering manifest is loaded.
-   * @param eventDispatcher A {@link MediaSourceEventListener.EventDispatcher} for reporting load
-   *     events.
    * @throws IllegalStateException If the {@code initialPathwayId} is not declared in the redundant
    *     group.
    */
+  @Override
   public void start(
       Uri initialSteeringManifestUri,
       @Nullable String initialPathwayId,
@@ -139,12 +135,7 @@ public final class HlsContentSteeringTracker {
         initialSteeringManifestUri, new SteeringManifestTrackerCallback(), eventDispatcher);
   }
 
-  /**
-   * Excludes the current pathway for the given duration, in milliseconds.
-   *
-   * @param excludeDurationMs The duration for which to exclude the current pathway.
-   * @return Whether the exclusion was successful.
-   */
+  @Override
   public boolean excludeCurrentPathway(long excludeDurationMs) {
     if (isActive && currentPathwayPriority != null) {
       String previousPathwayId = currentPathwayId;
@@ -159,17 +150,12 @@ public final class HlsContentSteeringTracker {
     return false;
   }
 
-  /**
-   * Returns whether the {@link HlsContentSteeringTracker} is active.
-   *
-   * <p>If this method returns {@code false}, the caller of the {@link HlsContentSteeringTracker}
-   * should behave as if content steering is absent.
-   */
+  @Override
   public boolean isActive() {
     return isActive;
   }
 
-  /** Stops the {@link HlsContentSteeringTracker}. */
+  @Override
   public void stop() {
     stopInternal();
   }

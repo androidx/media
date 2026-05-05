@@ -294,6 +294,12 @@ public interface ExoTrackSelection extends TrackSelection {
   boolean isTrackExcluded(int index, long nowMs);
 
   /**
+   * Clears the existing track exclusions. The excluded tracks will be eligible for selection from
+   * the next call to {@link #updateSelectedTrack(long, long, long, List, MediaChunkIterator[])}.
+   */
+  default void clearTrackExclusions() {}
+
+  /**
    * Returns the most recent bitrate estimate utilised for track selection.
    *
    * <p>The default behavior is to return {@link C#RATE_UNSET_INT}, indicating that the bitrate

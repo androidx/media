@@ -16,17 +16,22 @@
 package androidx.media3.exoplayer.hls.playlist;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.net.Uri;
+import androidx.annotation.Nullable;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.base.Supplier;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -107,6 +112,20 @@ public class DefaultHlsPlaylistTrackerTest {
   private static final String SAMPLE_M3U8_MULTIVARIANT_WITH_REDUNDANT_VARIANTS_AND_RENDITIONS =
       "media/m3u8/multivariant_with_redundant_variants_and_renditions";
   private static final String SAMPLE_M3U8_MEDIA_PLAYLIST = "media/m3u8/media_playlist";
+  private static final String SAMPLE_M3U8_MULTIVARIANT_WITH_CONTENT_STEERING =
+      "media/m3u8/multivariant_with_content_steering";
+  private static final String CDN_A_PLAYLIST =
+      "#EXTM3U\n"
+          + "#EXT-X-VERSION:3\n"
+          + "#EXT-X-TARGETDURATION:10\n"
+          + "#EXTINF:10,\n"
+          + "a-segment1.ts\n";
+  private static final String CDN_B_PLAYLIST =
+      "#EXTM3U\n"
+          + "#EXT-X-VERSION:3\n"
+          + "#EXT-X-TARGETDURATION:10\n"
+          + "#EXTINF:10,\n"
+          + "b-segment1.ts\n";
 
   private MockWebServer mockWebServer;
   private int enqueueCounter;
@@ -138,6 +157,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -170,6 +190,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -208,6 +229,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -235,6 +257,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -261,6 +284,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -286,6 +310,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -312,6 +337,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -341,6 +367,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -372,6 +399,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -458,7 +486,8 @@ public class DefaultHlsPlaylistTrackerTest {
     defaultHlsPlaylistTracker.start(
         Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
         new MediaSourceEventListener.EventDispatcher(),
-        mediaPlaylist -> {});
+        mediaPlaylist -> {},
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> playlistChangedCounter.get() >= 4);
     defaultHlsPlaylistTracker.stop();
 
@@ -533,7 +562,8 @@ public class DefaultHlsPlaylistTrackerTest {
         mediaPlaylist -> {
           mediaPlaylists.add(mediaPlaylist);
           playlistCounter.addAndGet(1);
-        });
+        },
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> playlistCounter.get() >= 2);
     defaultHlsPlaylistTracker.stop();
 
@@ -606,7 +636,8 @@ public class DefaultHlsPlaylistTrackerTest {
         mediaPlaylist -> {
           mediaPlaylists.add(mediaPlaylist);
           playlistCounter.addAndGet(1);
-        });
+        },
+        BandwidthMeter.NO_OP);
     RobolectricUtil.runMainLooperUntil(() -> playlistCounter.get() >= 3);
     defaultHlsPlaylistTracker.stop();
 
@@ -644,6 +675,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 3);
 
@@ -667,6 +699,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> unusedMediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 1);
 
@@ -690,6 +723,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> unusedMediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 1);
 
@@ -729,6 +763,7 @@ public class DefaultHlsPlaylistTrackerTest {
     List<HlsMediaPlaylist> mediaPlaylists =
         runPlaylistTrackerAndCollectMediaPlaylists(
             new DefaultHttpDataSource.Factory(),
+            /* downloadExecutorSupplier= */ null,
             Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
             /* awaitedMediaPlaylistCount= */ 2);
 
@@ -742,6 +777,69 @@ public class DefaultHlsPlaylistTrackerTest {
     assertThat(segment1.initializationSegment.url).isEqualTo("init1.mp4");
     assertThat(segment2.url).isEqualTo("file2.mp4");
     assertThat(segment2.initializationSegment.url).isEqualTo("init1.mp4");
+  }
+
+  @Test
+  public void start_withContentSteering_switchesToMostPrioritizedPathway() throws Exception {
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"CDN-B\", \"CDN-A\"]}";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/steering?_HLS_pathway=CDN-A&_HLS_throughput=0",
+              "/cdn-a/720p.m3u8",
+              "/cdn-b/720p.m3u8"
+            },
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_CONTENT_STEERING),
+            new MockResponse().setResponseCode(200).setBody(steeringManifest),
+            new MockResponse().setResponseCode(200).setBody(CDN_A_PLAYLIST),
+            new MockResponse().setResponseCode(200).setBody(CDN_B_PLAYLIST));
+
+    // Use the directExecutor() to ensure the order of the playlist arrivals.
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    assertThat(mediaPlaylists.get(0).segments.get(0).url).endsWith("a-segment1.ts");
+    assertThat(mediaPlaylists.get(1).segments.get(0).url).endsWith("b-segment1.ts");
+  }
+
+  @Test
+  public void
+      start_withContentSteeringAndPrimaryPlaylistLoadFailures_switchesTrackFirstAndThenSwitchesToLessPrioritizedPathway()
+          throws Exception {
+    String steeringManifest =
+        "{\"VERSION\": 1, \"TTL\": 300, \"PATHWAY-PRIORITY\": [\"CDN-A\", \"CDN-B\"]}";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/steering?_HLS_pathway=CDN-A&_HLS_throughput=0",
+              "/cdn-a/720p.m3u8",
+              "/cdn-a/360p.m3u8",
+              "/cdn-b/360p.m3u8"
+            },
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_CONTENT_STEERING),
+            new MockResponse().setResponseCode(200).setBody(steeringManifest),
+            new MockResponse().setResponseCode(404),
+            new MockResponse().setResponseCode(404),
+            new MockResponse().setResponseCode(200).setBody(CDN_B_PLAYLIST));
+
+    // Use the directExecutor() to ensure the order of the playlist arrivals.
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 1);
+
+    assertRequestUrlsCalled(httpUrls);
+    assertThat(mediaPlaylists.get(0).segments.get(0).url).isEqualTo("b-segment1.ts");
   }
 
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {
@@ -766,6 +864,7 @@ public class DefaultHlsPlaylistTrackerTest {
 
   private static List<HlsMediaPlaylist> runPlaylistTrackerAndCollectMediaPlaylists(
       DataSource.Factory dataSourceFactory,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier,
       Uri multivariantPlaylistUri,
       int awaitedMediaPlaylistCount)
       throws TimeoutException {
@@ -776,7 +875,7 @@ public class DefaultHlsPlaylistTrackerTest {
             new DefaultLoadErrorHandlingPolicy(),
             new DefaultHlsPlaylistParserFactory(),
             /* cmcdConfiguration= */ null,
-            /* downloadExecutorSupplier= */ null);
+            downloadExecutorSupplier);
 
     List<HlsMediaPlaylist> mediaPlaylists = new ArrayList<>();
     AtomicInteger playlistCounter = new AtomicInteger();
@@ -786,7 +885,8 @@ public class DefaultHlsPlaylistTrackerTest {
         mediaPlaylist -> {
           mediaPlaylists.add(mediaPlaylist);
           playlistCounter.addAndGet(1);
-        });
+        },
+        BandwidthMeter.NO_OP);
 
     RobolectricUtil.runMainLooperUntil(
         /* maxTimeDiffMs= */ 10_000, // Account for scheduled playlist refresh delays
