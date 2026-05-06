@@ -22,6 +22,9 @@ set(CMAKE_CXX_STANDARD 11)
 # Define project name for your JNI module
 project(libflacJNI C CXX)
 
+# Suppress pointer cast alignment warnings from upstream libflac source.
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-cast-align")
+
 set(libflac_jni_root "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # Build libflac.
