@@ -136,7 +136,8 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     Bundle extras1 = new Bundle();
     extras1.putString("key", "value-1");
     PlaybackStateCompat.CustomAction customAction1 =
-        new PlaybackStateCompat.CustomAction.Builder("action1", "actionName1", /* icon= */ 1)
+        new PlaybackStateCompat.CustomAction.Builder(
+                "action1", "actionName1", /* icon= */ R.drawable.media3_notification_small_icon)
             .setExtras(extras1)
             .build();
     Bundle extras2 = new Bundle();
@@ -144,7 +145,8 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     extras2.putInt(
         MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
     PlaybackStateCompat.CustomAction customAction2 =
-        new PlaybackStateCompat.CustomAction.Builder("action2", "actionName2", /* icon= */ 2)
+        new PlaybackStateCompat.CustomAction.Builder(
+                "action2", "actionName2", /* icon= */ R.drawable.media3_icon_sync)
             .setExtras(extras2)
             .build();
     PlaybackStateCompat.Builder builder =
@@ -185,7 +187,9 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
         .containsExactly(SessionCommand.COMMAND_CODE_CUSTOM, SessionCommand.COMMAND_CODE_CUSTOM)
         .inOrder();
     assertThat(receivedDisplayNames).containsExactly("actionName1", "actionName2").inOrder();
-    assertThat(receivedIconResIds).containsExactly(1, 2).inOrder();
+    assertThat(receivedIconResIds)
+        .containsExactly(R.drawable.media3_notification_small_icon, R.drawable.media3_icon_sync)
+        .inOrder();
     assertThat(receivedBundleValues).containsExactly("value-1", "value-2").inOrder();
     assertThat(receivedIcons)
         .containsExactly(CommandButton.ICON_UNDEFINED, CommandButton.ICON_FAST_FORWARD)
@@ -827,16 +831,19 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
         threadTestRule.getHandler().postAndSync(controller::getMediaButtonPreferences);
     SessionCommands availableSessionCommands =
         threadTestRule.getHandler().postAndSync(controller::getAvailableSessionCommands);
-    SessionCommand customCommand =
-        availableSessionCommands.commands.stream()
-            .filter(command -> command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM)
-            .findFirst()
-            .get();
+    SessionCommand customCommand = null;
+    for (SessionCommand command : availableSessionCommands.commands) {
+      if (command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM) {
+        customCommand = command;
+        break;
+      }
+    }
 
     assertThat(mediaButtonPreferences).hasSize(1);
     assertThat(mediaButtonPreferences.get(0).sessionCommand.customExtras.getString("key"))
         .isEqualTo("value");
     assertThat(mediaButtonPreferences.get(0).extras.getString("key")).isEqualTo("value");
+    assertThat(customCommand).isNotNull();
     assertThat(customCommand.customExtras.getString("key")).isEqualTo("value");
   }
 
@@ -904,7 +911,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(playbackStateChanged.block(TIMEOUT_MS)).isTrue();
     assertThat(mediaMetadataChanged.block(TIMEOUT_MS)).isTrue();
     assertThat(reportedPlaybackStates).containsExactly(3);
-    assertThat(reportedMediaMetadata.stream().map((m) -> m.artist)).containsExactly("artist-0");
+    List<CharSequence> artists = new ArrayList<>();
+    for (MediaMetadata m : reportedMediaMetadata) {
+      artists.add(m.artist);
+    }
+    assertThat(artists).containsExactly("artist-0");
   }
 
   @Test

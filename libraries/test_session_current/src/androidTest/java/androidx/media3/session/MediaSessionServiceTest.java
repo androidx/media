@@ -1196,8 +1196,15 @@ public class MediaSessionServiceTest {
         FileInputStream fileInputStream = new FileInputStream(command.getFileDescriptor());
         InputStreamReader inputStreamReader = new InputStreamReader(fileInputStream, UTF_8);
         BufferedReader reader = new BufferedReader(inputStreamReader)) {
-      assertThat(reader.lines().anyMatch(line -> line.contains("Process: com.android.systemui")))
-          .isFalse();
+      boolean containsSystemUi = false;
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (line.contains("Process: com.android.systemui")) {
+          containsSystemUi = true;
+          break;
+        }
+      }
+      assertThat(containsSystemUi).isFalse();
     }
   }
 

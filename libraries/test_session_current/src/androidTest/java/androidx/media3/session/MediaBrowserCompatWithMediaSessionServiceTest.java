@@ -163,10 +163,9 @@ public class MediaBrowserCompatWithMediaSessionServiceTest {
     assertThat(connectionCallback.connectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
-  @Ignore
+  @Ignore("Create a session service whose onConnect() returns null.")
   @Test
   public void connect_rejected() throws InterruptedException {
-    // TODO: Connect the browser to the session service whose onConnect() returns null.
     assertThat(connectionCallback.failedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(connectionCallback.connectedLatch.getCount()).isNotEqualTo(0);
   }

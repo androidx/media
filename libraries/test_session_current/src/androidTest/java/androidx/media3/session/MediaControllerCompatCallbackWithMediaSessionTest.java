@@ -1484,13 +1484,13 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setSessionCommand(command1)
                 .setDisplayName("command1")
-                .setCustomIconResId(1)
+                .setCustomIconResId(R.drawable.media3_notification_small_icon)
                 .build()
                 .copyWithIsEnabled(true),
             new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
                 .setSessionCommand(command2)
                 .setDisplayName("command2")
-                .setCustomIconResId(2)
+                .setCustomIconResId(R.drawable.media3_icon_block)
                 .build()
                 .copyWithIsEnabled(true));
     List<PlaybackStateCompat> reportedPlaybackStates = new ArrayList<>();
@@ -1517,20 +1517,20 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         reportedPlaybackStates.get(0).getCustomActions().get(0);
     assertThat(action0.getAction()).isEqualTo("command1");
     assertThat(action0.getExtras().getString("key")).isEqualTo("value-1");
-    assertThat(action0.getIcon()).isEqualTo(1);
+    assertThat(action0.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     assertThat(action0.getName().toString()).isEqualTo("command1");
     assertThat(reportedPlaybackStates.get(1).getCustomActions()).hasSize(2);
     PlaybackStateCompat.CustomAction action1 =
         reportedPlaybackStates.get(1).getCustomActions().get(0);
     assertThat(action1.getAction()).isEqualTo("command1");
     assertThat(action1.getExtras().getString("key")).isEqualTo("value-1");
-    assertThat(action1.getIcon()).isEqualTo(1);
+    assertThat(action1.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     assertThat(action1.getName().toString()).isEqualTo("command1");
     PlaybackStateCompat.CustomAction action2 =
         reportedPlaybackStates.get(1).getCustomActions().get(1);
     assertThat(action2.getAction()).isEqualTo("command2");
     assertThat(action2.getExtras().getString("key")).isEqualTo("value-2");
-    assertThat(action2.getIcon()).isEqualTo(2);
+    assertThat(action2.getIcon()).isEqualTo(R.drawable.media3_icon_block);
     assertThat(action2.getName().toString()).isEqualTo("command2");
   }
 

@@ -489,7 +489,7 @@ public final class MediaTestUtils {
     try {
       parcel.writeBundle(bundle);
       parcel.setDataPosition(0);
-      Bundle restoredBundle = parcel.readBundle();
+      Bundle restoredBundle = parcel.readBundle(MediaTestUtils.class.getClassLoader());
       // Access restored Bundle to verify it triggers an exception.
       try {
         restoredBundle.isEmpty();

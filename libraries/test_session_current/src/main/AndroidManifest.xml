@@ -13,7 +13,8 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
   <uses-sdk/>
 
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -23,7 +24,8 @@
     <package android:name="androidx.media3.test.session.test" />
   </queries>
 
-  <application android:allowBackup="false">
+  <application android:allowBackup="false"
+      android:icon="@drawable/media3_notification_small_icon">
     <activity android:name="androidx.media3.test.session.common.SurfaceActivity"
         android:exported="false" />
 
@@ -37,7 +39,8 @@
 
     <service android:name="androidx.media3.session.MediaControllerProviderService"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <!-- Keep sync with CommonConstants.java -->
         <action android:name="androidx.media3.test.session.action.MEDIA3_CONTROLLER" />
@@ -46,7 +49,8 @@
 
     <service android:name="androidx.media3.session.MediaControllerCompatProviderService"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <!-- Keep sync with CommonConstants.java -->
         <action android:name="androidx.media3.test.session.action.MEDIA_CONTROLLER_COMPAT" />
@@ -55,7 +59,8 @@
 
     <service android:name="androidx.media3.session.MediaBrowserCompatProviderService"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <!-- Keep sync with CommonConstants.java -->
         <action android:name="androidx.media3.test.session.action.MEDIA_BROWSER_COMPAT" />
@@ -64,7 +69,8 @@
 
     <service android:name="androidx.media3.session.MediaSessionProviderService"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <!-- Keep sync with CommonConstants.java -->
         <action android:name="androidx.media3.test.session.action.MEDIA3_SESSION" />
@@ -73,7 +79,8 @@
 
     <service android:name="androidx.media3.session.MediaSessionCompatProviderService"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <!-- Keep sync with CommonConstants.java -->
         <action android:name="androidx.media3.test.session.action.MEDIA_SESSION_COMPAT" />
@@ -83,7 +90,8 @@
     <service android:name="androidx.media3.session.MockMediaSessionService"
         android:foregroundServiceType="mediaPlayback"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaSessionService" />
       </intent-filter>
@@ -91,7 +99,8 @@
 
     <service android:name="androidx.media3.session.LocalMockMediaSessionService"
       android:foregroundServiceType="mediaPlayback"
-      android:exported="true">
+      android:exported="true"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaSessionService" />
       </intent-filter>
@@ -100,7 +109,8 @@
     <service android:name="androidx.media3.session.MockMediaLibraryService"
       android:foregroundServiceType="mediaPlayback"
       android:exported="true"
-      android:process=":remote">
+      android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaLibraryService" />
       </intent-filter>
@@ -108,7 +118,8 @@
 
     <service android:name="androidx.media3.session.LocalMockMediaLibraryService"
       android:foregroundServiceType="mediaPlayback"
-      android:exported="true">
+      android:exported="true"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="androidx.media3.session.MediaLibraryService" />
       </intent-filter>
@@ -116,14 +127,16 @@
 
     <service android:name="androidx.media3.session.MockMediaBrowserServiceCompat"
         android:exported="true"
-        android:process=":remote">
+        android:process=":remote"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="android.media.browse.MediaBrowserService" />
       </intent-filter>
     </service>
 
     <service android:name="androidx.media3.session.LocalMockMediaBrowserServiceCompat"
-        android:exported="true">
+        android:exported="true"
+        tools:ignore="ExportedService">
       <intent-filter>
         <action android:name="android.media.browse.MediaBrowserService" />
       </intent-filter>

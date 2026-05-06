@@ -1274,12 +1274,12 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
-    int testRepeatMode = Player.REPEAT_MODE_ALL;
+    int testRepeatMode = PlaybackStateCompat.REPEAT_MODE_ALL;
 
     controller.getTransportControls().setRepeatMode(testRepeatMode);
     player.awaitMethodCalled(MockPlayer.METHOD_SET_REPEAT_MODE, TIMEOUT_MS);
 
-    assertThat(player.repeatMode).isEqualTo(testRepeatMode);
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL);
   }
 
   @Test

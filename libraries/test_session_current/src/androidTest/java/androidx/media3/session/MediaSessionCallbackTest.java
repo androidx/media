@@ -643,7 +643,7 @@ public class MediaSessionCallbackTest {
               SessionCommand sessionCommand,
               Bundle args) {
             if (!TextUtils.equals(controller.getPackageName(), SUPPORT_APP_PACKAGE_NAME)) {
-              return immediateFuture(new SessionResult(RESULT_INFO_SKIPPED));
+              return immediateFuture(new SessionResult(SessionError.INFO_CANCELLED));
             }
 
             sessionCommandRef.set(sessionCommand);
@@ -683,7 +683,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<SessionResult> onSetRating(
               MediaSession session, ControllerInfo controller, String mediaId, Rating rating) {
             if (!TextUtils.equals(controller.getPackageName(), SUPPORT_APP_PACKAGE_NAME)) {
-              return immediateFuture(new SessionResult(RESULT_INFO_SKIPPED));
+              return immediateFuture(new SessionResult(SessionError.INFO_CANCELLED));
             }
 
             mediaIdRef.set(mediaId);
@@ -721,7 +721,7 @@ public class MediaSessionCallbackTest {
           public ListenableFuture<SessionResult> onSetRating(
               MediaSession session, ControllerInfo controller, Rating rating) {
             if (!TextUtils.equals(controller.getPackageName(), SUPPORT_APP_PACKAGE_NAME)) {
-              return immediateFuture(new SessionResult(RESULT_INFO_SKIPPED));
+              return immediateFuture(new SessionResult(SessionError.INFO_CANCELLED));
             }
             ratingRef.set(rating);
             latch.countDown();

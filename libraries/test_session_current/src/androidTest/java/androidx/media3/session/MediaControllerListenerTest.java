@@ -2641,7 +2641,7 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onPlaybackStateChanged_isNotified() throws Exception {
-    @Player.State int testPlaybackState = EVENT_PLAYER_ERROR;
+    @Player.State int testPlaybackState = Player.STATE_BUFFERING;
     remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_IDLE);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);
@@ -2678,7 +2678,7 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onPlaybackStateChanged_updatesGetters() throws Exception {
-    @Player.State int testPlaybackState = EVENT_PLAYER_ERROR;
+    @Player.State int testPlaybackState = Player.STATE_BUFFERING;
     long testCurrentPositionMs = 11;
     long testContentPositionMs = testCurrentPositionMs; // Not playing an ad
     long testBufferedPositionMs = 100;
@@ -3393,7 +3393,7 @@ public class MediaControllerListenerTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(new SessionCommand("action1", extras1))
             .setDisplayName("actionName1")
-            .setCustomIconResId(1)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .build();
     Bundle extras2 = new Bundle();
     extras2.putString("key", "value-2");
@@ -3401,7 +3401,7 @@ public class MediaControllerListenerTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setSessionCommand(new SessionCommand("action2", extras2))
             .setDisplayName("actionName2")
-            .setCustomIconResId(2)
+            .setCustomIconResId(R.drawable.media3_icon_bookmark_filled)
             .build();
     buttons.add(button1);
     buttons.add(button2);
@@ -3438,7 +3438,10 @@ public class MediaControllerListenerTest {
         .containsExactly(SessionCommand.COMMAND_CODE_CUSTOM, SessionCommand.COMMAND_CODE_CUSTOM)
         .inOrder();
     assertThat(receivedDisplayNames).containsExactly("actionName1", "actionName2").inOrder();
-    assertThat(receivedIconResIds).containsExactly(1, 2).inOrder();
+    assertThat(receivedIconResIds)
+        .containsExactly(
+            R.drawable.media3_notification_small_icon, R.drawable.media3_icon_bookmark_filled)
+        .inOrder();
     assertThat(receivedBundleValues).containsExactly("value-1", "value-2").inOrder();
   }
 
