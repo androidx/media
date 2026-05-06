@@ -57,8 +57,7 @@ public final class SinglePeriodAdTimeline extends ForwardingTimeline {
         durationUs,
         period.getPositionInWindowUs(),
         adPlaybackState,
-        period.isPlaceholder,
-        period.isDurationStrict);
+        period.isPlaceholder);
     return period;
   }
 }

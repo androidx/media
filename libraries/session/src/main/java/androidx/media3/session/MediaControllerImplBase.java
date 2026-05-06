@@ -3586,8 +3586,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             /* durationUs= */ C.TIME_UNSET,
             /* positionInWindowUs= */ 0,
             /* adPlaybackState= */ AdPlaybackState.NONE,
-            /* isPlaceholder= */ true,
-            /* isDurationStrict= */ false);
+            /* isPlaceholder= */ true);
   }
 
   private static void rebuildPeriods(

@@ -198,8 +198,7 @@ public class FakeMultiPeriodLiveTimeline extends Timeline {
         /* durationUs= */ periodIndex < getPeriodCount() - 1 ? periodData.durationUs : C.TIME_UNSET,
         periodData.positionInWindowUs,
         periodData.adPlaybackState,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
     return period;
   }
 

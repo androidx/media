@@ -358,8 +358,7 @@ public final class SinglePeriodTimeline extends Timeline {
         periodDurationUs,
         /* positionInWindowUs= */ -windowPositionInPeriodUs,
         AdPlaybackState.NONE,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
   }
 
   @Override

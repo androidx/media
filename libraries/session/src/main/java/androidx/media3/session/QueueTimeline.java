@@ -238,8 +238,7 @@ import java.util.Objects;
         /* durationUs= */ msToUs(queuedMediaItem.durationMs),
         /* positionInWindowUs= */ 0,
         AdPlaybackState.NONE,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
     return period;
   }
 

@@ -522,7 +522,6 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     private final long startUs;
     private final long endUs;
     private final long durationUs;
-    private final boolean isDurationStrict;
     private final boolean isDynamic;
 
     /**
@@ -551,7 +550,6 @@ public final class ClippingMediaSource extends WrappingMediaSource {
       if (!allowUnseekableMedia && !window.isPlaceholder && startUs != 0 && !window.isSeekable) {
         throw new IllegalClippingException(IllegalClippingException.REASON_NOT_SEEKABLE_TO_START);
       }
-      isDurationStrict = endUs != C.TIME_END_OF_SOURCE;
       endUs = endUs == C.TIME_END_OF_SOURCE ? window.durationUs : max(0, endUs);
       if (window.durationUs != C.TIME_UNSET) {
         if (endUs > window.durationUs) {
@@ -605,8 +603,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
           periodDurationUs,
           positionInClippedWindowUs,
           AdPlaybackState.NONE,
-          period.isPlaceholder,
-          isDurationStrict);
+          period.isPlaceholder);
     }
   }
 }

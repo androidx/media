@@ -187,8 +187,7 @@ import java.util.Arrays;
         durationsUs[periodIndex],
         /* positionInWindowUs= */ 0,
         AdPlaybackState.NONE,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
   }
 
   @Override

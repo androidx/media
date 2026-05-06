@@ -140,8 +140,7 @@ public class PlaylistTimeline extends Timeline {
         Util.msToUs(DEFAULT_DURATION_MS),
         /* positionInWindowUs= */ -WINDOW_POSITION_IN_PERIOD_US,
         AdPlaybackState.NONE,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
     return period;
   }
 

@@ -91,8 +91,7 @@ public class MultiplePeriodsPerWindowTimeline extends PlaylistTimeline {
             ? -WINDOW_POSITION_IN_PERIOD_US
             : periodIndexInWindow * Util.msToUs(defaultPeriodDurationMs),
         AdPlaybackState.NONE,
-        /* isPlaceholder= */ false,
-        /* isDurationStrict= */ false);
+        /* isPlaceholder= */ false);
     return period;
   }
 

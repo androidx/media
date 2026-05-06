@@ -1384,8 +1384,7 @@ public final class DashMediaSource extends BaseMediaSource {
                   manifest.getPeriod(periodIndex).startMs - manifest.getPeriod(0).startMs)
               - offsetInFirstPeriodUs,
           AdPlaybackState.NONE,
-          /* isPlaceholder= */ false,
-          /* isDurationStrict= */ false);
+          /* isPlaceholder= */ false);
     }
 
     @Override

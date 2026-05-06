@@ -86,7 +86,6 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private Timeline timeline;
   @Nullable private MediaSource.MediaPeriodId mediaPeriodId;
   private long periodDurationUs;
-  private boolean isPeriodDurationStrict;
 
   @GuardedBy("lock")
   @Nullable
@@ -258,7 +257,6 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     onDisabled();
     mediaPeriodId = null;
     periodDurationUs = C.TIME_UNSET;
-    isPeriodDurationStrict = false;
   }
 
   @Override
@@ -530,17 +528,6 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   /**
-   * Returns whether to ignore the buffers whose timestamp exceeds the {@linkplain
-   * #getPeriodDurationUs() duration}.
-   *
-   * <p>The returned value is retrieved from the {@linkplain #getTimeline() timeline} and the
-   * {@linkplain #getMediaPeriodId() period ID}.
-   */
-  protected final boolean isPeriodDurationStrict() {
-    return isPeriodDurationStrict;
-  }
-
-  /**
    * Creates an {@link ExoPlaybackException} of type {@link ExoPlaybackException#TYPE_RENDERER} for
    * this renderer.
    *
@@ -680,7 +667,6 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private void updatePeriodInfo() {
     if (timeline.isEmpty() || mediaPeriodId == null) {
       periodDurationUs = C.TIME_UNSET;
-      isPeriodDurationStrict = false;
       return;
     }
     int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
@@ -688,11 +674,9 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     // Timeline.
     if (periodIndex == C.INDEX_UNSET) {
       periodDurationUs = C.TIME_UNSET;
-      isPeriodDurationStrict = false;
       return;
     }
     Timeline.Period period = timeline.getPeriod(periodIndex, new Timeline.Period());
     periodDurationUs = period.durationUs;
-    isPeriodDurationStrict = period.isDurationStrict;
   }
 }

@@ -571,7 +571,6 @@ public final class DecoderVideoRendererTest {
         new FakeTimeline(
             new FakeTimeline.TimelineWindowDefinition.Builder()
                 .setDurationUs(90_000)
-                .setDurationStrict(true)
                 .setWindowPositionInFirstPeriodUs(0)
                 .build());
     renderer.setTimeline(fakeTimeline);

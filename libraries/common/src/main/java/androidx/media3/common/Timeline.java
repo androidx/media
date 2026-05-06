@@ -618,17 +618,14 @@ public abstract class Timeline {
     /** The {@link AdPlaybackState} for all ads in this period. */
     @UnstableApi public AdPlaybackState adPlaybackState;
 
-    /** Whether playback should stop when the duration is reached. */
-    @UnstableApi public boolean isDurationStrict;
-
     /** Creates a new instance with no ad playback state. */
     public Period() {
       adPlaybackState = AdPlaybackState.NONE;
     }
 
     /**
-     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean,
-     *     boolean)} instead.
+     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean)}
+     *     instead.
      */
     @CanIgnoreReturnValue
     @Deprecated
@@ -646,34 +643,7 @@ public abstract class Timeline {
           durationUs,
           positionInWindowUs,
           AdPlaybackState.NONE,
-          /* isPlaceholder= */ false,
-          /* isDurationStrict= */ false);
-    }
-
-    /**
-     * @deprecated Use {@link #set(Object, Object, int, long, long, AdPlaybackState, boolean,
-     *     boolean)} instead.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    @UnstableApi
-    public Period set(
-        @Nullable Object id,
-        @Nullable Object uid,
-        int windowIndex,
-        long durationUs,
-        long positionInWindowUs,
-        AdPlaybackState adPlaybackState,
-        boolean isPlaceholder) {
-      return set(
-          id,
-          uid,
-          windowIndex,
-          durationUs,
-          positionInWindowUs,
-          adPlaybackState,
-          isPlaceholder,
-          /* isDurationStrict= */ false);
+          /* isPlaceholder= */ false);
     }
 
     /**
@@ -693,7 +663,6 @@ public abstract class Timeline {
      *     there are no ads.
      * @param isPlaceholder Whether this period contains placeholder information because the real
      *     information has yet to be loaded.
-     * @param isDurationStrict Whether playback should stop when the duration is reached.
      * @return This period, for convenience.
      */
     @CanIgnoreReturnValue
@@ -705,8 +674,7 @@ public abstract class Timeline {
         long durationUs,
         long positionInWindowUs,
         AdPlaybackState adPlaybackState,
-        boolean isPlaceholder,
-        boolean isDurationStrict) {
+        boolean isPlaceholder) {
       this.id = id;
       this.uid = uid;
       this.windowIndex = windowIndex;
@@ -714,7 +682,6 @@ public abstract class Timeline {
       this.positionInWindowUs = positionInWindowUs;
       this.adPlaybackState = adPlaybackState;
       this.isPlaceholder = isPlaceholder;
-      this.isDurationStrict = isDurationStrict;
       return this;
     }
 
@@ -940,8 +907,7 @@ public abstract class Timeline {
           && durationUs == that.durationUs
           && positionInWindowUs == that.positionInWindowUs
           && isPlaceholder == that.isPlaceholder
-          && Objects.equals(adPlaybackState, that.adPlaybackState)
-          && isDurationStrict == that.isDurationStrict;
+          && Objects.equals(adPlaybackState, that.adPlaybackState);
     }
 
     @Override
@@ -954,7 +920,6 @@ public abstract class Timeline {
       result = 31 * result + (int) (positionInWindowUs ^ (positionInWindowUs >>> 32));
       result = 31 * result + (isPlaceholder ? 1 : 0);
       result = 31 * result + adPlaybackState.hashCode();
-      result = 31 * result + (isDurationStrict ? 1 : 0);
       return result;
     }
 
@@ -963,7 +928,6 @@ public abstract class Timeline {
     private static final String FIELD_POSITION_IN_WINDOW_US = Util.intToStringMaxRadix(2);
     private static final String FIELD_PLACEHOLDER = Util.intToStringMaxRadix(3);
     private static final String FIELD_AD_PLAYBACK_STATE = Util.intToStringMaxRadix(4);
-    private static final String FIELD_IS_DURATION_STRICT = Util.intToStringMaxRadix(5);
 
     /**
      * @deprecated Use {@link #toBundle(int)} instead.
@@ -1001,9 +965,6 @@ public abstract class Timeline {
       if (!adPlaybackState.equals(AdPlaybackState.NONE)) {
         bundle.putBundle(FIELD_AD_PLAYBACK_STATE, adPlaybackState.toBundle(interfaceVersion));
       }
-      if (isDurationStrict) {
-        bundle.putBoolean(FIELD_IS_DURATION_STRICT, isDurationStrict);
-      }
       return bundle;
     }
 
@@ -1034,8 +995,6 @@ public abstract class Timeline {
           adPlaybackStateBundle != null
               ? AdPlaybackState.fromBundle(adPlaybackStateBundle, interfaceVersion)
               : AdPlaybackState.NONE;
-      boolean isDurationStrict =
-          bundle.getBoolean(FIELD_IS_DURATION_STRICT, /* defaultValue= */ false);
 
       Period period = new Period();
       period.set(
@@ -1045,8 +1004,7 @@ public abstract class Timeline {
           durationUs,
           positionInWindowUs,
           adPlaybackState,
-          isPlaceholder,
-          isDurationStrict);
+          isPlaceholder);
       return period;
     }
   }
@@ -1714,8 +1672,7 @@ public abstract class Timeline {
           p.durationUs,
           p.positionInWindowUs,
           p.adPlaybackState,
-          p.isPlaceholder,
-          p.isDurationStrict);
+          p.isPlaceholder);
       return period;
     }
 

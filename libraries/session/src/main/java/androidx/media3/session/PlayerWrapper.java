@@ -1023,8 +1023,7 @@ import java.util.List;
           durationUs,
           /* positionInWindowUs= */ 0,
           AdPlaybackState.NONE,
-          isPlaceholder,
-          /* isDurationStrict= */ false);
+          isPlaceholder);
       return period;
     }
 
