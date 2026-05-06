@@ -74,14 +74,61 @@ public final class XingFrameTest {
     assertThat(frame.computeDurationUs()).isEqualTo(C.TIME_UNSET);
   }
 
+  @Test
+  public void parse_withLameEncoderIdentifier_adjustsDelayAndPaddingForDecodedPcm() {
+    XingFrame frame =
+        createXingFrame(
+            INFO_FRAME_HEADER_DATA,
+            /* frameCount= */ 40,
+            /* dataSize= */ 8_541,
+            /* encoderDelay= */ 576,
+            /* encoderPadding= */ 1_404,
+            /* encoderIdentifier= */ "LAME3.99r");
+
+    assertThat(frame.encoderDelay).isEqualTo(1_105);
+    assertThat(frame.encoderPadding).isEqualTo(875);
+  }
+
+  @Test
+  public void parse_withLameEncoderIdentifierAndSmallPadding_clampsPaddingToZero() {
+    XingFrame frame =
+        createXingFrame(
+            INFO_FRAME_HEADER_DATA,
+            /* frameCount= */ 40,
+            /* dataSize= */ 8_541,
+            /* encoderDelay= */ 576,
+            /* encoderPadding= */ 398,
+            /* encoderIdentifier= */ "LAME3.99r");
+
+    assertThat(frame.encoderDelay).isEqualTo(1_105);
+    assertThat(frame.encoderPadding).isEqualTo(0);
+  }
+
   private static XingFrame createXingFrame(
       int headerData, int frameCount, int dataSize, int encoderDelay, int encoderPadding) {
+    return createXingFrame(
+        headerData,
+        frameCount,
+        dataSize,
+        encoderDelay,
+        encoderPadding,
+        /* encoderIdentifier= */ "");
+  }
+
+  private static XingFrame createXingFrame(
+      int headerData,
+      int frameCount,
+      int dataSize,
+      int encoderDelay,
+      int encoderPadding,
+      String encoderIdentifier) {
     int encoderDelayAndPadding = (encoderDelay << 12) | encoderPadding;
     ByteBuffer payload = ByteBuffer.allocate(4 + 4 + 4 + 11 + 8 + 2 + 3);
     payload.putInt(0x03);
     payload.putInt(frameCount);
     payload.putInt(dataSize);
-    payload.position(payload.position() + 11 + 8 + 2);
+    payload.put(createFixedLengthEncoderIdentifier(encoderIdentifier));
+    payload.position(payload.position() + 2 + 8 + 2);
     payload.put((byte) (encoderDelayAndPadding >> 16));
     payload.put((byte) (encoderDelayAndPadding >> 8));
     payload.put((byte) encoderDelayAndPadding);
@@ -92,5 +139,17 @@ public final class XingFrameTest {
     MpegAudioUtil.Header xingFrameHeader = new MpegAudioUtil.Header();
     xingFrameHeader.setForHeaderData(headerData);
     return XingFrame.parse(xingFrameHeader, new ParsableByteArray(payload));
+  }
+
+  private static byte[] createFixedLengthEncoderIdentifier(String encoderIdentifier) {
+    byte[] fixedLengthIdentifier = new byte[9];
+    byte[] identifierBytes = Util.getUtf8Bytes(encoderIdentifier);
+    System.arraycopy(
+        identifierBytes,
+        /* srcPos= */ 0,
+        fixedLengthIdentifier,
+        /* destPos= */ 0,
+        Math.min(identifierBytes.length, fixedLengthIdentifier.length));
+    return fixedLengthIdentifier;
   }
 }

@@ -17,8 +17,8 @@ track 0:
     maxInputSize = 4096
     channelCount = 2
     sampleRate = 48000
-    encoderDelay = 576
-    encoderPadding = 576
+    encoderDelay = 1105
+    encoderPadding = 47
     metadata = entries=[TSSE: description=null: values=[Lavf58.29.100], ReplayGain Xing/Info: peak=0.0, field 1=GainField{name=1, originator=3, gain=23.0}, field 2=null]
   sample 0:
     time = 0
