@@ -157,9 +157,6 @@
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
 *   Session:
-    *   Change default behavior of `MediaSession.Callback.onConnect` if the
-        method is not overridden to only provide read access to untrusted
-        controllers.
     *   Fix bug where 'ForegroundServiceStartNotAllowedException' wasn't
         propagated across thread boundaries in case the application thread is
         not the main thread
