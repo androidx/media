@@ -904,11 +904,13 @@ public final class ConcatenatingMediaSource2Test {
     runMainLooperUntil(mediaPeriodPrepared::get);
   }
 
+  @SafeVarargs
   private static Function<Clock, MediaSource> buildConcatenatingMediaSource(
       Function<Clock, MediaSource>... sources) {
     return buildConcatenatingMediaSource(/* placeholderDurationMs= */ C.TIME_UNSET, sources);
   }
 
+  @SafeVarargs
   private static Function<Clock, MediaSource> buildConcatenatingMediaSource(
       long placeholderDurationMs, Function<Clock, MediaSource>... sources) {
     return clock -> {

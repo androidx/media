@@ -400,12 +400,15 @@ public final class VideoFrameProcessorTestRunner {
             inputBitmap, new ConstantRateTimestampIterator(durationUs, frameRate)));
   }
 
-  public void queueInputBitmaps(int width, int height, Pair<Bitmap, TimestampIterator>... frames)
+  @SafeVarargs
+  public final void queueInputBitmaps(
+      int width, int height, Pair<Bitmap, TimestampIterator>... frames)
       throws VideoFrameProcessingException {
     queueInputBitmaps(width, height, ColorInfo.SRGB_BT709_FULL, frames);
   }
 
-  public void queueInputBitmaps(
+  @SafeVarargs
+  public final void queueInputBitmaps(
       int width, int height, ColorInfo colorInfo, Pair<Bitmap, TimestampIterator>... frames)
       throws VideoFrameProcessingException {
     videoFrameProcessorReadyCondition.close();

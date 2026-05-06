@@ -134,6 +134,7 @@ public class AnimatedLogoOverlay extends DrawableOverlay {
       return (float) rotationAnimator.getAnimatedValue();
     }
 
+    @SuppressWarnings("unchecked") // Safe cast; positionAnimator has Pair<Float, Float> keyframes.
     @Override
     public Pair<Float, Float> getBackgroundFrameAnchor() {
       maybeStartAnimator();
