@@ -61,10 +61,10 @@ import java.util.Objects;
   private boolean isEndLogged;
 
   /**
-   * Number of {@link InputInfo} instances whose underlying {@link AudioGraphInput} have ended, but
-   * have not been released and are still in {@link #inputInfos}.
+   * Number of {@link InputInfo} instances that have not {@linkplain AudioGraphInput#isEnded()
+   * ended} since the last call to {@link #flush(long)}.
    */
-  private int finishedInputs;
+  private int activeInputs;
 
   /**
    * Creates an instance.
@@ -123,6 +123,7 @@ import java.util.Objects;
           e, "Error while registering input " + inputInfos.size());
     }
     inputInfos.add(new InputInfo(audioGraphInput));
+    activeInputs++;
     DebugTraceUtil.logEvent(
         COMPONENT_AUDIO_GRAPH,
         EVENT_REGISTER_NEW_INPUT_STREAM,
@@ -178,7 +179,7 @@ import java.util.Objects;
 
   /** Instructs the {@code AudioGraph} to not queue any input buffer. */
   public void blockInput() {
-    for (InputInfo info : getActiveInputs()) {
+    for (InputInfo info : getUnreleasedInputs()) {
       info.audioGraphInput.blockInput();
     }
     DebugTraceUtil.logEvent(
@@ -187,7 +188,7 @@ import java.util.Objects;
 
   /** Unblocks incoming data if {@linkplain #blockInput() blocked}. */
   public void unblockInput() {
-    for (InputInfo info : getActiveInputs()) {
+    for (InputInfo info : getUnreleasedInputs()) {
       info.audioGraphInput.unblockInput();
     }
     DebugTraceUtil.logEvent(
@@ -222,7 +223,7 @@ import java.util.Objects;
     mixerOutput = EMPTY_BUFFER;
     audioProcessingPipeline.flush(
         new StreamMetadata.Builder().setPositionOffsetUs(pendingStartTimeUs).build());
-    finishedInputs = 0;
+    activeInputs = inputInfos.size();
     DebugTraceUtil.logEvent(COMPONENT_AUDIO_GRAPH, EVENT_FLUSH, positionOffsetUs);
   }
 
@@ -232,13 +233,13 @@ import java.util.Objects;
    * <p>Call {@link #registerInput(EditedMediaItem, Format)} to prepare the audio graph again.
    */
   public void reset() {
-    for (InputInfo info : getActiveInputs()) {
+    for (InputInfo info : getUnreleasedInputs()) {
       info.audioGraphInput.release();
     }
     inputInfos.clear();
     mixer.reset();
     audioProcessingPipeline.reset();
-    finishedInputs = 0;
+    activeInputs = 0;
     mixerOutput = EMPTY_BUFFER;
     mixerAudioFormat = AudioFormat.NOT_SET;
     isEndLogged = false;
@@ -266,7 +267,7 @@ import java.util.Objects;
    * Returns an {@link Iterable} containing {@linkplain AudioGraphInput#isReleased() unreleased}
    * inputs.
    */
-  private Iterable<InputInfo> getActiveInputs() {
+  private Iterable<InputInfo> getUnreleasedInputs() {
     return Iterables.filter(inputInfos, info -> !info.audioGraphInput.isReleased());
   }
 
@@ -287,7 +288,7 @@ import java.util.Objects;
     while (iter.hasNext()) {
       InputInfo inputInfo = iter.next();
       if (inputInfo.mixerSourceId != C.INDEX_UNSET) {
-        continue; // The source has already been added.
+        continue; // The source has already been added or has ended.
       }
       AudioGraphInput audioGraphInput = inputInfo.audioGraphInput;
       // If input has been released before being added as a mixer source, then we can remove it
@@ -295,6 +296,7 @@ import java.util.Objects;
       // unregister the source and clean the input up.
       if (audioGraphInput.isReleased()) {
         iter.remove();
+        activeInputs--;
         continue;
       }
       try {
@@ -305,6 +307,9 @@ import java.util.Objects;
           isMixerReady = false;
           continue;
         } else if (sourceStartTimeUs == C.TIME_END_OF_SOURCE) {
+          // TODO: b/509819595 - Use #isEnded() instead of start time.
+          inputInfo.mixerSourceId = InputInfo.ENDED_SOURCE_ID;
+          activeInputs--;
           continue;
         }
         inputInfo.mixerSourceId =
@@ -352,12 +357,9 @@ import java.util.Objects;
     AudioGraphInput input = inputInfo.audioGraphInput;
     if (input.isEnded()) {
       mixer.removeSource(sourceId);
-      inputInfo.mixerSourceId = C.INDEX_UNSET;
-      if (input.isReleased()) {
-        return true;
-      }
-      // Only keep track of finished inputs that have not been released.
-      finishedInputs++;
+      inputInfo.mixerSourceId = InputInfo.ENDED_SOURCE_ID;
+      activeInputs--;
+      return input.isReleased();
     }
     return false;
   }
@@ -388,10 +390,12 @@ import java.util.Objects;
   }
 
   private boolean isMixerEnded() {
-    return !mixerOutput.hasRemaining() && finishedInputs >= inputInfos.size() && mixer.isEnded();
+    return !mixerOutput.hasRemaining() && activeInputs == 0 && mixer.isEnded();
   }
 
   private static final class InputInfo {
+
+    private static final int ENDED_SOURCE_ID = Integer.MIN_VALUE;
     public final AudioGraphInput audioGraphInput;
     public int mixerSourceId;
 

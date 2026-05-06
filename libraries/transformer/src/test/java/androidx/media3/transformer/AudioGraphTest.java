@@ -689,6 +689,81 @@ public class AudioGraphTest {
   }
 
   @Test
+  public void isEnded_afterTimeEndOfSource_returnsTrue() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput input = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+
+    input.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    // Force output to be processed and handle the new configuration.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+    assertThat(audioGraph.isEnded()).isFalse();
+
+    // Queue EOS using TIME_END_OF_SOURCE, before AudioGraph sets up the mixer. Passing
+    // TIME_END_OF_SOURCE will make AudioGraph ignore the input.
+    DecoderInputBuffer buffer = checkNotNull(input.getInputBuffer());
+    buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    buffer.timeUs = C.TIME_END_OF_SOURCE;
+    assertThat(input.queueInputBuffer()).isTrue();
+
+    // If input's EoS has been correctly handled, then AudioGraph should end immediately.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
+  public void queueTimeEndOfSource_beforeMixerConfigured_doesNotHangAudioGraph() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput firstInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+    AudioGraphInput secondInput = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
+
+    firstInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    secondInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        getPcmFormat(STEREO_44100),
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
+
+    // Force output to be processed and handle the new configuration.
+    assertThat(audioGraph.getOutput().hasRemaining()).isFalse();
+
+    // Queue EOS to the first input, using TIME_END_OF_SOURCE, before AudioGraph sets up the mixer.
+    // Passing TIME_END_OF_SOURCE will make AudioGraph ignore the input.
+    DecoderInputBuffer buffer = checkNotNull(firstInput.getInputBuffer());
+    buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    buffer.timeUs = C.TIME_END_OF_SOURCE;
+    assertThat(firstInput.queueInputBuffer()).isTrue();
+
+    // Queue a buffer to the second input.
+    assertThat(queueBufferIntoInput(buildTestData(STEREO_44100.bytesPerFrame * 1024), secondInput))
+        .isTrue();
+    // Queue end of stream.
+    buffer = checkNotNull(secondInput.getInputBuffer());
+    buffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    assertThat(secondInput.queueInputBuffer()).isTrue();
+
+    // If the EoS of the first input has been correctly handled, then AudioGraph should end after
+    // draining the input queued into the second input.
+    assertThat(audioGraph.isEnded()).isFalse();
+    assertThat(drainAudioGraph(audioGraph)).hasSize(STEREO_44100.bytesPerFrame * 1024);
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
   public void releaseInput_afterQueuingBuffers_endsGraph() throws Exception {
     long outputBytes = 0;
     AudioGraph audioGraph =

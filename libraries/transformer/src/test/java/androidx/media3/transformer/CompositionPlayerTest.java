@@ -980,6 +980,31 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void scrub_pastEndOfSecondarySequence_doesNotHang() throws Exception {
+    MediaItem item = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(item).setDurationUs(1_000_000L).build();
+
+    Composition composition =
+        new Composition.Builder(
+                withAudioFrom(ImmutableList.of(editedMediaItem, editedMediaItem)),
+                withAudioFrom(ImmutableList.of(editedMediaItem)))
+            .build();
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+
+    advance(player).untilState(STATE_READY);
+
+    player.setScrubbingModeEnabled(true);
+    player.seekTo(/* positionMs= */ 1500);
+    player.setScrubbingModeEnabled(false);
+
+    advance(player).untilState(STATE_ENDED);
+  }
+
+  @Test
   public void playComposition_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
       throws Exception {
     CompositionPlayer player = createTestCompositionPlayer();
@@ -1255,10 +1280,8 @@ public class CompositionPlayerTest {
         item.buildUpon()
             .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f}))
             .build();
-    EditedMediaItemSequence primarySequence =
-        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item));
-    EditedMediaItemSequence secondarySequence =
-        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(speedAdjustedItem));
+    EditedMediaItemSequence primarySequence = withAudioFrom(ImmutableList.of(item));
+    EditedMediaItemSequence secondarySequence = withAudioFrom(ImmutableList.of(speedAdjustedItem));
     player.setComposition(
         new Composition.Builder(primarySequence, secondarySequence)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
@@ -2490,8 +2513,7 @@ public class CompositionPlayerTest {
             .setDurationUs(1_000_000)
             .build();
     Composition composition =
-        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(audioItem)))
-            .build();
+        new Composition.Builder(withAudioFrom(ImmutableList.of(audioItem))).build();
     compositionPlayer.setComposition(composition);
     compositionPlayer.prepare();
 
@@ -2520,7 +2542,7 @@ public class CompositionPlayerTest {
             .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
             .build();
     EditedMediaItemSequence audioSequence =
-        EditedMediaItemSequence.withAudioFrom(
+        withAudioFrom(
             ImmutableList.of(
                 new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
                     .setDurationUs(1_000_000)
