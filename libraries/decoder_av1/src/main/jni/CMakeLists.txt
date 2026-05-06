@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
 # LINT.ThenChange(../../../build.gradle.kts)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 
 project(libdav1dJNI C CXX)
 
