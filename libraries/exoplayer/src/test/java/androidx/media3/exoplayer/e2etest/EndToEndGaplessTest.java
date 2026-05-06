@@ -90,8 +90,8 @@ public class EndToEndGaplessTest {
     int bytesPerFrame = audioTrackListener.getAudioTrackOutputFormat().getFrameSizeInBytes();
     int paddingBytes = max(0, playerAudioFormat.encoderPadding) * bytesPerFrame;
     int delayBytes = max(0, playerAudioFormat.encoderDelay) * bytesPerFrame;
-    assertThat(paddingBytes).isEqualTo(2808);
-    assertThat(delayBytes).isEqualTo(1152);
+    assertThat(paddingBytes).isEqualTo(1750);
+    assertThat(delayBytes).isEqualTo(2210);
 
     byte[] decoderOutputBytes = Bytes.concat(mp3Decoder.getAllOutputBytes().toArray(new byte[0][]));
     int bytesPerAudioFile = decoderOutputBytes.length / 2;

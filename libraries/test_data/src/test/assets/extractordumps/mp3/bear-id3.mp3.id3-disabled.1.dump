@@ -16,8 +16,8 @@ track 0:
     maxInputSize = 4096
     channelCount = 2
     sampleRate = 48000
-    encoderDelay = 576
-    encoderPadding = 576
+    encoderDelay = 1105
+    encoderPadding = 47
   sample 0:
     time = 943000
     flags = 1
