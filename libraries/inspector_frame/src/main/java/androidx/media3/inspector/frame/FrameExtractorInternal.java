@@ -417,7 +417,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                       },
                   mediaSourceFactoryToUse)
               .setLooper(playerHandler.getLooper())
-              .experimentalSetDynamicSchedulingEnabled(true)
               .build();
       player.addAnalyticsListener(new PlayerListener(this));
       player.setPlayWhenReady(false);
