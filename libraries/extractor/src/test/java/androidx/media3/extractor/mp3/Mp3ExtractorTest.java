@@ -105,6 +105,19 @@ public final class Mp3ExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mp3SampleWithInfoHeader_usesGaplessDurationAndRawBitrate() throws Exception {
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            new Mp3Extractor(),
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/test-cbr-info-header.mp3");
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(64_000);
+  }
+
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
   @Test
   public void mp3SampleWithInfoHeaderAndPcutFrame(

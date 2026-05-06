@@ -513,7 +513,7 @@ public final class Mp3Extractor implements Extractor {
     }
 
     if (shouldFallbackToConstantBitrateSeeking(resultSeeker)
-        && resultSeeker.getDurationUs() != C.TIME_UNSET
+        && resultSeeker.getRawDurationUs() != C.TIME_UNSET
         && (resultSeeker.getDataEndPosition() != C.INDEX_UNSET
             || input.getLength() != C.LENGTH_UNSET)) {
       // resultSeeker does not allow seeking, but does provide a duration and constant bitrate
@@ -532,7 +532,7 @@ public final class Mp3Extractor implements Extractor {
               Util.scaleLargeValue(
                   audioLength,
                   Byte.SIZE * C.MICROS_PER_SECOND,
-                  resultSeeker.getDurationUs(),
+                  resultSeeker.getRawDurationUs(),
                   RoundingMode.HALF_UP));
       // inputLength will never be LENGTH_UNSET because of the outer if-condition, so we can pass
       // (vacuously) false here for allowSeeksIfLengthUnknown.
@@ -542,7 +542,8 @@ public final class Mp3Extractor implements Extractor {
               dataStart,
               bitrate,
               C.LENGTH_UNSET,
-              /* allowSeeksIfLengthUnknown= */ false);
+              /* allowSeeksIfLengthUnknown= */ false,
+              resultSeeker.getDurationUs());
     } else if (shouldFallbackToConstantBitrateSeeking(resultSeeker)) {
       // Either we found no seek or VBR info, so we must assume the file is CBR (even without the
       // flag(s) being set), or an 'enable CBR seeking flag' is set and we found some seek info, but
@@ -642,8 +643,9 @@ public final class Mp3Extractor implements Extractor {
   @Nullable
   private Seeker getConstantBitrateSeeker(
       long infoFramePosition, XingFrame infoFrame, long fallbackStreamLength) {
-    long durationUs = infoFrame.computeDurationUs();
-    if (durationUs == C.TIME_UNSET) {
+    long rawDurationUs = infoFrame.computeRawDurationUs();
+    long durationUs = infoFrame.computeGaplessDurationUs();
+    if (rawDurationUs == C.TIME_UNSET || durationUs == C.TIME_UNSET) {
       return null;
     }
     long streamLength;
@@ -663,14 +665,15 @@ public final class Mp3Extractor implements Extractor {
 
     // Derive the bitrate and frame size by averaging over the length of playable audio, to allow
     // for 'mostly' CBR streams that might have a small number of frames with a different bitrate.
-    // We can assume infoFrame.frameCount is set, because otherwise computeDurationUs() would
-    // have returned C.TIME_UNSET above. See also https://github.com/androidx/media/issues/1376.
+    // We can assume infoFrame.frameCount is set, because otherwise computeRawDurationUs() would
+    // have returned C.TIME_UNSET above. Use the raw duration so encoder delay/padding does not
+    // inflate the derived bitrate. See also https://github.com/androidx/media/issues/1376.
     int averageBitrate =
         Ints.checkedCast(
             Util.scaleLargeValue(
                 audioLength,
                 C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-                durationUs,
+                rawDurationUs,
                 RoundingMode.HALF_UP));
     int frameSize =
         Ints.checkedCast(LongMath.divide(audioLength, infoFrame.frameCount, RoundingMode.HALF_UP));
@@ -682,7 +685,8 @@ public final class Mp3Extractor implements Extractor {
         /* firstFramePosition= */ infoFramePosition + infoFrame.header.frameSize,
         averageBitrate,
         frameSize,
-        /* allowSeeksIfLengthUnknown= */ false);
+        /* allowSeeksIfLengthUnknown= */ false,
+        durationUs);
   }
 
   /**

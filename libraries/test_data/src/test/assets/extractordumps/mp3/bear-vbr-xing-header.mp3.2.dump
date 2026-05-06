@@ -1,15 +1,15 @@
 seekMap:
   isSeekable = true
-  duration = 2807979
+  duration = 2783979
   getPosition(0) = [[timeUs=0, position=237]]
   getPosition(1) = [[timeUs=1, position=237]]
-  getPosition(1403989) = [[timeUs=1403989, position=20120]]
-  getPosition(2807979) = [[timeUs=2807979, position=38396]]
+  getPosition(1391989) = [[timeUs=1391989, position=20120]]
+  getPosition(2783979) = [[timeUs=2783979, position=38396]]
 numberOfTracks = 1
 track 0:
   total output bytes = 11328
   sample count = 38
-  track duration = 2807979
+  track duration = 2783979
   format 0:
     averageBitrate = 64000
     containerMimeType = audio/mpeg
@@ -21,155 +21,155 @@ track 0:
     encoderPadding = 576
     metadata = entries=[TSSE: description=null: values=[Lavf58.29.100]]
   sample 0:
-    time = 1886757
+    time = 1870631
     flags = 1
     data = length 336, hash CFD5E966
   sample 1:
-    time = 1910757
+    time = 1894631
     flags = 1
     data = length 288, hash DC08E267
   sample 2:
-    time = 1934757
+    time = 1918631
     flags = 1
     data = length 336, hash 6530CB78
   sample 3:
-    time = 1958757
+    time = 1942631
     flags = 1
     data = length 336, hash 6CC6636E
   sample 4:
-    time = 1982757
+    time = 1966631
     flags = 1
     data = length 336, hash 613047C1
   sample 5:
-    time = 2006757
+    time = 1990631
     flags = 1
     data = length 288, hash CDC747BF
   sample 6:
-    time = 2030757
+    time = 2014631
     flags = 1
     data = length 336, hash AF22AA74
   sample 7:
-    time = 2054757
+    time = 2038631
     flags = 1
     data = length 384, hash 82F326AA
   sample 8:
-    time = 2078757
+    time = 2062631
     flags = 1
     data = length 384, hash EDA26C4D
   sample 9:
-    time = 2102757
+    time = 2086631
     flags = 1
     data = length 336, hash 94C643DC
   sample 10:
-    time = 2126757
+    time = 2110631
     flags = 1
     data = length 288, hash CB5D9C40
   sample 11:
-    time = 2150757
+    time = 2134631
     flags = 1
     data = length 336, hash 1E69DE3F
   sample 12:
-    time = 2174757
+    time = 2158631
     flags = 1
     data = length 336, hash 7E472219
   sample 13:
-    time = 2198757
+    time = 2182631
     flags = 1
     data = length 336, hash DA47B9FA
   sample 14:
-    time = 2222757
+    time = 2206631
     flags = 1
     data = length 336, hash DD0ABB7C
   sample 15:
-    time = 2246757
+    time = 2230631
     flags = 1
     data = length 288, hash DBF93FAC
   sample 16:
-    time = 2270757
+    time = 2254631
     flags = 1
     data = length 336, hash 243F4B2
   sample 17:
-    time = 2294757
+    time = 2278631
     flags = 1
     data = length 336, hash 2E881490
   sample 18:
-    time = 2318757
+    time = 2302631
     flags = 1
     data = length 288, hash 1C28C8BE
   sample 19:
-    time = 2342757
+    time = 2326631
     flags = 1
     data = length 336, hash C73E5D30
   sample 20:
-    time = 2366757
+    time = 2350631
     flags = 1
     data = length 288, hash 98B5BFF6
   sample 21:
-    time = 2390757
+    time = 2374631
     flags = 1
     data = length 336, hash E0135533
   sample 22:
-    time = 2414757
+    time = 2398631
     flags = 1
     data = length 336, hash D13C9DBC
   sample 23:
-    time = 2438757
+    time = 2422631
     flags = 1
     data = length 336, hash 63D524CA
   sample 24:
-    time = 2462757
+    time = 2446631
     flags = 1
     data = length 288, hash A28514C3
   sample 25:
-    time = 2486757
+    time = 2470631
     flags = 1
     data = length 336, hash 72B647FF
   sample 26:
-    time = 2510757
+    time = 2494631
     flags = 1
     data = length 336, hash 8F740AB1
   sample 27:
-    time = 2534757
+    time = 2518631
     flags = 1
     data = length 336, hash 5E3C7E93
   sample 28:
-    time = 2558757
+    time = 2542631
     flags = 1
     data = length 336, hash 121B913B
   sample 29:
-    time = 2582757
+    time = 2566631
     flags = 1
     data = length 336, hash 578FCCF2
   sample 30:
-    time = 2606757
+    time = 2590631
     flags = 1
     data = length 336, hash 5B5823DE
   sample 31:
-    time = 2630757
+    time = 2614631
     flags = 1
     data = length 384, hash D8B83F78
   sample 32:
-    time = 2654757
+    time = 2638631
     flags = 1
     data = length 240, hash E649682F
   sample 33:
-    time = 2678757
+    time = 2662631
     flags = 1
     data = length 96, hash C559A6F4
   sample 34:
-    time = 2702757
+    time = 2686631
     flags = 1
     data = length 96, hash 792796BC
   sample 35:
-    time = 2726757
+    time = 2710631
     flags = 1
     data = length 120, hash 8172CD0E
   sample 36:
-    time = 2750757
+    time = 2734631
     flags = 1
     data = length 120, hash F562B52F
   sample 37:
-    time = 2774757
+    time = 2758631
     flags = 1
     data = length 96, hash FF8D5B98
 tracksEnded = true

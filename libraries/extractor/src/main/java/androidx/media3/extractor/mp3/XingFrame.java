@@ -140,19 +140,40 @@ import androidx.media3.extractor.MpegAudioUtil;
   }
 
   /**
-   * Compute the stream duration, in microseconds, represented by this frame. Returns {@link
-   * C#LENGTH_UNSET} if the frame doesn't contain enough information to compute a duration.
+   * Compute the raw stream duration, in microseconds, represented by this frame. Returns {@link
+   * C#TIME_UNSET} if the frame doesn't contain enough information to compute a duration.
    */
-  // TODO: b/319235116 - Handle encoder delay and padding when calculating duration.
-  public long computeDurationUs() {
+  public long computeRawDurationUs() {
     if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
       // If the frame count is missing/invalid, the header can't be used to determine the duration.
       return C.TIME_UNSET;
     }
+    return computeDurationUs(/* sampleCount= */ frameCount * header.samplesPerFrame);
+  }
+
+  /**
+   * Compute the gapless playback duration, in microseconds, represented by this frame. Returns
+   * {@link C#TIME_UNSET} if the frame doesn't contain enough information to compute a duration.
+   */
+  public long computeGaplessDurationUs() {
+    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
+      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+      return C.TIME_UNSET;
+    }
+    long sampleCount = frameCount * header.samplesPerFrame;
+    if (encoderDelay != C.LENGTH_UNSET && encoderPadding != C.LENGTH_UNSET) {
+      sampleCount -= encoderDelay + encoderPadding;
+    }
+    if (sampleCount <= 0) {
+      return C.TIME_UNSET;
+    }
+    return computeDurationUs(sampleCount);
+  }
+
+  private long computeDurationUs(long sampleCount) {
     // Audio requires both a start and end PCM sample, so subtract one from the sample count before
     // calculating the duration.
-    return Util.sampleCountToDurationUs(
-        (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
+    return Util.sampleCountToDurationUs(sampleCount - 1, header.sampleRate);
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
