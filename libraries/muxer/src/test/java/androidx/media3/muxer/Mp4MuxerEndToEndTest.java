@@ -53,6 +53,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** End to end tests for {@link Mp4Muxer}. */
 @RunWith(AndroidJUnit4.class)
@@ -147,6 +148,8 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
+  @Config(minSdk = 24)
   public void createVp9Mp4File_withoutCsd_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 

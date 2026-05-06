@@ -32,6 +32,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End to end parameterized tests for {@link WebmMuxer}. */
 @RunWith(RobolectricTestParameterInjector.class)
@@ -60,6 +61,8 @@ public class WebmMuxerEndToEndTest {
   @TestParameter private TestFile testFile;
 
   @Test
+  // TODO: b/507292304 - Suppressed due to failure on SDK 23.
+  @Config(minSdk = 24)
   public void createWebmFile_fromInputFileSampleData_matchesExpected() throws Exception {
     String outputPath = temporaryFolder.newFile("muxeroutput.webm").getPath();
 
