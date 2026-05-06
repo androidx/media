@@ -68,9 +68,11 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.FormatHolder;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -396,6 +398,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory());
       }
 
+      LoadControl loadControl =
+          new DefaultLoadControl.Builder()
+              // Buffer 1000ms to safely cover reference frame reordering delays (e.g. B-frames).
+              .setBufferDurationsMs(
+                  /* minBufferMs= */ 1000,
+                  /* maxBufferMs= */ 1000,
+                  /* bufferForPlaybackMs= */ 0,
+                  /* bufferForPlaybackAfterRebufferMs= */ 0)
+              .build();
+
       player =
           new ExoPlayer.Builder(
                   request.context,
@@ -416,6 +428,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                             this)
                       },
                   mediaSourceFactoryToUse)
+              .setLoadControl(loadControl)
               .setLooper(playerHandler.getLooper())
               .build();
       player.addAnalyticsListener(new PlayerListener(this));
