@@ -72,12 +72,6 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
     }
     tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("-Xlint:-options") }
 
-    pluginManager.withPlugin("org.jetbrains.kotlin.android") {
-      extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
-        compilerOptions { freeCompilerArgs.add("-Xannotation-default-target=param-property") }
-      }
-    }
-
     testOptions.apply {
       unitTests.all {
         it.jvmArgs("-Xmx2g")
@@ -88,5 +82,9 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
       // https://developer.android.com/training/testing/instrumented-tests/androidx-test-libraries/runner
       execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
+  }
+
+  extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
+    compilerOptions { freeCompilerArgs.add("-Xannotation-default-target=param-property") }
   }
 }
