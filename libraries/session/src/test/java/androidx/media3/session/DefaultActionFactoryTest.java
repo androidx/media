@@ -34,6 +34,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowPendingIntent;
 
 /** Tests for {@link DefaultActionFactory}. */
@@ -88,6 +89,7 @@ public class DefaultActionFactoryTest {
   }
 
   @Test
+  @Config(minSdk = 26) // Context.startForegroundService is only available on API 26+
   public void createMediaPendingIntent_commandPlayPauseWhenNotPlayWhenReady_isForegroundService() {
     DefaultActionFactory actionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
@@ -100,6 +102,7 @@ public class DefaultActionFactoryTest {
   }
 
   @Test
+  @Config(minSdk = 26) // Context.startForegroundService is only available on API 26+
   public void createMediaPendingIntent_commandPlayPauseWhenPlayWhenReady_notAForegroundService() {
     DefaultActionFactory actionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));

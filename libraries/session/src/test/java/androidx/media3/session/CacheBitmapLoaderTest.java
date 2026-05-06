@@ -44,6 +44,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@link CacheBitmapLoader}. */
 @RunWith(AndroidJUnit4.class)
@@ -112,6 +113,8 @@ public class CacheBitmapLoaderTest {
     assertThat(future1).isNotSameInstanceAs(future2);
   }
 
+  // Robolectric BitmapFactory returns non-null Bitmap for invalid data on SDK < 26.
+  @Config(minSdk = 26)
   @Test
   public void decodeBitmap_requestWithSameDataTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =

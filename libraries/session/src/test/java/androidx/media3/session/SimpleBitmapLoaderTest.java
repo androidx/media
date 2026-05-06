@@ -41,6 +41,7 @@ import org.junit.Test;
 import org.junit.function.ThrowingRunnable;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@link SimpleBitmapLoader}. */
 @SuppressWarnings("deprecation") // Testing deprecated class
@@ -66,6 +67,8 @@ public class SimpleBitmapLoaderTest {
         .isTrue();
   }
 
+  // Robolectric BitmapFactory returns non-null Bitmap for invalid data on SDK < 26.
+  @Config(minSdk = 26)
   @Test
   public void loadData_withInvalidData_throwsException() {
     SimpleBitmapLoader bitmapLoader =

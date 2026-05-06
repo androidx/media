@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
@@ -91,7 +92,8 @@ public class PlaybackPendingIntentBuilderTest {
     assertThat(keyEvent.getAction()).isEqualTo(KeyEvent.ACTION_DOWN);
     assertThat(keyEvent.getKeyCode()).isEqualTo(scenario.keyCode);
     assertThat(intent.getAction()).isEqualTo(Intent.ACTION_MEDIA_BUTTON);
-    assertThat(pendingIntent.isForegroundService()).isEqualTo(scenario.startForeground);
+    boolean expectedForeground = scenario.startForeground && SDK_INT >= 26;
+    assertThat(shadowOf(pendingIntent).isForegroundService()).isEqualTo(expectedForeground);
     assertThat(intent.getData()).isEqualTo(Uri.parse("androidx://media3.session/test_session_id"));
     assertThat(intent.getComponent())
         .isEqualTo(new ComponentName(context, MediaSessionService.class));
