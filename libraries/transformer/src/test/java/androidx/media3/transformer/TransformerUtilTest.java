@@ -99,7 +99,7 @@ public final class TransformerUtilTest {
                 new TransformationRequest.Builder().build(),
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
                 muxerWrapper,
-                /* hasPacketProcessor= */ false))
+                /* hasFrameProcessorFactory= */ false))
         .isTrue();
   }
 
@@ -133,7 +133,7 @@ public final class TransformerUtilTest {
                 new TransformationRequest.Builder().build(),
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
                 muxerWrapper,
-                /* hasPacketProcessor= */ false))
+                /* hasFrameProcessorFactory= */ false))
         .isTrue();
   }
 
@@ -221,7 +221,7 @@ public final class TransformerUtilTest {
                 new TransformationRequest.Builder().build(),
                 new DefaultEncoderFactory.Builder(getApplicationContext()).build(),
                 muxerWrapper,
-                /* hasPacketProcessor= */ true))
+                /* hasFrameProcessorFactory= */ true))
         .isTrue();
   }
 

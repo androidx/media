@@ -66,11 +66,9 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DebugTraceUtil;
-import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import com.google.common.collect.ImmutableList;
@@ -134,10 +132,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final HandlerWrapper applicationHandler;
   private final Clock clock;
 
-  @Nullable
-  private final RenderingPacketConsumer<
-          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-      packetProcessor;
+  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
 
   @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
@@ -217,9 +212,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable
-          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-              packetProcessor,
+      @Nullable FrameProcessor.Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
@@ -233,7 +226,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.listener = listener;
     this.applicationHandler = applicationHandler;
     this.clock = clock;
-    this.packetProcessor = packetProcessor;
+    this.frameProcessorFactory = frameProcessorFactory;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.videoSampleTimestampOffsetUs = videoSampleTimestampOffsetUs;
     this.muxerWrapper = muxerWrapper;
@@ -767,7 +760,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   "assetLoaderOutputFormat has to have a audio, video or image mimetype."));
         }
 
-        if (packetProcessor == null) {
+        if (frameProcessorFactory == null) {
           assetLoaderInputTracker.registerSampleExporter(
               C.TRACK_TYPE_VIDEO,
               new VideoSampleExporter(
@@ -800,7 +793,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   composition,
                   firstFormat,
                   transformationRequest,
-                  checkNotNull(packetProcessor),
+                  checkNotNull(frameProcessorFactory),
                   hardwareBufferJniWrapper,
                   encoderFactory,
                   muxerWrapper,
@@ -906,7 +899,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                     transformationRequest,
                     encoderFactory,
                     muxerWrapper,
-                    /* hasPacketProcessor= */ packetProcessor != null)
+                    /* hasFrameProcessorFactory= */ frameProcessorFactory != null)
                 || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
         checkState(
             !applyMp4EditListTrim || !shouldTranscode,

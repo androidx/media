@@ -48,6 +48,8 @@ import androidx.media3.inspector.frame.FrameExtractor;
 import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
+import androidx.media3.transformer.FrameWriterToHardwareBufferFrameQueueAdapter;
+import androidx.media3.transformer.RenderingPacketConsumerToFrameProcessorAdapter;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
@@ -80,13 +82,14 @@ public final class TranscodeQualityTest {
 
   private static final String LEGACY = "legacy";
   private static final String PACKET_CONSUMER_NDK = "packet_consumer_ndk";
+  private static final String FRAME_PROCESSOR_NDK = "frame_processor_ndk";
 
   @Rule public final TestName testName = new TestName();
 
   @Parameters(name = "{0}")
   public static ImmutableList<String> params() {
     if (SDK_INT >= 28) {
-      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK);
+      return ImmutableList.of(LEGACY, PACKET_CONSUMER_NDK, FRAME_PROCESSOR_NDK);
     }
     return ImmutableList.of(LEGACY);
   }
@@ -165,7 +168,7 @@ public final class TranscodeQualityTest {
   public void transcode_hlg10_outputsHlg() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // TODO: b/286211012 - Enable once DefaultHardwareBufferEffectsPipeline supports HDR.
-    assumeFalse(mode.equals(PACKET_CONSUMER_NDK));
+    assumeFalse(mode.equals(PACKET_CONSUMER_NDK) || mode.equals(FRAME_PROCESSOR_NDK));
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeFormatsSupported(
         context,
@@ -238,6 +241,15 @@ public final class TranscodeQualityTest {
       return NdkTransformerBuilder.create(context)
           .setHardwareBufferEffectsPipeline(
               DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE));
+    } else if (mode.equals(FRAME_PROCESSOR_NDK)) {
+      DefaultHardwareBufferEffectsPipeline pipeline =
+          DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
+      return NdkTransformerBuilder.create(context)
+          .setFrameProcessorFactory(
+              output -> {
+                pipeline.setRenderOutput(new FrameWriterToHardwareBufferFrameQueueAdapter(output));
+                return new RenderingPacketConsumerToFrameProcessorAdapter(pipeline);
+              });
     }
     return new Transformer.Builder(context);
   }

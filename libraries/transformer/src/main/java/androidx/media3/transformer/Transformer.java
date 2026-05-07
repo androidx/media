@@ -49,6 +49,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
@@ -131,6 +132,7 @@ public final class Transformer {
         packetProcessor;
 
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    @Nullable private FrameProcessor.Factory frameProcessorFactory;
 
     /**
      * Creates a builder with default values.
@@ -188,6 +190,7 @@ public final class Transformer {
       this.metricsReporterFactory = transformer.metricsReporterFactory;
       this.packetProcessor = transformer.packetProcessor;
       this.hardwareBufferJniWrapper = transformer.hardwareBufferJniWrapper;
+      this.frameProcessorFactory = transformer.frameProcessorFactory;
     }
 
     /**
@@ -381,6 +384,20 @@ public final class Transformer {
         RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
             packetProcessor) {
       this.packetProcessor = packetProcessor;
+      return this;
+    }
+
+    /**
+     * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor}
+     * instances.
+     *
+     * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
+      this.frameProcessorFactory = frameProcessorFactory;
       return this;
     }
 
@@ -719,7 +736,8 @@ public final class Transformer {
           clock,
           metricsReporterFactory,
           packetProcessor,
-          hardwareBufferJniWrapper);
+          hardwareBufferJniWrapper,
+          frameProcessorFactory);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -849,6 +867,7 @@ public final class Transformer {
       packetProcessor;
 
   @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
 
   @Nullable private ExportOperation currentExportOperation;
   private boolean exportResumed;
@@ -886,7 +905,8 @@ public final class Transformer {
       @Nullable
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor,
-      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper) {
+      @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
+      @Nullable FrameProcessor.Factory frameProcessorFactory) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -912,6 +932,7 @@ public final class Transformer {
     this.clock = clock;
     this.packetProcessor = packetProcessor;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
+    this.frameProcessorFactory = frameProcessorFactory;
     this.metricsReporterFactory = metricsReporterFactory;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     exportOperationListener = new ExportOperationListener();
@@ -1356,7 +1377,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              packetProcessor,
+              getFrameProcessorFactory(),
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1380,7 +1401,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              packetProcessor,
+              getFrameProcessorFactory(),
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1403,7 +1424,7 @@ public final class Transformer {
               applicationHandler,
               debugViewProvider,
               clock,
-              packetProcessor,
+              getFrameProcessorFactory(),
               hardwareBufferJniWrapper,
               logSessionId,
               shouldApplyMp4EditListTrim(),
@@ -1512,5 +1533,26 @@ public final class Transformer {
         checkState(maxDelayBetweenMuxerSamplesMs == C.TIME_UNSET);
       }
     }
+  }
+
+  @Nullable
+  private FrameProcessor.Factory getFrameProcessorFactory() {
+    FrameProcessor.Factory factory = frameProcessorFactory;
+    RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+        localPacketProcessor = packetProcessor;
+    if (factory == null && localPacketProcessor != null) {
+      if (SDK_INT >= 26) {
+        factory =
+            output -> {
+              HardwareBufferFrameQueue adaptedQueue =
+                  new FrameWriterToHardwareBufferFrameQueueAdapter(output);
+              localPacketProcessor.setRenderOutput(adaptedQueue);
+              return new RenderingPacketConsumerToFrameProcessorAdapter(localPacketProcessor);
+            };
+      } else {
+        throw new IllegalStateException("API 26+ required to use PacketProcessor in Transformer");
+      }
+    }
+    return factory;
   }
 }

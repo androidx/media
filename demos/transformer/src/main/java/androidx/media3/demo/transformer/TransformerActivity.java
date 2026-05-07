@@ -962,10 +962,14 @@ public final class TransformerActivity extends AppCompatActivity {
 
   @OptIn(markerClass = androidx.media3.common.util.ExperimentalApi.class)
   private static OverlaySettings getOverlaySettings(HardwareBufferFrame frame) {
-    CompositionFrameMetadata metadata =
-        checkNotNull((CompositionFrameMetadata) frame.getMetadata());
-    return metadata.composition.videoCompositorSettings.getOverlaySettings(
-        metadata.sequenceIndex, frame.presentationTimeUs);
+    // TODO: b/498547782 - Set metadata when using FrameProcessor.
+    if (frame.getMetadata() instanceof CompositionFrameMetadata) {
+      CompositionFrameMetadata metadata =
+          checkNotNull((CompositionFrameMetadata) frame.getMetadata());
+      return metadata.composition.videoCompositorSettings.getOverlaySettings(
+          metadata.sequenceIndex, frame.presentationTimeUs);
+    }
+    return new StaticOverlaySettings.Builder().build();
   }
 
   private boolean isUsingMediaProjection() {

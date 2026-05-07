@@ -97,6 +97,12 @@ public interface Frame {
    */
   String KEY_DISPLAY_TIME_NS = "KEY_DISPLAY_TIME_NS";
 
+  /**
+   * Metadata key for storing the composition presentation time of this frame, in microseconds. The
+   * returned value if set will be a {@code Long}.
+   */
+  String KEY_PRESENTATION_TIME_US = "KEY_PRESENTATION_TIME_US";
+
   /** The frame format. */
   Format getFormat();
 

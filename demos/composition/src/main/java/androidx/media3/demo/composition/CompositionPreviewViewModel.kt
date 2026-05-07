@@ -978,8 +978,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
 
     fun getOverlaySettings(frame: HardwareBufferFrame): OverlaySettings {
+      // TODO: b/498547782 - Set metadata when using FrameProcessor.
       val metadata =
-        (frame.metadata as? CompositionFrameMetadata) ?: throw IllegalArgumentException()
+        (frame.metadata as? CompositionFrameMetadata)
+          ?: return StaticOverlaySettings.Builder().build()
       return metadata.composition.videoCompositorSettings.getOverlaySettings(
         metadata.sequenceIndex,
         frame.presentationTimeUs,

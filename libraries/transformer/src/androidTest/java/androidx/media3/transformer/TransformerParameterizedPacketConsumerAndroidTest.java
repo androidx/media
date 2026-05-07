@@ -75,9 +75,9 @@ public final class TransformerParameterizedPacketConsumerAndroidTest {
     }
   }
 
-  // TODO: b/479415308 - Expand API versions below 34 once supported.
+  // TODO: b/479415308 - Expand API versions below 28 once supported.
   @Test
-  @SdkSuppress(minSdkVersion = 33)
+  @SdkSuppress(minSdkVersion = 28)
   public void export_withPacketProcessor_completesSuccessfully(
       @TestParameter(valuesProvider = TestConfigProvider.class) CompositionAssetInfo testConfig)
       throws Exception {

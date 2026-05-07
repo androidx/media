@@ -37,11 +37,9 @@ import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.DebugTraceUtil;
-import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.transformer.ExportResult.ProcessedInput;
 import androidx.media3.transformer.Transformer.ProgressState;
@@ -138,10 +136,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final DebugViewProvider debugViewProvider;
   private final Clock clock;
 
-  @Nullable
-  private final RenderingPacketConsumer<
-          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-      packetProcessor;
+  @Nullable private final FrameProcessor.Factory frameProcessorFactory;
 
   @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
@@ -174,9 +169,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HandlerWrapper applicationHandler,
       DebugViewProvider debugViewProvider,
       Clock clock,
-      @Nullable
-          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-              packetProcessor,
+      @Nullable FrameProcessor.Factory frameProcessorFactory,
       @Nullable HardwareBufferJniWrapper hardwareBufferJniWrapper,
       @Nullable LogSessionId logSessionId,
       boolean applyMp4EditListTrim,
@@ -200,7 +193,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.applicationHandler = applicationHandler;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
-    this.packetProcessor = packetProcessor;
+    this.frameProcessorFactory = frameProcessorFactory;
     this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
     this.logSessionId = logSessionId;
     this.applyMp4EditListTrim = applyMp4EditListTrim;
@@ -428,7 +421,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             applicationHandler,
             debugViewProvider,
             clock,
-            packetProcessor,
+            frameProcessorFactory,
             hardwareBufferJniWrapper,
             initialTimestampOffsetUs,
             logSessionId,
