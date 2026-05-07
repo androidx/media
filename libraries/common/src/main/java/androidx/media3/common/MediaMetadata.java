@@ -84,8 +84,8 @@ public final class MediaMetadata {
     @Nullable private CharSequence author;
     @Nullable private CharSequence composer;
     @Nullable private CharSequence conductor;
-    @Nullable private Integer discNumber;
     @Nullable private CharSequence discSubtitle;
+    @Nullable private Integer discNumber;
     @Nullable private Integer totalDiscCount;
     @Nullable private CharSequence genre;
     @Nullable private CharSequence compilation;
@@ -414,17 +414,17 @@ public final class MediaMetadata {
       return this;
     }
 
-    /** Sets the disc number. */
-    @CanIgnoreReturnValue
-    public Builder setDiscNumber(@Nullable Integer discNumber) {
-      this.discNumber = discNumber;
-      return this;
-    }
-
     /** Sets the disc subtitle. */
     @CanIgnoreReturnValue
     public Builder setDiscSubtitle(@Nullable CharSequence discSubtitle) {
       this.discSubtitle = discSubtitle;
+      return this;
+    }
+
+    /** Sets the disc number. */
+    @CanIgnoreReturnValue
+    public Builder setDiscNumber(@Nullable Integer discNumber) {
+      this.discNumber = discNumber;
       return this;
     }
 
@@ -616,11 +616,11 @@ public final class MediaMetadata {
       if (mediaMetadata.conductor != null) {
         setConductor(mediaMetadata.conductor);
       }
-      if (mediaMetadata.discNumber != null) {
-        setDiscNumber(mediaMetadata.discNumber);
-      }
       if (mediaMetadata.discSubtitle != null) {
         setDiscSubtitle(mediaMetadata.discSubtitle);
+      }
+      if (mediaMetadata.discNumber != null) {
+        setDiscNumber(mediaMetadata.discNumber);
       }
       if (mediaMetadata.totalDiscCount != null) {
         setTotalDiscCount(mediaMetadata.totalDiscCount);
@@ -1151,11 +1151,11 @@ public final class MediaMetadata {
   /** Optional conductor. */
   @Nullable public final CharSequence conductor;
 
-  /** Optional disc number. */
-  @Nullable public final Integer discNumber;
-
   /** Optional disc subtitle. */
   @Nullable public final CharSequence discSubtitle;
+
+  /** Optional disc number. */
+  @Nullable public final Integer discNumber;
 
   /** Optional total number of discs. */
   @Nullable public final Integer totalDiscCount;
@@ -1235,8 +1235,8 @@ public final class MediaMetadata {
     this.author = builder.author;
     this.composer = builder.composer;
     this.conductor = builder.conductor;
-    this.discNumber = builder.discNumber;
     this.discSubtitle = builder.discSubtitle;
+    this.discNumber = builder.discNumber;
     this.totalDiscCount = builder.totalDiscCount;
     this.genre = builder.genre;
     this.compilation = builder.compilation;
@@ -1289,8 +1289,8 @@ public final class MediaMetadata {
         && TextUtils.equals(writer, that.writer)
         && TextUtils.equals(composer, that.composer)
         && TextUtils.equals(conductor, that.conductor)
-        && Objects.equals(discNumber, that.discNumber)
         && TextUtils.equals(discSubtitle, that.discSubtitle)
+        && Objects.equals(discNumber, that.discNumber)
         && Objects.equals(totalDiscCount, that.totalDiscCount)
         && TextUtils.equals(genre, that.genre)
         && TextUtils.equals(compilation, that.compilation)
@@ -1331,8 +1331,8 @@ public final class MediaMetadata {
         writer,
         composer,
         conductor,
-        discNumber,
         discSubtitle,
+        discNumber,
         totalDiscCount,
         genre,
         compilation,

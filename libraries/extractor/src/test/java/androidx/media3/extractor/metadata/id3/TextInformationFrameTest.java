@@ -110,7 +110,7 @@ public class TextInformationFrameTest {
     assertThat(mediaMetadata.composer.toString()).isEqualTo(composer);
     assertThat(mediaMetadata.conductor.toString()).isEqualTo(conductor);
     assertThat(mediaMetadata.writer.toString()).isEqualTo(writer);
-    assertThat(mediaMetadata.discSubtitle).isEqualTo(discSubtitle);
+    assertThat(mediaMetadata.discSubtitle.toString()).isEqualTo(discSubtitle);
   }
 
   @Test
