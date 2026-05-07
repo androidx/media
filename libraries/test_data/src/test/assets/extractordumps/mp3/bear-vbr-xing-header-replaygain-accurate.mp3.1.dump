@@ -1,15 +1,15 @@
 seekMap:
   isSeekable = true
-  duration = 2807978
+  duration = 2783979
   getPosition(0) = [[timeUs=0, position=429]]
   getPosition(1) = [[timeUs=0, position=429], [timeUs=23999, position=813]]
-  getPosition(1403989) = [[timeUs=1391989, position=22701], [timeUs=1415988, position=23085]]
-  getPosition(2807978) = [[timeUs=2783978, position=44973]]
+  getPosition(1391989) = [[timeUs=1367989, position=22317], [timeUs=1391989, position=22701]]
+  getPosition(2783979) = [[timeUs=2783979, position=44973]]
 numberOfTracks = 1
 track 0:
   total output bytes = 30336
   sample count = 79
-  track duration = 2807978
+  track duration = 2783979
   format 0:
     averageBitrate = 128001
     containerMimeType = audio/mpeg

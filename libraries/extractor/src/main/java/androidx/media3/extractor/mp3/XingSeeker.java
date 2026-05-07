@@ -41,8 +41,9 @@ import androidx.media3.extractor.SeekPoint;
    */
   @Nullable
   public static XingSeeker create(XingFrame xingFrame, long position, long streamLength) {
-    long durationUs = xingFrame.computeDurationUs();
-    if (durationUs == C.TIME_UNSET) {
+    long rawDurationUs = xingFrame.computeRawDurationUs();
+    long durationUs = xingFrame.computeGaplessDurationUs();
+    if (rawDurationUs == C.TIME_UNSET || durationUs == C.TIME_UNSET) {
       return null;
     }
     long dataSize;
@@ -65,6 +66,7 @@ import androidx.media3.extractor.SeekPoint;
         position,
         xingFrame.header.frameSize,
         durationUs,
+        rawDurationUs,
         xingFrame.header.bitrate,
         dataSize,
         xingFrame.tableOfContents);
@@ -73,6 +75,7 @@ import androidx.media3.extractor.SeekPoint;
   private final long dataStartPosition;
   private final int xingFrameSize;
   private final long durationUs;
+  private final long rawDurationUs;
   private final int bitrate;
 
   /** Data size, including the XING frame. */
@@ -90,12 +93,14 @@ import androidx.media3.extractor.SeekPoint;
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
+      long rawDurationUs,
       int bitrate,
       long dataSize,
       @Nullable long[] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;
+    this.rawDurationUs = rawDurationUs;
     this.bitrate = bitrate;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
@@ -159,6 +164,11 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public long getDurationUs() {
     return durationUs;
+  }
+
+  @Override
+  public long getRawDurationUs() {
+    return rawDurationUs;
   }
 
   @Override

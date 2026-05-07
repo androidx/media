@@ -1,12 +1,12 @@
 seekMap:
   isSeekable = false
-  duration = 2807979
+  duration = 2783979
   getPosition(0) = [[timeUs=0, position=237]]
 numberOfTracks = 1
 track 0:
   total output bytes = 38160
   sample count = 117
-  track duration = 2807979
+  track duration = 2783979
   format 0:
     averageBitrate = 64000
     containerMimeType = audio/mpeg

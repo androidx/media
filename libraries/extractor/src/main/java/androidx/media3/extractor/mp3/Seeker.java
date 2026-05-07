@@ -51,6 +51,14 @@ import androidx.media3.extractor.SeekMap;
    */
   int getAverageBitrate();
 
+  /**
+   * Returns the raw duration before subtracting encoder delay/padding, or {@link C#TIME_UNSET} if
+   * not known.
+   */
+  default long getRawDurationUs() {
+    return getDurationUs();
+  }
+
   /** A {@link Seeker} that does not support seeking through audio data. */
   /* package */ class UnseekableSeeker extends SeekMap.Unseekable implements Seeker {
 

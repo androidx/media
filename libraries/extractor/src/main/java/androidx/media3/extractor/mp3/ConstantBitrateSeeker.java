@@ -18,6 +18,8 @@ package androidx.media3.extractor.mp3;
 import androidx.media3.common.C;
 import androidx.media3.extractor.ConstantBitrateSeekMap;
 import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.SeekMap.SeekPoints;
+import androidx.media3.extractor.SeekPoint;
 
 /**
  * MP3 seeker that doesn't rely on metadata and seeks assuming the source has a constant bitrate.
@@ -28,6 +30,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   private final int bitrate;
   private final int frameSize;
   private final boolean allowSeeksIfLengthUnknown;
+  private final long durationUs;
   private final long dataEndPosition;
 
   /**
@@ -53,7 +56,7 @@ import androidx.media3.extractor.MpegAudioUtil;
         mpegAudioHeader.bitrate,
         mpegAudioHeader.frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ true);
+        /* durationUs= */ C.TIME_UNSET);
   }
 
   /** See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. */
@@ -69,7 +72,29 @@ import androidx.media3.extractor.MpegAudioUtil;
         bitrate,
         frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ true);
+        /* durationUs= */ C.TIME_UNSET);
+  }
+
+  /**
+   * See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. Uses
+   * {@code durationUs} as the duration exposed from {@link #getDurationUs()}, while keeping the
+   * duration derived from {@code inputLength} and {@code bitrate} for raw seek calculations.
+   */
+  public ConstantBitrateSeeker(
+      long inputLength,
+      long firstFramePosition,
+      int bitrate,
+      int frameSize,
+      boolean allowSeeksIfLengthUnknown,
+      long durationUs) {
+    this(
+        inputLength,
+        firstFramePosition,
+        bitrate,
+        frameSize,
+        allowSeeksIfLengthUnknown,
+        /* isEstimated= */ true,
+        durationUs);
   }
 
   private ConstantBitrateSeeker(
@@ -78,7 +103,8 @@ import androidx.media3.extractor.MpegAudioUtil;
       int bitrate,
       int frameSize,
       boolean allowSeeksIfLengthUnknown,
-      boolean isEstimated) {
+      boolean isEstimated,
+      long durationUs) {
     super(
         inputLength,
         firstFramePosition,
@@ -90,12 +116,25 @@ import androidx.media3.extractor.MpegAudioUtil;
     this.bitrate = bitrate;
     this.frameSize = frameSize;
     this.allowSeeksIfLengthUnknown = allowSeeksIfLengthUnknown;
+    this.durationUs = durationUs;
     dataEndPosition = inputLength != C.LENGTH_UNSET ? inputLength : C.INDEX_UNSET;
   }
 
   @Override
   public long getTimeUs(long position) {
     return getTimeUsAtPosition(position);
+  }
+
+  @Override
+  public SeekPoints getSeekPoints(long timeUs) {
+    long rawDurationUs = getRawDurationUs();
+    if (durationUs != C.TIME_UNSET && rawDurationUs != C.TIME_UNSET && timeUs >= durationUs) {
+      // Use the raw duration only to find the final byte position. Keep the returned seek point on
+      // the exposed gapless timeline.
+      SeekPoints rawDurationSeekPoints = super.getSeekPoints(rawDurationUs);
+      return new SeekPoints(new SeekPoint(durationUs, rawDurationSeekPoints.first.position));
+    }
+    return super.getSeekPoints(timeUs);
   }
 
   @Override
@@ -106,6 +145,16 @@ import androidx.media3.extractor.MpegAudioUtil;
   @Override
   public long getDataEndPosition() {
     return dataEndPosition;
+  }
+
+  @Override
+  public long getDurationUs() {
+    return durationUs != C.TIME_UNSET ? durationUs : super.getDurationUs();
+  }
+
+  @Override
+  public long getRawDurationUs() {
+    return super.getDurationUs();
   }
 
   @Override
@@ -120,6 +169,7 @@ import androidx.media3.extractor.MpegAudioUtil;
         bitrate,
         frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ false);
+        /* isEstimated= */ false,
+        durationUs);
   }
 }
