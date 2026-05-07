@@ -1029,7 +1029,7 @@ public class MediaCodecRendererTest {
                       /* forceDisableAdaptive= */ false,
                       /* forceSecure= */ false)),
           /* enableDecoderFallback= */ false,
-          /* assumedMinimumCodecOperatingRate= */ 44100);
+          /* assumedMinimumCodecOperatingRate= */ 0);
       experimentalEnableProcessedStreamChangedAtStart();
     }
 

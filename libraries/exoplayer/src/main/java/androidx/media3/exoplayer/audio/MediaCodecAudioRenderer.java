@@ -318,7 +318,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         codecAdapterFactory,
         mediaCodecSelector,
         enableDecoderFallback,
-        /* assumedMinimumCodecOperatingRate= */ 44100);
+        /* assumedMinimumCodecOperatingRate= */ 0);
     context = context.getApplicationContext();
     this.context = context;
     this.audioSink = audioSink;

@@ -118,8 +118,6 @@ import java.util.ArrayList;
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify)
-              // TODO: b/501235190 - Remove workaround once operating rate is always set.
-              .setAssumedMinimumCodecOperatingRate(0)
               .setCodecAdapterFactory(codecAdapterFactory));
       timestampsList = new long[ARRAY_SIZE];
     }

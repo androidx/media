@@ -292,7 +292,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.context = context;
       this.mediaCodecSelector = MediaCodecSelector.DEFAULT;
       this.codecAdapterFactory = MediaCodecAdapter.Factory.getDefault(context);
-      this.assumedMinimumCodecOperatingRate = 30;
+      this.assumedMinimumCodecOperatingRate = 0;
       this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
     }
