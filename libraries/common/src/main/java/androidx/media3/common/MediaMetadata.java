@@ -415,6 +415,7 @@ public final class MediaMetadata {
     }
 
     /** Sets the disc subtitle. */
+    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setDiscSubtitle(@Nullable CharSequence discSubtitle) {
       this.discSubtitle = discSubtitle;
@@ -1152,7 +1153,7 @@ public final class MediaMetadata {
   @Nullable public final CharSequence conductor;
 
   /** Optional disc subtitle. */
-  @Nullable public final CharSequence discSubtitle;
+  @UnstableApi @Nullable public final CharSequence discSubtitle;
 
   /** Optional disc number. */
   @Nullable public final Integer discNumber;
@@ -1556,6 +1557,7 @@ public final class MediaMetadata {
         .setWriter(bundle.getCharSequence(FIELD_WRITER))
         .setComposer(bundle.getCharSequence(FIELD_COMPOSER))
         .setConductor(bundle.getCharSequence(FIELD_CONDUCTOR))
+        .setDiscSubtitle(bundle.getCharSequence(FIELD_DISC_SUBTITLE))
         .setGenre(bundle.getCharSequence(FIELD_GENRE))
         .setCompilation(bundle.getCharSequence(FIELD_COMPILATION))
         .setStation(bundle.getCharSequence(FIELD_STATION))
