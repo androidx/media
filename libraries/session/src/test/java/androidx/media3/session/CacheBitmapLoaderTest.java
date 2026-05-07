@@ -274,6 +274,8 @@ public class CacheBitmapLoaderTest {
   }
 
   @Test
+  // Robolectric BitmapFactory returns non-null Bitmap for invalid data on SDK < 26.
+  @Config(minSdk = 26)
   public void loadBitmapFromMetadata_requestWithSameDataTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(

@@ -133,6 +133,8 @@ public class SimpleBitmapLoaderTest {
   }
 
   @Test
+  // Robolectric BitmapFactory returns non-null Bitmap for missing file on SDK < 26.
+  @Config(minSdk = 26)
   public void fileUriWithFileNotExisting() throws Exception {
     SimpleBitmapLoader bitmapLoader =
         new SimpleBitmapLoader(MoreExecutors.newDirectExecutorService());
