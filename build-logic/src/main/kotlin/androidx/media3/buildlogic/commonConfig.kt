@@ -85,6 +85,9 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
   }
 
   extensions.configure<KotlinAndroidProjectExtension>("kotlin") {
-    compilerOptions { freeCompilerArgs.add("-Xannotation-default-target=param-property") }
+    compilerOptions {
+      freeCompilerArgs.add("-Xannotation-default-target=param-property")
+      freeCompilerArgs.add("-Xwarning-level=OPT_IN_USAGE:error")
+    }
   }
 }
