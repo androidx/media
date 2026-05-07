@@ -37,11 +37,12 @@ import androidx.media3.exoplayer.util.ReleasableExecutor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** Tracks the content steering states for an HLS stream. */
 @UnstableApi
@@ -64,6 +65,24 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
         String currentPathwayId,
         @Nullable String previousPathwayId,
         long previousPathwayExcludeDurationMs);
+
+    /**
+     * Called when a new pathway cloned from an existing pathway becomes available.
+     *
+     * <p>The lists {@code newPlaylistUrls} and {@code basePlaylistUrls} have the equal size, and
+     * each URI in the {@code newPlaylistUrls} is cloned from the base URI in the {@code
+     * basePlaylistUrls} of the same index.
+     *
+     * @param newPathwayId The new pathway ID.
+     * @param basePathwayId The base pathway ID.
+     * @param newPlaylistUrls The list of new playlist URLs.
+     * @param basePlaylistUrls The list of base playlist URLs.
+     */
+    void onNewPathwayAvailable(
+        String newPathwayId,
+        String basePathwayId,
+        ImmutableList<Uri> newPlaylistUrls,
+        ImmutableList<Uri> basePlaylistUrls);
   }
 
   private static final String PATHWAY_PARAM = "_HLS_pathway";
@@ -72,7 +91,11 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
   private final SteeringManifestTracker steeringManifestTracker;
   @Nullable private final Callback callback;
   private final BandwidthMeter bandwidthMeter;
-  private final ImmutableSet<String> availablePathwayIds;
+  private final List<HlsRedundantGroup> variantRedundantGroups;
+  private final List<HlsRedundantGroup> videoRenditionRedundantGroups;
+  private final List<HlsRedundantGroup> audioRenditionRedundantGroups;
+  private final List<HlsRedundantGroup> subtitleRenditionRedundantGroups;
+  private final Set<String> availablePathwayIds;
   private final Set<String> excludedPathwayIds;
   private final HandlerWrapper handler;
   private boolean isActive;
@@ -104,10 +127,17 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
             downloadExecutorSupplier);
     this.callback = callback;
     this.bandwidthMeter = bandwidthMeter;
-    List<HlsRedundantGroup> variantRedundantGroups =
+    this.variantRedundantGroups =
         checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.VARIANT));
+    this.videoRenditionRedundantGroups =
+        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.VIDEO_RENDITION));
+    this.audioRenditionRedundantGroups =
+        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.AUDIO_RENDITION));
+    this.subtitleRenditionRedundantGroups =
+        checkNotNull(playlistTracker.getRedundantGroups(HlsRedundantGroup.SUBTITLE_RENDITION));
     checkState(!variantRedundantGroups.isEmpty());
-    availablePathwayIds = checkNotNull(variantRedundantGroups.get(0)).getAllPathwayIds();
+    availablePathwayIds =
+        new HashSet<>(checkNotNull(variantRedundantGroups.get(0)).getAllPathwayIds());
     excludedPathwayIds = new HashSet<>();
     handler = clock.createHandler(Util.getCurrentOrMainLooper(), /* callback= */ null);
     currentPathwayId = variantRedundantGroups.get(0).getCurrentPathwayId();
@@ -140,7 +170,7 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     if (isActive && currentPathwayPriority != null) {
       String previousPathwayId = currentPathwayId;
       performPathwayEvaluationAndUpdate(
-          currentPathwayPriority, /* previousPathwayIdExcludeDurationMs= */ excludeDurationMs);
+          /* previousPathwayIdExcludeDurationMs= */ excludeDurationMs);
       if (!currentPathwayId.equals(previousPathwayId)) {
         excludedPathwayIds.add(previousPathwayId);
         handler.postDelayed(() -> expireExclusion(previousPathwayId), excludeDurationMs);
@@ -164,8 +194,7 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     checkState(isActive);
     excludedPathwayIds.remove(pathwayId);
     if (currentPathwayPriority != null) {
-      performPathwayEvaluationAndUpdate(
-          currentPathwayPriority, /* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
+      performPathwayEvaluationAndUpdate(/* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
     }
   }
 
@@ -175,10 +204,10 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     isActive = false;
   }
 
-  private void performPathwayEvaluationAndUpdate(
-      List<String> pathwayPriority, long previousPathwayIdExcludeDurationMs) {
+  @RequiresNonNull("currentPathwayPriority")
+  private void performPathwayEvaluationAndUpdate(long previousPathwayIdExcludeDurationMs) {
     String previousPathwayId = currentPathwayId;
-    for (String pathwayId : pathwayPriority) {
+    for (String pathwayId : currentPathwayPriority) {
       if (previousPathwayIdExcludeDurationMs != C.TIME_UNSET
           && pathwayId.equals(previousPathwayId)) {
         continue;
@@ -191,6 +220,96 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     if (!currentPathwayId.equals(previousPathwayId)) {
       notifyOnCurrentPathwayUpdated(previousPathwayId, previousPathwayIdExcludeDurationMs);
     }
+  }
+
+  private void performPathwayClones(ImmutableList<SteeringManifest.PathwayClone> pathwayClones) {
+    for (SteeringManifest.PathwayClone pathwayClone : pathwayClones) {
+      if (!availablePathwayIds.contains(pathwayClone.baseId)
+          || availablePathwayIds.contains(pathwayClone.id)) {
+        // We should ignore a PathwayClone if its baseId is unknown to the tracker, or the new
+        // pathwayId of the clone matches any existing pathwayId.
+        continue;
+      }
+      ImmutableList.Builder<Uri> newPlaylistUrls = new ImmutableList.Builder<>();
+      ImmutableList.Builder<Uri> basePlaylistUrls = new ImmutableList.Builder<>();
+      performPathwayClonesForVariants(
+          pathwayClone, variantRedundantGroups, newPlaylistUrls, basePlaylistUrls);
+      performPathwayClonesForRenditions(
+          pathwayClone, videoRenditionRedundantGroups, newPlaylistUrls, basePlaylistUrls);
+      performPathwayClonesForRenditions(
+          pathwayClone, audioRenditionRedundantGroups, newPlaylistUrls, basePlaylistUrls);
+      performPathwayClonesForRenditions(
+          pathwayClone, subtitleRenditionRedundantGroups, newPlaylistUrls, basePlaylistUrls);
+      availablePathwayIds.add(pathwayClone.id);
+      if (callback != null) {
+        callback.onNewPathwayAvailable(
+            pathwayClone.id,
+            pathwayClone.baseId,
+            newPlaylistUrls.build(),
+            basePlaylistUrls.build());
+      }
+    }
+  }
+
+  private void performPathwayClonesForVariants(
+      SteeringManifest.PathwayClone pathwayClone,
+      List<HlsRedundantGroup> variantRedundantGroups,
+      ImmutableList.Builder<Uri> newPlaylistUrls,
+      ImmutableList.Builder<Uri> basePlaylistUrls) {
+    ImmutableMap<String, Uri> perVariantUris = pathwayClone.uriReplacement.perVariantUris;
+    for (HlsRedundantGroup variantRedundantGroup : variantRedundantGroups) {
+      String basePathwayId = pathwayClone.baseId;
+      Uri basePlaylistUrl = checkNotNull(variantRedundantGroup.getPlaylistUrl(basePathwayId));
+      @Nullable
+      Uri newPlaylistUrl =
+          perVariantUris.containsKey(variantRedundantGroup.groupKey.stableId)
+              ? checkNotNull(perVariantUris.get(variantRedundantGroup.groupKey.stableId))
+              : getUriBuilder(basePlaylistUrl, pathwayClone.uriReplacement).build();
+      if (newPlaylistUrl != null) {
+        newPlaylistUrls.add(newPlaylistUrl);
+        basePlaylistUrls.add(basePlaylistUrl);
+      }
+    }
+  }
+
+  private void performPathwayClonesForRenditions(
+      SteeringManifest.PathwayClone pathwayClone,
+      List<HlsRedundantGroup> renditionRedundantGroups,
+      ImmutableList.Builder<Uri> newPlaylistUrls,
+      ImmutableList.Builder<Uri> basePlaylistUrls) {
+    ImmutableMap<String, Uri> perRenditionUris = pathwayClone.uriReplacement.perRenditionUris;
+    for (HlsRedundantGroup renditionRedundantGroup : renditionRedundantGroups) {
+      String basePathwayId = pathwayClone.baseId;
+      Uri basePlaylistUrl = checkNotNull(renditionRedundantGroup.getPlaylistUrl(basePathwayId));
+      @Nullable
+      Uri newPlaylistUrl =
+          perRenditionUris.containsKey(renditionRedundantGroup.groupKey.stableId)
+              ? checkNotNull(perRenditionUris.get(renditionRedundantGroup.groupKey.stableId))
+              : getUriBuilder(basePlaylistUrl, pathwayClone.uriReplacement).build();
+      if (newPlaylistUrl != null) {
+        newPlaylistUrls.add(newPlaylistUrl);
+        basePlaylistUrls.add(basePlaylistUrl);
+      }
+    }
+  }
+
+  private Uri.Builder getUriBuilder(Uri url, SteeringManifest.UriReplacement uriReplacement) {
+    Uri.Builder newUrlBuilder = url.buildUpon().clearQuery();
+    if (uriReplacement.host != null) {
+      newUrlBuilder.authority(uriReplacement.host);
+    }
+    Set<String> existingQueryParamNames = url.getQueryParameterNames();
+    ImmutableMap<String, String> newQueryParams = uriReplacement.params;
+    for (Map.Entry<String, String> param : newQueryParams.entrySet()) {
+      newUrlBuilder.appendQueryParameter(param.getKey(), param.getValue());
+    }
+    for (String existingParamName : existingQueryParamNames) {
+      if (!newQueryParams.containsKey(existingParamName)) {
+        newUrlBuilder.appendQueryParameter(
+            existingParamName, url.getQueryParameter(existingParamName));
+      }
+    }
+    return newUrlBuilder;
   }
 
   private void notifyOnCurrentPathwayUpdated(
@@ -216,9 +335,9 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     @Override
     public void onSteeringManifestUpdated(SteeringManifest steeringManifest) {
       checkState(isActive);
+      performPathwayClones(steeringManifest.pathwayClones);
       currentPathwayPriority = steeringManifest.pathwayPriority;
-      performPathwayEvaluationAndUpdate(
-          currentPathwayPriority, /* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
+      performPathwayEvaluationAndUpdate(/* previousPathwayIdExcludeDurationMs= */ C.TIME_UNSET);
     }
 
     @Override

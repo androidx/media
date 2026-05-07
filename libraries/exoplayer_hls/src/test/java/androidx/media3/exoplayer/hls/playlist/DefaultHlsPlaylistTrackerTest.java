@@ -127,6 +127,13 @@ public class DefaultHlsPlaylistTrackerTest {
           + "#EXTINF:10,\n"
           + "b-segment1.ts\n";
 
+  private static final String CDN_A_CLONE_PLAYLIST =
+      "#EXTM3U\n"
+          + "#EXT-X-VERSION:3\n"
+          + "#EXT-X-TARGETDURATION:10\n"
+          + "#EXTINF:10,\n"
+          + "a-clone-segment1.ts\n";
+
   private MockWebServer mockWebServer;
   private int enqueueCounter;
   private int assertedRequestCounter;
@@ -840,6 +847,51 @@ public class DefaultHlsPlaylistTrackerTest {
 
     assertRequestUrlsCalled(httpUrls);
     assertThat(mediaPlaylists.get(0).segments.get(0).url).isEqualTo("b-segment1.ts");
+  }
+
+  @Test
+  public void start_withContentSteeringAndPathwayClones_switchesToClonedPathway() throws Exception {
+    String steeringManifest =
+        "{\n"
+            + "  \"VERSION\": 1,\n"
+            + "  \"TTL\": 300,\n"
+            + "  \"PATHWAY-PRIORITY\": [\"CDN-A-CLONE\", \"CDN-A\"],\n"
+            + "  \"PATHWAY-CLONES\": [\n"
+            + "    {\n"
+            + "      \"BASE-ID\": \"CDN-A\",\n"
+            + "      \"ID\": \"CDN-A-CLONE\",\n"
+            + "      \"URI-REPLACEMENT\": {\n"
+            + "        \"PARAMS\": {\n"
+            + "          \"param1\": \"value1\"\n"
+            + "        }\n"
+            + "      }\n"
+            + "    }\n"
+            + "  ]\n"
+            + "}";
+    List<HttpUrl> httpUrls =
+        enqueueWebServerResponses(
+            new String[] {
+              "/multivariant.m3u8",
+              "/steering?_HLS_pathway=CDN-A&_HLS_throughput=0",
+              "/cdn-a/720p.m3u8",
+              "/cdn-a/720p.m3u8?param1=value1"
+            },
+            getMockResponse(SAMPLE_M3U8_MULTIVARIANT_WITH_CONTENT_STEERING),
+            new MockResponse().setResponseCode(200).setBody(steeringManifest),
+            new MockResponse().setResponseCode(200).setBody(CDN_A_PLAYLIST),
+            new MockResponse().setResponseCode(200).setBody(CDN_A_CLONE_PLAYLIST));
+
+    // Use the directExecutor() to ensure the order of the playlist arrivals.
+    List<HlsMediaPlaylist> mediaPlaylists =
+        runPlaylistTrackerAndCollectMediaPlaylists(
+            /* dataSourceFactory= */ new DefaultHttpDataSource.Factory(),
+            () -> ReleasableExecutor.from(directExecutor(), e -> {}),
+            Uri.parse(mockWebServer.url("/multivariant.m3u8").toString()),
+            /* awaitedMediaPlaylistCount= */ 2);
+
+    assertRequestUrlsCalled(httpUrls);
+    assertThat(mediaPlaylists.get(0).segments.get(0).url).endsWith("a-segment1.ts");
+    assertThat(mediaPlaylists.get(1).segments.get(0).url).endsWith("a-clone-segment1.ts");
   }
 
   private List<HttpUrl> enqueueWebServerResponses(String[] paths, MockResponse... mockResponses) {

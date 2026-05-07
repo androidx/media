@@ -38,7 +38,6 @@ import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Part;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.RenditionReport;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Segment;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.ContentSteeringInfo;
-import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
@@ -56,8 +55,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** Default implementation for {@link HlsPlaylistTracker}. */
@@ -590,26 +591,26 @@ public final class DefaultHlsPlaylistTracker
    * URL.
    */
   private boolean isVariantUrl(Uri playlistUrl) {
-    List<Variant> variants = multivariantPlaylist.variants;
-    for (int i = 0; i < variants.size(); i++) {
-      if (playlistUrl.equals(variants.get(i).url)) {
-        return true;
-      }
+    @Nullable RedundantGroupBundle bundle = redundantGroupBundles.get(playlistUrl);
+    if (bundle != null) {
+      return bundle.isVariantRedundantGroup;
     }
     return false;
   }
 
   private void createBundles() {
-    createBundles(variantRedundantGroups);
-    createBundles(videoRedundantGroups);
-    createBundles(audioRedundantGroups);
-    createBundles(subtitleRedundantGroups);
+    createBundles(variantRedundantGroups, /* forVariantRedundantGroups= */ true);
+    createBundles(videoRedundantGroups, /* forVariantRedundantGroups= */ false);
+    createBundles(audioRedundantGroups, /* forVariantRedundantGroups= */ false);
+    createBundles(subtitleRedundantGroups, /* forVariantRedundantGroups= */ false);
   }
 
-  private void createBundles(List<HlsRedundantGroup> redundantGroups) {
+  private void createBundles(
+      List<HlsRedundantGroup> redundantGroups, boolean forVariantRedundantGroups) {
     for (int i = 0; i < redundantGroups.size(); i++) {
       HlsRedundantGroup redundantGroup = redundantGroups.get(i);
-      RedundantGroupBundle redundantGroupBundle = new RedundantGroupBundle(redundantGroup);
+      RedundantGroupBundle redundantGroupBundle =
+          new RedundantGroupBundle(redundantGroup, forVariantRedundantGroups);
       for (Uri playlistUrl : redundantGroup.getAllPlaylistUrls()) {
         redundantGroupBundles.put(playlistUrl, redundantGroupBundle);
       }
@@ -724,10 +725,13 @@ public final class DefaultHlsPlaylistTracker
 
     private final HlsRedundantGroup redundantGroup;
     private final Map<Uri, MediaPlaylistBundle> playlistBundles;
+    private final boolean isVariantRedundantGroup;
 
-    private RedundantGroupBundle(HlsRedundantGroup redundantGroup) {
+    private RedundantGroupBundle(
+        HlsRedundantGroup redundantGroup, boolean isVariantRedundantGroup) {
       this.redundantGroup = redundantGroup;
       this.playlistBundles = createMediaPlaylistBundles(redundantGroup);
+      this.isVariantRedundantGroup = isVariantRedundantGroup;
     }
 
     private Map<Uri, MediaPlaylistBundle> createMediaPlaylistBundles(
@@ -739,6 +743,16 @@ public final class DefaultHlsPlaylistTracker
         playlistBundles.put(url, bundle);
       }
       return playlistBundles;
+    }
+
+    private void addPlaylistUrl(String pathwayId, Uri playlistUrl) {
+      redundantGroup.put(pathwayId, playlistUrl);
+      @Nullable MediaPlaylistBundle bundle = playlistBundles.get(playlistUrl);
+      if (bundle == null) {
+        playlistBundles.put(playlistUrl, new MediaPlaylistBundle(playlistUrl, pathwayId));
+      } else {
+        bundle.pathwayIds.add(pathwayId);
+      }
     }
 
     @Nullable
@@ -865,7 +879,7 @@ public final class DefaultHlsPlaylistTracker
       if (forcedNewPathwayId != null) {
         newPathwayId = forcedNewPathwayId;
         for (MediaPlaylistBundle bundle : playlistBundles.values()) {
-          if (bundle.pathwayId.equals(newPathwayId)) {
+          if (bundle.pathwayIds.contains(newPathwayId)) {
             // Reset the excludeUntilMs for the playlist whose corresponding pathwayId is the
             // forced chosen one.
             bundle.excludeUntilMs = 0;
@@ -873,9 +887,9 @@ public final class DefaultHlsPlaylistTracker
         }
       } else {
         for (MediaPlaylistBundle bundle : playlistBundles.values()) {
-          if (!bundle.pathwayId.equals(redundantGroup.getCurrentPathwayId())
+          if (!bundle.pathwayIds.contains(redundantGroup.getCurrentPathwayId())
               && currentTimeMs > bundle.excludeUntilMs) {
-            newPathwayId = bundle.pathwayId;
+            newPathwayId = bundle.pathwayIds.iterator().next();
             break;
           }
         }
@@ -911,7 +925,7 @@ public final class DefaultHlsPlaylistTracker
     private static final String SKIP_PARAM = "_HLS_skip";
 
     private final Uri playlistUrl;
-    private final String pathwayId;
+    private final Set<String> pathwayIds;
     private final Loader mediaPlaylistLoader;
     private final DataSource mediaPlaylistDataSource;
 
@@ -926,7 +940,8 @@ public final class DefaultHlsPlaylistTracker
 
     private MediaPlaylistBundle(Uri playlistUrl, String pathwayId) {
       this.playlistUrl = playlistUrl;
-      this.pathwayId = pathwayId;
+      this.pathwayIds = new HashSet<>();
+      pathwayIds.add(pathwayId);
       mediaPlaylistLoader =
           downloadExecutorSupplier != null
               ? new Loader(downloadExecutorSupplier.get())
@@ -1357,6 +1372,22 @@ public final class DefaultHlsPlaylistTracker
               redundantGroupBundle.excludePlaylist(
                   currentPlaylistUrlToExclude, oldPathwayExcludeDurationMs, currentPathwayId);
         }
+      }
+    }
+
+    @Override
+    public void onNewPathwayAvailable(
+        String newPathwayId,
+        String basePathwayId,
+        ImmutableList<Uri> newPlaylistUrls,
+        ImmutableList<Uri> basePlaylistUrls) {
+      checkState(newPlaylistUrls.size() == basePlaylistUrls.size());
+      for (int i = 0; i < newPlaylistUrls.size(); i++) {
+        RedundantGroupBundle redundantGroupBundle =
+            checkNotNull(redundantGroupBundles.get(basePlaylistUrls.get(i)));
+        Uri newPlaylistUrl = newPlaylistUrls.get(i);
+        redundantGroupBundle.addPlaylistUrl(newPathwayId, newPlaylistUrl);
+        redundantGroupBundles.put(newPlaylistUrl, redundantGroupBundle);
       }
     }
   }

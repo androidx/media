@@ -212,7 +212,7 @@
         across media playlist updates if the `#EXT-X-MAP` tag was not repeated
         in subsequent updates
         ([#3105](https://github.com/androidx/media/issues/3105)).
-    *   Add support for HLS Content Steering
+    *   Add support for HLS Content Steering and Pathway Cloning
         ([#1689](https://github.com/androidx/media/issues/1689)).
 *   DASH extension:
     *   Fix crash in `SampleQueue` when seeking into a chunk that is currently
