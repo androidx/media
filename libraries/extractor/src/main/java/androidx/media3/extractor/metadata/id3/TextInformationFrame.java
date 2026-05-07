@@ -181,6 +181,18 @@ public final class TextInformationFrame extends Id3Frame {
       case "TSST":
         builder.setDiscSubtitle(values.get(0));
         break;
+      case "TPOS":
+        String[] discNumbers = Util.split(values.get(0), "/");
+        try {
+          int discNumber = Integer.parseInt(discNumbers[0]);
+          @Nullable
+          Integer totalDiscCount =
+              discNumbers.length > 1 ? Integer.parseInt(discNumbers[1]) : null;
+          builder.setDiscNumber(discNumber).setTotalDiscCount(totalDiscCount);
+        } catch (NumberFormatException e) {
+          // Do nothing, invalid input.
+        }
+        break;
       default:
         break;
     }
