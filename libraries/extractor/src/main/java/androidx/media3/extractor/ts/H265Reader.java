@@ -173,15 +173,17 @@ public final class H265Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished(boolean isEndOfInput) {
+  public void packetFinished() {
     assertTracksCreated();
-    if (isEndOfInput) {
-      seiReader.flush();
-      // Simulate end of current NAL unit and start an unspecified one to trigger output of current
-      // sample
-      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
-      startNalUnit(totalBytesWritten, 0, NalUnitUtil.H265_NAL_UNIT_TYPE_UNSPECIFIED, pesTimeUs);
-    }
+  }
+
+  @Override
+  public void endOfInputReached() {
+    seiReader.flush();
+    // Simulate end of current NAL unit and start an unspecified one to trigger output of current
+    // sample
+    endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+    startNalUnit(totalBytesWritten, 0, NalUnitUtil.H265_NAL_UNIT_TYPE_UNSPECIFIED, pesTimeUs);
   }
 
   @RequiresNonNull("sampleReader")

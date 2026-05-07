@@ -67,5 +67,14 @@ public interface ElementaryStreamReader {
   void consume(ParsableByteArray data) throws ParserException;
 
   /** Called when a packet ends. */
-  void packetFinished(boolean isEndOfInput);
+  default void packetFinished() {
+    // Do nothing.
+  }
+
+  /**
+   * Called when there will be no further packets (unless a seek occurs) because the stream ended.
+   */
+  default void endOfInputReached() {
+    // Do nothing.
+  }
 }

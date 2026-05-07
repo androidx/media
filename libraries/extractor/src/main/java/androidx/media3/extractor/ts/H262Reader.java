@@ -220,10 +220,14 @@ public final class H262Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished(boolean isEndOfInput) {
+  public void packetFinished() {
     // Asserts that createTracks has been called.
     checkNotNull(output);
-    if (isEndOfInput) {
+  }
+
+  @Override
+  public void endOfInputReached() {
+    if (sampleTimeUs != C.TIME_UNSET) {
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
       int size = (int) (totalBytesWritten - samplePosition);
       output.sampleMetadata(sampleTimeUs, flags, size, /* offset= */ 0, /* cryptoData= */ null);

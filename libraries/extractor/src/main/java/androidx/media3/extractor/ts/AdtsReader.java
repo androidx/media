@@ -202,11 +202,6 @@ public final class AdtsReader implements ElementaryStreamReader {
     }
   }
 
-  @Override
-  public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
-  }
-
   /**
    * Returns the duration in microseconds per sample, or {@link C#TIME_UNSET} if the sample duration
    * is not available.

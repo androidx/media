@@ -37,7 +37,7 @@ MediaCodecAdapter (media3.audio.mpegl2):
       rendered = false
 MediaCodecAdapter (media3.video.mpeg2):
   inputBuffers:
-    count = 3
+    count = 4
     input buffer #0:
       timeUs = 1000000033366
       contents = length 20711, hash 34341E8
@@ -45,11 +45,14 @@ MediaCodecAdapter (media3.video.mpeg2):
       timeUs = 1000000066733
       contents = length 18112, hash EC44B35B
     input buffer #2:
+      timeUs = 1000000100100
+      contents = length 6203, hash 6D666BC7
+    input buffer #3:
       timeUs = 0
       flags = 4
       contents = length 0, hash 1
   outputBuffers:
-    count = 2
+    count = 3
     output buffer #0:
       timeUs = 1000000033366
       size = 20711
@@ -57,6 +60,10 @@ MediaCodecAdapter (media3.video.mpeg2):
     output buffer #1:
       timeUs = 1000000066733
       size = 18112
+      rendered = true
+    output buffer #2:
+      timeUs = 1000000100100
+      size = 6203
       rendered = true
 AudioSink:
   buffer count = 4

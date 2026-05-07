@@ -191,16 +191,25 @@ public final class PsExtractor implements Extractor {
     long peekBytesLeft =
         inputLength != C.LENGTH_UNSET ? inputLength - input.getPeekPosition() : C.LENGTH_UNSET;
     if (peekBytesLeft != C.LENGTH_UNSET && peekBytesLeft < 4) {
+      for (int i = 0; i < psPayloadReaders.size(); i++) {
+        psPayloadReaders.valueAt(i).consumeEndOfInput();
+      }
       return RESULT_END_OF_INPUT;
     }
     // First peek and check what type of start code is next.
     if (!input.peekFully(psPacketBuffer.getData(), 0, 4, true)) {
+      for (int i = 0; i < psPayloadReaders.size(); i++) {
+        psPayloadReaders.valueAt(i).consumeEndOfInput();
+      }
       return RESULT_END_OF_INPUT;
     }
 
     psPacketBuffer.setPosition(0);
     int nextStartCode = psPacketBuffer.readInt();
     if (nextStartCode == MPEG_PROGRAM_END_CODE) {
+      for (int i = 0; i < psPayloadReaders.size(); i++) {
+        psPayloadReaders.valueAt(i).consumeEndOfInput();
+      }
       return RESULT_END_OF_INPUT;
     } else if (nextStartCode == PACK_START_CODE) {
       // Now peek the rest of the pack_header.
@@ -360,7 +369,11 @@ public final class PsExtractor implements Extractor {
       pesPayloadReader.packetStarted(timeUs, TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR);
       pesPayloadReader.consume(data);
       // We always have complete PES packets with program stream.
-      pesPayloadReader.packetFinished(/* isEndOfInput= */ false);
+      pesPayloadReader.packetFinished();
+    }
+
+    public void consumeEndOfInput() {
+      pesPayloadReader.endOfInputReached();
     }
 
     private void parseHeader() {

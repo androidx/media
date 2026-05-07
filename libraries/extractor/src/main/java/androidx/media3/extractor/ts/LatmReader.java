@@ -157,11 +157,6 @@ public final class LatmReader implements ElementaryStreamReader {
     }
   }
 
-  @Override
-  public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
-  }
-
   /**
    * Parses an AudioMuxElement as defined in 14496-3:2009, Section 1.7.3.1, Table 1.41.
    *
