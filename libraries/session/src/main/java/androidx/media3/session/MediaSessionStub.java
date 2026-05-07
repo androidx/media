@@ -1265,14 +1265,18 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     List<MediaItem> mediaItemList;
-    try {
-      mediaItemList =
-          BundleCollectionUtil.fromBundleList(
-              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
-              BundleListRetriever.getList(mediaItemsRetriever));
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
-      return;
+    if (mediaItemsRetriever instanceof MediaItem.ListInProcessBinder) {
+      mediaItemList = ((MediaItem.ListInProcessBinder) mediaItemsRetriever).getMediaItemList();
+    } else {
+      try {
+        mediaItemList =
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+                BundleListRetriever.getList(mediaItemsRetriever));
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
+        return;
+      }
     }
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controllerInfo,
@@ -1310,14 +1314,18 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     List<MediaItem> mediaItemList;
-    try {
-      mediaItemList =
-          BundleCollectionUtil.fromBundleList(
-              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
-              BundleListRetriever.getList(mediaItemsRetriever));
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
-      return;
+    if (mediaItemsRetriever instanceof MediaItem.ListInProcessBinder) {
+      mediaItemList = ((MediaItem.ListInProcessBinder) mediaItemsRetriever).getMediaItemList();
+    } else {
+      try {
+        mediaItemList =
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+                BundleListRetriever.getList(mediaItemsRetriever));
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
+        return;
+      }
     }
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controllerInfo,
@@ -1441,14 +1449,18 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     List<MediaItem> mediaItems;
-    try {
-      mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
-              BundleListRetriever.getList(mediaItemsRetriever));
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
-      return;
+    if (mediaItemsRetriever instanceof MediaItem.ListInProcessBinder) {
+      mediaItems = ((MediaItem.ListInProcessBinder) mediaItemsRetriever).getMediaItemList();
+    } else {
+      try {
+        mediaItems =
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+                BundleListRetriever.getList(mediaItemsRetriever));
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
+        return;
+      }
     }
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controllerInfo,
@@ -1475,14 +1487,18 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     List<MediaItem> mediaItems;
-    try {
-      mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
-              BundleListRetriever.getList(mediaItemsRetriever));
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
-      return;
+    if (mediaItemsRetriever instanceof MediaItem.ListInProcessBinder) {
+      mediaItems = ((MediaItem.ListInProcessBinder) mediaItemsRetriever).getMediaItemList();
+    } else {
+      try {
+        mediaItems =
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+                BundleListRetriever.getList(mediaItemsRetriever));
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
+        return;
+      }
     }
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controllerInfo,
@@ -1626,14 +1642,18 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     ImmutableList<MediaItem> mediaItems;
-    try {
-      mediaItems =
-          BundleCollectionUtil.fromBundleList(
-              bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
-              BundleListRetriever.getList(mediaItemsRetriever));
-    } catch (RuntimeException e) {
-      Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
-      return;
+    if (mediaItemsRetriever instanceof MediaItem.ListInProcessBinder) {
+      mediaItems = ((MediaItem.ListInProcessBinder) mediaItemsRetriever).getMediaItemList();
+    } else {
+      try {
+        mediaItems =
+            BundleCollectionUtil.fromBundleList(
+                bundle -> MediaItem.fromBundle(bundle, controllerInfo.getInterfaceVersion()),
+                BundleListRetriever.getList(mediaItemsRetriever));
+      } catch (RuntimeException e) {
+        Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
+        return;
+      }
     }
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controllerInfo,
