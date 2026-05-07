@@ -17,6 +17,7 @@ package androidx.media3.container;
 
 import static androidx.media3.container.ObuParser.OBU_FRAME;
 import static androidx.media3.container.ObuParser.OBU_FRAME_HEADER;
+import static androidx.media3.container.ObuParser.OBU_METADATA;
 import static androidx.media3.container.ObuParser.OBU_PADDING;
 import static androidx.media3.container.ObuParser.OBU_SEQUENCE_HEADER;
 import static androidx.media3.container.ObuParser.OBU_TEMPORAL_DELIMITER;
@@ -50,6 +51,16 @@ public class ObuParserTest {
               0x32, 0x1A, 0x30, 0xC0, 0x00, 0x1D, 0x66, 0x68, 0x46, 0xC9, 0x38, 0x00, 0x60, 0x10,
               0x20, 0x80, 0x20, 0x00, 0x00, 0x01, 0x8B, 0x7A, 0x87, 0xF9, 0xAA, 0x2D, 0x0F, 0x2C));
 
+  private static final ByteBuffer TEMPORAL_DELIMITER_SEQUENCE_HEADER_AND_METADATA =
+      ByteBuffer.wrap(
+          createByteArray(
+              0x12, 0x00, 0x0a, 0x0e, 0x00, 0x00, 0x00, 0x2d, 0x4c, 0xff, 0xb3, 0xcc, 0xaf, 0x95,
+              0x09, 0x12, 0x09, 0x04, 0x2a, 0x34, 0x04, 0xb5, 0x00, 0x90, 0x00, 0x01, 0xe0, 0x40,
+              0x59, 0xdc, 0x1b, 0x00, 0x00, 0x00, 0x28, 0x03, 0xe8, 0x04, 0xe2, 0x06, 0xd6, 0x09,
+              0xc4, 0x0f, 0xa0, 0x13, 0x3e, 0x27, 0x10, 0x2a, 0x08, 0x33, 0x48, 0x3f, 0x71, 0x51,
+              0x60, 0x59, 0xdc, 0x46, 0x50, 0x33, 0x93, 0x32, 0xf2, 0x36, 0x71, 0x3b, 0x19, 0x3c,
+              0xcc, 0x80));
+
   @Test
   public void split_sequenceHeaderAndFrame_parsesCorrectTypesAndSizes() {
     List<ObuParser.Obu> obuList = ObuParser.split(SEQUENCE_HEADER_AND_FRAME);
@@ -59,6 +70,7 @@ public class ObuParserTest {
     assertThat(obuList.get(0).payload.remaining()).isEqualTo(14);
     assertThat(obuList.get(1).type).isEqualTo(OBU_FRAME);
     assertThat(obuList.get(1).payload.remaining()).isEqualTo(50);
+    reconstructAndVerify(SEQUENCE_HEADER_AND_FRAME, obuList);
   }
 
   @Test
@@ -73,6 +85,7 @@ public class ObuParserTest {
     assertThat(obuList.get(1).payload.remaining()).isEqualTo(1);
     assertThat(obuList.get(2).type).isEqualTo(OBU_PADDING);
     assertThat(obuList.get(2).payload.remaining()).isEqualTo(3);
+    reconstructAndVerify(DELIMITER_AND_HEADER_AND_PADDING_WITH_EXTENSION_AND_MISSING_SIZE, obuList);
   }
 
   @Test
@@ -107,6 +120,20 @@ public class ObuParserTest {
     List<ObuParser.Obu> obuList = ObuParser.split(truncatedSample);
 
     assertThat(obuList).isEmpty();
+  }
+
+  @Test
+  public void split_temporalDelimiterSequenceHeaderAndMetadata() {
+    List<ObuParser.Obu> obuList = ObuParser.split(TEMPORAL_DELIMITER_SEQUENCE_HEADER_AND_METADATA);
+
+    assertThat(obuList).hasSize(3);
+    assertThat(obuList.get(0).type).isEqualTo(OBU_TEMPORAL_DELIMITER);
+    assertThat(obuList.get(0).payload.remaining()).isEqualTo(0);
+    assertThat(obuList.get(1).type).isEqualTo(OBU_SEQUENCE_HEADER);
+    assertThat(obuList.get(1).payload.remaining()).isEqualTo(14);
+    assertThat(obuList.get(2).type).isEqualTo(OBU_METADATA);
+    assertThat(obuList.get(2).payload.remaining()).isEqualTo(52);
+    reconstructAndVerify(TEMPORAL_DELIMITER_SEQUENCE_HEADER_AND_METADATA, obuList);
   }
 
   @Test
@@ -170,5 +197,24 @@ public class ObuParserTest {
     ObuParser.FrameHeader frameHeader = ObuParser.FrameHeader.parse(sequenceHeader, frameObu);
 
     assertThat(frameHeader.isDependedOn()).isFalse();
+  }
+
+  @Test
+  public void metadata_parses() {
+    ObuParser.Obu metadataObu =
+        ObuParser.split(TEMPORAL_DELIMITER_SEQUENCE_HEADER_AND_METADATA).get(2);
+    ObuParser.Metadata metadata = ObuParser.Metadata.parse(metadataObu);
+    assertThat(metadata.type).isEqualTo(ObuParser.Metadata.METADATA_TYPE_ITUT_T35);
+    assertThat(metadata.payload.remaining()).isEqualTo(51);
+  }
+
+  private static void reconstructAndVerify(ByteBuffer expectedObuBytes, List<ObuParser.Obu> obus) {
+    ByteBuffer buffer = ByteBuffer.allocate(expectedObuBytes.remaining());
+    for (ObuParser.Obu obu : obus) {
+      buffer.put(obu.header);
+      buffer.put(obu.payload);
+    }
+    buffer.flip();
+    assertThat(buffer).isEqualTo(expectedObuBytes);
   }
 }

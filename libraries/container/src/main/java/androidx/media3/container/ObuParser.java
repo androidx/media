@@ -59,11 +59,15 @@ public final class ObuParser {
     /** The OBU type. See {@code obu_type} in the AV1 spec. */
     public final int type;
 
+    /** The OBU header. */
+    public final ByteBuffer header;
+
     /** The OBU data, excluding the header. */
     public final ByteBuffer payload;
 
-    private Obu(int type, ByteBuffer payload) {
+    private Obu(int type, ByteBuffer header, ByteBuffer payload) {
       this.type = type;
+      this.header = header;
       this.payload = payload;
     }
   }
@@ -90,6 +94,7 @@ public final class ObuParser {
     while (readOnlySample.hasRemaining()) {
       int obuType;
       int obuSize;
+      ByteBuffer header = readOnlySample.duplicate();
       try {
         int headerByte = readOnlySample.get();
         obuType = (headerByte >> 3) & 0xF;
@@ -115,9 +120,10 @@ public final class ObuParser {
         // The input sample was truncated and doesn't hold the full OBU.
         break;
       }
+      header.limit(readOnlySample.position());
       ByteBuffer payload = readOnlySample.duplicate();
       payload.limit(readOnlySample.position() + obuSize);
-      obuList.add(new Obu(obuType, payload));
+      obuList.add(new Obu(obuType, header, payload));
       readOnlySample.position(readOnlySample.position() + obuSize);
     }
     return obuList;
@@ -499,6 +505,47 @@ public final class ObuParser {
         refreshFrameFlags = obuData.readBits(8);
       }
       isDependedOn = refreshFrameFlags != 0;
+    }
+  }
+
+  /** An AV1 Metadata OBU */
+  public static final class Metadata {
+    /** Metadata type HDR Content Light Level. */
+    public static final int METADATA_TYPE_HDR_CLL = 1;
+
+    /** Metadata type HDR Mastering Display Color Volume. */
+    public static final int METADATA_TYPE_HDR_MDCV = 2;
+
+    /** Metadata type Scalability. */
+    public static final int METADATA_TYPE_SCALABILITY = 3;
+
+    /** Metadata type ITUT T35. */
+    public static final int METADATA_TYPE_ITUT_T35 = 4;
+
+    /** Metadata type Timecode. */
+    public static final int METADATA_TYPE_TIMECODE = 5;
+
+    /** The Metadata type. See {@code metadata_type} in the AV1 spec. */
+    public final int type;
+
+    /** The Metadata payload. */
+    public final ByteBuffer payload;
+
+    /**
+     * Returns a {@link Metadata} parsed from the input OBU.
+     *
+     * @param obu The input OBU with type {@link #OBU_METADATA}.
+     */
+    public static Metadata parse(Obu obu) {
+      checkArgument(obu.type == OBU_METADATA);
+      ByteBuffer buffer = obu.payload.asReadOnlyBuffer();
+      int type = leb128(buffer);
+      return new Metadata(type, buffer);
+    }
+
+    private Metadata(int type, ByteBuffer payload) {
+      this.type = type;
+      this.payload = payload;
     }
   }
 
