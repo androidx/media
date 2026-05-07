@@ -760,7 +760,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               + ", offset="
               + offsetUs);
     }
-    long durationUs = getPeriodDurationUs();
+
+    long durationUs = getStreamEndPositionUs();
     @SampleStream.Flags int streamFlags = checkNotNull(getStream()).getFlags();
     if (outputStreamInfo.streamOffsetUs == C.TIME_UNSET) {
       // This is the first stream.
@@ -835,7 +836,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Override
   protected void onTimelineChanged(Timeline timeline) {
     OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
-    lastOutputStreamInfo.durationUs = getPeriodDurationUs();
+    lastOutputStreamInfo.durationUs = getStreamEndPositionUs();
   }
 
   @Override
@@ -1656,8 +1657,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       waitingForFirstSampleInFormat = false;
     }
     largestQueuedPresentationTimeUs = max(largestQueuedPresentationTimeUs, presentationTimeUs);
-    if (getPeriodDurationUs() == C.TIME_UNSET
-        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs < getPeriodDurationUs()) {
+    long streamEndPositionUs = getStreamEndPositionUs();
+    if (streamEndPositionUs == C.TIME_UNSET
+        || presentationTimeUs - getLastOutputStreamInfo().streamOffsetUs < streamEndPositionUs) {
       largestQueuedPresentationTimeWithinDurationUs =
           max(largestQueuedPresentationTimeWithinDurationUs, presentationTimeUs);
     }

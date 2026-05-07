@@ -21,10 +21,13 @@ import static java.lang.Math.max;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -32,6 +35,7 @@ import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
@@ -85,7 +89,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private boolean throwRendererExceptionIsExecuting;
   private Timeline timeline;
   @Nullable private MediaSource.MediaPeriodId mediaPeriodId;
-  private long periodDurationUs;
+  private long streamEndPositionUs;
 
   @GuardedBy("lock")
   @Nullable
@@ -101,7 +105,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     formatHolder = new FormatHolder();
     readingPositionUs = C.TIME_END_OF_SOURCE;
     timeline = Timeline.EMPTY;
-    periodDurationUs = C.TIME_UNSET;
+    streamEndPositionUs = C.TIME_UNSET;
   }
 
   @Override
@@ -256,7 +260,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     streamIsFinal = false;
     onDisabled();
     mediaPeriodId = null;
-    periodDurationUs = C.TIME_UNSET;
+    streamEndPositionUs = C.TIME_UNSET;
   }
 
   @Override
@@ -517,14 +521,22 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   /**
-   * Returns the duration of the {@link Timeline.Period} producing the stream, in microseconds, or
+   * Returns the end position of the content or ad period producing the stream, in microseconds, or
    * {@link C#TIME_UNSET} if unknown.
    *
-   * <p>The returned value is retrieved from the {@linkplain #getTimeline() timeline} and the
-   * {@linkplain #getMediaPeriodId() period ID}.
+   * <p>The returned value is retrieved from the {@linkplain #getTimeline() timeline}, the
+   * {@linkplain #getMediaPeriodId() period ID} and the {@link AdPlaybackState} of the corresponding
+   * {@link Timeline.Period}.
+   *
+   * <p>If no ads are involved, the end position is the duration of the {@link Timeline.Period}. For
+   * periods into which an ad is inserted the end position is the start position of the next
+   * following ad as defined in the timeline.
+   *
+   * <p>For ads, the end position is the duration of the ad as declared in the timeline or {@link
+   * C#TIME_UNSET} if unknown.
    */
-  protected final long getPeriodDurationUs() {
-    return periodDurationUs;
+  protected final long getStreamEndPositionUs() {
+    return streamEndPositionUs;
   }
 
   /**
@@ -666,17 +678,30 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   private void updatePeriodInfo() {
     if (timeline.isEmpty() || mediaPeriodId == null) {
-      periodDurationUs = C.TIME_UNSET;
+      streamEndPositionUs = C.TIME_UNSET;
       return;
     }
+    MediaPeriodId mediaPeriodId = this.mediaPeriodId;
     int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
     // TODO: b/460354805 - Remove this workaround. The mediaPeriodId should always be inside the
     // Timeline.
     if (periodIndex == C.INDEX_UNSET) {
-      periodDurationUs = C.TIME_UNSET;
+      streamEndPositionUs = C.TIME_UNSET;
       return;
     }
-    Timeline.Period period = timeline.getPeriod(periodIndex, new Timeline.Period());
-    periodDurationUs = period.durationUs;
+
+    Period period = timeline.getPeriod(periodIndex, new Period());
+    streamEndPositionUs = period.durationUs;
+    if (mediaPeriodId.adGroupIndex != C.INDEX_UNSET) {
+      // Use the ad duration in case the current stream is an ad period.
+      AdGroup adGroup = period.adPlaybackState.getAdGroup(mediaPeriodId.adGroupIndex);
+      streamEndPositionUs = adGroup.durationsUs[mediaPeriodId.adIndexInAdGroup];
+    } else if (mediaPeriodId.nextAdGroupIndex != C.INDEX_UNSET) {
+      AdGroup adGroup = period.adPlaybackState.getAdGroup(mediaPeriodId.nextAdGroupIndex);
+      if (adGroup.timeUs != C.TIME_END_OF_SOURCE) {
+        // Return next ad group time if not a post-roll. For post-rolls we can use the duration.
+        streamEndPositionUs = adGroup.timeUs;
+      }
+    }
   }
 }

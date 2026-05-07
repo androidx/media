@@ -400,14 +400,14 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
           new OutputStreamInfo(
               /* previousStreamLastBufferTimeUs= */ C.TIME_UNSET,
               offsetUs,
-              getPeriodDurationUs(),
+              /* durationUs= */ getStreamEndPositionUs(),
               streamFlags);
     } else {
       pendingOutputStreamChanges.add(
           new OutputStreamInfo(
               /* previousStreamLastBufferTimeUs= */ largestQueuedPresentationTimeUs,
               offsetUs,
-              getPeriodDurationUs(),
+              /* durationUs= */ getStreamEndPositionUs(),
               streamFlags));
     }
   }
@@ -416,7 +416,7 @@ public abstract class DecoderVideoRenderer extends BaseRenderer implements Decod
   protected void onTimelineChanged(Timeline timeline) {
     OutputStreamInfo lastOutputStreamInfo = getLastOutputStreamInfo();
     if (lastOutputStreamInfo != null) {
-      lastOutputStreamInfo.durationUs = getPeriodDurationUs();
+      lastOutputStreamInfo.durationUs = getStreamEndPositionUs();
     }
   }
 

@@ -1688,10 +1688,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected final boolean shouldFlushCodec() {
     Format inputFormat = getCodecInputFormat();
     boolean skippingFlushMayCauseOverflow = true;
-    long periodDurationUs = getPeriodDurationUs();
-    if (periodDurationUs != C.TIME_UNSET) {
-      long maxPotentialSkippedFlushOffset = periodDurationUs + 1;
-      long maxPotentialSampleTimestamp = getOutputStreamOffsetUs() + periodDurationUs;
+    long streamEndPositionUs = getStreamEndPositionUs();
+    if (streamEndPositionUs != C.TIME_UNSET) {
+      long maxPotentialSkippedFlushOffset = streamEndPositionUs + 1;
+      long maxPotentialSampleTimestamp = getOutputStreamOffsetUs() + streamEndPositionUs;
       skippingFlushMayCauseOverflow =
           getSkippedFlushOffsetUs() + maxPotentialSkippedFlushOffset
               > Long.MAX_VALUE - maxPotentialSampleTimestamp;
@@ -1828,12 +1828,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
     // TODO: b/352276461 - improve buffer.isLastSample() logic.
     // This is a temporary workaround: do not skip buffers close to the period end.
-    if (getPeriodDurationUs() == C.TIME_UNSET) {
+    if (getStreamEndPositionUs() == C.TIME_UNSET) {
       // Duration unknown: probably last sample.
       return true;
     }
     long presentationTimeUs = buffer.timeUs - getOutputStreamOffsetUs();
-    return getPeriodDurationUs() - presentationTimeUs <= OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US;
+    return getStreamEndPositionUs() - presentationTimeUs
+        <= OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US;
   }
 
   private boolean isBufferBeforeStartTime(DecoderInputBuffer buffer) {

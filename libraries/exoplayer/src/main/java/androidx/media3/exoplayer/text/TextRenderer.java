@@ -348,10 +348,10 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       }
     } else if (readResult == C.RESULT_BUFFER_READ || readResult == C.RESULT_NOTHING_READ) {
       // EOS signal available, only consume if close enough to the stream duration.
-      long periodDurationUs = getPeriodDurationUs();
+      long streamEndPositionUs = getStreamEndPositionUs();
       long positionInPeriodUs = positionUs - getStreamOffsetUs();
-      if (periodDurationUs == C.TIME_UNSET
-          || positionInPeriodUs < periodDurationUs - MAX_READ_AHEAD_DURATION_US) {
+      if (streamEndPositionUs == C.TIME_UNSET
+          || positionInPeriodUs < streamEndPositionUs - MAX_READ_AHEAD_DURATION_US) {
         return false;
       }
     }
@@ -477,10 +477,10 @@ public final class TextRenderer extends BaseRenderer implements Callback {
           }
         } else if (result == C.RESULT_BUFFER_READ || result == C.RESULT_NOTHING_READ) {
           // EOS signal available, only consume if close enough to the stream duration.
-          long periodDurationUs = getPeriodDurationUs();
+          long streamEndPositionUs = getStreamEndPositionUs();
           long positionInPeriodUs = positionUs - getStreamOffsetUs();
-          if (periodDurationUs == C.TIME_UNSET
-              || positionInPeriodUs < periodDurationUs - MAX_READ_AHEAD_DURATION_US) {
+          if (streamEndPositionUs == C.TIME_UNSET
+              || positionInPeriodUs < streamEndPositionUs - MAX_READ_AHEAD_DURATION_US) {
             return;
           }
         }

@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -520,5 +521,59 @@ public class MetadataRendererTest {
         tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: %s", tagSize);
     id3Bytes[tagSizeIndex] = (byte) tagSize;
     return id3Bytes;
+  }
+
+  @Test
+  public void renderMetadata_withNextAdGroup_doesReadEndOfStream() throws Exception {
+    EventMessage emsg =
+        new EventMessage(
+            "urn:test-scheme-id",
+            /* value= */ "",
+            /* durationMs= */ 1,
+            /* id= */ 0,
+            "Test data".getBytes(UTF_8));
+    byte[] encodedEmsg = eventMessageEncoder.encode(emsg);
+    MetadataRenderer renderer = new MetadataRenderer(metadata -> {}, /* outputLooper= */ null);
+    long adGroupTimeUs = 2_000_000L;
+    AdPlaybackState adPlaybackState =
+        FakeTimeline.createAdPlaybackState(/* adsPerAdGroup= */ 1, adGroupTimeUs);
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDurationUs(5_000_000)
+                .setWindowPositionInFirstPeriodUs(0)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    renderer.setTimeline(timeline);
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(
+            ImmutableList.of(
+                sample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME, encodedEmsg),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId =
+        new MediaSource.MediaPeriodId(
+            timeline.getUidOfPeriod(0), /* windowSequenceNumber= */ 0, /* nextAdGroupIndex= */ 0);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {EMSG_FORMAT},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 123_000_000,
+        mediaPeriodId);
+    renderer.setCurrentStreamFinal();
+    renderer.start();
+
+    renderer.render(/* positionUs= */ 123_500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.getReadingPositionUs()).isEqualTo(123_100_000);
+
+    renderer.render(/* positionUs= */ 124_500_000, /* elapsedRealtimeUs= */ 0);
+
+    assertThat(renderer.getReadingPositionUs()).isEqualTo(C.TIME_END_OF_SOURCE);
+    assertThat(renderer.isEnded()).isTrue();
   }
 }
