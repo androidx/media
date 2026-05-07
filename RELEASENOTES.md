@@ -132,6 +132,8 @@
         framework issue existing prior to API 31.
 *   Text:
 *   Metadata:
+    *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`
+        and Vorbis `DISCSUBTITLE` data.
 *   Image:
     *   Fix issue in scrubbing mode where image updates would only take effect
         when the user "stops scrubbing"
