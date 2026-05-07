@@ -1614,8 +1614,9 @@ public class MediaSession {
      *
      * <p>Called when a controller is about to connect to this session.
      *
-     * <p>If this callback is not overridden, it allows all controllers to connect. All session and
-     * player commands are made available by default.
+     * <p>If this callback is not overridden, it allows all controllers to connect. If the
+     * controller is {@linkplain ControllerInfo#isTrusted() trusted}, all session and player
+     * commands are made available. Untrusted controllers obtain read access only.
      *
      * <p>Return a {@link ConnectionResult result} for the controller by using {@link
      * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
@@ -1654,8 +1655,9 @@ public class MediaSession {
     /**
      * Called when a controller is about to connect to this session.
      *
-     * <p>If this callback is not overridden, it allows all controllers to connect. All session and
-     * player commands are made available by default.
+     * <p>If this callback is not overridden, it allows all controllers to connect. If the
+     * controller is {@linkplain ControllerInfo#isTrusted() trusted}, all session and player
+     * commands are made available. Untrusted controllers obtain read access only.
      *
      * <p>Return a {@link ConnectionResult result} for the controller by using {@link
      * ConnectionResult#accept(SessionCommands, Player.Commands)} or the {@link
@@ -1700,13 +1702,7 @@ public class MediaSession {
     default ListenableFuture<ConnectionResult> onConnectAsync(
         MediaSession session, ControllerInfo controller) {
       return immediateFuture(
-          new ConnectionResult.AcceptedResultBuilder(session, controller)
-              .setAvailableSessionCommands(
-                  session instanceof MediaLibrarySession
-                      ? ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-                      : ConnectionResult.DEFAULT_SESSION_COMMANDS)
-              .setAvailablePlayerCommands(ConnectionResult.DEFAULT_PLAYER_COMMANDS)
-              .build());
+          new ConnectionResult.AcceptedResultBuilder(session, controller).build());
     }
 
     /**
