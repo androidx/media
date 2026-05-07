@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Copyright 2025 The Android Open Source Project
+    Copyright 2026 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
     limitations under the License.
   -->
 <resources>
-    <style name="AppThemeDialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
-        <item name="colorPrimary">@color/dialog_color_primary</item>
-        <item name="colorPrimaryDark">@color/dialog_color_primary_dark</item>
-    </style>
+    <color name="media_route_button_background">#000000</color>
+    <color name="dialog_color_primary">#636363</color>
+    <color name="dialog_color_primary_dark">#d3d3d3</color>
 </resources>

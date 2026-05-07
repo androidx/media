@@ -19,4 +19,16 @@
     <item name="colorPrimary">@color/primary</item>
     <item name="colorPrimaryDark">@color/primary_dark</item>
   </style>
+  <style name="Theme.Test_Opaque" parent="Theme.AppCompat.DayNight">
+    <item name="colorPrimary">@color/opaque_primary</item>
+    <item name="colorPrimaryDark">#FFFFFFFF</item>
+  </style>
+  <style name="Theme.Test_TranslucentPrimary" parent="Theme.AppCompat.DayNight">
+    <item name="colorPrimary">@color/translucent_primary</item>
+    <item name="colorPrimaryDark">#FFFFFFFF</item>
+  </style>
+  <style name="Theme.Default_AppCompat" parent="Theme.AppCompat.DayNight"/>
+  <style name="Theme.Default_material3" parent="Theme.Material3.DayNight"/>
+  <style name="Theme.Default_material_components" parent="Theme.MaterialComponents.DayNight"/>
+  <style name="Theme.Test_NoPrimaryColorAttributes" parent="android:Theme.Material.Light"/>
 </resources>

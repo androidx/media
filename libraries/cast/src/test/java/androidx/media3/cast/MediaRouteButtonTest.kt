@@ -16,10 +16,12 @@
 package androidx.media3.cast
 
 import android.content.Context
+import android.view.ContextThemeWrapper
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.media3.cast.test.R as TestR
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -154,5 +156,60 @@ class MediaRouteButtonTest {
 
     assertThat(caughtException).isNotNull()
     assertThat(isContentComposed.get()).isFalse()
+  }
+
+  @Test
+  fun resolveDialogTheme_withOpaqueAttributes_returnsZero() {
+    val themedContext = ContextThemeWrapper(context, TestR.style.Theme_Test_Opaque)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(0)
+  }
+
+  @Test
+  fun resolveDialogTheme_withTranslucentPrimary_returnsFallbackTheme() {
+    val themedContext = ContextThemeWrapper(context, TestR.style.Theme_Test_TranslucentPrimary)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(R.style.AppThemeDialog)
+  }
+
+  @Test
+  fun resolveDialogTheme_withDefaultAppCompatTheme_returnsZero() {
+    val themedContext = ContextThemeWrapper(context, TestR.style.Theme_Default_AppCompat)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(0)
+  }
+
+  @Test
+  fun resolveDialogTheme_withDefaultMaterial3Theme_returnsZero() {
+    val themedContext = ContextThemeWrapper(context, TestR.style.Theme_Default_material3)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(0)
+  }
+
+  @Test
+  fun resolveDialogTheme_withDefaultMaterialComponentsTheme_returnsZero() {
+    val themedContext = ContextThemeWrapper(context, TestR.style.Theme_Default_material_components)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(0)
+  }
+
+  @Test
+  fun resolveDialogTheme_withNoPrimaryColorAttributes_returnsFallbackTheme() {
+    val themedContext =
+      ContextThemeWrapper(context, TestR.style.Theme_Test_NoPrimaryColorAttributes)
+
+    val theme = resolveDialogTheme(themedContext)
+
+    assertThat(theme).isEqualTo(R.style.AppThemeDialog)
   }
 }

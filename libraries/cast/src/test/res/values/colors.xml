@@ -17,4 +17,6 @@
 <resources>
   <color name="primary">#03A9F4</color>
   <color name="primary_dark">#0288D1</color>
+  <color name="translucent_primary">#8003A9F4</color>
+  <color name="opaque_primary">#FF03A9F4</color>
 </resources>
