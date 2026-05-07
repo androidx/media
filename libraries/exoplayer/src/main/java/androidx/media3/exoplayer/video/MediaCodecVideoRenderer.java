@@ -634,6 +634,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   /**
    * @param builder The {@link Builder} containing construction parameters.
    */
+  // Suppressing methodref.receiver.bound because this is under initialization in the constructor.
+  @SuppressWarnings("nullness:methodref.receiver.bound")
   protected MediaCodecVideoRenderer(Builder builder) {
     super(
         builder.context.getApplicationContext(),
@@ -653,9 +655,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         new VideoFrameReleaseControl(
             this.context, /* frameTimingEvaluator= */ thisRef, builder.allowedJoiningTimeMs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
-    frameRateEstimator =
-        new FixedFrameRateEstimator(
-            frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
+    frameRateEstimator = new FixedFrameRateEstimator(this::onFrameRateEstimateChanged);
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();
     outputResolution = Size.UNKNOWN;
     scalingMode = C.VIDEO_SCALING_MODE_DEFAULT;
@@ -1577,15 +1577,25 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       float targetPlaybackSpeed, Format format, Format[] streamFormats) {
     // Use the highest known stream frame-rate up front, to avoid having to reconfigure the codec
     // should an adaptive switch to that stream occur.
-    float maxFrameRate = -1;
+    float frameRate = -1;
     for (Format streamFormat : streamFormats) {
       float streamFrameRate = streamFormat.frameRate;
       if (streamFrameRate != Format.NO_VALUE) {
-        maxFrameRate = max(maxFrameRate, streamFrameRate);
+        frameRate = max(frameRate, streamFrameRate);
       }
     }
+
+    if (frameRate == -1
+        && getCodec() != null
+        && frameRateEstimator.getFrameDurationNs() != C.TIME_UNSET) {
+      // Only use the fallback after the codec is initialized to avoid using a stale
+      // estimate from a previous codec.
+      frameRate = (float) C.NANOS_PER_SECOND / frameRateEstimator.getFrameDurationNs();
+    }
+
     float operatingRate =
-        maxFrameRate == -1 ? CODEC_OPERATING_RATE_UNSET : (maxFrameRate * targetPlaybackSpeed);
+        frameRate == -1 ? CODEC_OPERATING_RATE_UNSET : (frameRate * targetPlaybackSpeed);
+
     if (scrubbingModeParameters != null) {
       MediaCodecInfo codecInfo = getCodecInfo();
       if (codecInfo != null) {
@@ -1597,6 +1607,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
     }
     return operatingRate;
+  }
+
+  private void onFrameRateEstimateChanged(float frameRate) {
+    videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate);
+    updateCodecOperatingRate();
   }
 
   @CallSuper

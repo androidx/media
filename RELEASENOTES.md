@@ -13,6 +13,10 @@
     *   Add `getFlags()` and `FLAG_STRICT_DURATION` to `SampleStream` to allow
         streams to report flags, and update renderers to check these flags
         dynamically.
+    *   Fall back to the frame rate estimator in `MediaCodecVideoRenderer` and
+        to the codec output format in `MediaCodecAudioRenderer` to calculate the
+        codec operating rate when the stream formats do not provide a valid
+        value, and avoid unnecessary codec resets.
     *   Remove clipping of content for client-side inserted ads in the core
         player. Instead, `AdsMediaSource` takes care of the clipping logic.
         Custom client-side inserted ads sources need to be updated to implement

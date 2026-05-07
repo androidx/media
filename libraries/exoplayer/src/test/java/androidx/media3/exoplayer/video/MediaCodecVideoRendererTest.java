@@ -57,6 +57,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -111,6 +112,7 @@ import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -257,6 +259,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     surface =
         new Surface(new SurfaceTexture(/* texName= */ 0)) {
+
           @Override
           public boolean isValid() {
             return true; // Pretend to be valid, so the renderer always uses the surface for output.
@@ -6633,6 +6636,346 @@ public class MediaCodecVideoRendererTest {
       }
       return outputIndex;
     }
+  }
+
+  @Test
+  public void render_withFormatFrameRate_usesFormatOperatingRate() throws Exception {
+    Format formatWithFrameRate = VIDEO_H264.buildUpon().setFrameRate(30.0f).build();
+    List<FakeSampleStream.FakeSampleStreamItem> samples = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    samples.add(END_OF_STREAM_ITEM);
+    List<Float> configuredOperatingRates = new ArrayList<>();
+    setupRendererForOperatingRateMonitoring(
+        formatWithFrameRate, new Format[] {formatWithFrameRate}, samples, configuredOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    renderUntilEnded(/* startPositionUs= */ 0);
+
+    assertThat(configuredOperatingRates).containsExactly(30.0f);
+  }
+
+  @Test
+  public void render_withFallbackFrameRateEstimate_updatesCodecOperatingRate() throws Exception {
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    List<FakeSampleStream.FakeSampleStreamItem> samples = new ArrayList<>();
+    for (int i = 0; i < 35; i++) {
+      samples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    samples.add(END_OF_STREAM_ITEM);
+    List<Float> parameterOperatingRates = new ArrayList<>();
+    setupRendererForOperatingRateMonitoring(
+        formatNoFrameRate, new Format[] {formatNoFrameRate}, samples, parameterOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    renderUntilEnded(/* startPositionUs= */ 0);
+
+    assertThat(parameterOperatingRates).hasSize(1);
+    assertThat(parameterOperatingRates.get(0)).isWithin(1.0f).of(30.0f);
+  }
+
+  @Test
+  public void render_transitionFromFormatWithFrameRateToWithout_recalculatesEstimate()
+      throws Exception {
+    Format formatWithFrameRate = VIDEO_H264.buildUpon().setFrameRate(30.0f).build();
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    List<FakeSampleStream.FakeSampleStreamItem> firstSegmentSamples = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      firstSegmentSamples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    firstSegmentSamples.add(END_OF_STREAM_ITEM);
+    List<FakeSampleStream.FakeSampleStreamItem> secondSegmentSamples = new ArrayList<>();
+    secondSegmentSamples.add(format(formatNoFrameRate));
+    long currentUs = 10 * 33333L;
+    for (int i = 0; i < 45; i++) {
+      secondSegmentSamples.add(oneByteSample(/* timeUs= */ currentUs, C.BUFFER_FLAG_KEY_FRAME));
+      currentUs += 16666L;
+    }
+    secondSegmentSamples.add(END_OF_STREAM_ITEM);
+    List<Float> configuredOperatingRates = new ArrayList<>();
+    setupRendererForOperatingRateMonitoring(
+        formatWithFrameRate,
+        new Format[] {formatWithFrameRate, formatNoFrameRate},
+        firstSegmentSamples,
+        configuredOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    long positionUs = waitUntilHasReadStreamToEnd(/* startPositionUs= */ 0);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            formatNoFrameRate,
+            secondSegmentSamples);
+    fakeSampleStream2.writeData(positionUs);
+    mediaCodecVideoRenderer.replaceStream(
+        new Format[] {formatNoFrameRate},
+        fakeSampleStream2,
+        /* startPositionUs= */ positionUs,
+        /* offsetUs= */ positionUs,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderUntilEnded(positionUs);
+
+    assertThat(configuredOperatingRates).hasSize(2);
+    assertThat(configuredOperatingRates.get(0)).isEqualTo(30.0f);
+    assertThat(configuredOperatingRates.get(1)).isWithin(2.0f).of(60.0f);
+  }
+
+  @Test
+  public void render_transitionFromFormatWithoutFrameRateToWith_overridesEstimate()
+      throws Exception {
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    Format formatWithFrameRate = VIDEO_H264.buildUpon().setFrameRate(60.0f).build();
+    List<FakeSampleStream.FakeSampleStreamItem> firstSegmentSamples = new ArrayList<>();
+    for (int i = 0; i < 35; i++) {
+      firstSegmentSamples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    firstSegmentSamples.add(END_OF_STREAM_ITEM);
+    List<Float> configuredOperatingRates = new ArrayList<>();
+    setupRendererForOperatingRateMonitoring(
+        formatNoFrameRate,
+        new Format[] {formatNoFrameRate},
+        firstSegmentSamples,
+        configuredOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    long positionUs = waitUntilHasReadStreamToEnd(/* startPositionUs= */ 0);
+
+    assertThat(configuredOperatingRates).hasSize(1);
+    assertThat(configuredOperatingRates.get(0)).isWithin(1.0f).of(30.0f);
+
+    List<FakeSampleStream.FakeSampleStreamItem> secondSegmentSamples = new ArrayList<>();
+    secondSegmentSamples.add(format(formatWithFrameRate));
+    for (int i = 35; i < 45; i++) {
+      secondSegmentSamples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    secondSegmentSamples.add(END_OF_STREAM_ITEM);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            formatWithFrameRate,
+            secondSegmentSamples);
+    fakeSampleStream2.writeData(/* startPositionUs= */ 35 * 33333L);
+
+    mediaCodecVideoRenderer.replaceStream(
+        new Format[] {formatWithFrameRate},
+        fakeSampleStream2,
+        /* startPositionUs= */ positionUs,
+        /* offsetUs= */ positionUs,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    renderUntilEnded(positionUs);
+
+    assertThat(configuredOperatingRates).hasSize(2);
+    assertThat(configuredOperatingRates.get(0)).isWithin(1.0f).of(30.0f);
+    assertThat(configuredOperatingRates.get(1)).isEqualTo(60.0f);
+  }
+
+  @Test
+  public void render_transitionWithoutFrameRateShifts_doesNotUpdateOperatingRate()
+      throws Exception {
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    Format formatWithFrameRate = VIDEO_H264.buildUpon().setFrameRate(30.0f).build();
+    List<FakeSampleStream.FakeSampleStreamItem> firstSegmentSamples = new ArrayList<>();
+    for (int i = 0; i < 35; i++) {
+      firstSegmentSamples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    firstSegmentSamples.add(END_OF_STREAM_ITEM);
+    List<Float> configuredOperatingRates = new ArrayList<>();
+    FakeSampleStream fakeSampleStream =
+        setupRendererForOperatingRateMonitoring(
+            formatNoFrameRate,
+            new Format[] {formatNoFrameRate, formatWithFrameRate},
+            firstSegmentSamples,
+            configuredOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    long positionUs = waitUntilHasReadStreamToEnd(/* startPositionUs= */ 0);
+
+    assertThat(configuredOperatingRates).hasSize(1);
+    assertThat(configuredOperatingRates.get(0)).isWithin(1.0f).of(30.0f);
+
+    List<FakeSampleStream.FakeSampleStreamItem> secondSegmentSamples = new ArrayList<>();
+    secondSegmentSamples.add(format(formatWithFrameRate));
+    for (int i = 35; i < 45; i++) {
+      secondSegmentSamples.add(oneByteSample(/* timeUs= */ i * 33333L, C.BUFFER_FLAG_KEY_FRAME));
+    }
+    secondSegmentSamples.add(END_OF_STREAM_ITEM);
+    fakeSampleStream.append(secondSegmentSamples);
+    fakeSampleStream.writeData(/* startPositionUs= */ 35 * 33333L);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    renderUntilEnded(positionUs);
+
+    assertThat(configuredOperatingRates).hasSize(1);
+  }
+
+  @Test
+  public void render_dynamicFrameRateChangeWithinStream_recomputesEstimate() throws Exception {
+    Format formatNoFrameRate = VIDEO_H264.buildUpon().setFrameRate(Format.NO_VALUE).build();
+    List<FakeSampleStream.FakeSampleStreamItem> samples = new ArrayList<>();
+    long currentUs = 0;
+    // Segment 1: 35 samples at 30 FPS
+    for (int i = 0; i < 35; i++) {
+      samples.add(oneByteSample(/* timeUs= */ currentUs, C.BUFFER_FLAG_KEY_FRAME));
+      currentUs += 33333L;
+    }
+    // Segment 2: 60 samples at 60 FPS
+    for (int i = 0; i < 60; i++) {
+      samples.add(oneByteSample(/* timeUs= */ currentUs, C.BUFFER_FLAG_KEY_FRAME));
+      currentUs += 16666L;
+    }
+    samples.add(END_OF_STREAM_ITEM);
+    List<Float> parameterOperatingRates = new ArrayList<>();
+    setupRendererForOperatingRateMonitoring(
+        formatNoFrameRate, new Format[] {formatNoFrameRate}, samples, parameterOperatingRates);
+
+    mediaCodecVideoRenderer.start();
+    renderUntilEnded(/* startPositionUs= */ 0);
+
+    assertThat(parameterOperatingRates).hasSize(2);
+    assertThat(parameterOperatingRates.get(0)).isWithin(1.0f).of(30.0f);
+    assertThat(parameterOperatingRates.get(1)).isWithin(2.0f).of(60.0f);
+  }
+
+  private class TestVideoRenderer extends MediaCodecVideoRenderer {
+    private TestVideoRenderer(
+        Context context,
+        MediaCodecAdapter.Factory codecAdapterFactory,
+        MediaCodecSelector mediaCodecSelector,
+        Handler eventHandler,
+        VideoRendererEventListener eventListener,
+        float assumedMinimumCodecOperatingRate) {
+      super(
+          new MediaCodecVideoRenderer.Builder(context)
+              .setCodecAdapterFactory(codecAdapterFactory)
+              .setMediaCodecSelector(mediaCodecSelector)
+              .setAllowedJoiningTimeMs(0)
+              .setEnableDecoderFallback(false)
+              .setEventHandler(eventHandler)
+              .setEventListener(eventListener)
+              .setMaxDroppedFramesToNotify(1)
+              .experimentalSetLateThresholdToDropDecoderInputUs(100_000)
+              .setEnableDurationToProgressUs(true)
+              .setAssumedMinimumCodecOperatingRate(assumedMinimumCodecOperatingRate));
+    }
+
+    @Override
+    protected @Capabilities int supportsFormat(
+        MediaCodecSelector mediaCodecSelector, Format format) {
+      return RendererCapabilities.create(C.FORMAT_HANDLED);
+    }
+
+    @Override
+    protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
+      super.onOutputFormatChanged(format, mediaFormat);
+      currentOutputFormat = format;
+    }
+  }
+
+  private MediaCodecVideoRenderer createMediaCodecVideoRenderer(
+      MediaCodecAdapter.Factory customAdapterFactory) {
+    TestVideoRenderer renderer =
+        new TestVideoRenderer(
+            ApplicationProvider.getApplicationContext(),
+            customAdapterFactory,
+            mediaCodecSelector,
+            new Handler(testMainLooper),
+            eventListener,
+            0.0f);
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    return renderer;
+  }
+
+  private MediaCodecAdapter.Factory createRateCapturingAdapterFactory(
+      List<Float> rateList, MediaCodecAdapter.Factory baseFactory) {
+    return configuration -> {
+      MediaCodecAdapter adapter = baseFactory.createAdapter(configuration);
+      if (configuration.mediaFormat.containsKey(MediaFormat.KEY_OPERATING_RATE)) {
+        rateList.add(configuration.mediaFormat.getFloat(MediaFormat.KEY_OPERATING_RATE));
+      }
+      return new ForwardingMediaCodecAdapter(adapter) {
+        @Override
+        public void setParameters(Bundle params) {
+          super.setParameters(params);
+          if (params.containsKey(MediaFormat.KEY_OPERATING_RATE)) {
+            rateList.add(params.getFloat(MediaFormat.KEY_OPERATING_RATE));
+          }
+        }
+      };
+    };
+  }
+
+  @CanIgnoreReturnValue
+  private FakeSampleStream setupRendererForOperatingRateMonitoring(
+      Format initialFormat,
+      Format[] streamFormats,
+      List<FakeSampleStream.FakeSampleStreamItem> samples,
+      List<Float> capturedRates)
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            initialFormat,
+            samples);
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+
+    MediaCodecAdapter.Factory customAdapterFactory =
+        createRateCapturingAdapterFactory(capturedRates, codecAdapterFactory);
+
+    mediaCodecVideoRenderer = createMediaCodecVideoRenderer(customAdapterFactory);
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_VIDEO_OUTPUT, surface);
+
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        streamFormats,
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+
+    return fakeSampleStream;
+  }
+
+  @CanIgnoreReturnValue
+  private long waitUntilHasReadStreamToEnd(long startPositionUs) throws Exception {
+    long positionUs = startPositionUs;
+    int waitCount = 0;
+    while (!mediaCodecVideoRenderer.hasReadStreamToEnd() && waitCount < 500) {
+      ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+      mediaCodecVideoRenderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      ShadowLooper.idleMainLooper();
+      positionUs += 10000L;
+      waitCount++;
+    }
+    return positionUs;
+  }
+
+  @CanIgnoreReturnValue
+  private long renderUntilEnded(long startPositionUs) throws Exception {
+    long positionUs = startPositionUs;
+    int waitCount = 0;
+    while (!mediaCodecVideoRenderer.isEnded() && waitCount < 1000) {
+      ShadowSystemClock.advanceBy(Duration.ofMillis(10));
+      mediaCodecVideoRenderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      ShadowLooper.idleMainLooper();
+      positionUs += 10000L;
+      waitCount++;
+    }
+    return positionUs;
   }
 
   private static DrmSessionManager getFakeDrmSessionManager() {

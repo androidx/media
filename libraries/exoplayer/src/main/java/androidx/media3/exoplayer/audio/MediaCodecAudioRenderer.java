@@ -584,7 +584,17 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         maxSampleRate = max(maxSampleRate, streamSampleRate);
       }
     }
-    return maxSampleRate == -1 ? CODEC_OPERATING_RATE_UNSET : (maxSampleRate * targetPlaybackSpeed);
+
+    int sampleRate = maxSampleRate;
+    if (sampleRate == -1) {
+      MediaFormat codecOutputMediaFormat = getCodecOutputMediaFormat();
+      if (codecOutputMediaFormat != null
+          && codecOutputMediaFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+        sampleRate = codecOutputMediaFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+      }
+    }
+
+    return sampleRate == -1 ? CODEC_OPERATING_RATE_UNSET : (sampleRate * targetPlaybackSpeed);
   }
 
   @Override
@@ -708,6 +718,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       throw createRendererException(
           e, e.format, PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED);
     }
+    updateCodecOperatingRate();
   }
 
   /** See {@link AudioSink.Listener#onPositionDiscontinuity()}. */
