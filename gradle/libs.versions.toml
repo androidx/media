@@ -77,7 +77,7 @@ playServicesCronetVersion = "18.0.1"
 playServicesTfliteVersion = "16.1.0"
 protobufVersion = "4.31.1"
 robolectricVersion = "4.16"
-testParameterInjectorVersion = "1.18"
+testParameterInjectorVersion = "1.22"
 truthVersion = "1.4.0"
 workRuntimeVersion = "2.8.1"
 

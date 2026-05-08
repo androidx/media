@@ -21,9 +21,9 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.google.common.net.HttpHeaders
 import com.google.common.truth.Truth.assertThat
+import com.google.testing.junit.testparameterinjector.KotlinTestParameters.namedTestValues
 import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
-import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngineFactory
@@ -40,22 +40,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(TestParameterInjector::class)
-class KtorDataSourceTest {
-
-  // TODO: b/502560161 - Switch to KotlinTestParameters.namedTestValues after upgrading to
-  //  TestParameterInjector v1.22+.
-  class ClientEngineFactoryProvider : TestParameterValuesProvider() {
-    override fun provideValues(context: Context?): List<*>? {
-      return listOf(value(Android).withName("Android"), value(OkHttp).withName("OkHttp"))
-    }
-  }
+class KtorDataSourceTest(
+  @TestParameter
+  private val httpClientEngineFactory: HttpClientEngineFactory<*> =
+    namedTestValues("Android" to Android, "OkHttp" to OkHttp)
+) {
 
   @Test
   @Throws(Exception::class)
-  fun open_setsCorrectHeaders(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun open_setsCorrectHeaders() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
@@ -106,10 +99,7 @@ class KtorDataSourceTest {
   }
 
   @Test
-  fun open_invalidResponseCode(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun open_invalidResponseCode() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse().setResponseCode(404).setBody("failure msg"))
@@ -129,10 +119,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun factory_setRequestPropertyAfterCreation_setsCorrectHeaders() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
@@ -153,10 +140,7 @@ class KtorDataSourceTest {
   }
 
   @Test
-  fun open_malformedUrl_throwsException(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun open_malformedUrl_throwsException() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val dataSource = KtorDataSource.Factory(httpClient).createDataSource()
 
@@ -170,10 +154,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun open_httpPost_sendsPostRequest(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun open_httpPost_sendsPostRequest() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
@@ -197,10 +178,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(java.lang.Exception::class)
-  fun cookiesConfigured_cookiesPersistedBetweenRequests(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun cookiesConfigured_cookiesPersistedBetweenRequests() {
     val httpClient =
       HttpClient(httpClientEngineFactory) {
         configureTimeout()
@@ -230,10 +208,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(java.lang.Exception::class)
-  fun cookiesConfigured_cookiesForwardedOnRedirect(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun cookiesConfigured_cookiesForwardedOnRedirect() {
     val httpClient =
       HttpClient(httpClientEngineFactory) {
         configureTimeout()
@@ -264,10 +239,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setUserAgent_setsCorrectHeader(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun factory_setUserAgent_setsCorrectHeader() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
@@ -285,10 +257,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setContentTypePredicate_filtersContentType(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun factory_setContentTypePredicate_filtersContentType() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(
@@ -313,10 +282,7 @@ class KtorDataSourceTest {
 
   @Test
   @Throws(Exception::class)
-  fun factory_setTransferListener_setsListener(
-    @TestParameter(valuesProvider = ClientEngineFactoryProvider::class)
-    httpClientEngineFactory: HttpClientEngineFactory<*>
-  ) {
+  fun factory_setTransferListener_setsListener() {
     val httpClient = HttpClient(httpClientEngineFactory) { configureTimeout() }
     val mockWebServer = MockWebServer()
     mockWebServer.enqueue(MockResponse())
