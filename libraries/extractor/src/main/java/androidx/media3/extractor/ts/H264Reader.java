@@ -183,12 +183,8 @@ public final class H264Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    assertTracksCreated();
-  }
-
-  @Override
   public void endOfInputReached() {
+    assertTracksCreated();
     seiReader.flush();
     // Simulate end of current NAL unit and start an AUD one to trigger output of current sample
     endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);

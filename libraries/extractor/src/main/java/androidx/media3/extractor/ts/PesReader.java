@@ -172,14 +172,15 @@ public final class PesReader implements TsPayloadReader {
     // Only call parseHeader if isModeHls is true and can parse header as some HLS streams may
     // contain packages.
     boolean headerParsed = !isModeHls || parseHeader();
-    // Either pes does not have length field and body is being read, where end of stream also
-    // signals end of body, or we are waiting for next pes to start and end of stream means there
-    // won't be any more
+    // Either the PES packet does not have a length field and the body is being read (where the end
+    // of the stream also signals the end of the body), or we are waiting for the next PES packet to
+    // start and the end of the stream means there won't be any more data.
     return ((state == STATE_READING_BODY && payloadSize == C.LENGTH_UNSET)
             || (state == STATE_READING_HEADER))
-        // Pusi only payload to trigger end of sample data is not applicable for H262 streams
-        // possibly having, in HLS mode, a pes across more than one segment which would trigger
-        // committing an unfinished sample in the middle of the access unit
+        // An empty PES packet with only the PUSI (Payload Unit Start Indicator) flag set, used to
+        // trigger the end of the sample data, is not applicable for H262 streams. These streams
+        // may, in HLS mode, have a PES packet spanning across more than one segment, which would
+        // incorrectly trigger committing an unfinished sample in the middle of the access unit.
         && !(isModeHls && reader instanceof H262Reader)
         && headerParsed;
   }

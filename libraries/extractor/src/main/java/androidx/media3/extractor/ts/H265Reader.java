@@ -173,12 +173,8 @@ public final class H265Reader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
-    assertTracksCreated();
-  }
-
-  @Override
   public void endOfInputReached() {
+    assertTracksCreated();
     seiReader.flush();
     // Simulate end of current NAL unit and start an unspecified one to trigger output of current
     // sample
