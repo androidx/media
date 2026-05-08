@@ -148,7 +148,7 @@ public final class DtsReader implements ElementaryStreamReader {
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
     if (pesTimeUs != C.TIME_UNSET) {
-      if (state == STATE_CHECKING_FOR_EXTSS_AFTER_CORE) {
+      if (state != STATE_FINDING_SYNC) {
         pendingTimeUs = pesTimeUs;
       } else {
         timeUs = pesTimeUs;
@@ -249,6 +249,10 @@ public final class DtsReader implements ElementaryStreamReader {
                   0,
                   null);
               timeUs += sampleDurationUs;
+              if (pendingTimeUs != C.TIME_UNSET) {
+                timeUs = pendingTimeUs;
+                pendingTimeUs = C.TIME_UNSET;
+              }
               coreSampleSize = 0;
               state = STATE_FINDING_SYNC;
             }
