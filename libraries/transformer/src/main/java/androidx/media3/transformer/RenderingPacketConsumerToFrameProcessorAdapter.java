@@ -112,6 +112,14 @@ public final class RenderingPacketConsumerToFrameProcessorAdapter implements Fra
       effectFrameBuilder.setFormat(hardwareBufferFrame.getFormat());
       effectFrameBuilder.setInternalFrame(hardwareBufferFrame.getInternalImage());
 
+      Object metadata =
+          hardwareBufferFrame
+              .getMetadata()
+              .get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA);
+      if (metadata instanceof CompositionFrameMetadata) {
+        effectFrameBuilder.setMetadata((CompositionFrameMetadata) metadata);
+      }
+
       frameListBuilder.add(effectFrameBuilder.build());
     }
 

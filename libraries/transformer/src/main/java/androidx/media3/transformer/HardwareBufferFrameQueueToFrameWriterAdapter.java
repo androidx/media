@@ -110,6 +110,12 @@ import java.util.concurrent.Executor;
     HardwareBufferFrame.Builder frameBuilder =
         effectFrame.buildUpon().setAcquireFence(writeCompleteFence).setFormat(frame.getFormat());
 
+    Object metadata =
+        frame.getMetadata().get(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA);
+    if (metadata instanceof CompositionFrameMetadata) {
+      frameBuilder.setMetadata((CompositionFrameMetadata) metadata);
+    }
+
     Long presentationTimeUs =
         (Long) hardwareBufferFrame.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US);
     if (presentationTimeUs != null) {

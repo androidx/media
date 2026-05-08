@@ -31,6 +31,7 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.HardwareBufferFrameQueue;
+import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -105,11 +106,18 @@ public final class FrameWriterToHardwareBufferFrameQueueAdapter
     AsyncFrame asyncFrame =
         checkNotNull(frameMap.remove(hardwareBuffer), "Matching AsyncFrame not found");
 
+    ImmutableMap.Builder<String, Object> metadataBuilder = ImmutableMap.builder();
+    metadataBuilder.putAll(asyncFrame.frame.getMetadata());
+    if (frame.getMetadata() instanceof CompositionFrameMetadata) {
+      metadataBuilder.put(
+          CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, frame.getMetadata());
+    }
     DefaultHardwareBufferFrame newFrame =
         ((DefaultHardwareBufferFrame.Builder)
                 ((DefaultHardwareBufferFrame) asyncFrame.frame).buildUpon())
             .setFormat(frame.format)
             .setContentTimeUs(frame.sequencePresentationTimeUs)
+            .setMetadata(metadataBuilder.buildOrThrow())
             .build();
 
     writer.queueInputFrame(newFrame, frame.acquireFence);
