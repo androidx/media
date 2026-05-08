@@ -30,6 +30,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
@@ -48,8 +49,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** End-to-end playback tests using scrubbing mode. */
+@Config(minSdk = 31)
 @RunWith(AndroidJUnit4.class)
 public class ScrubbingPlaybackTest {
   private static final String TEST_BEAR_URI = "asset:///media/vp9/bear-vp9.webm";
@@ -112,7 +115,7 @@ public class ScrubbingPlaybackTest {
 
   @Test
   public void
-      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndSeekBackwards_dumpsCorrectOutput()
+      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndDecodeOnlyFlagDisabledAndSeekBackwards_dumpsCorrectOutput()
           throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(500_000L);
@@ -132,6 +135,11 @@ public class ScrubbingPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(true)
+            .setUseDecodeOnlyFlag(false)
+            .build());
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     player.addMediaItem(new MediaItem.Builder().setUri(TEST_BEAR_URI).build());
     player.prepare();
@@ -157,7 +165,7 @@ public class ScrubbingPlaybackTest {
 
   @Test
   public void
-      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndSeekToBufferInCodec_dumpsCorrectOutput()
+      scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndDecodeOnlyFlagDisabledAndSeekToBufferInCodec_dumpsCorrectOutput()
           throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(230_000L);
@@ -188,6 +196,7 @@ public class ScrubbingPlaybackTest {
             .getScrubbingModeParameters()
             .buildUpon()
             .setAllowSkippingKeyFrameReset(false)
+            .setUseDecodeOnlyFlag(false)
             .build());
     player.setScrubbingModeEnabled(true);
     player.seekTo(234);
@@ -207,8 +216,9 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
-  public void scrubbingPlayback_withSkipMediaCodecFlushingDisabled_dumpsCorrectOutput()
-      throws Exception {
+  public void
+      scrubbingPlayback_withSkipMediaCodecFlushingAndKeyFrameResetDisabled_dumpsCorrectOutput()
+          throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
@@ -260,7 +270,9 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
-  public void scrubbingPlayback_withSkipKeyFrameResetEnabled_dumpsCorrectOutput() throws Exception {
+  public void
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndDecodeOnlyFlagDisabled_dumpsCorrectOutput()
+          throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
@@ -279,6 +291,11 @@ public class ScrubbingPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(false)
+            .setUseDecodeOnlyFlag(false)
+            .build());
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     player.addMediaItem(new MediaItem.Builder().setUri(TEST_BEAR_URI).build());
     player.prepare();
@@ -306,7 +323,7 @@ public class ScrubbingPlaybackTest {
 
   @Test
   public void
-      scrubbingPlayback_withSkipKeyFrameResetEnabledAndNonSequentialFrames_dumpsCorrectOutput()
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndDecodeOnlyFlagDisabledAndNonSequentialFrames_dumpsCorrectOutput()
           throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -325,6 +342,11 @@ public class ScrubbingPlaybackTest {
             .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(false)
+            .setUseDecodeOnlyFlag(false)
+            .build());
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     player.addMediaItem(new MediaItem.Builder().setUri(TEST_MP4_URI).build());
@@ -357,7 +379,7 @@ public class ScrubbingPlaybackTest {
 
   @Test
   public void
-      scrubbingPlayback_withSkipKeyFrameResetEnabledAndDifferentSyncPoint_dumpsCorrectOutput()
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndDecodeOnlyFlagDisabledAndDifferentSyncPoint_dumpsCorrectOutput()
           throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
@@ -377,6 +399,11 @@ public class ScrubbingPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(false)
+            .setUseDecodeOnlyFlag(false)
+            .build());
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     player.addMediaItem(new MediaItem.Builder().setUri(TEST_MP4_URI).build());
     player.prepare();
