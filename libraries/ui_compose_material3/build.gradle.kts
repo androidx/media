@@ -32,7 +32,6 @@ dependencies {
   api(project(":lib-ui-compose"))
 
   api(platform(libs.androidx.compose.bom))
-  // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
   api(libs.androidx.compose.foundation)
   api(libs.androidx.compose.material3)
 

@@ -28,7 +28,6 @@ dependencies {
   api(project(":lib-common"))
   api(project(":lib-exoplayer"))
   implementation(platform(libs.androidx.compose.bom))
-  // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
   implementation(libs.androidx.compose.material3)
 
   testImplementation(libs.androidx.compose.material3)

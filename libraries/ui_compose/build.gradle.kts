@@ -29,7 +29,6 @@ dependencies {
   api(project(":lib-common-ktx"))
 
   api(platform(libs.androidx.compose.bom))
-  // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
   api(libs.androidx.compose.foundation)
 
   testImplementation(libs.androidx.compose.ui.test)
