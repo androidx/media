@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
@@ -31,6 +32,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -48,7 +50,7 @@ public final class VideoFrameReleaseControl {
    * boolean, boolean, long, long, FrameReleaseInfo)}.
    *
    * <p>One of {@link #FRAME_RELEASE_IMMEDIATELY}, {@link #FRAME_RELEASE_SCHEDULED}, {@link
-   * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link ##FRAME_RELEASE_SKIP} or {@link
+   * #FRAME_RELEASE_DROP}, {@link #FRAME_RELEASE_IGNORE}, {@link #FRAME_RELEASE_SKIP} or {@link
    * #FRAME_RELEASE_TRY_AGAIN_LATER}.
    */
   @Documented
@@ -166,8 +168,7 @@ public final class VideoFrameReleaseControl {
         throws ExoPlaybackException;
   }
 
-  /** The maximum earliest time, in microseconds, to release a frame on the surface. */
-  private static final long MAX_EARLY_US_THRESHOLD = 50_000;
+  private long earlySchedulingThresholdUs;
 
   private final FrameTimingEvaluator frameTimingEvaluator;
   private final VideoFrameReleaseHelper frameReleaseHelper;
@@ -209,6 +210,25 @@ public final class VideoFrameReleaseControl {
     playbackSpeed = 1f;
     clock = Clock.DEFAULT;
     requiresOutputSurface = true;
+    earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
+  }
+
+  /**
+   * Sets the threshold for how early a frame may be scheduled for release on the surface.
+   *
+   * <p>Frames that are earlier than this threshold will be held and 'release' will be tried again
+   * later.
+   *
+   * <p>This value is in microseconds. The default value is {@link
+   * MediaCodecVideoRenderer#DEFAULT_EARLY_SCHEDULING_THRESHOLD_US}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param earlySchedulingThresholdUs The maximum early time threshold in microseconds.
+   */
+  @ExperimentalApi // TODO: b/505688667 - Remove method once threshold is fine-tuned.
+  public void setEarlySchedulingThresholdUs(long earlySchedulingThresholdUs) {
+    this.earlySchedulingThresholdUs = earlySchedulingThresholdUs;
   }
 
   /**
@@ -428,7 +448,7 @@ public final class VideoFrameReleaseControl {
         frameReleaseInfo.earlyUs, elapsedRealtimeUs, isLastFrame)) {
       // While joining, dropped buffers are considered skipped.
       return treatDropAsSkip ? FRAME_RELEASE_SKIP : FRAME_RELEASE_DROP;
-    } else if (frameReleaseInfo.earlyUs > MAX_EARLY_US_THRESHOLD) {
+    } else if (frameReleaseInfo.earlyUs > earlySchedulingThresholdUs) {
       return FRAME_RELEASE_TRY_AGAIN_LATER;
     }
     return FRAME_RELEASE_SCHEDULED;

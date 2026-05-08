@@ -107,6 +107,9 @@
 *   Video:
     *   Fix frame rate estimation in `MediaCodecVideoRenderer` to be more
         accurate by accounting for dropped or skipped frames.
+    *   Allow configuration of the threshold used to schedule frames early. The
+        default is 50ms but one can customize the value through
+        `MediaCodecVideoRenderer.Builder.setMaxEarlyUsThreshold()`.
 *   Text:
 *   Metadata:
     *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`

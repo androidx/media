@@ -204,6 +204,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   private static final float MAX_FRAME_RATE_RATIO_DIFF_TO_KEEP_CODEC = 0.01f;
 
+  /** The maximum earliest time, in microseconds, to release a video frame on a surface. */
+  public static final long DEFAULT_EARLY_SCHEDULING_THRESHOLD_US = 50_000;
+
   private static boolean evaluatedDeviceNeedsSetOutputSurfaceWorkaround;
   private static boolean deviceNeedsSetOutputSurfaceWorkaround;
 
@@ -282,6 +285,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     private long lateThresholdToDropDecoderInputUs;
     private boolean enableMediaCodecBufferDecodeOnlyFlag;
     private boolean enableDurationToProgressUs;
+    private long earlySchedulingThresholdUs;
 
     /**
      * Creates a new builder.
@@ -295,6 +299,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.assumedMinimumCodecOperatingRate = 0;
       this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
+      this.earlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
     }
 
     /** Sets the {@link MediaCodecSelector decoder selector}. */
@@ -471,6 +476,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     @ExperimentalApi // TODO: b/369523131 - Remove once experiment is complete.
     public Builder setEnableDurationToProgressUs(boolean enableDurationToProgressUs) {
       this.enableDurationToProgressUs = enableDurationToProgressUs;
+      return this;
+    }
+
+    /**
+     * Sets the threshold for how early a frame may be scheduled for release on the surface.
+     *
+     * <p>This value is in microseconds. The default value is {@link
+     * #DEFAULT_EARLY_SCHEDULING_THRESHOLD_US}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param earlySchedulingThresholdUs The maximum early time threshold in microseconds.
+     */
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/505688667 - Remove method once threshold is fine-tuned.
+    public Builder setEarlySchedulingThresholdUs(long earlySchedulingThresholdUs) {
+      this.earlySchedulingThresholdUs = earlySchedulingThresholdUs;
       return this;
     }
 
@@ -654,6 +676,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             this.context, /* frameTimingEvaluator= */ thisRef, builder.allowedJoiningTimeMs);
+    videoFrameReleaseControl.setEarlySchedulingThresholdUs(builder.earlySchedulingThresholdUs);
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     frameRateEstimator = new FixedFrameRateEstimator(this::onFrameRateEstimateChanged);
     deviceNeedsNoPostProcessWorkaround = deviceNeedsNoPostProcessWorkaround();

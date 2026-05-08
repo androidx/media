@@ -579,6 +579,52 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
+  public void getFrameReleaseAction_customEarlySchedulingThreshold_returnsFrameReleaseScheduled()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.setEarlySchedulingThresholdUs(100_000);
+    videoFrameReleaseControl.onStarted();
+
+    long frameIndex = 0L;
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameRateEstimator.getFrameDurationNs(),
+                frameIndex++,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+    clock.advanceTime(/* timeDiffMs= */ 10);
+
+    // Second frame is 60 ms too soon (presentationTimeUs = 100_000, positionUs = 40_000).
+    // Default threshold is 50ms, so it would return TRY_AGAIN_LATER.
+    // With 100ms threshold, it should return FRAME_RELEASE_SCHEDULED.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 100_000,
+                /* positionUs= */ 40_000,
+                /* elapsedRealtimeUs= */ 10_000,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameRateEstimator.getFrameDurationNs(),
+                frameIndex++,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+  }
+
+  @Test
   public void
       getFrameReleaseAction_forceReleaseWhileStartedAndPositionAdvancing_returnsReleaseImmediately()
           throws ExoPlaybackException {

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
 import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -125,6 +126,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableMediaCodecVideoRendererPrewarming;
   private boolean parseAv1SampleDependencies;
   private long lateThresholdToDropDecoderInputUs;
+  private long videoRendererEarlySchedulingThresholdUs;
   private boolean enableMediaCodecBufferDecodeOnlyFlag;
   private boolean enableMediaCodecVideoRendererDurationToProgressUs;
 
@@ -139,6 +141,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
     parseAv1SampleDependencies = true;
     lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
+    videoRendererEarlySchedulingThresholdUs = DEFAULT_EARLY_SCHEDULING_THRESHOLD_US;
   }
 
   /**
@@ -417,6 +420,26 @@ public class DefaultRenderersFactory implements RenderersFactory {
     return this;
   }
 
+  /**
+   * Sets the threshold for how early {@link MediaCodecVideoRenderer} will schedule a frame for
+   * release on the surface.
+   *
+   * <p>This value is in microseconds. The default value is {@link
+   * MediaCodecVideoRenderer#DEFAULT_EARLY_SCHEDULING_THRESHOLD_US}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param videoRendererEarlySchedulingThresholdUs The maximum early time threshold in
+   *     microseconds.
+   */
+  @CanIgnoreReturnValue
+  @ExperimentalApi // TODO: b/505688667 - Remove or make non-experimental.
+  public final DefaultRenderersFactory setVideoRendererEarlySchedulingThresholdUs(
+      long videoRendererEarlySchedulingThresholdUs) {
+    this.videoRendererEarlySchedulingThresholdUs = videoRendererEarlySchedulingThresholdUs;
+    return this;
+  }
+
   @Override
   public Renderer[] createRenderers(
       Handler eventHandler,
@@ -501,7 +524,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
             .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
             .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
             .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs)
-            .setEnableDurationToProgressUs(enableMediaCodecVideoRendererDurationToProgressUs);
+            .setEnableDurationToProgressUs(enableMediaCodecVideoRendererDurationToProgressUs)
+            .setEarlySchedulingThresholdUs(videoRendererEarlySchedulingThresholdUs);
     if (SDK_INT >= 34) {
       videoRendererBuilder =
           videoRendererBuilder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
