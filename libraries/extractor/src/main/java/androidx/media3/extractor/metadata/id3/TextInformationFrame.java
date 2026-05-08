@@ -186,8 +186,7 @@ public final class TextInformationFrame extends Id3Frame {
         try {
           int discNumber = Integer.parseInt(discNumbers[0]);
           @Nullable
-          Integer totalDiscCount =
-              discNumbers.length > 1 ? Integer.parseInt(discNumbers[1]) : null;
+          Integer totalDiscCount = discNumbers.length > 1 ? Integer.parseInt(discNumbers[1]) : null;
           builder.setDiscNumber(discNumber).setTotalDiscCount(totalDiscCount);
         } catch (NumberFormatException e) {
           // Do nothing, invalid input.

@@ -89,7 +89,9 @@ public class TextInformationFrameTest {
                 /* description= */ null,
                 /* values= */ ImmutableList.of(discSubtitle)),
             new TextInformationFrame(
-                /* id= */ "TPOS", /* description= */ null, /* values= */ ImmutableList.of(discNumber)));
+                /* id= */ "TPOS",
+                /* description= */ null,
+                /* values= */ ImmutableList.of(discNumber)));
     MediaMetadata.Builder builder = MediaMetadata.EMPTY.buildUpon();
 
     for (Metadata.Entry entry : entries) {
