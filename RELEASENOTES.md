@@ -109,6 +109,8 @@
         accurate by accounting for dropped or skipped frames.
 *   Text:
 *   Metadata:
+    *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`
+        and Vorbis `DISCSUBTITLE` data.
 *   Image:
 *   DataSource:
 *   DRM:

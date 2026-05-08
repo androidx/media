@@ -63,6 +63,7 @@ public class MediaMetadataTest {
     assertThat(mediaMetadata.composer).isNull();
     assertThat(mediaMetadata.conductor).isNull();
     assertThat(mediaMetadata.writer).isNull();
+    assertThat(mediaMetadata.discSubtitle).isNull();
     assertThat(mediaMetadata.discNumber).isNull();
     assertThat(mediaMetadata.totalDiscCount).isNull();
     assertThat(mediaMetadata.genre).isNull();
@@ -327,6 +328,7 @@ public class MediaMetadataTest {
         .setComposer("Composer")
         .setConductor("Conductor")
         .setWriter("Writer")
+        .setDiscSubtitle("Disc Subtitle")
         .setDiscNumber(1)
         .setTotalDiscCount(3)
         .setGenre("Pop")
