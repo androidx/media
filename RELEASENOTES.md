@@ -111,6 +111,7 @@
 *   Metadata:
     *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`
         and Vorbis `DISCSUBTITLE` data.
+    * Parse disc number & count from ID3 `TPOS` frame.
 *   Image:
 *   DataSource:
 *   DRM:
