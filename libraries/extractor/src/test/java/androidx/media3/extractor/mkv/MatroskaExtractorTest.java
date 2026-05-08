@@ -96,6 +96,19 @@ public final class MatroskaExtractorTest {
   // TODO: b/507050745 - Suppressed due to failure with subtitlesParsedDuringExtraction=true on SDK
   // >= 32.
   @Config(maxSdk = 31)
+  public void mkvSample_withZlibNullTerminatedSubripSubtitles() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_zlib_null_terminated_srt.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_with_zlib_null_terminated_srt.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  @Test
+  // TODO: b/507050745 - Suppressed due to failure with subtitlesParsedDuringExtraction=true on SDK
+  // >= 32.
+  @Config(maxSdk = 31)
   public void mkvSample_withOverlappingSubripSubtitles() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
@@ -140,6 +153,19 @@ public final class MatroskaExtractorTest {
         "media/mkv/sample_with_ass_subtitles.mkv",
         getAssertionConfigWithPrefix(
             "media/mkv/sample_with_ssa_subtitles.mkv", subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  @Test
+  // TODO: b/507050745 - Suppressed due to failure with subtitlesParsedDuringExtraction=true on SDK
+  // >= 32.
+  @Config(maxSdk = 31)
+  public void mkvSample_withZlibAssSubtitles() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_zlib_ass_subtitles.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_with_zlib_ass_subtitles.mkv", subtitlesParsedDuringExtraction),
         simulationConfig);
   }
 
@@ -194,6 +220,20 @@ public final class MatroskaExtractorTest {
         "media/mkv/sample_with_null_terminated_vtt_subtitles.mkv",
         getAssertionConfigWithPrefix(
             "media/mkv/sample_with_null_terminated_vtt_subtitles.mkv",
+            subtitlesParsedDuringExtraction),
+        simulationConfig);
+  }
+
+  @Test
+  // TODO: b/507050745 - Suppressed due to failure with subtitlesParsedDuringExtraction=true on SDK
+  // >= 32.
+  @Config(maxSdk = 31)
+  public void mkvSample_withZlibNullTerminatedVttSubtitles() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_zlib_null_terminated_vtt_subtitles.mkv",
+        getAssertionConfigWithPrefix(
+            "media/mkv/sample_with_zlib_null_terminated_vtt_subtitles.mkv",
             subtitlesParsedDuringExtraction),
         simulationConfig);
   }
