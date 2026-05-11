@@ -71,6 +71,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -1269,6 +1270,25 @@ public class CompositionPlayerTest {
         new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
 
     assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setComposition_withPlaceholderInMediaItemUri_doesNotThrowWhenLoggingTrace() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri("asset:///media.%D"))
+            .setDurationUs(1_000_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
+    boolean oldEnableDebugTrace = DebugTraceUtil.enableTracing;
+    DebugTraceUtil.enableTracing = true;
+
+    try {
+      player.setComposition(composition);
+    } finally {
+      DebugTraceUtil.enableTracing = oldEnableDebugTrace;
+    }
   }
 
   @Test
