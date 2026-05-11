@@ -152,6 +152,7 @@ public final class DtsReader implements ElementaryStreamReader {
         pendingTimeUs = pesTimeUs;
       } else {
         timeUs = pesTimeUs;
+        pendingTimeUs = C.TIME_UNSET;
       }
     }
   }
@@ -242,6 +243,7 @@ public final class DtsReader implements ElementaryStreamReader {
               int combinedSize =
                   sampleSize
                       + (frameType == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM ? coreSampleSize : 0);
+              long emittedTimeUs = timeUs;
               output.sampleMetadata(
                   timeUs,
                   frameType == DtsUtil.FRAME_TYPE_UHD_NON_SYNC ? 0 : C.BUFFER_FLAG_KEY_FRAME,
@@ -250,7 +252,9 @@ public final class DtsReader implements ElementaryStreamReader {
                   null);
               timeUs += sampleDurationUs;
               if (pendingTimeUs != C.TIME_UNSET) {
-                timeUs = pendingTimeUs;
+                if (pendingTimeUs != emittedTimeUs) {
+                  timeUs = pendingTimeUs;
+                }
                 pendingTimeUs = C.TIME_UNSET;
               }
               coreSampleSize = 0;
@@ -276,10 +280,13 @@ public final class DtsReader implements ElementaryStreamReader {
                 coreFormatPendingEmit = false;
               }
               checkState(timeUs != C.TIME_UNSET);
+              long emittedTimeUs = timeUs;
               output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, coreSampleSize, 0, null);
               timeUs += sampleDurationUs;
               if (pendingTimeUs != C.TIME_UNSET) {
-                timeUs = pendingTimeUs;
+                if (pendingTimeUs != emittedTimeUs) {
+                  timeUs = pendingTimeUs;
+                }
                 pendingTimeUs = C.TIME_UNSET;
               }
               coreSampleSize = 0;

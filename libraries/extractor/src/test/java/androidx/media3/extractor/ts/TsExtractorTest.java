@@ -213,6 +213,7 @@ public final class TsExtractorTest {
         simulationConfig);
   }
 
+  @Test
   public void sampleWithDtsUhd() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
