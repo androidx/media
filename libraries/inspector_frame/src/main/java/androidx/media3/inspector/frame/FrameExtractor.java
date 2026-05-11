@@ -35,6 +35,7 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.SeekParameters;
@@ -244,6 +245,19 @@ public final class FrameExtractor implements AutoCloseable {
   /**
    * Extracts a representative {@link Frame} for the specified video position.
    *
+   * <p><b>Performance Guidelines:</b>
+   *
+   * <ul>
+   *   <li><b>Seek Parameters:</b> By default, this method uses {@link SeekParameters#DEFAULT}
+   *       (equivalent to {@link SeekParameters#EXACT}), which requires the decoder to process all
+   *       intermediate frames from the previous keyframe. If exact precision is not required,
+   *       consider configuring the extractor with {@link SeekParameters#CLOSEST_SYNC} to improve
+   *       extraction speed.
+   *   <li><b>Downscaling:</b> If a full-resolution frame is not needed, consider applying a {@link
+   *       Presentation} effect (e.g., {@code Presentation.createForHeight(480)}) to downscale the
+   *       frame during extraction, reducing memory usage and accelerating processing.
+   * </ul>
+   *
    * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted, in
    *     milliseconds.
    * @return A {@link ListenableFuture} of the result.
@@ -273,6 +287,10 @@ public final class FrameExtractor implements AutoCloseable {
    *
    * <p>The implementation uses a heuristic to identify a good thumbnail position. If no specific
    * thumbnail position is found, the frame at the beginning of the media is extracted.
+   *
+   * <p><b>Performance Guidelines:</b> If a full-resolution thumbnail is not required, consider
+   * applying a {@link Presentation} effect (e.g., {@code Presentation.createForHeight(480)}) to
+   * downscale the frame during extraction. This reduces memory usage and accelerates processing.
    *
    * @return A {@link ListenableFuture} of the result.
    */
