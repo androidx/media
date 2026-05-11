@@ -122,11 +122,6 @@ public final class MpegAudioReader implements ElementaryStreamReader {
     }
   }
 
-  @Override
-  public void packetFinished(boolean isEndOfInput) {
-    // Do nothing.
-  }
-
   /**
    * Attempts to locate the start of the next frame header.
    *

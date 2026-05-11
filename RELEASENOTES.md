@@ -80,6 +80,9 @@
     *   MP4: Prevent infinite loops and out-of-bounds reads when parsing empty
         `ilst` metadata tag items
         ([#3191](https://github.com/androidx/media/pull/3191)).
+    *   MPEG-TS: Ensure the last frame is rendered for streams where the last
+        PES packet has a known length
+        ([#3206](https://github.com/androidx/media/pull/3206)).
 *   Inspector:
 *   Audio:
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from

@@ -293,7 +293,7 @@ public final class DtsReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished(boolean isEndOfInput) {
+  public void packetFinished() {
     if (state == STATE_CHECKING_FOR_EXTSS_AFTER_CORE) {
       checkNotNull(output);
       if (coreFormatPendingEmit) {
