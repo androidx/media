@@ -72,4 +72,13 @@ public class SessionResultTest {
     assertThat(resultFromBundle.sessionError.extras.getString("errorKey")).isEqualTo("errorValue");
     assertThat(resultFromBundle.extras.size()).isEqualTo(0);
   }
+
+  @Test
+  public void constructor_withSessionErrorInfoCancelled_doesNotThrow() {
+    SessionError sessionError = new SessionError(SessionError.INFO_CANCELLED, "cancelled");
+    SessionResult sessionResult = new SessionResult(sessionError);
+
+    assertThat(sessionResult.resultCode).isEqualTo(SessionError.INFO_CANCELLED);
+    assertThat(sessionResult.sessionError).isEqualTo(sessionError);
+  }
 }

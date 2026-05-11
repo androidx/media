@@ -228,7 +228,8 @@ public final class SessionResult {
       Bundle extras,
       long completionTimeMs,
       @Nullable SessionError sessionError) {
-    checkArgument(sessionError == null || resultCode < 0);
+    checkArgument(
+        sessionError == null || resultCode < 0 || resultCode == SessionError.INFO_CANCELLED);
     this.resultCode = resultCode;
     this.extras = new Bundle(extras);
     this.completionTimeMs = completionTimeMs;
