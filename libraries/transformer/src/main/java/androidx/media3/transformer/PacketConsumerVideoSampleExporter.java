@@ -229,15 +229,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HardwareBufferFrame effectFrame = frames.get(i);
       // When encoding, releaseTime and contentTime are the same.
       checkState(effectFrame.releaseTimeNs == effectFrame.sequencePresentationTimeUs * 1000);
-      ImmutableMap<String, Object> metadata =
-          ImmutableMap.of(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs);
+
+      ImmutableMap.Builder<String, Object> metadataBuilder = ImmutableMap.builder();
+      metadataBuilder
+          .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
+          .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
+      if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
+        metadataBuilder.put(
+            CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, effectFrame.getMetadata());
+      }
 
       HardwareBuffer hardwareBuffer = checkNotNull(effectFrame.hardwareBuffer);
       DefaultHardwareBufferFrame commonFrame =
           new DefaultHardwareBufferFrame.Builder(hardwareBuffer)
               .setFormat(effectFrame.format)
               .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
-              .setMetadata(metadata)
+              .setMetadata(metadataBuilder.buildOrThrow())
               .setInternalImage(effectFrame.internalFrame)
               .build();
 
