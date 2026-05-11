@@ -193,6 +193,10 @@ public class ExportTest {
         Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781n")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g781v")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g986u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-n981u")
             || Ascii.equalsIgnoreCase(Build.MODEL, "le2121")
             || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870"));
