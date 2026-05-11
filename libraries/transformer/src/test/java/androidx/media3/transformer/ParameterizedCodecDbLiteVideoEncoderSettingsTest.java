@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import java.util.Locale;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
@@ -716,6 +717,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
     @Override
     public String toString() {
       return String.format(
+          Locale.US,
           "%s %s(%s): %dx%d@%.02f",
           socManufacturer,
           socModel,

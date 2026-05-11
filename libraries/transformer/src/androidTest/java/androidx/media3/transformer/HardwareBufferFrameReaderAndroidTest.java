@@ -382,9 +382,9 @@ public class HardwareBufferFrameReaderAndroidTest {
             .setWidth(10)
             .setColorInfo(
                 new ColorInfo.Builder()
-                    .setColorSpace(C.INDEX_UNSET)
-                    .setColorRange(C.INDEX_UNSET)
-                    .setColorTransfer(C.INDEX_UNSET)
+                    .setColorSpace(Format.NO_VALUE)
+                    .setColorRange(Format.NO_VALUE)
+                    .setColorTransfer(Format.NO_VALUE)
                     .build())
             .build();
     Format expectedFormat =

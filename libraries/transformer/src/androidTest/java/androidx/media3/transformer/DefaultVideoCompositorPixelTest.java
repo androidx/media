@@ -96,7 +96,7 @@ public final class DefaultVideoCompositorPixelTest {
 
   @Rule public final TestName testName = new TestName();
 
-  private static final String TAG = "DefaultVideoCompositorPixelTest";
+  private static final String TAG = "DVCompositorPixelTest";
   private static final String ORIGINAL_PNG_ASSET_PATH = "media/png/media3test_srgb.png";
   private static final String TEST_DIRECTORY = "test-generated-goldens/CompositorTestTimestamps/";
   private static final ImmutableList<ImmutableList<Effect>> TWO_INPUT_COMPOSITOR_EFFECT_LISTS =

@@ -1717,7 +1717,7 @@ public final class MediaItemExportTest {
 
     @Override
     public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
-      return 0;
+      return PROGRESS_STATE_NOT_STARTED;
     }
 
     @Override

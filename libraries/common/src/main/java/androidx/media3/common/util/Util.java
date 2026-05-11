@@ -84,6 +84,8 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+import android.util.SparseIntArray;
 import android.util.SparseLongArray;
 import android.view.Display;
 import android.view.SurfaceView;
@@ -617,6 +619,30 @@ public final class Util {
    */
   @UnstableApi
   public static <T> boolean contains(SparseArray<T> sparseArray, int key) {
+    return sparseArray.indexOfKey(key) >= 0;
+  }
+
+  /**
+   * Returns whether the given {@link SparseIntArray} contains the given key.
+   *
+   * @param sparseArray The {@link SparseIntArray}.
+   * @param key The key.
+   * @return Whether the {@link SparseIntArray} contains the key.
+   */
+  @UnstableApi
+  public static boolean contains(SparseIntArray sparseArray, int key) {
+    return sparseArray.indexOfKey(key) >= 0;
+  }
+
+  /**
+   * Returns whether the given {@link SparseBooleanArray} contains the given key.
+   *
+   * @param sparseArray The {@link SparseBooleanArray}.
+   * @param key The key.
+   * @return Whether the {@link SparseBooleanArray} contains the key.
+   */
+  @UnstableApi
+  public static boolean contains(SparseBooleanArray sparseArray, int key) {
     return sparseArray.indexOfKey(key) >= 0;
   }
 

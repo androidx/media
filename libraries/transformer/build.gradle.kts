@@ -23,11 +23,6 @@ android {
     getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
     getByName("test").assets.directories.add("../test_data/src/test/assets/")
   }
-
-  lint {
-    // TODO: b/353490583 - Disable this once the violations are fixed.
-    ignoreTestSources = true
-  }
 }
 
 dependencies {

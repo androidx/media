@@ -49,6 +49,8 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+import android.util.SparseIntArray;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -926,8 +928,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final class AssetLoaderInputTracker {
     private final List<SequenceMetadata> sequencesMetadata;
     private final SparseArray<SampleExporter> trackTypeToSampleExporter;
-    private final SparseArray<Boolean> trackTypeToShouldTranscode;
-    private final SparseArray<Integer> trackTypeToNumberOfRegisteredGraphInput;
+    private final SparseBooleanArray trackTypeToShouldTranscode;
+    private final SparseIntArray trackTypeToNumberOfRegisteredGraphInput;
 
     public AssetLoaderInputTracker(Composition composition) {
       sequencesMetadata = new ArrayList<>();
@@ -935,8 +937,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         sequencesMetadata.add(new SequenceMetadata());
       }
       trackTypeToSampleExporter = new SparseArray<>();
-      trackTypeToShouldTranscode = new SparseArray<>();
-      trackTypeToNumberOfRegisteredGraphInput = new SparseArray<>();
+      trackTypeToShouldTranscode = new SparseBooleanArray();
+      trackTypeToNumberOfRegisteredGraphInput = new SparseIntArray();
     }
 
     /**

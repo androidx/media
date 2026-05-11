@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import android.content.Context;
 import android.net.Uri;
 import android.view.SurfaceView;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackSelectionParameters;
@@ -38,6 +39,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.json.JSONException;
@@ -78,6 +80,7 @@ public class ExoPlayerFrameDropAnalysisTest {
   public TestConfig testConfig;
 
   @Parameters(name = "{0}")
+  @RequiresApi(24)
   public static List<TestConfig> parameters() {
     return Sets.cartesianProduct(
             INPUT_ASSETS,
@@ -199,8 +202,11 @@ public class ExoPlayerFrameDropAnalysisTest {
     @Override
     public String toString() {
       return String.format(
+          Locale.US,
           "%s_sp_%f_lateUs_%d",
-          Uri.parse(uri).getLastPathSegment(), playbackSpeed, lateThresholdUs);
+          Uri.parse(uri).getLastPathSegment(),
+          playbackSpeed,
+          lateThresholdUs);
     }
 
     public JSONObject toJsonObject() throws JSONException {

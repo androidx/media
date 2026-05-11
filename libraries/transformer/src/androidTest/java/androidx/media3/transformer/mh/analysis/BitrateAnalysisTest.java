@@ -54,6 +54,7 @@ import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Ignore;
@@ -123,7 +124,8 @@ public class BitrateAnalysisTest {
   public void analyzeBitrate() throws Exception {
     checkNotNull(assetInfo);
     String fileName = checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
-    String testId = String.format("analyzeBitrate_ssim_%s_%d_%s", bitrate, bitrateMode, fileName);
+    String testId =
+        String.format(Locale.US, "analyzeBitrate_ssim_%s_%d_%s", bitrate, bitrateMode, fileName);
 
     Map<String, Object> inputValues = new HashMap<>();
     inputValues.put("targetBitrate", bitrate);

@@ -285,6 +285,8 @@ public final class TestUtil {
     private final Queue<ImageAdapter> images;
     @Nullable private Consumer<ImageReaderAdapter> listener;
     @Nullable private Handler handler;
+    @Nullable private SurfaceTexture surfaceTexture;
+    @Nullable private Surface surface;
 
     public FakeImageReaderAdapter() {
       images = new ArrayDeque<>();
@@ -298,7 +300,11 @@ public final class TestUtil {
 
     @Override
     public Surface getSurface() {
-      return new Surface(new SurfaceTexture(/* texName= */ 0));
+      if (surfaceTexture == null) {
+        surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+        surface = new Surface(surfaceTexture);
+      }
+      return surface;
     }
 
     @Override
@@ -329,6 +335,12 @@ public final class TestUtil {
 
     @Override
     public void close() {
+      if (surface != null) {
+        surface.release();
+      }
+      if (surfaceTexture != null) {
+        surfaceTexture.release();
+      }
       while (!images.isEmpty()) {
         checkNotNull(images.poll()).close();
       }

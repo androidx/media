@@ -52,6 +52,8 @@ public class VideoEffectsPreviewPerformanceTest {
 
   private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
   private @MonotonicNonNull ExoPlayer player;
+  private @MonotonicNonNull SurfaceTexture surfaceTexture;
+  private @MonotonicNonNull Surface surface;
 
   @After
   public void tearDown() {
@@ -59,6 +61,12 @@ public class VideoEffectsPreviewPerformanceTest {
         () -> {
           if (player != null) {
             player.release();
+          }
+          if (surface != null) {
+            surface.release();
+          }
+          if (surfaceTexture != null) {
+            surfaceTexture.release();
           }
         });
   }
@@ -75,7 +83,9 @@ public class VideoEffectsPreviewPerformanceTest {
           player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
-          player.setVideoSurface(new Surface(new SurfaceTexture(0)));
+          surfaceTexture = new SurfaceTexture(0);
+          surface = new Surface(surfaceTexture);
+          player.setVideoSurface(surface);
           player.setPlayWhenReady(false);
           player.setVideoEffects(ImmutableList.of());
           player.addListener(listener);

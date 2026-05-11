@@ -175,7 +175,7 @@ public class EffectPlaybackPixelTest {
   public void exoplayerEffectsPreviewTest_ensuresAllFramesRendered() throws Exception {
     // Internal reference: b/264252759.
     assumeTrue(
-        "This test should run on real devices because OpenGL to ImageReader rendering is"
+        "This test should run on real devices because OpenGL to ImageReader rendering is "
             + "not always reliable on emulators.",
         !Util.isRunningOnEmulator());
 
@@ -282,7 +282,7 @@ public class EffectPlaybackPixelTest {
       throws Exception {
     // Internal reference: b/264252759.
     assumeTrue(
-        "This test should run on real devices because OpenGL to ImageReader rendering is"
+        "This test should run on real devices because OpenGL to ImageReader rendering is "
             + "not always reliable on emulators.",
         !Util.isRunningOnEmulator());
 
@@ -423,7 +423,7 @@ public class EffectPlaybackPixelTest {
       throws Exception {
     // Internal reference: b/264252759.
     assumeTrue(
-        "This test should run on real devices because OpenGL to ImageReader rendering is"
+        "This test should run on real devices because OpenGL to ImageReader rendering is "
             + "not always reliable on emulators.",
         !Util.isRunningOnEmulator());
 

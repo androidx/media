@@ -22,7 +22,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
-import static androidx.test.internal.util.Checks.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;

@@ -21,11 +21,14 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresPermission;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
@@ -580,6 +583,7 @@ public class TransformerAndroidTestRunner {
     }
   }
 
+  @SuppressLint("MissingPermission")
   private static void checkNetworkAccessForMediaInput(Context context, Object mediaInput) {
     ImmutableList.Builder<MediaItem> mediaItemsBuilder = new ImmutableList.Builder<>();
     if (mediaInput instanceof Composition) {
@@ -617,6 +621,7 @@ public class TransformerAndroidTestRunner {
   }
 
   /** Returns whether the context is connected to the network. */
+  @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
   private static boolean hasNetworkConnection(Context context) {
     ConnectivityManager connectivityManager =
         (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);

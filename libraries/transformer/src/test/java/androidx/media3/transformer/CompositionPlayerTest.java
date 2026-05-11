@@ -696,23 +696,27 @@ public class CompositionPlayerTest {
   @Test
   public void setVideoSurface_withNonNullSurface_throws() {
     CompositionPlayer player = createTestCompositionPlayer();
-    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+    SurfaceTexture surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+    Surface surface = new Surface(surfaceTexture);
 
     assertThrows(UnsupportedOperationException.class, () -> player.setVideoSurface(surface));
 
     player.release();
     surface.release();
+    surfaceTexture.release();
   }
 
   @Test
   public void clearVideoSurface_specifiedSurfaceNotPreviouslySet_throws() {
     CompositionPlayer player = createTestCompositionPlayer();
+    SurfaceTexture surfaceTexture = new SurfaceTexture(/* texName= */ 0);
+    Surface surface = new Surface(surfaceTexture);
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> player.clearVideoSurface(new Surface(new SurfaceTexture(/* texName= */ 0))));
+    assertThrows(IllegalArgumentException.class, () -> player.clearVideoSurface(surface));
 
     player.release();
+    surface.release();
+    surfaceTexture.release();
   }
 
   @Test
