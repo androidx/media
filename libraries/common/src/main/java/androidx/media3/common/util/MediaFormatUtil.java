@@ -337,19 +337,30 @@ public final class MediaFormatUtil {
 
   /** Supports {@link MediaFormat#getInteger(String, int)} for {@code API < 29}. */
   public static int getInteger(MediaFormat mediaFormat, String name, int defaultValue) {
-    return mediaFormat.containsKey(name) ? mediaFormat.getInteger(name) : defaultValue;
+    if (SDK_INT >= 29) {
+      return mediaFormat.getInteger(name, defaultValue);
+    } else {
+      return mediaFormat.containsKey(name) ? mediaFormat.getInteger(name) : defaultValue;
+    }
   }
 
   /** Supports {@link MediaFormat#getFloat(String, float)} for {@code API < 29}. */
   public static float getFloat(MediaFormat mediaFormat, String name, float defaultValue) {
-    return mediaFormat.containsKey(name) ? mediaFormat.getFloat(name) : defaultValue;
+    if (SDK_INT >= 29) {
+      return mediaFormat.getFloat(name, defaultValue);
+    } else {
+      return mediaFormat.containsKey(name) ? mediaFormat.getFloat(name) : defaultValue;
+    }
   }
 
   /** Supports {@link MediaFormat#getString(String, String)} for {@code API < 29}. */
   @Nullable
-  public static String getString(
-      MediaFormat mediaFormat, String name, @Nullable String defaultValue) {
-    return mediaFormat.containsKey(name) ? mediaFormat.getString(name) : defaultValue;
+  public static String getString(MediaFormat mediaFormat, String name, String defaultValue) {
+    if (SDK_INT >= 29) {
+      return mediaFormat.getString(name, defaultValue);
+    } else {
+      return mediaFormat.containsKey(name) ? mediaFormat.getString(name) : defaultValue;
+    }
   }
 
   /**
@@ -418,7 +429,7 @@ public final class MediaFormatUtil {
               mediaFormat.getInteger(MediaFormat.KEY_PROFILE)),
           CodecSpecificDataUtil.dolbyVisionConstantToLevelNumber(dolbyVisionLevel));
     } else {
-      return getString(mediaFormat, MediaFormat.KEY_CODECS_STRING, /* defaultValue= */ null);
+      return mediaFormat.getString(MediaFormat.KEY_CODECS_STRING);
     }
   }
 
