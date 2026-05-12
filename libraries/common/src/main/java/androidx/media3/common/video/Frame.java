@@ -93,13 +93,13 @@ public interface Frame {
 
   /**
    * Metadata key for storing the system time that this frame should be displayed at to maintain A/V
-   * sync. The returned value if set will be a {@code Long}.
+   * sync. The value should be a {@code Long}.
    */
   String KEY_DISPLAY_TIME_NS = "KEY_DISPLAY_TIME_NS";
 
   /**
    * Metadata key for storing the composition presentation time of this frame, in microseconds. The
-   * returned value if set will be a {@code Long}.
+   * value should be a {@code Long}.
    */
   String KEY_PRESENTATION_TIME_US = "KEY_PRESENTATION_TIME_US";
 
