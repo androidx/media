@@ -58,6 +58,7 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 
@@ -72,9 +73,9 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     private final Codec.DecoderFactory decoderFactory;
     private final Clock clock;
     @Nullable private final MediaSource.Factory mediaSourceFactory;
-    @Nullable private final TrackSelector.Factory trackSelectorFactory;
+    private final TrackSelector.Factory trackSelectorFactory;
     @Nullable private final LogSessionId logSessionId;
-    @Nullable private final LoadControl loadControl;
+    private final Supplier<LoadControl> loadControlSupplier;
 
     /**
      * Creates an instance using a {@link DefaultMediaSourceFactory}.
@@ -179,9 +180,29 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       this.decoderFactory = decoderFactory;
       this.clock = clock;
       this.mediaSourceFactory = mediaSourceFactory;
+
+      if (trackSelectorFactory == null) {
+        DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
+            new DefaultTrackSelector.Parameters.Builder()
+                .setForceHighestSupportedBitrate(true)
+                .setConstrainAudioChannelCountToDeviceCapabilities(false)
+                .build();
+        trackSelectorFactory =
+            ctx -> {
+              DefaultTrackSelector trackSelector = new DefaultTrackSelector(ctx);
+              trackSelector.setParameters(defaultTrackSelectorParameters);
+              return trackSelector;
+            };
+      }
       this.trackSelectorFactory = trackSelectorFactory;
       this.logSessionId = logSessionId;
-      this.loadControl = loadControl;
+      // We need a new LoadControl instance for every asset loader because these might run on
+      // different threads. Each TransformerInternal instance creates a new processing thread.
+      if (loadControl == null) {
+        this.loadControlSupplier = DefaultLoadControl::new;
+      } else {
+        this.loadControlSupplier = () -> loadControl;
+      }
     }
 
     @Override
@@ -190,38 +211,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Looper looper,
         Listener listener,
         CompositionSettings compositionSettings) {
-      MediaSource.Factory mediaSourceFactory = this.mediaSourceFactory;
-      if (mediaSourceFactory == null) {
-        DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
-        if (editedMediaItem.flattenForSlowMotion) {
-          defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
-        }
-        mediaSourceFactory =
-            new DefaultMediaSourceFactory(context, defaultExtractorsFactory)
-                .setEnableClippingInMediaPeriod(true);
-      }
-      TrackSelector.Factory trackSelectorFactory = this.trackSelectorFactory;
-      if (trackSelectorFactory == null) {
-        DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
-            new DefaultTrackSelector.Parameters.Builder()
-                .setForceHighestSupportedBitrate(true)
-                .setConstrainAudioChannelCountToDeviceCapabilities(false)
-                .build();
-        trackSelectorFactory =
-            context -> {
-              DefaultTrackSelector trackSelector = new DefaultTrackSelector(context);
-              trackSelector.setParameters(defaultTrackSelectorParameters);
-              return trackSelector;
-            };
-      }
-      @Nullable LoadControl loadControl = this.loadControl;
-      if (loadControl == null) {
-        loadControl = new DefaultLoadControl.Builder().build();
-      }
+      // TODO: b/512407542 - Avoid creating a new factory for each EditedMediaItem and assert that
+      // SEF is not used more than once within a Composition.
       return new ExoPlayerAssetLoader(
           context,
           editedMediaItem,
-          mediaSourceFactory,
+          mediaSourceFactory != null
+              ? mediaSourceFactory
+              : createMediaSourceFactory(context, editedMediaItem.flattenForSlowMotion),
           decoderFactory,
           compositionSettings.hdrMode,
           looper,
@@ -229,7 +226,17 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           clock,
           trackSelectorFactory,
           logSessionId,
-          loadControl);
+          loadControlSupplier.get());
+    }
+
+    private static MediaSource.Factory createMediaSourceFactory(
+        Context context, boolean shouldEnableSef) {
+      DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
+      if (shouldEnableSef) {
+        defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
+      }
+      return new DefaultMediaSourceFactory(context, defaultExtractorsFactory)
+          .setEnableClippingInMediaPeriod(true);
     }
   }
 
