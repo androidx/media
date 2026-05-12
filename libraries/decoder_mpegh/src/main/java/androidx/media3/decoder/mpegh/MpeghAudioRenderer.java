@@ -61,6 +61,9 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   /** Helper for handling MPEG-H UI commands and system settings. */
   private final MpeghUiCommandHelper uiHelper;
 
+  /** Whether the decoder is configured for direct (hardware offload) playback. **/
+  private boolean isDirectPlayback;
+
   /*  Creates a new instance. */
   public MpeghAudioRenderer() {
     this(/* eventHandler= */ null, /* eventListener= */ null);
@@ -95,6 +98,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   public MpeghAudioRenderer(
       Handler eventHandler, AudioRendererEventListener eventListener, AudioSink audioSink) {
     super(eventHandler, eventListener, audioSink);
+    audioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
     uiHelper = new MpeghUiCommandHelper();
     uiHelper.setEventDispatcher(
         new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
@@ -139,19 +143,38 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   protected MpeghDecoder createDecoder(Format format, CryptoConfig cryptoConfig)
       throws MpeghDecoderException {
     TraceUtil.beginSection("createMpeghDecoder");
-    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS, uiHelper);
+    Format.Builder checkFormatBuilder = format.buildUpon();
+    checkFormatBuilder.setChannelCount(2);
+    format = checkFormatBuilder.build();
+    @AudioSink.SinkFormatSupport
+    int formatSupport = getSinkFormatSupport(format);
+    isDirectPlayback = formatSupport == AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
+    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS, uiHelper, isDirectPlayback);
     TraceUtil.endSection();
     return decoder;
   }
 
   @Override
   protected Format getOutputFormat(MpeghDecoder decoder) {
-    return new Format.Builder()
+    String sampleMimeType;
+    @C.Encoding int pcmEncoding;
+    if (isDirectPlayback) {
+      sampleMimeType = MimeTypes.AUDIO_MPEGH_MHM1;
+      pcmEncoding = C.ENCODING_INVALID;
+    } else {
+      sampleMimeType = MimeTypes.AUDIO_RAW;
+      pcmEncoding = C.ENCODING_PCM_16BIT;
+    }
+    Format.Builder builder = new Format.Builder();
+    builder
         .setChannelCount(decoder.getChannelCount())
         .setSampleRate(decoder.getSampleRate())
-        .setSampleMimeType(MimeTypes.AUDIO_RAW)
-        .setPcmEncoding(C.ENCODING_PCM_16BIT)
-        .build();
+        .setSampleMimeType(sampleMimeType);
+    if (pcmEncoding != C.ENCODING_INVALID) {
+      builder.setPcmEncoding(pcmEncoding);
+    }
+
+    return builder.build();
   }
 
   @Override

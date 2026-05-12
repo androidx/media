@@ -726,6 +726,8 @@ public final class MimeTypes {
         return C.ENCODING_OPUS;
       case MimeTypes.AUDIO_DSD:
         return C.ENCODING_DSD;
+      case MimeTypes.AUDIO_MPEGH_MHM1:
+        return C.ENCODING_MPEGH_BL_L3;
       default:
         return C.ENCODING_INVALID;
     }

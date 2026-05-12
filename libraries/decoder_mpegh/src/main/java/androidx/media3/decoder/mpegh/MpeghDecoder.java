@@ -51,7 +51,7 @@ public final class MpeghDecoder
   private final ByteBuffer tmpOutputBuffer;
   private final MpeghUiCommandHelper uiHelper;
 
-  private MpeghDecoderJni decoder;
+  private @Nullable MpeghDecoderJni decoder;
   private long outPtsUs;
   private int outChannels;
   private int outSampleRate;
@@ -68,22 +68,15 @@ public final class MpeghDecoder
    * @throws MpeghDecoderException If an exception occurs when initializing the decoder.
    */
   public MpeghDecoder(
-      Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper uiHelper)
+      Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper uiHelper, boolean directPlayback)
       throws MpeghDecoderException {
     super(new DecoderInputBuffer[numInputBuffers], new SimpleDecoderOutputBuffer[numOutputBuffers]);
     if (!MpeghLibrary.isAvailable()) {
       throw new MpeghDecoderException("Failed to load decoder native libraries.");
     }
 
-    byte[] configData = new byte[0];
-    if (!format.initializationData.isEmpty()
-        && MimeTypes.AUDIO_MPEGH_MHA1.equals(format.sampleMimeType)) {
-      configData = format.initializationData.get(0);
-    }
-
-    // Initialize the native MPEG-H decoder.
-    decoder = new MpeghDecoderJni();
-    decoder.init(TARGET_LAYOUT_CICP, configData, configData.length);
+    outChannels = 2;
+    outSampleRate = 48000;
 
     int initialInputBufferSize =
         format.maxInputSize != Format.NO_VALUE ? format.maxInputSize : DEFAULT_INPUT_BUFFER_SIZE;
@@ -97,6 +90,20 @@ public final class MpeghDecoder
                 * 2); // MAX_FRAME_LENGTH * MAX_NUM_CHANNELS * MAX_NUM_FRAMES * BYTES_PER_SAMPLE
 
     this.uiHelper = uiHelper;
+
+    if (directPlayback) {
+      return;
+    }
+
+    byte[] configData = new byte[0];
+    if (!format.initializationData.isEmpty()
+        && MimeTypes.AUDIO_MPEGH_MHA1.equals(format.sampleMimeType)) {
+      configData = format.initializationData.get(0);
+    }
+
+    // Initialize the native MPEG-H decoder.
+    decoder = new MpeghDecoderJni();
+    decoder.init(TARGET_LAYOUT_CICP, configData, configData.length);
   }
 
   @Override
@@ -123,11 +130,13 @@ public final class MpeghDecoder
   @Nullable
   protected MpeghDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
-    if (reset) {
-      try {
-        decoder.flush();
-      } catch (MpeghDecoderException e) {
-        return e;
+    if (decoder != null) {
+      if (reset) {
+        try {
+          decoder.flush();
+        } catch (MpeghDecoderException e) {
+          return e;
+        }
       }
     }
 
@@ -202,38 +211,45 @@ public final class MpeghDecoder
       }
     }
 
-    long inputPtsUs = inputBuffer.timeUs;
-
-    // Process/decode the incoming data.
-    try {
-      decoder.process(inputData, inputSize, inputPtsUs);
-    } catch (MpeghDecoderException e) {
-      return e;
-    }
-
-    // Get as many decoded samples as possible.
-    int outputSize;
     int numBytes = 0;
-    int cnt = 0;
     tmpOutputBuffer.clear();
-    do {
+    if (decoder != null) {
+      long inputPtsUs = inputBuffer.timeUs;
+
+      // Process/decode the incoming data.
       try {
-        outputSize = decoder.getSamples(tmpOutputBuffer, numBytes);
+        decoder.process(inputData, inputSize, inputPtsUs);
       } catch (MpeghDecoderException e) {
         return e;
       }
-      // To concatenate possible additional audio frames, increase the write position.
-      numBytes += outputSize;
 
-      if (cnt == 0 && outputSize > 0) {
-        // Only use the first frame for info about PTS, number of channels and sample rate.
-        outPtsUs = decoder.getPts();
-        outChannels = decoder.getNumChannels();
-        outSampleRate = decoder.getSamplerate();
-      }
+      // Get as many decoded samples as possible.
+      int outputSize;
+      int cnt = 0;
+      do {
+        try {
+          outputSize = decoder.getSamples(tmpOutputBuffer, numBytes);
+        } catch (MpeghDecoderException e) {
+          return e;
+        }
+        // To concatenate possible additional audio frames, increase the write position.
+        numBytes += outputSize;
 
-      cnt++;
-    } while (outputSize > 0);
+        if (cnt == 0 && outputSize > 0) {
+          // Only use the first frame for info about PTS, number of channels and sample rate.
+          outPtsUs = decoder.getPts();
+          outChannels = decoder.getNumChannels();
+          outSampleRate = decoder.getSamplerate();
+        }
+
+        cnt++;
+      } while (outputSize > 0);
+    } else {
+      outPtsUs = inputBuffer.timeUs;
+      numBytes = inputData.remaining();
+      tmpOutputBuffer.put(inputData);
+      tmpOutputBuffer.rewind();
+    }
 
     int outputSizeTotal = numBytes;
     tmpOutputBuffer.limit(outputSizeTotal);
@@ -246,7 +262,11 @@ public final class MpeghDecoder
       outputBuffer.init(outPtsUs, outputSizeTotal);
 
       // copy temporary output to output buffer
-      outputBuffer.data.asShortBuffer().put(tmpOutputBuffer.asShortBuffer());
+      if (decoder != null) {
+        outputBuffer.data.asShortBuffer().put(tmpOutputBuffer.asShortBuffer());
+      } else {
+        outputBuffer.data.put(tmpOutputBuffer);
+      }
       outputBuffer.data.rewind();
     } else {
       // if no output data is available signalize that only decoding/processing was possible

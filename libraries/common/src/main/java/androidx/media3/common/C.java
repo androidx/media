@@ -221,6 +221,10 @@ public final class C {
     ENCODING_OPUS,
     ENCODING_DTS_UHD_P2,
     ENCODING_DSD,
+    ENCODING_MPEGH_BL_L3,
+    ENCODING_MPEGH_BL_L4,
+    ENCODING_MPEGH_LC_L3,
+    ENCODING_MPEGH_LC_L4
   })
   public @interface Encoding {}
 
@@ -339,6 +343,18 @@ public final class C {
 
   /** See {@link AudioFormat#ENCODING_DSD}. */
   @UnstableApi public static final int ENCODING_DSD = AudioFormat.ENCODING_DSD;
+
+  /** See {@link AudioFormat#ENCODING_MPEGH_BL_L3}. */
+  @UnstableApi public static final int ENCODING_MPEGH_BL_L3 = AudioFormat.ENCODING_MPEGH_BL_L3;
+
+  /** See {@link AudioFormat#ENCODING_MPEGH_BL_L4}. */
+  @UnstableApi public static final int ENCODING_MPEGH_BL_L4 = AudioFormat.ENCODING_MPEGH_BL_L4;
+
+  /** See {@link AudioFormat#ENCODING_MPEGH_LC_L3}. */
+  @UnstableApi public static final int ENCODING_MPEGH_LC_L3 = AudioFormat.ENCODING_MPEGH_LC_L3;
+
+  /** See {@link AudioFormat#ENCODING_MPEGH_LC_L4}. */
+  @UnstableApi public static final int ENCODING_MPEGH_LC_L4 = AudioFormat.ENCODING_MPEGH_LC_L4;
 
   /**
    * Represents the behavior affecting whether spatialization will be used. One of {@link

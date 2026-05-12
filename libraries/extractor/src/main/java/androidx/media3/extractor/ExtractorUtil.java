@@ -21,6 +21,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.OpusUtil;
+import androidx.media3.extractor.ts.MpeghUtil;
 import java.io.EOFException;
 import java.io.IOException;
 import org.checkerframework.dataflow.qual.Pure;
@@ -161,6 +162,11 @@ public final class ExtractorUtil {
         return Ac3Util.TRUEHD_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_OPUS:
         return OpusUtil.MAX_BYTES_PER_SECOND;
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
+        return MpeghUtil.MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT:

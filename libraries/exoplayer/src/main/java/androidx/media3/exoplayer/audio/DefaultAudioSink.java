@@ -66,6 +66,7 @@ import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.ts.MpeghUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -1022,6 +1023,11 @@ public final class DefaultAudioSink implements AudioSink {
         }
       }
 
+      int truncationSamples = 0;
+      if (Util.isMpegh(configuration.outputConfig.encoding)) {
+        truncationSamples += MpeghUtil.getTruncationSampleCount(buffer);
+      }
+
       if (afterDrainParameters != null) {
         if (!drainToEndOfStream()) {
           // Don't process any more input until draining completes.
@@ -1065,7 +1071,7 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.isPcm()) {
         submittedPcmBytes += buffer.remaining();
       } else {
-        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount;
+        submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
       }
 
       inputBuffer = buffer;
@@ -1263,6 +1269,10 @@ public final class DefaultAudioSink implements AudioSink {
     if (outputBuffer == null) {
       return;
     }
+    int truncationSamples = 0;
+    if (Util.isMpegh(configuration.outputConfig.encoding) && outputBuffer.remaining() == outputBuffer.limit()) {
+      truncationSamples = MpeghUtil.getTruncationSampleCount(outputBuffer);
+    }
     if (writeExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
       return;
     }
@@ -1326,12 +1336,20 @@ public final class DefaultAudioSink implements AudioSink {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
         checkState(outputBuffer == inputBuffer);
-        // Add only the remaining unreconciled frames to ensure exact sample accuracy.
+        int truncationSamples = 0;
+        if (Util.isMpegh(configuration.outputConfig.encoding)) {
+          ParsableByteArray byteBuffer = new ParsableByteArray();
+          int bufferLimit = outputBuffer.limit();
+          byteBuffer.reset(bufferLimit);
+          outputBuffer.get(byteBuffer.getData(), 0, bufferLimit);
+          outputBuffer.position(0);
+          truncationSamples = MpeghUtil.getTruncationSampleCount(byteBuffer);
+        }
         writtenEncodedFrames +=
             ((long) framesPerEncodedSample * inputBufferAccessUnitCount)
+                - truncationSamples
                 - currentBufferFramesWritten;
-        currentBufferFramesWritten = 0;
-      }
+        currentBufferFramesWritten = 0;      }
       outputBuffer = null;
     } else {
       if (!configuration.isPcm() && bytesWritten > 0) {
@@ -1902,6 +1920,11 @@ public final class DefaultAudioSink implements AudioSink {
                 * Ac3Util.TRUEHD_RECHUNK_SAMPLE_COUNT);
       case C.ENCODING_OPUS:
         return OpusUtil.parseOggPacketAudioSampleCount(buffer);
+      case C.ENCODING_MPEGH_BL_L3:
+      case C.ENCODING_MPEGH_BL_L4:
+      case C.ENCODING_MPEGH_LC_L3:
+      case C.ENCODING_MPEGH_LC_L4:
+        return MpeghUtil.getStandardFrameLength(buffer);
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_24BIT:

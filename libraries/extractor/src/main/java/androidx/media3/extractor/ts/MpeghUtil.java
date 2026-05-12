@@ -23,15 +23,25 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
+import androidx.media3.common.util.UnstableApi;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.nio.ByteBuffer;
 
 /** Utility methods for parsing MPEG-H frames, which are access units in MPEG-H bitstreams. */
-/* package */ final class MpeghUtil {
+@UnstableApi
+public final class MpeghUtil {
+
+  /**
+   *  Maximum rate for an MPEG-H audio stream, in bytes per second.
+   * 56 channels × 288 kbps/channel = 16128 kbps -> 2016000 bytes/s
+   * assumes 1024-sample frame length at 48000 Hz for MPEG-H BL L4 maximum
+   */
+  public static final int MAX_RATE_BYTES_PER_SECOND = 16128 * 1000 / 8;
 
   /** See ISO_IEC_23003-8;2022, 14.4.4. */
   private static final int MHAS_SYNC_WORD = 0xC001A5;
@@ -735,5 +745,69 @@ import java.lang.annotation.Target;
       this.standardFrameLength = standardFrameLength;
       this.compatibleProfileLevelSet = compatibleProfileLevelSet;
     }
+  }
+
+  /**
+   * Obtains the number of truncated samples from an MPEG-H bit stream.
+   *
+   * @param buffer The data to parse, containing complete MPEG-H access units
+   * @return The number of truncated samples.
+   */
+  public static int getTruncationSampleCount(ByteBuffer buffer) {
+    int truncationSamples = 0;
+    int bufferPos = buffer.position();
+    byte[] bytes = new byte[buffer.remaining()];
+    buffer.get(bytes);
+    buffer.position(bufferPos);
+    ParsableBitArray bitArray = new ParsableBitArray(bytes);
+
+    MhasPacketHeader header = new MhasPacketHeader();
+    while (bitArray.bitsLeft() > 0) {
+      try {
+        if (!parseMhasPacketHeader(bitArray, header)) {
+          return 0;
+        }
+        if (header.packetType == MhasPacketHeader.PACTYP_AUDIOTRUNCATION) {
+          truncationSamples += parseAudioTruncationInfo(bitArray);
+        } else {
+          bitArray.skipBytes(header.packetLength);
+        }
+      } catch (ParserException e) {
+        return 0;
+      }
+    }
+    return truncationSamples;
+  }
+
+  /**
+   * Obtains the standard audio frame length from an MPEG-H bit stream.
+   *
+   * @param buffer The data to parse, containing complete MPEG-H access units
+   * @return The standard audio frame length.
+   */
+  public static int getStandardFrameLength(ByteBuffer buffer) {
+    int bufferPos = buffer.position();
+    byte[] bytes = new byte[buffer.remaining()];
+    buffer.get(bytes);
+    buffer.position(bufferPos);
+    ParsableBitArray bitArray = new ParsableBitArray(bytes);
+
+    MhasPacketHeader header = new MhasPacketHeader();
+    while (bitArray.bitsLeft() > 0) {
+      try {
+        if (!parseMhasPacketHeader(bitArray, header)) {
+          return 0;
+        }
+        if (header.packetType == MhasPacketHeader.PACTYP_MPEGH3DACFG) {
+          Mpegh3daConfig config = parseMpegh3daConfig(bitArray);
+          return config.standardFrameLength;
+        } else {
+          bitArray.skipBytes(header.packetLength);
+        }
+      } catch (ParserException e) {
+        return 0;
+      }
+    }
+    return 0;
   }
 }

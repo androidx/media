@@ -44,6 +44,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
+import androidx.media3.extractor.ts.MpeghUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
@@ -97,6 +98,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
+  private boolean isMpegh;
   private final int pcmFrameSize;
   @Nullable private final StreamEventCallbackV29 offloadStreamEventCallbackV29;
   private final ListenerSet<Listener> listeners;
@@ -155,6 +157,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       int channelCount = Integer.bitCount(config.channelMask);
       pcmFrameSize = Util.getPcmFrameSize(config.encoding, channelCount);
     } else {
+      isMpegh = Util.isMpegh(config.encoding);
       pcmFrameSize = C.LENGTH_UNSET;
     }
 
@@ -243,6 +246,10 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       // If this is the first encoded sample, calculate the sample size in frames.
       framesPerEncodedSample = DefaultAudioSink.getFramesPerEncodedSample(config.encoding, buffer);
     }
+    int truncationSamples = 0;
+    if (isMpegh && buffer.remaining() == buffer.limit()) {
+      truncationSamples = MpeghUtil.getTruncationSampleCount(buffer);
+    }
     maybeReportUnderrun();
     int bytesRemaining = buffer.remaining();
     int bytesWrittenOrError;
@@ -277,7 +284,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     } else if (fullyHandled) {
       // For non-PCM we can only be sure about the number of written frames once the entire buffer
       // is submitted.
-      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount;
+      writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
     }
     return fullyHandled;
   }
