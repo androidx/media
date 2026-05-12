@@ -95,6 +95,7 @@ public final class DtsReader implements ElementaryStreamReader {
   // Used when reading the samples.
   private boolean coreFormatPendingEmit;
   private long timeUs;
+  private long pendingTimeUs;
   private boolean hasCore;
   private boolean skipExtssUntilCore;
 
@@ -114,6 +115,7 @@ public final class DtsReader implements ElementaryStreamReader {
     headerScratchBytes = new ParsableByteArray(new byte[maxHeaderSize]);
     state = STATE_FINDING_SYNC;
     timeUs = C.TIME_UNSET;
+    pendingTimeUs = C.TIME_UNSET;
     uhdAudioChunkId = new AtomicInteger();
     extensionSubstreamHeaderSize = C.LENGTH_UNSET;
     uhdHeaderSize = C.LENGTH_UNSET;
@@ -130,6 +132,7 @@ public final class DtsReader implements ElementaryStreamReader {
     extSyncBytes = 0;
     coreSampleSize = 0;
     timeUs = C.TIME_UNSET;
+    pendingTimeUs = C.TIME_UNSET;
     uhdAudioChunkId.set(0);
     coreFormatPendingEmit = false;
     skipExtssUntilCore = hasCore;
@@ -144,7 +147,14 @@ public final class DtsReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    timeUs = pesTimeUs;
+    if (pesTimeUs != C.TIME_UNSET) {
+      if (state != STATE_FINDING_SYNC) {
+        pendingTimeUs = pesTimeUs;
+      } else {
+        timeUs = pesTimeUs;
+        pendingTimeUs = C.TIME_UNSET;
+      }
+    }
   }
 
   @Override
@@ -233,6 +243,7 @@ public final class DtsReader implements ElementaryStreamReader {
               int combinedSize =
                   sampleSize
                       + (frameType == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM ? coreSampleSize : 0);
+              long emittedTimeUs = timeUs;
               output.sampleMetadata(
                   timeUs,
                   frameType == DtsUtil.FRAME_TYPE_UHD_NON_SYNC ? 0 : C.BUFFER_FLAG_KEY_FRAME,
@@ -240,6 +251,12 @@ public final class DtsReader implements ElementaryStreamReader {
                   0,
                   null);
               timeUs += sampleDurationUs;
+              if (pendingTimeUs != C.TIME_UNSET) {
+                if (pendingTimeUs != emittedTimeUs) {
+                  timeUs = pendingTimeUs;
+                }
+                pendingTimeUs = C.TIME_UNSET;
+              }
               coreSampleSize = 0;
               state = STATE_FINDING_SYNC;
             }
@@ -263,8 +280,15 @@ public final class DtsReader implements ElementaryStreamReader {
                 coreFormatPendingEmit = false;
               }
               checkState(timeUs != C.TIME_UNSET);
+              long emittedTimeUs = timeUs;
               output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, coreSampleSize, 0, null);
               timeUs += sampleDurationUs;
+              if (pendingTimeUs != C.TIME_UNSET) {
+                if (pendingTimeUs != emittedTimeUs) {
+                  timeUs = pendingTimeUs;
+                }
+                pendingTimeUs = C.TIME_UNSET;
+              }
               coreSampleSize = 0;
 
               syncBytes = extSyncBytes;
@@ -293,7 +317,7 @@ public final class DtsReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
+  public void endOfInputReached() {
     if (state == STATE_CHECKING_FOR_EXTSS_AFTER_CORE) {
       checkNotNull(output);
       if (coreFormatPendingEmit) {

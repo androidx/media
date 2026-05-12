@@ -202,6 +202,18 @@ public final class TsExtractorTest {
   }
 
   @Test
+  public void sampleWithDtsHdAcrossPesBoundary() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(
+            subtitlesParsedDuringExtraction,
+            MODE_SINGLE_PMT,
+            new TimestampAdjuster(0),
+            new DefaultTsPayloadReaderFactory(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)),
+        "media/ts/sample_dts_hd_across_pes.ts",
+        simulationConfig);
+  }
+
+  @Test
   public void sampleWithDtsUhd() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
