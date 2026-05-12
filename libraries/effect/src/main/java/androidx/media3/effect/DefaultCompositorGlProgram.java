@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.opengl.GLES20;
+import androidx.annotation.Nullable;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -42,10 +43,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /* package */ static final class InputFrameInfo {
     public final GlTextureInfo glTextureInfo;
     public final OverlaySettings overlaySettings;
+    @Nullable public final float[] transformationMatrix;
 
     public InputFrameInfo(GlTextureInfo glTextureInfo, OverlaySettings overlaySettings) {
+      this(glTextureInfo, overlaySettings, /* transformationMatrix= */ null);
+    }
+
+    public InputFrameInfo(
+        GlTextureInfo glTextureInfo,
+        OverlaySettings overlaySettings,
+        @Nullable float[] transformationMatrix) {
       this.glTextureInfo = glTextureInfo;
       this.overlaySettings = overlaySettings;
+      this.transformationMatrix = transformationMatrix;
     }
   }
 
@@ -137,10 +147,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     GlProgram glProgram = checkNotNull(this.glProgram);
     GlTextureInfo inputTexture = inputFrameInfo.glTextureInfo;
     glProgram.setSamplerTexIdUniform("uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
-    float[] transformationMatrix =
-        overlayMatrixProvider.getTransformationMatrix(
-            /* overlaySize= */ new Size(inputTexture.width, inputTexture.height),
-            inputFrameInfo.overlaySettings);
+    float[] transformationMatrix = inputFrameInfo.transformationMatrix;
+    if (transformationMatrix == null) {
+      transformationMatrix =
+          overlayMatrixProvider.getTransformationMatrix(
+              /* overlaySize= */ new Size(inputTexture.width, inputTexture.height),
+              inputFrameInfo.overlaySettings);
+    }
     glProgram.setFloatsUniform("uTransformationMatrix", transformationMatrix);
     glProgram.setFloatUniform("uAlphaScale", inputFrameInfo.overlaySettings.getAlphaScale());
     glProgram.bindAttributesAndUniforms();

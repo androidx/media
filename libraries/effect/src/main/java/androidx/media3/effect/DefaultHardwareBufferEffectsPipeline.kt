@@ -26,6 +26,7 @@ import android.opengl.EGLExt
 import android.opengl.EGLSurface
 import android.opengl.GLES11Ext
 import android.opengl.GLES20
+import android.opengl.Matrix
 import android.os.Build.VERSION.SDK_INT
 import androidx.annotation.RequiresApi
 import androidx.media3.common.C
@@ -40,6 +41,7 @@ import androidx.media3.common.util.Consumer
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlProgram
 import androidx.media3.common.util.GlUtil
+import androidx.media3.common.util.Size
 import androidx.media3.common.video.SyncFenceWrapper
 import androidx.media3.effect.DefaultCompositorGlProgram.InputFrameInfo
 import androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL
@@ -80,6 +82,9 @@ private constructor(
 
   // TODO: b/479134794 - This being nullable and mutable adds complexity, simplify this.
   private var outputBufferQueue: HardwareBufferFrameQueue? = null
+  private val overlayMatrixProvider = OverlayMatrixProvider()
+  private var targetFormat: Format? = null
+  private var presentationEffect: Presentation? = null
 
   override fun setRenderOutput(output: HardwareBufferFrameQueue?) {
     this.outputBufferQueue = output
@@ -93,9 +98,18 @@ private constructor(
       is Packet.EndOfStream -> outputBufferQueue!!.signalEndOfStream()
       is Packet.Payload -> {
         if (packet.payload.isNotEmpty()) {
-          // Step 1: Dequeue an output frame, use the format of the first sequence to determine
-          // the output format.
-          val outputFrame = getOutputFrame(packet.payload[0].format)
+          if (targetFormat == null) {
+            val firstFrame = packet.payload[0]
+            targetFormat = firstFrame.format
+            presentationEffect =
+              Presentation.createForWidthAndHeight(
+                targetFormat!!.width,
+                targetFormat!!.height,
+                Presentation.LAYOUT_SCALE_TO_FIT,
+              )
+          }
+          // Step 1: Dequeue an output frame, use the target format.
+          val outputFrame = getOutputFrame(targetFormat!!)
           var inputReleaseFences: List<SyncFenceWrapper?> = emptyList()
           try {
             // Step 2: Composite the input frames onto the output frame on the internal thread.
@@ -208,6 +222,10 @@ private constructor(
           )
         }
 
+        val targetWidth = targetFormat!!.width
+        val targetHeight = targetFormat!!.height
+        overlayMatrixProvider.configure(Size(targetWidth, targetHeight))
+
         for (i in inputFrames.indices) {
           val inputFrame = inputFrames[i]
           val hardwareBuffer = checkNotNull(inputFrame.hardwareBuffer)
@@ -278,7 +296,31 @@ private constructor(
               hardwareBuffer.height,
             )
           val overlaySettings = overlaySettingsProvider(inputFrame)
-          inputFrameInfos.add(InputFrameInfo(textureInfo, overlaySettings))
+
+          // Configure presentation effect with current input size
+          presentationEffect!!.configure(hardwareBuffer.width, hardwareBuffer.height)
+          val presentationMatrix =
+            presentationEffect!!.getGlMatrixArray(inputFrame.presentationTimeUs)
+
+          // Calculate overlay matrix assuming the input is logically target size
+          val overlayMatrix =
+            overlayMatrixProvider.getTransformationMatrix(
+              Size(targetWidth, targetHeight),
+              overlaySettings,
+            )
+
+          // Combine them: combined = overlayMatrix * presentationMatrix
+          val combinedMatrix = FloatArray(16)
+          Matrix.multiplyMM(
+            combinedMatrix,
+            /* resultOffset= */ 0,
+            overlayMatrix,
+            /* lhsOffset= */ 0,
+            presentationMatrix,
+            /* rhsOffset= */ 0,
+          )
+
+          inputFrameInfos.add(InputFrameInfo(textureInfo, overlaySettings, combinedMatrix))
         }
 
         // Wait on the output fence, to ensure it is ready to be written to.

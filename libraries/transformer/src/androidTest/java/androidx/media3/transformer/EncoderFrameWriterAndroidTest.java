@@ -84,6 +84,11 @@ public class EncoderFrameWriterAndroidTest {
     EncoderFrameWriter.Listener listener =
         new Listener() {
           @Override
+          public Format onConfigure(Format requestedFormat) {
+            return requestedFormat;
+          }
+
+          @Override
           public void onEncoderCreated(Codec encoder) {
             createdEncoder.set(encoder);
           }

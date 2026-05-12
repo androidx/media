@@ -53,6 +53,13 @@ public class EncoderFrameWriter implements FrameWriter {
   /** Listener for {@link EncoderFrameWriter} events. */
   public interface Listener {
 
+    /**
+     * Called when configure is called.
+     *
+     * @return The {@link Format} used to configure the encoder.
+     */
+    Format onConfigure(Format requestedFormat);
+
     /** Called when the encoder is created so downstream components can receive its output. */
     void onEncoderCreated(Codec encoder);
 
@@ -102,9 +109,10 @@ public class EncoderFrameWriter implements FrameWriter {
     checkState(imageWriter == null);
     checkState(encoder == null);
 
+    Format encoderFormat = listener.onConfigure(format);
     try {
       // TODO: b/505290710 - Propagate LogSessionId to the encoder factory.
-      encoder = encoderFactory.createForVideoEncoding(format, /* logSessionId= */ null);
+      encoder = encoderFactory.createForVideoEncoding(encoderFormat, /* logSessionId= */ null);
     } catch (ExportException e) {
       listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
       return;

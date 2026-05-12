@@ -27,11 +27,13 @@ import android.content.Context;
 import android.hardware.HardwareBuffer;
 import android.media.MediaCodec.BufferInfo;
 import android.media.metrics.LogSessionId;
+import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoFrameProcessor;
@@ -47,7 +49,6 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.GlTextureFrameRenderer;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.HardwareBufferSurfaceRenderer;
 import androidx.media3.effect.PacketConsumerHardwareBufferFrameQueue;
@@ -63,6 +64,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 @RequiresApi(26)
 /* package */ final class PacketConsumerVideoSampleExporter extends SampleExporter {
 
+  private static final String DEFAULT_OUTPUT_MIME_TYPE = MimeTypes.VIDEO_H265;
+
   private final DecoderInputBuffer encoderOutputBuffer;
 
   private final Consumer<ExportException> errorConsumer;
@@ -76,12 +79,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final MuxerWrapper muxerWrapper;
   private final FallbackListener fallbackListener;
   private final TransformationRequest transformationRequest;
+  private final Format firstInputFormat;
   @Nullable private final LogSessionId logSessionId;
   @Nullable private final BitmapToHardwareBufferProcessor hardwareBufferPostProcessor;
 
   private final HandlerWrapper handlerWrapper;
   private final Queue<PendingQueueCall> pendingQueueCalls;
   private boolean hasPendingEos;
+  private int outputRotationDegrees;
 
   /**
    * The timestamp of the last buffer processed before {@linkplain
@@ -93,7 +98,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean hasMuxedTimestampZero;
   private boolean hasProducedFrameWithTimestampZero;
   private boolean hasSignaledEndOfStream;
+  // TODO: b/512067741 - Remove once HardwareBufferSurfaceRenderer is converted to a FrameWriter.
   private @MonotonicNonNull VideoEncoderWrapper encoderWrapper;
+  private @MonotonicNonNull Codec encoder;
 
   public PacketConsumerVideoSampleExporter(
       Context context,
@@ -119,6 +126,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.muxerWrapper = muxerWrapper;
     this.fallbackListener = fallbackListener;
+    this.firstInputFormat = firstInputFormat;
     this.logSessionId = logSessionId;
     this.handlerWrapper = handlerWrapper;
     this.pendingQueueCalls = new ArrayDeque<>();
@@ -134,9 +142,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     ComponentListener componentListener = new ComponentListener();
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
-    HardwareBufferFrameQueue queue;
     if (SDK_INT >= 33) {
-      queue = new EncoderWriterHardwareBufferQueue(componentListener);
+      Handler playbackHandler = new Handler(playbackLooper);
+      frameWriter =
+          new EncoderFrameWriter(
+              encoderFactory, componentListener, playbackHandler::post, playbackHandler);
     } else if (hardwareBufferJniWrapper != null) {
       // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
       HardwareBufferSurfaceRenderer packetRenderer =
@@ -148,11 +158,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   errorConsumer.accept(
                       ExportException.createForVideoFrameProcessingException(
                           VideoFrameProcessingException.from(e))));
-      queue = new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
+      PacketConsumerHardwareBufferFrameQueue queue =
+          new PacketConsumerHardwareBufferFrameQueue(packetRenderer, componentListener);
+      frameWriter = new HardwareBufferFrameQueueToFrameWriterAdapter(queue);
     } else {
       throw new UnsupportedOperationException();
     }
-    frameWriter = new HardwareBufferFrameQueueToFrameWriterAdapter(queue);
     frameProcessor = frameProcessorFactory.create(frameWriter);
     if (hardwareBufferJniWrapper != null) {
       hardwareBufferPostProcessor =
@@ -279,25 +290,45 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (encoderWrapper != null) {
       encoderWrapper.release();
     }
+    if (encoder != null) {
+      encoder.release();
+    }
   }
 
   @Override
   @Nullable
   protected Format getMuxerInputFormat() throws ExportException {
-    return encoderWrapper == null ? null : encoderWrapper.getOutputFormat();
+    if (encoderWrapper != null) {
+      return encoderWrapper.getOutputFormat();
+    }
+    if (encoder != null) {
+      @Nullable Format outputFormat = encoder.getOutputFormat();
+      if (outputFormat != null && outputRotationDegrees != 0) {
+        outputFormat = outputFormat.buildUpon().setRotationDegrees(outputRotationDegrees).build();
+      }
+      return outputFormat;
+    }
+    return null;
   }
 
   @Override
   @Nullable
   protected DecoderInputBuffer getMuxerInputBuffer() throws ExportException {
-    if (encoderWrapper == null) {
+    if (encoderWrapper != null) {
+      encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
+    } else if (encoder != null) {
+      encoderOutputBuffer.data = encoder.getOutputBuffer();
+    } else {
       return null;
     }
-    encoderOutputBuffer.data = encoderWrapper.getOutputBuffer();
     if (encoderOutputBuffer.data == null) {
       return null;
     }
-    BufferInfo bufferInfo = checkNotNull(encoderWrapper.getOutputBufferInfo());
+    BufferInfo bufferInfo =
+        checkNotNull(
+            encoderWrapper != null
+                ? encoderWrapper.getOutputBufferInfo()
+                : checkNotNull(encoder).getOutputBufferInfo());
     if (bufferInfo.presentationTimeUs == 0) {
       // Internal ref b/235045165: Some encoder incorrectly set a zero presentation time on the
       // penultimate buffer (before EOS), and sets the actual timestamp on the EOS buffer. Use the
@@ -321,15 +352,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     if (encoderWrapper != null) {
       encoderWrapper.releaseOutputBuffer(/* render= */ false);
+    } else if (encoder != null) {
+      encoder.releaseOutputBuffer(/* render= */ false);
     }
   }
 
   @Override
   protected boolean isMuxerInputEnded() {
-    return encoderWrapper != null && encoderWrapper.isEnded();
+    if (encoderWrapper != null) {
+      return encoderWrapper.isEnded();
+    }
+    if (encoder != null) {
+      return encoder.isEnded();
+    }
+    return false;
   }
 
-  private final class ComponentListener implements PacketConsumerHardwareBufferFrameQueue.Listener {
+  private final class ComponentListener
+      implements PacketConsumerHardwareBufferFrameQueue.Listener, EncoderFrameWriter.Listener {
 
     @Override
     public SurfaceInfo getRendererSurfaceInfo(Format format) throws VideoFrameProcessingException {
@@ -356,16 +396,41 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    public Format onConfigure(Format requestedFormat) {
+      Format.Builder formatBuilder = requestedFormat.buildUpon();
+      // This matches the original behavior in Transformer where MimeType is set on Transformer.
+      formatBuilder.setSampleMimeType(
+          getRequestedOutputMimeType(firstInputFormat, transformationRequest));
+      // Rotation is handled by the muxer, update the encoder format so rotation is always 0.
+      if (requestedFormat.rotationDegrees != 0) {
+        outputRotationDegrees = requestedFormat.rotationDegrees;
+        formatBuilder.setRotationDegrees(0);
+      }
+      formatBuilder.setSampleMimeType(
+          findSupportedMimeTypeForEncoderAndMuxer(
+              formatBuilder.build(), muxerWrapper.getSupportedSampleMimeTypes(TRACK_TYPE_VIDEO)));
+      return formatBuilder.build();
+    }
+
+    @Override
+    public void onEncoderCreated(Codec encoder) {
+      checkState(PacketConsumerVideoSampleExporter.this.encoder == null);
+      PacketConsumerVideoSampleExporter.this.encoder = encoder;
+    }
+
+    @Override
     public void onEndOfStream() {
       checkState(!hasSignaledEndOfStream);
-      if (encoderWrapper != null) {
-        try {
-          hasSignaledEndOfStream = true;
-          // TODO: b/475744934 - Update this to only end the encoder once the renderer has received
-          // the EOS.
-          encoderWrapper.signalEndOfInputStream();
-        } catch (ExportException e) {
-          errorConsumer.accept(e);
+      if (encoderWrapper != null || encoder != null) {
+        hasSignaledEndOfStream = true;
+        if (encoderWrapper != null) {
+          try {
+            // TODO: b/475744934 - Update this to only end the encoder once the renderer has
+            // received the EOS.
+            encoderWrapper.signalEndOfInputStream();
+          } catch (ExportException e) {
+            errorConsumer.accept(e);
+          }
         }
       }
       finalFramePresentationTimeUs = C.TIME_UNSET;
@@ -422,6 +487,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       for (HardwareBufferFrame frame : call.hardwareBufferFrames) {
         frame.release(/* releaseFence= */ null);
       }
+    }
+  }
+
+  private static String getRequestedOutputMimeType(
+      Format inputFormat, TransformationRequest transformationRequest) {
+    String inputSampleMimeType = checkNotNull(inputFormat.sampleMimeType);
+    if (transformationRequest.videoMimeType != null) {
+      return transformationRequest.videoMimeType;
+    } else if (MimeTypes.isImage(inputSampleMimeType)) {
+      return DEFAULT_OUTPUT_MIME_TYPE;
+    } else {
+      return inputSampleMimeType;
     }
   }
 
