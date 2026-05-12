@@ -14,8 +14,8 @@
      limitations under the License.
 -->
 <lint>
-  <!-- Instrumentation tests often run at targetApi and use dynamic SDK_INT checks,
-       but the linter doesn't understand this so it generates spurious NewApi failures. -->
+  <!-- TODO: b/507008072 - Instrumentation tests often run at targetApi and use dynamic SDK_INT
+       checks, but the linter doesn't understand this so it generates spurious NewApi failures. -->
   <issue id="NewApi">
     <ignore path="src/androidTest/**" />
   </issue>

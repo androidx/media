@@ -19,7 +19,7 @@
         value="androidx.media3.common.util.UnstableApi,androidx.media3.common.util.ExperimentalApi" />
   </issue>
   <!--  Robolectric tests run at targetApi by default, but the linter doesn't understand this so
-  generates lots of spurious NewApi failures. -->
+  generates lots of spurious NewApi failures (TODO: b/507008072). -->
   <issue id="NewApi">
     <ignore path="*/src/test/**" />
   </issue>
