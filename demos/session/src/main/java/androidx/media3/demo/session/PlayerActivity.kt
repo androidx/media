@@ -17,6 +17,7 @@ package androidx.media3.demo.session
 
 import android.content.ComponentName
 import android.content.Context
+import android.graphics.Matrix
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -26,6 +27,7 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -36,20 +38,32 @@ import androidx.media3.cast.MediaRouteButtonViewProvider
 import androidx.media3.common.C.TRACK_TYPE_TEXT
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Player.EVENT_AUDIO_ATTRIBUTES_CHANGED
+import androidx.media3.common.Player.EVENT_DEVICE_VOLUME_CHANGED
+import androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED
 import androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION
 import androidx.media3.common.Player.EVENT_MEDIA_METADATA_CHANGED
+import androidx.media3.common.Player.EVENT_METADATA
+import androidx.media3.common.Player.EVENT_REPEAT_MODE_CHANGED
 import androidx.media3.common.Player.EVENT_TIMELINE_CHANGED
 import androidx.media3.common.Player.EVENT_TRACKS_CHANGED
+import androidx.media3.common.Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.Brightness
+import androidx.media3.effect.MatrixTransformation
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.Effects
+import androidx.media3.transformer.Transformer
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 
-private const val TAG = "PlayerActivity"
+// private const val TAG = "PlayerActivity"
+private const val TAG = "PlayerActivity-mytag"
 
 class PlayerActivity : AppCompatActivity() {
   private lateinit var controllerFuture: ListenableFuture<MediaController>
@@ -99,10 +113,10 @@ class PlayerActivity : AppCompatActivity() {
   private suspend fun initializeController() {
     controllerFuture =
       MediaController.Builder(
-          this,
-          SessionToken(this, ComponentName(this, PlaybackService::class.java)),
-        )
-        .buildAsync()
+        this,
+        SessionToken(this, ComponentName(this, PlaybackService::class.java)),
+      )
+      .buildAsync()
     updateMediaMetadataUI()
     setController()
   }
@@ -132,19 +146,110 @@ class PlayerActivity : AppCompatActivity() {
           if (events.contains(EVENT_TRACKS_CHANGED)) {
             playerView.setShowSubtitleButton(player.currentTracks.isTypeSupported(TRACK_TYPE_TEXT))
           }
+          if (events.contains(EVENT_AUDIO_ATTRIBUTES_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), " audio attr chg ", 0).show()
+          }
+          if (events.contains(EVENT_METADATA)) {
+            // Toast.makeText(getApplicationContext(), " meta data event ", 0).show()
+          }
           if (events.contains(EVENT_TIMELINE_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), " time line change ", 0).show()
             updateCurrentPlaylistUI()
           }
           if (events.contains(EVENT_MEDIA_METADATA_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), "meta data change ", 0).show()
             updateMediaMetadataUI()
+          }
+          if (events.contains(EVENT_IS_PLAYING_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), "play pause ", 0).show()
+          }
+          if (events.contains(EVENT_DEVICE_VOLUME_CHANGED)) {
+            Toast.makeText(getApplicationContext(), " dev vol change ", 0).show()
           }
           if (events.contains(EVENT_MEDIA_ITEM_TRANSITION)) {
             // Trigger adapter update to change highlight of current item.
             mediaItemListAdapter.notifyDataSetChanged()
           }
-        }
+
+          if (events.contains(EVENT_REPEAT_MODE_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), " repeat chg ", 0).show()
+            Log.i(TAG, " repeat ch")
+            try {
+              updateMediaFilter2(player)
+            } catch (e: Exception) {
+              // Logger.logDebug("mytag", e.toString())
+              Log.e(TAG, e.toString())
+            }
+          }
+
+          if (events.contains(EVENT_SHUFFLE_MODE_ENABLED_CHANGED)) {
+            // Toast.makeText(getApplicationContext(), " shuff chg ", 0).show()
+            Log.i(TAG, " shuff ch")
+            try {
+              updateMediaFilter(player)
+            } catch (e: Exception) {
+              Log.e(TAG, e.toString())
+            }
+          }
+
       }
-    )
+    }
+  )
+}
+
+  private fun updateMediaFilter(
+    // player: MediaController
+    player: Player 
+  ) {
+    val transformationMatrix = Matrix()
+    transformationMatrix.postScale(-1f, 1f)
+    val flipEffect = MatrixTransformation { _: Long -> transformationMatrix }
+    // val effects = listOf(MatrixTransformation { _: Long -> transformationMatrix })
+
+    val brightnessEffect = Brightness(0.5f) // Increase brightness
+    val effects = listOf(brightnessEffect, flipEffect)
+    // Applying to an ExoPlayer instance
+    // exoPlayer.setVideoEffects(videoEffects)
+
+    // exoPlayer.setVideoEffects(effects)
+
+    val mediaItem = player.currentMediaItem ?: return
+    val editedMediaItem = EditedMediaItem.Builder(mediaItem)
+    .setEffects(Effects(listOf(), effects)) // audioEffects, videoEffects
+    // .setVideoEffects(effects)
+    .build()
+
+    Log.e(TAG, "apply filter on the fly")
+    Toast.makeText(getApplicationContext(), "applying filter ", 0).show()
+    // player.stop()
+    player.setMediaItem(editedMediaItem.mediaItem)
+    // player.prepare();
+    // player.play();
+  }
+
+  private fun updateMediaFilter2(
+    player: Player 
+  ) {
+    val transformationMatrix = Matrix()
+    transformationMatrix.postScale(-1f, 1f)
+    val flipEffect = MatrixTransformation { _: Long -> transformationMatrix }
+
+    val brightnessEffect = Brightness(0.5f) // Increase brightness
+    val effects = listOf(brightnessEffect, flipEffect)
+    // exoPlayer.setVideoEffects(effects)
+
+    val mediaItem = player.currentMediaItem ?: return
+    val editedMediaItem = EditedMediaItem.Builder(mediaItem)
+    .setEffects(Effects(listOf(), effects)) // audioEffects, videoEffects
+    // .setVideoEffects(effects)
+    .build()
+
+    Log.i(TAG, "stop apply filter play")
+    Toast.makeText(getApplicationContext(), "applying filter 2 ", 0).show()
+    player.stop()
+    player.setMediaItem(editedMediaItem.mediaItem)
+    player.prepare();
+    player.play();
   }
 
   private fun updateMediaMetadataUI() {
@@ -180,7 +285,7 @@ class PlayerActivity : AppCompatActivity() {
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
       val mediaItem = getItem(position)!!
       val returnConvertView =
-        convertView ?: LayoutInflater.from(context).inflate(R.layout.playlist_items, parent, false)
+      convertView ?: LayoutInflater.from(context).inflate(R.layout.playlist_items, parent, false)
 
       returnConvertView.findViewById<TextView>(R.id.media_item).text = mediaItem.mediaMetadata.title
 
@@ -191,8 +296,8 @@ class PlayerActivity : AppCompatActivity() {
           ContextCompat.getColor(context, R.color.playlist_item_background)
         )
         returnConvertView
-          .findViewById<TextView>(R.id.media_item)
-          .setTextColor(ContextCompat.getColor(context, R.color.white))
+        .findViewById<TextView>(R.id.media_item)
+        .setTextColor(ContextCompat.getColor(context, R.color.white))
         deleteButton.visibility = View.GONE
       } else {
         // Styles for any other media item list item.
@@ -200,8 +305,8 @@ class PlayerActivity : AppCompatActivity() {
           ContextCompat.getColor(context, R.color.player_background)
         )
         returnConvertView
-          .findViewById<TextView>(R.id.media_item)
-          .setTextColor(ContextCompat.getColor(context, R.color.white))
+        .findViewById<TextView>(R.id.media_item)
+        .setTextColor(ContextCompat.getColor(context, R.color.white))
         deleteButton.visibility = View.VISIBLE
         deleteButton.setOnClickListener {
           controller.removeMediaItem(position)
