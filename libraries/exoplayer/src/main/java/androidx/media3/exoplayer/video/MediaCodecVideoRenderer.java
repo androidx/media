@@ -1753,11 +1753,19 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @CallSuper
   @Override
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
-    if (av1SampleDependencyParser != null
-        && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
-        && buffer.isKeyFrame()
-        && buffer.data != null) {
-      av1SampleDependencyParser.queueInputBuffer(buffer.data);
+    if (checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1) && buffer.data != null) {
+      ByteBuffer bufferData = buffer.data;
+      Format codecInputFormat = getCodecInputFormat();
+      if (codecInputFormat != null
+          && codecInputFormat.colorInfo != null
+          && codecInputFormat.colorInfo.lumaBitdepth > 8) {
+        // For AV1 streams with bitdepth > 8, try to rewrite OBUs to skip invalid metadata on SDKs
+        // prior to 37.
+        Av1ObuUtil.maybeRewriteAv1MetadataObus(bufferData);
+      }
+      if (av1SampleDependencyParser != null && buffer.isKeyFrame()) {
+        av1SampleDependencyParser.queueInputBuffer(bufferData);
+      }
     }
     consecutiveDroppedInputBufferCount = 0;
     // In tunneling mode the device may do frame rate conversion, so in general we can't keep track
