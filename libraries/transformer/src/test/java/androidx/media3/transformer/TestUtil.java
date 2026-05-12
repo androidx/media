@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import android.graphics.Bitmap;
 import android.graphics.SurfaceTexture;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
@@ -33,6 +34,9 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.effect.HardwareBufferJniWrapper;
+import androidx.media3.effect.PacketConsumer;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeClock;
@@ -223,6 +227,24 @@ public final class TestUtil {
         .setClock(new FakeClock(/* isAutoAdvancing= */ true));
   }
 
+  /**
+   * Returns a new {@link CompositionPlayer.Builder} configured for unit tests that runs the {@link
+   * HardwareBuffer} based pipeline.
+   *
+   * <p>This method sets an auto advancing {@link FakeClock}, uses a fake {@link
+   * ImageReaderAdapter.Factory} to allow running unit tests on videos and sets fake {@link
+   * HardwareBufferJniWrapper}.
+   */
+  public static CompositionPlayer.Builder createTestHardwareBufferCompositionPlayerBuilder(
+      PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
+    return new CompositionPlayer.Builder(getApplicationContext())
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
+        .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
+        .setPacketConsumerFactory(packetConsumerFactory)
+        .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET);
+  }
+
   public static final class FormatCapturingAudioProcessor extends PassthroughAudioProcessor {
     public final AtomicReference<AudioFormat> inputFormat = new AtomicReference<>();
 
@@ -349,12 +371,41 @@ public final class TestUtil {
 
   /** A factory that returns a pre-configured {@link FakeImageReaderAdapter}. */
   public static final class FakeImageReaderAdapterFactory implements ImageReaderAdapter.Factory {
-
     public FakeImageReaderAdapterFactory() {}
 
     @Override
     public ImageReaderAdapter create(int width, int height, int format, int maxImages, long usage) {
       return new FakeImageReaderAdapter();
+    }
+  }
+
+  /** A no-op {@link HardwareBufferJniWrapper} that always succeeds. */
+  private static final class FakeHardwareBufferJniWrapper implements HardwareBufferJniWrapper {
+    @Override
+    public long nativeCreateEglImageFromHardwareBuffer(
+        long displayHandle, HardwareBuffer hardwareBuffer) {
+      return 1L;
+    }
+
+    @Override
+    public boolean nativeBindEGLImage(int target, long eglImageHandle) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeDestroyEGLImage(long displayHandle, long imageHandle) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeCopyBitmapToHardwareBuffer(Bitmap bitmap, HardwareBuffer hb) {
+      return true;
+    }
+
+    @Override
+    public boolean nativeCopyHardwareBufferToHardwareBuffer(
+        HardwareBuffer srcHb, HardwareBuffer dstHb) {
+      return true;
     }
   }
 }

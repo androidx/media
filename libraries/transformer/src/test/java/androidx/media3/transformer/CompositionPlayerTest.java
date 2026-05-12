@@ -38,6 +38,7 @@ import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KH
 import static androidx.media3.transformer.TestUtil.FILE_PNG;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
+import static androidx.media3.transformer.TestUtil.createTestHardwareBufferCompositionPlayerBuilder;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -86,7 +87,6 @@ import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
-import androidx.media3.transformer.TestUtil.FakeImageReaderAdapterFactory;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -1337,10 +1337,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
 
     player.setComposition(composition);
     player.prepare();
@@ -1371,10 +1368,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
     player.setPlayWhenReady(false);
@@ -1409,10 +1403,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1476,10 +1467,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1549,10 +1537,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1613,10 +1598,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1676,10 +1658,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1744,10 +1723,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1811,10 +1787,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1877,10 +1850,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1942,10 +1912,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -1990,10 +1957,7 @@ public class CompositionPlayerTest {
                 EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2035,11 +1999,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
 
     player.setComposition(composition);
     player.prepare();
@@ -2078,11 +2038,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2150,11 +2106,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2217,11 +2169,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2288,11 +2236,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2355,11 +2299,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2420,11 +2360,7 @@ public class CompositionPlayerTest {
                             .build())))
             .build();
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
 
@@ -2488,11 +2424,7 @@ public class CompositionPlayerTest {
             .build();
 
     CompositionPlayer player =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     player.setComposition(composition);
     player.prepare();
     advance(player).untilState(STATE_READY);
@@ -2528,10 +2460,7 @@ public class CompositionPlayerTest {
     RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
         new RecordingPacketConsumer<>();
     CompositionPlayer compositionPlayer =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     EditedMediaItem audioItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000)
@@ -2561,10 +2490,7 @@ public class CompositionPlayerTest {
           return null;
         });
     CompositionPlayer compositionPlayer =
-        createTestCompositionPlayerBuilder()
-            .setPacketConsumerFactory(() -> packetConsumer)
-            .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
-            .build();
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
     EditedMediaItemSequence audioSequence =
         withAudioFrom(
             ImmutableList.of(
