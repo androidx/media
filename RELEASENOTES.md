@@ -143,6 +143,9 @@
     *   Fix an out-of-bounds timeline merge crash (`IllegalStateException` in
         `MediaUtils.mergePlayerInfo`) by tracking state consistency
         per-controller on the session side.
+    *   Add `androidx.media3.session.MediaSessionManager` to provide support for
+        querying active media sessions and returning Media3 `SessionToken`
+        instances.
     *   Change default behavior of `MediaSession.Callback.onConnect` if the
         method is not overridden to only provide read access to untrusted
         controllers.
