@@ -25,8 +25,6 @@ pluginManagement {
 
 plugins { id("gradlebuild.media3-settings-logic") }
 
-gradle.extra["androidxMediaSettingsDir"] = settingsDir
-
 rootProject.name = "androidx.media3"
 
 Media3Modules.EXTERNAL_MODULES.forEach { (gradleName, moduleInfo) ->
