@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.session.MediaTestUtils.createMediaItems;
 import static androidx.media3.session.MediaTestUtils.createTimeline;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_REJECT_SEEK;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.utils.TestUtil.getEventsAsList;
@@ -43,6 +44,7 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
+import androidx.media3.test.session.common.PollingCheck;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -1048,7 +1050,6 @@ public class MediaControllerStateMaskingTest {
 
   @Test
   public void setTrackSelectionParameters() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
     remoteSession.setPlayer(new RemoteMediaSession.MockPlayerConfigBuilder().build());
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);
@@ -4395,6 +4396,61 @@ public class MediaControllerStateMaskingTest {
     assertThat(bufferedPositionFromGetterRef.get()).isEqualTo(testBufferedPosition);
     assertThat(bufferedPercentageFromGetterRef.get()).isEqualTo(testBufferedPercentage);
     assertThat(totalBufferedDurationFromGetterRef.get()).isEqualTo(testTotalBufferedDuration);
+  }
+
+  @Test
+  public void seekTo_lostTimelineUpdateDuringCommandMasking_unmasksSuccessfully() throws Exception {
+    if (remoteSession != null) {
+      remoteSession.cleanUp();
+    }
+    remoteSession = createRemoteMediaSession(TEST_REJECT_SEEK);
+    Timeline timeline19 = createTimeline(/* windowCount= */ 19, /* buildWithUri= */ false);
+    Bundle playerConfig =
+        new RemoteMediaSession.MockPlayerConfigBuilder()
+            .setTimeline(timeline19)
+            .setCurrentMediaItemIndex(0)
+            .setCurrentPosition(0)
+            .build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    AtomicInteger windowCount = new AtomicInteger();
+    AtomicInteger mediaItemIndex = new AtomicInteger();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              windowCount.set(controller.getCurrentTimeline().getWindowCount());
+              mediaItemIndex.set(controller.getCurrentMediaItemIndex());
+            });
+    assertThat(windowCount.get()).isEqualTo(19);
+    assertThat(mediaItemIndex.get()).isEqualTo(0);
+    Timeline timeline20 = createTimeline(/* windowCount= */ 20, /* buildWithUri= */ false);
+    remoteSession.getMockPlayer().setTimeline(timeline20);
+    remoteSession.getMockPlayer().setCurrentMediaItemIndexAndPeriodIndex(19, 19);
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.seekTo(/* mediaItemIndex= */ 18, /* positionMs= */ 0);
+            });
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> {
+          try {
+            return threadTestRule
+                .getHandler()
+                .postAndSync(() -> controller.getCurrentMediaItemIndex() == 19);
+          } catch (Exception e) {
+            return false;
+          }
+        });
+
+    AtomicInteger finalMediaItemIndex = new AtomicInteger();
+    threadTestRule
+        .getHandler()
+        .postAndSync(() -> finalMediaItemIndex.set(controller.getCurrentMediaItemIndex()));
+    assertThat(finalMediaItemIndex.get()).isEqualTo(19);
   }
 
   private RemoteMediaSession createRemoteMediaSession(String id) throws RemoteException {

@@ -140,6 +140,9 @@
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
 *   Session:
+    *   Fix an out-of-bounds timeline merge crash (`IllegalStateException` in
+        `MediaUtils.mergePlayerInfo`) by tracking state consistency
+        per-controller on the session side.
     *   Change default behavior of `MediaSession.Callback.onConnect` if the
         method is not overridden to only provide read access to untrusted
         controllers.

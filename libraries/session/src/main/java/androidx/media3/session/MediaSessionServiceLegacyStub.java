@@ -82,6 +82,13 @@ import java.util.concurrent.atomic.AtomicReference;
                 @Override
                 public void onSuccess(MediaSession.ConnectionResult result) {
                   resultReference.set(result);
+                  if (result.isAccepted) {
+                    connectedControllersManager.addController(
+                        info,
+                        controller,
+                        result.availableSessionCommands,
+                        result.availablePlayerCommands);
+                  }
                   haveResult.open();
                 }
 
@@ -104,8 +111,6 @@ import java.util.concurrent.atomic.AtomicReference;
     if (!result.isAccepted) {
       return null;
     }
-    connectedControllersManager.addController(
-        info, controller, result.availableSessionCommands, result.availablePlayerCommands);
     // No library root, but keep browser compat connected to allow getting session.
     return MediaUtils.defaultBrowserRoot;
   }

@@ -4675,6 +4675,80 @@ public class MediaControllerListenerTest {
     controllerTestRule.setRunnableForOnCustomCommand(controller, null);
   }
 
+  @Test
+  public void onPositionDiscontinuity_discontinuityNotifiedBeforeTimeline_recoversWithoutCrash()
+      throws Exception {
+    int initialTimelineSize = 19;
+    remoteSession.getMockPlayer().createAndSetFakeTimeline(initialTimelineSize);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    Timeline initialTimeline =
+        threadTestRule.getHandler().postAndSync(controller::getCurrentTimeline);
+    assertThat(initialTimeline.getWindowCount()).isEqualTo(initialTimelineSize);
+    int targetIndex = 19;
+    int newTimelineSize = 20;
+    RemoteMockPlayer remotePlayer = remoteSession.getMockPlayer();
+    Timeline newTimeline = createTimeline(newTimelineSize, /* buildWithUri= */ false);
+    remotePlayer.setTimeline(newTimeline);
+    remotePlayer.setCurrentMediaItemIndexAndPeriodIndex(targetIndex, targetIndex);
+    PositionInfo oldPosition =
+        new PositionInfo(
+            /* windowUid= */ null,
+            /* mediaItemIndex= */ 0,
+            /* mediaItem= */ null,
+            /* periodUid= */ null,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 0,
+            /* contentPositionMs= */ 0,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    PositionInfo newPosition =
+        new PositionInfo(
+            /* windowUid= */ null,
+            /* mediaItemIndex= */ targetIndex,
+            /* mediaItem= */ null,
+            /* periodUid= */ null,
+            /* periodIndex= */ 0,
+            /* positionMs= */ 0,
+            /* contentPositionMs= */ 0,
+            /* adGroupIndex= */ C.INDEX_UNSET,
+            /* adIndexInAdGroup= */ C.INDEX_UNSET);
+    CountDownLatch discontinuityLatch = new CountDownLatch(1);
+    CountDownLatch timelineLatch = new CountDownLatch(1);
+    AtomicReference<PositionInfo> receivedNewPosition = new AtomicReference<>();
+    AtomicReference<Timeline> receivedTimeline = new AtomicReference<>();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onPositionDiscontinuity(
+                        PositionInfo oldPositionInfo, PositionInfo newPositionInfo, int reason) {
+                      receivedNewPosition.set(newPositionInfo);
+                      discontinuityLatch.countDown();
+                    }
+
+                    @Override
+                    public void onTimelineChanged(Timeline timeline, int reason) {
+                      receivedTimeline.set(timeline);
+                      timelineLatch.countDown();
+                    }
+                  });
+            });
+
+    remotePlayer.notifyPositionDiscontinuity(
+        oldPosition, newPosition, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+    boolean discontinuityReceived = discontinuityLatch.await(TIMEOUT_MS, MILLISECONDS);
+    assertThat(discontinuityReceived).isTrue();
+    assertThat(receivedNewPosition.get().mediaItemIndex).isEqualTo(targetIndex);
+
+    remotePlayer.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    boolean timelineReceived = timelineLatch.await(TIMEOUT_MS, MILLISECONDS);
+    assertThat(timelineReceived).isTrue();
+    assertThat(receivedTimeline.get().getWindowCount()).isEqualTo(newTimelineSize);
+  }
+
   private RemoteMediaSession createRemoteMediaSession(String id) throws RemoteException {
     RemoteMediaSession session = new RemoteMediaSession(id, context, /* tokenExtras= */ null);
     sessions.add(session);

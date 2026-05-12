@@ -29,6 +29,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Command;
 import androidx.media3.common.Player.Commands;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
@@ -147,22 +149,39 @@ import java.util.List;
     if (newBundlingExclusions.isTimelineExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)) {
       // Detect inconsistent/invalid update with detailed logging (see b/464438593).
-      checkState(
-          oldPlayerInfo.timeline.isEmpty()
-              || mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
-                  < oldPlayerInfo.timeline.getWindowCount(),
-          "Invalid PlayerInfo update, old index: "
-              + oldPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
-              + " (count="
-              + oldPlayerInfo.timeline.getWindowCount()
-              + "), new index = "
-              + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
-              + ", sent from "
-              + connectedToken.getPackageName()
-              + ", interface version="
-              + connectedToken.getInterfaceVersion());
-      // Use the previous timeline if it is excluded in the most recent update.
-      mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
+      int sessionInterfaceVersion = connectedToken.getInterfaceVersion();
+      boolean isOutOfBounds =
+          !oldPlayerInfo.timeline.isEmpty()
+              && mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                  >= oldPlayerInfo.timeline.getWindowCount();
+
+      if (sessionInterfaceVersion < 10 && isOutOfBounds) {
+        Log.w(
+            TAG,
+            "Inconsistent update from legacy session (interface version="
+                + sessionInterfaceVersion
+                + "). Index "
+                + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + " is out of bounds of timeline (size="
+                + oldPlayerInfo.timeline.getWindowCount()
+                + "). Discarding stale timeline to prevent crash.");
+        mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(Timeline.EMPTY);
+      } else {
+        checkState(
+            !isOutOfBounds,
+            "Invalid PlayerInfo update, old index: "
+                + oldPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + " (count="
+                + oldPlayerInfo.timeline.getWindowCount()
+                + "), new index = "
+                + mergedPlayerInfo.sessionPositionInfo.positionInfo.mediaItemIndex
+                + ", sent from "
+                + connectedToken.getPackageName()
+                + ", interface version="
+                + connectedToken.getInterfaceVersion());
+        // Use the previous timeline if it is excluded in the most recent update.
+        mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
+      }
     }
     if (newBundlingExclusions.areCurrentTracksExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TRACKS)) {

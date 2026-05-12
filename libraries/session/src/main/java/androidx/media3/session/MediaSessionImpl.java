@@ -750,6 +750,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         int seq;
         ConnectedControllersManager<IBinder> controllersManager =
             sessionStub.getConnectedControllersManager();
+        ConnectedControllersManager.ConnectedControllerRecord<IBinder> record =
+            controllersManager.getRecord(controller);
+        if (record == null) {
+          continue;
+        }
+        boolean excludeTimelineForController =
+            excludeTimeline && playerInfo.timeline.equals(record.lastSentTimeline);
+        boolean excludeTracksForController =
+            excludeTracks && playerInfo.currentTracks.equals(record.lastSentTracks);
         SequencedFutureManager manager = controllersManager.getSequencedFutureManager(controller);
         if (manager != null) {
           seq = manager.obtainNextSequenceNumber();
@@ -786,8 +795,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                     ? playerInfo
                     : playerInfoInErrorStateForController,
                 intersectedCommands,
-                excludeTimeline,
-                excludeTracks);
+                excludeTimelineForController,
+                excludeTracksForController);
+        if (!excludeTimelineForController) {
+          record.lastSentTimeline = playerInfo.timeline;
+        }
+        if (!excludeTracksForController) {
+          record.lastSentTracks = playerInfo.currentTracks;
+        }
       } catch (DeadObjectException e) {
         onDeadObjectException(controller);
       } catch (RemoteException e) {

@@ -23,6 +23,8 @@ import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.Tracks;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -84,10 +86,23 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       @Nullable ControllerInfo savedInfo = getController(controllerKey);
       if (savedInfo == null) {
         controllerInfoMap.put(controllerKey, controllerInfo);
-        controllerRecords.put(
-            controllerInfo,
+        Timeline timeline = Timeline.EMPTY;
+        Tracks tracks = Tracks.EMPTY;
+        @Nullable MediaSessionImpl session = sessionImpl.get();
+        if (session != null) {
+          PlayerWrapper playerWrapper = session.getPlayerWrapper();
+          timeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+          tracks = playerWrapper.getCurrentTracksWithCommandCheck();
+        }
+        ConnectedControllerRecord<T> record =
             new ConnectedControllerRecord<>(
-                controllerKey, new SequencedFutureManager(), sessionCommands, playerCommands));
+                controllerKey,
+                new SequencedFutureManager(),
+                sessionCommands,
+                playerCommands,
+                timeline,
+                tracks);
+        controllerRecords.put(controllerInfo, record);
       } else {
         // already exist. Only update allowed commands.
         ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(savedInfo));
@@ -330,6 +345,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
+  @Nullable
+  /* package */ ConnectedControllerRecord<T> getRecord(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      return controllerRecords.get(controllerInfo);
+    }
+  }
+
   public void addToCommandQueue(
       ControllerInfo controllerInfo, @Player.Command int command, AsyncCommand asyncCommand) {
     synchronized (lock) {
@@ -404,7 +426,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
-  private static final class ConnectedControllerRecord<T> {
+  /* package */ static final class ConnectedControllerRecord<T> {
 
     public final T controllerKey;
     public final SequencedFutureManager sequencedFutureManager;
@@ -418,15 +440,22 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     @Nullable public PlaybackException playbackException;
     @Nullable public PlayerInfo playerInfoForPlaybackException;
 
+    /* package */ Timeline lastSentTimeline;
+    /* package */ Tracks lastSentTracks;
+
     public ConnectedControllerRecord(
         T controllerKey,
         SequencedFutureManager sequencedFutureManager,
         SessionCommands sessionCommands,
-        Player.Commands playerCommands) {
+        Player.Commands playerCommands,
+        Timeline lastSentTimeline,
+        Tracks lastSentTracks) {
       this.controllerKey = controllerKey;
       this.sequencedFutureManager = sequencedFutureManager;
       this.sessionCommands = sessionCommands;
       this.playerCommands = playerCommands;
+      this.lastSentTimeline = lastSentTimeline;
+      this.lastSentTracks = lastSentTracks;
       this.commandQueue = new ArrayDeque<>();
       this.commandQueuePlayerCommands = Player.Commands.EMPTY;
     }

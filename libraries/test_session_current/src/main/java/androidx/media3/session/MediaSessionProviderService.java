@@ -78,7 +78,9 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_IS_
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_TRACKS_CHANGED_VIDEO_TO_AUDIO_TRANSITION;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_REJECT_SEEK;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SILENT_IPC_PARSING_FAILURE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -128,6 +130,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -206,6 +209,25 @@ public class MediaSessionProviderService extends Service {
 
       builder.setExtras(tokenExtras);
       switch (sessionId) {
+        case TEST_REJECT_SEEK:
+          builder.setCallback(
+              new MediaSession.Callback() {
+                @SuppressWarnings(
+                    "deprecation") // Test setup using deprecated onPlayerCommandRequest
+                @Override
+                public int onPlayerCommandRequest(
+                    MediaSession session,
+                    ControllerInfo controller,
+                    @Player.Command int playerCommand) {
+                  if (playerCommand == Player.COMMAND_SEEK_TO_MEDIA_ITEM
+                      || playerCommand == Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM) {
+                    return SessionResult.RESULT_INFO_SKIPPED;
+                  }
+                  return MediaSession.Callback.super.onPlayerCommandRequest(
+                      session, controller, playerCommand);
+                }
+              });
+          break;
         case TEST_GET_SESSION_ACTIVITY:
           {
             Intent sessionActivity =
@@ -1293,6 +1315,17 @@ public class MediaSessionProviderService extends Service {
               mediaItems.add(
                   MediaTestUtils.createMediaItem(
                       TestUtils.getMediaIdInFakeTimeline(windowIndex), /* buildWithUri= */ true));
+            }
+            if (sessionId.equals(TEST_SILENT_IPC_PARSING_FAILURE) && windowCount == 20) {
+              Bundle hugeBundle = new Bundle();
+              char[] chars = new char[1500000];
+              Arrays.fill(chars, 'a');
+              hugeBundle.putString("massive_payload", new String(chars));
+              MediaMetadata massiveMetadata =
+                  new MediaMetadata.Builder().setExtras(hugeBundle).build();
+              MediaItem massiveItem =
+                  mediaItems.get(0).buildUpon().setMediaMetadata(massiveMetadata).build();
+              mediaItems.set(0, massiveItem);
             }
             player.mediaItems.clear();
             player.mediaItems.addAll(mediaItems);

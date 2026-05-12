@@ -38,6 +38,8 @@ public class MediaSessionConstants {
       "MediaControllerCompatCallbackWithMediaSessionTest";
   public static final String TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE =
       "testCustomActionWithProgressUpdate";
+  public static final String TEST_SILENT_IPC_PARSING_FAILURE = "testSilentIpcParsingFailure";
+  public static final String TEST_REJECT_SEEK = "testRejectSeek";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";
