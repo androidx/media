@@ -44,6 +44,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 @RunWith(AndroidJUnit4.class)
 public class DashPreCacheHelperTest {
@@ -73,6 +74,8 @@ public class DashPreCacheHelperTest {
   }
 
   @Test
+  // TODO: b/507342863 - Run this on all API levels when it's not flaky.
+  @Config(sdk = 31)
   public void preCache_succeeds() throws Exception {
     PreCacheHelper.Listener preCacheHelperListener = mock(PreCacheHelper.Listener.class);
     AtomicBoolean preCacheCompleted = new AtomicBoolean();

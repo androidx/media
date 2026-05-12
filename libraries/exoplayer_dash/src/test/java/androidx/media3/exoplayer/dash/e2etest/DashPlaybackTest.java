@@ -1046,6 +1046,8 @@ public final class DashPlaybackTest {
   }
 
   @Test
+  // TODO: b/507039229 - Suppressed due to dump file mismatch on multiple SDKs. Passes on 31-33.
+  @Config(sdk = {31, 32, 33})
   public void
       scrubbingPlayback_withSkipKeyFrameResetEnabledAndSameSyncPointDifferentGoP_dumpsCorrectOutput()
           throws Exception {

@@ -55,9 +55,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with DASH media. */
 @RunWith(RobolectricTestParameterInjector.class)
+@Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
 public final class ClippingDashPlaybackTest {
 
   private static final String TEST_DASH_URI = "asset:///media/cmaf/multi-segment/manifest.mpd";
