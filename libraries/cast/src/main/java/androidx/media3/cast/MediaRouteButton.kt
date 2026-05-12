@@ -74,23 +74,28 @@ import androidx.mediarouter.media.MediaTransferReceiver
 fun MediaRouteButton(modifier: Modifier = Modifier) {
   CastUtils.verifyMainThread()
   MediaRouteButtonContainer() {
-    var showDialog by remember { mutableStateOf(false) }
-    IconButton(onClick = { showDialog = true }, modifier) { mediaRouteButtonIcon() }
-    if (showDialog) {
-      MediaRouteDialog { showDialog = false }
+    var showMediaRouteDialog by remember { mutableStateOf(false) }
+    IconButton(
+      onClick = {
+        val isOutputSwitcherEnabled =
+          (mediaRouter?.routerParams?.isOutputSwitcherEnabled ?: false) && isMediaTransferEnabled()
+        val outputSwitcherLaunched =
+          isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)
+        // If the system output switcher was launched we don't show the media route dialogs.
+        showMediaRouteDialog = outputSwitcherLaunched.not()
+      },
+      modifier,
+    ) {
+      mediaRouteButtonIcon()
+    }
+    if (showMediaRouteDialog) {
+      MediaRouteDialog(onDismissRequest = { showMediaRouteDialog = false })
     }
   }
 }
 
 @Composable
 private fun MediaRouteButtonState.MediaRouteDialog(onDismissRequest: () -> Unit) {
-  val isOutputSwitcherEnabled =
-    mediaRouter?.routerParams?.isOutputSwitcherEnabled ?: false && isMediaTransferEnabled()
-  if (isOutputSwitcherEnabled && SystemOutputSwitcherDialogController.showDialog(context)) {
-    return
-  }
-  // If the output switcher is disabled or fails to open, then show the standard media route
-  // dialogs instead.
   if (isConnectedToRemote) {
     MediaRouteControllerDialog(onDismissRequest)
   } else {
