@@ -236,8 +236,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
   /**
    * Sets whether floating point audio should be output when possible.
    *
-   * <p>Enabling floating point output disables audio processing, but may allow for higher quality
-   * audio output.
+   * <p>Enabling floating point output disables the default audio processing chain, but may allow
+   * for higher quality audio output.
    *
    * <p>The default value is {@code false}.
    *
