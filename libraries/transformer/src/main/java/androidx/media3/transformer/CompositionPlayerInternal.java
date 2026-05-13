@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -304,7 +305,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
-    if (videoPacketReleaseControl != null) {
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStarted();
     }
   }
@@ -313,7 +314,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
-    if (videoPacketReleaseControl != null) {
+    if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
       videoPacketReleaseControl.onStopped();
     }
   }

@@ -49,7 +49,7 @@ import androidx.media3.transformer.AndroidTestUtil.ForceEncodeEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.ExportTestResult;
 import androidx.media3.transformer.FrameWriterToHardwareBufferFrameQueueAdapter;
-import androidx.media3.transformer.RenderingPacketConsumerToFrameProcessorAdapter;
+import androidx.media3.transformer.PacketConsumerToFrameProcessorAdapter;
 import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
@@ -248,7 +248,7 @@ public final class TranscodeQualityTest {
           .setFrameProcessorFactory(
               output -> {
                 pipeline.setRenderOutput(new FrameWriterToHardwareBufferFrameQueueAdapter(output));
-                return new RenderingPacketConsumerToFrameProcessorAdapter(pipeline);
+                return new PacketConsumerToFrameProcessorAdapter(pipeline);
               });
     }
     return new Transformer.Builder(context);

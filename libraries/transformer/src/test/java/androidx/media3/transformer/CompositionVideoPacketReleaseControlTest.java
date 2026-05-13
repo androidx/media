@@ -17,23 +17,38 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
+import android.hardware.HardwareBuffer;
+import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl.FrameTimingEvaluator;
 import androidx.media3.test.utils.FakeClock;
-import androidx.media3.test.utils.RecordingPacketConsumer;
+import androidx.media3.test.utils.FakeFrameProcessor;
+import androidx.media3.test.utils.FakeFrameProcessor.EosEvent;
+import androidx.media3.test.utils.FakeFrameProcessor.Event;
+import androidx.media3.test.utils.FakeFrameProcessor.FramesEvent;
 import androidx.media3.transformer.CompositionVideoPacketReleaseControl.Listener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,8 +61,9 @@ public class CompositionVideoPacketReleaseControlTest {
   private VideoFrameReleaseControl videoFrameReleaseControl;
   private FakeFrameTimingEvaluator fakeFrameTimingEvaluator;
   private FakeClock fakeClock;
-  private RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> outputConsumer;
+  private FakeFrameProcessor frameProcessor;
   private Set<Long> releasedFrameTimestamps;
+  private HardwareBuffer placeholderBuffer;
   // The first packet is required to be sent to the CompositionVideoPacketReleaseControl to
   // initialize the VideoFrameReleaseControl so subsequent behaviour can be tested.
   private ImmutableList<HardwareBufferFrame> firstPacket;
@@ -56,6 +72,13 @@ public class CompositionVideoPacketReleaseControlTest {
   public void setUp() {
     Context context = ApplicationProvider.getApplicationContext();
     releasedFrameTimestamps = new HashSet<>();
+    placeholderBuffer =
+        HardwareBuffer.create(
+            /* width= */ 16,
+            /* height= */ 16,
+            /* format= */ HardwareBuffer.RGBA_8888,
+            /* layers= */ 1,
+            /* usage= */ 0);
     firstPacket = createPacket(/* presentationTimeUs= */ 0, /* sequencePresentationTimeUs= */ 0);
     fakeFrameTimingEvaluator = new FakeFrameTimingEvaluator();
     fakeClock = new FakeClock(/* initialTimeMs= */ 0);
@@ -63,11 +86,11 @@ public class CompositionVideoPacketReleaseControlTest {
         new VideoFrameReleaseControl(
             context, fakeFrameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
     videoFrameReleaseControl.setClock(fakeClock);
-    outputConsumer = new RecordingPacketConsumer<>();
+    frameProcessor = new FakeFrameProcessor.Factory().create(new NoOpFrameWriter());
     compositionVideoPacketReleaseControl =
         new CompositionVideoPacketReleaseControl(
             videoFrameReleaseControl,
-            outputConsumer,
+            frameProcessor,
             new Listener() {
               @Override
               public void onFrameProcessed() {}
@@ -77,6 +100,13 @@ public class CompositionVideoPacketReleaseControlTest {
                 throw new IllegalStateException(e);
               }
             });
+  }
+
+  @After
+  public void tearDown() {
+    if (placeholderBuffer != null) {
+      placeholderBuffer.close();
+    }
   }
 
   @Test
@@ -90,7 +120,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(packet);
     // Render called at position 100ms, so the frame is >50ms late.
@@ -99,7 +129,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
     assertThat(releasedFrameTimestamps).containsExactly(packet.get(0).presentationTimeUs);
   }
 
@@ -114,7 +144,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -122,7 +152,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -138,7 +168,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -146,7 +176,8 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true, toFramesEvent(firstPacket), toFramesEvent(packet));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -164,7 +195,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
@@ -174,10 +205,16 @@ public class CompositionVideoPacketReleaseControlTest {
 
     // Update the release time of the first packet to match, to verify that scheduled release time
     // is correct.
+    FramesEvent firstEvent = (FramesEvent) frameProcessor.getQueuedEvents().get(0);
+    DefaultHardwareBufferFrame firstFrame =
+        (DefaultHardwareBufferFrame) firstEvent.frames.get(0).frame;
+    long releaseTimeNs = (Long) firstFrame.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
     ImmutableList<HardwareBufferFrame> expectedFirstFrame =
-        updatePacketWithReleaseTime(
-            firstPacket, outputConsumer.getQueuedPayloads().get(0).get(0).releaseTimeNs);
-    assertOutputPackets(/* ignoreReleaseTime= */ false, expectedFirstFrame, expectedPacket);
+        updatePacketWithReleaseTime(firstPacket, releaseTimeNs);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ false,
+        toFramesEvent(expectedFirstFrame),
+        toFramesEvent(expectedPacket));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -192,7 +229,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, packet);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(packet));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -235,7 +272,8 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, packet1, packet2);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true, toFramesEvent(packet1), toFramesEvent(packet2));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -261,7 +299,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, packet1);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(packet1));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -302,7 +340,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
 
     compositionVideoPacketReleaseControl.queue(packet1);
@@ -311,7 +349,8 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, expectedPacket1);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true, toFramesEvent(firstPacket), toFramesEvent(expectedPacket1));
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
 
     compositionVideoPacketReleaseControl.queue(packet2);
@@ -320,8 +359,11 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
-    assertOutputPackets(
-        /* ignoreReleaseTime= */ true, firstPacket, expectedPacket1, expectedPacket2);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true,
+        toFramesEvent(firstPacket),
+        toFramesEvent(expectedPacket1),
+        toFramesEvent(expectedPacket2));
   }
 
   @Test
@@ -337,7 +379,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
@@ -361,7 +403,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isTrue();
@@ -393,7 +435,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
-    assertOutputPackets(/* ignoreReleaseTime= */ true);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, new EosEvent());
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -408,7 +450,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
@@ -418,7 +460,11 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true,
+        toFramesEvent(firstPacket),
+        toFramesEvent(packet),
+        new EosEvent());
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -433,7 +479,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
+    assertOutputEvents(/* ignoreReleaseTime= */ true, toFramesEvent(firstPacket));
 
     compositionVideoPacketReleaseControl.queue(ImmutableList.of(END_OF_STREAM_FRAME));
     compositionVideoPacketReleaseControl.queue(packet);
@@ -443,7 +489,8 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
-    assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
+    assertOutputEvents(
+        /* ignoreReleaseTime= */ true, toFramesEvent(firstPacket), toFramesEvent(packet));
     assertThat(releasedFrameTimestamps).isEmpty();
   }
 
@@ -460,6 +507,7 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.onStarted();
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+    assertOutputEvents(/* ignoreReleaseTime= */ true, new EosEvent());
   }
 
   @Test
@@ -475,6 +523,7 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isFalse();
+    assertOutputEvents(/* ignoreReleaseTime= */ true, new EosEvent());
   }
 
   @Test
@@ -491,6 +540,7 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.flush(/* sequenceIndex= */ 1);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+    assertOutputEvents(/* ignoreReleaseTime= */ true, new EosEvent());
   }
 
   @Test
@@ -509,40 +559,120 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertThat(compositionVideoPacketReleaseControl.isEnded()).isTrue();
+    assertOutputEvents(/* ignoreReleaseTime= */ true, new EosEvent());
+  }
+
+  @Test
+  public void onFrameProcessed_completionListenerCalled_releasesMatchingFrame() throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(frameProcessor.lastFrames).hasSize(1);
+    AsyncFrame asyncFrame = frameProcessor.lastFrames.get(0);
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    checkNotNull(frameProcessor.lastCompletionListener)
+        .onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
+
+    assertThat(releasedFrameTimestamps).containsExactly(100_000L);
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(
       long presentationTimeUs, long sequencePresentationTimeUs) {
     HardwareBufferFrame hardwareBufferFrame =
         new HardwareBufferFrame.Builder(
-                /* hardwareBuffer= */ null,
+                checkNotNull(placeholderBuffer),
                 directExecutor(),
                 (releaseFence) -> releasedFrameTimestamps.add(presentationTimeUs))
             .setPresentationTimeUs(presentationTimeUs)
             .setSequencePresentationTimeUs(sequencePresentationTimeUs)
-            .setInternalFrame(presentationTimeUs)
             .build();
     return ImmutableList.of(hardwareBufferFrame);
   }
 
-  @SafeVarargs
-  private final void assertOutputPackets(
-      boolean ignoreReleaseTime, List<HardwareBufferFrame>... expectedPackets) {
-    List<ImmutableList<HardwareBufferFrame>> outputPackets = outputConsumer.getQueuedPayloads();
-    assertThat(outputPackets).hasSize(expectedPackets.length);
-    for (int i = 0; i < expectedPackets.length; i++) {
-      List<HardwareBufferFrame> receivedFrames = outputPackets.get(i);
-      List<HardwareBufferFrame> expectedFrames = expectedPackets[i];
-      assertThat(receivedFrames).hasSize(expectedFrames.size());
-      for (int j = 0; j < receivedFrames.size(); j++) {
-        HardwareBufferFrame receivedFrame = receivedFrames.get(j);
-        HardwareBufferFrame expectedFrame = expectedFrames.get(j);
-        assertThat(receivedFrame.presentationTimeUs).isEqualTo(expectedFrame.presentationTimeUs);
-        if (!ignoreReleaseTime) {
-          assertThat(receivedFrame.releaseTimeNs).isEqualTo(expectedFrame.releaseTimeNs);
-        }
-        assertThat(receivedFrame.internalFrame).isEqualTo(expectedFrame.internalFrame);
+  private static FramesEvent toFramesEvent(List<HardwareBufferFrame> packet) {
+    ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
+    for (HardwareBufferFrame effectFrame : packet) {
+      ImmutableMap.Builder<String, Object> metadataBuilder =
+          ImmutableMap.<String, Object>builder()
+              .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
+              .put(Frame.KEY_DISPLAY_TIME_NS, effectFrame.releaseTimeNs);
+      if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
+        metadataBuilder.put(
+            CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, effectFrame.getMetadata());
       }
+
+      DefaultHardwareBufferFrame commonFrame =
+          new DefaultHardwareBufferFrame.Builder(checkNotNull(effectFrame.hardwareBuffer))
+              .setFormat(effectFrame.format)
+              .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
+              .setMetadata(metadataBuilder.buildOrThrow())
+              .setInternalImage(effectFrame.internalFrame)
+              .build();
+      asyncFrameListBuilder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
+    }
+    return new FramesEvent(asyncFrameListBuilder.build());
+  }
+
+  /** Verifies that the {@link #frameProcessor} received the expected {@link Event}. */
+  private void assertOutputEvents(boolean ignoreReleaseTime, Event... expectedEvents) {
+    ImmutableList<Event> queuedEvents = frameProcessor.getQueuedEvents();
+    assertThat(queuedEvents).hasSize(expectedEvents.length);
+    for (int i = 0; i < expectedEvents.length; i++) {
+      Event receivedEvent = queuedEvents.get(i);
+      Event expectedEvent = expectedEvents[i];
+      assertThat(receivedEvent).isInstanceOf(expectedEvent.getClass());
+      if (expectedEvent instanceof FramesEvent) {
+        assertThat(receivedEvent).isInstanceOf(FramesEvent.class);
+        List<AsyncFrame> receivedFrames = ((FramesEvent) receivedEvent).frames;
+        List<AsyncFrame> expectedFrames = ((FramesEvent) expectedEvent).frames;
+        assertThat(receivedFrames).hasSize(expectedFrames.size());
+        for (int j = 0; j < receivedFrames.size(); j++) {
+          AsyncFrame receivedAsyncFrame = receivedFrames.get(j);
+          assertThat(receivedAsyncFrame.frame).isInstanceOf(DefaultHardwareBufferFrame.class);
+          DefaultHardwareBufferFrame receivedFrame =
+              (DefaultHardwareBufferFrame) receivedAsyncFrame.frame;
+
+          AsyncFrame expectedAsyncFrame = expectedFrames.get(j);
+          assertThat(expectedAsyncFrame.frame).isInstanceOf(DefaultHardwareBufferFrame.class);
+          DefaultHardwareBufferFrame expectedFrame =
+              (DefaultHardwareBufferFrame) expectedAsyncFrame.frame;
+
+          assertFramesEqual(receivedFrame, expectedFrame, ignoreReleaseTime);
+        }
+      }
+    }
+  }
+
+  /**
+   * Verifies that the fields on the received and expected {@link DefaultHardwareBufferFrame} are
+   * equal.
+   */
+  private static void assertFramesEqual(
+      DefaultHardwareBufferFrame received,
+      DefaultHardwareBufferFrame expected,
+      boolean ignoreReleaseTime) {
+    assertThat(received.getContentTimeUs()).isEqualTo(expected.getContentTimeUs());
+    assertThat(received.getHardwareBuffer()).isEqualTo(expected.getHardwareBuffer());
+    assertThat(received.getFormat()).isEqualTo(expected.getFormat());
+    assertThat(received.getInternalImage()).isEqualTo(expected.getInternalImage());
+
+    Long receivedPresentationTimeUs =
+        (Long) received.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US);
+    Long expectedPresentationTimeUs =
+        (Long) expected.getMetadata().get(Frame.KEY_PRESENTATION_TIME_US);
+    assertThat(receivedPresentationTimeUs).isEqualTo(expectedPresentationTimeUs);
+
+    if (!ignoreReleaseTime) {
+      Long receivedReleaseTimeNs = (Long) received.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
+      Long expectedReleaseTimeNs = (Long) expected.getMetadata().get(Frame.KEY_DISPLAY_TIME_NS);
+      assertThat(receivedReleaseTimeNs).isEqualTo(expectedReleaseTimeNs);
     }
   }
 
@@ -553,6 +683,32 @@ public class CompositionVideoPacketReleaseControlTest {
       updatedPacketBuilder.add(frame.buildUpon().setReleaseTimeNs(releaseTimeNs).build());
     }
     return updatedPacketBuilder.build();
+  }
+
+  /** Empty {@link FrameWriter} implementation the returns no frames and always succeeds. */
+  private static final class NoOpFrameWriter implements FrameWriter {
+    @Override
+    public Info getInfo() {
+      return (format, usage) -> true;
+    }
+
+    @Override
+    public void configure(Format format, @Frame.Usage long usage) {}
+
+    @Override
+    @Nullable
+    public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
+      return null;
+    }
+
+    @Override
+    public void queueInputFrame(Frame frame, @Nullable SyncFenceWrapper writeCompleteFence) {}
+
+    @Override
+    public void signalEndOfStream() {}
+
+    @Override
+    public void close() {}
   }
 
   /**
@@ -585,8 +741,7 @@ public class CompositionVideoPacketReleaseControlTest {
         long positionUs,
         long elapsedRealtimeUs,
         boolean isLastFrame,
-        boolean treatDroppedBuffersAsSkipped)
-        throws ExoPlaybackException {
+        boolean treatDroppedBuffersAsSkipped) {
       return false;
     }
   }

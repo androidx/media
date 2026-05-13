@@ -28,7 +28,6 @@ import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.effect.PacketConsumerUtil;
@@ -44,12 +43,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** Adapts a {@link RenderingPacketConsumer} to the {@link FrameProcessor} interface. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
-public final class RenderingPacketConsumerToFrameProcessorAdapter implements FrameProcessor {
+public final class PacketConsumerToFrameProcessorAdapter implements FrameProcessor {
 
   private static final long RELEASE_TIMEOUT_MS = 1000L;
-  private final RenderingPacketConsumer<
-          ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-      packetConsumer;
+  private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
   private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> packetConsumerCaller;
   private final ExecutorService executorService;
 
@@ -58,13 +55,11 @@ public final class RenderingPacketConsumerToFrameProcessorAdapter implements Fra
   @Nullable private volatile Executor pendingWakeupExecutor;
 
   @SuppressWarnings("nullness:methodref.receiver.bound.invalid") // "this" reference
-  public RenderingPacketConsumerToFrameProcessorAdapter(
-      RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-          packetConsumer) {
+  public PacketConsumerToFrameProcessorAdapter(
+      PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer) {
     this.packetConsumer = packetConsumer;
-    this.packetConsumer.setErrorConsumer(this::onException);
     this.executorService =
-        Util.newSingleThreadExecutor("RenderingPacketConsumerToFrameProcessorAdapter::Thread");
+        Util.newSingleThreadExecutor("PacketConsumerToFrameProcessorAdapter::Thread");
     this.packetConsumerCaller =
         PacketConsumerCaller.create(packetConsumer, executorService, this::onException);
     this.packetConsumerCaller.run();

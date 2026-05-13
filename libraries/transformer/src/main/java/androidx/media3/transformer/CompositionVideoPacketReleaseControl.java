@@ -19,32 +19,38 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
+import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.DefaultHardwareBufferFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
-import androidx.media3.effect.PacketConsumer;
-import androidx.media3.effect.PacketConsumer.Packet;
-import androidx.media3.effect.PacketConsumerCaller;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.FixedFrameRateEstimator;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
 /** Computes the release time for each {@linkplain List<HardwareBufferFrame> packet}. */
+@RequiresApi(26)
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 /* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
-  private final PacketConsumerCaller<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
+  private final FrameProcessor downstreamFrameProcessor;
   private final ConcurrentLinkedDeque<ImmutableList<HardwareBufferFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
   private final FixedFrameRateEstimator frameRateEstimator;
@@ -66,14 +72,14 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
    *
    * @param videoFrameReleaseControl Controls when frames are released.
-   * @param downstreamConsumer Receives the {@linkplain List<HardwareBufferFrame> packet}, with each
-   *     {@link HardwareBufferFrame} having the same {@linkplain HardwareBufferFrame#releaseTimeNs}
-   *     release time}.
+   * @param downstreamFrameProcessor Receives the {@linkplain List<HardwareBufferFrame> packet},
+   *     with each {@link HardwareBufferFrame} having the same {@linkplain
+   *     HardwareBufferFrame#releaseTimeNs} release time}.
    * @param listener The listener for {@link CompositionVideoPacketReleaseControl} events.
    */
   public CompositionVideoPacketReleaseControl(
       VideoFrameReleaseControl videoFrameReleaseControl,
-      PacketConsumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer,
+      FrameProcessor downstreamFrameProcessor,
       Listener listener) {
     videoFrameReleaseControl.setRequiresOutputSurface(false);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
@@ -81,11 +87,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
         new FixedFrameRateEstimator(
             frameRate -> videoFrameReleaseControl.setSurfaceMediaFrameRate(frameRate));
     this.listener = listener;
-    // Call the downstream PacketConsumer on the calling thread to reduce unnecessary thread hops.
-    this.downstreamConsumer =
-        PacketConsumerCaller.create(
-            downstreamConsumer, newDirectExecutorService(), listener::onError);
-    this.downstreamConsumer.run();
+    this.downstreamFrameProcessor = downstreamFrameProcessor;
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     // Allow the first frame to be rendered before playback starts.
@@ -110,8 +112,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    * {@inheritDoc}
    *
    * <p>Computes the release action and release time of queued {@linkplain List<HardwareBufferFrame>
-   * packets}, forwards them {@linkplain #downstreamConsumer downstream} if applicable or drops
-   * them. Continues until a packet should be held until a later {@code positionUs}.
+   * packets}, forwards them {@linkplain #downstreamFrameProcessor downstream} if applicable or
+   * drops them. Continues until a packet should be held until a later {@code positionUs}.
    *
    * <p>Called on the playback thread.
    */
@@ -129,7 +131,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       if (packet.get(0).equals(HardwareBufferFrame.END_OF_STREAM_FRAME)) {
         if (packetQueue.peek() == null) {
           isEnded = true;
-          downstreamConsumer.queueEndOfStream();
+          downstreamFrameProcessor.signalEndOfStream();
           listener.onFrameProcessed();
           return;
         }
@@ -257,16 +259,50 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    */
   private boolean setReleaseTimeAndQueueDownstream(
       ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
-    ImmutableList.Builder<HardwareBufferFrame> framesWithReleaseTimeBuilder =
-        ImmutableList.builder();
+    ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
     for (int i = 0; i < packet.size(); i++) {
-      framesWithReleaseTimeBuilder.add(updateReleaseTime(packet.get(i), releaseTimeNs));
-    }
-    return downstreamConsumer.tryQueuePacket(Packet.of(framesWithReleaseTimeBuilder.build()));
-  }
+      HardwareBufferFrame effectFrame = packet.get(i);
+      ImmutableMap.Builder<String, Object> metadataBuilder =
+          ImmutableMap.<String, Object>builder()
+              .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
+              .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
+      if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
+        metadataBuilder.put(
+            CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, effectFrame.getMetadata());
+      }
 
-  private static HardwareBufferFrame updateReleaseTime(
-      HardwareBufferFrame frame, long releaseTimeNs) {
-    return frame.buildUpon().setReleaseTimeNs(releaseTimeNs).build();
+      DefaultHardwareBufferFrame commonFrame =
+          new DefaultHardwareBufferFrame.Builder(checkNotNull(effectFrame.hardwareBuffer))
+              .setFormat(effectFrame.format)
+              .setContentTimeUs(effectFrame.sequencePresentationTimeUs)
+              .setMetadata(metadataBuilder.buildOrThrow())
+              .setInternalImage(effectFrame.internalFrame)
+              .build();
+
+      asyncFrameListBuilder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
+    }
+
+    try {
+      return downstreamFrameProcessor.queue(
+          asyncFrameListBuilder.build(),
+          /* listenerExecutor= */ directExecutor(),
+          /* wakeupListener= */ () -> {},
+          /* completionListener= */ (frame, fence) -> {
+            if (frame instanceof DefaultHardwareBufferFrame) {
+              DefaultHardwareBufferFrame hbFrame = (DefaultHardwareBufferFrame) frame;
+              HardwareBuffer hardwareBuffer = hbFrame.getHardwareBuffer();
+              for (int i = 0; i < packet.size(); i++) {
+                HardwareBufferFrame effectFrameToRelease = packet.get(i);
+                if (effectFrameToRelease.hardwareBuffer == hardwareBuffer) {
+                  effectFrameToRelease.release(fence);
+                  break;
+                }
+              }
+            }
+          });
+    } catch (VideoFrameProcessingException e) {
+      listener.onError(e);
+      return false;
+    }
   }
 }

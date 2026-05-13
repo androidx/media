@@ -1547,7 +1547,7 @@ public final class Transformer {
               HardwareBufferFrameQueue adaptedQueue =
                   new FrameWriterToHardwareBufferFrameQueueAdapter(output);
               localPacketProcessor.setRenderOutput(adaptedQueue);
-              return new RenderingPacketConsumerToFrameProcessorAdapter(localPacketProcessor);
+              return new PacketConsumerToFrameProcessorAdapter(localPacketProcessor);
             };
       } else {
         throw new IllegalStateException("API 26+ required to use PacketProcessor in Transformer");

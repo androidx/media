@@ -78,6 +78,8 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.FrameWriter;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -87,7 +89,6 @@ import androidx.media3.effect.HardwareBufferFrameProcessor;
 import androidx.media3.effect.HardwareBufferFrameQueue;
 import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.PacketConsumer;
-import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.SurfaceHolderHardwareBufferFrameQueue;
@@ -179,6 +180,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Nullable
     private RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
         packetProcessor;
+
+    private FrameProcessor.@MonotonicNonNull Factory frameProcessorFactory;
 
     @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
 
@@ -456,22 +459,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
-     * Sets the {@link PacketConsumer.Factory} that will create the {@link PacketConsumer} to apply
-     * effects and render the frames.
-     *
-     * <p>If set, {@link #videoGraphFactory} is ignored.
-     *
-     * <p>The created {@link PacketConsumer} will be released on {@link
-     * CompositionPlayer#release()}.
-     *
-     * <p>The default value is {@code null}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @param packetConsumerFactory The {@link PacketConsumer.Factory}.
-     * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
-     *     #setVideoGraphFactory set}.
-     * @deprecated Use {@link #setHardwareBufferEffectsPipeline} instead.
+     * @deprecated Use {@link #setFrameProcessorFactory} instead.
      */
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
     @CanIgnoreReturnValue
@@ -480,34 +468,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
       checkState(packetProcessor == null);
+      checkState(frameProcessorFactory == null);
       this.packetConsumerFactory = packetConsumerFactory;
       return this;
     }
 
     /**
-     * Sets the {@link RenderingPacketConsumer} used to process {@link HardwareBufferFrame}s.
-     *
-     * <p>If set, {@link #videoGraphFactory} and {@link #setPacketConsumerFactory} are ignored.
-     *
-     * <p>The {@link PacketConsumer} will be released on {@link CompositionPlayer#release()}.
-     *
-     * <p>The default value is {@code null}.
-     *
-     * <p>If used on API 32 and below, the {@linkplain #setNativeHardwareBufferHelpers native
-     * helpers} must be set.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * <p>For multi-sequence compositions, the index of a frame in the aggregated {@link
-     * HardwareBufferFrame} list is not guaranteed to correspond to its originating sequence's
-     * index. An input sequence that has finished outputting frames will no longer contribute to the
-     * aggregated packet.
-     *
-     * @param packetProcessor The {@link RenderingPacketConsumer} to process frames.
-     * @return This builder.
-     * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
-     *     #setVideoGraphFactory set}.
+     * @deprecated Use {@link #setFrameProcessorFactory} instead.
      */
+    @Deprecated
     @RequiresApi(28)
     @CanIgnoreReturnValue
     @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
@@ -516,7 +485,37 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             packetProcessor) {
       checkState(videoGraphFactory == null);
       checkState(packetConsumerFactory == null);
+      checkState(frameProcessorFactory == null);
       this.packetProcessor = packetProcessor;
+      return this;
+    }
+
+    /**
+     * Sets the {@link FrameProcessor.Factory} to be used to create {@link FrameProcessor} instances
+     * that are used to process {@link androidx.media3.common.video.HardwareBufferFrame}s.
+     *
+     * <p>If a {@link FrameProcessor.Factory} is not set, a {@link SingleInputVideoGraph.Factory} is
+     * used and {@link CompositionPlayer} will not process {@link
+     * androidx.media3.common.video.HardwareBufferFrame}s.
+     *
+     * <p>If used on API 32 and below, the {@linkplain #setNativeHardwareBufferHelpers native
+     * helpers} must be set.
+     *
+     * @param frameProcessorFactory The {@link FrameProcessor.Factory}.
+     * @return This builder.
+     * @throws IllegalStateException if a {@linkplain #setVideoGraphFactory videoGraphFactory},
+     *     {@linkplain #setPacketConsumerFactory packetConsumerFactory} or {@link
+     *     #setHardwareBufferEffectsPipeline HardwareBufferEffectsPipeline} is set.
+     */
+    @RequiresApi(28)
+    @CanIgnoreReturnValue
+    @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
+    public Builder setFrameProcessorFactory(FrameProcessor.Factory frameProcessorFactory) {
+      checkNotNull(frameProcessorFactory);
+      checkState(videoGraphFactory == null);
+      checkState(packetConsumerFactory == null);
+      checkState(packetProcessor == null);
+      this.frameProcessorFactory = frameProcessorFactory;
       return this;
     }
 
@@ -633,7 +632,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
-  @Nullable private final PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer;
+  @Nullable private final FrameProcessor frameProcessor;
 
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
@@ -726,12 +725,21 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         new AudioFocusManager(
             context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
-    RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
-        packetProcessor = builder.packetProcessor;
     HardwareBufferJniWrapper hardwareBufferJniWrapper = builder.hardwareBufferJniWrapper;
-    if (packetProcessor != null || builder.packetConsumerFactory != null) {
+    @Nullable
+    FrameProcessor.Factory frameProcessorFactory =
+        builder.frameProcessorFactory != null
+            ? builder.frameProcessorFactory
+            : getRenderingPacketConsumerFactory(builder.packetProcessor);
+    if (frameProcessorFactory != null) {
+      packetConsumerReportsRenderingEvents = true;
+    } else {
+      frameProcessorFactory = getPacketConsumerFactory(builder.packetConsumerFactory);
+      packetConsumerReportsRenderingEvents = false;
+    }
+    if (SDK_INT >= 28 && frameProcessorFactory != null) {
       // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-      if (hardwareBufferJniWrapper != null && SDK_INT >= 26) {
+      if (hardwareBufferJniWrapper != null) {
         hardwareBufferPostProcessor =
             new BitmapToHardwareBufferProcessor(
                 hardwareBufferJniWrapper,
@@ -742,28 +750,23 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       } else {
         hardwareBufferPostProcessor = null;
       }
-      if (packetProcessor != null && SDK_INT >= 28) {
-        surfaceHolderHardwareBufferFrameQueue =
-            SDK_INT >= 33
-                ? SurfaceHolderHardwareBufferFrameQueue.create(
-                    /* surfaceHolder= */ null,
-                    /* surfaceHolderExecutor= */ applicationHandler::post,
-                    internalListener,
-                    directExecutor())
-                : SurfaceHolderHardwareBufferFrameQueue.create(
-                    /* surfaceHolder= */ null,
-                    /* surfaceHolderExecutor= */ applicationHandler::post,
-                    internalListener,
-                    directExecutor(),
-                    checkNotNull(hardwareBufferJniWrapper));
-        packetConsumer = packetProcessor;
-        packetProcessor.setRenderOutput(surfaceHolderHardwareBufferFrameQueue);
-        packetConsumerReportsRenderingEvents = true;
-      } else {
-        packetConsumerReportsRenderingEvents = false;
-        packetConsumer = checkNotNull(builder.packetConsumerFactory).create();
-        surfaceHolderHardwareBufferFrameQueue = null;
-      }
+      surfaceHolderHardwareBufferFrameQueue =
+          SDK_INT >= 33
+              ? SurfaceHolderHardwareBufferFrameQueue.create(
+                  /* surfaceHolder= */ null,
+                  /* surfaceHolderExecutor= */ applicationHandler::post,
+                  internalListener,
+                  directExecutor())
+              : SurfaceHolderHardwareBufferFrameQueue.create(
+                  /* surfaceHolder= */ null,
+                  /* surfaceHolderExecutor= */ applicationHandler::post,
+                  internalListener,
+                  directExecutor(),
+                  checkNotNull(hardwareBufferJniWrapper));
+      FrameWriter frameWriter =
+          new HardwareBufferFrameQueueToFrameWriterAdapter(surfaceHolderHardwareBufferFrameQueue);
+      frameProcessor = frameProcessorFactory.create(frameWriter);
+
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
               this.context,
@@ -776,12 +779,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
           new CompositionVideoPacketReleaseControl(
-              videoFrameReleaseControl, packetConsumer, internalListener);
+              videoFrameReleaseControl, frameProcessor, internalListener);
     } else {
       hardwareBufferPostProcessor = null;
-      packetConsumer = null;
+      frameProcessor = null;
       surfaceHolderHardwareBufferFrameQueue = null;
-      packetConsumerReportsRenderingEvents = false;
       frameAggregator = null;
       videoPacketReleaseControl = null;
     }
@@ -985,7 +987,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .setTotalBufferedDurationMs(totalBufferedDurationSupplier)
             .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset())
             .setPlaybackSuppressionReason(playbackSuppressionReason);
-    if (packetConsumer != null && videoSize != null) {
+    if (frameProcessor != null && videoSize != null) {
       state.setVideoSize(videoSize);
     }
     if (repeatingCompositionSeekInProgress) {
@@ -1067,16 +1069,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     waitingForFrameAfterSeek = false;
     pendingSeekPositionMs = C.TIME_UNSET;
     removeSurfaceCallbacks();
-    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
-      surfaceHolderHardwareBufferFrameQueue.release();
-    }
-    // TODO: b/449956936 - Sequence releasing PacketConsumer with other internal objects.
-    ListenableFuture<Void> releaseFuture;
-    if (packetConsumer != null) {
-      releaseFuture = PacketConsumerUtil.release(packetConsumer, directExecutor());
-    } else {
-      releaseFuture = immediateVoidFuture();
-    }
     if (hardwareBufferPostProcessor != null) {
       try {
         hardwareBufferPostProcessor.close();
@@ -1084,6 +1076,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         // Ignore exceptions during release.
         Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
       }
+    }
+    if (frameProcessor != null) {
+      frameProcessor.close();
+    }
+    if (SDK_INT >= 28 && surfaceHolderHardwareBufferFrameQueue != null) {
+      surfaceHolderHardwareBufferFrameQueue.release();
     }
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
@@ -1101,7 +1099,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       updatePlaybackState();
     }
     analyticsCollector.release();
-    return releaseFuture;
+    return immediateVoidFuture();
   }
 
   @Override
@@ -1159,7 +1157,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         "positionMs=%d",
         positionMs);
 
-    if (packetConsumer != null) {
+    if (frameProcessor != null) {
       if (waitingForFrameAfterSeek) {
         pendingSeekPositionMs = positionMs;
         return;
@@ -1170,7 +1168,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < playerHolders.size(); i++) {
-      if (packetConsumer != null) {
+      playerHolders.get(i).player.seekTo(positionMs);
+      // Flush the HardwareBufferFrameReader and FrameAggregator after the player seeks to ensure
+      // frames from before the seek do not race with the flush calls.
+      if (frameProcessor != null) {
         // TODO: b/449956936 - move packetConsumer playback thread seek handling to
         //  CompositionPlayerInternal.
         int sequenceIndex = i;
@@ -1187,7 +1188,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .setPayload(playerHolders.get(i).hardwareBufferFrameReader)
             .send();
       }
-      playerHolders.get(i).player.seekTo(positionMs);
     }
     compositionPlayerInternal.endSeek();
   }
@@ -1205,7 +1205,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (playerHolders.isEmpty()) {
       return;
     }
-    if (packetConsumer == null) {
+    if (frameProcessor == null) {
       playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
     }
   }
@@ -1531,7 +1531,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     playerHolders.clear();
 
-    if (packetConsumer != null) {
+    if (SDK_INT >= 26 && frameProcessor != null) {
       if (frameAggregator != null) {
         frameAggregator.releaseAllFrames();
       }
@@ -1589,7 +1589,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       player.setMediaSource(
           createPrimarySequenceMediaSource(sequence, mediaSourceFactory, shouldGenerateBlankFrames),
           startPositionMs);
-      if (videoFrameMetadataListener != null && packetConsumer == null) {
+      if (videoFrameMetadataListener != null && frameProcessor == null) {
         player.setVideoFrameMetadataListener(videoFrameMetadataListener);
       }
     } else {
@@ -1614,7 +1614,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
     SequenceRenderersFactory renderersFactory;
     HardwareBufferFrameReader hardwareBufferFrameReader = null;
-    if (packetConsumer != null) {
+    if (frameProcessor != null) {
       // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
       checkState(!requestMediaCodecToneMapping);
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
@@ -1685,7 +1685,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
-    if (packetConsumer != null) {
+    if (frameProcessor != null) {
       playerHolder.player.setVideoSurface(checkNotNull(hardwareBufferFrameReader).getSurface());
     }
     return playerHolder;
@@ -2249,7 +2249,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Override
     public void onPlaybackStateChanged(int playbackState) {
       if (playbackState == STATE_ENDED) {
-        if (packetConsumer != null) {
+        if (frameProcessor != null) {
           checkNotNull(frameAggregator).queueEndOfStream(playerIndex);
         }
       }
@@ -2482,7 +2482,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     @Override
     public void onFrameAboutToBeRendered(
         long presentationTimeUs, long releaseTimeNs, Format format) {
-      if (packetConsumer != null) {
+      if (frameProcessor != null) {
         VideoSize videoSizeToBeRendered = new VideoSize(format.width, format.height);
         applicationHandler.post(
             () -> {
@@ -2525,7 +2525,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public void onEnded() {
-      if (packetConsumer != null) {
+      if (frameProcessor != null) {
         applicationHandler.post(
             () -> {
               // TODO: b/484336225 - reset packetConsumerEnded on replay.
@@ -2547,5 +2547,36 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   videoFrameProcessingException,
                   PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
     }
+  }
+
+  // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
+  /** Converts a {@link RenderingPacketConsumer} to a {@link FrameProcessor}. */
+  @Nullable
+  private static FrameProcessor.Factory getRenderingPacketConsumerFactory(
+      @Nullable
+          RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
+              packetProcessor) {
+    if (SDK_INT >= 26 && packetProcessor != null) {
+      return output -> {
+        HardwareBufferFrameQueue adaptedQueue =
+            new FrameWriterToHardwareBufferFrameQueueAdapter(output);
+        packetProcessor.setRenderOutput(adaptedQueue);
+        return new PacketConsumerToFrameProcessorAdapter(packetProcessor);
+      };
+    }
+    return null;
+  }
+
+  // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
+  /** Converts a {@link PacketConsumer.Factory} to a {@link FrameProcessor}. */
+  @Nullable
+  private static FrameProcessor.Factory getPacketConsumerFactory(
+      @Nullable PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
+    if (SDK_INT >= 26 && packetConsumerFactory != null) {
+      PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+          packetConsumerFactory.create();
+      return output -> new PacketConsumerToFrameProcessorAdapter(packetConsumer);
+    }
+    return null;
   }
 }
