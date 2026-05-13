@@ -5,7 +5,7 @@ seekMap:
   getPosition(1) = [[timeUs=1, position=0]]
 numberOfTracks = 1
 track 1024:
-  total output bytes = 30000
+  total output bytes = 30002
   sample count = 1
   format 0:
     containerMimeType = image/jpeg
@@ -13,5 +13,5 @@ track 1024:
   sample 0:
     time = 0
     flags = 1
-    data = length 30000, hash E5AA10BC
+    data = length 30002, hash 2368D176
 tracksEnded = true
