@@ -33,12 +33,13 @@ import java.util.Queue;
  * Combines multiple sequences of {@link HardwareBufferFrame}s into one sequence of {@link
  * ImmutableList<HardwareBufferFrame>}.
  */
-/* package */ class FrameAggregator {
+/* package */ class FrameAggregator implements AutoCloseable {
   private final Consumer<ImmutableList<HardwareBufferFrame>> downstreamConsumer;
   private final Consumer<Integer> onFlush;
   private final List<FrameQueue> inputFrameQueues;
   private final int numSequences;
-  private boolean isEnded;
+  private volatile boolean isEnded;
+  private volatile boolean isClosed;
 
   /**
    * Creates a new {@link FrameAggregator}.
@@ -69,6 +70,7 @@ import java.util.Queue;
   public void registerSequence(int sequenceIndex, boolean shouldAggregate) {
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
+    checkState(!isClosed);
     inputFrameQueues.get(sequenceIndex).initialize(shouldAggregate);
   }
 
@@ -88,8 +90,9 @@ import java.util.Queue;
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
     checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
-    // Release frames immediately if the primary sequence has already ended
-    if (isEnded) {
+    // Release frames immediately if the primary sequence has already ended, or the aggregator is
+    // closed.
+    if (isEnded || isClosed) {
       frame.release(/* releaseFence= */ null);
       return;
     }
@@ -110,23 +113,11 @@ import java.util.Queue;
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
     checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    if (isClosed) {
+      return;
+    }
     inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ true);
     maybeAggregate();
-  }
-
-  /**
-   * {@linkplain HardwareBufferFrame#release Releases } all frames that have not been sent
-   * downstream.
-   */
-  // TODO: b/449956936 - Ensure this does not throw away frames in the case where a new decoded
-  //   frame is not forwarded from the renderer on a discontinuity.
-  public void releaseAllFrames() {
-    for (int i = 0; i < inputFrameQueues.size(); i++) {
-      @Nullable HardwareBufferFrame nextFrame;
-      while ((nextFrame = inputFrameQueues.get(i).frames.poll()) != null) {
-        nextFrame.release(/* releaseFence= */ null);
-      }
-    }
   }
 
   /**
@@ -140,6 +131,9 @@ import java.util.Queue;
     checkArgument(sequenceIndex >= 0);
     checkArgument(sequenceIndex < numSequences);
     checkState(inputFrameQueues.get(sequenceIndex).isRegistered);
+    if (isClosed) {
+      return;
+    }
     @Nullable HardwareBufferFrame nextFrame;
     while ((nextFrame = inputFrameQueues.get(sequenceIndex).frames.poll()) != null) {
       nextFrame.release(/* releaseFence= */ null);
@@ -149,6 +143,21 @@ import java.util.Queue;
     }
     inputFrameQueues.get(sequenceIndex).setIsEnded(/* isEnded= */ false);
     onFlush.accept(sequenceIndex);
+  }
+
+  /**
+   * {@linkplain HardwareBufferFrame#release Releases } all frames that have not been sent
+   * downstream, and forces this instance to immediately release any newly queued frames.
+   */
+  @Override
+  public void close() {
+    isClosed = true;
+    for (int i = 0; i < inputFrameQueues.size(); i++) {
+      @Nullable HardwareBufferFrame nextFrame;
+      while ((nextFrame = inputFrameQueues.get(i).frames.poll()) != null) {
+        nextFrame.release(/* releaseFence= */ null);
+      }
+    }
   }
 
   /**

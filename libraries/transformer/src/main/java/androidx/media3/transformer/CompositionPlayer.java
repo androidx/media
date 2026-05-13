@@ -1077,6 +1077,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
       }
     }
+    if (frameAggregator != null) {
+      frameAggregator.close();
+    }
     if (frameProcessor != null) {
       frameProcessor.close();
     }
@@ -1533,13 +1536,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     if (SDK_INT >= 26 && frameProcessor != null) {
       if (frameAggregator != null) {
-        frameAggregator.releaseAllFrames();
+        frameAggregator.close();
       }
+      // Flush the primary sequence to reset the state of the release control when a new Composition
+      // is set.
+      checkNotNull(videoPacketReleaseControl).flush(/* sequenceIndex= */ 0);
       frameAggregator =
           new FrameAggregator(
               composition.sequences.size(),
-              checkNotNull(videoPacketReleaseControl)::queue,
-              checkNotNull(videoPacketReleaseControl)::flush);
+              videoPacketReleaseControl::queue,
+              videoPacketReleaseControl::flush);
     }
 
     prepareCompositionPlayerInternal();
@@ -1619,19 +1625,21 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       checkState(!requestMediaCodecToneMapping);
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
       // HardwareBufferFrameReader.
+      final FrameAggregator currentFrameAggregator = frameAggregator;
       hardwareBufferFrameReader =
           new HardwareBufferFrameReader(
               composition,
               sequenceIndex,
               /* frameConsumer= */ hardwareBufferFrame -> {
                 if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
-                  checkNotNull(frameAggregator).queueEndOfStream(sequenceIndex);
+                  checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
                 } else if (hardwareBufferPostProcessor != null) {
                   HardwareBufferFrame processedFrame =
                       hardwareBufferPostProcessor.process(hardwareBufferFrame);
-                  checkNotNull(frameAggregator).queueFrame(processedFrame, sequenceIndex);
+                  checkNotNull(currentFrameAggregator).queueFrame(processedFrame, sequenceIndex);
                 } else {
-                  checkNotNull(frameAggregator).queueFrame(hardwareBufferFrame, sequenceIndex);
+                  checkNotNull(currentFrameAggregator)
+                      .queueFrame(hardwareBufferFrame, sequenceIndex);
                 }
               },
               checkNotNull(playbackThread).getLooper(),
@@ -1656,7 +1664,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // Ensure the FrameAggregator ignores audio only sequences.
       boolean shouldAggregateSequence =
           composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
-      checkNotNull(frameAggregator).registerSequence(sequenceIndex, shouldAggregateSequence);
+      checkNotNull(currentFrameAggregator).registerSequence(sequenceIndex, shouldAggregateSequence);
     } else {
       VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
       renderersFactory =

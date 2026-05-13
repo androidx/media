@@ -62,6 +62,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
@@ -1314,6 +1315,208 @@ public class CompositionPlayerTest {
     play(player).untilState(STATE_ENDED);
 
     assertThat(bytes.get() / 2).isEqualTo(88200);
+  }
+
+  @Test
+  public void packetConsumer_setComposition_rendersFirstFrameBeforeStarted()
+      throws InterruptedException, PlaybackException, TimeoutException {
+    AtomicReference<ConditionVariable> allExpectedPacketsQueued =
+        new AtomicReference<>(new ConditionVariable());
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    List<ImmutableList<HardwareBufferFrame>> queuedFrames = new ArrayList<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrames.add(frames);
+          assertThat(allExpectedPacketsQueued.get().open()).isTrue();
+          return null;
+        });
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition3 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    CompositionPlayer player =
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(1);
+    assertThat(queuedFrames.get(0)).hasSize(2);
+    assertThat(queuedFrames.get(0).get(0).sequencePresentationTimeUs).isEqualTo(0);
+    assertThat(queuedFrames.get(0).get(1).sequencePresentationTimeUs).isEqualTo(0);
+    allExpectedPacketsQueued.set(new ConditionVariable());
+
+    player.setComposition(composition2);
+
+    advance(player).untilState(STATE_READY);
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(2);
+    assertThat(queuedFrames.get(1)).hasSize(3);
+    assertThat(queuedFrames.get(1).get(0).sequencePresentationTimeUs).isEqualTo(0);
+    assertThat(queuedFrames.get(1).get(1).sequencePresentationTimeUs).isEqualTo(0);
+    assertThat(queuedFrames.get(1).get(2).sequencePresentationTimeUs).isEqualTo(0);
+    allExpectedPacketsQueued.set(new ConditionVariable());
+
+    player.setComposition(composition3);
+
+    advance(player).untilState(STATE_READY);
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(3);
+    assertThat(queuedFrames.get(2)).hasSize(1);
+    assertThat(queuedFrames.get(2).get(0).sequencePresentationTimeUs).isEqualTo(0);
+  }
+
+  @Test
+  public void packetConsumer_setCompositionAfterSeek_rendersFrameAtSeekPositionBeforeStarted()
+      throws InterruptedException, PlaybackException, TimeoutException {
+    AtomicReference<ConditionVariable> allExpectedPacketsQueued =
+        new AtomicReference<>(new ConditionVariable());
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    List<ImmutableList<HardwareBufferFrame>> queuedFrames = new ArrayList<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrames.add(frames);
+          assertThat(allExpectedPacketsQueued.get().open()).isTrue();
+          return null;
+        });
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    CompositionPlayer player =
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(1);
+    assertThat(queuedFrames.get(0)).hasSize(2);
+    assertThat(queuedFrames.get(0).get(0).sequencePresentationTimeUs).isEqualTo(500_000L);
+    assertThat(queuedFrames.get(0).get(1).sequencePresentationTimeUs).isEqualTo(500_500L);
+    allExpectedPacketsQueued.set(new ConditionVariable());
+
+    player.setComposition(composition2, player.getCurrentPosition());
+    advance(player).untilState(STATE_READY);
+
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(2);
+    assertThat(queuedFrames.get(1)).hasSize(3);
+    assertThat(queuedFrames.get(1).get(0).sequencePresentationTimeUs).isEqualTo(500_000L);
+    assertThat(queuedFrames.get(1).get(1).sequencePresentationTimeUs).isEqualTo(500_000L);
+    assertThat(queuedFrames.get(1).get(2).sequencePresentationTimeUs).isEqualTo(500_500L);
+  }
+
+  @Test
+  public void packetConsumer_setCompositionWithNewPosition_rendersFrameAtSeekPositionBeforeStarted()
+      throws InterruptedException, PlaybackException, TimeoutException {
+    AtomicReference<ConditionVariable> allExpectedPacketsQueued =
+        new AtomicReference<>(new ConditionVariable());
+    RecordingPacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
+        new RecordingPacketConsumer<>();
+    List<ImmutableList<HardwareBufferFrame>> queuedFrames = new ArrayList<>();
+    packetConsumer.setOnQueue(
+        (frames) -> {
+          for (HardwareBufferFrame frame : frames) {
+            frame.release(/* releaseFence= */ null);
+          }
+          queuedFrames.add(frames);
+          assertThat(allExpectedPacketsQueued.get().open()).isTrue();
+          return null;
+        });
+    Composition composition1 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())),
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())))
+            .build();
+    Composition composition2 =
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build(),
+                        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_SIMPLE_ASSET.uri))
+                            .setDurationUs(1_090_000L)
+                            .build())),
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+    CompositionPlayer player =
+        createTestHardwareBufferCompositionPlayerBuilder(() -> packetConsumer).build();
+
+    player.setComposition(composition1);
+    player.prepare();
+    player.seekTo(/* positionMs= */ 500);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(1);
+    assertThat(queuedFrames.get(0)).hasSize(2);
+    assertThat(queuedFrames.get(0).get(0).sequencePresentationTimeUs).isEqualTo(500_000L);
+    assertThat(queuedFrames.get(0).get(1).sequencePresentationTimeUs).isEqualTo(500_500L);
+    allExpectedPacketsQueued.set(new ConditionVariable());
+
+    player.setComposition(composition2, /* startPositionMs= */ 1_200);
+    advance(player).untilState(STATE_READY);
+
+    assertThat(allExpectedPacketsQueued.get().block(TEST_TIMEOUT_MS)).isTrue();
+    assertThat(queuedFrames).hasSize(2);
+    assertThat(queuedFrames.get(1)).hasSize(1);
+    assertThat(queuedFrames.get(1).get(0).sequencePresentationTimeUs).isEqualTo(1_223_466L);
   }
 
   @Test

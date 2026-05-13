@@ -576,7 +576,7 @@ public class FrameAggregatorTest {
   }
 
   @Test
-  public void releaseAllFrames_releasesAllHeldFrames() {
+  public void close_releasesAllHeldFrames() {
     FrameAggregator frameAggregator =
         new FrameAggregator(
             /* numSequences= */ 3,
@@ -607,11 +607,76 @@ public class FrameAggregatorTest {
     assertThat(aggregatedPacket.get(1).presentationTimeUs).isEqualTo(frame1.presentationTimeUs);
     assertThat(aggregatedPacket.get(2).presentationTimeUs).isEqualTo(frame2.presentationTimeUs);
 
-    frameAggregator.releaseAllFrames();
+    frameAggregator.close();
 
     assertThat(releasedFrameTimestamps)
         .containsExactly(frame3.presentationTimeUs, frame4.presentationTimeUs);
     assertThat(outputFrames).hasSize(1);
+  }
+
+  @Test
+  public void registerSequence_afterClose_throwsIllegalStateException() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+
+    frameAggregator.close();
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            frameAggregator.registerSequence(/* sequenceIndex= */ 0, /* shouldAggregate= */ true));
+  }
+
+  @Test
+  public void queueFrame_afterClose_releasesFrameImmediately() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+    frameAggregator.close();
+
+    HardwareBufferFrame frame =
+        createFrame(/* presentationTimeUs= */ 100, /* sequencePresentationTimeUs= */ 100);
+
+    frameAggregator.queueFrame(frame, /* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).isEmpty();
+    assertThat(releasedFrameTimestamps).containsExactly(frame.presentationTimeUs);
+  }
+
+  @Test
+  public void queueEndOfStream_afterClose_isIgnored() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+    frameAggregator.close();
+
+    frameAggregator.queueEndOfStream(/* sequenceIndex= */ 0);
+
+    assertThat(outputFrames).isEmpty();
+  }
+
+  @Test
+  public void flush_afterClose_isIgnored() {
+    FrameAggregator frameAggregator =
+        new FrameAggregator(
+            /* numSequences= */ 1,
+            /* downstreamConsumer= */ outputFrames::add,
+            /* onFlush= */ flushedSequences::add);
+    registerAllSequences(frameAggregator, /* numSequences= */ 1);
+    frameAggregator.close();
+
+    frameAggregator.flush(/* sequenceIndex= */ 0);
+
+    assertThat(flushedSequences).isEmpty();
   }
 
   @Test
