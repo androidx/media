@@ -288,7 +288,8 @@ public class WebvttPlaybackTest {
     surface.release();
 
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/webvtt/" + inputFile + ".seek.dump");
+        applicationContext, playbackOutput,
+            "playbackdumps/webvtt/" + inputFile + ".legacy.seek.dump");
   }
 
   // Deliberately configuring legacy subtitle handling to check unconfigured TextRenderer fails.

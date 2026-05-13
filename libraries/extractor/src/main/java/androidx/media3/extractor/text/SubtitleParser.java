@@ -215,6 +215,14 @@ public interface SubtitleParser {
   default void reset() {}
 
   /**
+   * Returns whether the subtitle parser requires to be reinitialized after seeking, so
+   * input is reprocessed before cues being written to the output.
+   *
+   * <p>The default implementation is {@code false}.
+   */
+  default boolean requiresInitializationAfterSeeking() { return false; }
+
+  /**
    * Returns the {@link CueReplacementBehavior} for consecutive {@link CuesWithTiming} emitted by
    * this implementation.
    *

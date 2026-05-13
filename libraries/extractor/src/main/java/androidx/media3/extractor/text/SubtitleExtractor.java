@@ -201,7 +201,14 @@ public class SubtitleExtractor implements Extractor {
       state = STATE_INITIALIZED;
     }
     if (state == STATE_FINISHED) {
-      state = STATE_SEEKING;
+      // Some parsers require to reparse the cues as the input can be different. For those
+      // parsers just force a reinitialization, which will force a reprocess of the new input.
+      state = subtitleParser.requiresInitializationAfterSeeking()
+          ? STATE_INITIALIZED : STATE_SEEKING;
+      if (state == STATE_INITIALIZED) {
+        samples.clear();
+        timestamps = Util.EMPTY_LONG_ARRAY;
+      }
     }
   }
 
@@ -251,7 +258,9 @@ public class SubtitleExtractor implements Extractor {
     try {
       SubtitleParser.OutputOptions outputOptions =
           seekTimeUs != C.TIME_UNSET
-              ? SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(seekTimeUs)
+              ? subtitleParser.requiresInitializationAfterSeeking()
+                  ? SubtitleParser.OutputOptions.onlyCuesAfter(seekTimeUs)
+                  : SubtitleParser.OutputOptions.cuesAfterThenRemainingCuesBefore(seekTimeUs)
               : SubtitleParser.OutputOptions.allCues();
       AtomicLong maxEndTimeUs = new AtomicLong(C.TIME_UNSET);
       subtitleParser.parse(

@@ -41,14 +41,16 @@ public class LegacySubtitleUtil {
     boolean startedInMiddleOfCue = false;
     if (outputOptions.startTimeUs != C.TIME_UNSET && startIndex < subtitle.getEventTimeCount()) {
       List<Cue> cuesAtStartTime = subtitle.getCues(outputOptions.startTimeUs);
-      long firstEventTimeUs = subtitle.getEventTime(startIndex);
-      if (!cuesAtStartTime.isEmpty() && outputOptions.startTimeUs < firstEventTimeUs) {
-        output.accept(
-            new CuesWithTiming(
-                cuesAtStartTime,
-                outputOptions.startTimeUs,
-                firstEventTimeUs - outputOptions.startTimeUs));
-        startedInMiddleOfCue = true;
+      if (!cuesAtStartTime.isEmpty() && startIndex < subtitle.getEventTimeCount()) {
+        long firstEventTimeUs = subtitle.getEventTime(startIndex);
+        if (!cuesAtStartTime.isEmpty() && outputOptions.startTimeUs < firstEventTimeUs) {
+          output.accept(
+              new CuesWithTiming(
+                  cuesAtStartTime,
+                  outputOptions.startTimeUs,
+                  firstEventTimeUs - outputOptions.startTimeUs));
+          startedInMiddleOfCue = true;
+        }
       }
     }
     for (int i = startIndex; i < subtitle.getEventTimeCount(); i++) {

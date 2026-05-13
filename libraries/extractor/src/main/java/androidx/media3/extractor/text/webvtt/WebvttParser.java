@@ -108,6 +108,13 @@ public final class WebvttParser implements SubtitleParser {
     LegacySubtitleUtil.toCuesWithTiming(subtitle, outputOptions, output);
   }
 
+  @Override
+  public boolean requiresInitializationAfterSeeking() {
+    // Cues of segmented webvtt need to be reprocessed, as the extractor could be reused, but
+    // can fetch different inputs on seeking.
+    return true;
+  }
+
   /**
    * Positions the input right before the next event, and returns the kind of event found. Does not
    * consume any data from such event, if any.

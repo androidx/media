@@ -5632,7 +5632,7 @@ TextOutput:
     presentationTimeUs = 1000000
     Cues = []
   Subtitle[6]:
-    presentationTimeUs = 1000000
+    presentationTimeUs = 0
     Cue[0]:
       text = This is the first subtitle.
       textAlignment = ALIGN_CENTER

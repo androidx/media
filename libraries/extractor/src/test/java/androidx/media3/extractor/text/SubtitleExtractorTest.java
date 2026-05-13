@@ -114,6 +114,7 @@ public class SubtitleExtractorTest {
 
   @Test
   public void extractor_seekAfterExtracting_outputsCues() throws Exception {
+    SubtitleParser parser = new WebvttParser();
     FakeExtractorOutput output = new FakeExtractorOutput();
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -122,7 +123,7 @@ public class SubtitleExtractorTest {
             .build();
     SubtitleExtractor extractor =
         new SubtitleExtractor(
-            new WebvttParser(), new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
+            parser, new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
     extractor.init(output);
     FakeTrackOutput trackOutput = output.trackOutputs.get(0);
 
@@ -136,8 +137,9 @@ public class SubtitleExtractorTest {
     assertThat(trackOutput.lastFormat.codecs).isEqualTo(MimeTypes.TEXT_VTT);
     assertThat(trackOutput.getSampleCount()).isEqualTo(3);
     CuesWithTiming cues0 = decodeSample(trackOutput, 0);
-    assertThat(cues0.startTimeUs).isEqualTo(2_345_000L);
-    assertThat(cues0.durationUs).isEqualTo(2_600_000 - 2_345_000L);
+    long startTimeUs = parser.requiresInitializationAfterSeeking() ? 2_445_000L : 2_345_000L;
+    assertThat(cues0.startTimeUs).isEqualTo(startTimeUs);
+    assertThat(cues0.durationUs).isEqualTo(2_600_000 - startTimeUs);
     assertThat(cues0.endTimeUs).isEqualTo(2_600_000);
     assertThat(cues0.cues).hasSize(1);
     assertThat(cues0.cues.get(0).text.toString()).isEqualTo("This is the second subtitle.");
