@@ -35,6 +35,10 @@ dependencies {
   api(libs.androidx.compose.foundation)
   api(libs.androidx.compose.material3)
 
+  // TODO: b/509786666 - This dependency is added as part of the Artwork implementation in
+  // MiniController. This might need updating once the actual implementation is done.
+  implementation(libs.kotlinx.coroutines.guava)
+
   testImplementation(libs.androidx.compose.ui.test)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(project(":test-utils"))

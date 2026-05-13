@@ -171,6 +171,9 @@
     *   Add fastforwarding/slow motion API to `PlaybackSpeedState`. Use this
         functionality in `demo-compose` to showcase fastforwarding with a long
         press.
+    *   Add `MiniController` composable to `media3-ui-compose` module. It
+        provides a compact affordance to control the `Player` while displaying
+        the title, artist, artwork, and progress of the current media item.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
