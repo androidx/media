@@ -34,6 +34,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -84,6 +85,7 @@ internal fun Modifier.reportPointerDown(onPointerDownChange: (Boolean) -> Unit):
  *
  * @param onPointerDownChange Lambda invoked with `true` when any pointer goes down, and `false`
  *   when the last pointer goes up.
+ * @param onPointerMove Lambda invoked when the pointer moves within the Composable.
  * @param onToggleControls Lambda invoked to show/hide player controls, typically used on a single
  *   tap.
  * @param seekBackButtonState State object for handling seek back actions and providing seek
@@ -104,6 +106,7 @@ internal fun Modifier.reportPointerDown(onPointerDownChange: (Boolean) -> Unit):
 @Composable
 internal fun Modifier.playerGestures(
   onPointerDownChange: ((Boolean) -> Unit)?,
+  onPointerMove: (() -> Unit)?,
   onToggleControls: () -> Unit,
   seekBackButtonState: SeekBackButtonState?,
   seekBackActionArea: (Offset) -> Boolean = { false },
@@ -135,6 +138,7 @@ internal fun Modifier.playerGestures(
     }
     .pointerInput(
       onPointerDownChange,
+      onPointerMove,
       seekBackButtonState,
       seekForwardButtonState,
       playbackSpeedState,
@@ -149,6 +153,9 @@ internal fun Modifier.playerGestures(
               }
               val isAnyPressed = event.changes.any { it.pressed }
               onPointerDownChange?.invoke(isAnyPressed)
+              if (event.type == PointerEventType.Move) {
+                onPointerMove?.invoke()
+              }
             }
           }
         }

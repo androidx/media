@@ -52,6 +52,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -81,7 +83,10 @@ import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
 import androidx.media3.ui.compose.state.rememberSeekForwardButtonState
 import androidx.media3.ui.compose.text.CurrentMediaItemBox
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
@@ -123,6 +128,7 @@ fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modi
 @Composable
 internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   val density = LocalDensity.current
+  val scope = rememberCoroutineScope()
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var showPlaylist by rememberSaveable { mutableStateOf(false) }
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
@@ -131,21 +137,37 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var showControls by remember { mutableStateOf(true) }
   var anyPointerDown by remember { mutableStateOf(false) }
   val playPauseButtonState = rememberPlayPauseButtonState(player)
-  LaunchedEffect(showControls, anyPointerDown, playPauseButtonState.showPlay) {
-    if (showControls && !anyPointerDown && !playPauseButtonState.showPlay) {
-      // Fade out the controls when the user has the intent to keep watching (i.e. not paused)
-      delay(CONTROLS_VISIBILITY_TIMEOUT_MS)
-      showControls = false
+
+  val hideJob = remember { mutableStateOf<Job?>(null) }
+  fun scheduleHideControls() {
+    hideJob.value?.cancel()
+    if (!anyPointerDown) {
+      hideJob.value = scope.launch {
+        delay(CONTROLS_VISIBILITY_TIMEOUT)
+        showControls = false
+      }
+    }
+  }
+
+  LaunchedEffect(showControls, anyPointerDown) {
+    if (showControls && !anyPointerDown) {
+      scheduleHideControls()
+    } else {
+      hideJob.value?.cancel()
     }
   }
 
   var size by remember { mutableStateOf(IntSize.Zero) }
-  val scope = rememberCoroutineScope()
   val seekOverlayState = remember { SeekOverlayState(scope) }
   var showFastForward by remember { mutableStateOf(false) }
 
   val playbackSpeedState = rememberPlaybackSpeedState(player)
-  Box(modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+  Box(
+    modifier
+      .background(MaterialTheme.colorScheme.background)
+      .statusBarsPadding()
+      .pointerHoverIcon(if (showControls) PointerIcon.Default else PointerIcon(0))
+  ) {
     Player(
       player = player,
       showControls = showControls,
@@ -153,6 +175,10 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
         Modifier.onGloballyPositioned { coordinates -> size = coordinates.size }
           .playerGestures(
             onPointerDownChange = { anyPointerDown = it },
+            onPointerMove = {
+              showControls = true
+              scheduleHideControls()
+            },
             onToggleControls = { showControls = !showControls },
             playbackSpeedState = playbackSpeedState,
             seekBackButtonState = rememberSeekBackButtonState(player),
@@ -320,4 +346,4 @@ private fun initializePlayer(
     prepare()
   }
 
-private const val CONTROLS_VISIBILITY_TIMEOUT_MS = 3000L
+private val CONTROLS_VISIBILITY_TIMEOUT = 3000.milliseconds
