@@ -26,6 +26,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR
 import static androidx.media3.transformer.TransformerUtil.isImage;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.abs;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -247,6 +248,15 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
   private static final String TAG = "ExoPlayerAssetLoader";
 
+  /**
+   * Maximum allowed {@link EditedMediaItem} duration update in microseconds.
+   *
+   * <p>20ms should cover the main known valid case of a duration update, which is an Mp3 file with
+   * a trailing ID3v1 tag. An ID3v1 tag is exactly 128 bytes, which at most can represent 16ms of
+   * audio at a constant bitrate of 64 kb/s.
+   */
+  private static final int MAX_ALLOWED_DURATION_DIFF_US = 20_000;
+
   private final Context context;
   private final EditedMediaItem editedMediaItem;
   private final CapturingDecoderFactory decoderFactory;
@@ -438,8 +448,17 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                     : PROGRESS_STATE_AVAILABLE;
             assetLoaderListener.onDurationUs(window.durationUs);
           } else if (durationUs != C.TIME_UNSET) {
-            // Duration once known can not change.
-            checkState(durationUs == window.durationUs);
+            // ExoPlayer will do a best effort duration estimation for media that does not expose
+            // an explicit duration in its container. On some cases, like with Mp3 files with
+            // trailing ID3v1 tags, ExoPlayer will update the Timeline's duration with the real
+            // duration once the file has been read completely. We should ignore these updates and
+            // let Transformer pad the stream with silence/blank frames. However, for duration
+            // updates that exceed the threshold, we should crash.
+            checkState(
+                abs(durationUs - window.durationUs) <= MAX_ALLOWED_DURATION_DIFF_US,
+                "Unexpected duration change: old=%s, new=%s",
+                durationUs,
+                window.durationUs);
           }
         }
       } catch (RuntimeException e) {

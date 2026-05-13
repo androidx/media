@@ -18,12 +18,15 @@ package androidx.media3.transformer;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.AMR_NB_SINE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_PIXEL_MOTION_PHOTO_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP3_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP3_ASSET_CBR_TRAILING_GARBAGE;
+import static androidx.media3.test.utils.AssetInfo.MP3_ASSET_CBR_TRAILING_ID3V1;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
@@ -229,6 +232,47 @@ public class TransformerEndToEndTest {
     // loopingAudioSequence: Matches max other sequence (~3.5s) -> 4 inputs of ~1s audio item.
     assertThat(result.exportResult.processedInputs).hasSize(9);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
+  }
+
+  @Test
+  public void export_withSmallDifferenceBetweenEstimatedAndRealDuration_padsWithSilence()
+      throws Exception {
+    AtomicInteger bytesRead = new AtomicInteger();
+    AudioProcessor processor = createByteCountingAudioProcessor(bytesRead);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET_CBR_TRAILING_ID3V1.uri))
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context).setAudioMimeType(MimeTypes.AUDIO_RAW).build();
+    // This asset does not expose a duration inside its container, so ExoPlayer estimates its
+    // duration based on file duration and constant bit rate. Because the asset contains an ID3v1
+    // tag at the end, Mp3Extractor will update the item's duration once it sees that the last 128
+    // bytes (equivalent to 16ms@64 kb/s CBR) are not audio samples. Transformer should handle small
+    // changes in media duration gracefully by padding the missing duration with silence.
+    ExportTestResult unused =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+
+    // We should observe a duration 16ms longer than the actual stream to account for the duration
+    // miscalculation.
+    assertThat(bytesRead.get() / 2)
+        .isEqualTo(
+            durationUsToSampleCount(
+                MP3_ASSET_CBR_TRAILING_ID3V1.audioDurationUs + 16_000, /* sampleRate= */ 44100));
+  }
+
+  @Test
+  public void export_withLargeDifferenceBetweenEstimatedAndRealDuration_throws() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    // This asset does not expose a duration inside its container, so ExoPlayer estimates its
+    // duration based on file duration and constant bit rate. The file contains 150kB of trailing
+    // garbage, which will cause the duration estimate to be off by 9.375 seconds, given a CBR of
+    // 128 kb/s.
+    TransformerAndroidTestRunner runner =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+    assertThrows(
+        ExportException.class,
+        () -> runner.run(testId, MediaItem.fromUri(MP3_ASSET_CBR_TRAILING_GARBAGE.uri)));
   }
 
   @Test

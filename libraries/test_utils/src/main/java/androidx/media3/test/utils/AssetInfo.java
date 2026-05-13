@@ -1195,6 +1195,16 @@ public final class AssetInfo {
   public static final AssetInfo MP3_ASSET =
       new AssetInfo.Builder("asset:///media/mp3/test-cbr-info-header.mp3").build();
 
+  public static final AssetInfo MP3_ASSET_CBR_TRAILING_GARBAGE =
+      new AssetInfo.Builder("asset:///media/mp3/bear-cbr-no-seek-table-trailing-garbage.mp3")
+          .setAudioDurationUs(2_821_187L)
+          .build();
+
+  public static final AssetInfo MP3_ASSET_CBR_TRAILING_ID3V1 =
+      new AssetInfo.Builder("asset:///media/mp3/sine-wave-cbr-trailing-id3v1.mp3")
+          .setAudioDurationUs(1_044_875)
+          .build();
+
   // This file contains 1 second of audio at 44.1kHZ.
   public static final AssetInfo WAV_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
