@@ -57,7 +57,9 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -231,7 +233,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
 
     private static MediaSource.Factory createMediaSourceFactory(
         Context context, boolean shouldEnableSef) {
-      DefaultExtractorsFactory defaultExtractorsFactory = new DefaultExtractorsFactory();
+      DefaultExtractorsFactory defaultExtractorsFactory =
+          new DefaultExtractorsFactory()
+              .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+              .setAmrExtractorFlags(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
       if (shouldEnableSef) {
         defaultExtractorsFactory.setMp4ExtractorFlags(Mp4Extractor.FLAG_READ_SEF_DATA);
       }

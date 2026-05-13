@@ -1248,6 +1248,12 @@ public final class AssetInfo {
           .setVideoFrameCount(15)
           .build();
 
+  public static final AssetInfo RAW_AAC_ASSET =
+      new AssetInfo.Builder("asset:///media/aac/sine.aac").build();
+
+  public static final AssetInfo AMR_NB_SINE_ASSET =
+      new AssetInfo.Builder("asset:///media/amr/sine-nb.amr").build();
+
   public static final AssetInfo VORBIS_OGG_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_16kHz_q10_vorbis.ogg")
           .setTrackCount(1)
