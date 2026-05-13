@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -45,7 +46,7 @@ public final class DtsUtil {
   /** Information parsed from a DTS frame header. */
   public static final class DtsHeader {
     /** The mime type of the DTS bitstream. */
-    public final @DtsAudioMimeType String mimeType;
+    @Nullable public final @DtsAudioMimeType String mimeType;
 
     /** The audio sampling rate in Hertz, or {@link C#RATE_UNSET_INT} if unknown. */
     public final int sampleRate;
@@ -63,7 +64,7 @@ public final class DtsUtil {
     public final int bitrate;
 
     private DtsHeader(
-        String mimeType,
+        @Nullable String mimeType,
         int channelCount,
         int sampleRate,
         int frameSize,
@@ -487,6 +488,7 @@ public final class DtsUtil {
     // Asset descriptor: Size, Index and Per Stream Static Metadata, see ETSI TS 102 114 V1.6.1
     // (2019-08) Table 7-5.
     headerBits.skipBits(9 + 3); // nuAssetDescriptFsize, nuAssetIndex
+    String mimeType = null;
     if (staticFieldsPresent) {
       if (headerBits.readBit()) { // bAssetTypeDescrPresent
         headerBits.skipBits(4); // nuAssetTypeDescriptor
@@ -527,13 +529,64 @@ public final class DtsUtil {
             headerBits.skipBits(coef * 5); // nuSpkrRemapCodes[ns][nCh][nc]
           }
         }
+      } else {
+        headerBits.skipBits(3); // nuRepresentationType
       }
-    } else {
-      headerBits.skipBits(3); // nuRepresentationType
-    }
 
-    // Asset descriptor: Dynamic Metadata - DRC, DNC and Mixing Metadata, see ETSI TS 102 114 V1.6.1
-    // (2019-08) Table 7-6.
+      parseAssetDescriptorDynamicData(
+          headerBits,
+          embeddedStereo,
+          embedded6ch,
+          channelCount,
+          enableMixMetadata,
+          mixerOutChannels);
+
+      mimeType = parseDecoderNavigationData(headerBits);
+    }
+    // Done reading necessary bits, ignoring the rest.
+
+    long frameDurationUs = C.TIME_UNSET;
+    if (staticFieldsPresent) {
+      int referenceClockFrequency;
+      //  ETSI TS 102 114 V1.6.1 (2019-08) Table 7-3.
+      switch (referenceClockCode) {
+        case 0:
+          referenceClockFrequency = 32_000;
+          break;
+        case 1:
+          referenceClockFrequency = 44_100;
+          break;
+        case 2:
+          referenceClockFrequency = 48_000;
+          break;
+        default:
+          throw ParserException.createForMalformedContainer(
+              /* message= */ "Unsupported reference clock code in DTS HD header: "
+                  + referenceClockCode,
+              /* cause= */ null);
+      }
+      frameDurationUs =
+          Util.scaleLargeTimestamp(
+              extensionSubstreamFrameDurationCode, C.MICROS_PER_SECOND, referenceClockFrequency);
+    }
+    return new DtsHeader(
+        mimeType,
+        channelCount,
+        sampleRate,
+        extensionSubstreamFrameSize,
+        frameDurationUs,
+        /* bitrate= */ 0);
+  }
+
+  // Asset descriptor: Dynamic Metadata - DRC, DNC and Mixing Metadata, see ETSI TS 102 114
+  // V1.6.1 (2019-08) Table 7-6.
+  private static void parseAssetDescriptorDynamicData(
+      ParsableBitArray headerBits,
+      boolean embeddedStereo,
+      boolean embedded6ch,
+      int channelCount,
+      boolean enableMixMetadata,
+      @Nullable int[] mixerOutChannels) {
     boolean hasDrcCoef = headerBits.readBit();
     if (hasDrcCoef) { // bDRCCoefPresent
       headerBits.skipBits(8); // nuDRCCode
@@ -545,6 +598,7 @@ public final class DtsUtil {
       headerBits.skipBits(8); // nuDRC2ChDmixCode
     }
     if (enableMixMetadata && headerBits.readBit()) { // bMixMetadataPresent
+      checkNotNull(mixerOutChannels);
       headerBits.skipBits(1 + 6); // bExternalMixFlag, nuPostMixGainAdjCode
       if (headerBits.readBits(2) < 3) { // nuControlMixerDRC
         headerBits.skipBits(3); // nuLimit4EmbeddedDRC
@@ -581,64 +635,30 @@ public final class DtsUtil {
         }
       }
     }
+  }
 
-    // Asset descriptor: Decoder Navigation Data, see ETSI TS 102 114 V1.6.1 (2019-08) Table 7-7.
+  // Asset descriptor: Decoder Navigation Data, see ETSI TS 102 114 V1.6.1 (2019-08) Table 7-7.
+  private static String parseDecoderNavigationData(ParsableBitArray headerBits)
+      throws ParserException {
     int codingMode = headerBits.readBits(2); // nuCodingMode
-    String mimeType;
     switch (codingMode) {
       case 0: // DTS-HD Coding Mode that may contain multiple coding components
         int extensionMask = headerBits.readBits(12);
         if ((extensionMask & 0x100) != 0) { // Low bit rate component
-          mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
+          return MimeTypes.AUDIO_DTS_EXPRESS;
         } else {
-          mimeType = MimeTypes.AUDIO_DTS_HD;
+          return MimeTypes.AUDIO_DTS_HD;
         }
-        break;
       case 1: // DTS-HD Loss-less coding mode without CBR component
-        mimeType = MimeTypes.AUDIO_DTS_HD;
-        break;
+        return MimeTypes.AUDIO_DTS_HD;
       case 2: // DTS-HD Low bit-rate mode
-        mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
-        break;
+        return MimeTypes.AUDIO_DTS_EXPRESS;
       case 3: // The auxiliary coding mode is reserved for future applications.
       default:
         throw ParserException.createForMalformedContainer(
             /* message= */ "Unsupported coding mode in DTS HD header: " + codingMode,
             /* cause= */ null);
     }
-    // Done reading necessary bits, ignoring the rest.
-
-    long frameDurationUs = C.TIME_UNSET;
-    if (staticFieldsPresent) {
-      int referenceClockFrequency;
-      //  ETSI TS 102 114 V1.6.1 (2019-08) Table 7-3.
-      switch (referenceClockCode) {
-        case 0:
-          referenceClockFrequency = 32_000;
-          break;
-        case 1:
-          referenceClockFrequency = 44_100;
-          break;
-        case 2:
-          referenceClockFrequency = 48_000;
-          break;
-        default:
-          throw ParserException.createForMalformedContainer(
-              /* message= */ "Unsupported reference clock code in DTS HD header: "
-                  + referenceClockCode,
-              /* cause= */ null);
-      }
-      frameDurationUs =
-          Util.scaleLargeTimestamp(
-              extensionSubstreamFrameDurationCode, C.MICROS_PER_SECOND, referenceClockFrequency);
-    }
-    return new DtsHeader(
-        mimeType,
-        channelCount,
-        sampleRate,
-        extensionSubstreamFrameSize,
-        frameDurationUs,
-        /* bitrate= */ 0);
   }
 
   // See Table 7-10 in ETSI TS 102 114 V1.6.1
