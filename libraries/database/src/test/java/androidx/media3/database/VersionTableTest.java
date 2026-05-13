@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.database.sqlite.SQLiteDatabase;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +41,11 @@ public class VersionTableTest {
   public void setUp() {
     databaseProvider = TestUtil.getInMemoryDatabaseProvider();
     database = databaseProvider.getWritableDatabase();
+  }
+
+  @After
+  public void tearDown() {
+    database.close();
   }
 
   @Test

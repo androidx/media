@@ -50,6 +50,7 @@ public class SimpleCacheTest {
   private File testDir;
   private File cacheDir;
   private DatabaseProvider databaseProvider;
+  private SimpleCache simpleCache;
 
   @Before
   public void createTestDir() throws Exception {
@@ -66,26 +67,40 @@ public class SimpleCacheTest {
 
   @After
   public void deleteTestDir() {
-    Util.recursiveDelete(testDir);
+    try {
+      if (simpleCache != null) {
+        simpleCache.release();
+      }
+    } finally {
+      try {
+        if (databaseProvider != null) {
+          databaseProvider.getReadableDatabase().close();
+        }
+      } finally {
+        if (testDir != null) {
+          Util.recursiveDelete(testDir);
+        }
+      }
+    }
   }
 
   @Test
   public void newInstance_withEmptyDirectory() {
-    SimpleCache cache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     // Cache initialization should have created a non-negative UID.
-    long uid = cache.getUid();
+    long uid = simpleCache.getUid();
     assertThat(uid).isAtLeast(0L);
     // And the cache directory.
     assertThat(cacheDir.exists()).isTrue();
 
     // Reinitialization should load the same non-negative UID.
-    cache.release();
-    cache = getSimpleCache();
-    assertThat(cache.getUid()).isEqualTo(uid);
+    simpleCache.release();
+    simpleCache = getSimpleCache();
+    assertThat(simpleCache.getUid()).isEqualTo(uid);
 
     // Cache should be empty.
-    assertThat(cache.getKeys()).isEmpty();
+    assertThat(simpleCache.getKeys()).isEmpty();
   }
 
   @Test
@@ -94,8 +109,8 @@ public class SimpleCacheTest {
     assertThat(cacheDir.createNewFile()).isTrue();
 
     // Cache initialization should not throw an exception, but no UID will be generated.
-    SimpleCache cache = getSimpleCache();
-    long uid = cache.getUid();
+    simpleCache = getSimpleCache();
+    long uid = simpleCache.getUid();
     assertThat(uid).isEqualTo(-1L);
   }
 
@@ -103,7 +118,7 @@ public class SimpleCacheTest {
   @SuppressWarnings("deprecation") // Testing deprecated behaviour
   public void newInstance_withExistingCacheDirectory_withoutDatabase_loadsCachedData()
       throws Exception {
-    SimpleCache simpleCache = new SimpleCache(cacheDir, new NoOpCacheEvictor());
+    simpleCache = new SimpleCache(cacheDir, new NoOpCacheEvictor());
 
     // Write some data and metadata to the cache.
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
@@ -127,7 +142,7 @@ public class SimpleCacheTest {
   @Test
   public void newInstance_withExistingCacheDirectory_withDatabase_loadsCachedData()
       throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     // Write some data and metadata to the cache.
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
@@ -160,52 +175,60 @@ public class SimpleCacheTest {
   @SuppressWarnings("deprecation") // Testing deprecated behaviour
   public void newInstance_withExistingCacheDirectory_withoutDatabase_resolvesInconsistentState()
       throws Exception {
-    SimpleCache simpleCache = new SimpleCache(testDir, new NoOpCacheEvictor());
+    SimpleCache initialCache = new SimpleCache(testDir, new NoOpCacheEvictor());
+    try {
+      CacheSpan holeSpan = initialCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
+      addCache(initialCache, KEY_1, 0, 15);
+      initialCache.releaseHoleSpan(holeSpan);
+      initialCache.removeSpan(initialCache.getCachedSpans(KEY_1).first());
 
-    CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
-    addCache(simpleCache, KEY_1, 0, 15);
-    simpleCache.releaseHoleSpan(holeSpan);
-    simpleCache.removeSpan(simpleCache.getCachedSpans(KEY_1).first());
+      // Don't release the cache. This means the index file won't have been written to disk after
+      // the
+      // span was removed. Move the cache directory instead, so we can reload it without failing the
+      // folder locking check.
+      File cacheDir2 = new File(testDir, "cache2");
+      cacheDir.renameTo(cacheDir2);
 
-    // Don't release the cache. This means the index file won't have been written to disk after the
-    // span was removed. Move the cache directory instead, so we can reload it without failing the
-    // folder locking check.
-    File cacheDir2 = new File(testDir, "cache2");
-    cacheDir.renameTo(cacheDir2);
+      // Create a new instance pointing to the new directory.
+      simpleCache = new SimpleCache(cacheDir2, new NoOpCacheEvictor());
 
-    // Create a new instance pointing to the new directory.
-    simpleCache = new SimpleCache(cacheDir2, new NoOpCacheEvictor());
-
-    // The entry for KEY_1 should have been removed when the cache was reloaded.
-    assertThat(simpleCache.getCachedSpans(KEY_1)).isEmpty();
+      // The entry for KEY_1 should have been removed when the cache was reloaded.
+      assertThat(simpleCache.getCachedSpans(KEY_1)).isEmpty();
+    } finally {
+      initialCache.release();
+    }
   }
 
   @Test
   public void newInstance_withExistingCacheDirectory_withDatabase_resolvesInconsistentState()
       throws Exception {
-    SimpleCache simpleCache = new SimpleCache(testDir, new NoOpCacheEvictor(), databaseProvider);
+    SimpleCache initialCache = new SimpleCache(testDir, new NoOpCacheEvictor(), databaseProvider);
+    try {
+      CacheSpan holeSpan = initialCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
+      addCache(initialCache, KEY_1, 0, 15);
+      initialCache.releaseHoleSpan(holeSpan);
+      initialCache.removeSpan(initialCache.getCachedSpans(KEY_1).first());
 
-    CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
-    addCache(simpleCache, KEY_1, 0, 15);
-    simpleCache.releaseHoleSpan(holeSpan);
-    simpleCache.removeSpan(simpleCache.getCachedSpans(KEY_1).first());
+      // Don't release the cache. This means the index file won't have been written to disk after
+      // the
+      // span was removed. Move the cache directory instead, so we can reload it without failing the
+      // folder locking check.
+      File cacheDir2 = new File(testDir, "cache2");
+      cacheDir.renameTo(cacheDir2);
 
-    // Don't release the cache. This means the index file won't have been written to disk after the
-    // span was removed. Move the cache directory instead, so we can reload it without failing the
-    // folder locking check.
-    File cacheDir2 = new File(testDir, "cache2");
-    cacheDir.renameTo(cacheDir2);
+      // Create a new instance pointing to the new directory.
+      simpleCache = new SimpleCache(cacheDir2, new NoOpCacheEvictor(), databaseProvider);
 
-    // Create a new instance pointing to the new directory.
-    simpleCache = new SimpleCache(cacheDir2, new NoOpCacheEvictor(), databaseProvider);
-
-    // The entry for KEY_1 should have been removed when the cache was reloaded.
-    assertThat(simpleCache.getCachedSpans(KEY_1)).isEmpty();
+      // The entry for KEY_1 should have been removed when the cache was reloaded.
+      assertThat(simpleCache.getCachedSpans(KEY_1)).isEmpty();
+    } finally {
+      initialCache.release();
+    }
   }
 
   @Test
   public void write_oneLock_oneFile_thenRead() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
     assertThat(holeSpan.isCached).isFalse();
@@ -223,7 +246,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_oneLock_twoFiles_thenRead() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, 0, 7);
@@ -244,7 +267,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_twoLocks_twoFiles_thenRead() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan1 = simpleCache.startReadWrite(KEY_1, 0, 7);
     CacheSpan holeSpan2 = simpleCache.startReadWrite(KEY_1, 7, 8);
@@ -268,7 +291,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_differentKeyLocked_thenRead() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan1 = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
 
     CacheSpan holeSpan2 = simpleCache.startReadWrite(KEY_2, 0, LENGTH_UNSET);
@@ -287,7 +310,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_oneLock_fileExceedsLock_fails() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, 10);
 
@@ -298,7 +321,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_twoLocks_oneFileSpanningBothLocks_fails() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan1 = simpleCache.startReadWrite(KEY_1, 0, 7);
     CacheSpan holeSpan2 = simpleCache.startReadWrite(KEY_1, 7, 8);
@@ -311,7 +334,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_unboundedRangeLocked_lockingOverlappingRange_fails() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 50, LENGTH_UNSET);
 
     // Overlapping cannot be locked.
@@ -325,7 +348,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_unboundedRangeLocked_lockingNonOverlappingRange_succeeds() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan1 = simpleCache.startReadWrite(KEY_1, 50, LENGTH_UNSET);
 
     // Non-overlapping range can be locked.
@@ -340,7 +363,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_boundedRangeLocked_lockingOverlappingRange_fails() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 50, 50);
 
     // Overlapping cannot be locked.
@@ -354,7 +377,7 @@ public class SimpleCacheTest {
 
   @Test
   public void write_boundedRangeLocked_lockingNonOverlappingRange_succeeds() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     CacheSpan holeSpan1 = simpleCache.startReadWrite(KEY_1, 50, 50);
     assertThat(holeSpan1.isCached).isFalse();
@@ -384,7 +407,7 @@ public class SimpleCacheTest {
 
   @Test
   public void applyContentMetadataMutations_setsContentLength() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     assertThat(ContentMetadata.getContentLength(simpleCache.getContentMetadata(KEY_1)))
         .isEqualTo(LENGTH_UNSET);
 
@@ -397,7 +420,7 @@ public class SimpleCacheTest {
 
   @Test
   public void removeSpans_removesSpansWithSameKey() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, 0, 10);
     addCache(simpleCache, KEY_1, 20, 10);
@@ -413,7 +436,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedLength_noCachedContent_returnsNegativeMaxHoleLength() {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     assertThat(simpleCache.getCachedLength(KEY_1, /* position= */ 0, /* length= */ 100))
         .isEqualTo(-100);
@@ -431,7 +454,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedLength_returnsNegativeHoleLength() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 50, /* length= */ 50);
     simpleCache.releaseHoleSpan(holeSpan);
@@ -452,7 +475,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedLength_returnsCachedLength() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 0, /* length= */ 50);
     simpleCache.releaseHoleSpan(holeSpan);
@@ -475,7 +498,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedLength_withMultipleAdjacentSpans_returnsCachedLength() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 0, /* length= */ 25);
     addCache(simpleCache, KEY_1, /* position= */ 25, /* length= */ 25);
@@ -499,7 +522,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedLength_withMultipleNonAdjacentSpans_returnsCachedLength() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 0, /* length= */ 10);
     addCache(simpleCache, KEY_1, /* position= */ 15, /* length= */ 35);
@@ -523,7 +546,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedBytes_noCachedContent_returnsZero() {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
 
     assertThat(simpleCache.getCachedBytes(KEY_1, /* position= */ 0, /* length= */ 100))
         .isEqualTo(0);
@@ -541,7 +564,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedBytes_withMultipleAdjacentSpans_returnsCachedBytes() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 0, /* length= */ 25);
     addCache(simpleCache, KEY_1, /* position= */ 25, /* length= */ 25);
@@ -565,7 +588,7 @@ public class SimpleCacheTest {
 
   @Test
   public void getCachedBytes_withMultipleNonAdjacentSpans_returnsCachedBytes() throws Exception {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     CacheSpan holeSpan = simpleCache.startReadWrite(KEY_1, /* position= */ 0, LENGTH_UNSET);
     addCache(simpleCache, KEY_1, /* position= */ 0, /* length= */ 10);
     addCache(simpleCache, KEY_1, /* position= */ 15, /* length= */ 35);
@@ -590,9 +613,8 @@ public class SimpleCacheTest {
   // Regression test for https://github.com/google/ExoPlayer/issues/3260.
   @Test
   public void exceptionDuringIndexStore_doesNotPreventEviction() throws Exception {
-    CachedContentIndex contentIndex =
-        Mockito.spy(new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider()));
-    SimpleCache simpleCache =
+    CachedContentIndex contentIndex = Mockito.spy(new CachedContentIndex(databaseProvider));
+    simpleCache =
         new SimpleCache(
             cacheDir, new LeastRecentlyUsedCacheEvictor(20), contentIndex, /* fileIndex= */ null);
 
@@ -622,7 +644,7 @@ public class SimpleCacheTest {
 
   @Test
   public void usingReleasedCache_throwsException() {
-    SimpleCache simpleCache = getSimpleCache();
+    simpleCache = getSimpleCache();
     simpleCache.release();
     assertThrows(
         IllegalStateException.class,

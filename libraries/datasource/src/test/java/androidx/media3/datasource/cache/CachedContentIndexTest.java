@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
+import androidx.media3.database.DatabaseProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -208,17 +209,27 @@ public class CachedContentIndexTest {
     0x66,
     (byte) 0x8A // hashcode_of_CachedContent_array
   };
+  private DatabaseProvider databaseProvider;
   private File cacheDir;
 
   @Before
   public void setUp() throws Exception {
+    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
     cacheDir =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
   }
 
   @After
   public void tearDown() {
-    Util.recursiveDelete(cacheDir);
+    try {
+      if (databaseProvider != null) {
+        databaseProvider.getReadableDatabase().close();
+      }
+    } finally {
+      if (cacheDir != null) {
+        Util.recursiveDelete(cacheDir);
+      }
+    }
   }
 
   @Test
@@ -462,7 +473,7 @@ public class CachedContentIndexTest {
   }
 
   private CachedContentIndex newInstance() {
-    return new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider());
+    return new CachedContentIndex(databaseProvider);
   }
 
   private CachedContentIndex newLegacyInstance() {

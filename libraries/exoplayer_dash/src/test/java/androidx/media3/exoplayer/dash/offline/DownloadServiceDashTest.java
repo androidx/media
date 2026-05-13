@@ -28,11 +28,8 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.cache.CacheDataSource;
-import androidx.media3.datasource.cache.NoOpCacheEvictor;
-import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloadIndex;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.Download;
@@ -44,11 +41,11 @@ import androidx.media3.exoplayer.scheduler.Scheduler;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.SimpleCacheTestRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +53,7 @@ import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -63,8 +61,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class DownloadServiceDashTest {
 
-  private SimpleCache cache;
-  private File tempFolder;
+  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+
   private FakeDataSet fakeDataSet;
   private StreamKey fakeStreamKey1;
   private StreamKey fakeStreamKey2;
@@ -78,9 +76,6 @@ public class DownloadServiceDashTest {
   public void setUp() throws IOException {
     testThread = new DummyMainThread();
     context = ApplicationProvider.getApplicationContext();
-    tempFolder = Util.createTempDirectory(context, "ExoPlayerTest");
-    cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
 
     Runnable pauseAction =
         () -> {
@@ -113,11 +108,11 @@ public class DownloadServiceDashTest {
     testThread.runTestOnMainThread(
         () -> {
           DefaultDownloadIndex downloadIndex =
-              new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider());
+              new DefaultDownloadIndex(cacheRule.getDatabaseProvider());
           DefaultDownloaderFactory downloaderFactory =
               new DefaultDownloaderFactory(
                   new CacheDataSource.Factory()
-                      .setCache(cache)
+                      .setCache(cacheRule.getCache())
                       .setUpstreamDataSourceFactory(fakeDataSourceFactory),
                   /* executor= */ Runnable::run);
           final DownloadManager dashDownloadManager =
@@ -153,7 +148,6 @@ public class DownloadServiceDashTest {
   @After
   public void tearDown() {
     testThread.runOnMainThread(() -> dashDownloadService.onDestroy());
-    Util.recursiveDelete(tempFolder);
     testThread.release();
   }
 
@@ -165,7 +159,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Ignore("Internal ref: b/78877092")
@@ -179,7 +173,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCacheEmpty(cache);
+    assertCacheEmpty(cacheRule.getCache());
   }
 
   @Ignore("Internal ref: b/78877092")
@@ -192,7 +186,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCacheEmpty(cache);
+    assertCacheEmpty(cacheRule.getCache());
   }
 
   private void removeAll() {

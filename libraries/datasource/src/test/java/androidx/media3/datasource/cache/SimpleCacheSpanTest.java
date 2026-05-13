@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.util.LongSparseArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.database.DatabaseProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -37,19 +38,29 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class SimpleCacheSpanTest {
 
+  private DatabaseProvider databaseProvider;
   private CachedContentIndex index;
   private File cacheDir;
 
   @Before
   public void setUp() throws Exception {
+    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
     cacheDir =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    index = new CachedContentIndex(TestUtil.getInMemoryDatabaseProvider());
+    index = new CachedContentIndex(databaseProvider);
   }
 
   @After
   public void tearDown() {
-    Util.recursiveDelete(cacheDir);
+    try {
+      if (databaseProvider != null) {
+        databaseProvider.getReadableDatabase().close();
+      }
+    } finally {
+      if (cacheDir != null) {
+        Util.recursiveDelete(cacheDir);
+      }
+    }
   }
 
   @Test

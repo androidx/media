@@ -23,6 +23,7 @@ import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.StreamKey;
+import androidx.media3.database.DatabaseProvider;
 import androidx.media3.exoplayer.scheduler.Requirements;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.DummyMainThread;
@@ -64,6 +65,7 @@ public class DownloadManagerTest {
   @GuardedBy("downloaders")
   private final List<FakeDownloader> downloaders = new ArrayList<>();
 
+  private DatabaseProvider databaseProvider;
   private DownloadManager downloadManager;
   private TestDownloadManagerListener downloadManagerListener;
   private DummyMainThread testThread;
@@ -71,13 +73,25 @@ public class DownloadManagerTest {
   @Before
   public void setUp() throws Exception {
     testThread = new DummyMainThread();
+    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
     setupDownloadManager(/* maxParallelDownloads= */ 100);
   }
 
   @After
   public void tearDown() throws Exception {
-    releaseDownloadManager();
-    testThread.release();
+    try {
+      releaseDownloadManager();
+    } finally {
+      try {
+        if (databaseProvider != null) {
+          databaseProvider.getReadableDatabase().close();
+        }
+      } finally {
+        if (testThread != null) {
+          testThread.release();
+        }
+      }
+    }
   }
 
   @Test
@@ -751,7 +765,7 @@ public class DownloadManagerTest {
             downloadManager =
                 new DownloadManager(
                     ApplicationProvider.getApplicationContext(),
-                    new DefaultDownloadIndex(TestUtil.getInMemoryDatabaseProvider()),
+                    new DefaultDownloadIndex(databaseProvider),
                     new FakeDownloaderFactory());
             downloadManager.setMaxParallelDownloads(maxParallelDownloads);
             downloadManager.setMinRetryCount(MIN_RETRY_COUNT);

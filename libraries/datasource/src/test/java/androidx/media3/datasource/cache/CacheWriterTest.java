@@ -29,14 +29,12 @@ import androidx.media3.datasource.TransferListener;
 import androidx.media3.test.utils.FailOnCloseDataSink;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.SimpleCacheTestRule;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,21 +42,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CacheWriterTest {
 
-  private File tempFolder;
-  private SimpleCache cache;
-
-  @Before
-  public void setUp() throws Exception {
-    tempFolder =
-        Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    cache =
-        new SimpleCache(tempFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
-  }
-
-  @After
-  public void tearDown() {
-    Util.recursiveDelete(tempFolder);
-  }
+  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
 
   @Test
   public void cache() throws Exception {
@@ -69,14 +53,14 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(0, 100, 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -90,7 +74,7 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             dataSpec,
             /* temporaryBuffer= */ null,
             counters);
@@ -101,14 +85,14 @@ public final class CacheWriterTest {
 
     cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(testUri),
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(20, 80, 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -126,14 +110,14 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             dataSpec,
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(0, 100, 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -152,7 +136,7 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             dataSpec,
             /* temporaryBuffer= */ null,
             counters);
@@ -163,14 +147,14 @@ public final class CacheWriterTest {
 
     cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(testUri),
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(20, 80, 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -184,14 +168,14 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             dataSpec,
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(0, 100, 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -200,11 +184,11 @@ public final class CacheWriterTest {
     FakeDataSource upstreamDataSource = new FakeDataSource(fakeDataSet);
 
     AtomicBoolean failOnClose = new AtomicBoolean(/* initialValue= */ true);
-    FailOnCloseDataSink dataSink = new FailOnCloseDataSink(cache, failOnClose);
+    FailOnCloseDataSink dataSink = new FailOnCloseDataSink(cacheRule.getCache(), failOnClose);
 
     CacheDataSource cacheDataSource =
         new CacheDataSource(
-            cache,
+            cacheRule.getCache(),
             upstreamDataSource,
             new FileDataSource(),
             dataSink,
@@ -234,7 +218,7 @@ public final class CacheWriterTest {
     cacheWriter.cache();
     counters.assertValues(
         /* bytesAlreadyCached= */ 0, /* bytesNewlyCached= */ 100, /* contentLength= */ 100);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -253,14 +237,14 @@ public final class CacheWriterTest {
 
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             counters);
     cacheWriter.cache();
 
     counters.assertValues(0, 300, 300);
-    assertCachedData(cache, fakeDataSet);
+    assertCachedData(cacheRule.getCache(), fakeDataSet);
   }
 
   @Test
@@ -287,7 +271,7 @@ public final class CacheWriterTest {
         });
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             new CachingCounters());
@@ -308,7 +292,7 @@ public final class CacheWriterTest {
     FakeDataSource dataSource = new FakeDataSource(fakeDataSet);
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             new CachingCounters());
@@ -342,7 +326,7 @@ public final class CacheWriterTest {
         });
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             new CachingCounters());
@@ -366,7 +350,7 @@ public final class CacheWriterTest {
     FakeDataSource dataSource = new FakeDataSource(fakeDataSet);
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cache, dataSource),
+            new CacheDataSource(cacheRule.getCache(), dataSource),
             new DataSpec(Uri.parse("test_data")),
             /* temporaryBuffer= */ null,
             new CachingCounters());
