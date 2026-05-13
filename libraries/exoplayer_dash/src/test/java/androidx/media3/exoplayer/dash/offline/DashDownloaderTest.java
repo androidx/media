@@ -22,7 +22,7 @@ import static androidx.media3.test.utils.CacheAsserts.assertCacheEmpty;
 import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -378,12 +378,8 @@ public class DashDownloaderTest {
             .setRandomData("audio_segment_3", 6);
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+
+    assertThrows(IOException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.download(progressListener);
     assertCachedData(
         cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
@@ -405,12 +401,8 @@ public class DashDownloaderTest {
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
 
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (IOException e) {
-      // Failure expected after downloading init data, segment 1 and 2 bytes in segment 2.
-    }
+    // Failure expected after downloading init data, segment 1 and 2 bytes in segment 2.
+    assertThrows(IOException.class, () -> dashDownloader.download(progressListener));
     progressListener.assertBytesDownloaded(10 + 4 + 2);
 
     dashDownloader.download(progressListener);
@@ -492,12 +484,7 @@ public class DashDownloaderTest {
             .setRandomData("test_segment_1", 4);
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
-    try {
-      dashDownloader.download(progressListener);
-      fail();
-    } catch (DownloadException e) {
-      // Expected.
-    }
+    assertThrows(DownloadException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.remove();
     assertCacheEmpty(cacheRule.getCache());
   }

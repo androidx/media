@@ -17,7 +17,7 @@ package androidx.media3.datasource.cache;
 
 import static androidx.media3.test.utils.TestUtil.createTestFile;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import android.net.Uri;
 import android.util.SparseArray;
@@ -384,24 +384,15 @@ public class CachedContentIndexTest {
       assertThat(b != -1).isTrue();
     }
 
-    boolean threw = false;
-    try {
-      assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance(key2));
-    } catch (AssertionError e) {
-      threw = true;
-    }
-    assertWithMessage("Encrypted index file can not be read with different encryption key")
-        .that(threw)
-        .isTrue();
+    assertThrows(
+        "Encrypted index file can not be read with different encryption key",
+        AssertionError.class,
+        () -> assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance(key2)));
 
-    try {
-      assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance());
-    } catch (AssertionError e) {
-      threw = true;
-    }
-    assertWithMessage("Encrypted index file can not be read without encryption key")
-        .that(threw)
-        .isTrue();
+    assertThrows(
+        "Encrypted index file can not be read without encryption key",
+        AssertionError.class,
+        () -> assertStoredAndLoadedEqual(newLegacyInstance(key), newLegacyInstance()));
 
     // Non encrypted index file can be read even when encryption key provided.
     assertStoredAndLoadedEqual(newLegacyInstance(), newLegacyInstance(key));

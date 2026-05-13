@@ -18,6 +18,7 @@ package androidx.media3.datasource.cache;
 import static androidx.media3.test.utils.CacheAsserts.assertCacheEmpty;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.net.Uri;
@@ -162,14 +163,13 @@ public final class CacheDataSourceTest {
         cacheDataSource, unboundedDataSpec, /* unknownLength= */ true, /* customCacheKey= */ false);
 
     // If the user try to access off range then it should throw an IOException.
-    try {
-      cacheDataSource =
-          createCacheDataSource(/* setReadException= */ false, /* unknownLength= */ false);
-      cacheDataSource.open(buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, defaultCacheKey));
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+    CacheDataSource newCacheDataSource =
+        createCacheDataSource(/* setReadException= */ false, /* unknownLength= */ false);
+    assertThrows(
+        IOException.class,
+        () ->
+            newCacheDataSource.open(
+                buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, defaultCacheKey)));
   }
 
   @Test
@@ -211,15 +211,14 @@ public final class CacheDataSourceTest {
         cacheDataSource, unboundedDataSpec, /* unknownLength= */ true, /* customCacheKey= */ true);
 
     // If the user try to access off range then it should throw an IOException.
-    try {
-      cacheDataSource =
-          createCacheDataSource(
-              /* setReadException= */ false, /* unknownLength= */ false, cacheKeyFactory);
-      cacheDataSource.open(buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, customCacheKey));
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+    CacheDataSource newCacheDataSource =
+        createCacheDataSource(
+            /* setReadException= */ false, /* unknownLength= */ false, cacheKeyFactory);
+    assertThrows(
+        IOException.class,
+        () ->
+            newCacheDataSource.open(
+                buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, customCacheKey)));
   }
 
   @Test
@@ -264,15 +263,14 @@ public final class CacheDataSourceTest {
         /* customCacheKey= */ true);
 
     // If the user try to access off range then it should throw an IOException.
-    try {
-      cacheDataSource =
-          createCacheDataSource(
-              /* setReadException= */ false, /* unknownLength= */ false, cacheKeyFactory);
-      cacheDataSource.open(buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, customCacheKey));
-      fail();
-    } catch (IOException e) {
-      // Expected.
-    }
+    CacheDataSource newCacheDataSource =
+        createCacheDataSource(
+            /* setReadException= */ false, /* unknownLength= */ false, cacheKeyFactory);
+    assertThrows(
+        IOException.class,
+        () ->
+            newCacheDataSource.open(
+                buildDataSpec(TEST_DATA.length + 1, /* length= */ 1, customCacheKey)));
   }
 
   @Test
@@ -358,7 +356,11 @@ public final class CacheDataSourceTest {
     // Insert an action just before the end of the data to fail the test if reading from upstream
     // reaches end of the data.
     fakeData
-        .appendReadAction(() -> fail("Read from upstream shouldn't reach to the end of the data."))
+        .appendReadAction(
+            () -> {
+              throw new AssertionError(
+                  "Read from upstream shouldn't reach to the end of the data.");
+            })
         .appendReadData(1);
     // Create cache read-only CacheDataSource.
     CacheDataSource cacheDataSource =
