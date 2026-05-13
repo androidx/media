@@ -1129,8 +1129,8 @@ public final class TtmlParserTest {
     Cue fourthCue = Iterables.getOnlyElement(allCues.get(3).cues);
     assertThat(fourthCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_END);
 
-    Cue fithCue = Iterables.getOnlyElement(allCues.get(4).cues);
-    assertThat(fithCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_END);
+    Cue fifthCue = Iterables.getOnlyElement(allCues.get(4).cues);
+    assertThat(fifthCue.lineAnchor).isEqualTo(Cue.ANCHOR_TYPE_END);
   }
 
   private static Spanned getOnlyCueTextAtIndex(List<CuesWithTiming> allCues, int index) {
