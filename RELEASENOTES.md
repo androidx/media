@@ -51,6 +51,7 @@
     *   Enable dynamic scheduling by default. `ExoPlayer` playback work loop
         will run dynamically as opposed to on a static interval.
 *   CompositionPlayer:
+    *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
 *   Track selection:

@@ -94,6 +94,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return true;
   }
 
+  @Override
+  public void release() {
+    trackSelectorInternal.release();
+    super.release();
+  }
+
   /**
    * A {@link DefaultTrackSelector} extension to de-select generated audio when the audio from the
    * media is playable.
