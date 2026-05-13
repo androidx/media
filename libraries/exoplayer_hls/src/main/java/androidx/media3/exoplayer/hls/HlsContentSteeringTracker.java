@@ -42,6 +42,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** Tracks the content steering states for an HLS stream. */
@@ -298,16 +299,17 @@ public final class HlsContentSteeringTracker implements ContentSteeringTracker {
     if (uriReplacement.host != null) {
       newUrlBuilder.authority(uriReplacement.host);
     }
-    Set<String> existingQueryParamNames = url.getQueryParameterNames();
-    ImmutableMap<String, String> newQueryParams = uriReplacement.params;
-    for (Map.Entry<String, String> param : newQueryParams.entrySet()) {
-      newUrlBuilder.appendQueryParameter(param.getKey(), param.getValue());
+    // Combine existing and new query parameters, giving precedence to new ones.
+    Map<String, String> combinedParams = new TreeMap<>();
+    // Add existing parameters.
+    for (String existingParamName : url.getQueryParameterNames()) {
+      combinedParams.put(existingParamName, checkNotNull(url.getQueryParameter(existingParamName)));
     }
-    for (String existingParamName : existingQueryParamNames) {
-      if (!newQueryParams.containsKey(existingParamName)) {
-        newUrlBuilder.appendQueryParameter(
-            existingParamName, url.getQueryParameter(existingParamName));
-      }
+    // Add new parameters, overwriting existing ones if keys clash.
+    combinedParams.putAll(uriReplacement.params);
+    // Append all parameters from the sorted map.
+    for (Map.Entry<String, String> param : combinedParams.entrySet()) {
+      newUrlBuilder.appendQueryParameter(param.getKey(), param.getValue());
     }
     return newUrlBuilder;
   }

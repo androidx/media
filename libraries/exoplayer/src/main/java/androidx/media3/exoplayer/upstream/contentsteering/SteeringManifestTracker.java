@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /** Tracks the steering manifests. */
 @UnstableApi
@@ -171,7 +172,8 @@ public final class SteeringManifestTracker {
     Uri.Builder steeringManifestUrlBuilder = checkNotNull(steeringManifestUrl).buildUpon();
     ImmutableMap<String, String> steeringQueryParameters =
         checkNotNull(callback).getSteeringQueryParameters();
-    for (Map.Entry<String, String> entry : steeringQueryParameters.entrySet()) {
+    TreeMap<String, String> sortedQueryParameters = new TreeMap<>(steeringQueryParameters);
+    for (Map.Entry<String, String> entry : sortedQueryParameters.entrySet()) {
       steeringManifestUrlBuilder.appendQueryParameter(entry.getKey(), entry.getValue());
     }
     DataSpec dataSpec =
