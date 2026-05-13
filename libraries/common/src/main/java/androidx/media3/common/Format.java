@@ -102,6 +102,7 @@ import java.util.UUID;
  *   <li>{@link #decodedHeight}
  *   <li>{@link #frameRate}
  *   <li>{@link #rotationDegrees}
+ *   <li>{@link #mirrorHorizontal}
  *   <li>{@link #pixelWidthHeightRatio}
  *   <li>{@link #projectionData}
  *   <li>{@link #stereoMode}
@@ -183,6 +184,7 @@ public final class Format {
     private int decodedHeight;
     private float frameRate;
     private int rotationDegrees;
+    private boolean mirrorHorizontal;
     private float pixelWidthHeightRatio;
     @Nullable private byte[] projectionData;
     private @C.StereoMode int stereoMode;
@@ -281,6 +283,7 @@ public final class Format {
       this.decodedHeight = format.decodedHeight;
       this.frameRate = format.frameRate;
       this.rotationDegrees = format.rotationDegrees;
+      this.mirrorHorizontal = format.mirrorHorizontal;
       this.pixelWidthHeightRatio = format.pixelWidthHeightRatio;
       this.projectionData = format.projectionData;
       this.stereoMode = format.stereoMode;
@@ -667,6 +670,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setRotationDegrees(int rotationDegrees) {
       this.rotationDegrees = rotationDegrees;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#mirrorHorizontal}. The default value is {@code false}.
+     *
+     * @param mirrorHorizontal The {@link Format#mirrorHorizontal}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMirrorHorizontal(boolean mirrorHorizontal) {
+      this.mirrorHorizontal = mirrorHorizontal;
       return this;
     }
 
@@ -1114,6 +1129,12 @@ public final class Format {
    */
   @UnstableApi public final int rotationDegrees;
 
+  /**
+   * Whether the video needs to be horizontally mirrored in order to be rendered correctly, or
+   * {@code false} if unknown or not applicable.
+   */
+  @UnstableApi public final boolean mirrorHorizontal;
+
   /** The width to height ratio of pixels in the video, or 1.0 if unknown or not applicable. */
   public final float pixelWidthHeightRatio;
 
@@ -1271,6 +1292,7 @@ public final class Format {
     decodedHeight = builder.decodedHeight;
     frameRate = builder.frameRate;
     rotationDegrees = builder.rotationDegrees == NO_VALUE ? 0 : builder.rotationDegrees;
+    mirrorHorizontal = builder.mirrorHorizontal;
     pixelWidthHeightRatio =
         builder.pixelWidthHeightRatio == NO_VALUE ? 1 : builder.pixelWidthHeightRatio;
     projectionData = builder.projectionData;
@@ -1474,6 +1496,7 @@ public final class Format {
       result = 31 * result + decodedHeight;
       result = 31 * result + Float.floatToIntBits(frameRate);
       result = 31 * result + rotationDegrees;
+      result = 31 * result + (mirrorHorizontal ? 1 : 0);
       result = 31 * result + Float.floatToIntBits(pixelWidthHeightRatio);
       // [Omitted] projectionData.
       result = 31 * result + stereoMode;
@@ -1523,6 +1546,7 @@ public final class Format {
         && decodedWidth == other.decodedWidth
         && decodedHeight == other.decodedHeight
         && rotationDegrees == other.rotationDegrees
+        && mirrorHorizontal == other.mirrorHorizontal
         && stereoMode == other.stereoMode
         && maxSubLayers == other.maxSubLayers
         && channelCount == other.channelCount
@@ -1638,6 +1662,12 @@ public final class Format {
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
     }
+    if (format.rotationDegrees != 0) {
+      builder.append(", rotation=").append(format.rotationDegrees);
+    }
+    if (format.mirrorHorizontal) {
+      builder.append(", mirrorHorizontal");
+    }
     if (format.maxSubLayers != NO_VALUE) {
       builder.append(", maxSubLayers=").append(format.maxSubLayers);
     }
@@ -1720,6 +1750,7 @@ public final class Format {
   private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
   private static final String FIELD_PRIMARY_TRACK_GROUP_ID = Util.intToStringMaxRadix(37);
   private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
+  private static final String FIELD_MIRROR_HORIZONTAL = Util.intToStringMaxRadix(39);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1764,6 +1795,7 @@ public final class Format {
     bundle.putInt(FIELD_DECODED_HEIGHT, decodedHeight);
     bundle.putFloat(FIELD_FRAME_RATE, frameRate);
     bundle.putInt(FIELD_ROTATION_DEGREES, rotationDegrees);
+    bundle.putBoolean(FIELD_MIRROR_HORIZONTAL, mirrorHorizontal);
     bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
     bundle.putByteArray(FIELD_PROJECTION_DATA, projectionData);
     bundle.putInt(FIELD_STEREO_MODE, stereoMode);
@@ -1845,6 +1877,7 @@ public final class Format {
         .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
         .setFrameRate(frameRate)
         .setRotationDegrees(bundle.getInt(FIELD_ROTATION_DEGREES, DEFAULT.rotationDegrees))
+        .setMirrorHorizontal(bundle.getBoolean(FIELD_MIRROR_HORIZONTAL, DEFAULT.mirrorHorizontal))
         .setPixelWidthHeightRatio(
             bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT.pixelWidthHeightRatio))
         .setProjectionData(bundle.getByteArray(FIELD_PROJECTION_DATA))

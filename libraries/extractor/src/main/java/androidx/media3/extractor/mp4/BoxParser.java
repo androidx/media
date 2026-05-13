@@ -1126,10 +1126,7 @@ public final class BoxParser {
     int a10 = tkhd.readInt();
     int a11 = tkhd.readInt();
 
-    // Matrices which imply reflection are resolved to a correct rotation, without handling the
-    // reflection (because reflection is not currently supported by MediaCodec). This means
-    // the video ends the right way up, but incorrectly reflected in the Y axis.
-    // TODO: b/390422593 - Add richer transformation matrix support.
+    // Matrices which imply reflection are resolved to a correct rotation and a horizontal mirror.
     int rotationDegrees;
     int fixedOne = 65536;
     if (a00 == 0 && a01 == fixedOne && (a10 == -fixedOne || a10 == fixedOne) && a11 == 0) {
@@ -1149,7 +1146,11 @@ public final class BoxParser {
     tkhd.skipBytes(2);
     int height = tkhd.readShort();
 
-    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees, width, height);
+    long determinant = (long) a00 * a11 - (long) a01 * a10;
+    boolean mirrorHorizontal = determinant < 0;
+
+    return new TkhdData(
+        trackId, duration, alternateGroup, rotationDegrees, mirrorHorizontal, width, height);
   }
 
   /**
@@ -1289,9 +1290,8 @@ public final class BoxParser {
             childAtomType,
             childStartPosition,
             childAtomSize,
-            tkhdData.id,
+            tkhdData,
             language,
-            tkhdData.rotationDegrees,
             drmInitData,
             out,
             i);
@@ -1465,9 +1465,8 @@ public final class BoxParser {
       int atomType,
       int position,
       int size,
-      int trackId,
+      TkhdData tkhdData,
       @Nullable String language,
-      int rotationDegrees,
       @Nullable DrmInitData drmInitData,
       StsdData out,
       int entryIndex)
@@ -1850,7 +1849,7 @@ public final class BoxParser {
 
     Format.Builder formatBuilder =
         new Format.Builder()
-            .setId(trackId)
+            .setId(tkhdData.id)
             .setSampleMimeType(mimeType)
             .setCodecs(codecs)
             .setWidth(width)
@@ -1858,7 +1857,8 @@ public final class BoxParser {
             .setDecodedWidth(decodedWidth)
             .setDecodedHeight(decodedHeight)
             .setPixelWidthHeightRatio(pixelWidthHeightRatio)
-            .setRotationDegrees(rotationDegrees)
+            .setRotationDegrees(tkhdData.rotationDegrees)
+            .setMirrorHorizontal(tkhdData.mirrorHorizontal)
             .setProjectionData(projectionData)
             .setStereoMode(stereoMode)
             .setInitializationData(initializationData)
@@ -2719,15 +2719,23 @@ public final class BoxParser {
     private final long duration;
     private final int alternateGroup;
     private final int rotationDegrees;
+    private final boolean mirrorHorizontal;
     private final int width;
     private final int height;
 
     public TkhdData(
-        int id, long duration, int alternateGroup, int rotationDegrees, int width, int height) {
+        int id,
+        long duration,
+        int alternateGroup,
+        int rotationDegrees,
+        boolean mirrorHorizontal,
+        int width,
+        int height) {
       this.id = id;
       this.duration = duration;
       this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
+      this.mirrorHorizontal = mirrorHorizontal;
       this.width = width;
       this.height = height;
     }
