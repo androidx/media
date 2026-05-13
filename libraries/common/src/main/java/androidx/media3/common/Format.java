@@ -1752,10 +1752,7 @@ public final class Format {
   private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
   private static final String FIELD_MIRROR_HORIZONTAL = Util.intToStringMaxRadix(39);
 
-  /**
-   * Returns a {@link Bundle} representing the information stored in this object. If {@code
-   * excludeMetadata} is true, {@linkplain Format#metadata metadata} is excluded.
-   */
+  /** Returns a {@link Bundle} representing the information stored in this object. */
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
