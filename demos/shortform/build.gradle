@@ -14,6 +14,7 @@
 apply from: '../../constants.gradle'
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace 'androidx.media3.demo.shortform'
@@ -57,6 +58,7 @@ android {
     }
     buildFeatures {
         viewBinding true
+        compose true
     }
     sourceSets {
         main {
@@ -79,4 +81,14 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer-dash')
     implementation project(modulePrefix + 'lib-exoplayer-hls')
     implementation project(modulePrefix + 'lib-ui')
+
+    // Compose dependencies
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
+    implementation composeBom
+    implementation 'androidx.activity:activity-compose:1.9.0'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.runtime:runtime'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
 }
