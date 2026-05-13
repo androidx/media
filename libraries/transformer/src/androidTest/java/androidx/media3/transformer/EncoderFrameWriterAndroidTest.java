@@ -113,7 +113,8 @@ public class EncoderFrameWriterAndroidTest {
             encoderFactory,
             listener,
             /* listenerExecutor= */ directExecutor(),
-            imageReleaseHandler);
+            imageReleaseHandler,
+            /* logSessionId= */ null);
   }
 
   @After

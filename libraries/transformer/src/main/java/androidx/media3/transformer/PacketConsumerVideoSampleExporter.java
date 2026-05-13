@@ -146,7 +146,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Handler playbackHandler = new Handler(playbackLooper);
       frameWriter =
           new EncoderFrameWriter(
-              encoderFactory, componentListener, playbackHandler::post, playbackHandler);
+              encoderFactory,
+              componentListener,
+              playbackHandler::post,
+              playbackHandler,
+              logSessionId);
     } else if (hardwareBufferJniWrapper != null) {
       // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
       HardwareBufferSurfaceRenderer packetRenderer =

@@ -23,6 +23,7 @@ import android.annotation.SuppressLint;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageWriter;
+import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -76,6 +77,7 @@ public class EncoderFrameWriter implements FrameWriter {
   private final Listener listener;
   private final Executor listenerExecutor;
   private final Handler imageReleaseHandler;
+  @Nullable private final LogSessionId logSessionId;
 
   private int inUseCount;
   private @MonotonicNonNull Format configurationFormat;
@@ -88,11 +90,13 @@ public class EncoderFrameWriter implements FrameWriter {
       Codec.EncoderFactory encoderFactory,
       Listener listener,
       Executor listenerExecutor,
-      Handler imageReleaseHandler) {
+      Handler imageReleaseHandler,
+      @Nullable LogSessionId logSessionId) {
     this.encoderFactory = encoderFactory;
     this.listener = listener;
     this.listenerExecutor = listenerExecutor;
     this.imageReleaseHandler = imageReleaseHandler;
+    this.logSessionId = logSessionId;
   }
 
   @Override
@@ -111,8 +115,7 @@ public class EncoderFrameWriter implements FrameWriter {
 
     Format encoderFormat = listener.onConfigure(format);
     try {
-      // TODO: b/505290710 - Propagate LogSessionId to the encoder factory.
-      encoder = encoderFactory.createForVideoEncoding(encoderFormat, /* logSessionId= */ null);
+      encoder = encoderFactory.createForVideoEncoding(encoderFormat, logSessionId);
     } catch (ExportException e) {
       listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
       return;
