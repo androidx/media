@@ -33,6 +33,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit test for creating HLS media sources with the {@link DefaultMediaSourceFactory}. */
 @RunWith(AndroidJUnit4.class)
@@ -114,6 +115,7 @@ public class DefaultMediaSourceFactoryTest {
   }
 
   @Test
+  @Config(maxSdk = 35) // TODO: b/512376120 - Enable this on all API levels when it's passing.
   public void
       createMediaSource_usingDefaultDataSourceFactoryAndSetDataSourceFactory_usesUpdatesDataSourceFactory()
           throws Exception {

@@ -55,8 +55,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with HLS media. */
+@Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
 @RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingHlsPlaybackTest {
 
