@@ -122,6 +122,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoSink;
+import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.amr.AmrExtractor;
+import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -204,7 +207,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       glObjectsProviderSupplier = DefaultGlObjectsProvider::new;
       audioMixerFactorySupplier = DefaultAudioMixer.Factory::new;
       mediaSourceFactorySupplier =
-          () -> new DefaultMediaSourceFactory(context).setEnableClippingInMediaPeriod(true);
+          () -> {
+            DefaultExtractorsFactory extractorsFactory =
+                new DefaultExtractorsFactory()
+                    .setAdtsExtractorFlags(AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING)
+                    .setAmrExtractorFlags(AmrExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING);
+            return new DefaultMediaSourceFactory(context, extractorsFactory)
+                .setEnableClippingInMediaPeriod(true);
+          };
       loadControlSupplier = DefaultLoadControl::new;
       imageDecoderFactorySupplier =
           () ->

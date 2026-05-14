@@ -19,8 +19,10 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.test.utils.AssetInfo.AMR_NB_SINE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_SIMPLE_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.RAW_AAC_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
@@ -46,6 +48,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
@@ -58,6 +61,7 @@ import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.base.Ascii;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1064,6 +1068,135 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekBackwards_withDurationLessRawAac_doesNotAdjustSeek()
+      throws PlaybackException, TimeoutException, InterruptedException {
+    ConditionVariable receivedExpectedPosition = new ConditionVariable();
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            if (streamMetadata.positionOffsetUs == 100_000) {
+              receivedExpectedPosition.open();
+            }
+          }
+        };
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(RAW_AAC_ASSET.uri))
+            .setDurationUs(RAW_AAC_ASSET.audioDurationUs)
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+    final Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+              player.get().play();
+            });
+
+    HandlerWrapper handler =
+        player
+            .get()
+            .getClock()
+            .createHandler(player.get().getApplicationLooper(), /* callback= */ null);
+
+    // Advance the player first to seek backwards.
+    assertWithMessage("Player position did not advance to 500ms.")
+        .that(
+            pollingWaitUntilCondition(
+                /* timeoutMs= */ 2_000,
+                /* pollIntervalMs= */ 100,
+                handler,
+                () -> player.get().getCurrentPosition() >= 500))
+        .isTrue();
+
+    // Seek backwards to avoid any seeking optimization (e.g. decode forward).
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 100);
+              player.get().setScrubbingModeEnabled(false);
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    assertWithMessage("AudioProcessor never received expected position offset.")
+        .that(receivedExpectedPosition.block(1_000))
+        .isTrue();
+  }
+
+  @SdkSuppress(minSdkVersion = 29) // Devices on API 28- might experience MediaCodec native crashes.
+  @Test
+  public void seekBackwards_withDurationLessAmr_doesNotAdjustSeek()
+      throws PlaybackException, TimeoutException, InterruptedException {
+    ConditionVariable receivedExpectedPosition = new ConditionVariable();
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            if (streamMetadata.positionOffsetUs == 100_000) {
+              receivedExpectedPosition.open();
+            }
+          }
+        };
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(AMR_NB_SINE_ASSET.uri))
+            .setDurationUs(AMR_NB_SINE_ASSET.audioDurationUs)
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+    final Composition composition =
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+              player.get().play();
+            });
+
+    HandlerWrapper handler =
+        player
+            .get()
+            .getClock()
+            .createHandler(player.get().getApplicationLooper(), /* callback= */ null);
+
+    // Advance the player first to seek backwards.
+    assertWithMessage("Player position did not advance to 500ms.")
+        .that(
+            pollingWaitUntilCondition(
+                /* timeoutMs= */ 2_000,
+                /* pollIntervalMs= */ 100,
+                handler,
+                () -> player.get().getCurrentPosition() >= 500))
+        .isTrue();
+
+    // Seek backwards to avoid any seeking optimization (e.g. decode forward).
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.get().setScrubbingModeEnabled(isScrubbingModeEnabled);
+              player.get().seekTo(/* positionMs= */ 100);
+              player.get().setScrubbingModeEnabled(false);
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    // Use ConditionVariable because there is a race condition between player being ready and
+    // position offset being propagated downstream.
+    assertWithMessage("AudioProcessor never received expected position offset.")
+        .that(receivedExpectedPosition.block(1_000))
+        .isTrue();
+  }
+
+  @Test
   public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset()
       throws PlaybackException, TimeoutException {
     AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
@@ -1568,6 +1701,27 @@ public class CompositionPlayerSeekTest {
     getInstrumentation().runOnMainSync(() -> player.get().play());
 
     listener.waitUntilPlayerEnded();
+  }
+
+  private static boolean pollingWaitUntilCondition(
+      long timeoutMs, long pollIntervalMs, HandlerWrapper handler, Supplier<Boolean> predicate)
+      throws InterruptedException {
+    ConditionVariable isDone = new ConditionVariable();
+    handler.postDelayed(() -> evaluate(isDone, pollIntervalMs, handler, predicate), pollIntervalMs);
+    return isDone.block(timeoutMs);
+  }
+
+  private static void evaluate(
+      ConditionVariable isDone,
+      long pollIntervalMs,
+      HandlerWrapper handler,
+      Supplier<Boolean> predicate) {
+    if (predicate.get()) {
+      isDone.open();
+    } else {
+      handler.postDelayed(
+          () -> evaluate(isDone, pollIntervalMs, handler, predicate), pollIntervalMs);
+    }
   }
 
   /**
