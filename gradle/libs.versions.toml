@@ -5,9 +5,7 @@ releaseVersionCode = "1010001300"
 compileSdkVersion = "36"
 appTargetSdkVersion = "34"
 minSdkVersion = "23"
-# Upgrading this requires [Internal ref: b/193254928] to be fixed, or some
-# additional robolectric config.
-libTestTargetSdkVersion = "31"
+libTestTargetSdkVersion = "36"
 # See https://developer.android.com/training/cars/media/automotive-os#automotive-module
 automotiveMinSdkVersion = "28"
 
