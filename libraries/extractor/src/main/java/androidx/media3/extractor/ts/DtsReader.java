@@ -430,17 +430,21 @@ public final class DtsReader implements ElementaryStreamReader {
     if (dtsHeader.sampleRate == C.RATE_UNSET_INT || dtsHeader.channelCount == C.LENGTH_UNSET) {
       return;
     }
+    String sampleMimeType =
+        dtsHeader.mimeType != null
+            ? dtsHeader.mimeType
+            : format != null ? format.sampleMimeType : null;
     if (format == null
         || coreFormatPendingEmit
         || dtsHeader.channelCount != format.channelCount
         || dtsHeader.sampleRate != format.sampleRate
-        || !Objects.equals(dtsHeader.mimeType, format.sampleMimeType)) {
+        || !Objects.equals(sampleMimeType, format.sampleMimeType)) {
       Format.Builder formatBuilder = format == null ? new Format.Builder() : format.buildUpon();
       format =
           formatBuilder
               .setId(formatId)
               .setContainerMimeType(containerMimeType)
-              .setSampleMimeType(dtsHeader.mimeType)
+              .setSampleMimeType(sampleMimeType)
               .setChannelCount(dtsHeader.channelCount)
               .setSampleRate(dtsHeader.sampleRate)
               .setLanguage(language)
