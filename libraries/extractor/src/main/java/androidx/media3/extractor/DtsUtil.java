@@ -37,6 +37,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Utility methods for parsing DTS frames. */
@@ -876,54 +877,63 @@ public final class DtsUtil {
   }
 
   /**
-   * Returns a format with adjusted mime type if the sample data at the current {@link
-   * ExtractorInput} is a DTS-HD sample with static fields, or the unmodified format if it is not.
+   * Returns a {@link Format} with an adjusted MIME type if the sample data at the current {@link
+   * ExtractorInput} is a DTS-HD sample with static fields, or the unmodified {@code format} if it
+   * is not.
+   *
+   * @param input The {@link ExtractorInput} to read from.
+   * @param sampleSize The size of the sample data.
+   * @param format The {@link Format} to build upon.
+   * @return The updated {@link Format}.
+   * @throws IOException If an error occurs reading from the input.
    */
-  public static Format setDtsHdInfoToFormat(Format baseFormat, ExtractorInput input, int sampleSize)
-      throws IOException {
+  public static Format updateFormatWithDtsHdInfo(
+      ExtractorInput input, int sampleSize, Format format) throws IOException {
     ParsableByteArray sampleData = new ParsableByteArray(sampleSize);
     if (!input.peekFully(
         sampleData.getData(), /* offset= */ 0, sampleSize, /* allowEndOfInput= */ true)) {
-      return baseFormat;
+      return format;
     }
     input.resetPeekPosition();
     int word = sampleData.peekInt();
     // Skip the core frame if present (it doesn't have to be).
     if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_CORE) {
       if (sampleData.bytesLeft() < 10) {
-        return baseFormat;
+        return format;
       }
       byte[] header = new byte[10];
       sampleData.readBytes(header, /* offset= */ 0, /* length= */ 10);
-      sampleData.setPosition(0);
       int frameSize = DtsUtil.getDtsFrameSize(header);
-      if (frameSize <= 0 || sampleData.bytesLeft() < frameSize + 4) {
-        return baseFormat;
+      if (frameSize <= 0 || sampleData.limit() < frameSize + 4) {
+        return format;
       }
-      sampleData.skipBytes(frameSize);
+      sampleData.setPosition(frameSize);
       word = sampleData.peekInt();
     }
     if (DtsUtil.getFrameType(word) != DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM) {
-      return baseFormat;
+      return format;
     }
     if (sampleData.bytesLeft() < 7) {
-      return baseFormat;
+      return format;
     }
+    int extHeaderOffset = sampleData.getPosition();
     byte[] headerPrefix = new byte[7];
     sampleData.readBytes(headerPrefix, /* offset= */ 0, /* length= */ 7);
-    sampleData.skipBytes(-7);
+    sampleData.setPosition(extHeaderOffset);
     int frameSize = parseDtsHdHeaderSize(headerPrefix);
     if (frameSize <= 0 || sampleData.bytesLeft() < frameSize) {
-      return baseFormat;
+      return format;
     }
     byte[] header = new byte[frameSize];
     sampleData.readBytes(header, /* offset= */ 0, /* length= */ frameSize);
     DtsHeader dtsHeader = parseDtsHdHeader(header);
-    if (dtsHeader.mimeType == null) {
-      // Missing static fields, there's nothing we can do other than assuming it is DTS-HD
-      return baseFormat.buildUpon().setSampleMimeType(MimeTypes.AUDIO_DTS_HD).build();
+    // If the MIME type was parsed successfully, use it. If it is null (e.g. because static
+    // fields were missing), there's nothing we can do other than assume it is DTS-HD.
+    String mimeType = dtsHeader.mimeType != null ? dtsHeader.mimeType : MimeTypes.AUDIO_DTS_HD;
+    if (Objects.equals(format.sampleMimeType, mimeType)) {
+      return format;
     }
-    return baseFormat.buildUpon().setSampleMimeType(dtsHeader.mimeType).build();
+    return format.buildUpon().setSampleMimeType(mimeType).build();
   }
 
   /**
