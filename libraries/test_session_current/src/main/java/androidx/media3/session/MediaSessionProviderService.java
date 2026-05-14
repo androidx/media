@@ -683,6 +683,12 @@ public class MediaSessionProviderService extends Service {
       @Nullable Bundle timelineBundle = config.getBundle(KEY_TIMELINE);
       if (timelineBundle != null) {
         player.timeline = Timeline.fromBundle(timelineBundle, MediaLibraryInfo.INTERFACE_VERSION);
+        ArrayList<MediaItem> mediaItems = new ArrayList<>();
+        Timeline.Window window = new Timeline.Window();
+        for (int i = 0; i < player.timeline.getWindowCount(); i++) {
+          mediaItems.add(player.timeline.getWindow(i, window).mediaItem);
+        }
+        player.mediaItems = mediaItems;
       }
       player.currentMediaItemIndex =
           config.getInt(KEY_CURRENT_MEDIA_ITEM_INDEX, player.currentMediaItemIndex);
@@ -1249,10 +1255,8 @@ public class MediaSessionProviderService extends Service {
           () -> {
             MediaSession session = sessionMap.get(sessionId);
             MockPlayer player = (MockPlayer) session.getPlayer();
-            Timeline.Window window = new Timeline.Window();
             @Nullable
-            MediaItem mediaItem =
-                index == C.INDEX_UNSET ? null : player.timeline.getWindow(index, window).mediaItem;
+            MediaItem mediaItem = index == C.INDEX_UNSET ? null : player.getMediaItemAt(index);
             player.notifyMediaItemTransition(mediaItem, reason);
           });
     }
@@ -1280,10 +1284,6 @@ public class MediaSessionProviderService extends Service {
             player.notifyAudioAttributesChanged(audioAttributes);
           });
     }
-
-    ////////////////////////////////////////////////////////////////////////////////
-    // MockPlaylistAgent methods
-    ////////////////////////////////////////////////////////////////////////////////
 
     @Override
     public void setTimeline(String sessionId, Bundle timelineBundle) throws RemoteException {
