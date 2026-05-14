@@ -103,7 +103,7 @@ public class DefaultMediaSourceFactoryTest {
   }
 
   @Test
-  @Config(maxSdk = 35) // TODO: b/512376120 - Enable this on all API levels when it's passing.
+  @Config(maxSdk = 34) // TODO: b/512376120 - Enable this on all API levels when it's passing.
   public void
       createMediaSource_usingDefaultDataSourceFactoryAndSetDataSourceFactory_usesUpdatesDataSourceFactory()
           throws Exception {
