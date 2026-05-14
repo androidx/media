@@ -30,7 +30,7 @@ import androidx.media3.extractor.SeekPoint;
 
   /**
    * Returns a {@link XingSeeker} for seeking in the stream, if required information is present.
-   * Returns {@code null} if not. On returning, {@code frame}'s position is not specified so the
+   * Returns {@code null} if not. On returning, {@code xingFrame}'s position is not specified so the
    * caller should reset it.
    *
    * @param xingFrame The parsed Xing data from this audio frame.
