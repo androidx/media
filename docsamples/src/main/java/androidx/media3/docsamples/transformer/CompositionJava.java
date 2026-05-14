@@ -17,20 +17,19 @@ package androidx.media3.docsamples.transformer;
 
 import android.net.Uri;
 import androidx.annotation.OptIn;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
 import androidx.media3.transformer.Transformer;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
-/** Snippets for multi-asset.md. */
+/** Snippets for composition.md. */
 @SuppressWarnings({"unused", "CheckReturnValue"})
-public class MultiAsset {
+public class CompositionJava {
 
-  private MultiAsset() {}
+  private CompositionJava() {}
 
   @OptIn(markerClass = UnstableApi.class)
   public static void transformerComposition(
@@ -41,16 +40,14 @@ public class MultiAsset {
     EditedMediaItem video2 = new EditedMediaItem.Builder(MediaItem.fromUri(video2Uri)).build();
 
     EditedMediaItemSequence videoSequence =
-        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-            .addItems(video1, video2)
-            .build();
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video1, video2));
 
     EditedMediaItem backgroundAudio =
         new EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build();
 
     EditedMediaItemSequence backgroundAudioSequence =
-        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
-            .addItem(backgroundAudio)
+        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(backgroundAudio))
+            .buildUpon()
             .setIsLooping(true) // Loop audio track through duration of videoSequence
             .build();
 

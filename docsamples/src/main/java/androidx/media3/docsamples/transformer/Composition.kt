@@ -20,7 +20,6 @@ package androidx.media3.docsamples.transformer
 
 import android.net.Uri
 import androidx.annotation.OptIn
-import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.transformer.Composition
@@ -28,8 +27,8 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
 import androidx.media3.transformer.Transformer
 
-/** Snippets for multi-asset.md. */
-object MultiAssetKt {
+/** Snippets for composition.md. */
+object CompositionKt {
 
   @OptIn(UnstableApi::class)
   fun transformerComposition(
@@ -44,16 +43,13 @@ object MultiAssetKt {
 
     val video2 = EditedMediaItem.Builder(MediaItem.fromUri(video2Uri)).build()
 
-    val videoSequence =
-      EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
-        .addItems(video1, video2)
-        .build()
+    val videoSequence = EditedMediaItemSequence.withAudioAndVideoFrom(listOf(video1, video2))
 
     val backgroundAudio = EditedMediaItem.Builder(MediaItem.fromUri(audioUri)).build()
 
     val backgroundAudioSequence =
-      EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
-        .addItem(backgroundAudio)
+      EditedMediaItemSequence.withAudioFrom(listOf(backgroundAudio))
+        .buildUpon()
         .setIsLooping(true) // Loop audio track through duration of videoSequence
         .build()
 
