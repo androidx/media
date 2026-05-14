@@ -115,6 +115,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private var transformer: Transformer? = null
   private var outputFile: File? = null
   private var preparedComposition: Composition? = null
+  private var playerPrepared: Boolean = false
   private var exportStopwatch: Stopwatch =
     Stopwatch.createUnstarted(
       object : Ticker() {
@@ -554,11 +555,21 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   }
 
   fun setComposition() {
-    releaseAndRecreatePlayer()
+    val isFrameConsumerEnabled =
+      frameConsumerEnabled && uiState.value.outputSettingsState.frameConsumerEnabled
+    // Recreate the player if it isn't prepared or if the FrameProcessor is disabled.
+    if (!playerPrepared || !isFrameConsumerEnabled) {
+      releaseAndRecreatePlayer()
+    }
     val composition = prepareComposition()
     preparedComposition = composition
-    compositionPlayer.setComposition(composition)
+    // Maintain the current position when updating the Composition.
+    compositionPlayer.setComposition(
+      composition,
+      /* startPositionMs= */ compositionPlayer.currentPosition,
+    )
     compositionPlayer.prepare()
+    playerPrepared = true
     _uiState.update { it.copy(isCompositionSet = true) }
   }
 
@@ -914,6 +925,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     compositionPlayer.stop()
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
+    playerPrepared = false
   }
 
   /** Cancels any ongoing export operation, and deletes output file contents. */
