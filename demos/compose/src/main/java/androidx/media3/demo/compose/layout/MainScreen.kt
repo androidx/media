@@ -227,11 +227,6 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
         onClick = { showCurrentMediaItemInfo = !showCurrentMediaItemInfo },
       )
     }
-    ContentScaleButton(
-      currentContentScaleIndex,
-      Modifier.align(Alignment.TopCenter),
-      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
-    )
     SeekOverlay(
       state = seekOverlayState,
       modifier =
@@ -275,6 +270,10 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
       SettingsBottomSheet(
         player = player,
         onDismissRequest = { showSettings = false },
+        contentScale = CONTENT_SCALES[currentContentScaleIndex].first,
+        onContentScaleChange = {
+          currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size
+        },
         modifier = Modifier.fillMaxWidth(),
       )
     }
@@ -289,17 +288,6 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 @Composable
 private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
   Button(onClick, modifier) { Text("Playing\nNow" + if (visible) " <<" else " >>") }
-}
-
-@Composable
-private fun ContentScaleButton(
-  currentContentScaleIndex: Int,
-  modifier: Modifier,
-  onClick: () -> Unit,
-) {
-  Button(onClick, modifier) {
-    Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
-  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

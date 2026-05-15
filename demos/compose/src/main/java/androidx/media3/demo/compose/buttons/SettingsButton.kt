@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +71,8 @@ fun SettingsButton(
 internal fun SettingsBottomSheet(
   player: Player?,
   onDismissRequest: () -> Unit,
+  contentScale: String,
+  onContentScaleChange: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   ModalBottomSheet(onDismissRequest = onDismissRequest, modifier = modifier) {
@@ -109,6 +112,11 @@ internal fun SettingsBottomSheet(
               IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
           )
         },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+      )
+      ListItem(
+        headlineContent = { Text("Content Scale") },
+        trailingContent = { TextButton(onClick = onContentScaleChange) { Text(contentScale) } },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
       )
     }
