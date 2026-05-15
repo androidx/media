@@ -1296,6 +1296,8 @@ import java.util.Objects;
         // The discontinuity caused the period to not be fully buffered. Continue loading from this
         // period again and discard all other periods we already started loading.
         queue.removeAfter(playingPeriodHolder);
+        // Since subsequent periods are discarded, prewarming must also be reset.
+        disableAndResetPrewarmingRenderers();
         handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
         maybeContinueLoading();
       }
