@@ -1852,18 +1852,13 @@ public class FragmentedMp4Extractor implements Extractor {
         }
       }
     } else {
-      if (trackBundle.pendingFormat != null
-          && (Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
-              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD))) {
+      Format pendingFormat = trackBundle.pendingFormat;
+      if (pendingFormat != null && DtsUtil.isDtsBaseAudioMimeType(track.format.sampleMimeType)) {
         trackBundle.baseFormat =
             DtsUtil.updateFormatWithDtsHdInfo(input, sampleSize, trackBundle.baseFormat);
-        Format pendingFormat =
-            trackBundle
-                .baseFormat
-                .buildUpon()
-                .setDrmInitData(trackBundle.pendingFormat.drmInitData)
-                .build();
-        trackBundle.output.format(pendingFormat);
+        Format outputFormat =
+            trackBundle.baseFormat.buildUpon().setDrmInitData(pendingFormat.drmInitData).build();
+        trackBundle.output.format(outputFormat);
         trackBundle.pendingFormat = null;
       }
       while (sampleBytesWritten < sampleSize) {
@@ -2317,15 +2312,16 @@ public class FragmentedMp4Extractor implements Extractor {
     public int currentTrackRunIndex;
     public int firstSampleToOutputIndex;
 
+    private final ParsableByteArray encryptionSignalByte;
+    private final ParsableByteArray defaultInitializationVector;
+
     /**
      * A {@link Format} that needs to be passed to {@link #output}, after being possibly modified
      * based on sample data, before {@link TrackOutput#sampleMetadata} is called.
      */
-    @Nullable public Format pendingFormat;
+    @Nullable private Format pendingFormat;
 
     private Format baseFormat;
-    private final ParsableByteArray encryptionSignalByte;
-    private final ParsableByteArray defaultInitializationVector;
 
     private boolean currentlyInFragment;
 
@@ -2342,8 +2338,7 @@ public class FragmentedMp4Extractor implements Extractor {
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
       defaultInitializationVector = new ParsableByteArray();
-      if (Objects.equals(baseFormat.sampleMimeType, MimeTypes.AUDIO_DTS)
-          || Objects.equals(baseFormat.sampleMimeType, MimeTypes.AUDIO_DTS_HD)) {
+      if (DtsUtil.isDtsBaseAudioMimeType(baseFormat.sampleMimeType)) {
         pendingFormat = baseFormat;
       }
       reset(moovSampleTable, defaultSampleValues);

@@ -749,10 +749,9 @@ public final class Mp4Extractor implements Extractor {
       // DTS-HD and DTS Express. So we store the format with a placeholder MIME for now, and then
       // update the MIME type and pass it to TrackOutput.format(...) based on the info in the first
       // sample.
-      boolean needSamplesForMime =
+      boolean needsSamplesForMimeType =
           Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)
-              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
-              || Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD);
+              || DtsUtil.isDtsBaseAudioMimeType(track.format.sampleMimeType);
       boolean needsChapterMetadata = false;
       if (!omitTrackSampleTable && track.chapterTrackId != C.INDEX_UNSET) {
         for (TrackSampleTable chapterSampleTable : chapterSampleTables) {
@@ -762,7 +761,7 @@ public final class Mp4Extractor implements Extractor {
           }
         }
       }
-      if (needSamplesForMime || needsChapterMetadata) {
+      if (needsSamplesForMimeType || needsChapterMetadata) {
         mp4Track.pendingFormat = format;
       } else {
         mp4Track.trackOutput.format(format);
@@ -995,6 +994,7 @@ public final class Mp4Extractor implements Extractor {
         }
       }
     } else {
+      Format pendingFormat = track.pendingFormat;
       if (MimeTypes.AUDIO_AC4.equals(track.track.format.sampleMimeType)) {
         if (sampleBytesWritten == 0) {
           Ac4Util.getAc4SampleHeader(sampleSize, scratch);
@@ -1002,9 +1002,8 @@ public final class Mp4Extractor implements Extractor {
           sampleBytesWritten += Ac4Util.SAMPLE_HEADER_SIZE;
         }
         sampleSize += Ac4Util.SAMPLE_HEADER_SIZE;
-      } else if (track.pendingFormat != null
+      } else if (pendingFormat != null
           && Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
-        Format pendingFormat = track.pendingFormat;
         scratch.reset(/* limit= */ 4);
         input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ 4);
         input.resetPeekPosition();
@@ -1018,10 +1017,8 @@ public final class Mp4Extractor implements Extractor {
                     .build()
                 : pendingFormat);
         track.pendingFormat = null;
-      } else if (track.pendingFormat != null
-          && (Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_DTS)
-              || Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_DTS_HD))) {
-        Format pendingFormat = track.pendingFormat;
+      } else if (pendingFormat != null
+          && DtsUtil.isDtsBaseAudioMimeType(track.track.format.sampleMimeType)) {
         track.trackOutput.format(
             DtsUtil.updateFormatWithDtsHdInfo(input, sampleSize, pendingFormat));
         track.pendingFormat = null;
@@ -1119,8 +1116,7 @@ public final class Mp4Extractor implements Extractor {
         // determine the exact MIME type). We have now applied the chapter metadata, so we can
         // output the format, unless it is also MPEG or DTS audio.
         if (Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_MPEG)
-            || Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_DTS)
-            || Objects.equals(updatedFormat.sampleMimeType, MimeTypes.AUDIO_DTS_HD)) {
+            || DtsUtil.isDtsBaseAudioMimeType(updatedFormat.sampleMimeType)) {
           track.pendingFormat = updatedFormat;
         } else {
           track.trackOutput.format(updatedFormat);
@@ -1384,7 +1380,7 @@ public final class Mp4Extractor implements Extractor {
      * A {@link Format} that needs to be passed to {@link #trackOutput}, after being possibly
      * modified based on sample data, before {@link TrackOutput#sampleMetadata} is called.
      */
-    @Nullable public Format pendingFormat;
+    @Nullable private Format pendingFormat;
 
     public Mp4Track(Track track, TrackSampleTable sampleTable, TrackOutput trackOutput) {
       this.track = track;
