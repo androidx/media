@@ -32,6 +32,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -62,6 +63,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
@@ -198,7 +201,7 @@ public class MediaSessionTest {
   }
 
   @Test
-  public void setSessionActivity_activityIntent_accepted() {
+  public void setSessionActivity_activityIntent_accepted() throws Exception {
     PendingIntent pendingIntent =
         PendingIntent.getActivity(
             ApplicationProvider.getApplicationContext(),
@@ -208,10 +211,12 @@ public class MediaSessionTest {
 
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(
-            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+            new MediaSession.Builder(
+                    getApplicationContext(),
+                    new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build())
                 .setId("sessionActivity")
                 .build());
-    session.setSessionActivity(pendingIntent);
+    handler.postAndSync(() -> session.setSessionActivity(pendingIntent));
 
     assertThat(session.getSessionActivity()).isEqualTo(pendingIntent);
   }
@@ -235,7 +240,8 @@ public class MediaSessionTest {
 
   @Test
   @SdkSuppress(minSdkVersion = 31)
-  public void setSessionActivity_nonActivityIntent_throwsIllegalArgumentException() {
+  public void setSessionActivity_nonActivityIntent_throwsIllegalArgumentException()
+      throws Exception {
     PendingIntent pendingIntent =
         PendingIntent.getBroadcast(
             ApplicationProvider.getApplicationContext(),
@@ -245,11 +251,15 @@ public class MediaSessionTest {
 
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(
-            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+            new MediaSession.Builder(
+                    getApplicationContext(),
+                    new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build())
                 .setId("sessionActivity")
                 .build());
 
-    assertThrows(IllegalArgumentException.class, () -> session.setSessionActivity(pendingIntent));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.postAndSync(() -> session.setSessionActivity(pendingIntent)));
   }
 
   @SuppressLint("MissingPermission") // Testing without the permission required.
@@ -484,16 +494,28 @@ public class MediaSessionTest {
 
           @Override
           public void onPostConnect(MediaSession session, ControllerInfo controller) {
-            Future<SessionResult> result =
+            ListenableFuture<SessionResult> result =
                 session.sendCustomCommand(controller, testCommand, /* args= */ Bundle.EMPTY);
-            try {
-              // The controller is connected but doesn't implement onCustomCommand.
-              assertThat(result.get(TIMEOUT_MS, MILLISECONDS).resultCode)
-                  .isEqualTo(SessionResult.RESULT_ERROR_NOT_SUPPORTED);
-            } catch (ExecutionException | InterruptedException | TimeoutException e) {
-              assertWithMessage("Fail to get result of the returned future.").fail();
-            }
-            latch.countDown();
+            Futures.addCallback(
+                result,
+                new FutureCallback<SessionResult>() {
+                  @Override
+                  public void onSuccess(SessionResult sessionResult) {
+                    try {
+                      assertThat(sessionResult.resultCode)
+                          .isEqualTo(SessionResult.RESULT_ERROR_NOT_SUPPORTED);
+                    } finally {
+                      latch.countDown();
+                    }
+                  }
+
+                  @Override
+                  public void onFailure(Throwable t) {
+                    assertWithMessage("Fail to get result of the returned future.").fail();
+                    latch.countDown();
+                  }
+                },
+                directExecutor());
           }
         };
     MediaSession session =
@@ -1056,25 +1078,27 @@ public class MediaSessionTest {
   }
 
   @Test
-  public void builderSetSessionExtras_doesNotKeepOriginalInstance() {
+  public void builderSetSessionExtras_doesNotKeepOriginalInstance() throws Exception {
     Bundle extras = new Bundle();
     extras.putString("key", "value");
 
     MediaSession session =
         new MediaSession.Builder(context, player).setSessionExtras(extras).build();
     extras.putString("key", "newValue");
-    String sessionExtraValue = session.getSessionExtras().getString("key");
+    String sessionExtraValue =
+        handler.postAndSync(() -> session.getSessionExtras().getString("key"));
     session.release();
 
     assertThat(sessionExtraValue).isEqualTo("value");
   }
 
   @Test
-  public void builder_defaultExtras_createsMutableInstance() {
+  public void builder_defaultExtras_createsMutableInstance() throws Exception {
     MediaSession session = new MediaSession.Builder(context, player).build();
 
-    session.getSessionExtras().putString("key", "value");
-    String sessionExtraValue = session.getSessionExtras().getString("key");
+    handler.postAndSync(() -> session.getSessionExtras().putString("key", "value"));
+    String sessionExtraValue =
+        handler.postAndSync(() -> session.getSessionExtras().getString("key"));
     session.release();
 
     assertThat(sessionExtraValue).isEqualTo("value");
@@ -1096,6 +1120,23 @@ public class MediaSessionTest {
         });
 
     assertThat(sessionExtraValue.get()).isEqualTo("value");
+  }
+
+  @Test
+  public void setSessionExtras_fromNonApplicationLooper_postsToHandler() throws Exception {
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    // Call from test thread (non-application looper)
+    session.setSessionExtras(extras);
+
+    // Verify state on the application looper (handler.postAndSync ensures enqueuing after setter)
+    String sessionExtraValue =
+        handler.postAndSync(() -> session.getSessionExtras().getString("key"));
+    session.release();
+
+    assertThat(sessionExtraValue).isEqualTo("value");
   }
 
   @Test
