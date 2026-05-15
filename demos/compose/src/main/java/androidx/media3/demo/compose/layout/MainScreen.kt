@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -67,7 +66,8 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.demo.compose.buttons.LabeledProgressSlider
-import androidx.media3.demo.compose.buttons.PlaybackSpeedBottomSheetButton
+import androidx.media3.demo.compose.buttons.SettingsBottomSheet
+import androidx.media3.demo.compose.buttons.SettingsButton
 import androidx.media3.demo.compose.text.CurrentItemInfo
 import androidx.media3.demo.compose.text.FastForwardOverlay
 import androidx.media3.demo.compose.text.PlaylistInfoBottomSheet
@@ -75,8 +75,6 @@ import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
-import androidx.media3.ui.compose.material3.buttons.RepeatButton
-import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
@@ -132,6 +130,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   var showPlaylist by rememberSaveable { mutableStateOf(false) }
   var showCurrentMediaItemInfo by rememberSaveable { mutableStateOf(false) }
+  var showSettings by rememberSaveable { mutableStateOf(false) }
   var bottomControlsHeight by remember { mutableStateOf(0.dp) }
 
   var showControls by remember { mutableStateOf(true) }
@@ -149,8 +148,8 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
     }
   }
 
-  LaunchedEffect(showControls, anyPointerDown) {
-    if (showControls && !anyPointerDown) {
+  LaunchedEffect(showControls, anyPointerDown, showSettings) {
+    if (showControls && !anyPointerDown && !showSettings) {
       scheduleHideControls()
     } else {
       hideJob.value?.cancel()
@@ -217,7 +216,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
               )
               .padding(horizontal = 15.dp)
               .onSizeChanged { bottomControlsHeight = with(density) { it.height.toDp() } },
-          interactionModifier = Modifier.reportPointerDown { anyPointerDown = it },
+          onSettingsClick = { showSettings = true },
         )
       },
     )
@@ -272,6 +271,13 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
         modifier = Modifier.fillMaxWidth(),
       )
     }
+    if (showSettings) {
+      SettingsBottomSheet(
+        player = player,
+        onDismissRequest = { showSettings = false },
+        modifier = Modifier.fillMaxWidth(),
+      )
+    }
   }
 }
 
@@ -302,7 +308,7 @@ private fun BottomControlsWithLabeledProgress(
   player: Player?,
   showControls: Boolean,
   modifier: Modifier = Modifier,
-  interactionModifier: Modifier = Modifier,
+  onSettingsClick: () -> Unit,
 ) {
   AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
     Column(modifier) {
@@ -314,19 +320,8 @@ private fun BottomControlsWithLabeledProgress(
       ) {
         PositionAndDurationText(player, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.weight(1f))
-        PlaybackSpeedBottomSheetButton(
-          player,
-          colors =
-            ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-          sheetContentModifier = interactionModifier,
-        )
-        ShuffleButton(
-          player,
-          colors =
-            IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-        )
-        RepeatButton(
-          player,
+        SettingsButton(
+          onSettingsClick = onSettingsClick,
           colors =
             IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
         )
