@@ -189,6 +189,22 @@ public final class FragmentedMp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void sampleWithDtsExpress() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_dts_express.mp4",
+        /* peekLimit= */ 4096);
+  }
+
+  @Test
+  public void sampleWithDtsHdMa() throws Exception {
+    assertExtractorBehavior(
+        /* closedCaptionFormats= */ ImmutableList.of(),
+        "media/mp4/sample_fragmented_dts_hd_ma.mp4",
+        /* peekLimit= */ 4096);
+  }
+
+  @Test
   public void samplePartiallyFragmented() throws Exception {
     assertExtractorBehavior(
         /* closedCaptionFormats= */ ImmutableList.of(),

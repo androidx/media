@@ -144,6 +144,16 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithDtsExpress() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_dts_express.mp4", /* peekLimit= */ 4096);
+  }
+
+  @Test
+  public void mp4SampleWithDtsHdMa() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_dts_hd_ma.mp4", /* peekLimit= */ 4096);
+  }
+
+  @Test
   public void mp4SampleWithColrMdcvAndClli() throws Exception {
     assertExtractorBehavior("media/mp4/sample_with_colr_mdcv_and_clli.mp4", /* peekLimit= */ 50);
   }
