@@ -17,7 +17,6 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
@@ -55,6 +54,10 @@ import java.util.concurrent.atomic.AtomicReference;
     connectedControllersManager = new ConnectedControllersManager<>(sessionImpl);
   }
 
+  private void postOrRunOnApplicationHandler(Runnable runnable) {
+    postOrRun(sessionImpl.getApplicationHandler(), runnable);
+  }
+
   public void initialize(MediaSessionCompat.Token token) {
     attachToBaseContext(sessionImpl.getContext());
     onCreate();
@@ -71,8 +74,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     AtomicReference<MediaSession.ConnectionResult> resultReference = new AtomicReference<>();
     ConditionVariable haveResult = new ConditionVariable();
-    postOrRun(
-        sessionImpl.getApplicationHandler(),
+    postOrRunOnApplicationHandler(
         () -> {
           ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
               sessionImpl.onConnectOnHandler(controller);
@@ -99,7 +101,7 @@ import java.util.concurrent.atomic.AtomicReference;
                   haveResult.open();
                 }
               },
-              directExecutor());
+              this::postOrRunOnApplicationHandler);
         });
     try {
       haveResult.block();
