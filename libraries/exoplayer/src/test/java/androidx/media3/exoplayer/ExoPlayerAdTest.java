@@ -618,7 +618,7 @@ public class ExoPlayerAdTest {
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1_000L);
 
     fakeAdsLoader.eventListeners.get("adsId").onAdPlaybackState(populatedAdPlaybackState);
-
+    advance(player).untilPendingCommandsAreFullyHandled();
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
     ArgumentCaptor<PositionInfo> oldPositionsCaptor = ArgumentCaptor.forClass(PositionInfo.class);
