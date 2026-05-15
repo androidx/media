@@ -44,6 +44,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 @UnstableApi
 public final class DtsUtil {
 
+  /**
+   * Returns whether {@code mimeType} is {@link MimeTypes#AUDIO_DTS} or {@link
+   * MimeTypes#AUDIO_DTS_HD}.
+   */
+  public static boolean isDtsBaseAudioMimeType(@Nullable String mimeType) {
+    return Objects.equals(mimeType, MimeTypes.AUDIO_DTS)
+        || Objects.equals(mimeType, MimeTypes.AUDIO_DTS_HD);
+  }
+
   /** Information parsed from a DTS frame header. */
   public static final class DtsHeader {
     /** The mime type of the DTS bitstream. */
