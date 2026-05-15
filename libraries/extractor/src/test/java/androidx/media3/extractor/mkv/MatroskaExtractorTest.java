@@ -259,6 +259,14 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkaSample_withDtsExpress() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/sample_with_dts_express.mka",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSample_withDtsHdMa() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
