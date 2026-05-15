@@ -1029,6 +1029,7 @@ public final class MediaCodecInfo {
         || Build.MANUFACTURER.equals("OPPO")
         || Build.MANUFACTURER.equals("realme")
         || Build.MANUFACTURER.equals("motorola")
-        || Build.MANUFACTURER.equals("LENOVO");
+        || Build.MANUFACTURER.equals("LENOVO")
+        || Build.MANUFACTURER.equals("Fairphone");
   }
 }
