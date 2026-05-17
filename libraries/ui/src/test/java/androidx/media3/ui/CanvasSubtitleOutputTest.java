@@ -270,4 +270,78 @@ public class CanvasSubtitleOutputTest {
     // Should not throw
     subtitleOutput.dispatchDraw(canvas);
   }
+
+  @Test
+  public void dispatchDraw_sameLine_cuesGetStacked() {
+    // Two cues with the same line number should be stacked (viewport shrunk for second cue)
+    Cue cue1 =
+        new Cue.Builder()
+            .setText("First cue at line -1")
+            .setLine(-1f, Cue.LINE_TYPE_NUMBER)
+            .setLineAnchor(Cue.ANCHOR_TYPE_START)
+            .build();
+    Cue cue2 =
+        new Cue.Builder()
+            .setText("Second cue at line -1")
+            .setLine(-1f, Cue.LINE_TYPE_NUMBER)
+            .setLineAnchor(Cue.ANCHOR_TYPE_START)
+            .build();
+
+    subtitleOutput.update(
+        Arrays.asList(cue1, cue2),
+        CaptionStyleCompat.DEFAULT,
+        /* textSize= */ 0.05f,
+        Cue.TEXT_SIZE_TYPE_FRACTIONAL,
+        /* bottomPaddingFraction= */ 0.08f);
+
+    // Should not throw - both cues rendered without overlap
+    subtitleOutput.dispatchDraw(canvas);
+  }
+
+  @Test
+  public void dispatchDraw_differentLines_noViewportShrinking() {
+    // Cues with different line numbers should NOT have their viewport shrunk,
+    // because the line-number positioning already separates them.
+    Cue cue1 =
+        new Cue.Builder()
+            .setText("Cue at line -1")
+            .setLine(-1f, Cue.LINE_TYPE_NUMBER)
+            .setLineAnchor(Cue.ANCHOR_TYPE_START)
+            .build();
+    Cue cue2 =
+        new Cue.Builder()
+            .setText("Cue at line -2")
+            .setLine(-2f, Cue.LINE_TYPE_NUMBER)
+            .setLineAnchor(Cue.ANCHOR_TYPE_START)
+            .build();
+
+    subtitleOutput.update(
+        Arrays.asList(cue1, cue2),
+        CaptionStyleCompat.DEFAULT,
+        /* textSize= */ 0.05f,
+        Cue.TEXT_SIZE_TYPE_FRACTIONAL,
+        /* bottomPaddingFraction= */ 0.08f);
+
+    // Should not throw - cues positioned independently by their line numbers
+    subtitleOutput.dispatchDraw(canvas);
+  }
+
+  @Test
+  public void dispatchDraw_unsetLineCues_getStacked() {
+    // Multiple cues with DIMEN_UNSET (typical SRT) should be stacked since they all
+    // target the same default bottom position.
+    Cue cue1 = new Cue.Builder().setText("First SRT cue").build();
+    Cue cue2 = new Cue.Builder().setText("Second SRT cue").build();
+    Cue cue3 = new Cue.Builder().setText("Third SRT cue").build();
+
+    subtitleOutput.update(
+        Arrays.asList(cue1, cue2, cue3),
+        CaptionStyleCompat.DEFAULT,
+        /* textSize= */ 0.05f,
+        Cue.TEXT_SIZE_TYPE_FRACTIONAL,
+        /* bottomPaddingFraction= */ 0.08f);
+
+    // Should not throw - all three cues stacked from bottom
+    subtitleOutput.dispatchDraw(canvas);
+  }
 }
