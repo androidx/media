@@ -390,7 +390,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
           .handleSourceInfoRefresh(newTimeline);
       maybeUpdateSourceInfo();
     } else {
-      checkArgument(newTimeline.getPeriodCount() == 1);
+//      checkArgument(newTimeline.getPeriodCount() == 1);
       contentTimeline = newTimeline;
       mainHandler.post(
           () -> {
@@ -539,7 +539,11 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
         refreshSourceInfo(contentTimeline);
       } else {
         adPlaybackState = adPlaybackState.withAdDurationsUs(getAdDurationsUs());
-        refreshSourceInfo(new SinglePeriodAdTimeline(contentTimeline, adPlaybackState));
+        if (contentTimeline.getPeriodCount() == 1) {
+          refreshSourceInfo(new SinglePeriodAdTimeline(contentTimeline, adPlaybackState));
+        } else {
+          refreshSourceInfo(new AdTimeline(contentTimeline, adPlaybackState));
+        }
       }
     }
   }
