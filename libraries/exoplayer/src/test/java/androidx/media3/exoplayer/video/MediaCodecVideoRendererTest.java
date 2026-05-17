@@ -5065,6 +5065,11 @@ public class MediaCodecVideoRendererTest {
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
             .setCodecs("dvhe.04.01")
             .build();
+    Format formatDvheDtbFallbackToH265 =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
+            .setCodecs("dvhe.07.01")
+            .build();
     Format formatDvheStFallbackToH265 =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_DOLBY_VISION)
@@ -5176,6 +5181,8 @@ public class MediaCodecVideoRendererTest {
     @Capabilities
     int capabilitiesDvheDtrFallbackToH265 = renderer.supportsFormat(formatDvheDtrFallbackToH265);
     @Capabilities
+    int capabilitiesDvheDtbFallbackToH265 = renderer.supportsFormat(formatDvheDtbFallbackToH265);
+    @Capabilities
     int capabilitiesDvheStFallbackToH265 = renderer.supportsFormat(formatDvheStFallbackToH265);
     @Capabilities
     int capabilitiesDvavSeFallbackToH264 = renderer.supportsFormat(formatDvavSeFallbackToH264);
@@ -5187,6 +5194,8 @@ public class MediaCodecVideoRendererTest {
     int capabilitiesNoFallbackPossible = renderer.supportsFormat(formatNoFallbackPossible);
 
     assertThat(RendererCapabilities.getFormatSupport(capabilitiesDvheDtrFallbackToH265))
+        .isEqualTo(C.FORMAT_HANDLED);
+    assertThat(RendererCapabilities.getFormatSupport(capabilitiesDvheDtbFallbackToH265))
         .isEqualTo(C.FORMAT_HANDLED);
     assertThat(RendererCapabilities.getFormatSupport(capabilitiesDvheStFallbackToH265))
         .isEqualTo(C.FORMAT_HANDLED);
