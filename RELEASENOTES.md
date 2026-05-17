@@ -115,6 +115,8 @@
         default is 50ms but one can customize the value through
         `MediaCodecVideoRenderer.Builder.setMaxEarlyUsThreshold()`.
 *   Text:
+    *   TTML: Fallback to `displayAlign` from `style` for regions
+        ([#2559](https://github.com/androidx/media/issues/2559)).
 *   Metadata:
     *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`
         and Vorbis `DISCSUBTITLE` data.
