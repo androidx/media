@@ -36,7 +36,8 @@ public final class FakeFrameProcessorTest {
 
   @Test
   public void factoryCreate_returnsProcessorAndMaintainsReference() {
-    FakeFrameProcessor.Factory factory = new FakeFrameProcessor.Factory();
+    FakeFrameProcessor.Factory factory =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false);
     TestFrameWriter frameWriter = new TestFrameWriter();
 
     FakeFrameProcessor processor = factory.create(frameWriter);
@@ -48,7 +49,8 @@ public final class FakeFrameProcessorTest {
   @Test
   public void queue_addsFramesEventAndStoresListeners() throws Exception {
     TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor = new FakeFrameProcessor(frameWriter);
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
     ImmutableList<AsyncFrame> frames = ImmutableList.of();
     FrameCompletionListener completionListener = (frame, fence) -> {};
 
@@ -72,7 +74,8 @@ public final class FakeFrameProcessorTest {
   @Test
   public void signalEndOfStream_addsEosEventAndSignalsOutput() {
     TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor = new FakeFrameProcessor(frameWriter);
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
 
     processor.signalEndOfStream();
 
@@ -85,7 +88,8 @@ public final class FakeFrameProcessorTest {
   @Test
   public void queueAndSignalEndOfStream_maintainsOrder() throws Exception {
     TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor = new FakeFrameProcessor(frameWriter);
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
     ImmutableList<AsyncFrame> frames = ImmutableList.of();
 
     boolean queued =
@@ -106,7 +110,8 @@ public final class FakeFrameProcessorTest {
   @Test
   public void close_doesNotThrow() {
     TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor = new FakeFrameProcessor(frameWriter);
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
 
     // Should complete without exceptions.
     processor.close();
@@ -115,7 +120,8 @@ public final class FakeFrameProcessorTest {
   @Test
   public void queue_multipleTimes_updatesLastFieldsAndAddsMultipleEvents() throws Exception {
     TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor = new FakeFrameProcessor(frameWriter);
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
 
     // First queue call
     AsyncFrame frame1 = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
@@ -150,6 +156,30 @@ public final class FakeFrameProcessorTest {
     assertThat(events).hasSize(2);
     assertThat(((FakeFrameProcessor.FramesEvent) events.get(0)).frames).isSameInstanceAs(frames1);
     assertThat(((FakeFrameProcessor.FramesEvent) events.get(1)).frames).isSameInstanceAs(frames2);
+  }
+
+  @Test
+  public void queue_withCompleteIncomingFramesTrue_invokesCompletionListener() throws Exception {
+    TestFrameWriter frameWriter = new TestFrameWriter();
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ true);
+    AsyncFrame frame = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
+    ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
+    boolean[] listenerInvoked = new boolean[1];
+    FrameCompletionListener completionListener =
+        (f, fence) -> {
+          listenerInvoked[0] = true;
+        };
+
+    boolean queued =
+        processor.queue(
+            frames,
+            /* listenerExecutor= */ Runnable::run,
+            /* wakeupListener= */ () -> {},
+            completionListener);
+
+    assertThat(queued).isTrue();
+    assertThat(listenerInvoked[0]).isTrue();
   }
 
   /** A simple Fake {@link FrameWriter} for testing. */

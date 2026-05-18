@@ -15,14 +15,18 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -36,10 +40,21 @@ public class FakeFrameProcessor implements FrameProcessor {
   public static class Factory implements FrameProcessor.Factory {
 
     @Nullable public FakeFrameProcessor createdProcessor;
+    private final boolean shouldCompleteIncomingFrames;
+
+    /**
+     * Creates a new instance.
+     *
+     * @param shouldCompleteIncomingFrames When true, the {@link FrameProcessor} will call the
+     *     completion listener for every queued frame.
+     */
+    public Factory(boolean shouldCompleteIncomingFrames) {
+      this.shouldCompleteIncomingFrames = shouldCompleteIncomingFrames;
+    }
 
     @Override
     public FakeFrameProcessor create(FrameWriter output) {
-      createdProcessor = new FakeFrameProcessor(output);
+      createdProcessor = new FakeFrameProcessor(output, shouldCompleteIncomingFrames);
       return createdProcessor;
     }
   }
@@ -63,13 +78,15 @@ public class FakeFrameProcessor implements FrameProcessor {
   private final List<Event> queuedEvents;
 
   private final FrameWriter output;
+  private final boolean shouldCompleteIncomingFrames;
 
   @Nullable public FrameCompletionListener lastCompletionListener;
   @Nullable public List<AsyncFrame> lastFrames;
 
-  public FakeFrameProcessor(FrameWriter output) {
+  public FakeFrameProcessor(FrameWriter output, boolean shouldCompleteIncomingFrames) {
     this.queuedEvents = new ArrayList<>();
     this.output = output;
+    this.shouldCompleteIncomingFrames = shouldCompleteIncomingFrames;
   }
 
   @Override
@@ -82,6 +99,11 @@ public class FakeFrameProcessor implements FrameProcessor {
     queuedEvents.add(new FramesEvent(frames));
     this.lastCompletionListener = completionListener;
     this.lastFrames = frames;
+    if (shouldCompleteIncomingFrames) {
+      for (AsyncFrame asyncFrame : frames) {
+        listenerExecutor.execute(() -> completionListener.onFrameProcessed(asyncFrame.frame, null));
+      }
+    }
     return true;
   }
 
@@ -94,8 +116,33 @@ public class FakeFrameProcessor implements FrameProcessor {
   @Override
   public void close() {}
 
+  /** Returns true if the last {@link Event} queued was an {@link EosEvent}. */
+  public boolean isEnded() {
+    return !queuedEvents.isEmpty() && Iterables.getLast(queuedEvents) instanceof EosEvent;
+  }
+
   /** Returns an {@link ImmutableList} of all queued events. */
   public ImmutableList<Event> getQueuedEvents() {
     return ImmutableList.copyOf(queuedEvents);
+  }
+
+  /**
+   * Returns an {@link ImmutableList} of content timestamps for all queued frames. EOS frames return
+   * {@link C#TIME_UNSET}.
+   */
+  public ImmutableList<ImmutableList<Long>> getQueuedContentTimesUs() {
+    ImmutableList<Event> currentEvents = getQueuedEvents();
+    return currentEvents.stream()
+        .map(
+            event -> {
+              if (event instanceof EosEvent) {
+                return ImmutableList.of(C.TIME_UNSET);
+              }
+              FramesEvent framesEvent = (FramesEvent) event;
+              return framesEvent.frames.stream()
+                  .map(asyncFrame -> asyncFrame.frame.getContentTimeUs())
+                  .collect(toImmutableList());
+            })
+        .collect(toImmutableList());
   }
 }

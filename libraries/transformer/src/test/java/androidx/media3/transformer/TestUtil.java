@@ -34,9 +34,8 @@ import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.effect.HardwareBufferFrame;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.effect.HardwareBufferJniWrapper;
-import androidx.media3.effect.PacketConsumer;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeClock;
@@ -236,12 +235,12 @@ public final class TestUtil {
    * HardwareBufferJniWrapper}.
    */
   public static CompositionPlayer.Builder createTestHardwareBufferCompositionPlayerBuilder(
-      PacketConsumer.Factory<ImmutableList<HardwareBufferFrame>> packetConsumerFactory) {
+      FrameProcessor.Factory factory) {
     return new CompositionPlayer.Builder(getApplicationContext())
         .setClock(new FakeClock(/* isAutoAdvancing= */ true))
         .setNativeHardwareBufferHelpers(new FakeHardwareBufferJniWrapper())
         .setImageReaderAdapterFactory(new FakeImageReaderAdapterFactory())
-        .setPacketConsumerFactory(packetConsumerFactory)
+        .setFrameProcessorFactory(factory)
         .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET);
   }
 
