@@ -43,15 +43,7 @@ import androidx.media3.ui.compose.SurfaceType
 @UnstableApi
 @Composable
 fun Player(player: Player?, modifier: Modifier = Modifier) {
-  Player(
-    player,
-    modifier,
-    surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-    contentScale = ContentScale.Fit,
-    keepContentOnReset = false,
-    shutter = { PlayerDefaults.Shutter() },
-    showControls = true,
-  )
+  Player(player, modifier, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
 }
 
 /**
@@ -69,7 +61,7 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * @param keepContentOnReset Whether to keep the content visible when the player is reset.
  * @param shutter A composable to be displayed as a shutter over the content. The default shutter is
  *   a black [Box].
- * @param showControls Whether the controls should be visible.
+ * @param showControls Whether the controls should be visible. False by default.
  * @param topControls A composable aligned with [Alignment.TopCenter], receiving the [player] and
  *   [showControls].
  * @param centerControls A composable aligned with [Alignment.Center], receiving the [player] and
@@ -86,7 +78,7 @@ fun Player(
   contentScale: ContentScale = ContentScale.Fit,
   keepContentOnReset: Boolean = false,
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
-  showControls: Boolean = true,
+  showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.TopControls(player, showControls)
   },
