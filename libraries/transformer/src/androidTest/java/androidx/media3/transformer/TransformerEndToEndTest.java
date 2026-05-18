@@ -153,6 +153,8 @@ import org.junit.runner.RunWith;
 public class TransformerEndToEndTest {
 
   private static final GlEffect NO_OP_EFFECT = new Contrast(0f);
+  private static final int MIN_BLANK_FRAME_OUTPUT_WIDTH = 320;
+  private static final int MIN_BLANK_FRAME_OUTPUT_HEIGHT = 240;
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
@@ -3015,13 +3017,28 @@ public class TransformerEndToEndTest {
       throws Exception {
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(RAW_AAC_ASSET.uri)).build();
-    EditedMediaItemSequence sequence = withAudioAndVideoFrom(ImmutableList.of(item));
+    // TODO: b/452316737 - Remove the effect once a standard size for gaps is used natively.
+    // Hardware encoders enforce strict minimum resolution limits and often reject the 16x16
+    // resolution natively used for placeholder blank frames. The Presentation effect scales
+    // it up to a safe minimum resolution.
+    Composition composition =
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(item)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(
+                        Presentation.createForWidthAndHeight(
+                            MIN_BLANK_FRAME_OUTPUT_WIDTH,
+                            MIN_BLANK_FRAME_OUTPUT_HEIGHT,
+                            Presentation.LAYOUT_SCALE_TO_FIT))))
+            .build();
+
     Transformer transformer = new Transformer.Builder(context).build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(testId, new Composition.Builder(sequence).build());
+            .run(testId, composition);
 
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
@@ -3038,13 +3055,27 @@ public class TransformerEndToEndTest {
       throws Exception {
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(AMR_NB_SINE_ASSET.uri)).build();
-    EditedMediaItemSequence sequence = withAudioAndVideoFrom(ImmutableList.of(item));
+    // TODO: b/452316737 - Remove the effect once a standard size for gaps is used natively.
+    // Hardware encoders enforce strict minimum resolution limits and often reject the 16x16
+    // resolution natively used for placeholder blank frames. The Presentation effect scales
+    // it up to a safe minimum resolution.
+    Composition composition =
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(item)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(
+                        Presentation.createForWidthAndHeight(
+                            MIN_BLANK_FRAME_OUTPUT_WIDTH,
+                            MIN_BLANK_FRAME_OUTPUT_HEIGHT,
+                            Presentation.LAYOUT_SCALE_TO_FIT))))
+            .build();
     Transformer transformer = new Transformer.Builder(context).build();
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
-            .run(testId, new Composition.Builder(sequence).build());
+            .run(testId, composition);
 
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
