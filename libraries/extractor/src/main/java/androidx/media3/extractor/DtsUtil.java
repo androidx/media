@@ -245,6 +245,15 @@ public final class DtsUtil {
   private static final int[] UHD_HEADER_SIZE_LENGTH_TABLE = new int[] {5, 8, 10, 12};
 
   /**
+   * Returns whether {@code mimeType} is {@link MimeTypes#AUDIO_DTS} or {@link
+   * MimeTypes#AUDIO_DTS_HD}.
+   */
+  public static boolean isDtsBaseAudioMimeType(@Nullable String mimeType) {
+    return Objects.equals(mimeType, MimeTypes.AUDIO_DTS)
+        || Objects.equals(mimeType, MimeTypes.AUDIO_DTS_HD);
+  }
+
+  /**
    * Returns the {@link FrameType} if {@code word} is a DTS sync word, otherwise {@link
    * #FRAME_TYPE_UNKNOWN}.
    */
