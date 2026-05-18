@@ -30,6 +30,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
@@ -422,8 +423,13 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
       if (currentFormat == null) {
         return;
       }
-      // TODO: b/498547782 - Add pixel format to media3 Format.
-      int expectedPixelFormat = HardwareBuffer.RGBA_8888;
+      int expectedPixelFormat = currentFormat.pixelFormat;
+      if (expectedPixelFormat == Format.NO_VALUE) {
+        expectedPixelFormat =
+            ColorInfo.isTransferHdr(currentFormat.colorInfo)
+                ? HardwareBuffer.RGBA_1010102
+                : HardwareBuffer.RGBA_8888;
+      }
       if (width != currentFormat.width
           || height != currentFormat.height
           || format != expectedPixelFormat) {

@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
@@ -64,12 +65,20 @@ import java.util.concurrent.Executor;
   @Override
   public AsyncFrame dequeueInputFrame(Executor wakeupExecutor, Runnable wakeupListener) {
     Format localFormat = checkNotNull(format, "configure() must be called first");
+    int pixelFormat = localFormat.pixelFormat;
+    if (pixelFormat == Format.NO_VALUE) {
+      pixelFormat =
+          ColorInfo.isTransferHdr(localFormat.colorInfo)
+              ? HardwareBuffer.RGBA_1010102
+              : HardwareBuffer.RGBA_8888;
+    }
     HardwareBufferFrameQueue.FrameFormat.Builder frameFormatBuilder =
         new HardwareBufferFrameQueue.FrameFormat.Builder()
             .setWidth(localFormat.width)
             .setHeight(localFormat.height)
             .setUsageFlags(usage)
-            .setRotationDegrees(localFormat.rotationDegrees);
+            .setRotationDegrees(localFormat.rotationDegrees)
+            .setPixelFormat(pixelFormat);
     if (localFormat.colorInfo != null) {
       frameFormatBuilder.setColorInfo(localFormat.colorInfo);
     }

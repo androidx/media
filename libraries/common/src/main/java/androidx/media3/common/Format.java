@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.DoubleMath.fuzzyEquals;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.hardware.HardwareBuffer;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
@@ -180,6 +181,7 @@ public final class Format {
 
     private int width;
     private int height;
+    private int pixelFormat;
     private int decodedWidth;
     private int decodedHeight;
     private float frameRate;
@@ -226,6 +228,7 @@ public final class Format {
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
+      pixelFormat = NO_VALUE;
       decodedWidth = NO_VALUE;
       decodedHeight = NO_VALUE;
       frameRate = NO_VALUE;
@@ -279,6 +282,7 @@ public final class Format {
       // Video specific.
       this.width = format.width;
       this.height = format.height;
+      this.pixelFormat = format.pixelFormat;
       this.decodedWidth = format.decodedWidth;
       this.decodedHeight = format.decodedHeight;
       this.frameRate = format.frameRate;
@@ -621,6 +625,20 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setHeight(int height) {
       this.height = height;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#pixelFormat}. The default value is {@link #NO_VALUE}.
+     *
+     * @param pixelFormat The {@link Format#pixelFormat}. Typically one of the {@link
+     *     HardwareBuffer} format constants.
+     * @return The builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPixelFormat(int pixelFormat) {
+      this.pixelFormat = pixelFormat;
       return this;
     }
 
@@ -1101,6 +1119,13 @@ public final class Format {
   public final int height;
 
   /**
+   * The pixel format of the video, or {@link #NO_VALUE} if unknown or not applicable.
+   *
+   * <p>Typically one of the {@link HardwareBuffer} format constants.
+   */
+  @UnstableApi public final int pixelFormat;
+
+  /**
    * The width of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
    * applicable.
    *
@@ -1288,6 +1313,7 @@ public final class Format {
     // Video specific.
     width = builder.width;
     height = builder.height;
+    pixelFormat = builder.pixelFormat;
     decodedWidth = builder.decodedWidth;
     decodedHeight = builder.decodedHeight;
     frameRate = builder.frameRate;
@@ -1492,6 +1518,7 @@ public final class Format {
       // Video specific.
       result = 31 * result + width;
       result = 31 * result + height;
+      result = 31 * result + pixelFormat;
       result = 31 * result + decodedWidth;
       result = 31 * result + decodedHeight;
       result = 31 * result + Float.floatToIntBits(frameRate);
@@ -1543,6 +1570,7 @@ public final class Format {
         && subsampleOffsetUs == other.subsampleOffsetUs
         && width == other.width
         && height == other.height
+        && pixelFormat == other.pixelFormat
         && decodedWidth == other.decodedWidth
         && decodedHeight == other.decodedHeight
         && rotationDegrees == other.rotationDegrees
@@ -1659,6 +1687,9 @@ public final class Format {
     if (format.colorInfo != null && format.colorInfo.isValid()) {
       builder.append(", color=").append(format.colorInfo.toLogString());
     }
+    if (format.pixelFormat != NO_VALUE) {
+      builder.append(", pixelFormat=").append(format.pixelFormat);
+    }
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
     }
@@ -1751,6 +1782,7 @@ public final class Format {
   private static final String FIELD_PRIMARY_TRACK_GROUP_ID = Util.intToStringMaxRadix(37);
   private static final String FIELD_CHANNEL_MASK = Util.intToStringMaxRadix(38);
   private static final String FIELD_MIRROR_HORIZONTAL = Util.intToStringMaxRadix(39);
+  private static final String FIELD_PIXEL_FORMAT = Util.intToStringMaxRadix(40);
 
   /** Returns a {@link Bundle} representing the information stored in this object. */
   @UnstableApi
@@ -1788,6 +1820,7 @@ public final class Format {
     // Video specific.
     bundle.putInt(FIELD_WIDTH, width);
     bundle.putInt(FIELD_HEIGHT, height);
+    bundle.putInt(FIELD_PIXEL_FORMAT, pixelFormat);
     bundle.putInt(FIELD_DECODED_WIDTH, decodedWidth);
     bundle.putInt(FIELD_DECODED_HEIGHT, decodedHeight);
     bundle.putFloat(FIELD_FRAME_RATE, frameRate);
@@ -1870,6 +1903,7 @@ public final class Format {
         // Video specific.
         .setWidth(bundle.getInt(FIELD_WIDTH, DEFAULT.width))
         .setHeight(bundle.getInt(FIELD_HEIGHT, DEFAULT.height))
+        .setPixelFormat(bundle.getInt(FIELD_PIXEL_FORMAT, DEFAULT.pixelFormat))
         .setDecodedWidth(bundle.getInt(FIELD_DECODED_WIDTH, DEFAULT.decodedWidth))
         .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
         .setFrameRate(frameRate)

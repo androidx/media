@@ -18,7 +18,9 @@ package androidx.media3.common.video;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
+import static org.robolectric.Shadows.shadowOf;
 
+import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.media3.common.ColorInfo;
@@ -164,6 +166,24 @@ public final class SurfaceHolderFrameWriterTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> frameWriter.queueInputFrame(invalidFrame, /* writeCompleteFence= */ null));
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void configure_propagatesPixelFormat() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setPixelFormat(HardwareBuffer.RGB_565)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+
+    frameWriter.configure(format, /* usage= */ 0);
+    shadowOf(callbackThread.getLooper()).idle();
+
+    assertThat(surfaceHolder.imageReader).isNotNull();
+    assertThat(surfaceHolder.imageReader.getImageFormat()).isEqualTo(HardwareBuffer.RGB_565);
   }
 
   @Test

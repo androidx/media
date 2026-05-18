@@ -228,7 +228,9 @@ public final class HardwareBufferPool {
   }
 
   private static int getPixelFormat(Format format) {
-    // TODO: b/498547782 - Add pixel format to media3 Format.
+    if (format.pixelFormat != Format.NO_VALUE) {
+      return format.pixelFormat;
+    }
     return ColorInfo.isTransferHdr(format.colorInfo)
         ? HardwareBuffer.RGBA_1010102
         : HardwareBuffer.RGBA_8888;

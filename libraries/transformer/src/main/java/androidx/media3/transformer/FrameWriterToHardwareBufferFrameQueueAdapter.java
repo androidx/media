@@ -59,6 +59,7 @@ public final class FrameWriterToHardwareBufferFrameQueueAdapter
             .setHeight(format.height)
             .setRotationDegrees(format.rotationDegrees)
             .setColorInfo(format.colorInfo)
+            .setPixelFormat(format.pixelFormat)
             .build();
 
     if (!commonFormat.equals(configuredFormat)) {

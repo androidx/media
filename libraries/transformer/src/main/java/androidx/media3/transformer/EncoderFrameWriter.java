@@ -127,11 +127,13 @@ public class EncoderFrameWriter implements FrameWriter {
 
     this.configurationFormat = nonNullEncoder.getConfigurationFormat();
 
-    // TODO: b/498547782 - Add pixel format to media3 Format.
-    int pixelFormat =
-        ColorInfo.isTransferHdr(configurationFormat.colorInfo)
-            ? HardwareBuffer.RGBA_1010102
-            : HardwareBuffer.RGBA_8888;
+    int pixelFormat = configurationFormat.pixelFormat;
+    if (pixelFormat == Format.NO_VALUE) {
+      pixelFormat =
+          ColorInfo.isTransferHdr(configurationFormat.colorInfo)
+              ? HardwareBuffer.RGBA_1010102
+              : HardwareBuffer.RGBA_8888;
+    }
 
     imageWriter =
         new ImageWriter.Builder(encoderInputSurface)
