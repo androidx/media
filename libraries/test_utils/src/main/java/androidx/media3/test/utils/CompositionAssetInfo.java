@@ -13,29 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer;
+package androidx.media3.test.utils;
 
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.AUDIO;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.AUDIO_WITH_VIDEO_TIMESTAMPS;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.IMAGE;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_HALF_SPEED;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_TWICE_SPEED;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO_SRGB;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO_WITHOUT_AUDIO;
-import static androidx.media3.transformer.EditedMediaItemAssetInfo.VIDEO_WITH_REMOVE_VIDEO;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.AUDIO;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.AUDIO_WITH_VIDEO_TIMESTAMPS;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.IMAGE;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_HALF_SPEED;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_ONLY_CLIPPED_TWICE_SPEED;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_SRGB;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_WITHOUT_AUDIO;
+import static androidx.media3.test.utils.EditedMediaItemAssetInfo.VIDEO_WITH_REMOVE_VIDEO;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.transformer.Composition;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 /** Test assets that describe various {@link Composition} configurations. */
-/* package */ final class CompositionAssetInfo {
+@UnstableApi
+public final class CompositionAssetInfo {
 
   public static final ImmutableList<CompositionAssetInfo> SINGLE_SEQUENCE_CONFIGS =
       ImmutableList.of(
@@ -222,7 +225,7 @@ import com.google.common.collect.Iterables;
     if (format == null) {
       return null;
     }
-    // If the first asset is a gap, the the encoder will be configured with [16, 16], HEVC.
+    // If the first asset is a gap, the encoder will be configured with [16, 16], HEVC.
     if (firstAsset.editedMediaItem != null && firstAsset.editedMediaItem.removeVideo) {
       format =
           format

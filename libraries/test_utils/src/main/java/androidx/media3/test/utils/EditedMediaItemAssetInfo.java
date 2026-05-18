@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer;
+package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
@@ -31,17 +31,20 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
-import androidx.media3.test.utils.AssetInfo;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.transformer.EditedMediaItem;
+import androidx.media3.transformer.Effects;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Information about an {@link EditedMediaItem} and its associated {@link AssetInfo}. */
-/* package */ final class EditedMediaItemAssetInfo {
+@UnstableApi
+public final class EditedMediaItemAssetInfo {
 
   /** A builder for {@link EditedMediaItemAssetInfo} instances. */
-  static final class Builder {
+  private static final class Builder {
     private @MonotonicNonNull AssetInfo originalAssetInfo;
     private @MonotonicNonNull EditedMediaItem editedMediaItem;
     private @MonotonicNonNull String name;
@@ -325,13 +328,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final String name;
 
   private EditedMediaItemAssetInfo(Builder builder) {
-    this.editedMediaItem = builder.editedMediaItem;
+    this.editedMediaItem = checkNotNull(builder.editedMediaItem);
     this.videoTimestampsUs =
         builder.videoTimestampsUs != null
             ? builder.videoTimestampsUs
-            : builder.originalAssetInfo.videoTimestampsUs;
-    this.name = builder.name;
-    this.videoFormat = builder.originalAssetInfo.videoFormat;
+            : checkNotNull(checkNotNull(builder.originalAssetInfo).videoTimestampsUs);
+    this.name = checkNotNull(builder.name);
+    this.videoFormat = checkNotNull(builder.originalAssetInfo).videoFormat;
   }
 
   @Override

@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer;
+package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C.TrackType;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.transformer.EditedMediaItemSequence;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.util.Set;
 
 /** Test assets that describe various {@link EditedMediaItemSequence} configurations. */
-/* package */ final class SequenceAssetInfo {
+@UnstableApi
+public final class SequenceAssetInfo {
   public final ImmutableList<EditedMediaItemAssetInfo> assets;
   private final ImmutableSet<@TrackType Integer> trackTypes;
   private final boolean isLooping;

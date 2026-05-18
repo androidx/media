@@ -22,6 +22,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
@@ -408,7 +410,8 @@ public final class EditedMediaItem {
    * getting the original media duration {@linkplain Builder#setDurationUs upfront}, and not from a
    * {@link MediaSource}.
    */
-  /* package */ long getPresentationDurationUs() {
+  @RestrictTo(Scope.LIBRARY_GROUP)
+  public long getPresentationDurationUs() {
     checkState(durationUs != C.TIME_UNSET);
     if (presentationDurationUs == C.TIME_UNSET) {
       presentationDurationUs = getClippedDuration(mediaItem.clippingConfiguration, durationUs);

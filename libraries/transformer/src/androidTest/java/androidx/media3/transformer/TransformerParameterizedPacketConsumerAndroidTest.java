@@ -15,10 +15,10 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
+import static androidx.media3.test.utils.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
+import static androidx.media3.test.utils.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeAllFormatsSupported;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_CONFIGS;
-import static androidx.media3.transformer.CompositionAssetInfo.MULTI_SEQUENCE_VIDEO_CONFIGS;
-import static androidx.media3.transformer.CompositionAssetInfo.SINGLE_SEQUENCE_CONFIGS;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -27,6 +27,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultHardwareBufferEffectsPipeline;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.effect.ndk.NdkTransformerBuilder;
+import androidx.media3.test.utils.CompositionAssetInfo;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
