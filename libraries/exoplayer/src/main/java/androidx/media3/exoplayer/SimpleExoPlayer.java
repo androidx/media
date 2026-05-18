@@ -974,6 +974,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setEnforceAdPlaybackOnTimelineRefresh(boolean enforceAdPlaybackOnTimelineRefresh) {
+    blockUntilConstructorFinished();
+    player.setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh);
+  }
+
+  @Override
   public @RepeatMode int getRepeatMode() {
     blockUntilConstructorFinished();
     return player.getRepeatMode();

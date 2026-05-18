@@ -345,11 +345,28 @@ public interface MediaSource {
       }
 
       MediaPeriodId periodId = (MediaPeriodId) obj;
-      return periodUid.equals(periodId.periodUid)
-          && adGroupIndex == periodId.adGroupIndex
-          && adIndexInAdGroup == periodId.adIndexInAdGroup
-          && windowSequenceNumber == periodId.windowSequenceNumber
+      return equalsExceptNextAdGroupIndex(periodId)
           && nextAdGroupIndex == periodId.nextAdGroupIndex;
+    }
+
+    /**
+     * Returns whether this {@link MediaPeriodId} is equal to the given period ID, excluding the
+     * next ad group index.
+     *
+     * @param mediaPeriodId The media period ID to compare.
+     * @return {@code true} if equal except the next ad group index, {@code false} otherwise.
+     */
+    public boolean equalsExceptNextAdGroupIndex(MediaPeriodId mediaPeriodId) {
+      if (mediaPeriodId == null) {
+        return false;
+      }
+      if (this == mediaPeriodId) {
+        return true;
+      }
+      return periodUid.equals(mediaPeriodId.periodUid)
+          && adGroupIndex == mediaPeriodId.adGroupIndex
+          && adIndexInAdGroup == mediaPeriodId.adIndexInAdGroup
+          && windowSequenceNumber == mediaPeriodId.windowSequenceNumber;
     }
 
     @Override

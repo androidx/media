@@ -382,6 +382,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
     throw new UnsupportedOperationException();
   }
 
+  @Override
+  public void setEnforceAdPlaybackOnTimelineRefresh(boolean enforceAdPlaybackOnTimelineRefresh) {
+    throw new UnsupportedOperationException();
+  }
+
   @Nullable
   @Override
   public Format getAudioFormat() {

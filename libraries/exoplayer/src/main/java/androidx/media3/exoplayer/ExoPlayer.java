@@ -303,6 +303,7 @@ public interface ExoPlayer extends Player {
     /* package */ String playerName;
     /* package */ boolean dynamicSchedulingEnabled;
     /* package */ SuitableOutputChecker suitableOutputChecker;
+    /* package */ boolean enforceAdPlaybackOnTimelineRefresh;
 
     /**
      * Creates a builder.
@@ -534,6 +535,7 @@ public interface ExoPlayer extends Player {
       priority = C.PRIORITY_PLAYBACK;
       suitableOutputChecker = new DefaultSuitableOutputChecker();
       dynamicSchedulingEnabled = true;
+      enforceAdPlaybackOnTimelineRefresh = true;
     }
 
     /**
@@ -1149,6 +1151,28 @@ public interface ExoPlayer extends Player {
     public Builder setPauseAtEndOfMediaItems(boolean pauseAtEndOfMediaItems) {
       checkState(!buildCalled);
       this.pauseAtEndOfMediaItems = pauseAtEndOfMediaItems;
+      return this;
+    }
+
+    /**
+     * Sets whether to enforce ad playback when the timeline is refreshed by a source update.
+     *
+     * <p>If {@code true}, then an ad group resolved at or before the current playback position
+     * during a timeline refresh will be played. If {@code false}, then the resolved ad group will
+     * not play.
+     *
+     * <p>The default is {@code true}.
+     *
+     * @param enforceAdPlaybackOnTimelineRefresh Whether to enforce ad playback on timeline refresh.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setEnforceAdPlaybackOnTimelineRefresh(
+        boolean enforceAdPlaybackOnTimelineRefresh) {
+      checkState(!buildCalled);
+      this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
       return this;
     }
 
@@ -1927,6 +1951,19 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void setPauseAtEndOfMediaItems(boolean pauseAtEndOfMediaItems);
+
+  /**
+   * Sets whether to enforce ad playback on timeline refresh.
+   *
+   * <p>If {@code true}, then an ad group resolved at or before the current playback position during
+   * a timeline refresh will be played. If {@code false}, then the resolved ad group will not play.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param enforceAdPlaybackOnTimelineRefresh Whether to enforce ad playback on timeline refresh.
+   */
+  @UnstableApi
+  void setEnforceAdPlaybackOnTimelineRefresh(boolean enforceAdPlaybackOnTimelineRefresh);
 
   /**
    * Returns whether the player pauses playback at the end of each media item.

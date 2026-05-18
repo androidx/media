@@ -209,6 +209,7 @@ import java.util.function.IntConsumer;
   private ShuffleOrder shuffleOrder;
   private PreloadConfiguration preloadConfiguration;
   private boolean pauseAtEndOfMediaItems;
+  private boolean enforceAdPlaybackOnTimelineRefresh;
   private Commands availableCommands;
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
@@ -312,6 +313,7 @@ import java.util.function.IntConsumer;
       this.maxSeekToPreviousPositionMs = builder.maxSeekToPreviousPositionMs;
       this.scrubbingModeParameters = builder.scrubbingModeParameters;
       this.pauseAtEndOfMediaItems = builder.pauseAtEndOfMediaItems;
+      this.enforceAdPlaybackOnTimelineRefresh = builder.enforceAdPlaybackOnTimelineRefresh;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
       this.wrappingPlayer = wrappingPlayer == null ? this : wrappingPlayer;
@@ -398,7 +400,8 @@ import java.util.function.IntConsumer;
               playerId,
               builder.playbackLooperProvider,
               preloadConfiguration,
-              frameMetadataListener);
+              frameMetadataListener,
+              builder.enforceAdPlaybackOnTimelineRefresh);
       Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
@@ -863,6 +866,16 @@ import java.util.function.IntConsumer;
   public boolean getPauseAtEndOfMediaItems() {
     verifyApplicationThread();
     return pauseAtEndOfMediaItems;
+  }
+
+  @Override
+  public void setEnforceAdPlaybackOnTimelineRefresh(boolean enforceAdPlaybackOnTimelineRefresh) {
+    verifyApplicationThread();
+    if (this.enforceAdPlaybackOnTimelineRefresh == enforceAdPlaybackOnTimelineRefresh) {
+      return;
+    }
+    this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
+    internalPlayer.setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh);
   }
 
   @Override
@@ -2240,7 +2253,8 @@ import java.util.function.IntConsumer;
         boolean oldAndNewTimelineEmpty =
             playbackInfoUpdate.playbackInfo.timeline.isEmpty() && playbackInfo.timeline.isEmpty();
         boolean sameMediaPeriodId =
-            playbackInfoUpdate.playbackInfo.periodId.equals(playbackInfo.periodId);
+            playbackInfoUpdate.playbackInfo.periodId.equalsExceptNextAdGroupIndex(
+                playbackInfo.periodId);
         boolean samePositon =
             playbackInfoUpdate.playbackInfo.discontinuityStartPositionUs == playbackInfo.positionUs;
         positionDiscontinuity = !oldAndNewTimelineEmpty && (!sameMediaPeriodId || !samePositon);

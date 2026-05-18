@@ -169,6 +169,7 @@ import java.util.Objects;
   private static final int MSG_SET_SHUFFLE_ORDER = 21;
   private static final int MSG_PLAYLIST_UPDATE_REQUESTED = 22;
   private static final int MSG_SET_PAUSE_AT_END_OF_WINDOW = 23;
+  private static final int MSG_SET_ENFORCE_AD_PLAYBACK_ON_TIMELINE_REFRESH = 24;
   private static final int MSG_ATTEMPT_RENDERER_ERROR_RECOVERY = 25;
   private static final int MSG_RENDERER_CAPABILITIES_CHANGED = 26;
   private static final int MSG_UPDATE_MEDIA_SOURCES_WITH_MEDIA_ITEMS = 27;
@@ -236,7 +237,7 @@ import java.util.Objects;
   private final HandlerWrapper applicationLooperHandler;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
-
+  private boolean enforceAdPlaybackOnTimelineRefresh;
   private SeekParameters seekParameters;
   private ScrubbingModeParameters scrubbingModeParameters;
   @Nullable private SeekParameters scrubbingModeSeekParameters;
@@ -294,7 +295,8 @@ import java.util.Objects;
       PlayerId playerId,
       @Nullable PlaybackLooperProvider playbackLooperProvider,
       PreloadConfiguration preloadConfiguration,
-      VideoFrameMetadataListener videoFrameMetadataListener) {
+      VideoFrameMetadataListener videoFrameMetadataListener,
+      boolean enforceAdPlaybackOnTimelineRefresh) {
     this.playbackInfoUpdateListener = playbackInfoUpdateListener;
     this.trackSelector = trackSelector;
     this.emptyTrackSelectorResult = emptyTrackSelectorResult;
@@ -313,6 +315,7 @@ import java.util.Objects;
     this.analyticsCollector = analyticsCollector;
     this.volume = 1f;
     this.scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
+    this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
@@ -428,6 +431,15 @@ import java.util.Objects;
   public void setPauseAtEndOfWindow(boolean pauseAtEndOfWindow) {
     handler
         .obtainMessage(MSG_SET_PAUSE_AT_END_OF_WINDOW, pauseAtEndOfWindow ? 1 : 0, /* ignored */ 0)
+        .sendToTarget();
+  }
+
+  public void setEnforceAdPlaybackOnTimelineRefresh(boolean enforceAdPlaybackOnTimelineRefresh) {
+    handler
+        .obtainMessage(
+            MSG_SET_ENFORCE_AD_PLAYBACK_ON_TIMELINE_REFRESH,
+            enforceAdPlaybackOnTimelineRefresh ? 1 : 0,
+            /* ignored */ 0)
         .sendToTarget();
   }
 
@@ -805,6 +817,9 @@ import java.util.Objects;
           break;
         case MSG_SET_PAUSE_AT_END_OF_WINDOW:
           setPauseAtEndOfWindowInternal(msg.arg1 != 0);
+          break;
+        case MSG_SET_ENFORCE_AD_PLAYBACK_ON_TIMELINE_REFRESH:
+          setEnforceAdPlaybackOnTimelineRefreshInternal(msg.arg1 != 0);
           break;
         case MSG_ATTEMPT_RENDERER_ERROR_RECOVERY:
           attemptRendererErrorRecovery();
@@ -1189,6 +1204,11 @@ import java.util.Objects;
       seekToCurrentPosition(/* sendDiscontinuity= */ true);
       handleLoadingMediaPeriodChanged(/* loadingTrackSelectionChanged= */ false);
     }
+  }
+
+  private void setEnforceAdPlaybackOnTimelineRefreshInternal(
+      boolean enforceAdPlaybackOnTimelineRefresh) {
+    this.enforceAdPlaybackOnTimelineRefresh = enforceAdPlaybackOnTimelineRefresh;
   }
 
   private void setOffloadSchedulingEnabled(boolean offloadSchedulingEnabled) {
@@ -1638,7 +1658,12 @@ import java.util.Objects;
           seekPosition.windowPositionUs == C.TIME_UNSET ? C.TIME_UNSET : resolvedContentPositionUs;
       periodId =
           queue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-              playbackInfo.timeline, periodUid, resolvedContentPositionUs);
+              playbackInfo,
+              playbackInfo.timeline,
+              periodUid,
+              resolvedContentPositionUs,
+              /* enforceAdPlayback= */ true,
+              /* transitionsFromPlaceholderPeriod= */ false);
       if (periodId.isAd()) {
         playbackInfo.timeline.getPeriodByUid(periodId.periodUid, period);
         periodPositionUs =
@@ -2101,7 +2126,12 @@ import java.util.Objects;
     // Add ad metadata if any and propagate the window sequence number to new period id.
     MediaPeriodId firstPeriodId =
         queue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, firstPeriodAndPositionUs.first, /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            firstPeriodAndPositionUs.first,
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
     long positionUs = firstPeriodAndPositionUs.second;
     if (firstPeriodId.isAd()) {
       timeline.getPeriodByUid(firstPeriodId.periodUid, period);
@@ -2510,7 +2540,8 @@ import java.util.Objects;
             shuffleModeEnabled,
             isSourceRefresh,
             window,
-            period);
+            period,
+            enforceAdPlaybackOnTimelineRefresh);
     MediaPeriodId newPeriodId = positionUpdate.periodId;
     long newPositionUs = positionUpdate.periodPositionUs;
     try {
@@ -3558,7 +3589,8 @@ import java.util.Objects;
       boolean shuffleModeEnabled,
       boolean isSourceRefresh,
       Timeline.Window window,
-      Timeline.Period period) {
+      Timeline.Period period,
+      boolean enforceAdPlaybackOnTimelineRefresh) {
     if (timeline.isEmpty()) {
       MediaPeriodId newPeriodId = PlaybackInfo.getDummyPeriodForEmptyTimeline();
       boolean periodPositionChanged =
@@ -3692,7 +3724,12 @@ import java.util.Objects;
     // Ensure ad insertion metadata is up to date.
     MediaPeriodId periodIdWithAds =
         queue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, newPeriodUid, contentPositionForAdResolutionUs);
+            playbackInfo,
+            timeline,
+            newPeriodUid,
+            contentPositionForAdResolutionUs,
+            enforceAdPlaybackOnTimelineRefresh,
+            /* transitionsFromPlaceholderPeriod= */ isUsingPlaceholderPeriod);
     boolean earliestCuePointIsUnchangedOrLater =
         periodIdWithAds.nextAdGroupIndex == C.INDEX_UNSET
             || (oldPeriodId.nextAdGroupIndex != C.INDEX_UNSET

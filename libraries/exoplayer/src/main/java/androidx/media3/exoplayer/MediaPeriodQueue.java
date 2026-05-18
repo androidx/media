@@ -28,6 +28,8 @@ import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Timeline.Period;
+import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
@@ -695,7 +697,8 @@ import java.util.List;
    * @param positionUs The next content position in the period to play.
    * @param windowSequenceNumber The sequence number of the window in the buffered sequence of
    *     windows this period is part of.
-   * @param period A scratch {@link Timeline.Period}.
+   * @param window A scratch {@link Window}.
+   * @param period A scratch {@link Period}.
    * @return The identifier for the first media period to play, taking into account unplayed ads.
    */
   private static MediaPeriodId resolveMediaPeriodIdForAds(
@@ -703,8 +706,8 @@ import java.util.List;
       Object periodUid,
       long positionUs,
       long windowSequenceNumber,
-      Timeline.Window window,
-      Timeline.Period period) {
+      Window window,
+      Period period) {
     timeline.getPeriodByUid(periodUid, period);
     timeline.getWindow(period.windowIndex, window);
     // Skip ignorable server side inserted ad periods.
@@ -750,18 +753,42 @@ import java.util.List;
    * played after a period position change, returning an identifier for an ad group if one needs to
    * be played before the specified position, or an identifier for a content media period if not.
    *
+   * @param playbackInfo The current playback information.
    * @param timeline The timeline the period is part of.
    * @param periodUid The uid of the timeline period to play.
    * @param positionUs The next content position in the period to play.
+   * @param enforceAdPlayback Whether to enforce playback of ads before {@code positionUs}.
+   * @param transitionsFromPlaceholderPeriod Whether the previous period was a placeholder.
    * @return The identifier for the first media period to play, taking into account unplayed ads.
    */
   public MediaPeriodId resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-      Timeline timeline, Object periodUid, long positionUs) {
+      PlaybackInfo playbackInfo,
+      Timeline timeline,
+      Object periodUid,
+      long positionUs,
+      boolean enforceAdPlayback,
+      boolean transitionsFromPlaceholderPeriod) {
     long windowSequenceNumber = resolvePeriodUidToWindowSequenceNumber(timeline, periodUid);
+    Object periodUidToPlay = periodUid;
+    if (!enforceAdPlayback && !transitionsFromPlaceholderPeriod) {
+      MediaPeriodId oldPeriodId = playbackInfo.periodId;
+      // Ad playback not enforced. Check whether we are still playing on the same ad.
+      MediaPeriodId resolvedPeriodId =
+          resolveMediaPeriodIdForAds(
+              timeline, periodUidToPlay, positionUs, windowSequenceNumber, window, period);
+      if (oldPeriodId.isAd() && oldPeriodId.equals(resolvedPeriodId)) {
+        // If we are still on the same ad and the ad is unavailable or available, we keep the old
+        // period ID to continue playing the ad.
+        return oldPeriodId;
+      }
+      // If not enforced, we only make sure windowSequenceNumber and nextAdGroupIndex are correct.
+      timeline.getPeriodByUid(periodUid, period);
+      int nextAdGroupIndex = period.getAdGroupIndexAfterPositionUs(positionUs);
+      return new MediaPeriodId(periodUid, windowSequenceNumber, nextAdGroupIndex);
+    }
     // Check for preceding ad periods in multi-period window.
     timeline.getPeriodByUid(periodUid, period);
     timeline.getWindow(period.windowIndex, window);
-    Object periodUidToPlay = periodUid;
     boolean seenAdPeriod = false;
     for (int i = timeline.getIndexOfPeriod(periodUid); i >= window.firstPeriodIndex; i--) {
       timeline.getPeriod(/* periodIndex= */ i, period, /* setIds= */ true);
@@ -776,8 +803,21 @@ import java.util.List;
         break;
       }
     }
-    return resolveMediaPeriodIdForAds(
-        timeline, periodUidToPlay, positionUs, windowSequenceNumber, window, period);
+    // Find ad at or before the position.
+    MediaPeriodId mediaPeriodId =
+        resolveMediaPeriodIdForAds(
+            timeline, periodUidToPlay, positionUs, windowSequenceNumber, window, period);
+    if (mediaPeriodId.adGroupIndex != C.INDEX_UNSET && !enforceAdPlayback) {
+      // If not enforced and transitioning from the placeholder, an exact match of the position to
+      // the ad group start is still played (preroll or an ad at startPositionUs > 0).
+      timeline.getPeriodByUid(mediaPeriodId.periodUid, period);
+      if (period.adPlaybackState.getAdGroup(mediaPeriodId.adGroupIndex).timeUs != positionUs) {
+        int nextAdGroupIndex = period.getAdGroupIndexAfterPositionUs(positionUs);
+        return new MediaPeriodId(
+            mediaPeriodId.periodUid, mediaPeriodId.windowSequenceNumber, nextAdGroupIndex);
+      }
+    }
+    return mediaPeriodId;
   }
 
   // Internal methods.

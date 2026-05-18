@@ -1434,7 +1434,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, /* periodUid= */ new Pair<>(windowUid, 0), adPositionUs + 1);
+            playbackInfo,
+            timeline,
+            /* periodUid= */ new Pair<>(windowUid, 0),
+            adPositionUs + 1,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(0);
@@ -1458,7 +1463,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, /* periodUid= */ new Pair<>(windowUid, 0), adPositionUs);
+            playbackInfo,
+            timeline,
+            /* periodUid= */ new Pair<>(windowUid, 0),
+            adPositionUs,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowUid, 0));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
@@ -1482,7 +1492,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowUid, 0), adPositionUs - 1);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowUid, 0),
+            adPositionUs - 1,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowUid, 0));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
@@ -1508,7 +1523,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 1), /* positionUs= */ 1);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 1),
+            /* positionUs= */ 1,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowId, 0));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
@@ -1517,7 +1537,12 @@ public final class MediaPeriodQueueTest {
 
     mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 5), /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 5),
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowId, 2));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
@@ -1543,7 +1568,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 1), /* positionUs= */ 11);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 1),
+            /* positionUs= */ 11,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
@@ -1552,7 +1582,12 @@ public final class MediaPeriodQueueTest {
 
     mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 5), /* positionUs= */ 33);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 5),
+            /* positionUs= */ 33,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
@@ -1578,7 +1613,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 5), /* positionUs= */ 33);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 5),
+            /* positionUs= */ 33,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(0);
@@ -1597,7 +1637,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 0), /* positionUs= */ 33);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 0),
+            /* positionUs= */ 33,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
@@ -1616,7 +1661,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 1), /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 1),
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(0);
@@ -1635,7 +1685,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 1), /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 1),
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
@@ -1653,7 +1708,12 @@ public final class MediaPeriodQueueTest {
             windowId, /* numberOfPlayedAds= */ 2, /* isAdPeriodFlags...= */ true, true, false);
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 0), /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 0),
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
     assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
@@ -1678,7 +1738,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 1), /* positionUs= */ 0);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 1),
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowId, 4));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
@@ -1702,7 +1767,12 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 3), /* positionUs= */ 10_000);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 3),
+            /* positionUs= */ 10_000,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowId, 0));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
@@ -1726,10 +1796,256 @@ public final class MediaPeriodQueueTest {
 
     MediaPeriodId mediaPeriodId =
         mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
-            timeline, new Pair<>(windowId, 3), /* positionUs= */ 10_000);
+            playbackInfo,
+            timeline,
+            new Pair<>(windowId, 3),
+            /* positionUs= */ 10_000,
+            /* enforceAdPlayback= */ true,
+            /* transitionsFromPlaceholderPeriod= */ false);
 
     assertThat(mediaPeriodId.periodUid).isEqualTo(new Pair<>(windowId, 3));
     assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
+  }
+
+  @Test
+  public void resolveMediaPeriodIdForAdsAfterPeriodPositionChange_enforceAdPlaybackFalse_skipsAd() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 10_000_000L, 20_000_000L);
+    setAdGroupLoaded(/* adGroupIndex= */ 0);
+    assertThat(playbackInfo.periodId.isAd()).isFalse();
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 10_000_001L,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(mediaPeriodId.periodUid).isEqualTo(firstPeriodUid);
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromContentWithUninitializedAdGroupAndWithoutEnforceAdPlayback_skipsAd() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 10_000_000L, 20_000_000L);
+    // Omit setAdGroupLoaded to leave it uninitialized (empty states array)
+    assertThat(playbackInfo.periodId.isAd()).isFalse();
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 10_000_000L,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(mediaPeriodId.periodUid).isEqualTo(firstPeriodUid);
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromAvailableAdAndWithoutEnforceAdPlayback_skipsAd() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 0);
+    setAdGroupLoaded(/* adGroupIndex= */ 0);
+    MediaPeriodId adPeriodId =
+        new MediaPeriodId(
+            firstPeriodUid,
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    playbackInfo =
+        playbackInfo.copyWithNewPosition(
+            adPeriodId,
+            /* positionUs= */ 0,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of());
+    assertThat(playbackInfo.periodId.isAd()).isTrue();
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(mediaPeriodId).isEqualTo(adPeriodId);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromUninitializedAdAndWithoutEnforcedAdPlayback_retainsCurrentAd() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 0);
+    // Omit setAdGroupLoaded to leave it uninitialized (empty states array)
+    MediaPeriodId adPeriodId =
+        new MediaPeriodId(
+            firstPeriodUid,
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    playbackInfo =
+        playbackInfo.copyWithNewPosition(
+            adPeriodId,
+            /* positionUs= */ 0,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of());
+    assertThat(playbackInfo.periodId.isAd()).isTrue();
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(mediaPeriodId).isEqualTo(adPeriodId);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromPlaceHolderAndWithoutEnforcedAdPlayback_selectsExactAdPositionMatch() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 1000L);
+    MediaPeriodId placeholder =
+        new MediaPeriodId(
+            firstPeriodUid,
+            /* adGroupIndex= */ -1,
+            /* adIndexInAdGroup= */ -1,
+            /* windowSequenceNumber= */ 0);
+    playbackInfo =
+        playbackInfo.copyWithNewPosition(
+            placeholder,
+            /* positionUs= */ 1000L,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of());
+    assertThat(playbackInfo.periodId).isEqualTo(placeholder);
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 1000L,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ true);
+
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(0);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(0);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.periodUid).isEqualTo(firstPeriodUid);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_fromPlaceHolderAndWithoutEnforceAdPlayback_ignoresAdBeforePosition() {
+    setupAdTimeline(/* adGroupTimesUs...= */ 999L);
+    MediaPeriodId placeholder =
+        new MediaPeriodId(
+            firstPeriodUid,
+            /* adGroupIndex= */ -1,
+            /* adIndexInAdGroup= */ -1,
+            /* windowSequenceNumber= */ 0);
+    playbackInfo =
+        playbackInfo.copyWithNewPosition(
+            placeholder,
+            /* positionUs= */ 1000L,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of());
+    assertThat(playbackInfo.periodId).isEqualTo(placeholder);
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            playbackInfo.timeline,
+            firstPeriodUid,
+            /* positionUs= */ 1000L,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ true);
+
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.periodUid).isEqualTo(firstPeriodUid);
+  }
+
+  @Test
+  public void
+      resolveMediaPeriodIdForAdsAfterPeriodPositionChange_differentPeriodUidWithoutEnforcedAdPlayback_doesNotRetainAd()
+          throws InterruptedException {
+    Object windowId = new Object();
+    Timeline timeline =
+        createMultiPeriodServerSideInsertedTimeline(
+            windowId, /* numberOfPlayedAds= */ 0, /* isAdPeriodFlags...= */ true, false, true);
+    Object firstPeriodUid = new Pair<>(windowId, 0);
+    Object thirdPeriodUid = new Pair<>(windowId, 2);
+    MediaPeriodId oldAdPeriodId =
+        new MediaPeriodId(
+            firstPeriodUid,
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            /* windowSequenceNumber= */ 0);
+    playbackInfo =
+        new PlaybackInfo(
+            timeline,
+            oldAdPeriodId,
+            /* requestedContentPositionUs= */ C.TIME_UNSET,
+            /* discontinuityStartPositionUs= */ 0,
+            Player.STATE_READY,
+            /* playbackError= */ null,
+            /* isLoading= */ false,
+            /* trackGroups= */ null,
+            /* trackSelectorResult= */ null,
+            /* staticMetadata= */ ImmutableList.of(),
+            /* loadingMediaPeriodId= */ null,
+            /* playWhenReady= */ false,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+            /* playbackParameters= */ PlaybackParameters.DEFAULT,
+            /* bufferedPositionUs= */ 0,
+            /* totalBufferedDurationUs= */ 0,
+            /* positionUs= */ 0,
+            /* positionUpdateTimeMs= */ 0,
+            /* sleepingForOffload= */ false);
+
+    MediaPeriodId mediaPeriodId =
+        mediaPeriodQueue.resolveMediaPeriodIdForAdsAfterPeriodPositionChange(
+            playbackInfo,
+            timeline,
+            thirdPeriodUid, // periodUid does not match the current periodUid in the playbackInfo
+            /* positionUs= */ 0,
+            /* enforceAdPlayback= */ false,
+            /* transitionsFromPlaceholderPeriod= */ false);
+
+    assertThat(mediaPeriodId.periodUid).isEqualTo(thirdPeriodUid);
+    assertThat(mediaPeriodId.adGroupIndex).isEqualTo(-1);
+    assertThat(mediaPeriodId.adIndexInAdGroup).isEqualTo(-1);
+    assertThat(mediaPeriodId.nextAdGroupIndex).isEqualTo(-1);
   }
 
   @Test
