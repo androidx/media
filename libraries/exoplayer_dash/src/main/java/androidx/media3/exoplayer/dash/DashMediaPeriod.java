@@ -818,7 +818,8 @@ import java.util.regex.Pattern;
         Format[] closedCaptionFormats = primaryGroupClosedCaptionTrackFormats[i];
         maybeUpdateFormatsForParsedText(chunkSourceFactory, closedCaptionFormats);
 
-        for (int currentCaptionIndex = 0; currentCaptionIndex < closedCaptionFormats.length;
+        for (int currentCaptionIndex = 0;
+            currentCaptionIndex < closedCaptionFormats.length;
             currentCaptionIndex++) {
           // primaryTrackGroupId should be updated first to end up in both
           // trackGroupInfos and trackGroups.
@@ -836,7 +837,8 @@ import java.util.regex.Pattern;
 
           String closedCaptionTrackGroupId = trackGroupId + ":cc:" + currentCaptionIndex;
           trackGroups[closedCaptionTrackGroupIndex] =
-              new TrackGroup(closedCaptionTrackGroupId,
+              new TrackGroup(
+                  closedCaptionTrackGroupId,
                   primaryGroupClosedCaptionTrackFormats[i][currentCaptionIndex]);
 
           closedCaptionTrackGroupIndex++;
@@ -1142,8 +1144,7 @@ import java.util.regex.Pattern;
     public final int embeddedClosedCaptionTrackGroupLength;
 
     /** Only non-null for track groups representing embedded caption tracks. */
-    @Nullable
-    public final Format embeddedClosedCaptionTrackOriginalFormat;
+    @Nullable public final Format embeddedClosedCaptionTrackOriginalFormat;
 
     public static TrackGroupInfo primaryTrack(
         int trackType,
@@ -1179,9 +1180,7 @@ import java.util.regex.Pattern;
     }
 
     public static TrackGroupInfo embeddedClosedCaptionTrack(
-        int[] adaptationSetIndices,
-        int primaryTrackGroupIndex,
-        Format originalFormat) {
+        int[] adaptationSetIndices, int primaryTrackGroupIndex, Format originalFormat) {
       return new TrackGroupInfo(
           C.TRACK_TYPE_TEXT,
           CATEGORY_EMBEDDED,

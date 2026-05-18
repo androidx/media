@@ -307,40 +307,49 @@ public final class DashMediaPeriodTest {
     ExoTrackSelection primaryTrackSelection =
         new FixedTrackSelection(dashMediaPeriod.getTrackGroups().get(0), /* track= */ 0);
 
-    List<Format> closedCaptionsFormats = List.of(
-        dashMediaPeriod.getTrackGroups().get(1).getFormat(0),
-        dashMediaPeriod.getTrackGroups().get(2).getFormat(0));
+    List<Format> closedCaptionsFormats =
+        List.of(
+            dashMediaPeriod.getTrackGroups().get(1).getFormat(0),
+            dashMediaPeriod.getTrackGroups().get(2).getFormat(0));
 
     SampleStream[] streams = new SampleStream[4];
     dashMediaPeriod.selectTracks(
-        new ExoTrackSelection[]{ primaryTrackSelection },
+        new ExoTrackSelection[] {primaryTrackSelection},
         new boolean[4],
         streams,
         new boolean[4],
-        /* positionUs= */ 0L
-    );
+        /* positionUs= */ 0L);
 
     @SuppressWarnings("unchecked")
-    ArgumentCaptor<List<Format>> closedCaptionFormatsCaptor =
-        ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<Format>> closedCaptionFormatsCaptor = ArgumentCaptor.forClass(List.class);
 
     verify(factory)
-        .createDashChunkSource(any(), any(), any(), anyInt(), any(), any(), anyInt(), anyLong(),
-            anyBoolean(), closedCaptionFormatsCaptor.capture(), any(), any(), any(), any());
+        .createDashChunkSource(
+            any(),
+            any(),
+            any(),
+            anyInt(),
+            any(),
+            any(),
+            anyInt(),
+            anyLong(),
+            anyBoolean(),
+            closedCaptionFormatsCaptor.capture(),
+            any(),
+            any(),
+            any(),
+            any());
 
     Format[] actualFormats = closedCaptionFormatsCaptor.getValue().toArray(new Format[0]);
-    assertThat(actualFormats)
-        .asList()
-        .containsExactlyElementsIn(closedCaptionsFormats)
-        .inOrder();
+    assertThat(actualFormats).asList().containsExactlyElementsIn(closedCaptionsFormats).inOrder();
   }
 
   private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest, int periodIndex) {
     return createDashMediaPeriod(manifest, mock(DashChunkSource.Factory.class), periodIndex);
   }
 
-  private static DashMediaPeriod createDashMediaPeriod(DashManifest manifest,
-      DashChunkSource.Factory chunkSourceFactory, int periodIndex) {
+  private static DashMediaPeriod createDashMediaPeriod(
+      DashManifest manifest, DashChunkSource.Factory chunkSourceFactory, int periodIndex) {
     MediaPeriodId mediaPeriodId = new MediaPeriodId(/* periodUid= */ new Object());
     when(chunkSourceFactory.getOutputTextFormat(any()))
         .then(invocation -> invocation.getArguments()[0]);
