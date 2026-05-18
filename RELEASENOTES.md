@@ -56,6 +56,8 @@
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
 *   Track selection:
 *   Extractors:
+    *   MP4: Add support for extracting ITU-T T.35 (`it35`) timed metadata
+        tracks.
     *   MP4: Add support for extracting chapter metadata (both Nero and
         QuickTime formats). QuickTime chapters are preferred if both are
         present. The extracted chapter information is exposed as `Chapter`

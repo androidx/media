@@ -1094,7 +1094,6 @@ public class Mp4MuxerEndToEndTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
-    // Dump file should have T.35 metadata track once extractor starts extracting.
     DumpFileAsserts.assertOutput(
         context,
         fakeExtractorOutput,

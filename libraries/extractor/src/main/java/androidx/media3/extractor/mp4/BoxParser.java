@@ -1343,7 +1343,7 @@ public final class BoxParser {
           || childAtomType == TYPE_text) {
         parseTextSampleEntry(
             stsd, childAtomType, childStartPosition, childAtomSize, tkhdData, language, out);
-      } else if (childAtomType == Mp4Box.TYPE_mett) {
+      } else if (childAtomType == Mp4Box.TYPE_mett || childAtomType == Mp4Box.TYPE_it35) {
         parseMetaDataSampleEntry(stsd, childAtomType, childStartPosition, tkhdData.id, out);
       } else if (childAtomType == Mp4Box.TYPE_camm) {
         out.format =
@@ -1958,6 +1958,16 @@ public final class BoxParser {
       if (mimeType != null) {
         out.format = new Format.Builder().setId(trackId).setSampleMimeType(mimeType).build();
       }
+    } else if (atomType == Mp4Box.TYPE_it35) {
+      int identifierLength = parent.readUnsignedByte();
+      byte[] identifier = new byte[identifierLength];
+      parent.readBytes(identifier, 0, identifierLength);
+      out.format =
+          new Format.Builder()
+              .setId(trackId)
+              .setSampleMimeType(MimeTypes.APPLICATION_ITUT_T35)
+              .setInitializationData(ImmutableList.of(identifier))
+              .build();
     }
   }
 

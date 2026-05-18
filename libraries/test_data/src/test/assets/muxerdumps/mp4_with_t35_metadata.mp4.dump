@@ -5,8 +5,41 @@ seekMap:
   getPosition(1) = [[timeUs=0, position=400052]]
   getPosition(522450) = [[timeUs=0, position=400052]]
   getPosition(1044900) = [[timeUs=0, position=400052]]
-numberOfTracks = 2
+numberOfTracks = 3
 track 0:
+  total output bytes = 20
+  sample count = 5
+  track duration = 500000
+  format 0:
+    averageBitrate = 320
+    id = 1
+    containerMimeType = video/mp4
+    sampleMimeType = application/x-itut-t35
+    maxInputSize = 34
+    metadata = entries=[Mp4Timestamp: creation time=1000000, modification time=5000000, timescale=10000]
+    initializationData:
+      data = length 5, hash 1B554E1
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 4, hash 1074C3
+  sample 1:
+    time = 100000
+    flags = 1
+    data = length 4, hash 1074C3
+  sample 2:
+    time = 200000
+    flags = 1
+    data = length 4, hash 1074C3
+  sample 3:
+    time = 300000
+    flags = 1
+    data = length 4, hash 1074C3
+  sample 4:
+    time = 400000
+    flags = 536870913
+    data = length 4, hash 1074C3
+track 1:
   total output bytes = 69084
   sample count = 30
   track duration = 1001000
@@ -147,7 +180,7 @@ track 0:
     time = 967633
     flags = 536870912
     data = length 61, hash 40B232C5
-track 1:
+track 2:
   total output bytes = 9312
   sample count = 45
   track duration = 1044900
