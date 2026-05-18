@@ -43,7 +43,7 @@ import androidx.media3.ui.compose.SurfaceType
 @UnstableApi
 @Composable
 fun Player(player: Player?, modifier: Modifier = Modifier) {
-  Player(player, modifier, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
+  PlayerImpl(player, modifier)
 }
 
 /**
@@ -88,6 +88,33 @@ fun Player(
   bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.BottomControls(player, showControls)
   },
+) {
+  PlayerImpl(
+    player,
+    modifier,
+    surfaceType,
+    contentScale,
+    keepContentOnReset,
+    shutter,
+    showControls,
+    topControls,
+    centerControls,
+    bottomControls,
+  )
+}
+
+@Composable
+private fun PlayerImpl(
+  player: Player?,
+  modifier: Modifier = Modifier,
+  surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
+  contentScale: ContentScale = ContentScale.Fit,
+  keepContentOnReset: Boolean = false,
+  shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
+  showControls: Boolean = false,
+  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
+  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
+  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
 ) {
   Box(modifier) {
     ContentFrame(
