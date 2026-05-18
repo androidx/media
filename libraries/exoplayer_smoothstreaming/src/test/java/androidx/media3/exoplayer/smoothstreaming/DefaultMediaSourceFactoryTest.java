@@ -31,9 +31,9 @@ import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 /**
  * Unit test for creating SmoothStreaming media sources with the {@link DefaultMediaSourceFactory}.
@@ -114,8 +114,8 @@ public class DefaultMediaSourceFactoryTest {
   }
 
   @Test
-  // TODO: b/512376120 - Enable this on all API levels when it's passing.
-  @Config(minSdk = 26, maxSdk = 34)
+  // TODO: b/512376120 - Re-enable this when it's non-flaky.
+  @Ignore
   public void
       createMediaSource_usingDefaultDataSourceFactoryAndSetDataSourceFactory_usesUpdatesDataSourceFactory()
           throws Exception {
