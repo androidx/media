@@ -16,7 +16,6 @@
 package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Build;
 import android.os.Handler;
@@ -304,7 +303,11 @@ public class FakeClock implements Clock {
       } else {
         // Make sure the current looper message is finished before handling the new message.
         waitingForMessage = true;
-        new Handler(checkNotNull(Looper.myLooper())).post(this::onMessageHandled);
+        try {
+          new Handler(currentLooper).post(() -> onMessageHandled(currentLooper));
+        } catch (IllegalStateException e) {
+          onMessageHandled(currentLooper);
+        }
       }
     }
   }
@@ -390,23 +393,30 @@ public class FakeClock implements Clock {
     }
     handlerMessages.remove(messageIndex);
     waitingForMessage = true;
-    boolean messageSent;
+    boolean messageSent = false;
     Handler realHandler = message.handler.handler;
-    if (message.runnable != null) {
-      messageSent = realHandler.post(message.runnable);
-    } else {
-      messageSent =
-          realHandler.sendMessage(
-              realHandler.obtainMessage(message.what, message.arg1, message.arg2, message.obj));
+    Looper targetLooper = message.handler.getLooper();
+    try {
+      if (message.runnable != null) {
+        messageSent = realHandler.post(message.runnable);
+      } else {
+        messageSent =
+            realHandler.sendMessage(
+                realHandler.obtainMessage(message.what, message.arg1, message.arg2, message.obj));
+      }
+      messageSent &= message.handler.internalHandler.post(() -> onMessageHandled(targetLooper));
+    } catch (IllegalStateException e) {
+      // In Robolectric PAUSED looper mode, sending a message to a Handler on a dead thread throws
+      // IllegalStateException instead of returning false.
+      messageSent = false;
     }
-    messageSent &= message.handler.internalHandler.post(this::onMessageHandled);
     if (!messageSent) {
-      onMessageHandled();
+      onMessageHandled(targetLooper);
     }
   }
 
-  private synchronized void onMessageHandled() {
-    busyLoopers.remove(Looper.myLooper());
+  private synchronized void onMessageHandled(Looper looper) {
+    busyLoopers.remove(looper);
     waitingForMessage = false;
     maybeTriggerMessage();
   }
