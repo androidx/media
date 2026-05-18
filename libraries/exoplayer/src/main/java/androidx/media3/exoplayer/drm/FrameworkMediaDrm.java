@@ -385,8 +385,12 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
    */
   @RequiresApi(31)
   private boolean isMediaDrmRequiresSecureDecoderImplemented() {
-    // TODO: b/359768062 - Add an SDK_INT guard clause once WV 16.0 is not permitted on any device.
     if (uuid.equals(C.WIDEVINE_UUID)) {
+      // All devices with SDK_INT >= 37 must have a Widevine plugin version of 17.* or higher:
+      // b/359768062#comment5
+      if (SDK_INT >= 37) {
+        return true;
+      }
       String pluginVersion = getPropertyString(MediaDrm.PROPERTY_VERSION);
       return !pluginVersion.startsWith("v5.")
           && !pluginVersion.startsWith("14.")
