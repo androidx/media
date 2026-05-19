@@ -143,10 +143,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
     if (SDK_INT >= 33) {
+      Codec.EncoderFactory strictEncoderFactory = encoderFactory;
+      if (encoderFactory instanceof DefaultEncoderFactory) {
+        strictEncoderFactory =
+            ((DefaultEncoderFactory) encoderFactory)
+                .buildUpon()
+                .setEnableFormatFallback(false)
+                .build();
+      }
       Handler playbackHandler = new Handler(playbackLooper);
       frameWriter =
           new EncoderFrameWriter(
-              encoderFactory,
+              strictEncoderFactory,
               componentListener,
               playbackHandler::post,
               playbackHandler,

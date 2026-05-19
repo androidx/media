@@ -22,6 +22,7 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
 import java.nio.ByteBuffer;
@@ -121,6 +122,17 @@ public interface Codec {
      */
     Codec createForVideoEncoding(Format format, @Nullable LogSessionId logSessionId)
         throws ExportException;
+
+    /**
+     * Returns whether the requested video {@link Format} is supported by the encoder factory.
+     *
+     * <p>This is an experimental API and is currently being used for {@code FrameWriter}
+     * specifically.
+     */
+    @ExperimentalApi // TODO: b/498176910 - Remove once FrameWriter is production ready.
+    default boolean isVideoFormatSupported(Format format) {
+      return true;
+    }
 
     /** Returns whether the audio needs to be encoded because of encoder specific configuration. */
     default boolean audioNeedsEncoding() {

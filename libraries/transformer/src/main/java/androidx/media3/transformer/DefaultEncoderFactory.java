@@ -72,6 +72,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     private boolean enableCodecDbLite;
     private boolean enableCodecDbLiteBitrate;
     private @C.Priority int codecPriority;
+    private boolean enableFormatFallback;
 
     /** Creates a new {@link Builder}. */
     public Builder(Context context) {
@@ -83,6 +84,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       enableCodecDbLite = false;
       enableCodecDbLiteBitrate = false;
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
+      enableFormatFallback = true;
     }
 
     /**
@@ -197,6 +199,21 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       return this;
     }
 
+    /**
+     * Sets whether format fallback is enabled.
+     *
+     * <p>If set to true, {@link #createForVideoEncoding} will apply format fallback logic (such as
+     * resolution downscaling) if the requested format is not directly supported. If set to false,
+     * it expects a strictly supported format, throwing an exception if unsupported.
+     *
+     * <p>The default value is {@code true}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableFormatFallback(boolean enableFormatFallback) {
+      this.enableFormatFallback = enableFormatFallback;
+      return this;
+    }
+
     /** Creates an instance of {@link DefaultEncoderFactory}, using defaults if values are unset. */
     public DefaultEncoderFactory build() {
       return new DefaultEncoderFactory(this);
@@ -211,6 +228,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final boolean enableCodecDbLite;
   private final boolean enableCodecDbLiteBitrate;
   private final @C.Priority int codecPriority;
+  private final boolean enableFormatFallback;
 
   private DefaultEncoderFactory(Builder builder) {
     this.context = builder.context;
@@ -221,6 +239,20 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     this.enableCodecDbLite = builder.enableCodecDbLite;
     this.enableCodecDbLiteBitrate = builder.enableCodecDbLiteBitrate;
     this.codecPriority = builder.codecPriority;
+    this.enableFormatFallback = builder.enableFormatFallback;
+  }
+
+  /** Returns a {@link Builder} initialized with the values of this instance. */
+  public Builder buildUpon() {
+    return new Builder(context)
+        .setVideoEncoderSelector(videoEncoderSelector)
+        .setRequestedVideoEncoderSettings(requestedVideoEncoderSettings)
+        .setRequestedAudioEncoderSettings(requestedAudioEncoderSettings)
+        .setEnableFallback(enableFallback)
+        .setEnableCodecDbLite(enableCodecDbLite)
+        .setEnableCodecDbLiteBitrate(enableCodecDbLiteBitrate)
+        .setCodecPriority(codecPriority)
+        .setEnableFormatFallback(enableFormatFallback);
   }
 
   @Override
@@ -313,6 +345,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
             requestedVideoEncoderSettings,
             videoEncoderSelector,
             enableFallback,
+            enableFormatFallback,
             enableCodecDbLite,
             enableCodecDbLiteBitrate);
 
@@ -354,8 +387,9 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     if (SDK_INT >= 31 && ColorInfo.isTransferHdr(format.colorInfo)) {
       // TODO: b/260389841 - Validate the picked encoder supports HDR editing.
-      if (EncoderUtil.getSupportedColorFormats(encoderInfo, mimeType)
-          .contains(MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010)) {
+      if (SDK_INT >= 33
+          && EncoderUtil.getSupportedColorFormats(encoderInfo, mimeType)
+              .contains(MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010)) {
         mediaFormat.setInteger(
             MediaFormat.KEY_COLOR_FORMAT,
             MediaCodecInfo.CodecCapabilities.COLOR_Format32bitABGR2101010);
@@ -447,6 +481,32 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   }
 
   @Override
+  public boolean isVideoFormatSupported(Format requestedFormat) {
+    if (requestedFormat.sampleMimeType == null
+        || !MimeTypes.isVideo(requestedFormat.sampleMimeType)
+        || requestedFormat.width <= 0
+        || requestedFormat.height <= 0
+        || requestedFormat.rotationDegrees != 0) {
+      return false;
+    }
+
+    checkNotNull(videoEncoderSelector);
+
+    @Nullable
+    VideoEncoderConfiguration encoderConfiguration =
+        resolveVideoEncoderConfiguration(
+            requestedFormat,
+            requestedVideoEncoderSettings,
+            videoEncoderSelector,
+            /* enableFallback= */ true,
+            /* enableFormatFallback= */ false,
+            enableCodecDbLite,
+            enableCodecDbLiteBitrate);
+
+    return encoderConfiguration != null;
+  }
+
+  @Override
   public boolean audioNeedsEncoding() {
     return !requestedAudioEncoderSettings.equals(AudioEncoderSettings.DEFAULT);
   }
@@ -469,6 +529,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       VideoEncoderSettings requestedVideoEncoderSettings,
       EncoderSelector encoderSelector,
       boolean enableFallback,
+      boolean enableFormatFallback,
       boolean enableCodecDbLite,
       boolean enableCodecDbLiteBitrate) {
     String mimeType = checkNotNull(requestedFormat.sampleMimeType);
@@ -491,7 +552,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
       filteredEncoderInfos =
           filterEncodersByResolution(
-              filteredEncoderInfos, mimeType, requestedFormat.width, requestedFormat.height);
+              filteredEncoderInfos,
+              mimeType,
+              requestedFormat.width,
+              requestedFormat.height,
+              enableFormatFallback);
       if (filteredEncoderInfos.isEmpty()) {
         return null;
       }
@@ -595,7 +660,11 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
   /** Returns a list of encoders that support the requested resolution most closely. */
   private static ImmutableList<MediaCodecInfo> filterEncodersByResolution(
-      List<MediaCodecInfo> encoders, String mimeType, int requestedWidth, int requestedHeight) {
+      List<MediaCodecInfo> encoders,
+      String mimeType,
+      int requestedWidth,
+      int requestedHeight,
+      boolean enableFormatFallback) {
     // TODO: b/267740292 - Investigate the fallback logic that might prefer software encoders.
     return filterEncoders(
         encoders,
@@ -608,9 +677,19 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
             // Drops encoder.
             return Integer.MAX_VALUE;
           }
-          return abs(
-              requestedWidth * requestedHeight
-                  - closestSupportedResolution.getWidth() * closestSupportedResolution.getHeight());
+          if (enableFormatFallback) {
+            // If fallback is enabled, find the closest resolution based on area.
+            return abs(
+                requestedWidth * requestedHeight
+                    - closestSupportedResolution.getWidth()
+                        * closestSupportedResolution.getHeight());
+          } else {
+            // If fallback is disabled, only accept exact resolution matches.
+            return (closestSupportedResolution.getWidth() == requestedWidth
+                    && closestSupportedResolution.getHeight() == requestedHeight)
+                ? 0
+                : Integer.MAX_VALUE;
+          }
         });
   }
 

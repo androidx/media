@@ -101,10 +101,7 @@ public class EncoderFrameWriter implements FrameWriter {
 
   @Override
   public Info getInfo() {
-    return (format, usage) -> {
-      // TODO: b/505290710 - Expose the actual encoder format checks.
-      return true;
-    };
+    return (format, usage) -> encoderFactory.isVideoFormatSupported(format);
   }
 
   @SuppressLint("WrongConstant") // Using usage as @Usage constant.

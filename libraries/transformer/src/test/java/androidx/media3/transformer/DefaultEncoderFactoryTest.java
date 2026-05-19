@@ -18,6 +18,9 @@ package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+import static androidx.media3.common.C.COLOR_RANGE_FULL;
+import static androidx.media3.common.C.COLOR_SPACE_BT2020;
+import static androidx.media3.common.C.COLOR_TRANSFER_ST2084;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -28,6 +31,7 @@ import android.content.Context;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -699,6 +703,130 @@ public class DefaultEncoderFactoryTest {
     assertThat(inputFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
     assertThat(configurationFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
     assertThat(outputFormat.sampleRate).isEqualTo(highestSupportedSampleRate);
+  }
+
+  @Test
+  public void isVideoFormatSupported_withAudioMimeType_returnsFalse() {
+    Format audioFormat = createAudioFormat(MimeTypes.AUDIO_AAC, 44100);
+    DefaultEncoderFactory encoderFactory = new DefaultEncoderFactory.Builder(context).build();
+
+    assertThat(encoderFactory.isVideoFormatSupported(audioFormat)).isFalse();
+  }
+
+  @Test
+  public void isVideoFormatSupported_withRotationDegrees_returnsFalse() {
+    Format rotatedFormat =
+        createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30)
+            .buildUpon()
+            .setRotationDegrees(90)
+            .build();
+    DefaultEncoderFactory encoderFactory = new DefaultEncoderFactory.Builder(context).build();
+
+    assertThat(encoderFactory.isVideoFormatSupported(rotatedFormat)).isFalse();
+  }
+
+  @Test
+  public void isVideoFormatSupported_withUnsupportedResolution_returnsFalse() {
+    // 3840x2160 is unsupported by the shadow H.264 encoder (Level 4).
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 3840, 2160, 30);
+    DefaultEncoderFactory encoderFactory = new DefaultEncoderFactory.Builder(context).build();
+
+    assertThat(encoderFactory.isVideoFormatSupported(requestedVideoFormat)).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void isVideoFormatSupported_withUnsupportedHdr_returnsFalse() {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(COLOR_SPACE_BT2020)
+            .setColorTransfer(COLOR_TRANSFER_ST2084)
+            .build();
+    Format hdrFormat =
+        createVideoFormat(MimeTypes.VIDEO_H265, 1920, 1080, 30)
+            .buildUpon()
+            .setColorInfo(hdrColorInfo)
+            .build();
+    DefaultEncoderFactory encoderFactory = new DefaultEncoderFactory.Builder(context).build();
+
+    assertThat(encoderFactory.isVideoFormatSupported(hdrFormat)).isFalse();
+  }
+
+  @Test
+  public void createForVideoEncoding_withCheckedSupportedFormat_createsCodec() throws Exception {
+    // 1920x1080 is a broadly supported resolution for H.264
+    Format supportedFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+    DefaultEncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context).setEnableFormatFallback(false).build();
+
+    Codec codec = encoderFactory.createForVideoEncoding(supportedFormat, /* logSessionId= */ null);
+
+    // Verification that the codec is created successfully and maintains the exact format
+    assertThat(codec).isNotNull();
+    assertThat(codec.getConfigurationFormat().width).isEqualTo(1920);
+    assertThat(codec.getConfigurationFormat().height).isEqualTo(1080);
+  }
+
+  @Test
+  public void createForVideoEncoding_withCheckedFormat_throwsOnUnsupportedResolution() {
+    // 3840x2160 is unsupported by the shadow H.264 encoder (Level 4).
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 3840, 2160, 30);
+    DefaultEncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context).setEnableFormatFallback(false).build();
+
+    // Because fallback is disabled, creating the encoder with an unsupported format must fail.
+    ExportException exception =
+        assertThrows(
+            ExportException.class,
+            () ->
+                encoderFactory.createForVideoEncoding(
+                    requestedVideoFormat, /* logSessionId= */ null));
+    assertThat(exception.errorCode)
+        .isEqualTo(ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  @Config(sdk = 32)
+  public void createForVideoEncoding_withCheckedFormatAndHdrOnApi32_throwsOnUnsupportedHdr() {
+    ColorInfo hdrColorInfo =
+        new ColorInfo.Builder()
+            .setColorSpace(COLOR_SPACE_BT2020)
+            .setColorTransfer(COLOR_TRANSFER_ST2084)
+            .setColorRange(COLOR_RANGE_FULL)
+            .build();
+    Format hdrFormat =
+        createVideoFormat(MimeTypes.VIDEO_H265, 1920, 1080, 30)
+            .buildUpon()
+            .setColorInfo(hdrColorInfo)
+            .build();
+    DefaultEncoderFactory encoderFactory =
+        new DefaultEncoderFactory.Builder(context).setEnableFormatFallback(false).build();
+
+    // Because fallback is disabled, creating the encoder with an unsupported HDR format must fail
+    ExportException exception =
+        assertThrows(
+            ExportException.class,
+            () -> encoderFactory.createForVideoEncoding(hdrFormat, /* logSessionId= */ null));
+    assertThat(exception.errorCode)
+        .isEqualTo(ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
+  }
+
+  @Test
+  public void buildUpon_retainsEnableFormatFallbackState() {
+    // 3840x2160 is unsupported by the shadow H.264 encoder (Level 4).
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 3840, 2160, 30);
+    DefaultEncoderFactory originalFactory =
+        new DefaultEncoderFactory.Builder(context).setEnableFormatFallback(false).build();
+    DefaultEncoderFactory clonedFactory = originalFactory.buildUpon().build();
+
+    ExportException exception =
+        assertThrows(
+            ExportException.class,
+            () ->
+                clonedFactory.createForVideoEncoding(
+                    requestedVideoFormat, /* logSessionId= */ null));
+    assertThat(exception.errorCode)
+        .isEqualTo(ExportException.ERROR_CODE_ENCODING_FORMAT_UNSUPPORTED);
   }
 
   private static Format createVideoFormat(String mimeType, int width, int height, int frameRate) {
