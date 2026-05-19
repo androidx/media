@@ -29,10 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
@@ -65,10 +69,7 @@ class PlayerTest {
     )
 
   private fun findBottomControls() =
-    composeTestRule.onNode(
-      hasContentDescription(context.getString(R.string.shuffle_button_shuffle_on)) or
-        hasContentDescription(context.getString(R.string.shuffle_button_shuffle_off))
-    )
+    composeTestRule.onAllNodesWithText("00:00", useUnmergedTree = true)
 
   @Test
   fun player_controlsVisible() {
@@ -76,7 +77,9 @@ class PlayerTest {
 
     findTopControls().assertIsDisplayed()
     findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
+    findBottomControls().assertCountEquals(2)
+    findBottomControls().onFirst().assertIsDisplayed()
+    findBottomControls().onLast().assertIsDisplayed()
   }
 
   @Test
@@ -85,7 +88,7 @@ class PlayerTest {
 
     findTopControls().assertDoesNotExist()
     findCenterControls().assertDoesNotExist()
-    findBottomControls().assertDoesNotExist()
+    findBottomControls().assertCountEquals(0)
   }
 
   @Test
@@ -98,16 +101,17 @@ class PlayerTest {
         modifier = Modifier.testTag(playerTestTag).clickable { showControls = !showControls },
       )
     }
-    composeTestRule.mainClock.advanceTimeBy(3100)
     findTopControls().assertDoesNotExist()
     findCenterControls().assertDoesNotExist()
-    findBottomControls().assertDoesNotExist()
+    findBottomControls().assertCountEquals(0)
 
     composeTestRule.onNodeWithTag(playerTestTag).performClick()
 
     findTopControls().assertIsDisplayed()
     findCenterControls().assertIsDisplayed()
-    findBottomControls().assertIsDisplayed()
+    findBottomControls().assertCountEquals(2)
+    findBottomControls().onFirst().assertIsDisplayed()
+    findBottomControls().onLast().assertIsDisplayed()
   }
 
   @Test

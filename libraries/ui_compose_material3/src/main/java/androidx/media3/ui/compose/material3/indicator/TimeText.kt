@@ -168,7 +168,14 @@ private fun TimeText(
 
       else -> throw IllegalStateException("Unrecognized TimeFormat ${timeFormat.format}")
     }
-  Text(text, modifier, color = color, style = TextStyle(fontFeatureSettings = "tnum"))
+  Text(
+    text,
+    modifier,
+    color = color,
+    maxLines = 1,
+    softWrap = false,
+    style = TextStyle(fontFeatureSettings = "tnum"),
+  )
 }
 
 /**

@@ -25,6 +25,7 @@ internal object PlayerTokens {
   val CenterControlsButtonSize = 50.dp
   val CenterControlsSpacing = 10.dp
   val ControlsHorizontalPadding = 15.dp
+  val BottomControlsHorizontalPadding = 8.dp
 
   val bottomControlsGradient: Brush
     @Composable

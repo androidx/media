@@ -18,15 +18,9 @@ package androidx.media3.demo.compose.layout
 
 import android.content.Context
 import android.os.Build
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -36,9 +30,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,8 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -75,7 +69,7 @@ import androidx.media3.demo.compose.text.SeekOverlay
 import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
-import androidx.media3.ui.compose.material3.indicator.PositionAndDurationText
+import androidx.media3.ui.compose.material3.PlayerDefaults
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
@@ -118,7 +112,9 @@ fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modi
     }
   }
 
-  MainScreen(player, modifier = modifier.fillMaxSize())
+  CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
+    MainScreen(player, modifier = modifier.fillMaxSize())
+  }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -203,20 +199,24 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
       bottomControls = { player, showControls ->
-        BottomControlsWithLabeledProgress(
+        PlayerDefaults.BottomControls(
           player,
           showControls,
           modifier =
-            Modifier.fillMaxWidth()
-              .background(
-                brush =
-                  Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background)
-                  )
-              )
-              .padding(horizontal = 15.dp)
-              .onSizeChanged { bottomControlsHeight = with(density) { it.height.toDp() } },
-          onSettingsClick = { showSettings = true },
+            Modifier.fillMaxWidth().navigationBarsPadding().onSizeChanged {
+              bottomControlsHeight = with(density) { it.height.toDp() }
+            },
+          above = {
+            SettingsButton(
+              Modifier.align(Alignment.End),
+              onSettingsClick = { showSettings = true },
+              colors =
+                IconButtonDefaults.iconButtonColors(
+                  contentColor = MaterialTheme.colorScheme.primary
+                ),
+            )
+          },
+          progressSlider = { LabeledProgressSlider(it) },
         )
       },
     )
@@ -243,8 +243,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
           .background(
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
             shape = RoundedCornerShape(4.dp),
-          )
-          .padding(4.dp),
+          ),
       )
     }
     if (showCurrentMediaItemInfo) {
@@ -288,34 +287,6 @@ private fun PlaylistButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
 @Composable
 private fun PlayingNowButton(visible: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
   Button(onClick, modifier) { Text("Playing\nNow" + if (visible) " <<" else " >>") }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BottomControlsWithLabeledProgress(
-  player: Player?,
-  showControls: Boolean,
-  modifier: Modifier = Modifier,
-  onSettingsClick: () -> Unit,
-) {
-  AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
-    Column(modifier) {
-      LabeledProgressSlider(player)
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        PositionAndDurationText(player, color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.weight(1f))
-        SettingsButton(
-          onSettingsClick = onSettingsClick,
-          colors =
-            IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary),
-        )
-      }
-    }
-  }
 }
 
 private fun initializePlayer(
