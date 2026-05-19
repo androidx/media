@@ -568,8 +568,7 @@ public final class AdaptiveTrackSelectionTest {
   }
 
   @Test
-  public void
-      updateSelectedTrack_withCustomFormatOrder_defersSwitchDownWhenBufferedEnough() {
+  public void updateSelectedTrack_withCustomFormatOrder_defersSwitchDownWhenBufferedEnough() {
     Format format1 = videoFormat(/* bitrate= */ 500, /* width= */ 320, /* height= */ 240);
     Format format2 = videoFormat(/* bitrate= */ 1000, /* width= */ 640, /* height= */ 480);
     Format format3 = videoFormat(/* bitrate= */ 2000, /* width= */ 960, /* height= */ 720);

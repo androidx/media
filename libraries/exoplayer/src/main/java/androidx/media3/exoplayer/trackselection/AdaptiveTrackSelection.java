@@ -234,8 +234,8 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
     }
 
     /**
-     * Sets the comparator used to order formats in adaptive track selections.
-     * The comparator order controls which formats are considered first during adaptation.
+     * Sets the comparator used to order formats in adaptive track selections. The comparator order
+     * controls which formats are considered first during adaptation.
      *
      * @param trackFormatComparator Comparator used to order selected formats.
      * @return This factory, for convenience.
