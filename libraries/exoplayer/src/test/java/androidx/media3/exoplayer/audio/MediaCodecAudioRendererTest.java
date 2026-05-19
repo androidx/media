@@ -627,6 +627,7 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
+  @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_withOffloadConfiguredWithoutOffloadSupport_setsOffloadModeDisabled()
       throws Exception {
     when(audioSink.getFormatOffloadSupport(AUDIO_AAC))
@@ -665,6 +666,7 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
+  @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_withOffloadConfiguredWithoutGaplessOffloadSupport_setsOffloadModeDisabled()
       throws Exception {
     when(audioSink.getFormatOffloadSupport(AUDIO_AAC))
@@ -703,6 +705,7 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
+  @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_replaceStreamWithOffloadSupport_setsOffloadModeEnabled() throws Exception {
     when(audioSink.getFormatOffloadSupport(any()))
         .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED);
@@ -765,6 +768,7 @@ public class MediaCodecAudioRendererTest {
   }
 
   @Test
+  @Config(minSdk = 29) // Audio offload is only supported on API 29+.
   public void render_replaceStreamWithoutGaplessSupport_setsOffloadModeDisabled() throws Exception {
     when(audioSink.getFormatOffloadSupport(any()))
         .thenReturn(AUDIO_OFFLOAD_SUPPORTED_GAPLESS_NOT_SUPPORTED);

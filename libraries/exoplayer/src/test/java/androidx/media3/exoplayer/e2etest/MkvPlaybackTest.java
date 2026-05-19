@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
@@ -35,29 +36,30 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 
 /** End-to-end tests using MKV samples. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class MkvPlaybackTest {
   @Parameters(name = "{0}")
-  public static ImmutableList<String> mediaSamples() {
+  public static ImmutableList<Sample> mediaSamples() {
     return ImmutableList.of(
-        "sample.mkv",
-        "sample_with_htc_rotation_track_name.mkv",
-        "sample_with_pgs_subtitles.mkv",
-        "sample_with_ssa_subtitles.mkv",
-        "sample_with_null_terminated_ssa_subtitles.mkv",
-        "sample_with_overlapping_ssa_subtitles.mkv",
-        "sample_with_srt.mkv",
-        "sample_with_null_terminated_srt.mkv",
-        "sample_with_overlapping_srt.mkv",
-        "sample_with_vtt_subtitles.mkv",
-        "sample_with_null_terminated_vtt_subtitles.mkv",
-        "sample_with_vobsub.mkv");
+        Sample.forFile("sample.mkv"),
+        Sample.forFile("sample_with_htc_rotation_track_name.mkv"),
+        Sample.withBitmapSubtitles("sample_with_pgs_subtitles.mkv"),
+        Sample.forFile("sample_with_ssa_subtitles.mkv"),
+        Sample.forFile("sample_with_null_terminated_ssa_subtitles.mkv"),
+        Sample.forFile("sample_with_overlapping_ssa_subtitles.mkv"),
+        Sample.forFile("sample_with_srt.mkv"),
+        Sample.forFile("sample_with_null_terminated_srt.mkv"),
+        Sample.forFile("sample_with_overlapping_srt.mkv"),
+        Sample.forFile("sample_with_vtt_subtitles.mkv"),
+        Sample.forFile("sample_with_null_terminated_vtt_subtitles.mkv"),
+        Sample.withBitmapSubtitles("sample_with_vobsub.mkv"));
   }
 
-  @ParameterizedRobolectricTestRunner.Parameter public String inputFile;
+  @Parameter public Sample sample;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -79,7 +81,7 @@ public final class MkvPlaybackTest {
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
-    player.setMediaItem(MediaItem.fromUri("asset:///media/mkv/" + inputFile));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mkv/" + sample.filename));
     player.prepare();
     advance(player).untilState(Player.STATE_READY);
     player.play();
@@ -87,7 +89,33 @@ public final class MkvPlaybackTest {
     player.release();
     surface.release();
 
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/mkv/" + inputFile + ".dump");
+    if (SDK_INT >= 26 || !sample.hasBitmapSubtitles) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/mkv/" + sample.filename + ".dump");
+    }
+  }
+
+  private static final class Sample {
+    private final String filename;
+    private final boolean hasBitmapSubtitles;
+
+    private Sample(String filename, boolean hasBitmapSubtitles) {
+      this.filename = filename;
+      this.hasBitmapSubtitles = hasBitmapSubtitles;
+    }
+
+    private static Sample forFile(String filename) {
+      return new Sample(filename, /* hasBitmapSubtitles= */ false);
+    }
+
+    private static Sample withBitmapSubtitles(String filename) {
+      return new Sample(filename, /* hasBitmapSubtitles= */ true);
+    }
+
+    @Override
+    public String toString() {
+      return filename;
+    }
   }
 }

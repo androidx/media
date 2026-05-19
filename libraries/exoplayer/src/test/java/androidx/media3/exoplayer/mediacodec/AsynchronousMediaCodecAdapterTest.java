@@ -19,7 +19,6 @@ package androidx.media3.exoplayer.mediacodec;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
@@ -37,12 +36,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link AsynchronousMediaCodecAdapter}. */
-// TODO: b/507008072 - Remove this when it's the default for the whole module
-@Config(sdk = ALL_SDKS)
 @RunWith(AndroidJUnit4.class)
 public class AsynchronousMediaCodecAdapterTest {
   private AsynchronousMediaCodecAdapter adapter;

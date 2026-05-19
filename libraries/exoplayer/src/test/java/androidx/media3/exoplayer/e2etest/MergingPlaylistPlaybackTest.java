@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.annotation.Config.NEWEST_SDK;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -48,8 +49,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests for playlists with merged media. */
+@Config(sdk = NEWEST_SDK) // This test is too slow to run on all SDKs.
 @RunWith(ParameterizedRobolectricTestRunner.class)
 public final class MergingPlaylistPlaybackTest {
 

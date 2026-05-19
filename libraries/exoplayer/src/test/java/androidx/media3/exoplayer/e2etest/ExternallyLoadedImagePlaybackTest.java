@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -108,8 +109,12 @@ public final class ExternallyLoadedImagePlaybackTest {
 
     assertThat(externalLoaderUris).containsExactly(uri);
     assertThat(playbackDurationMs).isAtLeast(durationMs);
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE_1 + ".dump");
+
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE_1 + ".dump");
+    }
   }
 
   @Test
@@ -243,8 +248,11 @@ public final class ExternallyLoadedImagePlaybackTest {
     player.release();
 
     assertThat(playbackDurationMs).isAtLeast(durationMs1 + durationMs2);
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/two_images_with_seek.dump");
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.)
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/two_images_with_seek.dump");
+    }
   }
 
   private static Bitmap decode(Uri uri) throws ImageDecoderException {

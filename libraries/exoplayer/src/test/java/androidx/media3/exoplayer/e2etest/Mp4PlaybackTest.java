@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
@@ -72,7 +73,7 @@ public class Mp4PlaybackTest {
         Sample.forFile("sample_alac.mp4"),
         Sample.forFile("sample_fpcm_64le.mp4"),
         Sample.forFile("sample_partially_fragmented.mp4"),
-        Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
+        Sample.withBitmapSubtitles("sample_with_vobsub.mp4", "eng"),
         Sample.forFile("testvid_1022ms.mp4"),
         Sample.forFile("sample_edit_list.mp4"),
         Sample.forFile("sample_edit_list_no_sync_frame_before_edit.mp4"),
@@ -114,25 +115,35 @@ public class Mp4PlaybackTest {
     player.release();
     surface.release();
 
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/mp4/" + sample.filename + ".dump");
+    if (SDK_INT >= 26 || !sample.hasBitmapSubtitles) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/mp4/" + sample.filename + ".dump");
+    }
   }
 
   private static final class Sample {
-    public final String filename;
-    @Nullable public final String subtitleLanguageToSelect;
+    private final String filename;
+    @Nullable private final String subtitleLanguageToSelect;
+    private final boolean hasBitmapSubtitles;
 
-    private Sample(String filename, @Nullable String subtitleLanguageToSelect) {
+    private Sample(
+        String filename, @Nullable String subtitleLanguageToSelect, boolean hasBitmapSubtitles) {
       this.filename = filename;
       this.subtitleLanguageToSelect = subtitleLanguageToSelect;
+      this.hasBitmapSubtitles = hasBitmapSubtitles;
     }
 
-    public static Sample forFile(String filename) {
-      return new Sample(filename, /* subtitleLanguageToSelect= */ null);
+    private static Sample forFile(String filename) {
+      return new Sample(
+          filename, /* subtitleLanguageToSelect= */ null, /* hasBitmapSubtitles= */ false);
     }
 
-    public static Sample withSubtitles(String filename, String subtitleLanguageToSelect) {
-      return new Sample(filename, /* subtitleLanguageToSelect= */ subtitleLanguageToSelect);
+    private static Sample withBitmapSubtitles(String filename, String subtitleLanguageToSelect) {
+      return new Sample(
+          filename,
+          /* subtitleLanguageToSelect= */ subtitleLanguageToSelect,
+          /* hasBitmapSubtitles= */ true);
     }
 
     @Override

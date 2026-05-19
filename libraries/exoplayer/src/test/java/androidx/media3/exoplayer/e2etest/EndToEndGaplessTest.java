@@ -40,11 +40,14 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowAudioTrack;
 import org.robolectric.shadows.ShadowMediaCodec;
 
 /** End to end playback test for gapless audio playbacks. */
+// TODO: b/511065294 - Run this on more APIs when RandomizedMp3Decoder supports them.
 @RunWith(AndroidJUnit4.class)
+@Config(minSdk = 29)
 public class EndToEndGaplessTest {
   private static final int CODEC_INPUT_BUFFER_SIZE = 5120;
   private static final int CODEC_OUTPUT_BUFFER_SIZE = 5120;

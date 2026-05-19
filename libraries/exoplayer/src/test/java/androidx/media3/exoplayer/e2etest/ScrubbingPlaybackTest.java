@@ -52,7 +52,6 @@ import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
 /** End-to-end playback tests using scrubbing mode. */
-@Config(minSdk = 31)
 @RunWith(AndroidJUnit4.class)
 public class ScrubbingPlaybackTest {
   private static final String TEST_BEAR_URI = "asset:///media/vp9/bear-vp9.webm";
@@ -63,6 +62,8 @@ public class ScrubbingPlaybackTest {
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
+  // TODO: b/511055213 - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void scrubbingPlayback_withSkipMediaCodecFlushingEnabled_dumpsCorrectOutput()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
@@ -114,6 +115,8 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
+  // TODO: b/511055213 - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void
       scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndDecodeOnlyFlagDisabledAndSeekBackwards_dumpsCorrectOutput()
           throws Exception {
@@ -164,6 +167,8 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
+  // TODO: b/511055213 - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void
       scrubbingPlayback_withSkipMediaCodecFlushingEnabledAndDecodeOnlyFlagDisabledAndSeekToBufferInCodec_dumpsCorrectOutput()
           throws Exception {
@@ -216,6 +221,8 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
+  // TODO: ibaker - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void
       scrubbingPlayback_withSkipMediaCodecFlushingAndKeyFrameResetDisabled_dumpsCorrectOutput()
           throws Exception {
@@ -378,6 +385,8 @@ public class ScrubbingPlaybackTest {
   }
 
   @Test
+  // TODO: b/511055213 - Run this on API < 31 when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void
       scrubbingPlayback_withSkipKeyFrameResetEnabledAndDecodeOnlyFlagDisabledAndDifferentSyncPoint_dumpsCorrectOutput()
           throws Exception {

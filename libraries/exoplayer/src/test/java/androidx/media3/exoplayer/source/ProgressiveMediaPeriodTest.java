@@ -50,6 +50,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** Unit test for {@link ProgressiveMediaPeriod}. */
 @RunWith(AndroidJUnit4.class)
@@ -72,6 +73,8 @@ public final class ProgressiveMediaPeriodTest {
   }
 
   @Test
+  // TODO: b/510747371 - Enable this on API 34+ when ShadowMediaParser is fixed.
+  @Config(minSdk = 30, maxSdk = 33) // MediaParser is only available on API 30+.
   public void prepareUsingMediaParser_updatesSourceInfoBeforeOnPreparedCallback()
       throws TimeoutException {
     MediaParserExtractorAdapter extractor =

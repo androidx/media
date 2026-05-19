@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.AUDIO_AC4;
 import static androidx.media3.common.MimeTypes.AUDIO_E_AC3;
@@ -33,6 +34,7 @@ import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_FLUSH;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITH_RECONFIGURATION;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -469,6 +471,8 @@ public final class MediaCodecInfoTest {
 
   @Test
   public void isFormatSupported_ac4Profile00InAutomotiveContext_returnsFalse() throws Exception {
+    // TODO: b/511135499 - Run this on all API levels when AAC automotive checks work.
+    assumeTrue(SDK_INT < 26 || SDK_INT > 28);
     Context context = ApplicationProvider.getApplicationContext();
     ShadowPackageManager shadowPackageManager = Shadows.shadowOf(context.getPackageManager());
 
@@ -492,6 +496,8 @@ public final class MediaCodecInfoTest {
 
   @Test
   public void isFormatSupported_ac4Profile21InAutomotiveContext_returnsTrue() throws Exception {
+    // TODO: b/511135499 - Run this on all API levels when AAC automotive checks work.
+    assumeTrue(SDK_INT < 26 || SDK_INT > 28);
     Context context = ApplicationProvider.getApplicationContext();
     ShadowPackageManager shadowPackageManager = Shadows.shadowOf(context.getPackageManager());
 

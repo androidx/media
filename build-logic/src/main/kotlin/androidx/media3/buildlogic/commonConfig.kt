@@ -74,7 +74,7 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
 
     testOptions.apply {
       unitTests.all {
-        it.jvmArgs("-Xmx2g")
+        it.jvmArgs("-Xmx4g")
         it.systemProperty("robolectric.graphicsMode", "NATIVE")
       }
       unitTests.isIncludeAndroidResources = true

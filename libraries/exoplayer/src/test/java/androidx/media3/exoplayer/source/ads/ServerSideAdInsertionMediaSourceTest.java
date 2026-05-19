@@ -100,6 +100,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.annotation.Config;
 
 /** Unit test for {@link ServerSideAdInsertionMediaSource}. */
 @RunWith(AndroidJUnit4.class)
@@ -557,6 +558,7 @@ public final class ServerSideAdInsertionMediaSourceTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void playbackWithAdditionalAdsInAdGroup_playsSuccessfulWithoutRendererResets()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();

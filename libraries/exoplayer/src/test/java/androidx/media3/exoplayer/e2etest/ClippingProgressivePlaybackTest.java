@@ -57,8 +57,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with progressive media. */
+// TODO: b/511055213 - Fails on API < 31 due to sync vs async MediaCodec behavior differences in
+// Robolectric.
+@Config(minSdk = 31)
 @RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingProgressivePlaybackTest {
 

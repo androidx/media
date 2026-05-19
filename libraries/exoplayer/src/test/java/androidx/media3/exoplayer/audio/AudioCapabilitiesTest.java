@@ -406,6 +406,7 @@ public class AudioCapabilitiesTest {
   }
 
   @Test
+  @Config(maxSdk = 32) // TODO: b/510749157 - Investigate missing channelMasks on API 33+
   public void getCapabilities_noExternalOutputs_notTvNorAutomotive_returnsDefaultCapabilities() {
     AudioCapabilities audioCapabilities =
         AudioCapabilities.getCapabilities(

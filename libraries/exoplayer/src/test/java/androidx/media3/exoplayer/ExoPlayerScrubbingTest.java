@@ -756,6 +756,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 29) // TODO: b/511134574 - Get this test passing on all API levels.
   public void operatingRateOverride_propagatedToMediaCodec() throws Exception {
     AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
     DefaultRenderersFactory renderersFactory =
@@ -862,6 +863,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 31) // Relies on async MediaCodec mode, which is only the default on API 31+.
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
@@ -928,6 +930,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);

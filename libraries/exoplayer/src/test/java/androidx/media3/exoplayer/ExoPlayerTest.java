@@ -13572,6 +13572,8 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  // AudioTrackAudioOutputProvider.Builder.setAudioTrackBuilderModifier requires API 24.
+  @Config(minSdk = 24)
   public void audioSessionIdChangeInTheAudioSink_propagatesToRenderersAndListener()
       throws Exception {
     AtomicInteger lastConfiguredAudioSessionIdOnVideoRenderer = new AtomicInteger();
@@ -13919,6 +13921,8 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  // AudioTrackAudioOutputProvider.Builder.setAudioTrackBuilderModifier requires API 24.
+  @Config(minSdk = 24)
   public void audioSessionIdChangeInDefaultAudioSinkAndPlayer_onlyCreatesAudioTrackOnce()
       throws Exception {
     AtomicInteger audioTrackCreateCount = new AtomicInteger();
@@ -14399,6 +14403,8 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  // AudioTrackAudioOutputProvider.Builder.setAudioTrackBuilderModifier requires API 24.
+  @Config(minSdk = 24)
   public void setAudioOutputProvider_forwardsProviderToAudioSink() throws Exception {
     // Create an AudioOutputProvider that ignores the player-provided audio
     // session ID and always sets up playback with its own custom ID.

@@ -34,12 +34,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /**
  * Unit tests for {@link BitmapFactoryImageDecoder} ensuring the buffer queue system operates
  * correctly.
  */
 @RunWith(AndroidJUnit4.class)
+@Config(minSdk = 26) // TODO: b/512422441 - Enable this on more API levels.
 public class BitmapFactoryImageDecoderBufferQueueTest {
 
   private static final long TIMEOUT_MS = 5 * C.MICROS_PER_SECOND;

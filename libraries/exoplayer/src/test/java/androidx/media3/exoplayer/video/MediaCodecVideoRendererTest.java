@@ -433,6 +433,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void isReady_withoutSurfaceAfterSkippingLateBuffer_returnsFalse() throws Exception {
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
@@ -506,6 +507,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void isReady_withoutSurfaceAfterDroppingDueToVeryLateBuffer_returnsFalse()
       throws Exception {
     mediaCodecVideoRenderer =
@@ -3069,6 +3071,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void render_afterSeekWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
       throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
@@ -3136,6 +3139,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       render_afterSeekBackwardsWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
           throws Exception {
@@ -3202,6 +3206,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       render_afterSeekBackwardsWithFlushingAndDecodeOnlyFlagDisabledToSamePresentationTimeUs_rendersFramesAsExpected()
           throws Exception {
@@ -3344,6 +3349,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       render_afterSeekBackwardsTwiceWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
           throws Exception {
@@ -3556,6 +3562,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void render_afterSeekToEoSWithFlushingAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
       throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
@@ -3785,6 +3792,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       render_afterSeekWithFlushingDisabledAndSkippedFlushOffsetOverflowAndDecodeOnlyFlagDisabled_rendersFramesAsExpected()
           throws Exception {
@@ -3876,6 +3884,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       render_afterSeekWithFlushingAndDecodeOnlyFlagDisabledAndLastSampleFlushResetsSkippedFlushOffset_rendersFramesAsExpected()
           throws Exception {
@@ -4584,6 +4593,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       supportsResetPositionWithoutKeyFrameReset_afterDroppingDueToVeryLateBufferWithPrecedingPosition_returnsFalse()
           throws Exception {
@@ -4639,6 +4649,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void
       supportsResetPositionWithoutKeyFrameReset_afterDroppingDueToVeryLateBufferWithLaterPosition_returnsTrue()
           throws Exception {
@@ -5201,6 +5212,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 26) // TODO: b/511183087 - Enable this on API < 26 or remove this TODO.
   public void supportsFormat_withDolbyVision_setsDecoderSupportFlagsByDisplayDolbyVisionSupport()
       throws Exception {
     Format formatDvheDtr =
@@ -6386,6 +6398,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when timeout is fixed.
   public void
       getDurationToProgressUs_withDropToKeyFrameWithoutOutputSurface_returnsDefaultDuration()
           throws Exception {
@@ -6442,6 +6455,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
   public void getDurationToProgressUs_withDropToKeyFrame_returnsDefaultDuration() throws Exception {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(

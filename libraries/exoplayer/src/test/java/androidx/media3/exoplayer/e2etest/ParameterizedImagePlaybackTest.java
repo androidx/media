@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -40,9 +42,11 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
+import org.robolectric.annotation.Config;
 
 /** Parameterized end-to-end tests using image samples. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
+@Config(minSdk = 26) // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
 public class ParameterizedImagePlaybackTest {
   @Parameter public Set<String> inputFiles;
 
@@ -66,6 +70,8 @@ public class ParameterizedImagePlaybackTest {
 
   @Test
   public void test() throws Exception {
+    // TODO: b/511082123 - Remove this when Robolectric can decode AVIF on API 33+.
+    assumeTrue(SDK_INT < 33 || !inputFiles.contains("avif/white-1x1.avif"));
     Context applicationContext = ApplicationProvider.getApplicationContext();
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player = new ExoPlayer.Builder(applicationContext).setClock(clock).build();

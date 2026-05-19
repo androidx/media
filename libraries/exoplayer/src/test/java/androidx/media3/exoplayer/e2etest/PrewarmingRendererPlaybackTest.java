@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 
 /** End-to-end playback tests using secondary renderers. */
 @RunWith(AndroidJUnit4.class)
@@ -135,6 +136,8 @@ public class PrewarmingRendererPlaybackTest {
   }
 
   @Test
+  // TODO: b/511055213 - Run this on all API levels when Robolectric behaviour is fixed.
+  @Config(minSdk = 31)
   public void playback_withStopDuringPlaybackWithSecondaryVideoRenderer_dumpsCorrectOutput()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();

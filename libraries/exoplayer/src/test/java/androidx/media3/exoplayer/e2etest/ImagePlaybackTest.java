@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
@@ -62,7 +63,10 @@ public class ImagePlaybackTest {
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
-    DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/image/image_playlist_with_seek.dump");
+    if (SDK_INT >= 26) {
+      // Bitmap decoding produces different hashes on earlier Robolectric SDKs.
+      DumpFileAsserts.assertOutput(
+          applicationContext, playbackOutput, "playbackdumps/image/image_playlist_with_seek.dump");
+    }
   }
 }
