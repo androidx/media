@@ -50,6 +50,7 @@ import androidx.media3.test.utils.MediaPeriodAsserts;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -307,19 +308,22 @@ public final class DashMediaPeriodTest {
     ExoTrackSelection primaryTrackSelection =
         new FixedTrackSelection(dashMediaPeriod.getTrackGroups().get(0), /* track= */ 0);
 
-    List<Format> closedCaptionsFormats =
-        List.of(
+    ImmutableList<Format> closedCaptionsFormats =
+        ImmutableList.of(
             dashMediaPeriod.getTrackGroups().get(1).getFormat(0),
             dashMediaPeriod.getTrackGroups().get(2).getFormat(0));
 
     SampleStream[] streams = new SampleStream[4];
-    dashMediaPeriod.selectTracks(
-        new ExoTrackSelection[] {primaryTrackSelection},
-        new boolean[4],
-        streams,
-        new boolean[4],
-        /* positionUs= */ 0L);
+    long unused =
+        dashMediaPeriod.selectTracks(
+            new ExoTrackSelection[] {primaryTrackSelection},
+            new boolean[4],
+            streams,
+            new boolean[4],
+            /* positionUs= */ 0L);
 
+    // Mockito's ArgumentCaptor.forClass(List.class) cannot preserve the generic parameter List<Format>,
+    // so we must cast it and suppress the unchecked warning.
     @SuppressWarnings("unchecked")
     ArgumentCaptor<List<Format>> closedCaptionFormatsCaptor = ArgumentCaptor.forClass(List.class);
 

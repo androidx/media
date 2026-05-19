@@ -1140,11 +1140,11 @@ import java.util.regex.Pattern;
     public final int eventStreamGroupIndex;
     public final int primaryTrackGroupIndex;
     public final int embeddedEventMessageTrackGroupIndex;
-    public final int embeddedClosedCaptionTrackGroupStartIndex;
-    public final int embeddedClosedCaptionTrackGroupLength;
+    private final int embeddedClosedCaptionTrackGroupStartIndex;
+    private final int embeddedClosedCaptionTrackGroupLength;
 
     /** Only non-null for track groups representing embedded caption tracks. */
-    @Nullable public final Format embeddedClosedCaptionTrackOriginalFormat;
+    @Nullable private final Format embeddedClosedCaptionTrackOriginalFormat;
 
     public static TrackGroupInfo primaryTrack(
         int trackType,
