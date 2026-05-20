@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -588,7 +589,7 @@ public final class AdaptiveTrackSelectionTest {
         /* playbackPositionUs= */ 0,
         /* bufferedDurationUs= */ 25_000_000,
         /* availableDurationUs= */ C.TIME_UNSET,
-        /* queue= */ Collections.emptyList(),
+        /* queue= */ ImmutableList.of(),
         createMediaChunkIterators(trackGroup, TEST_CHUNK_DURATION_US));
 
     // With sufficient buffer (bufferedDurationUs >= maxDurationForQualityDecreaseUs), the
@@ -1029,6 +1030,7 @@ public final class AdaptiveTrackSelectionTest {
 
   private static int getFormatOrderIndex(List<Format> orderedFormats, Format format) {
     int index = orderedFormats.indexOf(format);
-    return index == C.INDEX_UNSET ? Integer.MAX_VALUE : index;
+    checkState(index != C.INDEX_UNSET);
+    return index;
   }
 }

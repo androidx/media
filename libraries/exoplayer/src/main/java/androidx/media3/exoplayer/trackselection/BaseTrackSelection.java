@@ -36,7 +36,8 @@ import java.util.List;
 @UnstableApi
 public abstract class BaseTrackSelection implements ExoTrackSelection {
 
-  static final Comparator<Format> DEFAULT_FORMAT_COMPARATOR =
+  /** The default {@link Format} comparator, which sorts formats by bitrate in descending order. */
+  public static final Comparator<Format> DEFAULT_FORMAT_COMPARATOR =
       (firstFormat, secondFormat) -> Integer.compare(secondFormat.bitrate, firstFormat.bitrate);
 
   /** The selected {@link TrackGroup}. */
@@ -87,7 +88,8 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
    * @param tracks The indices of the selected tracks within the {@link TrackGroup}. Must not be
    *     null or empty. May be in any order.
    * @param type The type that will be returned from {@link TrackSelection#getType()}.
-   * @param formatComparator Comparator that determines the order of selected {@link Format}s.
+   * @param formatComparator Comparator that determines the order of selected {@linkplain Format
+   *     formats}.
    */
   protected BaseTrackSelection(
       TrackGroup group, int[] tracks, @Type int type, Comparator<Format> formatComparator) {

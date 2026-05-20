@@ -55,6 +55,10 @@
 *   Transformer:
     *   Fix an issue where `ExportResult.fileSizeBytes` may be over-reported.
 *   Track selection:
+    *   Expose `BaseTrackSelection.DEFAULT_FORMAT_COMPARATOR` and add
+        `AdaptiveTrackSelection.Factory.setTrackFormatComparator` to allow
+        custom format ordering and ABR selection priority beyond bitrate-only
+        ordering.
 *   Extractors:
     *   MP4: Add support for extracting ITU-T T.35 (`it35`) timed metadata
         tracks.

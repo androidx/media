@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -237,17 +238,16 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
      * Sets the comparator used to order formats in adaptive track selections. The comparator order
      * controls which formats are considered first during adaptation.
      *
+     * <p>The default is {@link BaseTrackSelection#DEFAULT_FORMAT_COMPARATOR}, which decides the
+     * priority based on the bitrate.
+     *
      * @param trackFormatComparator Comparator used to order selected formats.
      * @return This factory, for convenience.
      */
+    @CanIgnoreReturnValue
     public Factory setTrackFormatComparator(Comparator<Format> trackFormatComparator) {
       this.trackFormatComparator = checkNotNull(trackFormatComparator);
       return this;
-    }
-
-    /** Returns the comparator used to order formats in adaptive track selections. */
-    protected final Comparator<Format> getTrackFormatComparator() {
-      return trackFormatComparator;
     }
 
     @Override
@@ -311,7 +311,7 @@ public class AdaptiveTrackSelection extends BaseTrackSelection {
           bufferedFractionToLiveEdgeForQualityIncrease,
           adaptationCheckpoints,
           clock,
-          getTrackFormatComparator());
+          trackFormatComparator);
     }
   }
 
