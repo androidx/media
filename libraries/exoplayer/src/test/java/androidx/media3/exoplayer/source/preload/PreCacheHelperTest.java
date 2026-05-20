@@ -62,7 +62,7 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.robolectric.FakeDownloader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -85,7 +85,7 @@ import org.mockito.junit.MockitoRule;
 @RunWith(AndroidJUnit4.class)
 public class PreCacheHelperTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final long TIMEOUT_MS = 10_000;
   private HandlerThread preCacheThread;
@@ -119,7 +119,9 @@ public class PreCacheHelperTest {
         .onPreCacheProgress(any(), anyLong(), anyLong(), eq(100f));
     PreCacheHelper preCacheHelper =
         new PreCacheHelper.Factory(
-                ApplicationProvider.getApplicationContext(), cacheRule.getCache(), preCacheLooper)
+                ApplicationProvider.getApplicationContext(),
+                cacheRule.createSimpleCache(),
+                preCacheLooper)
             .setListener(mockPreCacheHelperListener)
             .create(mediaItem);
 
@@ -145,7 +147,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -202,7 +204,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -247,7 +249,8 @@ public class PreCacheHelperTest {
 
   @Test
   public void
-      preCacheAgainWithSameTimeRange_whilePreparationOngoing_reuseTheOngoingPreCacheRequest() {
+      preCacheAgainWithSameTimeRange_whilePreparationOngoing_reuseTheOngoingPreCacheRequest()
+          throws Exception {
     ArrayList<FakeMediaSource> createdMediaSources = new ArrayList<>();
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     when(mockMediaSourceFactory.createMediaSource(any()))
@@ -262,7 +265,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     PreCacheHelper preCacheHelper =
@@ -305,7 +308,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -362,7 +365,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     AtomicBoolean preCacheTerminated = new AtomicBoolean();
@@ -412,7 +415,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -458,7 +461,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -515,7 +518,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     PreCacheHelper preCacheHelper =
@@ -549,7 +552,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     Format videoFormat =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
@@ -697,7 +700,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -757,7 +760,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -794,7 +797,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -839,7 +842,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -878,7 +881,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -924,7 +927,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -957,7 +960,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();
@@ -991,7 +994,7 @@ public class PreCacheHelperTest {
         new CacheDataSource.Factory()
             .setUpstreamDataSourceFactory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
-            .setCache(cacheRule.getCache());
+            .setCache(cacheRule.createSimpleCache());
     DownloadHelper.Factory downloadHelperFactory =
         new DownloadHelper.Factory().setDataSourceFactory(cacheDataSourceFactory);
     FakeDownloaderFactory fakeDownloaderFactory = new FakeDownloaderFactory();

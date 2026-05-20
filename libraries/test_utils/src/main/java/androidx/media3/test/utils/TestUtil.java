@@ -340,7 +340,10 @@ public class TestUtil {
     return Util.fromUtf8Bytes(getByteArray(context, fileName));
   }
 
-  /** Returns a {@link DatabaseProvider} that provides an in-memory database. */
+  /**
+   * @deprecated Use {@link InMemoryDatabaseRule}.
+   */
+  @Deprecated
   public static DatabaseProvider getInMemoryDatabaseProvider() {
     return new DefaultDatabaseProvider(
         new SQLiteOpenHelper(

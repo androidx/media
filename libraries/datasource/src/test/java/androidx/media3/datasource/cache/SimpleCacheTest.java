@@ -24,7 +24,7 @@ import android.net.Uri;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.datasource.cache.Cache.CacheException;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
@@ -36,6 +36,7 @@ import java.util.NavigableSet;
 import java.util.Random;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -46,6 +47,8 @@ public class SimpleCacheTest {
 
   private static final String KEY_1 = "key1";
   private static final String KEY_2 = "key2";
+
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
 
   private File testDir;
   private File cacheDir;
@@ -62,7 +65,7 @@ public class SimpleCacheTest {
 
   @Before
   public void createDatabaseProvider() {
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
+    databaseProvider = inMemoryDatabaseRule.createDatabaseProvider();
   }
 
   @After
@@ -71,15 +74,10 @@ public class SimpleCacheTest {
       if (simpleCache != null) {
         simpleCache.release();
       }
+
     } finally {
-      try {
-        if (databaseProvider != null) {
-          databaseProvider.getReadableDatabase().close();
-        }
-      } finally {
-        if (testDir != null) {
-          Util.recursiveDelete(testDir);
-        }
+      if (testDir != null) {
+        Util.recursiveDelete(testDir);
       }
     }
   }

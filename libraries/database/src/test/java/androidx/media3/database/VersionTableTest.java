@@ -20,10 +20,11 @@ import static androidx.media3.database.VersionTable.FEATURE_OFFLINE;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.database.sqlite.SQLiteDatabase;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -34,13 +35,13 @@ public class VersionTableTest {
   private static final String INSTANCE_1 = "1";
   private static final String INSTANCE_2 = "2";
 
-  private DatabaseProvider databaseProvider;
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
+
   private SQLiteDatabase database;
 
   @Before
   public void setUp() {
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
-    database = databaseProvider.getWritableDatabase();
+    database = inMemoryDatabaseRule.createDatabaseProvider().getWritableDatabase();
   }
 
   @After

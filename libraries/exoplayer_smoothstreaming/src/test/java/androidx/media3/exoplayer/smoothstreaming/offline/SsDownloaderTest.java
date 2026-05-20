@@ -34,6 +34,7 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.offline.Downloader;
@@ -41,7 +42,7 @@ import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.test.utils.CacheAsserts;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.Collections;
@@ -56,13 +57,15 @@ import org.mockito.Mockito;
 @RunWith(AndroidJUnit4.class)
 public final class SsDownloaderTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private ProgressListener progressListener;
   private FakeDataSet fakeDataSet;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     progressListener = new ProgressListener();
     fakeDataSet =
         new FakeDataSet()
@@ -131,7 +134,7 @@ public final class SsDownloaderTest {
 
     downloader.download(progressListener);
 
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   @Test
@@ -142,7 +145,7 @@ public final class SsDownloaderTest {
     downloader.download(progressListener);
 
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 TEST_ISM_MANIFEST_URI,
@@ -163,7 +166,7 @@ public final class SsDownloaderTest {
     downloader.download(progressListener);
 
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(TEST_ISM_MANIFEST_URI, TEST_ISM_QUALITY_LEVEL_DIR_1 + TEST_ISM_FRAGMENT_URI_2));
   }
@@ -188,7 +191,7 @@ public final class SsDownloaderTest {
     downloader.download(progressListener);
     downloader.remove();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -202,7 +205,7 @@ public final class SsDownloaderTest {
             /* durationUs= */ 20_000_000);
     downloader1.download(progressListener);
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 TEST_ISM_MANIFEST_URI,
@@ -218,7 +221,7 @@ public final class SsDownloaderTest {
             /* durationUs= */ C.TIME_UNSET);
     downloader2.download(progressListener);
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 TEST_ISM_MANIFEST_URI,
@@ -228,7 +231,7 @@ public final class SsDownloaderTest {
 
     downloader2.remove();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   private SsDownloader getSsDownloader(String manifestUri, List<StreamKey> keys) {
@@ -240,7 +243,7 @@ public final class SsDownloaderTest {
       String manifestUri, List<StreamKey> keys, long startPositionUs, long durationUs) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
     return new SsDownloader.Factory(cacheDataSourceFactory)
         .setStartPositionUs(startPositionUs)

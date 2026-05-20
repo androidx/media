@@ -37,6 +37,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadException;
 import androidx.media3.exoplayer.offline.DownloadRequest;
@@ -45,7 +46,7 @@ import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.test.utils.CacheAsserts.RequestSet;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
@@ -62,12 +63,14 @@ import org.mockito.Mockito;
 @RunWith(AndroidJUnit4.class)
 public class DashDownloaderTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private ProgressListener progressListener;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     progressListener = new ProgressListener();
   }
 
@@ -129,8 +132,7 @@ public class DashDownloaderTest {
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
     dashDownloader.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -149,8 +151,7 @@ public class DashDownloaderTest {
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
     dashDownloader.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -169,8 +170,7 @@ public class DashDownloaderTest {
     DashDownloader dashDownloader =
         getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0), new StreamKey(0, 1, 0));
     dashDownloader.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -191,8 +191,7 @@ public class DashDownloaderTest {
 
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet);
     dashDownloader.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -381,8 +380,7 @@ public class DashDownloaderTest {
 
     assertThrows(IOException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -426,7 +424,7 @@ public class DashDownloaderTest {
         getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0), new StreamKey(0, 1, 0));
     dashDownloader.download(progressListener);
     dashDownloader.remove();
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -454,7 +452,7 @@ public class DashDownloaderTest {
             new StreamKey(0, 1, 0));
     dashDownloader1.download(progressListener);
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new RequestSet(fakeDataSet)
             .subset(TEST_MPD_URI.toString(), "audio_init_data", "audio_segment_1", "text_segment_1")
             .useBoundedDataSpecFor("audio_init_data"));
@@ -468,12 +466,11 @@ public class DashDownloaderTest {
             new StreamKey(0, 0, 0),
             new StreamKey(0, 1, 0));
     dashDownloader2.download(progressListener);
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
 
     dashDownloader2.remove();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -486,7 +483,7 @@ public class DashDownloaderTest {
     DashDownloader dashDownloader = getDashDownloader(fakeDataSet, new StreamKey(0, 0, 0));
     assertThrows(DownloadException.class, () -> dashDownloader.download(progressListener));
     dashDownloader.remove();
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -531,7 +528,7 @@ public class DashDownloaderTest {
             .build();
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamDataSource)
             .setUpstreamPriorityTaskManager(priorityTaskManager);
     DashDownloader dashDownloader =
@@ -540,8 +537,7 @@ public class DashDownloaderTest {
     // Download expected to finish (despite the interruption by the higher playback priority).
     dashDownloader.download(progressListener);
 
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(data).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(data).useBoundedDataSpecFor("audio_init_data"));
   }
 
   private DashDownloader getDashDownloader(FakeDataSet fakeDataSet, StreamKey... keys) {
@@ -561,7 +557,7 @@ public class DashDownloaderTest {
       StreamKey... keys) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamDataSourceFactory);
     return new DashDownloader.Factory(cacheDataSourceFactory)
         .setStartPositionUs(startPositionUs)

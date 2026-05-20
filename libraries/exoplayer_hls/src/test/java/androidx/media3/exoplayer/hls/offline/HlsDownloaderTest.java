@@ -42,6 +42,7 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.datasource.PlaceholderDataSource;
 import androidx.media3.datasource.cache.Cache;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadRequest;
@@ -50,7 +51,7 @@ import androidx.media3.exoplayer.offline.DownloaderFactory;
 import androidx.media3.test.utils.CacheAsserts;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,13 +66,15 @@ import org.mockito.Mockito;
 @RunWith(AndroidJUnit4.class)
 public class HlsDownloaderTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private ProgressListener progressListener;
   private FakeDataSet fakeDataSet;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     progressListener = new ProgressListener();
     fakeDataSet =
         new FakeDataSet()
@@ -148,7 +151,7 @@ public class HlsDownloaderTest {
     downloader.download(progressListener);
 
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 MULTIVARIANT_PLAYLIST_URI,
@@ -166,7 +169,7 @@ public class HlsDownloaderTest {
             getKeys(MULTIVARIANT_MEDIA_PLAYLIST_1_INDEX, MULTIVARIANT_MEDIA_PLAYLIST_2_INDEX));
     downloader.download(progressListener);
 
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   @Test
@@ -185,7 +188,7 @@ public class HlsDownloaderTest {
     HlsDownloader downloader = getHlsDownloader(MULTIVARIANT_PLAYLIST_URI, getKeys());
     downloader.download(progressListener);
 
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   @Test
@@ -197,7 +200,7 @@ public class HlsDownloaderTest {
     downloader.download(progressListener);
     downloader.remove();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -211,7 +214,7 @@ public class HlsDownloaderTest {
             /* durationUs= */ 10_000_000);
     downloader1.download(progressListener);
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 MEDIA_PLAYLIST_1_URI,
@@ -227,7 +230,7 @@ public class HlsDownloaderTest {
             /* durationUs= */ C.TIME_UNSET);
     downloader2.download(progressListener);
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 MEDIA_PLAYLIST_1_URI,
@@ -237,7 +240,7 @@ public class HlsDownloaderTest {
 
     downloader2.remove();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -246,7 +249,7 @@ public class HlsDownloaderTest {
     downloader.download(progressListener);
 
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(
                 MEDIA_PLAYLIST_1_URI,
@@ -266,7 +269,7 @@ public class HlsDownloaderTest {
     downloader.download(progressListener);
 
     assertCachedData(
-        cacheRule.getCache(),
+        cache,
         new CacheAsserts.RequestSet(fakeDataSet)
             .subset(MEDIA_PLAYLIST_1_URI, MEDIA_PLAYLIST_1_DIR + "fileSequence1.ts"));
   }
@@ -284,13 +287,13 @@ public class HlsDownloaderTest {
 
     HlsDownloader downloader = getHlsDownloader(ENC_MEDIA_PLAYLIST_URI, getKeys());
     downloader.download(progressListener);
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   private HlsDownloader getHlsDownloader(String mediaPlaylistUri, List<StreamKey> keys) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
     return new HlsDownloader.Factory(cacheDataSourceFactory)
         .create(new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build());
@@ -300,7 +303,7 @@ public class HlsDownloaderTest {
       String mediaPlaylistUri, List<StreamKey> keys, long startPositionUs, long durationUs) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
     return new HlsDownloader.Factory(cacheDataSourceFactory)
         .setStartPositionUs(startPositionUs)

@@ -30,7 +30,7 @@ import androidx.media3.datasource.FileDataSource;
 import androidx.media3.test.utils.CacheAsserts;
 import androidx.media3.test.utils.FakeDataSet.FakeData;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.util.Arrays;
@@ -46,7 +46,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CacheDataSourceTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final byte[] TEST_DATA = new byte[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   private static final int CACHE_FRAGMENT_SIZE = 3;
@@ -64,6 +64,7 @@ public final class CacheDataSourceTest {
 
   // Dependencies of SUT
   private CacheKeyFactory cacheKeyFactory;
+  private SimpleCache cache;
   private FakeDataSource upstreamDataSource;
 
   @Before
@@ -78,6 +79,7 @@ public final class CacheDataSourceTest {
     defaultCacheKey = CacheKeyFactory.DEFAULT.buildCacheKey(unboundedDataSpec);
     customCacheKey = "customKey." + defaultCacheKey;
     cacheKeyFactory = dataSpec -> customCacheKey;
+    cache = cacheRule.createSimpleCache();
 
     upstreamDataSource = new FakeDataSource();
   }
@@ -86,8 +88,8 @@ public final class CacheDataSourceTest {
   public void fragmentSize() throws Exception {
     CacheDataSource cacheDataSource = createCacheDataSource(false, false);
     assertReadDataContentLength(cacheDataSource, boundedDataSpec, false, false);
-    for (String key : cacheRule.getCache().getKeys()) {
-      for (CacheSpan cacheSpan : cacheRule.getCache().getCachedSpans(key)) {
+    for (String key : cache.getKeys()) {
+      for (CacheSpan cacheSpan : cache.getCachedSpans(key)) {
         assertThat(cacheSpan.length <= CACHE_FRAGMENT_SIZE).isTrue();
         assertThat(cacheSpan.file.length() <= CACHE_FRAGMENT_SIZE).isTrue();
       }
@@ -282,9 +284,7 @@ public final class CacheDataSourceTest {
     CacheDataSource cacheDataSource = createCacheDataSource(false, true);
 
     assertReadData(cacheDataSource, dataSpec, true);
-    assertThat(
-            ContentMetadata.getContentLength(
-                cacheRule.getCache().getContentMetadata(defaultCacheKey)))
+    assertThat(ContentMetadata.getContentLength(cache.getContentMetadata(defaultCacheKey)))
         .isEqualTo(C.LENGTH_UNSET);
   }
 
@@ -311,16 +311,14 @@ public final class CacheDataSourceTest {
         .newData(testDataUri)
         .appendReadData(TEST_DATA)
         .setSimulateUnknownLength(true);
-    CacheDataSource cacheDataSource = new CacheDataSource(cacheRule.getCache(), upstream, 0);
+    CacheDataSource cacheDataSource = new CacheDataSource(cache, upstream, 0);
 
     cacheDataSource.open(unboundedDataSpec);
     DataSourceUtil.readToEnd(cacheDataSource);
     cacheDataSource.close();
 
     assertThat(upstream.getAndClearOpenedDataSpecs()).hasLength(1);
-    assertThat(
-            ContentMetadata.getContentLength(
-                cacheRule.getCache().getContentMetadata(defaultCacheKey)))
+    assertThat(ContentMetadata.getContentLength(cache.getContentMetadata(defaultCacheKey)))
         .isEqualTo(TEST_DATA.length);
   }
 
@@ -330,22 +328,20 @@ public final class CacheDataSourceTest {
     upstream.getDataSet().setData(testDataUri, TEST_DATA);
     CacheDataSource cacheDataSource =
         new CacheDataSource(
-            cacheRule.getCache(),
-            upstream,
-            CacheDataSource.FLAG_IGNORE_CACHE_FOR_UNSET_LENGTH_REQUESTS);
+            cache, upstream, CacheDataSource.FLAG_IGNORE_CACHE_FOR_UNSET_LENGTH_REQUESTS);
 
     cacheDataSource.open(unboundedDataSpec);
     DataSourceUtil.readToEnd(cacheDataSource);
     cacheDataSource.close();
 
-    assertThat(cacheRule.getCache().getKeys()).isEmpty();
+    assertThat(cache.getKeys()).isEmpty();
   }
 
   @Test
   public void readOnlyCache() throws Exception {
     CacheDataSource cacheDataSource = createCacheDataSource(false, false, 0, null);
     assertReadDataContentLength(cacheDataSource, boundedDataSpec, false, false);
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -364,7 +360,7 @@ public final class CacheDataSourceTest {
         .appendReadData(1);
     // Create cache read-only CacheDataSource.
     CacheDataSource cacheDataSource =
-        new CacheDataSource(cacheRule.getCache(), upstream, new FileDataSource(), null, 0, null);
+        new CacheDataSource(cache, upstream, new FileDataSource(), null, 0, null);
 
     // Open source and read some data from upstream as the data hasn't cached yet.
     cacheDataSource.open(unboundedDataSpec);
@@ -381,7 +377,7 @@ public final class CacheDataSourceTest {
                 .endData());
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cacheRule.getCache(), upstream2),
+            new CacheDataSource(cache, upstream2),
             unboundedDataSpec,
             /* temporaryBuffer= */ null,
             /* progressListener= */ null);
@@ -404,13 +400,12 @@ public final class CacheDataSourceTest {
         .appendReadData(1);
 
     // Lock the content on the cache.
-    CacheSpan cacheSpan =
-        cacheRule.getCache().startReadWriteNonBlocking(defaultCacheKey, 0, C.LENGTH_UNSET);
+    CacheSpan cacheSpan = cache.startReadWriteNonBlocking(defaultCacheKey, 0, C.LENGTH_UNSET);
     assertThat(cacheSpan).isNotNull();
     assertThat(cacheSpan.isHoleSpan()).isTrue();
 
     // Create non blocking CacheDataSource.
-    CacheDataSource cacheDataSource = new CacheDataSource(cacheRule.getCache(), upstream, 0);
+    CacheDataSource cacheDataSource = new CacheDataSource(cache, upstream, 0);
 
     // Open source and read some data from upstream without writing to cache as the data is locked.
     cacheDataSource.open(unboundedDataSpec);
@@ -418,8 +413,8 @@ public final class CacheDataSourceTest {
     cacheDataSource.read(buffer, 0, buffer.length);
 
     // Unlock the span.
-    cacheRule.getCache().releaseHoleSpan(cacheSpan);
-    assertCacheEmpty(cacheRule.getCache());
+    cache.releaseHoleSpan(cacheSpan);
+    assertCacheEmpty(cache);
 
     // Cache the data. Although we use another FakeDataSource instance, it shouldn't matter.
     FakeDataSource upstream2 =
@@ -431,7 +426,7 @@ public final class CacheDataSourceTest {
                 .endData());
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cacheRule.getCache(), upstream2),
+            new CacheDataSource(cache, upstream2),
             unboundedDataSpec,
             /* temporaryBuffer= */ null,
             /* progressListener= */ null);
@@ -455,7 +450,7 @@ public final class CacheDataSourceTest {
     DataSpec dataSpec = buildDataSpec(halfDataLength, C.LENGTH_UNSET);
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cacheRule.getCache(), upstream),
+            new CacheDataSource(cache, upstream),
             dataSpec,
             /* temporaryBuffer= */ null,
             /* progressListener= */ null);
@@ -463,17 +458,15 @@ public final class CacheDataSourceTest {
 
     // Create cache read-only CacheDataSource.
     CacheDataSource cacheDataSource =
-        new CacheDataSource(cacheRule.getCache(), upstream, new FileDataSource(), null, 0, null);
+        new CacheDataSource(cache, upstream, new FileDataSource(), null, 0, null);
 
     // Open source and read some data from upstream as the data hasn't cached yet.
     cacheDataSource.open(unboundedDataSpec);
     DataSourceUtil.readExactly(cacheDataSource, 100);
 
     // Delete cached data.
-    cacheRule
-        .getCache()
-        .removeResource(cacheDataSource.getCacheKeyFactory().buildCacheKey(unboundedDataSpec));
-    assertCacheEmpty(cacheRule.getCache());
+    cache.removeResource(cacheDataSource.getCacheKeyFactory().buildCacheKey(unboundedDataSpec));
+    assertCacheEmpty(cache);
 
     // Read the rest of the data.
     DataSourceUtil.readToEnd(cacheDataSource);
@@ -493,7 +486,7 @@ public final class CacheDataSourceTest {
     DataSpec dataSpec = buildDataSpec(/* position= */ 0, halfDataLength);
     CacheWriter cacheWriter =
         new CacheWriter(
-            new CacheDataSource(cacheRule.getCache(), upstream),
+            new CacheDataSource(cache, upstream),
             dataSpec,
             /* temporaryBuffer= */ null,
             /* progressListener= */ null);
@@ -501,7 +494,7 @@ public final class CacheDataSourceTest {
 
     // Create blocking CacheDataSource.
     CacheDataSource cacheDataSource =
-        new CacheDataSource(cacheRule.getCache(), upstream, CacheDataSource.FLAG_BLOCK_ON_CACHE);
+        new CacheDataSource(cache, upstream, CacheDataSource.FLAG_BLOCK_ON_CACHE);
 
     cacheDataSource.open(unboundedDataSpec);
 
@@ -509,10 +502,10 @@ public final class CacheDataSourceTest {
     DataSourceUtil.readExactly(cacheDataSource, halfDataLength);
 
     // Delete the cached latter half.
-    NavigableSet<CacheSpan> cachedSpans = cacheRule.getCache().getCachedSpans(defaultCacheKey);
+    NavigableSet<CacheSpan> cachedSpans = cache.getCachedSpans(defaultCacheKey);
     for (CacheSpan cachedSpan : cachedSpans) {
       if (cachedSpan.position >= halfDataLength) {
-        cacheRule.getCache().removeSpan(cachedSpan);
+        cache.removeSpan(cachedSpan);
       }
     }
 
@@ -558,9 +551,7 @@ public final class CacheDataSourceTest {
     // content length was known or because EOS was read. If the request was bounded then the content
     // length will not have been determined.
     ContentMetadata metadata =
-        cacheRule
-            .getCache()
-            .getContentMetadata(customCacheKey ? this.customCacheKey : defaultCacheKey);
+        cache.getContentMetadata(customCacheKey ? this.customCacheKey : defaultCacheKey);
     assertThat(ContentMetadata.getContentLength(metadata))
         .isEqualTo(dataSpec.length == C.LENGTH_UNSET ? TEST_DATA.length : C.LENGTH_UNSET);
   }
@@ -593,17 +584,14 @@ public final class CacheDataSourceTest {
         setReadException,
         unknownLength,
         CacheDataSource.FLAG_BLOCK_ON_CACHE,
-        new CacheDataSink(cacheRule.getCache(), CACHE_FRAGMENT_SIZE),
+        new CacheDataSink(cache, CACHE_FRAGMENT_SIZE),
         cacheKeyFactory);
   }
 
   private CacheDataSource createCacheDataSource(
       boolean setReadException, boolean unknownLength, @CacheDataSource.Flags int flags) {
     return createCacheDataSource(
-        setReadException,
-        unknownLength,
-        flags,
-        new CacheDataSink(cacheRule.getCache(), CACHE_FRAGMENT_SIZE));
+        setReadException, unknownLength, flags, new CacheDataSink(cache, CACHE_FRAGMENT_SIZE));
   }
 
   private CacheDataSource createCacheDataSource(
@@ -631,7 +619,7 @@ public final class CacheDataSourceTest {
       fakeData.appendReadError(new IOException("Shouldn't read from upstream"));
     }
     return new CacheDataSource(
-        cacheRule.getCache(),
+        cache,
         upstreamDataSource,
         new FileDataSource(),
         cacheWriteDataSink,

@@ -27,6 +27,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.datasource.DataSource.Factory;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloadIndex;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.DownloadManager;
@@ -37,7 +38,7 @@ import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.DummyMainThread.TestRunnable;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
@@ -56,7 +57,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class DownloadManagerDashTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final int ASSERT_TRUE_TIMEOUT_MS = 5000;
 
@@ -67,9 +68,11 @@ public class DownloadManagerDashTest {
   private TestDownloadManagerListener downloadManagerListener;
   private DefaultDownloadIndex downloadIndex;
   private DummyMainThread testThread;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     testThread = new DummyMainThread();
     fakeDataSet =
         new FakeDataSet()
@@ -84,7 +87,7 @@ public class DownloadManagerDashTest {
 
     fakeStreamKey1 = new StreamKey(0, 0, 0);
     fakeStreamKey2 = new StreamKey(0, 1, 0);
-    downloadIndex = new DefaultDownloadIndex(cacheRule.getDatabaseProvider());
+    downloadIndex = new DefaultDownloadIndex(cacheRule.createDatabaseProvider());
     createDownloadManager();
   }
 
@@ -124,7 +127,7 @@ public class DownloadManagerDashTest {
           downloadManager.release();
         });
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
 
     // Revert fakeDataSet to normal.
     fakeDataSet.setData(TEST_MPD_URI, TEST_MPD);
@@ -133,15 +136,14 @@ public class DownloadManagerDashTest {
 
     // Block on the test thread.
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   @Test
   public void handleDownloadRequest_downloadSuccess() throws Throwable {
     handleDownloadRequest(fakeStreamKey1, fakeStreamKey2);
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -149,8 +151,7 @@ public class DownloadManagerDashTest {
     handleDownloadRequest(fakeStreamKey1);
     handleDownloadRequest(fakeStreamKey2);
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -162,8 +163,7 @@ public class DownloadManagerDashTest {
         .endData();
     handleDownloadRequest(fakeStreamKey1);
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCachedData(
-        cacheRule.getCache(), new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
   }
 
   @Test
@@ -172,7 +172,7 @@ public class DownloadManagerDashTest {
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
     handleRemoveAction();
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -180,7 +180,7 @@ public class DownloadManagerDashTest {
     handleDownloadRequest(fakeStreamKey1);
     handleRemoveAction();
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Test
@@ -196,7 +196,7 @@ public class DownloadManagerDashTest {
 
     handleRemoveAction();
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   private void handleDownloadRequest(StreamKey... keys) {
@@ -224,7 +224,7 @@ public class DownloadManagerDashTest {
           DefaultDownloaderFactory downloaderFactory =
               new DefaultDownloaderFactory(
                   new CacheDataSource.Factory()
-                      .setCache(cacheRule.getCache())
+                      .setCache(cache)
                       .setUpstreamDataSourceFactory(fakeDataSourceFactory),
                   /* executor= */ Runnable::run);
           downloadManager =

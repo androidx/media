@@ -28,7 +28,7 @@ import androidx.media3.exoplayer.scheduler.Requirements;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.DummyMainThread.TestRunnable;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.robolectric.FakeDownloader;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -62,6 +63,8 @@ public class DownloadManagerTest {
   private static final String ID2 = "id2";
   private static final String ID3 = "id3";
 
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
+
   @GuardedBy("downloaders")
   private final List<FakeDownloader> downloaders = new ArrayList<>();
 
@@ -73,7 +76,7 @@ public class DownloadManagerTest {
   @Before
   public void setUp() throws Exception {
     testThread = new DummyMainThread();
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
+    databaseProvider = inMemoryDatabaseRule.createDatabaseProvider();
     setupDownloadManager(/* maxParallelDownloads= */ 100);
   }
 

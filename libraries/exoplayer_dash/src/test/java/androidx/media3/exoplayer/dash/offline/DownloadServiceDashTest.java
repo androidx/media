@@ -30,6 +30,7 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.offline.DefaultDownloadIndex;
 import androidx.media3.exoplayer.offline.DefaultDownloaderFactory;
 import androidx.media3.exoplayer.offline.Download;
@@ -41,7 +42,7 @@ import androidx.media3.exoplayer.scheduler.Scheduler;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
@@ -61,7 +62,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class DownloadServiceDashTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private FakeDataSet fakeDataSet;
   private StreamKey fakeStreamKey1;
@@ -71,9 +72,11 @@ public class DownloadServiceDashTest {
   private ConditionVariable pauseDownloadCondition;
   private TestDownloadManagerListener downloadManagerListener;
   private DummyMainThread testThread;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws IOException {
+    cache = cacheRule.createSimpleCache();
     testThread = new DummyMainThread();
     context = ApplicationProvider.getApplicationContext();
 
@@ -108,11 +111,11 @@ public class DownloadServiceDashTest {
     testThread.runTestOnMainThread(
         () -> {
           DefaultDownloadIndex downloadIndex =
-              new DefaultDownloadIndex(cacheRule.getDatabaseProvider());
+              new DefaultDownloadIndex(cacheRule.createDatabaseProvider());
           DefaultDownloaderFactory downloaderFactory =
               new DefaultDownloaderFactory(
                   new CacheDataSource.Factory()
-                      .setCache(cacheRule.getCache())
+                      .setCache(cache)
                       .setUpstreamDataSourceFactory(fakeDataSourceFactory),
                   /* executor= */ Runnable::run);
           final DownloadManager dashDownloadManager =
@@ -159,7 +162,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCachedData(cacheRule.getCache(), fakeDataSet);
+    assertCachedData(cache, fakeDataSet);
   }
 
   @Ignore("Internal ref: b/78877092")
@@ -173,7 +176,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   @Ignore("Internal ref: b/78877092")
@@ -186,7 +189,7 @@ public class DownloadServiceDashTest {
 
     downloadManagerListener.blockUntilIdleAndThrowAnyFailure();
 
-    assertCacheEmpty(cacheRule.getCache());
+    assertCacheEmpty(cache);
   }
 
   private void removeAll() {

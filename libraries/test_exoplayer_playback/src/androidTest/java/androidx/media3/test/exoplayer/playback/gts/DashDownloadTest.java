@@ -23,13 +23,14 @@ import androidx.media3.common.StreamKey;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.dash.DashUtil;
 import androidx.media3.exoplayer.dash.manifest.AdaptationSet;
 import androidx.media3.exoplayer.dash.manifest.DashManifest;
 import androidx.media3.exoplayer.dash.manifest.Representation;
 import androidx.media3.exoplayer.dash.offline.DashDownloader;
 import androidx.media3.test.utils.HostActivity;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.rule.ActivityTestRule;
 import java.util.ArrayList;
@@ -48,19 +49,21 @@ public final class DashDownloadTest {
 
   private static final Uri MANIFEST_URI = Uri.parse(DashTestData.H264_MANIFEST);
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   // TODO: b/464266190 - Migrate to ActivityScenarioRule
   @SuppressWarnings("deprecation")
   @Rule
-  public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
+  public final ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
 
   private DashTestRunner testRunner;
   private DataSource.Factory httpDataSourceFactory;
   private DataSource.Factory offlineDataSourceFactory;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     testRunner =
         new DashTestRunner(TAG, testRule.getActivity())
             .setManifestUrl(DashTestData.H264_MANIFEST)
@@ -69,7 +72,7 @@ public final class DashDownloadTest {
             .setAudioVideoFormats(
                 DashTestData.AAC_AUDIO_REPRESENTATION_ID, DashTestData.H264_CDD_FIXED);
     httpDataSourceFactory = new DefaultHttpDataSource.Factory();
-    offlineDataSourceFactory = new CacheDataSource.Factory().setCache(cacheRule.getCache());
+    offlineDataSourceFactory = new CacheDataSource.Factory().setCache(cache);
   }
 
   @After
@@ -91,12 +94,8 @@ public final class DashDownloadTest {
 
     dashDownloader.remove();
 
-    assertWithMessage("There should be no cache key left")
-        .that(cacheRule.getCache().getKeys())
-        .isEmpty();
-    assertWithMessage("There should be no content left")
-        .that(cacheRule.getCache().getCacheSpace())
-        .isEqualTo(0);
+    assertWithMessage("There should be no cache key left").that(cache.getKeys()).isEmpty();
+    assertWithMessage("There should be no content left").that(cache.getCacheSpace()).isEqualTo(0);
   }
 
   private DashDownloader downloadContent() throws Exception {
@@ -119,7 +118,7 @@ public final class DashDownloadTest {
     }
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .setUpstreamDataSourceFactory(httpDataSourceFactory);
     return new DashDownloader.Factory(cacheDataSourceFactory)
         .create(new MediaItem.Builder().setUri(MANIFEST_URI).setStreamKeys(keys).build());

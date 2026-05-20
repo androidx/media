@@ -48,6 +48,7 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
@@ -75,7 +76,7 @@ import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeVideoRenderer;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -99,7 +100,7 @@ import org.mockito.junit.MockitoRule;
 @RunWith(AndroidJUnit4.class)
 public class DefaultPreloadManagerTest {
   @Rule public final MockitoRule mockito = MockitoJUnit.rule();
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private static final int SMALL_LOADING_CHECK_INTERVAL_BYTES = 32;
   private static final int TARGET_BUFFER_BYTES_FOR_PRELOAD =
@@ -114,9 +115,11 @@ public class DefaultPreloadManagerTest {
   private LoadControl loadControl;
   private RenderersFactory renderersFactory;
   private HandlerThread preloadThread;
+  private SimpleCache cache;
 
   @Before
   public void setUp() throws Exception {
+    cache = cacheRule.createSimpleCache();
     context = ApplicationProvider.getApplicationContext();
     renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) ->
@@ -781,7 +784,7 @@ public class DefaultPreloadManagerTest {
             .setRenderersFactory(renderersFactory)
             .setPreloadLooper(preloadThread.getLooper())
             .setLoadControl(loadControl)
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
@@ -815,20 +818,11 @@ public class DefaultPreloadManagerTest {
         .containsExactly(mediaItem0, mediaItem1, mediaItem2)
         .inOrder();
     long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
   }
 
@@ -854,7 +848,7 @@ public class DefaultPreloadManagerTest {
             .setRenderersFactory(renderersFactory)
             .setPreloadLooper(preloadThread.getLooper())
             .setLoadControl(loadControl)
-            .setCache(cacheRule.getCache())
+            .setCache(cache)
             .build();
     TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
     preloadManager.addListener(preloadManagerListener);
@@ -889,20 +883,11 @@ public class DefaultPreloadManagerTest {
         .containsExactly(mediaItem0, mediaItem1, mediaItem2)
         .inOrder();
     long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(0);
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(0);
-    assertThat(
-            cacheRule
-                .getCache()
-                .getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+    assertThat(cache.getCachedBytes("mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
         .isEqualTo(expectedCachedBytes);
   }
 

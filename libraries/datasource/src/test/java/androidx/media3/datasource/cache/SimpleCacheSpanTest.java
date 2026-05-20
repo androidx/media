@@ -21,8 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.util.LongSparseArray;
 import androidx.media3.common.util.Util;
-import androidx.media3.database.DatabaseProvider;
-import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.File;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,29 +38,21 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class SimpleCacheSpanTest {
 
-  private DatabaseProvider databaseProvider;
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
+
   private CachedContentIndex index;
   private File cacheDir;
 
   @Before
   public void setUp() throws Exception {
-    databaseProvider = TestUtil.getInMemoryDatabaseProvider();
     cacheDir =
         Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    index = new CachedContentIndex(databaseProvider);
+    index = new CachedContentIndex(inMemoryDatabaseRule.createDatabaseProvider());
   }
 
   @After
   public void tearDown() {
-    try {
-      if (databaseProvider != null) {
-        databaseProvider.getReadableDatabase().close();
-      }
-    } finally {
-      if (cacheDir != null) {
-        Util.recursiveDelete(cacheDir);
-      }
-    }
+    Util.recursiveDelete(cacheDir);
   }
 
   @Test

@@ -17,27 +17,24 @@ package androidx.media3.datasource.cache;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Util;
-import androidx.media3.database.DatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.runner.RunWith;
 
 /** {@link DataSource} contract tests for {@link CacheDataSource}. */
 @RunWith(AndroidJUnit4.class)
 public class CacheDataSourceContractTest extends DataSourceContractTest {
+
+  @Rule public final InMemoryDatabaseRule inMemoryDatabaseRule = InMemoryDatabaseRule.create();
 
   private Uri simpleUri;
   private Uri unknownLengthUri;
@@ -46,9 +43,6 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
   private FakeDataSet fakeDataSet;
 
   private FakeDataSource upstreamDataSource;
-  private final List<SimpleCache> caches = new ArrayList<>();
-  private final List<DatabaseProvider> databaseProviders = new ArrayList<>();
-  private final List<File> tempFolders = new ArrayList<>();
 
   @Before
   public void setUp() throws IOException {
@@ -65,25 +59,6 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
             .setSimulateUnknownLength(true)
             .appendReadData(unknownLengthData)
             .endData();
-  }
-
-  @After
-  public void tearDown() {
-    try {
-      for (SimpleCache cache : caches) {
-        cache.release();
-      }
-    } finally {
-      try {
-        for (DatabaseProvider provider : databaseProviders) {
-          provider.getReadableDatabase().close();
-        }
-      } finally {
-        for (File tempFolder : tempFolders) {
-          Util.recursiveDelete(tempFolder);
-        }
-      }
-    }
   }
 
   @Override
@@ -109,18 +84,8 @@ public class CacheDataSourceContractTest extends DataSourceContractTest {
 
   @Override
   protected DataSource createDataSource() throws IOException {
-    File tempFolder =
-        Util.createTempDirectory(ApplicationProvider.getApplicationContext(), "ExoPlayerTest");
-    tempFolders.add(tempFolder);
-
-    DatabaseProvider databaseProvider = TestUtil.getInMemoryDatabaseProvider();
-    databaseProviders.add(databaseProvider);
-
-    SimpleCache cache = new SimpleCache(tempFolder, new NoOpCacheEvictor(), databaseProvider);
-    caches.add(cache);
-
     upstreamDataSource = new FakeDataSource(fakeDataSet);
-    return new CacheDataSource(cache, upstreamDataSource);
+    return new CacheDataSource(inMemoryDatabaseRule.createSimpleCache(), upstreamDataSource);
   }
 
   @Override

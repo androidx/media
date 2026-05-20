@@ -29,7 +29,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import androidx.media3.common.MediaItem;
 import androidx.media3.exoplayer.source.preload.PreCacheHelper;
-import androidx.media3.test.utils.SimpleCacheTestRule;
+import androidx.media3.test.utils.InMemoryDatabaseRule;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,7 +43,7 @@ import org.robolectric.annotation.Config;
 @RunWith(AndroidJUnit4.class)
 public class DashPreCacheHelperTest {
 
-  @Rule public final SimpleCacheTestRule cacheRule = new SimpleCacheTestRule();
+  @Rule public final InMemoryDatabaseRule cacheRule = InMemoryDatabaseRule.create();
 
   private HandlerThread preCacheThread;
   private Looper preCacheLooper;
@@ -75,7 +75,9 @@ public class DashPreCacheHelperTest {
         .onPreCacheProgress(any(), anyLong(), anyLong(), eq(100f));
     PreCacheHelper preCacheHelper =
         new PreCacheHelper.Factory(
-                ApplicationProvider.getApplicationContext(), cacheRule.getCache(), preCacheLooper)
+                ApplicationProvider.getApplicationContext(),
+                cacheRule.createSimpleCache(),
+                preCacheLooper)
             .setListener(preCacheHelperListener)
             .create(MediaItem.fromUri("asset:///media/dash/multi-track/sample.mpd"));
 
