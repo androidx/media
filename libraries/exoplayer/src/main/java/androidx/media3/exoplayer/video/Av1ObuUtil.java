@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -24,7 +25,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Utility methods for AV1 OBUs. */
-/*package*/ final class Av1ObuUtil {
+@UnstableApi
+public final class Av1ObuUtil {
 
   // Expected magic bytes for HDR10+ metadata in AV1 OBU. Spec:
   // https://aomediacodec.github.io/av1-hdr10plus/#hdr10plus-metadata
@@ -52,7 +54,7 @@ import java.util.List;
    * buffer} remain unchanged. This function is needed only when using MediaCodec on older SDK
    * versions and is not necessary for other AV1 decoders.
    */
-  /* package */ static void maybeRewriteAv1MetadataObus(ByteBuffer buffer) {
+  public static void maybeRewriteAv1MetadataObus(ByteBuffer buffer) {
     if (SDK_INT >= 37) {
       // SDK versions >= 37 do not have this issue, do nothing.
       return;
