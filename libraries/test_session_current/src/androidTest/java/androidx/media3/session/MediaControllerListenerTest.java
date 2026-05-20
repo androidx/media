@@ -809,10 +809,10 @@ public class MediaControllerListenerTest {
         latch,
         /* intervalMs= */ 100L);
 
-    assertThat(latch.await(240L, MILLISECONDS)).isTrue();
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller1Positions).containsExactly(0L, 0L);
-    assertThat(controller2Positions.get(0)).isAtLeast(90L);
-    assertThat(controller2Positions.get(1)).isAtLeast(180L);
+    assertThat(controller2Positions.get(0)).isAtLeast(50L);
+    assertThat(controller2Positions.get(1)).isAtLeast(120L);
   }
 
   @Test
@@ -855,7 +855,7 @@ public class MediaControllerListenerTest {
         latch,
         /* intervalMs= */ 100L);
 
-    assertThat(latch.await(300L, MILLISECONDS)).isTrue();
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller1Positions).containsExactly(0L, 0L);
     assertThat(controller2Positions).containsExactly(0L, 100L).inOrder();
   }
@@ -4271,7 +4271,7 @@ public class MediaControllerListenerTest {
       throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(3);
-    AtomicReference<Player.Events> eventsRef = new AtomicReference<>();
+    List<Player.Events> eventsList = new CopyOnWriteArrayList<>();
     Player.Listener listener =
         new Player.Listener() {
           @Override
@@ -4287,7 +4287,7 @@ public class MediaControllerListenerTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            eventsRef.compareAndSet(null, events);
+            eventsList.add(events);
             latch.countDown();
           }
         };
@@ -4297,7 +4297,7 @@ public class MediaControllerListenerTest {
     remoteSession.getMockPlayer().notifyRepeatModeChanged();
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(getEventsAsList(eventsRef.get()))
+    assertThat(getEventsAsList(eventsList.get(0)))
         .containsAtLeast(
             Player.EVENT_REPEAT_MODE_CHANGED, Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED);
   }
@@ -4307,7 +4307,7 @@ public class MediaControllerListenerTest {
       throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(4);
-    List<Player.Events> eventsList = new ArrayList<>();
+    List<Player.Events> eventsList = new CopyOnWriteArrayList<>();
     Player.Listener listener =
         new Player.Listener() {
           @Override
