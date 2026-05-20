@@ -56,7 +56,7 @@ object DemoUtil {
 
   @Synchronized
   private fun getDownloadDirectory(context: Context): File {
-    if (!::databaseProvider.isInitialized) {
+    if (!::downloadDirectory.isInitialized) {
       val externalFilesDir = context.getExternalFilesDir(/* type= */ null)
       downloadDirectory = externalFilesDir ?: context.filesDir
     }
