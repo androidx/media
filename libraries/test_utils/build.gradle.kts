@@ -20,7 +20,10 @@ plugins {
 android {
   namespace = "androidx.media3.test.utils"
 
-  sourceSets { getByName("test").assets.directories.add("../test_data/src/test/assets/") }
+  sourceSets {
+    getByName("androidTest").assets.directories.add("../test_data/src/test/assets/")
+    getByName("test").assets.directories.add("../test_data/src/test/assets/")
+  }
 }
 
 dependencies {
@@ -33,6 +36,8 @@ dependencies {
   api(libs.okhttp.mockwebserver)
   implementation(libs.androidx.annotation)
   implementation(libs.test.parameter.injector)
+  implementation(libs.kotlinx.coroutines.android)
+  implementation(libs.kotlinx.coroutines.guava)
   implementation(libs.kotlinx.coroutines.test)
   implementation(project(":lib-inspector"))
   api(project(":lib-exoplayer"))
@@ -42,4 +47,6 @@ dependencies {
   testImplementation(libs.androidx.test.espresso.core)
   testImplementation(libs.robolectric)
   testImplementation(libs.guava.testlib)
+  androidTestImplementation(libs.androidx.test.runner)
+  androidTestImplementation(libs.kotlin.test)
 }

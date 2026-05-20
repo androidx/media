@@ -41,6 +41,7 @@ dependencies {
   androidTestImplementation(libs.dexmaker)
   androidTestImplementation(libs.dexmaker.mockito)
   androidTestImplementation(project(":test-utils"))
+  androidTestImplementation(libs.kotlinx.coroutines.android)
   androidTestImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.test.parameter.injector)
   testImplementation(libs.okhttp.mockwebserver)
