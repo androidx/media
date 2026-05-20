@@ -1218,7 +1218,6 @@ public class UtilTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
   public void normalizeLanguageCode_keepsUndefinedTagsUnchanged() {
     assertThat(Util.normalizeLanguageCode(null)).isNull();
     assertThat(Util.normalizeLanguageCode("")).isEmpty();
@@ -1227,7 +1226,6 @@ public class UtilTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
   public void normalizeLanguageCode_normalizesCodeToTwoLetterISOAndLowerCase_keepingAllSubtags() {
     assertThat(Util.normalizeLanguageCode("es")).isEqualTo("es");
     assertThat(Util.normalizeLanguageCode("spa")).isEqualTo("es");
@@ -1246,7 +1244,6 @@ public class UtilTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
   public void normalizeLanguageCode_iso6392BibliographicalAndTextualCodes_areNormalizedToSameTag() {
     // See https://en.wikipedia.org/wiki/List_of_ISO_639-2_codes.
     assertThat(Util.normalizeLanguageCode("alb")).isEqualTo(Util.normalizeLanguageCode("sqi"));
@@ -1273,7 +1270,6 @@ public class UtilTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
   public void
       normalizeLanguageCode_deprecatedLanguageTagsAndModernReplacement_areNormalizedToSameTag() {
     // See https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes, "ISO 639:1988"
@@ -1311,7 +1307,6 @@ public class UtilTest {
   }
 
   @Test
-  @Config(sdk = Config.ALL_SDKS)
   public void normalizeLanguageCode_macrolanguageTags_areFullyMaintained() {
     // See https://en.wikipedia.org/wiki/ISO_639_macrolanguage
     assertThat(Util.normalizeLanguageCode("zh-cmn")).isEqualTo("zh-cmn");

@@ -17,19 +17,15 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import androidx.media3.test.utils.ImmutableByteArray;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 /** Tests for {@link Av1ObuUtil}. */
 @RunWith(AndroidJUnit4.class)
-// TODO: b/507008072 - Remove this when it's the default for the whole module
-@Config(sdk = ALL_SDKS)
 public final class Av1ObuUtilTest {
 
   private static final ImmutableByteArray TEMPORAL_DELIMITER_SEQUENCE_HEADER_AND_INVALID_METADATA =

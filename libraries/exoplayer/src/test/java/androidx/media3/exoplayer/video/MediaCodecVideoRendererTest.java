@@ -48,7 +48,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -1509,7 +1508,6 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener).onVideoDecoderInitialized(any(), anyLong(), anyLong());
   }
 
-  @Config(sdk = ALL_SDKS)
   @Test
   public void render_withCompatibleFrameRateChange_keepsCodec() throws Exception {
     SystemClock.setCurrentTimeMillis(876_000_000);
@@ -1562,7 +1560,6 @@ public class MediaCodecVideoRendererTest {
     verify(eventListener).onVideoDecoderInitialized(any(), anyLong(), anyLong());
   }
 
-  @Config(sdk = ALL_SDKS)
   @Test
   public void render_withIncompatibleFrameRateChangeAtSecureAdaptiveSwitch_keepsCodec()
       throws Exception {

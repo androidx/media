@@ -55,7 +55,6 @@ import org.robolectric.shadows.ShadowTelephonyManager;
 
 /** Unit test for {@link ExperimentalBandwidthMeter}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = Config.ALL_SDKS) // Test all SDKs because network detection logic changed over time.
 public final class ExperimentalBandwidthMeterTest {
 
   private static final String FAST_COUNTRY_ISO = "TW";

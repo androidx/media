@@ -27,7 +27,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.media.AudioManager;
 import android.os.Handler;
@@ -57,7 +56,6 @@ import org.robolectric.annotation.Config;
  * <p>Subclasses shouldn't include any new {@link Test @Test} methods - implementation-specific
  * tests should be in a separate class.
  */
-@Config(sdk = ALL_SDKS)
 @UnstableApi
 public abstract class PlayerAudioFocusContractTest {
 

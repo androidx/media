@@ -22,7 +22,6 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -51,7 +50,6 @@ import org.robolectric.shadows.ShadowAudioTrack;
 
 /** Unit tests for {@link AudioTrackAudioOutputProvider}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = ALL_SDKS)
 public class AudioTrackAudioOutputProviderTest {
 
   private Context context;

@@ -16,13 +16,11 @@
 package androidx.media3.exoplayer.analytics;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.media.metrics.LogSessionId;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 @RunWith(AndroidJUnit4.class)
 public final class PlayerIdTest {
@@ -35,7 +33,6 @@ public final class PlayerIdTest {
    * LogSessionId} isn't available.
    */
   @Test
-  @Config(sdk = ALL_SDKS)
   public void playerIdUsesReferenceEquality() {
     assertThat(new PlayerId(/* playerName= */ "foo"))
         .isNotEqualTo(new PlayerId(/* playerName= */ "foo"));

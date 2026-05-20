@@ -24,7 +24,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.app.UiModeManager;
 import android.content.Context;
@@ -81,7 +80,6 @@ import org.robolectric.shadows.ShadowUIModeManager;
 
 /** Unit tests for {@link DefaultAudioSink}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = ALL_SDKS)
 public final class DefaultAudioSinkTest {
 
   private static final long TIMEOUT_MS = 10_000;
@@ -1202,7 +1200,6 @@ public final class DefaultAudioSinkTest {
     assertThat(e.isRecoverable).isTrue();
   }
 
-  @Config(sdk = ALL_SDKS)
   @Test
   public void getAudioTrackBufferDurationUs_withPcm_calculatesCorrectValue() throws Exception {
     configureDefaultAudioSink(/* channelCount= */ 2);

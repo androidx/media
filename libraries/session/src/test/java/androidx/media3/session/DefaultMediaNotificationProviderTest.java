@@ -30,7 +30,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -64,13 +63,11 @@ import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowNotificationManager;
 
 /** Tests for {@link DefaultMediaNotificationProvider}. */
 @RunWith(AndroidJUnit4.class)
-@Config(sdk = ALL_SDKS)
 public class DefaultMediaNotificationProviderTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();

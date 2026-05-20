@@ -85,7 +85,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
-import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.content.Context;
 import android.content.Intent;
@@ -11132,7 +11131,6 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  @Config(sdk = ALL_SDKS)
   public void builder_inBackgroundThreadWithAllowedAnyThreadMethods_doesNotThrow()
       throws Exception {
     AtomicReference<Player> playerReference = new AtomicReference<>();
