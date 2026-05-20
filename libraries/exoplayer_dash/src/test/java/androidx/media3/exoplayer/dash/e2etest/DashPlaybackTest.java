@@ -309,6 +309,7 @@ public final class DashPlaybackTest {
    * at this transition.
    */
   @Test
+  @Config(minSdk = 24) // TODO: b/514594662 - De-flake this on API 23
   public void webvttInMp4_transientLoadError_playbackContinues() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
     WebServerDispatcher webServerDispatcher =
