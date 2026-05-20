@@ -15,16 +15,13 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ADVANCED_ASSET;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
-import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.metrics.EditingEndedEvent;
@@ -43,6 +40,7 @@ import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
@@ -51,7 +49,6 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.AssumptionViolatedException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,6 +58,7 @@ import org.junit.runner.RunWith;
 
 /** Instrumentation tests for metrics reporting using {@link EditingMetricsCollector} */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = 35)
 public class EditingMetricsCollectorTest {
   private static final String EXPORTER_NAME =
       "androidx.media3:media3-transformer:" + MediaLibraryInfo.VERSION;
@@ -79,11 +77,6 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void export_usePlatformDiagnosticsDisabled_doesNotCollectMetrics() throws Exception {
-    if (SDK_INT < 35) {
-      String reason = "Metrics collection is unsupported below API 35.";
-      recordTestSkipped(context, testId, reason);
-      throw new AssumptionViolatedException(reason);
-    }
     AtomicReference<EditingEndedEvent> editingEndedEventAtomicReference = new AtomicReference<>();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -111,7 +104,6 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportSuccess_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -255,7 +247,6 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportError_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -310,7 +301,6 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportCancelled_populatesEditingEndedEvent() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,
@@ -356,7 +346,6 @@ public class EditingMetricsCollectorTest {
 
   @Test
   public void exportTwice_createsUniqueSessions() throws Exception {
-    assumeTrue("Reporting metrics requires API 35", SDK_INT >= 35);
     assumeFormatsSupported(
         context,
         testId,

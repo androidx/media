@@ -62,6 +62,7 @@ import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.TextureBitmapReader;
 import androidx.media3.test.utils.VideoFrameProcessorTestRunner;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
@@ -440,6 +441,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hlg10Input_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
@@ -494,6 +496,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hlg10TextureInput_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
@@ -523,6 +526,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hlg10UltraHDRImageInput_matchesGoldenFile() throws Exception {
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat);
     assumeDeviceSupportsUltraHdrEditing();
@@ -556,6 +560,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hdr10Input_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -581,6 +586,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hdr10InputAndHlg10Output_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format inputFormat = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -615,6 +621,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hdr10TextureInput_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -644,6 +651,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noEffects_hdr10UltraHDRImageInput_matchesGoldenFile() throws Exception {
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeDeviceSupportsUltraHdrEditing();
@@ -677,6 +685,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hlg10Input_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
@@ -703,6 +712,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hlg10TextureInput_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_1080P_5_SECOND_HLG10.videoFormat;
@@ -732,6 +742,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hlg10UltraHDRImageInput_matchesGoldenFile() throws Exception {
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeDeviceSupportsUltraHdrEditing();
@@ -766,6 +777,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hdr10Input_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -792,6 +804,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hdr10TextureInput_matchesGoldenFile() throws Exception {
     Context context = getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -821,6 +834,7 @@ public final class DefaultVideoFrameProcessorTextureOutputPixelTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void noOpEffect_hdr10UltraHDRImageInput_matchesGoldenFile() throws Exception {
     assumeDeviceSupportsHdrEditing(testId, MP4_ASSET_720P_4_SECOND_HDR10.videoFormat);
     assumeDeviceSupportsUltraHdrEditing();

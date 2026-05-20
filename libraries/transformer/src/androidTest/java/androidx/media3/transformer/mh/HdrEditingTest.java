@@ -56,6 +56,7 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -145,6 +146,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void exportAndTranscode_hdr10File_whenHdrEditingIsSupported() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Format format = MP4_ASSET_720P_4_SECOND_HDR10.videoFormat;
@@ -282,6 +284,7 @@ public final class HdrEditingTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 33)
   public void
       exportAndTranscode_av1FileWithAv1HdrEditingUnsupportedAndHevcHdrEditingSupported_fallsBackToH265()
           throws Exception {

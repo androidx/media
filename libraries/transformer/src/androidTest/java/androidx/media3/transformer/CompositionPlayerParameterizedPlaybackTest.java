@@ -26,6 +26,7 @@ import static com.google.common.truth.TruthJUnit.assume;
 
 import android.content.Context;
 import android.view.SurfaceView;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -251,6 +252,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     playerTestListener.waitUntilPlayerEnded();
   }
 
+  @RequiresApi(28)
   private void runCompositionPlayer(
       Composition composition,
       RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>

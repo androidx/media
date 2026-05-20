@@ -22,7 +22,6 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
@@ -42,6 +41,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
@@ -470,7 +470,9 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
                   PixelFormat.RGBA_8888,
                   /* maxImages= */ 2);
         } else {
-          checkState(SDK_INT >= 33);
+          if (SDK_INT < 33) {
+            throw new IllegalStateException("HDR is only supported on API 33+");
+          }
           // HDR is only supported on newer API versions, where a different constructor, with wider
           // range of supported pixel formats exists.
           imageReader =
@@ -483,6 +485,7 @@ public class CompositionPlayerPacketConsumerSurfaceViewPixelTest {
       return imageReader.getSurface();
     }
 
+    @RequiresApi(33)
     int getLatestDataSpace() {
       Image image = imageReader.acquireLatestImage();
       int dataSpace = image.getDataSpace();

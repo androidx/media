@@ -70,6 +70,7 @@ import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
 
 /** Checks transcoding quality. */
+@SdkSuppress(minSdkVersion = 26)
 @Ignore("Only intended to run on internal infra: b/396671260")
 @RunWith(Parameterized.class)
 public final class TranscodeQualityTest {
