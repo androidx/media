@@ -4287,7 +4287,7 @@ public class MediaControllerListenerTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            eventsRef.set(events);
+            eventsRef.compareAndSet(null, events);
             latch.countDown();
           }
         };
