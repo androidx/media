@@ -18,6 +18,7 @@ package androidx.media3.ui.compose.material3
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,7 +84,7 @@ fun Player(
     PlayerDefaults.TopControls(player, showControls)
   },
   centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
-    PlayerDefaults.CenterControls(player, showControls)
+    PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
   },
   bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.BottomControls(player, showControls)

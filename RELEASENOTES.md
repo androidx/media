@@ -179,7 +179,8 @@
     *   Add `MiniController` composable to `media3-ui-compose` module. It
         provides a compact affordance to control the `Player` while displaying
         the title, artist, artwork, and progress of the current media item.
-    *   Publish `PlayerDefaults` object with composable for `BottomControls`.
+    *   Publish `PlayerDefaults` object with composables for `CenterControls`
+        and `BottomControls`.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

@@ -37,12 +37,6 @@ internal object PlayerTokens {
   val shutterColor: Color
     @Composable get() = MaterialTheme.colorScheme.scrim
 
-  val buttonContentColor: Color
-    @Composable get() = MaterialTheme.colorScheme.primary
-
-  val textColor: Color
-    @Composable get() = MaterialTheme.colorScheme.primary
-
   val controlsBackgroundColor: Color
     @Composable get() = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f)
 }

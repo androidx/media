@@ -57,6 +57,18 @@ import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 @UnstableApi
 object PlayerDefaults {
 
+  internal val regularButtonModifier: Modifier
+    @Composable
+    get() =
+      Modifier.size(PlayerTokens.CenterControlsButtonSize)
+        .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
+
+  internal val largeButtonModifier: Modifier
+    @Composable
+    get() =
+      Modifier.size(PlayerTokens.CenterControlsButtonSize.times(1.25f))
+        .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
+
   @Composable
   internal fun TopControls(player: Player?, visible: Boolean) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
@@ -73,23 +85,71 @@ object PlayerDefaults {
     }
   }
 
+  /**
+   * A Material3 horizontal layout with controls that are typically found in the center of the
+   * player interface.
+   *
+   * This component provides a flexible slot-based structure for the center player controls. The
+   * layout is organized as a centered row of buttons:
+   * ```
+   * +---------------------------------------------------------------+
+   * |                                                               |
+   * | +-------------+--------+---------+---------+----------------+ |
+   * | |backSecondary|  back  | central | forward |forwardSecondary| |
+   * | +-------------+--------+---------+---------+----------------+ |
+   * |                                                               |
+   * +---------------------------------------------------------------+
+   * ```
+   *
+   * By default, it displays a [PreviousButton], [SeekBackButton], [PlayPauseButton],
+   * [SeekForwardButton], and [NextButton] in that order. The central play/pause button is slightly
+   * larger than the others.
+   *
+   * @param player The [Player] to control.
+   * @param visible Whether the layout should be visible. When `true`, a fade in-and-out animation
+   *   is used.
+   * @param modifier The [Modifier] to be applied to the container.
+   * @param horizontalArrangement The horizontal arrangement of the layout's children.
+   * @param verticalAlignment The vertical alignment of the layout's children.
+   * @param backSecondary Slot for the outermost left control. Defaults to [PreviousButton].
+   * @param back Slot for the inner left control. Defaults to [SeekBackButton].
+   * @param central Slot for the central control. Defaults to a large [PlayPauseButton].
+   * @param forward Slot for the inner right control. Defaults to [SeekForwardButton].
+   * @param forwardSecondary Slot for the outermost right control. Defaults to [NextButton].
+   */
   @Composable
-  internal fun CenterControls(player: Player?, showControls: Boolean) {
-    AnimatedVisibility(visible = showControls, enter = fadeIn(), exit = fadeOut()) {
+  fun CenterControls(
+    player: Player?,
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal =
+      Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
+    verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
+    backSecondary: @Composable (Player?) -> Unit = {
+      PreviousButton(it, modifier = regularButtonModifier)
+    },
+    back: @Composable (Player?) -> Unit = { SeekBackButton(it, modifier = regularButtonModifier) },
+    central: @Composable (Player?) -> Unit = {
+      PlayPauseButton(it, modifier = largeButtonModifier)
+    },
+    forward: @Composable (Player?) -> Unit = {
+      SeekForwardButton(it, modifier = regularButtonModifier)
+    },
+    forwardSecondary: @Composable (Player?) -> Unit = {
+      NextButton(it, modifier = regularButtonModifier)
+    },
+  ) {
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
       Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement =
-          Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+        horizontalArrangement = horizontalArrangement,
+        verticalAlignment = verticalAlignment,
       ) {
-        val buttonModifier =
-          Modifier.size(PlayerTokens.CenterControlsButtonSize)
-            .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
-        PreviousButton(player, buttonModifier)
-        SeekBackButton(player, buttonModifier)
-        PlayPauseButton(player, buttonModifier)
-        SeekForwardButton(player, buttonModifier)
-        NextButton(player, buttonModifier)
+        backSecondary(player)
+        back(player)
+        central(player)
+        forward(player)
+        forwardSecondary(player)
       }
     }
   }
