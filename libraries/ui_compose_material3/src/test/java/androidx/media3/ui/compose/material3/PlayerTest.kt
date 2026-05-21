@@ -56,12 +56,6 @@ class PlayerTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
   private val playerTestTag = "player_under_test"
 
-  private fun findTopControls() =
-    composeTestRule.onNode(
-      hasContentDescription(context.getString(R.string.mute_button_shown_muted)) or
-        hasContentDescription(context.getString(R.string.mute_button_shown_unmuted))
-    )
-
   private fun findCenterControls() =
     composeTestRule.onNode(
       hasContentDescription(context.getString(R.string.playpause_button_play)) or
@@ -75,7 +69,6 @@ class PlayerTest {
   fun player_controlsVisible() {
     composeTestRule.setContent { Player(player = FakePlayer(), showControls = true) }
 
-    findTopControls().assertIsDisplayed()
     findCenterControls().assertIsDisplayed()
     findBottomControls().assertCountEquals(2)
     findBottomControls().onFirst().assertIsDisplayed()
@@ -86,7 +79,6 @@ class PlayerTest {
   fun player_controlsHidden() {
     composeTestRule.setContent { Player(player = FakePlayer(), showControls = false) }
 
-    findTopControls().assertDoesNotExist()
     findCenterControls().assertDoesNotExist()
     findBottomControls().assertCountEquals(0)
   }
@@ -101,13 +93,11 @@ class PlayerTest {
         modifier = Modifier.testTag(playerTestTag).clickable { showControls = !showControls },
       )
     }
-    findTopControls().assertDoesNotExist()
     findCenterControls().assertDoesNotExist()
     findBottomControls().assertCountEquals(0)
 
     composeTestRule.onNodeWithTag(playerTestTag).performClick()
 
-    findTopControls().assertIsDisplayed()
     findCenterControls().assertIsDisplayed()
     findBottomControls().assertCountEquals(2)
     findBottomControls().onFirst().assertIsDisplayed()

@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -70,6 +69,7 @@ import androidx.media3.demo.compose.text.SeekOverlayState
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.material3.PlayerDefaults
+import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import androidx.media3.ui.compose.state.rememberPlaybackSpeedState
 import androidx.media3.ui.compose.state.rememberSeekBackButtonState
@@ -198,6 +198,14 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
             },
           ),
       contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
+      topControls = { player, showControls ->
+        PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth()) {
+          SettingsButton(
+            Modifier.padding(horizontal = 15.dp).align(Alignment.CenterEnd),
+            onSettingsClick = { showSettings = true },
+          )
+        }
+      },
       bottomControls = { player, showControls ->
         PlayerDefaults.BottomControls(
           player,
@@ -207,14 +215,7 @@ internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
               bottomControlsHeight = with(density) { it.height.toDp() }
             },
           above = {
-            SettingsButton(
-              Modifier.align(Alignment.End),
-              onSettingsClick = { showSettings = true },
-              colors =
-                IconButtonDefaults.iconButtonColors(
-                  contentColor = MaterialTheme.colorScheme.primary
-                ),
-            )
+            Box(Modifier.fillMaxWidth()) { MuteButton(player, Modifier.align(Alignment.CenterEnd)) }
           },
           progressSlider = { LabeledProgressSlider(it) },
         )

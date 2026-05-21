@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -35,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.compose.material3.buttons.MuteButton
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
@@ -69,19 +69,28 @@ object PlayerDefaults {
       Modifier.size(PlayerTokens.CenterControlsButtonSize.times(1.25f))
         .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
 
+  /**
+   * A Material3 horizontal layout with controls typically found at the top of the player interface.
+   *
+   * This component acts as a visibility wrapper and provides a flexible [Box]-based structure.
+   * Because it executes the content within a [BoxScope], you can easily align individual elements
+   * to specific corners (e.g., [Alignment.TopEnd] or [Alignment.TopStart]). By default, the
+   * [content] is empty.
+   *
+   * @param player The [Player] to control.
+   * @param visible Whether the controls should be visible.
+   * @param modifier The [Modifier] to be applied to the container.
+   * @param content The content of the top controls.
+   */
   @Composable
-  internal fun TopControls(player: Player?, visible: Boolean) {
+  fun TopControls(
+    player: Player?,
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.(Player?) -> Unit = {},
+  ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
-      Row(
-        modifier =
-          Modifier.fillMaxWidth().padding(horizontal = PlayerTokens.ControlsHorizontalPadding),
-        horizontalArrangement = Arrangement.End,
-      ) {
-        MuteButton(
-          player,
-          Modifier.background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape),
-        )
-      }
+      Box(modifier) { content(player) }
     }
   }
 

@@ -40,6 +40,8 @@ class PlayerDefaultsTest {
 
   @get:Rule val composeTestRule = createComposeRule()
   private val context: Context = ApplicationProvider.getApplicationContext()
+  private val topControlsTag = "top_controls"
+  private val topControlsContentTag = "top_controls_content"
 
   private val centerControlsTag = "center_controls"
   private val customButtonTag = "custom_button"
@@ -47,6 +49,53 @@ class PlayerDefaultsTest {
   private val bottomControlsTag = "bottom_controls"
   private val customSliderTag = "custom_slider"
   private val customContentTag = "custom_content"
+
+  @Test
+  fun topControls_visibleTrue_isDisplayed() {
+    composeTestRule.setContent {
+      PlayerDefaults.TopControls(
+        player = FakePlayer(),
+        visible = true,
+        modifier = Modifier.testTag(topControlsTag),
+        content = { Box(Modifier.size(100.dp).testTag(topControlsContentTag)) },
+      )
+    }
+
+    composeTestRule.onNodeWithTag(topControlsContentTag).assertIsDisplayed()
+  }
+
+  @Test
+  fun topControls_visibleFalse_isNotDisplayed() {
+    composeTestRule.setContent {
+      PlayerDefaults.TopControls(
+        player = FakePlayer(),
+        visible = false,
+        modifier = Modifier.testTag(topControlsTag),
+        content = { Box(Modifier.size(100.dp).testTag(topControlsTag)) },
+      )
+    }
+
+    composeTestRule.onNodeWithTag(topControlsTag).assertDoesNotExist()
+  }
+
+  @Test
+  fun topControls_passesPlayerToSlots() {
+    val player = FakePlayer()
+    composeTestRule.setContent {
+      PlayerDefaults.TopControls(
+        player = player,
+        visible = true,
+        content = { p ->
+          if (p == player) {
+            BasicText("Content received player")
+          }
+        },
+      )
+    }
+
+    // Verify that the slot lambda was invoked with the exact player instance
+    composeTestRule.onNodeWithText("Content received player").assertIsDisplayed()
+  }
 
   @Test
   fun centerControls_visibleTrue_isDisplayed() {

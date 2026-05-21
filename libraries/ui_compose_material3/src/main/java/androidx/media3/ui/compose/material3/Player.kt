@@ -81,7 +81,7 @@ fun Player(
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = false,
   topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
-    PlayerDefaults.TopControls(player, showControls)
+    PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
   },
   centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
