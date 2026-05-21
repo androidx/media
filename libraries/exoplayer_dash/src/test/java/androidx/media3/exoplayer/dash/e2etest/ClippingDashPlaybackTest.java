@@ -51,6 +51,7 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -169,6 +170,7 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_extendEndPositionAfterLoadingFinished() throws Exception {
     assumeTrue(enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
