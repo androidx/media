@@ -19,6 +19,7 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static com.google.common.truth.Truth.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -103,7 +104,7 @@ public final class FakeClockTest {
         .obtainMessage(/* what= */ 4, /* arg1= */ 88, /* arg2= */ 33, /* obj= */ testObject)
         .sendToTarget();
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages)
@@ -128,7 +129,7 @@ public final class FakeClockTest {
     handler.sendEmptyMessageDelayed(/* what= */ 3, /* delayMs= */ 50);
     handler.sendEmptyMessage(/* what= */ 4);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
 
     assertThat(callback.messages)
         .containsExactly(
@@ -137,14 +138,14 @@ public final class FakeClockTest {
         .inOrder();
 
     fakeClock.advanceTime(50);
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
 
     assertThat(callback.messages).hasSize(3);
     assertThat(Iterables.getLast(callback.messages))
         .isEqualTo(new MessageData(/* what= */ 3, /* arg1= */ 0, /* arg2= */ 0, /* obj= */ null));
 
     fakeClock.advanceTime(50);
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages).hasSize(4);
@@ -165,7 +166,7 @@ public final class FakeClockTest {
     handler.sendMessageAtFrontOfQueue(handler.obtainMessage(/* what= */ 3));
     handler.obtainMessage(/* what= */ 4).sendToTarget();
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages)
@@ -196,22 +197,22 @@ public final class FakeClockTest {
     handler.postDelayed(testRunnables[1], 100);
     handler.postDelayed(testRunnables[2], 200);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     assertTestRunnableStates(new boolean[] {true, false, false, false, false}, testRunnables);
 
     fakeClock.advanceTime(150);
     handler.postDelayed(testRunnables[3], 50);
     handler.postDelayed(testRunnables[4], 100);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     assertTestRunnableStates(new boolean[] {true, true, false, false, false}, testRunnables);
 
     fakeClock.advanceTime(50);
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     assertTestRunnableStates(new boolean[] {true, true, true, true, false}, testRunnables);
 
     fakeClock.advanceTime(1000);
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     assertTestRunnableStates(new boolean[] {true, true, true, true, true}, testRunnables);
 
     handlerThread.quitSafely();
@@ -240,7 +241,7 @@ public final class FakeClockTest {
     handler.removeCallbacksAndMessages(messageToken);
     fakeClock.advanceTime(50);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages)
@@ -273,7 +274,7 @@ public final class FakeClockTest {
     handler.removeCallbacks(testRunnable1);
     fakeClock.advanceTime(50);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages)
@@ -298,7 +299,7 @@ public final class FakeClockTest {
 
     handler.removeCallbacks(testRunnable);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(testRunnable.hasRun).isTrue();
@@ -326,7 +327,7 @@ public final class FakeClockTest {
     handler.removeCallbacksAndMessages(/* token= */ null);
     fakeClock.advanceTime(50);
     ShadowLooper.idleMainLooper();
-    blockUntilMessagesFinished(handler);
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(callback.messages).isEmpty();
@@ -339,24 +340,19 @@ public final class FakeClockTest {
   }
 
   @Test
-  public void createHandler_withIsAutoAdvancing_advancesTimeToNextMessages() throws Exception {
+  public void createHandler_withIsAutoAdvancing_advancesTimeToNextMessages() {
     HandlerThread handlerThread = new HandlerThread("FakeClockTest");
     handlerThread.start();
     FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
     HandlerWrapper handler =
         fakeClock.createHandler(handlerThread.getLooper(), /* callback= */ null);
 
-    ConditionVariable messagesFinished = new ConditionVariable();
     // Post a series of immediate and delayed messages.
     ArrayList<Long> clockTimes = new ArrayList<>();
     handler.post(
         () -> {
           handler.postDelayed(
-              () -> {
-                clockTimes.add(fakeClock.elapsedRealtime());
-                messagesFinished.open();
-              },
-              /* delayMs= */ 100);
+              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 100);
           handler.postDelayed(() -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 50);
           handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
           handler.postDelayed(
@@ -368,15 +364,14 @@ public final class FakeClockTest {
               /* delayMs= */ 20);
         });
     ShadowLooper.idleMainLooper();
-    messagesFinished.block();
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(clockTimes).containsExactly(0L, 20L, 50L, 70L, 100L).inOrder();
   }
 
   @Test
-  public void createHandler_withIsAutoAdvancing_triggersOnlyMessagesWithinDefinedMaxTimeDiff()
-      throws Exception {
+  public void createHandler_withIsAutoAdvancing_triggersOnlyMessagesWithinDefinedMaxTimeDiff() {
     HandlerThread handlerThread = new HandlerThread("FakeClockTest");
     handlerThread.start();
     FakeClock fakeClock =
@@ -388,17 +383,12 @@ public final class FakeClockTest {
     HandlerWrapper handler =
         fakeClock.createHandler(handlerThread.getLooper(), /* callback= */ null);
 
-    ConditionVariable messagesFinished = new ConditionVariable();
     // Post a series of immediate and delayed messages with one that is too far in the future.
     ArrayList<Long> clockTimes = new ArrayList<>();
     handler.post(
         () -> {
           handler.postDelayed(
-              () -> {
-                clockTimes.add(fakeClock.elapsedRealtime());
-                messagesFinished.open();
-              },
-              /* delayMs= */ 400);
+              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 400);
           handler.postDelayed(
               () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 801);
           handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
@@ -406,7 +396,7 @@ public final class FakeClockTest {
               () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 200);
         });
     ShadowLooper.idleMainLooper();
-    messagesFinished.block();
+    shadowOf(handler.getLooper()).idle();
     handlerThread.quitSafely();
 
     assertThat(clockTimes).containsExactly(0L, 200L, 400L).inOrder();
@@ -495,6 +485,8 @@ public final class FakeClockTest {
     testFinished.block();
     handlerThread1.quitSafely();
     handlerThread2.quitSafely();
+    handlerThread1.join();
+    handlerThread2.join();
 
     assertThat(executionOrder).containsExactly(1, 2, 3, 4).inOrder();
   }
@@ -544,6 +536,8 @@ public final class FakeClockTest {
     testFinished.block();
     handlerThread1.quitSafely();
     handlerThread2.quitSafely();
+    handlerThread1.join();
+    handlerThread2.join();
 
     assertThat(executionOrder).containsExactly(1, 2, 3, 4).inOrder();
   }
@@ -599,6 +593,8 @@ public final class FakeClockTest {
     testFinished.block();
     handlerThread1.quitSafely();
     handlerThread2.quitSafely();
+    handlerThread1.join();
+    handlerThread2.join();
 
     assertThat(executionOrder).containsExactly(1, 2, 3, 4).inOrder();
   }
@@ -615,8 +611,8 @@ public final class FakeClockTest {
     HandlerWrapper handler2 =
         fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
 
-    blockUntilMessagesFinished(handler1);
     handlerThread1.quitSafely();
+    handlerThread1.join();
 
     ConditionVariable messagesFinished = new ConditionVariable();
     AtomicBoolean messageOnDeadThreadExecuted = new AtomicBoolean();
@@ -625,8 +621,52 @@ public final class FakeClockTest {
     ShadowLooper.idleMainLooper();
     messagesFinished.block();
     handlerThread2.quitSafely();
+    handlerThread2.join();
 
     assertThat(messageOnDeadThreadExecuted.get()).isFalse();
+  }
+
+  @Test
+  public void createHandler_idlingBackgroundThreadWhileTrackingBlockedThreads_doesNotDeadlock()
+      throws Exception {
+    HandlerThread handlerThread1 = new HandlerThread("FakeClockTest");
+    handlerThread1.start();
+    HandlerThread handlerThread2 = new HandlerThread("FakeClockTest");
+    handlerThread2.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
+    HandlerWrapper handler1 =
+        fakeClock.createHandler(handlerThread1.getLooper(), /* callback= */ null);
+    HandlerWrapper handler2 =
+        fakeClock.createHandler(handlerThread2.getLooper(), /* callback= */ null);
+
+    ArrayList<Integer> executionOrder = new ArrayList<>();
+    handler1.post(
+        () -> {
+          executionOrder.add(1);
+          ConditionVariable blockingCondition = new ConditionVariable(fakeClock);
+          handler2.postDelayed(
+              () -> {
+                executionOrder.add(2);
+                blockingCondition.open();
+              },
+              /* delayMs= */ 50);
+          handler1.post(() -> executionOrder.add(4));
+          try {
+            blockingCondition.block();
+          } catch (InterruptedException e) {
+            // Ignore.
+          }
+          executionOrder.add(3);
+        });
+    ShadowLooper.idleMainLooper();
+    shadowOf(handler1.getLooper()).idle();
+    shadowOf(handler2.getLooper()).idle();
+    handlerThread1.quitSafely();
+    handlerThread2.quitSafely();
+    handlerThread1.join();
+    handlerThread2.join();
+
+    assertThat(executionOrder).containsExactly(1, 2, 3, 4).inOrder();
   }
 
   @Test
@@ -665,17 +705,6 @@ public final class FakeClockTest {
   private static void assertTestRunnableStates(boolean[] states, TestRunnable[] testRunnables) {
     for (int i = 0; i < testRunnables.length; i++) {
       assertThat(testRunnables[i].hasRun).isEqualTo(states[i]);
-    }
-  }
-
-  private static void blockUntilMessagesFinished(HandlerWrapper handler) {
-    ConditionVariable messagesFinished = new ConditionVariable();
-    handler.post(messagesFinished::open);
-    ShadowLooper.idleMainLooper();
-    try {
-      messagesFinished.block();
-    } catch (InterruptedException e) {
-      // Ignore.
     }
   }
 
