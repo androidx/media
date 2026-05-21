@@ -1025,6 +1025,12 @@ public final class MediaCodecInfo {
 
   /** Returns whether the device is known to have issues with the detached surface mode. */
   private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
+    if (SDK_INT > 37) {
+      // After API 37, we assume that detached surface mode is supported and we don't apply the
+      // workaround. Devices should not declare support for FEATURE_DetachedSurface unless they
+      // actually support it.
+      return false;
+    }
     return Build.MANUFACTURER.equals("Xiaomi")
         || Build.MANUFACTURER.equals("OPPO")
         || Build.MANUFACTURER.equals("realme")
