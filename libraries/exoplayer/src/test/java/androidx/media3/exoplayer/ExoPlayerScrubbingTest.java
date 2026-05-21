@@ -94,6 +94,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -931,6 +932,7 @@ public final class ExoPlayerScrubbingTest {
 
   @Test
   @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
+  @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
