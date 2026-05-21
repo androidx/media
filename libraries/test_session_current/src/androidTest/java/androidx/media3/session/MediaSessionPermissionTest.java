@@ -477,8 +477,9 @@ public class MediaSessionPermissionTest {
     assertThat(callback.onCommandRequestCalled).isFalse();
   }
 
-  private ControllerInfo getTestControllerInfo() {
-    List<ControllerInfo> controllers = session.getConnectedControllers();
+  private ControllerInfo getTestControllerInfo() throws Exception {
+    List<ControllerInfo> controllers =
+        threadTestRule.getHandler().postAndSync(() -> session.getConnectedControllers());
     assertThat(controllers).isNotNull();
     for (int i = 0; i < controllers.size(); i++) {
       if (TextUtils.equals(SUPPORT_APP_PACKAGE_NAME, controllers.get(i).getPackageName())) {

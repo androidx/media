@@ -919,6 +919,9 @@ public class MediaSession {
    * Returns the {@link PendingIntent} to launch {@linkplain
    * Builder#setSessionActivity(PendingIntent) the session activity} or null if not set.
    *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
+   *
    * @return The {@link PendingIntent} to launch an activity belonging to the session.
    */
   @Nullable
@@ -1011,7 +1014,12 @@ public class MediaSession {
     return impl.isReleased();
   }
 
-  /** Returns the underlying {@link Player}. */
+  /**
+   * Returns the underlying {@link Player}.
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
+   */
   public final Player getPlayer() {
     return impl.getPlayerWrapper().getWrappedPlayer();
   }
@@ -1026,7 +1034,12 @@ public class MediaSession {
     return impl.getToken();
   }
 
-  /** Returns the list of connected controllers. */
+  /**
+   * Returns the list of connected controllers.
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
+   */
   public final List<ControllerInfo> getConnectedControllers() {
     return impl.getConnectedControllers();
   }
@@ -1093,6 +1106,9 @@ public class MediaSession {
    * <p>The available {@linkplain Player.Commands player commands} are intersected with the actual
    * available commands of the underlying player to determine the playback actions of the platform
    * session (see {@code PlaybackStateCompat.getActions()}).
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
    */
   @UnstableApi
   @Nullable
@@ -1332,6 +1348,9 @@ public class MediaSession {
    * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
    * CommandButton} or a {@link SessionCommand} do not have effect. To change the custom layout use
    * {@link #setCustomLayout(List)} or {@link #setCustomLayout(ControllerInfo, List)}.
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
    */
   @UnstableApi
   public ImmutableList<CommandButton> getCustomLayout() {
@@ -1344,6 +1363,9 @@ public class MediaSession {
    * <p>For informational purpose only. Mutations on the {@link Bundle} of either a {@link
    * CommandButton} or a {@link SessionCommand} do not have effect. To change the media button
    * preferences use {@link #setMediaButtonPreferences}.
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
    */
   @UnstableApi
   public ImmutableList<CommandButton> getMediaButtonPreferences() {
@@ -1376,6 +1398,9 @@ public class MediaSession {
    * <p>For informational purpose only. Mutations on the {@link Bundle} do not have immediate
    * effect. To change the session extras use {@link #setSessionExtras(Bundle)} or {@link
    * #setSessionExtras(ControllerInfo, Bundle)}.
+   *
+   * <p>This method must be called from the thread associated with the {@linkplain
+   * Player#getApplicationLooper() application looper}.
    */
   public Bundle getSessionExtras() {
     return impl.getSessionExtras();

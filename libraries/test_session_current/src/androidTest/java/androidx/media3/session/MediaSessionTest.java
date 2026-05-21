@@ -182,7 +182,7 @@ public class MediaSessionTest {
   }
 
   @Test
-  public void builderSetSessionActivity_activityIntent_accepted() {
+  public void builderSetSessionActivity_activityIntent_accepted() throws Exception {
     PendingIntent pendingIntent =
         PendingIntent.getActivity(
             ApplicationProvider.getApplicationContext(),
@@ -192,12 +192,14 @@ public class MediaSessionTest {
 
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(
-            new MediaSession.Builder(getApplicationContext(), new MockPlayer.Builder().build())
+            new MediaSession.Builder(
+                    getApplicationContext(),
+                    new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build())
                 .setId("sessionActivity")
                 .setSessionActivity(pendingIntent)
                 .build());
 
-    assertThat(session.getSessionActivity()).isEqualTo(pendingIntent);
+    assertThat(handler.postAndSync(session::getSessionActivity)).isEqualTo(pendingIntent);
   }
 
   @Test
@@ -218,7 +220,7 @@ public class MediaSessionTest {
                 .build());
     handler.postAndSync(() -> session.setSessionActivity(pendingIntent));
 
-    assertThat(session.getSessionActivity()).isEqualTo(pendingIntent);
+    assertThat(handler.postAndSync(session::getSessionActivity)).isEqualTo(pendingIntent);
   }
 
   @Test

@@ -185,13 +185,18 @@ public class MediaSessionServiceTest {
     // TestServiceRegistry is taken care of and cleaned up @After the test.
     service.setCleanupServiceRegistryOnDestroy(false);
     controller.setRepeatMode(Player.REPEAT_MODE_ONE);
-    List<ControllerInfo> connectedControllerManagerControllerInfos = new ArrayList<>();
-    for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
-      if (!session.get().isMediaNotificationController(controllerInfo)) {
-        // The controllerInfo in the connected controller manager.
-        connectedControllerManagerControllerInfos.add(controllerInfo);
-      }
-    }
+    List<ControllerInfo> connectedControllerManagerControllerInfos =
+        new TestHandler(Looper.getMainLooper())
+            .postAndSync(
+                () -> {
+                  List<ControllerInfo> controllers = new ArrayList<>();
+                  for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
+                    if (!session.get().isMediaNotificationController(controllerInfo)) {
+                      controllers.add(controllerInfo);
+                    }
+                  }
+                  return controllers;
+                });
 
     // The controller that was bound to the service unbinds when released. Because the service was
     // never started (as in `onStartCommand()` was never called), the service is immediately

@@ -147,6 +147,14 @@
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
 *   Session:
+    *   Fix potential deadlocks and `IllegalStateException` crashes inside
+        `MediaNotificationManager` when using a session with a background thread
+        player looper.
+    *   Enforce stricter threading requirements for `MediaSession` methods. Void
+        methods now automatically post execution to the application looper
+        thread, and state accessors (getters) explicitly throw an
+        `IllegalStateException` if called from a thread other than the
+        application looper.
     *   Fix an out-of-bounds timeline merge crash (`IllegalStateException` in
         `MediaUtils.mergePlayerInfo`) by tracking state consistency
         per-controller on the session side.

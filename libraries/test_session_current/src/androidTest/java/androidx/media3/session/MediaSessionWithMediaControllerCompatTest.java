@@ -182,7 +182,7 @@ public class MediaSessionWithMediaControllerCompatTest {
     assertThat(controllerCompat.getQueueSize()).isEqualTo(QUEUE_IS_NULL);
 
     session.setAvailableCommands(
-        session.getMediaNotificationControllerInfo(),
+        threadTestRule.getHandler().postAndSync(() -> session.getMediaNotificationControllerInfo()),
         SessionCommands.EMPTY,
         Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_GET_TIMELINE).build());
     RemoteMediaControllerCompat controllerCompat2 =

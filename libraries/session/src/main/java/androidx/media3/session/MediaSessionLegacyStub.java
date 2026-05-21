@@ -168,6 +168,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Uri sessionUri,
       Handler handler,
       Bundle tokenExtras,
+      @Nullable PendingIntent sessionActivity,
       boolean playIfSuppressed,
       ImmutableList<CommandButton> customLayout,
       ImmutableList<CommandButton> mediaButtonPreferences,
@@ -264,7 +265,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Api31.setMediaButtonBroadcastReceiver(sessionCompat, broadcastReceiverComponentName);
     }
 
-    @Nullable PendingIntent sessionActivity = session.getSessionActivity();
     if (sessionActivity != null) {
       sessionCompat.setSessionActivity(sessionActivity);
     }

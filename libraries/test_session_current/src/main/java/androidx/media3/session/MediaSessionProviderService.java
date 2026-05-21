@@ -947,16 +947,19 @@ public class MediaSessionProviderService extends Service {
     private void runOnHandlerForControllerWithMatchingKey(
         MediaSession mediaSession, String controllerKey, Consumer<ControllerInfo> consumer)
         throws RemoteException {
-      List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
-      for (int i = 0; i < connectedControllers.size(); i++) {
-        ControllerInfo controllerInfo = connectedControllers.get(i);
-        @Nullable
-        String connectedControllerKey =
-            controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
-        if (Objects.equals(controllerKey, connectedControllerKey)) {
-          runOnHandler(() -> consumer.accept(controllerInfo));
-        }
-      }
+      runOnHandler(
+          () -> {
+            List<ControllerInfo> connectedControllers = mediaSession.getConnectedControllers();
+            for (int i = 0; i < connectedControllers.size(); i++) {
+              ControllerInfo controllerInfo = connectedControllers.get(i);
+              @Nullable
+              String connectedControllerKey =
+                  controllerInfo.getConnectionHints().getString(KEY_CONTROLLER);
+              if (Objects.equals(controllerKey, connectedControllerKey)) {
+                consumer.accept(controllerInfo);
+              }
+            }
+          });
     }
 
     ////////////////////////////////////////////////////////////////////////////////

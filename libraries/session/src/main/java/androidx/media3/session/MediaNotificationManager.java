@@ -165,7 +165,7 @@ import java.util.concurrent.TimeoutException;
     }
     // Let the notification provider handle the command first before forwarding it directly.
     Util.postOrRun(
-        new Handler(session.getPlayer().getApplicationLooper()),
+        session.getImpl().getApplicationHandler(),
         () -> {
           if (!mediaNotificationProvider.handleCustomCommand(session, action, extras)) {
             mainExecutor.execute(
@@ -207,7 +207,7 @@ import java.util.concurrent.TimeoutException;
                       () -> onNotificationUpdated(notificationSequence, session, notification));
 
           Util.postOrRun(
-              new Handler(session.getPlayer().getApplicationLooper()),
+              session.getImpl().getApplicationHandler(),
               () -> {
                 try {
                   MediaNotification mediaNotification =

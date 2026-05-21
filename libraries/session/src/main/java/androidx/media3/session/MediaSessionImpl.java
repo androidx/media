@@ -36,6 +36,7 @@ import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -61,6 +62,7 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.FloatRange;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
+import androidx.concurrent.futures.ResolvableFuture;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
@@ -98,6 +100,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.initialization.qual.Initialized;
 
 /* package */ class MediaSessionImpl {
@@ -112,6 +116,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           + "See javadoc of MediaSession for details.";
 
   private static final long DEFAULT_SESSION_POSITION_UPDATE_DELAY_MS = 3_000;
+  private static final long RELEASE_TIMEOUT_MS = 1_000;
 
   public static final String TAG = "MediaSessionImpl";
 
@@ -235,6 +240,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionUri,
             applicationHandler,
             tokenExtras,
+            sessionActivity,
             playIfSuppressed,
             customLayout,
             mediaButtonPreferences,
@@ -271,10 +277,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public void setPlayer(Player player) {
-    if (player == playerWrapper.getWrappedPlayer()) {
-      return;
-    }
-    setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
+    postOrRunOnApplicationHandler(
+        () -> {
+          if (player == playerWrapper.getWrappedPlayer()) {
+            return;
+          }
+          setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
+        });
   }
 
   private void setPlayerInternal(
@@ -321,25 +330,40 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     mediaPlayPauseKeyHandler.clearPendingPlayPauseTask();
     applicationHandler.removeCallbacksAndMessages(null);
+    boolean releasedOnHandler = false;
+    AtomicBoolean stubsReleased = new AtomicBoolean(false);
     try {
-      postOrRun(
-          applicationHandler,
-          () -> {
-            if (playerListener != null) {
-              playerWrapper.removeListener(playerListener);
-            }
-          });
+      if (applicationHandler.getLooper().getThread().isAlive()) {
+        CountDownLatch latch = new CountDownLatch(1);
+        postOrRunOnApplicationHandler(
+            () -> {
+              if (playerListener != null) {
+                playerWrapper.removeListener(playerListener);
+              }
+              if (stubsReleased.compareAndSet(false, true)) {
+                sessionLegacyStub.release();
+                sessionStub.release();
+              }
+              latch.countDown();
+            });
+        releasedOnHandler = latch.await(RELEASE_TIMEOUT_MS, MILLISECONDS);
+      }
     } catch (Exception e) {
       // Catch all exceptions to ensure the rest of this method to be executed as exceptions may be
       // thrown by user if, for example, the application thread is dead or removeListener throws an
       // exception.
       Log.w(TAG, "Exception thrown while closing", e);
     }
-    sessionLegacyStub.release();
-    sessionStub.release();
+    if (!releasedOnHandler) {
+      if (stubsReleased.compareAndSet(false, true)) {
+        sessionLegacyStub.release();
+        sessionStub.release();
+      }
+    }
   }
 
   public PlayerWrapper getPlayerWrapper() {
+    verifyApplicationThread();
     return playerWrapper;
   }
 
@@ -366,6 +390,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public List<ControllerInfo> getConnectedControllers() {
+    verifyApplicationThread();
     ImmutableList<ControllerInfo> media3Controllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     ImmutableList<ControllerInfo> platformControllers =
@@ -393,6 +418,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Nullable
   public ControllerInfo getControllerForCurrentRequest() {
+    verifyApplicationThread();
     return controllerForCurrentRequest != null
         ? resolveControllerInfoForCallback(controllerForCurrentRequest)
         : null;
@@ -481,6 +507,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   @Nullable
   public ControllerInfo getMediaNotificationControllerInfo() {
+    verifyApplicationThread();
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
@@ -512,8 +539,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public ListenableFuture<SessionResult> setCustomLayout(
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
-      sessionLegacyStub.setPlatformCustomLayout(customLayout);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      postOrRunOnApplicationHandler(
+          () -> {
+            sessionLegacyStub.setPlatformCustomLayout(customLayout);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+          });
     }
     return dispatchRemoteControllerTask(
         controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
@@ -521,10 +551,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   /** Sets the custom layout of the session and sends the custom layout to all controllers. */
   public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
-    this.customLayout = customLayout;
-    sessionLegacyStub.setPlatformCustomLayout(customLayout);
-    dispatchRemoteControllerTaskWithoutReturn(
-        (controller, seq) -> controller.setCustomLayout(seq, customLayout));
+    postOrRunOnApplicationHandler(
+        () -> {
+          this.customLayout = customLayout;
+          sessionLegacyStub.setPlatformCustomLayout(customLayout);
+          dispatchRemoteControllerTaskWithoutReturn(
+              (controller, seq) -> controller.setCustomLayout(seq, customLayout));
+        });
   }
 
   /**
@@ -537,8 +570,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public ListenableFuture<SessionResult> setMediaButtonPreferences(
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
-      sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      postOrRunOnApplicationHandler(
+          () -> {
+            sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+          });
     }
     return dispatchRemoteControllerTask(
         controller,
@@ -550,13 +586,23 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * controllers.
    */
   public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
-    this.mediaButtonPreferences = mediaButtonPreferences;
-    sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-    dispatchRemoteControllerTaskWithoutReturn(
-        (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
+    postOrRunOnApplicationHandler(
+        () -> {
+          this.mediaButtonPreferences = mediaButtonPreferences;
+          sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
+          dispatchRemoteControllerTaskWithoutReturn(
+              (controller, seq) ->
+                  controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
+        });
   }
 
   public void setPlaybackException(
+      ControllerInfo controllerInfo, @Nullable PlaybackException playbackException) {
+    postOrRunOnApplicationHandler(
+        () -> setPlaybackExceptionOnHandler(controllerInfo, playbackException));
+  }
+
+  private void setPlaybackExceptionOnHandler(
       ControllerInfo controllerInfo, @Nullable PlaybackException playbackException) {
     ConnectedControllersManager<IBinder> controllerManager =
         sessionStub.getConnectedControllersManager();
@@ -592,18 +638,22 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public void setPlaybackException(@Nullable PlaybackException playbackException) {
-    // Do not check for equality and return as a no-op if equal. Some controller may have a
-    // different exception set individually that we want to override.
-    this.playbackException = playbackException;
-    ImmutableList<ControllerInfo> connectedControllers =
-        sessionStub.getConnectedControllersManager().getConnectedControllers();
-    for (int i = 0; i < connectedControllers.size(); i++) {
-      setPlaybackException(connectedControllers.get(i), playbackException);
-    }
+    postOrRunOnApplicationHandler(
+        () -> {
+          // Do not check for equality and return as a no-op if equal. Some controller may have a
+          // different exception set individually that we want to override.
+          this.playbackException = playbackException;
+          ImmutableList<ControllerInfo> connectedControllers =
+              sessionStub.getConnectedControllersManager().getConnectedControllers();
+          for (int i = 0; i < connectedControllers.size(); i++) {
+            setPlaybackExceptionOnHandler(connectedControllers.get(i), playbackException);
+          }
+        });
   }
 
   @Nullable
   public PlaybackException getPlaybackException() {
+    verifyApplicationThread();
     return playbackException;
   }
 
@@ -649,37 +699,47 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   /** Returns the custom layout. */
   public ImmutableList<CommandButton> getCustomLayout() {
+    verifyApplicationThread();
     return customLayout;
   }
 
   /** Returns the media button preferences. */
   public ImmutableList<CommandButton> getMediaButtonPreferences() {
+    verifyApplicationThread();
     return mediaButtonPreferences;
   }
 
   /** Returns the command buttons for media items. */
   public ImmutableList<CommandButton> getCommandButtonsForMediaItems() {
+    verifyApplicationThread();
     return commandButtonsForMediaItems;
   }
 
   public void setSessionExtras(Bundle sessionExtras) {
-    this.sessionExtras = sessionExtras;
-    dispatchRemoteControllerTaskWithoutReturn(
-        (controller, seq) -> controller.onSessionExtrasChanged(seq, sessionExtras));
+    postOrRunOnApplicationHandler(
+        () -> {
+          this.sessionExtras = sessionExtras;
+          dispatchRemoteControllerTaskWithoutReturn(
+              (controller, seq) -> controller.onSessionExtrasChanged(seq, sessionExtras));
+        });
   }
 
   public void setSessionExtras(ControllerInfo controller, Bundle sessionExtras) {
-    if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
-      dispatchRemoteControllerTaskWithoutReturn(
-          controller, (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-      if (isMediaNotificationController(controller)) {
-        dispatchRemoteControllerTaskToLegacyStub(
-            (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
-      }
-    }
+    postOrRunOnApplicationHandler(
+        () -> {
+          if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+            dispatchRemoteControllerTaskWithoutReturn(
+                controller, (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+            if (isMediaNotificationController(controller)) {
+              dispatchRemoteControllerTaskToLegacyStub(
+                  (callback, seq) -> callback.onSessionExtrasChanged(seq, sessionExtras));
+            }
+          }
+        });
   }
 
   public Bundle getSessionExtras() {
+    verifyApplicationThread();
     return sessionExtras;
   }
 
@@ -697,46 +757,52 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public void setAvailableCommands(
       ControllerInfo controller, SessionCommands sessionCommands, Player.Commands playerCommands) {
-    if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
-      if (isMediaNotificationController(controller)) {
-        sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
-        ControllerInfo systemUiInfo = getSystemUiControllerInfo();
-        if (systemUiInfo != null) {
-          // Set the available commands of the proxy controller to the ConnectedControllerRecord of
-          // the hidden System UI controller.
-          ConnectedControllersManager<?> controllersManager =
-              systemUiInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
-                  ? sessionLegacyStub.getConnectedControllersManager()
-                  : sessionStub.getConnectedControllersManager();
-          controllersManager.updateCommandsFromSession(
-              systemUiInfo, sessionCommands, playerCommands);
-        }
-      }
-      sessionStub
-          .getConnectedControllersManager()
-          .updateCommandsFromSession(controller, sessionCommands, playerCommands);
-      // Read the available player commands from the manager again after update.
-      Player.Commands availablePlayerCommands =
-          sessionStub.getConnectedControllersManager().getAvailablePlayerCommands(controller);
-      if (availablePlayerCommands != null) {
-        dispatchRemoteControllerTaskWithoutReturn(
-            controller,
-            (callback, seq) ->
-                callback.onAvailableCommandsChangedFromSession(
-                    seq, sessionCommands, availablePlayerCommands));
-        onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
-            /* excludeTimeline= */ false, /* excludeTracks= */ false);
-      }
-    } else if (controller.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
-      sessionLegacyStub
-          .getConnectedControllersManager()
-          .updateCommandsFromSession(controller, sessionCommands, playerCommands);
-    }
+    postOrRunOnApplicationHandler(
+        () -> {
+          if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
+            if (isMediaNotificationController(controller)) {
+              sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
+              ControllerInfo systemUiInfo = getSystemUiControllerInfo();
+              if (systemUiInfo != null) {
+                // Set the available commands of the proxy controller to the
+                // ConnectedControllerRecord of the hidden System UI controller.
+                ConnectedControllersManager<?> controllersManager =
+                    systemUiInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+                        ? sessionLegacyStub.getConnectedControllersManager()
+                        : sessionStub.getConnectedControllersManager();
+                controllersManager.updateCommandsFromSession(
+                    systemUiInfo, sessionCommands, playerCommands);
+              }
+            }
+            sessionStub
+                .getConnectedControllersManager()
+                .updateCommandsFromSession(controller, sessionCommands, playerCommands);
+            // Read the available player commands from the manager again after update.
+            Player.Commands availablePlayerCommands =
+                sessionStub.getConnectedControllersManager().getAvailablePlayerCommands(controller);
+            if (availablePlayerCommands != null) {
+              dispatchRemoteControllerTaskWithoutReturn(
+                  controller,
+                  (callback, seq) ->
+                      callback.onAvailableCommandsChangedFromSession(
+                          seq, sessionCommands, availablePlayerCommands));
+              onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
+                  /* excludeTimeline= */ false, /* excludeTracks= */ false);
+            }
+          } else if (controller.getControllerVersion()
+              == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+            sessionLegacyStub
+                .getConnectedControllersManager()
+                .updateCommandsFromSession(controller, sessionCommands, playerCommands);
+          }
+        });
   }
 
   public void broadcastCustomCommand(SessionCommand command, Bundle args) {
-    dispatchRemoteControllerTaskWithoutReturn(
-        (controller, seq) -> controller.sendCustomCommand(seq, command, args));
+    postOrRunOnApplicationHandler(
+        () ->
+            dispatchRemoteControllerTaskWithoutReturn(
+                (controller, seq) -> controller.sendCustomCommand(seq, command, args)));
   }
 
   private void dispatchOnPlayerInfoChanged(
@@ -846,14 +912,20 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       SessionCommand command,
       Bundle args,
       Bundle progressData) {
-    dispatchRemoteControllerTaskWithoutReturn(
-        controller,
-        (cb, seq) ->
-            cb.sendCustomCommandProgressUpdate(
-                customCommandFutureSequence, command, args, progressData));
+    postOrRunOnApplicationHandler(
+        () ->
+            dispatchRemoteControllerTaskWithoutReturn(
+                controller,
+                (cb, seq) ->
+                    cb.sendCustomCommandProgressUpdate(
+                        customCommandFutureSequence, command, args, progressData)));
   }
 
   public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
+    postOrRunOnApplicationHandler(() -> sendErrorOnHandler(controllerInfo, sessionError));
+  }
+
+  private void sendErrorOnHandler(ControllerInfo controllerInfo, SessionError sessionError) {
     if (controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
         && controllerInfo.getInterfaceVersion() < 4) {
       // IMediaController.onError introduced with interface version 4.
@@ -872,23 +944,26 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public void sendError(SessionError sessionError) {
-    // Send error messages to Media3 controllers.
-    ImmutableList<ControllerInfo> connectedControllers =
-        sessionStub.getConnectedControllersManager().getConnectedControllers();
-    for (int i = 0; i < connectedControllers.size(); i++) {
-      ControllerInfo controllerInfo = connectedControllers.get(i);
-      if (!isMediaNotificationController(controllerInfo)) {
-        // Omit sending to the media notification controller. Instead the error will be dispatched
-        // through the legacy stub below to avoid updating the legacy session multiple times.
-        sendError(controllerInfo, sessionError);
-      }
-    }
-    // Send error messages to legacy controllers.
-    dispatchRemoteControllerTaskToLegacyStub(
-        (callback, seq) -> callback.onError(seq, sessionError));
+    postOrRunOnApplicationHandler(
+        () -> {
+          // Send error messages to Media3 controllers.
+          ImmutableList<ControllerInfo> connectedControllers =
+              sessionStub.getConnectedControllersManager().getConnectedControllers();
+          for (int i = 0; i < connectedControllers.size(); i++) {
+            ControllerInfo controllerInfo = connectedControllers.get(i);
+            if (!isMediaNotificationController(controllerInfo)) {
+              // Omit sending to the media notification controller. Instead the error will be
+              // dispatched through the legacy stub below to avoid updating the legacy session
+              // multiple times.
+              sendErrorOnHandler(controllerInfo, sessionError);
+            }
+          }
+          // Send error messages to legacy controllers.
+          dispatchRemoteControllerTaskToLegacyStub(
+              (callback, seq) -> callback.onError(seq, sessionError));
+        });
   }
 
-  @SuppressWarnings("deprecation") // Calling Callback.onConnect for backwards compatibility
   public ListenableFuture<MediaSession.ConnectionResult> onConnectOnHandler(
       ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
@@ -1057,21 +1132,30 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Nullable
   protected PendingIntent getSessionActivity() {
+    verifyApplicationThread();
     return sessionActivity;
   }
 
   @UnstableApi
   protected void setSessionActivity(@Nullable PendingIntent sessionActivity) {
-    this.sessionActivity = sessionActivity;
-    ImmutableList<ControllerInfo> connectedControllers =
-        sessionStub.getConnectedControllersManager().getConnectedControllers();
-    for (int i = 0; i < connectedControllers.size(); i++) {
-      setSessionActivity(connectedControllers.get(i), sessionActivity);
-    }
+    postOrRunOnApplicationHandler(
+        () -> {
+          this.sessionActivity = sessionActivity;
+          ImmutableList<ControllerInfo> connectedControllers =
+              sessionStub.getConnectedControllersManager().getConnectedControllers();
+          for (int i = 0; i < connectedControllers.size(); i++) {
+            setSessionActivityOnHandler(connectedControllers.get(i), sessionActivity);
+          }
+        });
   }
 
   @UnstableApi
   protected void setSessionActivity(
+      ControllerInfo controller, @Nullable PendingIntent sessionActivity) {
+    postOrRunOnApplicationHandler(() -> setSessionActivityOnHandler(controller, sessionActivity));
+  }
+
+  private void setSessionActivityOnHandler(
       ControllerInfo controller, @Nullable PendingIntent sessionActivity) {
     if (controller.getControllerVersion() >= 3
         && sessionStub.getConnectedControllersManager().isConnected(controller)) {
@@ -1351,7 +1435,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   private void dispatchRemoteControllerTaskWithoutReturn(RemoteControllerTask task) {
-    List<ControllerInfo> controllers =
+    ImmutableList<ControllerInfo> controllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < controllers.size(); i++) {
       ControllerInfo controller = controllers.get(i);
@@ -1397,6 +1481,24 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   private ListenableFuture<SessionResult> dispatchRemoteControllerTask(
+      ControllerInfo controller, RemoteControllerTask task) {
+    if (applicationHandler.getLooper() == Looper.myLooper()) {
+      return dispatchRemoteControllerTaskInternal(controller, task);
+    } else {
+      ResolvableFuture<SessionResult> resultFuture = ResolvableFuture.create();
+      postOrRunOnApplicationHandler(
+          () -> {
+            try {
+              resultFuture.setFuture(dispatchRemoteControllerTaskInternal(controller, task));
+            } catch (RuntimeException e) {
+              resultFuture.setException(e);
+            }
+          });
+      return resultFuture;
+    }
+  }
+
+  private ListenableFuture<SessionResult> dispatchRemoteControllerTaskInternal(
       ControllerInfo controller, RemoteControllerTask task) {
     try {
       ListenableFuture<SessionResult> future;
@@ -1643,21 +1745,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       default:
         return false;
     }
-    postOrRun(
-        getApplicationHandler(),
-        () -> {
-          if (isDismissNotificationEvent) {
-            ListenableFuture<SessionResult> ignored =
-                sendCustomCommand(
-                    controllerInfo,
-                    new SessionCommand(
-                        MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY,
-                        /* extras= */ Bundle.EMPTY),
-                    /* args= */ Bundle.EMPTY);
-          }
-          command.run();
-          sessionStub.getConnectedControllersManager().flushCommandQueue(controllerInfo);
-        });
+    if (isDismissNotificationEvent) {
+      ListenableFuture<SessionResult> ignored =
+          sendCustomCommand(
+              controllerInfo,
+              new SessionCommand(
+                  MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* extras= */ Bundle.EMPTY),
+              /* args= */ Bundle.EMPTY);
+    }
+    command.run();
+    sessionStub.getConnectedControllersManager().flushCommandQueue(controllerInfo);
     return true;
   }
 
