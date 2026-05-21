@@ -23,7 +23,7 @@ androidxAnnotationExperimentalVersion = "1.3.1"
 androidxAppCompatVersion = "1.6.1"
 androidxCollectionVersion = "1.2.0"
 # See https://developer.android.com/develop/ui/compose/bom/bom-mapping
-androidxComposeBomVersion = "2026.05.00"
+androidxComposeBomVersion = "2026.05.00" # TODO: b/502167525 - Upgade
 androidxConcurrentFuturesVersion = "1.2.0"
 androidxConstraintLayoutVersion = "2.1.4"
 androidxCoreVersion = "1.9.0"
