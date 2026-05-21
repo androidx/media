@@ -70,6 +70,10 @@ public final class HardwareBufferPoolTest {
 
       seenBuffers.add(buffer);
     }
+
+    for (HardwareBuffer buffer : seenBuffers) {
+      buffer.close();
+    }
   }
 
   @Test
@@ -85,6 +89,8 @@ public final class HardwareBufferPoolTest {
         pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {});
 
     assertThat(result2.hardwareBuffer).isSameInstanceAs(buffer1);
+
+    result2.hardwareBuffer.close();
   }
 
   @Test
@@ -106,6 +112,8 @@ public final class HardwareBufferPoolTest {
     HardwareBufferPool.HardwareBufferWithFence result2 = pool.get(format2, DEFAULT_USAGE, () -> {});
     assertThat(result2.hardwareBuffer).isNotSameInstanceAs(buffer1);
     assertThat(buffer1.isClosed()).isTrue();
+
+    result2.hardwareBuffer.close();
   }
 
   @Test
@@ -131,6 +139,8 @@ public final class HardwareBufferPoolTest {
         pool.get(format2, DEFAULT_USAGE, () -> {});
     assertThat(resultFrame.hardwareBuffer).isSameInstanceAs(buffer2);
     assertThat(buffer1.isClosed()).isTrue();
+
+    resultFrame.hardwareBuffer.close();
   }
 
   @Test
@@ -160,16 +170,25 @@ public final class HardwareBufferPoolTest {
         pool.get(format2, DEFAULT_USAGE, () -> {});
     assertThat(resultFrame.hardwareBuffer).isSameInstanceAs(buffer2);
     assertThat(buffer1.isClosed()).isTrue();
+
+    resultFrame.hardwareBuffer.close();
   }
 
   @Test
   public void get_atCapacity_returnsNull() {
     HardwareBufferPool pool = new HardwareBufferPool(CAPACITY);
 
+    HardwareBufferPool.HardwareBufferWithFence[] results =
+        new HardwareBufferPool.HardwareBufferWithFence[CAPACITY];
     for (int i = 0; i < CAPACITY; i++) {
-      assertThat(pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {})).isNotNull();
+      results[i] = pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {});
+      assertThat(results[i]).isNotNull();
     }
     assertThat(pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {})).isNull();
+
+    for (HardwareBufferPool.HardwareBufferWithFence result : results) {
+      result.hardwareBuffer.close();
+    }
   }
 
   @Test
@@ -187,6 +206,11 @@ public final class HardwareBufferPoolTest {
 
     pool.recycle(results[0].hardwareBuffer, results[0].acquireFence);
     assertThat(wakeupCalled.get()).isTrue();
+
+    pool.release();
+    for (int i = 1; i < CAPACITY; i++) {
+      results[i].hardwareBuffer.close();
+    }
   }
 
   @Test
@@ -198,10 +222,17 @@ public final class HardwareBufferPoolTest {
     pool.recycle(result.hardwareBuffer, /* fence= */ null);
     pool.recycle(result.hardwareBuffer, /* fence= */ null);
 
+    HardwareBufferPool.HardwareBufferWithFence[] results =
+        new HardwareBufferPool.HardwareBufferWithFence[CAPACITY];
     for (int i = 0; i < CAPACITY; i++) {
-      assertThat(pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {})).isNotNull();
+      results[i] = pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {});
+      assertThat(results[i]).isNotNull();
     }
     assertThat(pool.get(DEFAULT_FORMAT, DEFAULT_USAGE, () -> {})).isNull();
+
+    for (HardwareBufferPool.HardwareBufferWithFence r : results) {
+      r.hardwareBuffer.close();
+    }
   }
 
   @Test
@@ -278,6 +309,8 @@ public final class HardwareBufferPoolTest {
         }
         assertThat(returnLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
       }
+
+      pool.release();
     }
   }
 }
