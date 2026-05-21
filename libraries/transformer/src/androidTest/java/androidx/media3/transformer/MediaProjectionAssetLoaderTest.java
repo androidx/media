@@ -89,6 +89,8 @@ public final class MediaProjectionAssetLoaderTest {
     // - Newer (eg., API 31) devices with non-standard media projection UIs.
     // - Wearables, where we'd otherwise have to scroll the UI to enable media projection.
     // The test does pass on some earlier builds (back to API 23) but not on all devices.
+    // TODO: b/513542166 - Add support for new target SDK 34+ dialogue and remove suppression.
+    assumeTrue(getInstrumentation().getContext().getApplicationInfo().targetSdkVersion <= 33);
     assumeTrue(
         Util.isRunningOnEmulator()
             || (SDK_INT >= 29
