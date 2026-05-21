@@ -1013,7 +1013,9 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0
+                && (events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)
+                    || events.contains(Player.EVENT_PLAYER_ERROR))) {
               onEventsRef.set(events);
               latch.countDown();
             }
@@ -1144,18 +1146,18 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekToNextMediaItem();
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
             });
@@ -1217,18 +1219,18 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
     threadTestRule
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekToPreviousMediaItem();
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
             });
@@ -1284,13 +1286,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicLong currentPositionRef = new AtomicLong();
     AtomicLong bufferedPositionRef = new AtomicLong();
     AtomicLong totalBufferedDurationRef = new AtomicLong();
@@ -1299,6 +1300,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testPosition);
               currentPositionRef.set(controller.getCurrentPosition());
               bufferedPositionRef.set(controller.getBufferedPosition());
@@ -1358,13 +1360,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicLong currentPositionRef = new AtomicLong();
     AtomicLong bufferedPositionRef = new AtomicLong();
     AtomicLong totalBufferedDurationRef = new AtomicLong();
@@ -1373,6 +1374,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testPosition);
               currentPositionRef.set(controller.getCurrentPosition());
               bufferedPositionRef.set(controller.getBufferedPosition());
@@ -1432,13 +1434,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicLong currentPositionRef = new AtomicLong();
     AtomicLong bufferedPositionRef = new AtomicLong();
     AtomicLong totalBufferedDurationRef = new AtomicLong();
@@ -1447,6 +1448,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testPosition);
               currentPositionRef.set(controller.getCurrentPosition());
               bufferedPositionRef.set(controller.getBufferedPosition());
@@ -1507,13 +1509,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentPeriodIndexRef = new AtomicInteger();
     AtomicLong currentPositionRef = new AtomicLong();
     AtomicLong bufferedPositionRef = new AtomicLong();
@@ -1522,6 +1523,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testPosition);
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
               currentPositionRef.set(controller.getCurrentPosition());
@@ -1618,13 +1620,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
     AtomicInteger currentPeriodIndexRef = new AtomicInteger();
     AtomicLong currentPositionRef = new AtomicLong();
@@ -1635,6 +1636,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testMediaItemIndex, testPosition);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
@@ -1758,13 +1760,12 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
     AtomicInteger currentMediaItemIndexRef = new AtomicInteger();
     AtomicInteger currentPeriodIndexRef = new AtomicInteger();
     AtomicLong currentPositionRef = new AtomicLong();
@@ -1774,6 +1775,7 @@ public class MediaControllerStateMaskingTest {
         .getHandler()
         .postAndSync(
             () -> {
+              controller.addListener(listener);
               controller.seekTo(testMediaItemIndex, testSeekPositionMs);
               currentMediaItemIndexRef.set(controller.getCurrentMediaItemIndex());
               currentPeriodIndexRef.set(controller.getCurrentPeriodIndex());
@@ -1847,15 +1849,19 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    controller.addListener(listener);
-
-    threadTestRule.getHandler().postAndSync(controller::seekBack);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.addListener(listener);
+              controller.seekBack();
+            });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(oldPositionRef.get()).isEqualTo(testCurrentPosition);
@@ -1895,15 +1901,19 @@ public class MediaControllerStateMaskingTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (latch.getCount() > 0) {
+            if (latch.getCount() > 0 && events.contains(Player.EVENT_POSITION_DISCONTINUITY)) {
               onEventsRef.set(events);
               latch.countDown();
             }
           }
         };
-    controller.addListener(listener);
-
-    threadTestRule.getHandler().postAndSync(controller::seekForward);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller.addListener(listener);
+              controller.seekForward();
+            });
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(oldPositionRef.get()).isEqualTo(testCurrentPosition);
