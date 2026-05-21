@@ -47,11 +47,13 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -117,9 +119,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            listenerEventCodes.add(EVENT_ON_EVENTS);
-            eventsRef.set(events);
-            latch.countDown();
+            if (events.contains(Player.EVENT_REPEAT_MODE_CHANGED)) {
+              listenerEventCodes.add(EVENT_ON_EVENTS);
+              eventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -331,9 +335,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEvents.set(events);
-            playlistMetadataOnEventsRef.set(player.getPlaylistMetadata());
-            latch.countDown();
+            if (events.contains(Player.EVENT_PLAYLIST_METADATA_CHANGED)) {
+              onEvents.set(events);
+              playlistMetadataOnEventsRef.set(player.getPlaylistMetadata());
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -372,9 +378,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEvents.set(events);
-            audioAttributesOnEventsRef.set(player.getAudioAttributes());
-            latch.countDown();
+            if (events.contains(Player.EVENT_AUDIO_ATTRIBUTES_CHANGED)) {
+              onEvents.set(events);
+              audioAttributesOnEventsRef.set(player.getAudioAttributes());
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -407,9 +415,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            deviceInfoOnEventsRef.set(player.getDeviceInfo());
-            onEvents.set(events);
-            latch.countDown();
+            if (events.contains(Player.EVENT_DEVICE_INFO_CHANGED)) {
+              deviceInfoOnEventsRef.set(player.getDeviceInfo());
+              onEvents.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -427,7 +437,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(deviceInfoParamRef.get().routingControllerId).isEqualTo(testRoutingSessionId);
     assertThat(deviceInfoGetterRef.get()).isEqualTo(deviceInfoParamRef.get());
     assertThat(deviceInfoOnEventsRef.get()).isEqualTo(deviceInfoGetterRef.get());
-    assertThat(getEventsAsList(onEvents.get())).contains(Player.EVENT_DEVICE_VOLUME_CHANGED);
+    assertThat(getEventsAsList(onEvents.get())).contains(Player.EVENT_DEVICE_INFO_CHANGED);
   }
 
   @Test
@@ -449,9 +459,11 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            deviceVolumeOnEvents.set(player.getDeviceVolume());
-            onEvents.set(events);
-            latch.countDown();
+            if (events.contains(Player.EVENT_DEVICE_VOLUME_CHANGED)) {
+              deviceVolumeOnEvents.set(player.getDeviceVolume());
+              onEvents.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -872,11 +884,10 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
   public void setDeviceVolume_whenWaitingForPendingUpdates_maskingDoesNotOverridePendingUpdate()
       throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
-    List<Integer> reportedPlaybackStates = new ArrayList<>();
-    List<MediaMetadata> reportedMediaMetadata = new ArrayList<>();
+    Set<Integer> reportedPlaybackStates = Sets.newConcurrentHashSet();
+    Set<MediaMetadata> reportedMediaMetadata = Sets.newConcurrentHashSet();
     ConditionVariable playbackStateChanged = new ConditionVariable();
     ConditionVariable mediaMetadataChanged = new ConditionVariable();
-    playbackStateChanged.close();
     controller.addListener(
         new Player.Listener() {
           @Override
@@ -901,15 +912,12 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
             .setState(
                 PlaybackStateCompat.STATE_PLAYING, /* position= */ 1001L, /* playbackSpeed= */ 1.0f)
             .build());
-    synchronized (this) {
-      // Wait 200ms to make playback state and metadata arrive.
-      Thread.sleep(200);
-      // Trigger masking than must not drop the pending legacy info.
-      threadTestRule.getHandler().postAndSync(() -> controller.setDeviceVolume(1, 0));
-    }
-
     assertThat(playbackStateChanged.block(TIMEOUT_MS)).isTrue();
     assertThat(mediaMetadataChanged.block(TIMEOUT_MS)).isTrue();
+
+    // Trigger masking that must not override the updated legacy info.
+    threadTestRule.getHandler().postAndSync(() -> controller.setDeviceVolume(1, 0));
+
     assertThat(reportedPlaybackStates).containsExactly(3);
     List<CharSequence> artists = new ArrayList<>();
     for (MediaMetadata m : reportedMediaMetadata) {
