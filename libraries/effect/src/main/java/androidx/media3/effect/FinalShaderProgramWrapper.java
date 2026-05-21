@@ -281,6 +281,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Drops all frames that aren't rendered yet.
     availableFrames.clear();
     isInputStreamEndedWithPendingAvailableFrames = false;
+    redrawFramePresentationTimeUs = C.TIME_UNSET;
     if (defaultShaderProgram != null) {
       defaultShaderProgram.flush();
     }

@@ -127,6 +127,8 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Clear redraw state in `FinalShaderProgramWrapper` when flushing to
+        prevent the player from freezing when seeking.
 *   Effect Lottie:
 *   Muxers:
     *   Add support for track references (the `tref` box) in `Mp4Muxer` via a

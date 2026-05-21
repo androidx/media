@@ -305,6 +305,20 @@ public final class FinalShaderProgramWrapperTest {
     assertThat(videoFrameProcessingException).isNull();
   }
 
+  @Test
+  public void queueInputFrame_afterFlusingWhileRedrawing_rendersNewFrame() throws Exception {
+    buildFinalShaderProgramWrapper(/* renderFramesAutomatically= */ false);
+
+    finalShaderProgramWrapper.prepareToRedraw(/* redrawFramePresentationTimeUs= */ 1000);
+    // Simulate the user seeking before the redrawn frame arrives.
+    finalShaderProgramWrapper.flush();
+    finalShaderProgramWrapper.queueInputFrame(
+        glObjectsProvider, inputTextureInfos.get(0), /* presentationTimeUs= */ 2000);
+
+    // We should abort the redraw and accept the new frame.
+    assertThat(presentationTimesUsAvailableForRendering).containsExactly(2000L);
+  }
+
   private void buildFinalShaderProgramWrapper(boolean renderFramesAutomatically) throws Exception {
     finalShaderProgramWrapper =
         new FinalShaderProgramWrapper(
