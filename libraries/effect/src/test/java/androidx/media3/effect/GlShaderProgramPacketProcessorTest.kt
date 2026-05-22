@@ -172,20 +172,20 @@ class GlShaderProgramPacketProcessorTest {
     assertThat(out1.glTextureInfo).isEqualTo(outputTexture1)
     assertThat(out1.presentationTimeUs).isEqualTo(outputPtsUs1)
     assertThat(out1.metadata).isEqualTo(inputFrame1.metadata)
-    assertThat((inputFrame1.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame1.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     val out2: GlTextureFrame =
       (recordingOutputConsumer.queuedPackets[1] as Packet.Payload<GlTextureFrame>).payload
     assertThat(out2.glTextureInfo).isEqualTo(outputTexture2)
     assertThat(out2.presentationTimeUs).isEqualTo(outputPtsUs2)
     assertThat(out2.metadata).isEqualTo(inputFrame2.metadata)
-    assertThat((inputFrame2.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame2.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     val out3 = (recordingOutputConsumer.queuedPackets[2] as Packet.Payload<GlTextureFrame>).payload
     assertThat(out3.glTextureInfo).isEqualTo(outputTexture3)
     assertThat(out3.presentationTimeUs).isEqualTo(outputPtsUs3)
     assertThat(out3.metadata).isEqualTo(inputFrame3.metadata)
-    assertThat((inputFrame3.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame3.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(3)
     assertThat(fakeGlShaderProgram.queuedFrames[0]!!.presentationTimeUs).isEqualTo(1000L)
@@ -227,7 +227,7 @@ class GlShaderProgramPacketProcessorTest {
       (recordingOutputConsumer.queuedPackets[0] as Packet.Payload<GlTextureFrame>).payload
     assertThat(outFrame.glTextureInfo).isEqualTo(outputTexture)
     assertThat(outFrame.presentationTimeUs).isEqualTo(outputPtsUs)
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
@@ -259,7 +259,7 @@ class GlShaderProgramPacketProcessorTest {
       (recordingOutputConsumer.queuedPackets[0] as Packet.Payload<GlTextureFrame>).payload
     assertThat(outFrame.glTextureInfo).isEqualTo(outputTexture)
     assertThat(outFrame.presentationTimeUs).isEqualTo(outputPtsUs)
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
@@ -276,7 +276,7 @@ class GlShaderProgramPacketProcessorTest {
 
     assertThat(thrownException).hasMessageThat().isEqualTo(queueException.message)
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
@@ -303,7 +303,7 @@ class GlShaderProgramPacketProcessorTest {
       (recordingOutputConsumer.queuedPackets[0] as Packet.Payload<GlTextureFrame>).payload
     assertThat(outFrame.glTextureInfo).isEqualTo(inputFrame.glTextureInfo)
     assertThat(outFrame.presentationTimeUs).isEqualTo(inputFrame.presentationTimeUs)
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
@@ -346,19 +346,19 @@ class GlShaderProgramPacketProcessorTest {
     assertThat(packets[0]).isInstanceOf(Packet.Payload::class.java)
     val outFrame1 = (packets[0] as Packet.Payload).payload
     assertThat(outFrame1.presentationTimeUs).isEqualTo(outputPtsUs1)
-    assertThat((inputFrame1.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame1.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     assertThat(packets[1]).isInstanceOf(Packet.Payload::class.java)
     val outFrame2 = (packets[1] as Packet.Payload).payload
     assertThat(outFrame2.presentationTimeUs).isEqualTo(outputPtsUs2)
-    assertThat((inputFrame2.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame2.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     assertThat(packets[2]).isSameInstanceAs(Packet.EndOfStream)
 
     assertThat(packets[3]).isInstanceOf(Packet.Payload::class.java)
     val outFrame3 = (packets[3] as Packet.Payload).payload
     assertThat(outFrame3.presentationTimeUs).isEqualTo(outputPtsUs3)
-    assertThat((inputFrame3.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame3.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
 
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
@@ -371,7 +371,7 @@ class GlShaderProgramPacketProcessorTest {
     processor.queuePacket(Packet.of(inputFrame))
 
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
   }
 
   @Test
@@ -483,7 +483,7 @@ class GlShaderProgramPacketProcessorTest {
 
     assertThat(queueJob.isCancelled).isTrue()
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
@@ -504,7 +504,7 @@ class GlShaderProgramPacketProcessorTest {
     queueJob.join()
 
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
 
     // Simulate the underlying shader program producing output after the processor was released.
@@ -533,7 +533,7 @@ class GlShaderProgramPacketProcessorTest {
     queueJob.cancelAndJoin()
 
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
 
     // Simulate the underlying shader program producing output after the queuePacket coroutine was
@@ -563,21 +563,23 @@ class GlShaderProgramPacketProcessorTest {
 
     assertThat(shaderContinuedAfterCancel.get()).isFalse()
     assertThat(recordingOutputConsumer.queuedPackets).isEmpty()
-    assertThat((inputFrame.metadata as TestMetadata).released.get()).isTrue()
+    assertThat((inputFrame.metadata[KEY_TEST_METADATA] as TestMetadata).released.get()).isTrue()
     assertThat(recordingErrorConsumer.exceptions).isEmpty()
   }
 
   companion object {
+    const val KEY_TEST_METADATA = "KEY_TEST_METADATA"
+
     private fun createTestFrame(id: Int, timestampUs: Long): GlTextureFrame {
-      val metadata = TestMetadata()
+      val testMetadata = TestMetadata()
       val format = Format.Builder().build() // Minimal format
       return GlTextureFrame.Builder(
           createTexture(texId = id),
           directExecutor(),
-          { _ -> metadata.released.set(true) },
+          { _ -> testMetadata.released.set(true) },
         )
         .setPresentationTimeUs(timestampUs)
-        .setMetadata(metadata)
+        .setMetadata(mapOf<String, Any>(KEY_TEST_METADATA to testMetadata))
         .setFormat(format)
         .build()
     }
@@ -587,7 +589,7 @@ class GlShaderProgramPacketProcessorTest {
     }
   }
 
-  private class TestMetadata : GlTextureFrame.Metadata {
+  private class TestMetadata {
     val released = AtomicBoolean(false)
   }
 

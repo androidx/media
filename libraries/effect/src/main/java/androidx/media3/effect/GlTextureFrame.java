@@ -26,16 +26,15 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.video.SyncFenceWrapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** A frame that wraps a {@link GlTextureInfo}. */
 @ExperimentalApi // TODO: b/449956776 - Remove once FrameConsumer API is finalized.
 public class GlTextureFrame {
-
-  /** A marker interface for storing arbitrary metadata associated with a {@link GlTextureFrame}. */
-  public interface Metadata {}
 
   public static final GlTextureFrame END_OF_STREAM_FRAME =
       new Builder(
@@ -58,7 +57,7 @@ public class GlTextureFrame {
   /** The format of the frame. */
   public final Format format;
 
-  private final Metadata metadata;
+  private final ImmutableMap<String, Object> metadata;
 
   /** The {@link Executor} on which the {@code releaseTextureCallback} is called. */
   public final Executor releaseTextureExecutor;
@@ -95,7 +94,7 @@ public class GlTextureFrame {
     private long presentationTimeUs;
     private Format format;
     private long releaseTimeNs;
-    private Metadata metadata;
+    private ImmutableMap<String, Object> metadata;
     private long fenceSync;
 
     /**
@@ -113,7 +112,7 @@ public class GlTextureFrame {
       this.glTextureInfo = glTextureInfo;
       this.releaseTextureExecutor = releaseTextureExecutor;
       this.releaseTextureCallback = releaseTextureCallback;
-      this.metadata = new Metadata() {};
+      this.metadata = ImmutableMap.of();
       presentationTimeUs = C.TIME_UNSET;
       format = new Format.Builder().build();
       releaseTimeNs = C.TIME_UNSET;
@@ -152,8 +151,8 @@ public class GlTextureFrame {
 
     /** Sets the {@link GlTextureFrame#metadata}. */
     @CanIgnoreReturnValue
-    public Builder setMetadata(Metadata metadata) {
-      this.metadata = metadata;
+    public Builder setMetadata(Map<String, Object> metadata) {
+      this.metadata = ImmutableMap.copyOf(metadata);
       return this;
     }
 
@@ -197,7 +196,7 @@ public class GlTextureFrame {
     return new Builder(this);
   }
 
-  public Metadata getMetadata() {
+  public ImmutableMap<String, Object> getMetadata() {
     return metadata;
   }
 
