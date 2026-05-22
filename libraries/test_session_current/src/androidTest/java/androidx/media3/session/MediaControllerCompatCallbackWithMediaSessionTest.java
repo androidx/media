@@ -45,7 +45,6 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.support.v4.media.MediaDescriptionCompat;
@@ -118,16 +117,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         MediaSessionProviderService.KEY_ENABLE_FAKE_MEDIA_NOTIFICATION_MANAGER_CONTROLLER, true);
     session = new RemoteMediaSession(SESSION_ID, context, tokenExtras);
     controllerCompat = new MediaControllerCompat(context, session.getCompatToken());
-    CountDownLatch sessionReady = new CountDownLatch(1);
-    controllerCompat.registerCallback(
-        new MediaControllerCompat.Callback() {
-          @Override
-          public void onSessionReady() {
-            sessionReady.countDown();
-          }
-        },
-        new Handler(Looper.getMainLooper()));
-    sessionReady.await(TIMEOUT_MS, MILLISECONDS);
+    waitUntilSessionReady(controllerCompat);
   }
 
   @After
@@ -1072,14 +1062,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     session.setPlayer(playerConfigToUpdate);
 
-    PollingCheck.waitFor(
-        TIMEOUT_MS,
-        () -> {
-          MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-          return info.getPlaybackType() == legacyPlaybackTypeToUpdate
-              && info.getMaxVolume() == deviceInfoToUpdate.maxVolume
-              && info.getCurrentVolume() == deviceVolumeToUpdate;
-        });
+    assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   @Test
@@ -1308,6 +1291,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         new RemoteMediaSession(TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE, context, null);
     MediaControllerCompat controllerCompat =
         new MediaControllerCompat(context, session.getCompatToken());
+    waitUntilSessionReady(controllerCompat);
+
     session.getMockPlayer().setPlaybackState(Player.STATE_READY);
     session
         .getMockPlayer()
@@ -1542,6 +1527,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE, context, /* tokenExtras= */ null);
     MediaControllerCompat controller =
         new MediaControllerCompat(context, remoteSession.getCompatToken());
+    waitUntilSessionReady(controller);
+
     AtomicReference<Bundle> resultDataRef = new AtomicReference<>();
     AtomicInteger resultCodeRef = new AtomicInteger();
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);
@@ -1571,6 +1558,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE, context, /* tokenExtras= */ null);
     MediaControllerCompat controller =
         new MediaControllerCompat(context, remoteSession.getCompatToken());
+    waitUntilSessionReady(controller);
+
     AtomicReference<MediaMetadataCompat> mediaMetadataRef = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(/* count= */ 1);
     controller.registerCallback(
@@ -2304,5 +2293,19 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         },
         intervalMs);
+  }
+
+  private void waitUntilSessionReady(MediaControllerCompat controller) throws InterruptedException {
+    CountDownLatch sessionReady = new CountDownLatch(1);
+    MediaControllerCompat.Callback sessionReadyCallback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            sessionReady.countDown();
+          }
+        };
+    controller.registerCallback(sessionReadyCallback, handler);
+    assertThat(sessionReady.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    controller.unregisterCallback(sessionReadyCallback);
   }
 }
