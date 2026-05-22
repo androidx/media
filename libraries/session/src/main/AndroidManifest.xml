@@ -13,6 +13,26 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<manifest>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-sdk/>
+  <application>
+    <!-- TODO: b/510644544 - Remove this workaround once minSdk is 38 -->
+    <activity
+      android:name="androidx.media3.session.BluetoothValidationActivity"
+      android:exported="true"
+      android:permission="android.permission.BLUETOOTH_PRIVILEGED"
+      android:theme="@android:style/Theme.NoDisplay"
+      android:excludeFromRecents="true"
+      android:noHistory="true">
+      <intent-filter>
+        <!-- Omit CATEGORY_DEFAULT to avoid listing this app as a generic audio app. -->
+        <action android:name="android.intent.action.VIEW" />
+        <data android:scheme="content" />
+        <data android:host="media" />
+        <!-- Satisfies the probe used in Bluetooths's MediaPlayerList.java on API 36 and 37. -->
+        <data android:pathPrefix="/internal/audio/media/" />
+        <data android:mimeType="audio/*" />
+      </intent-filter>
+    </activity>
+  </application>
 </manifest>

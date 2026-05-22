@@ -174,6 +174,8 @@
         `Futures.immediateFuture(ConnectionResult)` to achieve the previous
         behaviour. It's recommended to migrate to the new method because
         `Callback.onConnect` is a candidate to be deprecated.
+    *   Fix issue where Bluetooth AVRCP browsing didn't recognise
+        `MediaLibraryService` on API 36 and 37.
 *   UI:
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`

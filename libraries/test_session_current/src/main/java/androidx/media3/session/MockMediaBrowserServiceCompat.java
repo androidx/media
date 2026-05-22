@@ -62,10 +62,12 @@ import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MediaBrowserServiceCompatConstants;
 import androidx.media3.test.session.common.MediaSessionConstants;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /** Mock implementation of the media browser service. */
 @SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserServiceCompat
@@ -83,6 +85,13 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
    */
   public static final String EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS =
       "confirm_on_get_root_with_custom_action";
+
+  private static final String DEFAULT_ROOT_ID = "stub";
+  private static final String BLUETOOTH_PACKAGE_NAME = "com.android.bluetooth";
+
+  /** Packages allowed to connect to this browser: our own test app, and BT to enable AVRPC. */
+  private static final ImmutableSet<String> ALLOWED_PACKAGE_NAMES =
+      ImmutableSet.of(SUPPORT_APP_PACKAGE_NAME, BLUETOOTH_PACKAGE_NAME);
 
   private static final String TAG = "MockMBSCompat";
   private static final Object lock = new Object();
@@ -197,11 +206,11 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
 
   @Override
   public BrowserRoot onGetRoot(String clientPackageName, int clientUid, Bundle rootHints) {
-    if (!SUPPORT_APP_PACKAGE_NAME.equals(clientPackageName)) {
-      // Test only -- reject any other request.
+    if (!ALLOWED_PACKAGE_NAMES.contains(clientPackageName)) {
       return null;
     }
-    if (rootHints.getBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, false)) {
+    if (rootHints != null
+        && rootHints.getBoolean(EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS, false)) {
       // Send delayed because the Media3 browser is in the process of connecting at this point and
       // won't receive listener callbacks before being connected.
       new Handler(Looper.myLooper())
@@ -212,7 +221,7 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         return serviceProxy.onGetRoot(clientPackageName, clientUid, rootHints);
       }
     }
-    return new BrowserRoot("stub", /* extras= */ rootHints);
+    return new BrowserRoot(DEFAULT_ROOT_ID, /* extras= */ rootHints);
   }
 
   @Override
@@ -223,7 +232,15 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
         return;
       }
     }
-    super.onLoadChildren(parentId, result, Bundle.EMPTY);
+    if (Objects.equals(parentId, DEFAULT_ROOT_ID)) {
+      result.sendResult(
+          ImmutableList.of(
+              new MediaItem(
+                  new MediaDescriptionCompat.Builder().setMediaId("mediaId").build(),
+                  /* flags= */ 0)));
+    } else {
+      result.sendResult(ImmutableList.of());
+    }
   }
 
   @Override

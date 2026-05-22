@@ -15,12 +15,18 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
@@ -29,8 +35,14 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
+import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -116,5 +128,90 @@ public class MediaLibraryServiceTest {
     assertThat(browserCommandControllerInfos).hasSize(1);
     assertThat(onGetSessionControllerInfos.get(0))
         .isSameInstanceAs(browserCommandControllerInfos.get(0));
+  }
+
+  @SdkSuppress(minSdkVersion = 30) // Emulators up to API 29 don't have bluetooth service.
+  @Test
+  public void mediaLibraryService_isRecognizedAsAvrcpBrowsable() throws Exception {
+    UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+    String packageName = context.getPackageName();
+
+    // Toggle Bluetooth off and on to let it initialize its internal state with the test app.
+    if (SDK_INT >= 32) {
+      executeShellCommand(uiAutomation, "cmd bluetooth_manager disable");
+      executeShellCommand(uiAutomation, "cmd bluetooth_manager wait-for-state:STATE_OFF");
+      executeShellCommand(uiAutomation, "cmd bluetooth_manager enable");
+      executeShellCommand(uiAutomation, "cmd bluetooth_manager wait-for-state:STATE_ON");
+    } else {
+      executeShellCommand(uiAutomation, "svc bluetooth disable");
+      executeShellCommand(uiAutomation, "svc bluetooth enable");
+    }
+
+    // Query bluetooth_manager dumpsys to check if it lists our test package as a browser.
+    boolean isListed = false;
+    long timeoutMs = 20_000;
+    long intervalMs = 500;
+    while (timeoutMs > 0) {
+      if (isPackageBrowsableInBluetoothManager(uiAutomation, packageName)) {
+        isListed = true;
+        break;
+      }
+      Thread.sleep(intervalMs);
+      timeoutMs -= intervalMs;
+    }
+    assertThat(isListed).isTrue();
+  }
+
+  @Test
+  public void mediaLibraryService_isNotListedByDefaultAsGenericAudioPlaybackApp() {
+    Intent userIntent = new Intent(Intent.ACTION_VIEW);
+    userIntent.addCategory(Intent.CATEGORY_DEFAULT); // Simulates a standard user "Open" action
+    userIntent.setType("audio/*");
+    String packageName = context.getPackageName();
+
+    List<ResolveInfo> resolveInfos =
+        context
+            .getPackageManager()
+            .queryIntentActivities(userIntent, PackageManager.MATCH_DEFAULT_ONLY);
+    boolean isVisibleToUser = false;
+    for (ResolveInfo info : resolveInfos) {
+      if (info.activityInfo.packageName.equals(packageName)) {
+        isVisibleToUser = true;
+        break;
+      }
+    }
+
+    assertThat(isVisibleToUser).isFalse();
+  }
+
+  private static boolean isPackageBrowsableInBluetoothManager(
+      UiAutomation uiAutomation, String packageName) throws IOException {
+    try (ParcelFileDescriptor pfd = uiAutomation.executeShellCommand("dumpsys bluetooth_manager");
+        BufferedReader reader =
+            new BufferedReader(
+                new InputStreamReader(new ParcelFileDescriptor.AutoCloseInputStream(pfd)))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (line.contains("Browsable Package") && line.contains(packageName)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  @CanIgnoreReturnValue
+  private String executeShellCommand(UiAutomation uiAutomation, String command) throws IOException {
+    StringBuilder output = new StringBuilder();
+    try (ParcelFileDescriptor pfd = uiAutomation.executeShellCommand(command);
+        BufferedReader reader =
+            new BufferedReader(
+                new InputStreamReader(new ParcelFileDescriptor.AutoCloseInputStream(pfd)))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        output.append(line).append("\n");
+      }
+    }
+    return output.toString();
   }
 }
