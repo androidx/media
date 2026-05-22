@@ -21,6 +21,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
+import java.math.RoundingMode;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
@@ -153,6 +154,30 @@ import androidx.media3.extractor.MpegAudioUtil;
     // calculating the duration.
     return Util.sampleCountToDurationUs(
         (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
+  }
+
+  /**
+   * Computes the average bitrate, in bits per second, represented by this frame and {@code
+   * dataSize}. Returns {@link C#RATE_UNSET_INT} if it can't be computed.
+   *
+   * @param dataSize The encoded stream size, including the Xing or Info frame.
+   */
+  public int computeAverageBitrate(long dataSize) {
+    if (frameCount == C.LENGTH_UNSET
+        || frameCount == 0
+        || dataSize == C.LENGTH_UNSET
+        || dataSize <= header.frameSize) {
+      return C.RATE_UNSET_INT;
+    }
+    long averageBitrate =
+        Util.scaleLargeValue(
+            dataSize - header.frameSize,
+            C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+            computeDurationUs(),
+            RoundingMode.HALF_UP);
+    return averageBitrate > 0 && averageBitrate <= Integer.MAX_VALUE
+        ? (int) averageBitrate
+        : C.RATE_UNSET_INT;
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */

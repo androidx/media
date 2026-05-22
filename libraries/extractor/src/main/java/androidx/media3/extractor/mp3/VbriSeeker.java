@@ -24,6 +24,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.SeekPoint;
+import java.math.RoundingMode;
 
 /** MP3 seeker that uses metadata from a VBRI header. */
 /* package */ final class VbriSeeker implements Seeker {
@@ -107,7 +108,12 @@ import androidx.media3.extractor.SeekPoint;
     }
 
     return new VbriSeeker(
-        timesUs, positions, durationUs, startOfMp3Data, endOfMp3Data, mpegAudioHeader.bitrate);
+        timesUs,
+        positions,
+        durationUs,
+        startOfMp3Data,
+        endOfMp3Data,
+        computeAverageBitrate(endOfMp3Data - startOfMp3Data, durationUs));
   }
 
   private final long[] timesUs;
@@ -115,7 +121,7 @@ import androidx.media3.extractor.SeekPoint;
   private final long durationUs;
   private final long dataStartPosition;
   private final long dataEndPosition;
-  private final int bitrate;
+  private final int averageBitrate;
 
   private VbriSeeker(
       long[] timesUs,
@@ -123,13 +129,13 @@ import androidx.media3.extractor.SeekPoint;
       long durationUs,
       long dataStartPosition,
       long dataEndPosition,
-      int bitrate) {
+      int averageBitrate) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
     this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
-    this.bitrate = bitrate;
+    this.averageBitrate = averageBitrate;
   }
 
   @Override
@@ -171,6 +177,18 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return averageBitrate;
+  }
+
+  private static int computeAverageBitrate(long dataSize, long durationUs) {
+    if (dataSize <= 0 || durationUs <= 0) {
+      return C.RATE_UNSET_INT;
+    }
+    long averageBitrate =
+        Util.scaleLargeValue(
+            dataSize, C.BITS_PER_BYTE * C.MICROS_PER_SECOND, durationUs, RoundingMode.HALF_UP);
+    return averageBitrate > 0 && averageBitrate <= Integer.MAX_VALUE
+        ? (int) averageBitrate
+        : C.RATE_UNSET_INT;
   }
 }

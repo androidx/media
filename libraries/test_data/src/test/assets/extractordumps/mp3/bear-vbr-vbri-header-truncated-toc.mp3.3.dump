@@ -11,7 +11,7 @@ track 0:
   sample count = 88
   track duration = 2807979
   format 0:
-    averageBitrate = 32000
+    averageBitrate = 108719
     containerMimeType = audio/mpeg
     sampleMimeType = audio/mpeg
     maxInputSize = 4096

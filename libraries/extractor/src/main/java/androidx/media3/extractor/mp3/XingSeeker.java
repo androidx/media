@@ -65,7 +65,7 @@ import androidx.media3.extractor.SeekPoint;
         position,
         xingFrame.header.frameSize,
         durationUs,
-        xingFrame.header.bitrate,
+        xingFrame.computeAverageBitrate(dataSize),
         dataSize,
         xingFrame.tableOfContents);
   }
@@ -73,7 +73,7 @@ import androidx.media3.extractor.SeekPoint;
   private final long dataStartPosition;
   private final int xingFrameSize;
   private final long durationUs;
-  private final int bitrate;
+  private final int averageBitrate;
 
   /** Data size, including the XING frame. */
   private final long dataSize;
@@ -90,13 +90,13 @@ import androidx.media3.extractor.SeekPoint;
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
-      int bitrate,
+      int averageBitrate,
       long dataSize,
       @Nullable long[] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;
-    this.bitrate = bitrate;
+    this.averageBitrate = averageBitrate;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
     dataEndPosition = dataSize == C.LENGTH_UNSET ? C.INDEX_UNSET : dataStartPosition + dataSize;
@@ -173,7 +173,7 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return averageBitrate;
   }
 
   /**
