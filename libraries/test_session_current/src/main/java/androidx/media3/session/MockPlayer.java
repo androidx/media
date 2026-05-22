@@ -734,6 +734,7 @@ public class MockPlayer implements Player {
     this.unmuteVolume = (volume != 0) ? volume : this.volume;
     this.volume = volume;
     checkNotNull(conditionVariables.get(METHOD_SET_VOLUME)).open();
+    notifyVolumeChanged();
   }
 
   @Override

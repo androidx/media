@@ -85,7 +85,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -2348,7 +2347,6 @@ public class MediaControllerTest {
   }
 
   @Test
-  @Ignore("flaky: b/398226223")
   public void getUnmuteVolume_returnsUnmuteVolumeOfPlayerInSession_roundTrip() throws Exception {
     float testVolume = .5f;
 
@@ -2358,12 +2356,13 @@ public class MediaControllerTest {
 
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule.getHandler().postAndSync(controller::mute);
-    float volume = threadTestRule.getHandler().postAndSync(controller::getVolume);
-    assertThat(volume).isEqualTo(0);
+    PollingCheck.waitFor(
+        TIMEOUT_MS, () -> threadTestRule.getHandler().postAndSync(controller::getVolume) == 0f);
 
     threadTestRule.getHandler().postAndSync(controller::unmute);
-    volume = threadTestRule.getHandler().postAndSync(controller::getVolume);
-    assertThat(volume).isEqualTo(testVolume);
+    PollingCheck.waitFor(
+        TIMEOUT_MS,
+        () -> threadTestRule.getHandler().postAndSync(controller::getVolume) == testVolume);
   }
 
   @Test
