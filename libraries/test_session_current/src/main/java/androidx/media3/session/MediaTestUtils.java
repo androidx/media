@@ -402,6 +402,7 @@ public final class MediaTestUtils {
     Bundle invalid = null;
     while (invalid == null) {
       invalid = tryCreateInvalidBundle();
+      cleanPotentiallyCorruptedArrayMapCache();
     }
     return invalid;
   }
