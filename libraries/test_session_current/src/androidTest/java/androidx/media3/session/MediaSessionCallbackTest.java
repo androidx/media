@@ -571,7 +571,8 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onCommandRequest() throws Exception {
-    ArrayList<Integer> commands = new ArrayList<>();
+    CountDownLatch prepareLatch = new CountDownLatch(1);
+    List<Integer> commands = new ArrayList<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
@@ -584,6 +585,7 @@ public class MediaSessionCallbackTest {
 
             commands.add(command);
             if (command == Player.COMMAND_PREPARE) {
+              prepareLatch.countDown();
               return ERROR_INVALID_STATE;
             }
             return RESULT_SUCCESS;
@@ -600,7 +602,7 @@ public class MediaSessionCallbackTest {
         remoteControllerTestRule.createRemoteController(session.getToken());
 
     controller.prepare();
-    Thread.sleep(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(prepareLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isFalse();
     assertThat(commands).hasSize(1);
     assertThat(commands.get(0)).isEqualTo(Player.COMMAND_PREPARE);
