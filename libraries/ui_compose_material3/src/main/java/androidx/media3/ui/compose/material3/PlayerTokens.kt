@@ -19,10 +19,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 internal object PlayerTokens {
-  val CenterControlsButtonSize = 50.dp
+  val MediumButtonSize = 50.dp
+  val LargeButtonSize = 63.dp
+  val MediumIconSize: Dp = 24.dp
+  val LargeIconSize: Dp = 40.dp
   val CenterControlsSpacing = 10.dp
   val ControlsHorizontalPadding = 15.dp
   val BottomControlsHorizontalPadding = 8.dp

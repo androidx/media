@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.PreviousButton as PreviousButtonContainer
+import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.PreviousButtonState
 
@@ -43,6 +45,7 @@ import androidx.media3.ui.compose.state.PreviousButtonState
  * @param modifier The [Modifier] to be applied to the button.
  * @param painter The supplier for [Painter] used for the icon displayed on the button. Defaults to
  *   [R.drawable.media3_icon_previous].
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
@@ -68,6 +71,7 @@ fun PreviousButton(
   painter: @Composable PreviousButtonState.() -> Painter = {
     painterResource(R.drawable.media3_icon_previous)
   },
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PreviousButtonState.() -> String = {
     stringResource(R.string.previous_button)
   },
@@ -84,6 +88,7 @@ fun PreviousButton(
       modifier,
       isEnabled,
       icon = painter(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,
@@ -103,6 +108,7 @@ fun PreviousButton(
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
@@ -127,6 +133,7 @@ fun PreviousButton(
   player: Player?,
   modifier: Modifier = Modifier,
   imageVector: @Composable PreviousButtonState.() -> ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PreviousButtonState.() -> String = {
     stringResource(R.string.previous_button)
   },
@@ -143,6 +150,7 @@ fun PreviousButton(
       modifier,
       isEnabled,
       icon = imageVector(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,

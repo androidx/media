@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.ShuffleButton as ShuffleStateContainer
+import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.ShuffleButtonState
 
@@ -44,6 +46,7 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
  * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
  *   composable lambda with [ShuffleButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
@@ -66,6 +69,7 @@ fun ShuffleButton(
   player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable ShuffleButtonState.() -> Painter = defaultShufflePainterIcon,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -81,6 +85,7 @@ fun ShuffleButton(
       modifier,
       isEnabled,
       icon = painter(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,
@@ -102,6 +107,7 @@ fun ShuffleButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
  *   is a composable lambda with [ShuffleButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
+ * @param iconSize The size of the icon.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
@@ -125,6 +131,7 @@ fun ShuffleButton(
   player: Player?,
   modifier: Modifier = Modifier,
   imageVector: ShuffleButtonState.() -> ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable ShuffleButtonState.() -> String =
     defaultShuffleContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -140,6 +147,7 @@ fun ShuffleButton(
       modifier,
       isEnabled,
       icon = imageVector(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,

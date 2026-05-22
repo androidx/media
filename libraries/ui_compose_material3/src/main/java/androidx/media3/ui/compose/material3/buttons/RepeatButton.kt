@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.RepeatButton as RepeatStateContainer
+import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.RepeatButtonState
 
@@ -46,6 +48,7 @@ import androidx.media3.ui.compose.state.RepeatButtonState
  * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
  *   composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
@@ -70,6 +73,7 @@ fun RepeatButton(
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
   painter: @Composable RepeatButtonState.() -> Painter = defaultRepeatModePainterIcon,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -85,6 +89,7 @@ fun RepeatButton(
       modifier,
       isEnabled,
       icon = painter(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,
@@ -108,6 +113,7 @@ fun RepeatButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
  *   is a composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
@@ -133,6 +139,7 @@ fun RepeatButton(
   toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
   imageVector: RepeatButtonState.() -> ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable RepeatButtonState.() -> String =
     defaultRepeatModeContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -148,6 +155,7 @@ fun RepeatButton(
       modifier,
       isEnabled,
       icon = imageVector(),
+      iconSize = iconSize,
       contentDescription = contentDescription(),
       colors = colors,
       tint = tint,

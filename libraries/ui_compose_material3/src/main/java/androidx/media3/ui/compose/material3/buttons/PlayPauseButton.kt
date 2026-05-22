@@ -25,9 +25,11 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.PlayPauseButton as PlayPauseStateContainer
+import androidx.media3.ui.compose.material3.PlayerTokens
 import androidx.media3.ui.compose.material3.R
 import androidx.media3.ui.compose.state.PlayPauseButtonState
 
@@ -44,6 +46,7 @@ import androidx.media3.ui.compose.state.PlayPauseButtonState
  * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
  *   composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be updated
  *   based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
@@ -65,6 +68,7 @@ fun PlayPauseButton(
   player: Player?,
   modifier: Modifier = Modifier,
   painter: @Composable PlayPauseButtonState.() -> Painter = defaultPlayPausePainterIcon,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
     defaultPlayPauseContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -81,6 +85,7 @@ fun PlayPauseButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      iconSize = iconSize,
       colors = colors,
       tint = tint,
       onClick = { customOnClick() },
@@ -101,6 +106,7 @@ fun PlayPauseButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
  *   is a composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be
  *   updated based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
+ * @param iconSize The size of the icon.
  * @param contentDescription The content description for accessibility purposes.
  * @param colors [IconButtonColors] that will be used to resolve the colors used for this icon
  *   button in different states. See [IconButtonDefaults.iconButtonColors].
@@ -123,6 +129,7 @@ fun PlayPauseButton(
   player: Player?,
   modifier: Modifier = Modifier,
   imageVector: PlayPauseButtonState.() -> ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
     defaultPlayPauseContentDescription,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
@@ -139,6 +146,7 @@ fun PlayPauseButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      iconSize = iconSize,
       colors = colors,
       tint = tint,
       onClick = { customOnClick() },

@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
@@ -27,12 +28,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
+import androidx.media3.ui.compose.material3.PlayerTokens
 
 @Composable
 internal fun ClickableIconButton(
   modifier: Modifier,
   enabled: Boolean,
   icon: Painter,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: String,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
@@ -40,6 +44,7 @@ internal fun ClickableIconButton(
 ) {
   IconButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors) {
     Icon(
+      modifier = Modifier.size(iconSize),
       painter = icon,
       contentDescription = contentDescription,
       tint = tint.takeOrElse { LocalContentColor.current },
@@ -52,6 +57,7 @@ internal fun ClickableIconButton(
   modifier: Modifier,
   enabled: Boolean,
   icon: ImageVector,
+  iconSize: Dp = PlayerTokens.MediumIconSize,
   contentDescription: String,
   colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
   tint: Color = Color.Unspecified,
@@ -59,6 +65,7 @@ internal fun ClickableIconButton(
 ) {
   IconButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors) {
     Icon(
+      modifier = Modifier.size(iconSize),
       imageVector = icon,
       contentDescription = contentDescription,
       tint = tint.takeOrElse { LocalContentColor.current },

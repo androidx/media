@@ -57,16 +57,16 @@ import androidx.media3.ui.compose.material3.indicator.ProgressSlider
 @UnstableApi
 object PlayerDefaults {
 
-  internal val regularButtonModifier: Modifier
+  internal val mediumButtonModifier: Modifier
     @Composable
     get() =
-      Modifier.size(PlayerTokens.CenterControlsButtonSize)
+      Modifier.size(PlayerTokens.MediumButtonSize)
         .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
 
   internal val largeButtonModifier: Modifier
     @Composable
     get() =
-      Modifier.size(PlayerTokens.CenterControlsButtonSize.times(1.25f))
+      Modifier.size(PlayerTokens.LargeButtonSize)
         .background(PlayerTokens.controlsBackgroundColor, ButtonDefaults.shape)
 
   /**
@@ -135,17 +135,17 @@ object PlayerDefaults {
       Arrangement.spacedBy(PlayerTokens.CenterControlsSpacing, Alignment.CenterHorizontally),
     verticalAlignment: Alignment.Vertical = Alignment.CenterVertically,
     backSecondary: @Composable (Player?) -> Unit = {
-      PreviousButton(it, modifier = regularButtonModifier)
+      PreviousButton(it, modifier = mediumButtonModifier)
     },
-    back: @Composable (Player?) -> Unit = { SeekBackButton(it, modifier = regularButtonModifier) },
+    back: @Composable (Player?) -> Unit = { SeekBackButton(it, modifier = mediumButtonModifier) },
     central: @Composable (Player?) -> Unit = {
-      PlayPauseButton(it, modifier = largeButtonModifier)
+      PlayPauseButton(it, modifier = largeButtonModifier, iconSize = PlayerTokens.LargeIconSize)
     },
     forward: @Composable (Player?) -> Unit = {
-      SeekForwardButton(it, modifier = regularButtonModifier)
+      SeekForwardButton(it, modifier = mediumButtonModifier)
     },
     forwardSecondary: @Composable (Player?) -> Unit = {
-      NextButton(it, modifier = regularButtonModifier)
+      NextButton(it, modifier = mediumButtonModifier)
     },
   ) {
     AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
