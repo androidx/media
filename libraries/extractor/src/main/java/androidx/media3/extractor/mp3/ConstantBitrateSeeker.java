@@ -18,6 +18,8 @@ package androidx.media3.extractor.mp3;
 import androidx.media3.common.C;
 import androidx.media3.extractor.ConstantBitrateSeekMap;
 import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.SeekMap.SeekPoints;
+import androidx.media3.extractor.SeekPoint;
 
 /**
  * MP3 seeker that doesn't rely on metadata and seeks assuming the source has a constant bitrate.
@@ -28,10 +30,14 @@ import androidx.media3.extractor.MpegAudioUtil;
   private final int bitrate;
   private final int frameSize;
   private final boolean allowSeeksIfLengthUnknown;
+  private final long durationUs;
   private final long dataEndPosition;
 
   /**
    * Constructs an instance.
+   *
+   * <p>The duration exposed from {@link #getDurationUs()} is computed from {@code inputLength} and
+   * the frame bitrate, or is {@link C#TIME_UNSET} if {@code inputLength} is unknown.
    *
    * @param inputLength The length of the stream in bytes, or {@link C#LENGTH_UNSET} if unknown.
    * @param firstFramePosition The position of the first frame in the stream.
@@ -53,23 +59,30 @@ import androidx.media3.extractor.MpegAudioUtil;
         mpegAudioHeader.bitrate,
         mpegAudioHeader.frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ true);
+        /* durationUs= */ C.TIME_UNSET);
   }
 
-  /** See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. */
+  /**
+   * See {@link ConstantBitrateSeekMap#ConstantBitrateSeekMap(long, long, int, int, boolean)}. Uses
+   * {@code durationUs} as the duration exposed from {@link #getDurationUs()}, or computes the
+   * duration from {@code inputLength} and {@code bitrate} if {@code durationUs} is {@link
+   * C#TIME_UNSET}.
+   */
   public ConstantBitrateSeeker(
       long inputLength,
       long firstFramePosition,
       int bitrate,
       int frameSize,
-      boolean allowSeeksIfLengthUnknown) {
+      boolean allowSeeksIfLengthUnknown,
+      long durationUs) {
     this(
         inputLength,
         firstFramePosition,
         bitrate,
         frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ true);
+        /* isEstimated= */ true,
+        durationUs);
   }
 
   private ConstantBitrateSeeker(
@@ -78,7 +91,8 @@ import androidx.media3.extractor.MpegAudioUtil;
       int bitrate,
       int frameSize,
       boolean allowSeeksIfLengthUnknown,
-      boolean isEstimated) {
+      boolean isEstimated,
+      long durationUs) {
     super(
         inputLength,
         firstFramePosition,
@@ -88,14 +102,26 @@ import androidx.media3.extractor.MpegAudioUtil;
         isEstimated);
     this.firstFramePosition = firstFramePosition;
     this.bitrate = bitrate;
-    this.frameSize = frameSize;
+    this.frameSize = frameSize == C.LENGTH_UNSET ? 1 : frameSize;
     this.allowSeeksIfLengthUnknown = allowSeeksIfLengthUnknown;
+    this.durationUs = durationUs;
     dataEndPosition = inputLength != C.LENGTH_UNSET ? inputLength : C.INDEX_UNSET;
   }
 
   @Override
   public long getTimeUs(long position) {
     return getTimeUsAtPosition(position);
+  }
+
+  @Override
+  public SeekPoints getSeekPoints(long timeUs) {
+    if (durationUs != C.TIME_UNSET && timeUs >= durationUs && dataEndPosition != C.INDEX_UNSET) {
+      long finalFramePosition = Math.max(firstFramePosition, dataEndPosition - frameSize);
+      long frameDurationUs = getTimeUsAtPosition(firstFramePosition + frameSize);
+      return new SeekPoints(
+          new SeekPoint(Math.max(0, durationUs - frameDurationUs), finalFramePosition));
+    }
+    return super.getSeekPoints(timeUs);
   }
 
   @Override
@@ -106,6 +132,11 @@ import androidx.media3.extractor.MpegAudioUtil;
   @Override
   public long getDataEndPosition() {
     return dataEndPosition;
+  }
+
+  @Override
+  public long getDurationUs() {
+    return durationUs != C.TIME_UNSET ? durationUs : super.getDurationUs();
   }
 
   @Override
@@ -120,6 +151,7 @@ import androidx.media3.extractor.MpegAudioUtil;
         bitrate,
         frameSize,
         allowSeeksIfLengthUnknown,
-        /* isEstimated= */ false);
+        /* isEstimated= */ false,
+        durationUs);
   }
 }

@@ -20,9 +20,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.metadata.id3.ApicFrame;
@@ -107,6 +109,40 @@ public final class Mp3ExtractorTest {
         "media/mp3/test-cbr-info-header.mp3",
         /* peekLimit= */ 1200,
         simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithInfoHeader_usesGaplessDurationAndAverageBitrate() throws Exception {
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(
+            new Mp3Extractor(),
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/test-cbr-info-header.mp3");
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).getDurationUs()).isEqualTo(999_977);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(66_874);
+  }
+
+  @Test
+  public void mp3SampleWithInfoHeader_invalidDataSizeFallsBackToFrameBitrate() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/test-cbr-info-header.mp3");
+    int infoTagOffset = indexOf(fileBytes, new byte[] {'I', 'n', 'f', 'o'});
+    assertThat(infoTagOffset).isAtLeast(0);
+    int infoFramePosition = findMpegFramePositionBeforeTag(fileBytes, infoTagOffset);
+    assertThat(infoFramePosition).isNotEqualTo(C.INDEX_UNSET);
+    MpegAudioUtil.Header infoFrameHeader = new MpegAudioUtil.Header();
+    assertThat(infoFrameHeader.setForHeaderData(readBigEndianInt(fileBytes, infoFramePosition)))
+        .isTrue();
+    writeBigEndianInt(fileBytes, infoTagOffset + 12, infoFrameHeader.frameSize);
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
+
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(64_000);
   }
 
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
@@ -212,6 +248,24 @@ public final class Mp3ExtractorTest {
         "media/mp3/bear-vbr-no-seek-table.mp3",
         /* peekLimit= */ 1500,
         simulationConfig);
+  }
+
+  @Test
+  public void mp3CbrSampleWithIndexSeekingFlagAndUnknownLength_reportsUnsetAverageBitrate()
+      throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(),
+            "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3");
+
+    FakeExtractorOutput output =
+        extractUntilSeekMap(
+            new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+            fileBytes,
+            /* simulateUnknownLength= */ true);
+
+    assertThat(output.seekMap).isInstanceOf(IndexSeeker.class);
+    assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(Format.NO_VALUE);
   }
 
   // https://github.com/androidx/media/issues/1563
@@ -386,5 +440,62 @@ public final class Mp3ExtractorTest {
     }
     String suffix = "." + Ascii.toLowerCase(configName).replace('_', '-');
     return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
+  }
+
+  private static FakeExtractorOutput extractUntilSeekMap(
+      Mp3Extractor extractor, byte[] fileBytes, boolean simulateUnknownLength) throws Exception {
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(fileBytes)
+            .setSimulateUnknownLength(simulateUnknownLength)
+            .build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    while (output.seekMap == null) {
+      assertThat(extractor.read(input, positionHolder))
+          .isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
+    }
+    return output;
+  }
+
+  private static int findMpegFramePositionBeforeTag(byte[] data, int tagOffset) {
+    for (int tagOffsetFromFrameStart : new int[] {13, 21, 36}) {
+      int framePosition = tagOffset - tagOffsetFromFrameStart;
+      if (framePosition >= 0
+          && framePosition + 4 <= data.length
+          && new MpegAudioUtil.Header().setForHeaderData(readBigEndianInt(data, framePosition))) {
+        return framePosition;
+      }
+    }
+    return C.INDEX_UNSET;
+  }
+
+  private static int indexOf(byte[] data, byte[] target) {
+    for (int i = 0; i <= data.length - target.length; i++) {
+      boolean matches = true;
+      for (int j = 0; j < target.length; j++) {
+        matches &= data[i + j] == target[j];
+      }
+      if (matches) {
+        return i;
+      }
+    }
+    return C.INDEX_UNSET;
+  }
+
+  private static int readBigEndianInt(byte[] data, int offset) {
+    return ((data[offset] & 0xFF) << 24)
+        | ((data[offset + 1] & 0xFF) << 16)
+        | ((data[offset + 2] & 0xFF) << 8)
+        | (data[offset + 3] & 0xFF);
+  }
+
+  private static void writeBigEndianInt(byte[] data, int offset, int value) {
+    data[offset] = (byte) (value >> 24);
+    data[offset + 1] = (byte) (value >> 16);
+    data[offset + 2] = (byte) (value >> 8);
+    data[offset + 3] = (byte) value;
   }
 }

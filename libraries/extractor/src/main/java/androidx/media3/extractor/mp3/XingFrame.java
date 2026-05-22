@@ -141,18 +141,35 @@ import androidx.media3.extractor.MpegAudioUtil;
 
   /**
    * Compute the stream duration, in microseconds, represented by this frame. Returns {@link
-   * C#LENGTH_UNSET} if the frame doesn't contain enough information to compute a duration.
+   * C#TIME_UNSET} if the frame doesn't contain enough information to compute a duration. Encoder
+   * delay and padding are subtracted if present.
    */
-  // TODO: b/319235116 - Handle encoder delay and padding when calculating duration.
   public long computeDurationUs() {
-    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
-      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+    long sampleCount = getSampleCount();
+    if (sampleCount == C.LENGTH_UNSET) {
       return C.TIME_UNSET;
     }
+    if (encoderDelay != C.LENGTH_UNSET && encoderPadding != C.LENGTH_UNSET) {
+      sampleCount -= encoderDelay + encoderPadding;
+    }
+    if (sampleCount <= 0) {
+      return C.TIME_UNSET;
+    }
+    return computeDurationUs(sampleCount);
+  }
+
+  private long getSampleCount() {
+    if (frameCount == C.LENGTH_UNSET || frameCount == 0) {
+      // If the frame count is missing/invalid, the header can't be used to determine the duration.
+      return C.LENGTH_UNSET;
+    }
+    return frameCount * header.samplesPerFrame;
+  }
+
+  private long computeDurationUs(long sampleCount) {
     // Audio requires both a start and end PCM sample, so subtract one from the sample count before
     // calculating the duration.
-    return Util.sampleCountToDurationUs(
-        (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
+    return Util.sampleCountToDurationUs(sampleCount - 1, header.sampleRate);
   }
 
   /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */

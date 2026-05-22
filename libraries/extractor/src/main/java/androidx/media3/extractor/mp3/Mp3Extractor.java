@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -391,6 +392,28 @@ public final class Mp3Extractor implements Extractor {
     return basisTimeUs + samplesRead * C.MICROS_PER_SECOND / synchronizedHeader.sampleRate;
   }
 
+  /**
+   * Returns the final duration to expose for an {@link IndexSeeker}.
+   *
+   * <p>Index seeking finalizes duration from the encoded samples read at EOF. When gapless metadata
+   * is present, this trims the encoder delay and padding so EOF finalization does not replace an
+   * initially gapless Xing/Info duration with the longer encoded duration.
+   */
+  private long computeFinalIndexSeekerDurationUs(long samplesRead) {
+    long durationUs = computeTimeUs(samplesRead);
+    if (!gaplessInfoHolder.hasGaplessInfo()) {
+      return durationUs;
+    }
+    long finalGaplessSampleIndex =
+        Util.durationUsToSampleCount(durationUs, synchronizedHeader.sampleRate)
+            - gaplessInfoHolder.encoderDelay
+            - gaplessInfoHolder.encoderPadding
+            - 1;
+    return finalGaplessSampleIndex >= 0
+        ? Util.sampleCountToDurationUs(finalGaplessSampleIndex, synchronizedHeader.sampleRate)
+        : C.TIME_UNSET;
+  }
+
   private boolean synchronize(ExtractorInput input, boolean sniffing) throws IOException {
     int validFrameCount = 0;
     int candidateSynchronizedHeaderData = 0;
@@ -522,37 +545,37 @@ public final class Mp3Extractor implements Extractor {
       return resultSeeker;
     }
 
+    long durationUs = resultSeeker.getDurationUs();
     long inputLength =
         resultSeeker.getDataEndPosition() != C.INDEX_UNSET
             ? resultSeeker.getDataEndPosition()
             : input.getLength();
-    if (resultSeeker.getDurationUs() == C.TIME_UNSET || inputLength == C.LENGTH_UNSET) {
+    if (durationUs == C.TIME_UNSET || inputLength == C.LENGTH_UNSET) {
       // resultSeeker doesn't provide enough info to do 'enhanced' CBR seeking, so we just do
       // normal CBR seeking without any additional info from the file.
       return getConstantBitrateSeeker(input);
     }
-    // resultSeeker provides a duration and we know the input length, and CBR seeking has been
-    // requested, so we can do 'enhanced' CBR seeking using this info.
     long dataStart =
         resultSeeker.getDataStartPosition() != C.INDEX_UNSET
             ? resultSeeker.getDataStartPosition()
             : 0;
-    long audioLength = inputLength - dataStart;
-    int bitrate =
-        Ints.saturatedCast(
-            Util.scaleLargeValue(
-                audioLength,
-                Byte.SIZE * C.MICROS_PER_SECOND,
-                resultSeeker.getDurationUs(),
-                RoundingMode.HALF_UP));
-    // inputLength will never be LENGTH_UNSET because of the if-condition above, so we can
+    int averageBitrate = computeAverageBitrate(inputLength - dataStart, durationUs);
+    if (averageBitrate == C.RATE_UNSET_INT) {
+      // Bitrate couldn't be determined (dataStart > inputLength?)
+      return getConstantBitrateSeeker(input);
+    }
+
+    // resultSeeker provides a duration and we know the input length, and CBR seeking has been
+    // requested, so we can do 'enhanced' CBR seeking using this info. inputLength will never be
+    // LENGTH_UNSET because of the if-condition above, so we can
     // pass (vacuously) false here for allowSeeksIfLengthUnknown.
     return new ConstantBitrateSeeker(
         inputLength,
         dataStart,
-        bitrate,
+        averageBitrate,
         /* frameSize= */ C.LENGTH_UNSET,
-        /* allowSeeksIfLengthUnknown= */ false);
+        /* allowSeeksIfLengthUnknown= */ false,
+        durationUs);
   }
 
   private boolean shouldFallbackToConstantBitrateSeeking(Seeker seeker) {
@@ -663,15 +686,13 @@ public final class Mp3Extractor implements Extractor {
 
     // Derive the bitrate and frame size by averaging over the length of playable audio, to allow
     // for 'mostly' CBR streams that might have a small number of frames with a different bitrate.
-    // We can assume infoFrame.frameCount is set, because otherwise computeDurationUs() would
-    // have returned C.TIME_UNSET above. See also https://github.com/androidx/media/issues/1376.
-    int averageBitrate =
-        Ints.checkedCast(
-            Util.scaleLargeValue(
-                audioLength,
-                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-                durationUs,
-                RoundingMode.HALF_UP));
+    // See also https://github.com/androidx/media/issues/1376.
+    int averageBitrate = computeAverageBitrate(audioLength, durationUs);
+    if (averageBitrate == C.RATE_UNSET_INT) {
+      // Invalid Info sizes or durations should fall back to the next frame header bitrate rather
+      // than constructing a ConstantBitrateSeeker with an unset bitrate.
+      return null;
+    }
     int frameSize =
         Ints.checkedCast(LongMath.divide(audioLength, infoFrame.frameCount, RoundingMode.HALF_UP));
     // Set the seeker frame size to the average frame size (even though some constant bitrate
@@ -682,7 +703,8 @@ public final class Mp3Extractor implements Extractor {
         /* firstFramePosition= */ infoFramePosition + infoFrame.header.frameSize,
         averageBitrate,
         frameSize,
-        /* allowSeeksIfLengthUnknown= */ false);
+        /* allowSeeksIfLengthUnknown= */ false,
+        durationUs);
   }
 
   /**

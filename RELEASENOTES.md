@@ -120,6 +120,8 @@
         `FLAG_READ_MFRA_FOR_SEEK_MAP` to the `FragmentedMp4Extractor`, which is
         now done by default in `DefaultExtractorsFactory`
         ([#3088](https://github.com/androidx/media/issues/3088)).
+    *   MP3: Use gapless-aware durations from Xing/Info headers
+        ([#3183](https://github.com/androidx/media/issues/3183)).
     *   Ignore `av1C` data with unsupported version.
     *   MP4: Add support for big-endian floating point PCM in `fpcm` boxes.
     *   Matroska: Parse chapter info to `Chapter` entries in a track's
