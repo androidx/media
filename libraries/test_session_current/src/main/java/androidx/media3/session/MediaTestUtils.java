@@ -31,6 +31,7 @@ import static org.junit.Assert.fail;
 
 import android.os.Bundle;
 import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -437,7 +438,38 @@ public final class MediaTestUtils {
     baseCacheField.set(null, value);
   }
 
+  private static final class ThrowingParcelable implements Parcelable {
+    public static final Parcelable.Creator<ThrowingParcelable> CREATOR =
+        new Parcelable.Creator<ThrowingParcelable>() {
+          @Override
+          public ThrowingParcelable createFromParcel(Parcel source) {
+            throw new RuntimeException("Intentional exception during unparcelling");
+          }
+
+          @Override
+          public ThrowingParcelable[] newArray(int size) {
+            return new ThrowingParcelable[size];
+          }
+        };
+
+    @Override
+    public int describeContents() {
+      return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {}
+  }
+
   private static Bundle tryCreateInvalidBundle() {
+    if (SDK_INT < 33) {
+      Bundle bundle = new Bundle();
+      bundle.putParcelable("bad_key", new ThrowingParcelable());
+      return isBundleInvalid(bundle) ? bundle : null;
+    }
+    // On API 33+, lazy bundle unparcelling prevents ThrowingParcelable from throwing during
+    // isEmpty(). Therefore, we fall back to corrupting the ArrayMap data structure via
+    // concurrent modification.
     Bundle bundle = new Bundle();
     CountDownLatch waitForThreadCreation = new CountDownLatch(2);
     Thread thread1 =
