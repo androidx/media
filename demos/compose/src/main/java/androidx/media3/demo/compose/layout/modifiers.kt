@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -126,6 +127,10 @@ internal fun Modifier.playerGestures(
 
   return this.focusRequester(focusRequester)
     .focusable()
+    .onPreviewKeyEvent {
+      onPointerMove?.invoke()
+      false
+    }
     .onKeyEvent { event ->
       // Holding the spacebar will trigger multiple KeyDown events due to auto-repeat
       // Avoid multifiring by handling KeyUp instead

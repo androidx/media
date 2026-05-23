@@ -18,6 +18,7 @@ package androidx.media3.demo.compose.buttons
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.foundation.interaction.FocusInteraction
 import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -175,6 +176,8 @@ internal fun LabeledThumb(
         is DragInteraction.Start -> interactions.add(interaction)
         is DragInteraction.Stop -> interactions.remove(interaction.start)
         is DragInteraction.Cancel -> interactions.remove(interaction.start)
+        is FocusInteraction.Focus -> interactions.add(interaction)
+        is FocusInteraction.Unfocus -> interactions.remove(interaction.focus)
       }
     }
   }

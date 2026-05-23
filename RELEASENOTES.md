@@ -198,6 +198,7 @@
         item.
     *   Publish `PlayerDefaults` object with composables for `TopControls`,
         `CenterControls`, and `BottomControls`.
+    *   Add `FocusRequester` to `Player` Composable and its content slots.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

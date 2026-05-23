@@ -16,12 +16,17 @@
 
 package androidx.media3.ui.compose.material3
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.media3.common.Player
 import androidx.media3.common.util.ExperimentalApi
@@ -54,6 +59,12 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * This composable is designed to be a flexible container for building player interfaces. It
  * consists of a [ContentFrame] that handles the rendering of the player's video, overlaid with
  * optional controls and a shutter.
+ *
+ * The [Player] natively manages keyboard focus traversal between its control slots. Each provided
+ * control slot ([topControls], [centerControls], and [bottomControls]) is wrapped in a focus group.
+ * 1-dimensional focus traversal (e.g., using the Tab key) is configured to move sequentially from
+ * the top controls, to the center controls, and down to the bottom controls. Backward traversal
+ * moves in the reverse order.
  *
  * @param player The [Player] instance to be controlled and whose content is displayed.
  * @param modifier The [Modifier] to be applied to the outer [Box].
@@ -117,6 +128,10 @@ private fun PlayerImpl(
   centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
   bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
 ) {
+  val topControlsFocus = remember { FocusRequester() }
+  val centerControlsFocus = remember { FocusRequester() }
+  val bottomControlsFocus = remember { FocusRequester() }
+
   Box(modifier) {
     ContentFrame(
       player = player,
@@ -126,9 +141,31 @@ private fun PlayerImpl(
       shutter = shutter,
     )
     // this = BoxScope of a container-Box
-    Box(Modifier.align(Alignment.TopCenter)) { topControls?.invoke(this, player, showControls) }
-    Box(Modifier.align(Alignment.Center)) { centerControls?.invoke(this, player, showControls) }
-    Box(Modifier.align(Alignment.BottomCenter)) {
+    Box(
+      Modifier.align(Alignment.TopCenter)
+        .focusRequester(topControlsFocus)
+        .focusProperties { next = centerControlsFocus }
+        .focusGroup()
+    ) {
+      topControls?.invoke(this, player, showControls)
+    }
+    Box(
+      Modifier.align(Alignment.Center)
+        .focusRequester(centerControlsFocus)
+        .focusProperties {
+          previous = topControlsFocus // Enables 'Shift + Tab' traversal
+          next = bottomControlsFocus
+        }
+        .focusGroup()
+    ) {
+      centerControls?.invoke(this, player, showControls)
+    }
+    Box(
+      Modifier.align(Alignment.BottomCenter)
+        .focusRequester(bottomControlsFocus)
+        .focusProperties { previous = centerControlsFocus }
+        .focusGroup()
+    ) {
       bottomControls?.invoke(this, player, showControls)
     }
   }
