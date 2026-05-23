@@ -3912,9 +3912,9 @@ public class DefaultTrackSelector extends MappingTrackSelector
       @RendererCapabilities.DecoderSupport
       int decoderSupport = RendererCapabilities.getDecoderSupport(formatSupport);
       if (decoderSupport == RendererCapabilities.DECODER_SUPPORT_FALLBACK_MIMETYPE) {
-        String fallbackMimeType = MediaCodecUtil.getAlternativeCodecMimeType(format);
-        if (fallbackMimeType != null) {
-          resolvedMimeType = fallbackMimeType;
+        List<String> fallbackMimeType = MediaCodecUtil.getAlternativeCodecMimeTypes(format);
+        if (!fallbackMimeType.isEmpty()) {
+          resolvedMimeType = fallbackMimeType.get(0);
         }
       }
 

@@ -18,7 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeType;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeTypes;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
@@ -159,15 +159,23 @@ public final class TransformerUtil {
     if (requestedMimeType != null) {
       boolean requestedMimeTypeEqualsPrimaryOrAlternativeMimeType =
           requestedMimeType.equals(inputFormat.sampleMimeType)
-              || requestedMimeType.equals(getAlternativeCodecMimeType(inputFormat));
+              || getAlternativeCodecMimeTypes(inputFormat).contains(requestedMimeType);
       if (!requestedMimeTypeEqualsPrimaryOrAlternativeMimeType) {
         return true;
       }
     }
     if (requestedMimeType == null
-        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)
-        && !muxerWrapper.supportsSampleMimeType(getAlternativeCodecMimeType(inputFormat))) {
-      return true;
+        && !muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)) {
+      boolean supported = false;
+      for (String mimeType : getAlternativeCodecMimeTypes(inputFormat)) {
+        supported = muxerWrapper.supportsSampleMimeType(mimeType);
+        if (supported) {
+          break;
+        }
+      }
+      if (!supported) {
+        return true;
+      }
     }
     if (inputFormat.pixelWidthHeightRatio != 1f) {
       return true;
