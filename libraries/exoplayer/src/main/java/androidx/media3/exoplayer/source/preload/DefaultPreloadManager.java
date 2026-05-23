@@ -799,18 +799,15 @@ public final class DefaultPreloadManager
     }
 
     @Override
-    public void onPreCacheProgress(
-        MediaItem mediaItem, long contentLength, long bytesDownloaded, float percentageDownloaded) {
-      if (percentageDownloaded == 100f) {
-        PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
-        if (targetPreloadStatus == null || !targetPreloadStatus.isPreCachingCategory()) {
-          // If the mediaItem is not the currently caching, skip silently as invalidate() must have
-          // been called, and a new sequence of preloading must have started.
-          return;
-        }
-        DefaultPreloadManager.this.onCompleted(
-            mediaItem, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
+    public void onPreCacheCompleted(MediaItem mediaItem) {
+      PreloadStatus targetPreloadStatus = getTargetPreloadStatusIfCurrentlyPreloading(mediaItem);
+      if (targetPreloadStatus == null || !targetPreloadStatus.isPreCachingCategory()) {
+        // If the mediaItem is not the currently caching, skip silently as invalidate() must have
+        // been called, and a new sequence of preloading must have started.
+        return;
       }
+      DefaultPreloadManager.this.onCompleted(
+          mediaItem, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
     }
 
     @Override

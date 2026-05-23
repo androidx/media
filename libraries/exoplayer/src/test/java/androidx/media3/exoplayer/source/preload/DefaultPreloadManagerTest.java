@@ -88,7 +88,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -771,7 +770,6 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  @Ignore("Flaky: b/514930743")
   public void invalidate_cachingWithCacheConfigured_mediaItemPreCachedSuccessfully()
       throws Exception {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
@@ -827,7 +825,6 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  @Ignore("Flaky: b/514930743")
   public void invalidate_cachingOneItemAndLoadingTheOthers_mediaItemCachedOrLoadedSuccessfully()
       throws Exception {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
