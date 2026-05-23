@@ -2711,6 +2711,7 @@ public final class Util {
       case C.ENCODING_PCM_32BIT:
         return 31;
       case C.ENCODING_DTS_UHD_P2:
+      case C.ENCODING_DTS_HD_MA:
       case C.ENCODING_DSD:
         return 34;
       default:

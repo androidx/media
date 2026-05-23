@@ -179,7 +179,8 @@ public final class MimeTypesTest {
     assertThat(MimeTypes.getMediaMimeType("dtsc")).isEqualTo(MimeTypes.AUDIO_DTS);
     assertThat(MimeTypes.getMediaMimeType("dtse")).isEqualTo(MimeTypes.AUDIO_DTS_EXPRESS);
     assertThat(MimeTypes.getMediaMimeType("dtsh")).isEqualTo(MimeTypes.AUDIO_DTS_HD);
-    assertThat(MimeTypes.getMediaMimeType("dtsl")).isEqualTo(MimeTypes.AUDIO_DTS_HD);
+    assertThat(MimeTypes.getMediaMimeType("dtsl"))
+        .isEqualTo(MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS);
     assertThat(MimeTypes.getMediaMimeType("dtsx")).isEqualTo(MimeTypes.AUDIO_DTS_UHD_P2);
     assertThat(MimeTypes.getMediaMimeType("opus")).isEqualTo(MimeTypes.AUDIO_OPUS);
     assertThat(MimeTypes.getMediaMimeType("vorbis")).isEqualTo(MimeTypes.AUDIO_VORBIS);

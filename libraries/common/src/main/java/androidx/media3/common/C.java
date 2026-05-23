@@ -185,8 +185,8 @@ public final class C {
    * #ENCODING_PCM_FLOAT_BIG_ENDIAN}, {@link #ENCODING_PCM_DOUBLE}, {@link
    * #ENCODING_PCM_DOUBLE_BIG_ENDIAN}, {@link #ENCODING_MP3}, {@link #ENCODING_AC3}, {@link
    * #ENCODING_E_AC3}, {@link #ENCODING_E_AC3_JOC}, {@link #ENCODING_AC4}, {@link #ENCODING_DTS},
-   * {@link #ENCODING_DTS_HD}, {@link #ENCODING_DOLBY_TRUEHD}, {@link #ENCODING_OPUS} or {@link
-   * #ENCODING_DSD}.
+   * {@link #ENCODING_DTS_HD}, {@link #ENCODING_DTS_HD_MA}, {@link #ENCODING_DOLBY_TRUEHD}, {@link
+   * #ENCODING_OPUS} or {@link #ENCODING_DSD}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -218,6 +218,7 @@ public final class C {
     ENCODING_AC4,
     ENCODING_DTS,
     ENCODING_DTS_HD,
+    ENCODING_DTS_HD_MA,
     ENCODING_DOLBY_TRUEHD,
     ENCODING_OPUS,
     ENCODING_DTS_UHD_P2,
@@ -328,6 +329,9 @@ public final class C {
 
   /** See {@link AudioFormat#ENCODING_DTS_HD}. */
   public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
+
+  /** See {@link AudioFormat#ENCODING_DTS_HD_MA}. */
+  public static final int ENCODING_DTS_HD_MA = AudioFormat.ENCODING_DTS_HD_MA;
 
   /** See {@link AudioFormat#ENCODING_DTS_UHD_P2}. */
   public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;

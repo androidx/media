@@ -133,6 +133,8 @@ public final class FfmpegLibrary {
       case MimeTypes.AUDIO_DTS:
       case MimeTypes.AUDIO_DTS_EXPRESS:
       case MimeTypes.AUDIO_DTS_HD:
+      case MimeTypes.AUDIO_DTS_HD_MA:
+      case MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS:
         return "dca";
       case MimeTypes.AUDIO_VORBIS:
         return "vorbis";

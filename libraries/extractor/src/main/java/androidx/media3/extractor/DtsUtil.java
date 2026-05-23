@@ -89,6 +89,8 @@ public final class DtsUtil {
    *   <li>{@link MimeTypes#AUDIO_DTS}
    *   <li>{@link MimeTypes#AUDIO_DTS_EXPRESS}
    *   <li>{@link MimeTypes#AUDIO_DTS_HD}
+   *   <li>{@link MimeTypes#AUDIO_DTS_HD_MA}
+   *   <li>{@link MimeTypes#AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS}
    *   <li>{@link MimeTypes#AUDIO_DTS_UHD_P2}
    * </ul>
    */
@@ -99,6 +101,8 @@ public final class DtsUtil {
     MimeTypes.AUDIO_DTS,
     MimeTypes.AUDIO_DTS_EXPRESS,
     MimeTypes.AUDIO_DTS_HD,
+    MimeTypes.AUDIO_DTS_HD_MA,
+    MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS,
     MimeTypes.AUDIO_DTS_UHD_P2
   })
   public @interface DtsAudioMimeType {}
@@ -656,11 +660,17 @@ public final class DtsUtil {
         int extensionMask = headerBits.readBits(12);
         if ((extensionMask & 0x100) != 0) { // Low bit rate component
           return MimeTypes.AUDIO_DTS_EXPRESS;
+        } else if ((extensionMask & 0x200) != 0) { // Lossless extension
+          if ((extensionMask & 0x001) != 0) { // Core component within the core substream
+            return MimeTypes.AUDIO_DTS_HD_MA;
+          } else {
+            return MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS;
+          }
         } else {
           return MimeTypes.AUDIO_DTS_HD;
         }
       case 1: // DTS-HD Loss-less coding mode without CBR component
-        return MimeTypes.AUDIO_DTS_HD;
+        return MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS;
       case 2: // DTS-HD Low bit-rate mode
         return MimeTypes.AUDIO_DTS_EXPRESS;
       case 3: // The auxiliary coding mode is reserved for future applications.

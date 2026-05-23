@@ -384,6 +384,18 @@ public final class MediaCodecUtil {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
       return Collections.singletonList(MimeTypes.AUDIO_E_AC3);
     }
+    if (MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS.equals(format.sampleMimeType)) {
+      // Coreless DTS-HD MA can only be decoded by a DTS-HD MA decoder. However, as DTS-HD MA was
+      // added as separate MIME type in platform in 2022, we need to try the older DTS-HD mime type
+      // for backwards compatibility. (https://r.android.com/2302237)
+      return List.of(MimeTypes.AUDIO_DTS_HD_MA, MimeTypes.AUDIO_DTS_HD);
+    }
+    if (MimeTypes.AUDIO_DTS_HD_MA.equals(format.sampleMimeType)) {
+      // DTS-HD MA was added as separate MIME type in platform in 2022, so we need to try the older
+      // DTS-HD mime type for backwards compatibility. (https://r.android.com/2302237)
+      // And because this is DTS-HD MA with core layer, even a DTS decoder can decode this stream.
+      return List.of(MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS);
+    }
     if (MimeTypes.AUDIO_DTS_HD.equals(format.sampleMimeType)
         || MimeTypes.AUDIO_DTS_UHD_P2.equals(format.sampleMimeType)) {
       // DTS decoders support DTS-HD streams (but decode only the core layer).
