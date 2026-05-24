@@ -36,8 +36,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.media3.demo.compose.layout.MainScreen
+import androidx.media3.demo.compose.layout.LongFormPlayerScreen
+import androidx.media3.demo.compose.layout.PlayerFormatScreen
 import androidx.media3.demo.compose.layout.SampleChooserScreen
+import androidx.media3.demo.compose.layout.ShortFormPlayerScreen
 import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -80,19 +82,33 @@ private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemo
           onPlaylistClick = { selectedPlaylistName, selectedMedia ->
             viewModel.selectPlaylistName(selectedPlaylistName)
             viewModel.selectMediaItems(selectedMedia)
-            navController.navigate(ROUTE_PLAYER)
+            navController.navigate(ROUTE_PLAYER_FORMAT_CHOOSER)
           },
           modifier = modifier.statusBarsPadding(),
         )
       }
-      composable(ROUTE_PLAYER) {
+      composable(ROUTE_PLAYER_FORMAT_CHOOSER) {
+        PlayerFormatScreen(
+          onLongFormClick = { navController.navigate(ROUTE_LONG_FORM_PLAYER) },
+          onShortFormClick = { navController.navigate(ROUTE_SHORT_FORM_PLAYER) },
+          modifier = modifier.statusBarsPadding(),
+        )
+      }
+      composable(ROUTE_LONG_FORM_PLAYER) {
         val mediaItems by viewModel.mediaItems.collectAsState()
         val playlistName by viewModel.playlistName.collectAsState()
-        MainScreen(playlistName, mediaItems)
+        LongFormPlayerScreen(playlistName, mediaItems)
+      }
+      composable(ROUTE_SHORT_FORM_PLAYER) {
+        val mediaItems by viewModel.mediaItems.collectAsState()
+        val playlistName by viewModel.playlistName.collectAsState()
+        ShortFormPlayerScreen(playlistName, mediaItems)
       }
     }
   }
 }
 
 private const val ROUTE_SAMPLE_CHOOSER = "sample_chooser"
-private const val ROUTE_PLAYER = "player"
+private const val ROUTE_PLAYER_FORMAT_CHOOSER = "player_format_chooser"
+private const val ROUTE_LONG_FORM_PLAYER = "long_form_player"
+private const val ROUTE_SHORT_FORM_PLAYER = "short_form_player"

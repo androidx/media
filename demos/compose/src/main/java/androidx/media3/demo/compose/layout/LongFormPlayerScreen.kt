@@ -81,7 +81,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
+fun LongFormPlayerScreen(
+  playlistName: String,
+  mediaItems: List<MediaItem>,
+  modifier: Modifier = Modifier,
+) {
   val context = LocalContext.current
   var player by remember { mutableStateOf<Player?>(null) }
 
@@ -113,14 +117,14 @@ fun MainScreen(playlistName: String, mediaItems: List<MediaItem>, modifier: Modi
   }
 
   CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
-    MainScreen(player, modifier = modifier.fillMaxSize())
+    LongFormPlayerScreen(player, modifier = modifier.fillMaxSize())
   }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
-internal fun MainScreen(player: Player?, modifier: Modifier = Modifier) {
+internal fun LongFormPlayerScreen(player: Player?, modifier: Modifier = Modifier) {
   val density = LocalDensity.current
   val scope = rememberCoroutineScope()
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
