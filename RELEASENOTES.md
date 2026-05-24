@@ -3,10 +3,6 @@
 ### Unreleased changes
 
 *   Common library:
-    *   Add `Format.selectionPriority`, a relative preference among formats in
-        the same `TrackGroup`. Higher values are more preferred. The default is
-        `Format.NO_VALUE`, and apps can rank formats by this signal via
-        `AdaptiveTrackSelection.Factory#setTrackFormatComparator`.
     *   Add `Format.channelMask` to explicitly represent the audio channel mask,
         and a new `Util.getAudioTrackChannelConfig(Format)` overload to safely
         resolve it.
@@ -92,9 +88,6 @@
         `AdaptiveTrackSelection.Factory.setTrackFormatComparator` to allow
         custom format ordering and ABR selection priority beyond bitrate-only
         ordering.
-*   HLS:
-    *   Parse the `SCORE` attribute on `EXT-X-STREAM-INF` and
-        `EXT-X-I-FRAME-STREAM-INF` into `Format.selectionPriority`.
 *   Extractors:
     *   MP4, MP3, and FLAC: Add `FLAG_DISABLE_ARTWORK_METADATA` to allow
         discarding attached pictures and cover art metadata during container
