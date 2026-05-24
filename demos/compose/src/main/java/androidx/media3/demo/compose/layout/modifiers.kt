@@ -170,24 +170,32 @@ internal fun Modifier.playerGestures(
           onDoubleTap = { offset ->
             when {
               seekBackActionArea(offset) -> {
-                seekBackButtonState?.let {
-                  onSeek(-it.seekBackAmountMs)
-                  it.onClick()
-                }
+                seekBackButtonState
+                  ?.takeIf { it.isEnabled }
+                  ?.run {
+                    onSeek(-seekBackAmountMs)
+                    onClick()
+                  }
               }
               seekForwardActionArea(offset) -> {
-                seekForwardButtonState?.let {
-                  onSeek(it.seekForwardAmountMs)
-                  it.onClick()
-                }
+                seekForwardButtonState
+                  ?.takeIf { it.isEnabled }
+                  ?.run {
+                    onSeek(seekForwardAmountMs)
+                    onClick()
+                  }
               }
             }
           },
           onLongPress = { offset ->
-            if (fastForwardActionArea(offset) && !isFastForwarding) {
+            if (
+              fastForwardActionArea(offset) &&
+                !isFastForwarding &&
+                playbackSpeedState?.isEnabled == true
+            ) {
               isFastForwarding = true
               onFastForward(true)
-              playbackSpeedState?.temporarilyOverrideSpeedWith(fastForwardSpeed)
+              playbackSpeedState.temporarilyOverrideSpeedWith(fastForwardSpeed)
             }
           },
           onPress = {
@@ -207,16 +215,23 @@ internal fun Modifier.playerGestures(
       }
     }
     .semantics {
-      customActions =
-        listOf(
-          CustomAccessibilityAction(seekBackButtonDescription) {
-            seekBackButtonState?.onClick()
-            true
-          },
-          CustomAccessibilityAction(seekForwardButtonDescription) {
-            seekForwardButtonState?.onClick()
-            true
-          },
-        )
+      customActions = buildList {
+        if (seekBackButtonState?.isEnabled == true) {
+          add(
+            CustomAccessibilityAction(seekBackButtonDescription) {
+              seekBackButtonState.onClick()
+              true
+            }
+          )
+        }
+        if (seekForwardButtonState?.isEnabled == true) {
+          add(
+            CustomAccessibilityAction(seekForwardButtonDescription) {
+              seekForwardButtonState.onClick()
+              true
+            }
+          )
+        }
+      }
     }
 }
