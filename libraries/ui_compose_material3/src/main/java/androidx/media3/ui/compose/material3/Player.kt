@@ -41,6 +41,10 @@ import androidx.media3.ui.compose.SurfaceType
  * This composable consists of a [ContentFrame] that handles the rendering of the player's video,
  * overlaid with default button controls, progress slider, and a shutter.
  *
+ * This component uses the standard Material3 layouts provided by [PlayerDefaults]. This includes
+ * [PlayerDefaults.TopControls], [PlayerDefaults.CenterControls], and
+ * [PlayerDefaults.BottomControls].
+ *
  * To customize the UI components, use the overload that accepts these as parameters.
  *
  * @param player The [Player] instance to be controlled and whose content is displayed.
@@ -59,6 +63,12 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  * This composable is designed to be a flexible container for building player interfaces. It
  * consists of a [ContentFrame] that handles the rendering of the player's video, overlaid with
  * optional controls and a shutter.
+ *
+ * By default, this component uses the standard Material3 layouts provided by [PlayerDefaults]. This
+ * includes [PlayerDefaults.TopControls], [PlayerDefaults.CenterControls], and
+ * [PlayerDefaults.BottomControls]. You can deeply customize the player UI by providing your own
+ * composables to the slots of this composable, or by utilizing the [PlayerDefaults] layouts and
+ * overriding only specific slots within them.
  *
  * The [Player] natively manages keyboard focus traversal between its control slots. Each provided
  * control slot ([topControls], [centerControls], and [bottomControls]) is wrapped in a focus group.
@@ -124,9 +134,15 @@ private fun PlayerImpl(
   keepContentOnReset: Boolean = false,
   shutter: @Composable () -> Unit = PlayerDefaults::Shutter,
   showControls: Boolean = false,
-  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
-  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
-  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = null,
+  topControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.TopControls(player, showControls, Modifier.fillMaxWidth())
+  },
+  centerControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.CenterControls(player, showControls, Modifier.fillMaxWidth())
+  },
+  bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
+    PlayerDefaults.BottomControls(player, showControls)
+  },
 ) {
   val topControlsFocus = remember { FocusRequester() }
   val centerControlsFocus = remember { FocusRequester() }
