@@ -16,18 +16,33 @@
 package androidx.media3.demo.compose.editing
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import com.google.common.collect.ImmutableList
+
+/** The ratio of the total width of a clipping thumb to the width of the image row. */
+private const val CLIPPING_THUMB_WIDTH_RATIO = 1f / 15
+/** The ratio of the plain, solid width of a clipping thumb to the width of the image row. */
+private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO = CLIPPING_THUMB_WIDTH_RATIO * 0.8f
+/** The ratio of the maximum position slider length to the width of the image row. */
+private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - (CLIPPING_THUMB_PLAIN_WIDTH_RATIO * 2)
+
+private val CLIPPED_IMAGES_FILTER_COLOR = Color.DarkGray.copy(alpha = 0.5f)
 
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
@@ -60,11 +75,24 @@ fun ClippingSlider(
     Box(modifier)
     return
   }
-  Box(modifier = modifier) { ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape)) }
+  val sliderAspectRatio =
+    remember(bitmaps) {
+      val firstBitmap = bitmaps[0]
+      require(firstBitmap.width > 0 && firstBitmap.height > 0) {
+        "Bitmap should have positive width and height"
+      }
+      (bitmaps.size * firstBitmap.width).toFloat() / firstBitmap.height.toFloat()
+    }
+  Box(modifier = modifier.aspectRatio(sliderAspectRatio)) {
+    // TODO: b/505719491 - Pass actual clippingRange
+    val clippingRange = 0.25f..0.75f
+    ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
+    ClippedImagesFilter(clippingRange, Modifier.fillMaxSize().clip(shape))
+  }
 }
 
 @Composable
-private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier) {
+private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifier) {
   val imageBitmaps = remember(bitmaps) { bitmaps.map { it.asImageBitmap() } }
   Row(modifier) {
     for (imageBitmap in imageBitmaps) {
@@ -77,3 +105,48 @@ private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier) {
     }
   }
 }
+
+@Composable
+private fun ClippedImagesFilter(
+  clippingRange: ClosedFloatingPointRange<Float>,
+  modifier: Modifier = Modifier,
+) {
+  Canvas(modifier) {
+    val width = size.width
+    val height = size.height
+    val positionSliderStart = logicalToVisualPositionSliderStart(clippingRange.start) * width
+    if (positionSliderStart > 0f) {
+      drawRect(CLIPPED_IMAGES_FILTER_COLOR, size = Size(positionSliderStart, height))
+    }
+    val positionSliderEnd = logicalToVisualPositionSliderEnd(clippingRange.endInclusive) * width
+    if (positionSliderEnd < width) {
+      drawRect(
+        CLIPPED_IMAGES_FILTER_COLOR,
+        topLeft = Offset(x = positionSliderEnd, y = 0f),
+        size = Size(width - positionSliderEnd, height),
+      )
+    }
+  }
+}
+
+/**
+ * Returns the visual ratio for the position slider start compared to the width of the image row.
+ *
+ * The position slider lies between the plain portions of the clipping handles.
+ *
+ * @param clippingStart The clipping start position of the media, expressed as a ratio of the
+ *   duration (value between 0 and 1).
+ */
+private fun logicalToVisualPositionSliderStart(clippingStart: Float): Float =
+  (clippingStart * POSITION_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+
+/**
+ * Returns the visual ratio for the position slider end compared to the width of the image row.
+ *
+ * The position slider lies between the plain portions of the clipping handles.
+ *
+ * @param clippingEnd The clipping end position of the media, expressed as a ratio of the duration
+ *   (value between 0 and 1).
+ */
+private fun logicalToVisualPositionSliderEnd(clippingEnd: Float): Float =
+  (clippingEnd * POSITION_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
