@@ -32,6 +32,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -77,6 +78,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -2177,7 +2179,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
   @Test
   public void onCommandRequest() throws Exception {
-    ArrayList<Integer> commands = new ArrayList<>();
+    List<Integer> commands = new CopyOnWriteArrayList<>();
     CountDownLatch latchForPause = new CountDownLatch(1);
     MediaSession.Callback callback =
         new TestSessionCallback() {
@@ -2224,8 +2226,55 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void deadlock() throws Exception {
     MockPlayer player = new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
+    int iterations = 100;
+    int commandsPerIteration = 5;
+    CountDownLatch latch = new CountDownLatch(iterations * commandsPerIteration);
+    ForwardingPlayer countingPlayer =
+        new ForwardingPlayer(player) {
+          @Override
+          public void play() {
+            super.play();
+            latch.countDown();
+          }
+
+          @Override
+          public void pause() {
+            super.pause();
+            latch.countDown();
+          }
+
+          @Override
+          public void stop() {
+            super.stop();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToNext() {
+            super.seekToNext();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToNextMediaItem() {
+            super.seekToNextMediaItem();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToPrevious() {
+            super.seekToPrevious();
+            latch.countDown();
+          }
+
+          @Override
+          public void seekToPreviousMediaItem() {
+            super.seekToPreviousMediaItem();
+            latch.countDown();
+          }
+        };
     session =
-        new MediaSession.Builder(context, player)
+        new MediaSession.Builder(context, countingPlayer)
             .setId("deadlock")
             .setCallback(new TestSessionCallback())
             .build();
@@ -2238,7 +2287,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     handler.postAndSync(
         () -> {
           int state = STATE_IDLE;
-          for (int i = 0; i < 100; i++) {
+          for (int i = 0; i < iterations; i++) {
             // triggers call from session to controller.
             player.notifyPlaybackStateChanged(state);
             // triggers call from controller to session.
@@ -2256,6 +2305,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           }
         },
         LONG_TIMEOUT_MS);
+    assertWithMessage("Timed out waiting for all commands to be dispatched to the player")
+        .that(latch.await(LONG_TIMEOUT_MS, MILLISECONDS))
+        .isTrue();
   }
 
   @Test
@@ -3171,7 +3223,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     public CallerCollectorPlayer(AtomicReference<MediaSession> mediaSession, MockPlayer player) {
       super(player);
       this.mediaSession = mediaSession;
-      callers = new ArrayList<>();
+      callers = new CopyOnWriteArrayList<>();
     }
 
     @Override
