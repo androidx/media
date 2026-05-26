@@ -41,6 +41,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -82,6 +83,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -96,7 +98,7 @@ import org.junit.runner.RunWith;
 @MediumTest
 public class MediaSessionServiceTest {
 
-  private static final int WAIT_FOR_NOTIFICATION_UPDATE_MS = 100;
+  private static final int DEFAULT_POLL_INTERVAL_MS = 50;
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
 
@@ -1064,9 +1066,12 @@ public class MediaSessionServiceTest {
     runPendingMainThreadMessages();
 
     MainLooperTestRule.runOnMainSync(player::play);
-    Thread.sleep(WAIT_FOR_NOTIFICATION_UPDATE_MS);
     int notificationFlags =
-        getNotification(DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID).flags;
+        getNotificationWithExpectedForegroundServiceFlag(
+                DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID,
+                /* expectForegroundService= */ true,
+                TIMEOUT_MS)
+            .flags;
     mediaSession.release();
     service.blockUntilAllControllersUnbind(TIMEOUT_MS);
 
@@ -1100,13 +1105,19 @@ public class MediaSessionServiceTest {
     runPendingMainThreadMessages();
 
     MainLooperTestRule.runOnMainSync(player::pause);
-    Thread.sleep(WAIT_FOR_NOTIFICATION_UPDATE_MS);
     int notificationFlagsAfterPause =
-        getNotification(DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID).flags;
+        getNotificationWithExpectedForegroundServiceFlag(
+                DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID,
+                /* expectForegroundService= */ true,
+                TIMEOUT_MS)
+            .flags;
     Thread.sleep(foregroundServiceTimeoutMs);
-    Thread.sleep(WAIT_FOR_NOTIFICATION_UPDATE_MS);
     int notificationFlagsAfterTimeout =
-        getNotification(DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID).flags;
+        getNotificationWithExpectedForegroundServiceFlag(
+                DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID,
+                /* expectForegroundService= */ false,
+                TIMEOUT_MS)
+            .flags;
     mediaSession.release();
     service.blockUntilAllControllersUnbind(TIMEOUT_MS);
 
@@ -1138,9 +1149,12 @@ public class MediaSessionServiceTest {
     runPendingMainThreadMessages();
 
     MainLooperTestRule.runOnMainSync(service::pauseAllPlayersAndStopSelf);
-    Thread.sleep(WAIT_FOR_NOTIFICATION_UPDATE_MS);
     int notificationFlags =
-        getNotification(DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID).flags;
+        getNotificationWithExpectedForegroundServiceFlag(
+                DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID,
+                /* expectForegroundService= */ false,
+                TIMEOUT_MS)
+            .flags;
     mediaSession.release();
     service.blockUntilAllControllersUnbind(TIMEOUT_MS);
 
@@ -1238,5 +1252,22 @@ public class MediaSessionServiceTest {
       }
     }
     return null;
+  }
+
+  private Notification getNotificationWithExpectedForegroundServiceFlag(
+      int notificationId, boolean expectForegroundService, long timeoutMs) throws Exception {
+    long startTimeMs = SystemClock.elapsedRealtime();
+    int expectedFlag = expectForegroundService ? Notification.FLAG_FOREGROUND_SERVICE : 0;
+    while (SystemClock.elapsedRealtime() - startTimeMs < timeoutMs) {
+      Notification notification = getNotification(notificationId);
+      if (notification != null
+          && (notification.flags & Notification.FLAG_FOREGROUND_SERVICE) == expectedFlag) {
+        return notification;
+      }
+      Thread.sleep(DEFAULT_POLL_INTERVAL_MS);
+    }
+    throw new TimeoutException(
+        "Timeout waiting for notification flags to match expectForegroundService="
+            + expectForegroundService);
   }
 }
