@@ -114,18 +114,21 @@ public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoClosea
 
   @Override
   public void close() {
-    if (imageReader != null) {
-      imageReader.close();
+    ImageReader reader = imageReader;
+    if (reader != null) {
+      reader.getSurface().release();
+      reader.close();
       imageReader = null;
     }
   }
 
   /** Drains the {@link ImageReader} so more frames can be queued to the {@link Surface}. */
   public void drainSurface() {
-    if (imageReader == null) {
+    ImageReader reader = imageReader;
+    if (reader == null) {
       return;
     }
-    try (Image image = imageReader.acquireNextImage()) {
+    try (Image image = reader.acquireNextImage()) {
       assertThat(image).isNotNull();
     }
   }
@@ -133,6 +136,7 @@ public final class ImageReaderSurfaceHolder implements SurfaceHolder, AutoClosea
   private void triggerCallbacks() {
     ImageReader reader = imageReader;
     if (reader != null && (reader.getWidth() != width || reader.getHeight() != height)) {
+      reader.getSurface().release();
       reader.close();
       imageReader = null;
     }
