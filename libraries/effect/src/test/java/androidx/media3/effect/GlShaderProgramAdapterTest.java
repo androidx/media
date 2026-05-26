@@ -46,26 +46,26 @@ public class GlShaderProgramAdapterTest {
   private static final FakeGlObjectsProvider FAKE_GL_OBJECTS_PROVIDER = new FakeGlObjectsProvider();
   private static final int TEXTURE_SIZE = 16;
 
-  private GlShaderProgramAdapter glshaderProgramAdapter;
+  private GlShaderProgramAdapter glShaderProgramAdapter;
   private FakeGlShaderProgram fakeGlShaderProgram;
-  private FakeGlTexureFrameConsumer downstreamConsumer;
+  private FakeGlTextureFrameConsumer downstreamConsumer;
   private AtomicReference<VideoFrameProcessingException> errorReference;
 
   @Before
   public void setUp() {
     fakeGlShaderProgram = new FakeGlShaderProgram();
-    downstreamConsumer = new FakeGlTexureFrameConsumer();
+    downstreamConsumer = new FakeGlTextureFrameConsumer();
     errorReference = new AtomicReference<>();
 
-    glshaderProgramAdapter =
+    glShaderProgramAdapter =
         new GlShaderProgramAdapter(
             fakeGlShaderProgram, FAKE_GL_OBJECTS_PROVIDER, directExecutor(), errorReference::set);
-    glshaderProgramAdapter.setOutput(downstreamConsumer);
+    glShaderProgramAdapter.setOutput(downstreamConsumer);
   }
 
   @After
   public void tearDown() throws Exception {
-    glshaderProgramAdapter.close();
+    glShaderProgramAdapter.close();
   }
 
   @Test
@@ -75,7 +75,7 @@ public class GlShaderProgramAdapterTest {
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
 
     // Fake shader program starts with capacity of 1 when setInputListener is called.
-    boolean queued = glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {});
+    boolean queued = glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {});
 
     assertThat(queued).isTrue();
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
@@ -96,18 +96,18 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean wakeupCalled = new AtomicBoolean();
 
     // First frame consumes the single capacity.
-    assertThat(glshaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
 
     // Second frame should fail to queue.
     boolean queued =
-        glshaderProgramAdapter.queue(inputFrame2, directExecutor(), () -> wakeupCalled.set(true));
+        glShaderProgramAdapter.queue(inputFrame2, directExecutor(), () -> wakeupCalled.set(true));
 
     assertThat(queued).isFalse();
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
 
     // Signal that a frame is processed to trigger the wakeup listener.
-    glshaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
-    glshaderProgramAdapter.onReadyToAcceptInputFrame();
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
 
     assertThat(wakeupCalled.get()).isTrue();
     assertThat(frame1Released.get()).isTrue();
@@ -119,7 +119,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
     int outputSize = TEXTURE_SIZE * 4;
     GlTextureInfo outputTexture =
@@ -130,7 +130,7 @@ public class GlShaderProgramAdapterTest {
             /* width= */ outputSize,
             /* height= */ outputSize);
 
-    glshaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
 
     assertThat(downstreamConsumer.queuedFrames).hasSize(1);
     GlTextureFrame forwardedFrame = downstreamConsumer.queuedFrames.get(0);
@@ -147,7 +147,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
     // Force the downstream capacity to block queueing
     downstreamConsumer.setCapacity(0);
@@ -159,7 +159,7 @@ public class GlShaderProgramAdapterTest {
             /* rboId= */ -1,
             /* width= */ outputSize,
             /* height= */ outputSize);
-    glshaderProgramAdapter.onOutputFrameAvailable(outputTexture, 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, 1000L);
 
     assertThat(downstreamConsumer.queuedFrames).isEmpty();
 
@@ -175,14 +175,14 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void onCurrentOutputStreamEnded_signalsEndOfStreamToDownstream() {
-    glshaderProgramAdapter.onCurrentOutputStreamEnded();
+    glShaderProgramAdapter.onCurrentOutputStreamEnded();
     assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
     assertThat(errorReference.get()).isNull();
   }
 
   @Test
   public void signalEndOfStream_signalsEndOfInputStreamToShaderProgram() {
-    glshaderProgramAdapter.signalEndOfStream();
+    glShaderProgramAdapter.signalEndOfStream();
     assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
     assertThat(errorReference.get()).isNull();
   }
@@ -199,7 +199,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean inputFrameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, inputFrameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
     // Force downstream capacity to 0 so output frame becomes pending in glshaderProgramAdapter.
     downstreamConsumer.setCapacity(0);
@@ -211,12 +211,12 @@ public class GlShaderProgramAdapterTest {
             /* rboId= */ -1,
             /* width= */ outputSize,
             /* height= */ outputSize);
-    glshaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
 
     assertThat(inputFrameReleased.get()).isFalse();
     assertThat(fakeGlShaderProgram.releasedFrames).isEmpty();
 
-    glshaderProgramAdapter.close();
+    glShaderProgramAdapter.close();
 
     assertThat(inputFrameReleased.get()).isTrue();
     assertThat(fakeGlShaderProgram.releasedFrames).containsExactly(outputTexture);
@@ -227,12 +227,12 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
-    FakeGlTexureFrameConsumer newDownstreamConsumer = new FakeGlTexureFrameConsumer();
+    FakeGlTextureFrameConsumer newDownstreamConsumer = new FakeGlTextureFrameConsumer();
 
     assertThrows(
-        IllegalStateException.class, () -> glshaderProgramAdapter.setOutput(newDownstreamConsumer));
+        IllegalStateException.class, () -> glShaderProgramAdapter.setOutput(newDownstreamConsumer));
   }
 
   @Test
@@ -251,20 +251,20 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean wakeup3Called = new AtomicBoolean();
 
     // First frame consumes the single capacity.
-    assertThat(glshaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
     // Queueing frame2 should fail
     assertThat(
-            glshaderProgramAdapter.queue(
+            glShaderProgramAdapter.queue(
                 inputFrame2, directExecutor(), /* wakeupListener= */ () -> wakeup2Called.set(true)))
         .isFalse();
     assertThat(
-            glshaderProgramAdapter.queue(
+            glShaderProgramAdapter.queue(
                 inputFrame3, directExecutor(), /* wakeupListener= */ () -> wakeup3Called.set(true)))
         .isFalse();
 
     // Signal that a frame is processed to trigger the pending wakeup listener.
-    glshaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
-    glshaderProgramAdapter.onReadyToAcceptInputFrame();
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
 
     assertThat(wakeup2Called.get()).isFalse();
     assertThat(wakeup3Called.get()).isTrue();
@@ -276,7 +276,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
     VideoFrameProcessingException exception = new VideoFrameProcessingException("downstream error");
     downstreamConsumer.setExceptionToThrowOnQueue(exception);
@@ -284,7 +284,7 @@ public class GlShaderProgramAdapterTest {
     GlTextureInfo outputTexture =
         new GlTextureInfo(/* texId= */ 101, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE);
 
-    glshaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
 
     assertThat(errorReference.get()).isEqualTo(exception);
   }
@@ -294,14 +294,14 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glshaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
 
     // Force output frames become pending in glShaderProgramAdapter.
     downstreamConsumer.setCapacity(0);
 
     GlTextureInfo outputTexture =
         new GlTextureInfo(/* texId= */ 101, -1, -1, TEXTURE_SIZE, TEXTURE_SIZE);
-    glshaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
 
     VideoFrameProcessingException exception =
         new VideoFrameProcessingException("downstream error on wakeup");
@@ -362,7 +362,7 @@ public class GlShaderProgramAdapterTest {
     }
   }
 
-  private static final class FakeGlTexureFrameConsumer implements GlTextureFrameConsumer {
+  private static final class FakeGlTextureFrameConsumer implements GlTextureFrameConsumer {
 
     final List<GlTextureFrame> queuedFrames;
 
@@ -371,7 +371,7 @@ public class GlShaderProgramAdapterTest {
     boolean endOfStreamSignaled;
     @Nullable private VideoFrameProcessingException exceptionToThrowOnQueue;
 
-    FakeGlTexureFrameConsumer() {
+    FakeGlTextureFrameConsumer() {
       queuedFrames = new ArrayList<>();
     }
 
