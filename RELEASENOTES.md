@@ -8,6 +8,10 @@
         resolve it.
     *   Upgrade Kotlin from 2.0.20 to 2.2.0.
 *   ExoPlayer:
+    *   Relax ad group count checks in `AdsMediaSource` to allow the ad group
+        count to decrease when an ad group is fully processed
+        (`hasUnplayedAds()` is `false`), accommodating dynamic ad group resizing
+        during reset workflows.
     *   Add `getFlags()` and `FLAG_STRICT_DURATION` to `SampleStream` to allow
         streams to report flags, and update renderers to check these flags
         dynamically.

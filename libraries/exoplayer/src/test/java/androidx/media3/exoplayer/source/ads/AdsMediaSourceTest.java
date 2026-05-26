@@ -1014,6 +1014,62 @@ public final class AdsMediaSourceTest {
     assertUpdatingAdPlaybackStateWithDifferentMediaItem(adPlaybackStateWithFailedAd);
   }
 
+  @Test
+  public void
+      onAdPlaybackState_adGroupCountShrinksForFullyProcessedAdGroup_passesValidationWithoutException() {
+    AdPlaybackState initialAdPlaybackState =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 3)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(0, 0, MediaItem.fromUri("https://example.com/ad0-0"))
+            .withAvailableAdMediaItem(0, 1, MediaItem.fromUri("https://example.com/ad0-1"))
+            .withAvailableAdMediaItem(0, 2, MediaItem.fromUri("https://example.com/ad0-2"))
+            .withPlayedAd(0, 0)
+            .withSkippedAd(0, 1)
+            .withAdLoadError(0, 2);
+    setAdPlaybackState(initialAdPlaybackState);
+    // Shrink ad count from 3 to 1, resetting to unavailable.
+    AdPlaybackState shrunkenAdPlaybackState =
+        initialAdPlaybackState
+            .withRemovedAdsAfterIndex(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withUnavailableAdGroup(/* adGroupIndex= */ 0);
+
+    setAdPlaybackState(shrunkenAdPlaybackState);
+
+    ArgumentCaptor<Timeline> timeline = ArgumentCaptor.forClass(Timeline.class);
+    verify(mockMediaSourceCaller, times(2)).onSourceInfoRefreshed(any(), timeline.capture());
+    assertThat(
+            timeline.getAllValues().stream()
+                .map((t) -> t.getPeriod(/* periodIndex= */ 0, new Period()).adPlaybackState))
+        .containsExactly(initialAdPlaybackState, shrunkenAdPlaybackState)
+        .inOrder();
+  }
+
+  @Test
+  public void
+      onAdPlaybackState_adGroupCountShrinksForAdGroupWithPlayableAds_throwsIllegalStateException() {
+    AdPlaybackState initialAdPlaybackState =
+        new AdPlaybackState("adsId")
+            .withNewAdGroup(/* adGroupIndex= */ 0, /* adGroupTimeUs= */ 0L)
+            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 3)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_000L)
+            .withAvailableAdMediaItem(0, 0, MediaItem.fromUri("https://example.com/ad0-0"))
+            .withAvailableAdMediaItem(0, 1, MediaItem.fromUri("https://example.com/ad0-1"))
+            .withAvailableAdMediaItem(0, 2, MediaItem.fromUri("https://example.com/ad0-2"))
+            .withPlayedAd(0, 0)
+            .withSkippedAd(0, 1);
+    // Ad index 2 is still AD_STATE_AVAILABLE (playable).
+    setAdPlaybackState(initialAdPlaybackState);
+    // Attempt to shrink ad count from 3 to 1 while playable ads remain.
+    AdPlaybackState shrunkenAdPlaybackState =
+        initialAdPlaybackState
+            .withRemovedAdsAfterIndex(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .withUnavailableAdGroup(/* adGroupIndex= */ 0);
+
+    assertThrows(IllegalStateException.class, () -> setAdPlaybackState(shrunkenAdPlaybackState));
+  }
+
   private void assertUpdatingAdPlaybackStateWithDifferentMediaItem(
       AdPlaybackState initialAdPlaybackState) {
     setAdPlaybackState(initialAdPlaybackState);
