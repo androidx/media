@@ -75,6 +75,8 @@ fun Project.configureCommonConfig(android: CommonExtension, libs: VersionCatalog
     testOptions.apply {
       unitTests.all {
         it.jvmArgs("-Xmx4g")
+        // TODO: b/515290151 - Remove this after upgrading to OpenJDK 26.
+        it.jvmArgs("-XX:CompileCommand=exclude,android/content/pm/PackageParser.\$\$robo\$\$*")
         it.systemProperty("robolectric.graphicsMode", "NATIVE")
       }
       unitTests.isIncludeAndroidResources = true
