@@ -865,6 +865,7 @@ public final class ExoPlayerScrubbingTest {
 
   @Test
   @Config(minSdk = 31) // Relies on async MediaCodec mode, which is only the default on API 31+.
+  @Ignore("Flaky: b/515127273")
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
