@@ -61,6 +61,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.PollingCheck;
@@ -82,6 +83,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -306,18 +308,51 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void onConnectAsync_asyncAccept_legacyControllerConnectsSuccessfully() throws Exception {
     CountDownLatch onPostConnectLatch = new CountDownLatch(1);
+    CountDownLatch onSetMediaItemsLatch = new CountDownLatch(1);
     SettableFuture<MediaSession.ConnectionResult> onConnectFuture = SettableFuture.create();
+    AtomicLong connectTimestamp = new AtomicLong();
+    AtomicLong postConnectTimestamp = new AtomicLong();
+    AtomicLong onSetMediaItemTimestamp = new AtomicLong();
+    List<Boolean> postConnectMethodCall = new ArrayList<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
+            connectTimestamp.set(System.currentTimeMillis());
             return onConnectFuture;
           }
 
           @Override
           public void onPostConnect(MediaSession session, ControllerInfo controller) {
+            postConnectTimestamp.set(System.currentTimeMillis());
+            postConnectMethodCall.add(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY));
             onPostConnectLatch.countDown();
+          }
+
+          @Override
+          public ListenableFuture<MediaItemsWithStartPosition> onSetMediaItems(
+              MediaSession mediaSession,
+              ControllerInfo controller,
+              List<MediaItem> mediaItems,
+              int startIndex,
+              long startPositionMs) {
+            if (!mediaItems.isEmpty() && mediaItems.get(0).mediaId.equals("mediaIdDelayed")) {
+              onSetMediaItemTimestamp.set(System.currentTimeMillis());
+              onSetMediaItemsLatch.countDown();
+              MediaItem.Builder mediaItem =
+                  new MediaItem.Builder()
+                      .setMediaId("mediaIdDelayed")
+                      .setUri("http://www.example.com");
+              MediaItemsWithStartPosition mediaItemsWithStartPosition =
+                  new MediaItemsWithStartPosition(
+                      ImmutableList.of(mediaItem.build()),
+                      /* startIndex= */ 0,
+                      /* startPositionMs= */ 0L);
+              return immediateFuture(mediaItemsWithStartPosition);
+            }
+            return MediaSession.Callback.super.onSetMediaItems(
+                mediaSession, controller, mediaItems, startIndex, startPositionMs);
           }
         };
     session =
@@ -330,13 +365,21 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ false);
-    controller.getTransportControls().play();
+    controller.getTransportControls().playFromMediaId("mediaIdDelayed", Bundle.EMPTY);
 
+    // Wait before completing onConnectAsync.
     assertThat(onPostConnectLatch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
-
     onConnectFuture.set(new MediaSession.ConnectionResult.AcceptedResultBuilder(session).build());
 
     assertThat(onPostConnectLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(onSetMediaItemsLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // Assert that play was not called before onPostConnectLatch was called.
+    assertThat(postConnectMethodCall).containsExactly(false);
+    // Assert postConnect was called only after waiting.
+    assertThat(postConnectTimestamp.get() - connectTimestamp.get())
+        .isAtLeast(NO_RESPONSE_TIMEOUT_MS);
+    assertThat(onSetMediaItemTimestamp.get()).isAtLeast(postConnectTimestamp.get());
+    // Assert pending play task was run eventually.
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
 
