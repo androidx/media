@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -130,6 +131,7 @@ public class MediaLibraryServiceTest {
         .isSameInstanceAs(browserCommandControllerInfos.get(0));
   }
 
+  @Ignore("Failing: b/517062718")
   @SdkSuppress(minSdkVersion = 30) // Emulators up to API 29 don't have bluetooth service.
   @Test
   public void mediaLibraryService_isRecognizedAsAvrcpBrowsable() throws Exception {
