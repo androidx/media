@@ -399,7 +399,7 @@ public final class AudioCapabilities {
         || (encoding == C.ENCODING_DTS_UHD_P2 && !supportsEncoding(C.ENCODING_DTS_UHD_P2))) {
       // DTS receivers support DTS-HD streams (but decode only the core layer).
       encoding = C.ENCODING_DTS;
-    } else if (MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS.equals(format.sampleMimeType)) {
+    } else if (MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS.equals(format.sampleMimeType)) {
       // DTS-HD MA without core layer can only be decoded by DTS-HD MA receivers. However, because
       // the constant for DTS-HD MA was only added in 2022 (https://r.android.com/1992892), we have
       // to try the older DTS-HD constant for backwards compatibility.

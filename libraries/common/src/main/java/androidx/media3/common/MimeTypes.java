@@ -98,12 +98,12 @@ public final class MimeTypes {
   /**
    * DTS-HD MA can be encoded in a multi-layer setup with a core layer ({@link #AUDIO_DTS_HD_MA}),
    * where fallback to a DTS core decoder is possible, or in a single-layer setup with only a
-   * lossless layer, where this is not. The same MIME type is normally used for both, but it's
-   * important for ExoPlayer to differentiate this at extractor level to understand whether decoder
-   * fallback is possible or not. Hence, use this dummy MIME type to signal lossless-only DTS-HD MA.
+   * lossless layer, where this is not. The same MIME type is normally used for both, but it is
+   * important to differentiate this to understand whether decoder fallback is possible. Hence, use
+   * this synthetic MIME type to signal lossless-only DTS-HD MA.
    */
   @UnstableApi
-  public static final String AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS =
+  public static final String AUDIO_MEDIA3_DTS_HD_MA_CORELESS =
       BASE_TYPE_AUDIO + "/x-exoplayer-dtsma-coreless";
 
   @UnstableApi
@@ -524,7 +524,7 @@ public final class MimeTypes {
     } else if (codec.startsWith("dtsh")) {
       return MimeTypes.AUDIO_DTS_HD;
     } else if (codec.startsWith("dtsl")) {
-      return MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS;
+      return MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS;
     } else if (codec.startsWith("dtsx")) {
       return MimeTypes.AUDIO_DTS_UHD_P2;
     } else if (codec.startsWith("opus")) {
@@ -731,7 +731,7 @@ public final class MimeTypes {
       case MimeTypes.AUDIO_DTS_HD:
         return C.ENCODING_DTS_HD;
       case MimeTypes.AUDIO_DTS_HD_MA:
-      case MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS:
+      case MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS:
         return C.ENCODING_DTS_HD_MA;
       case MimeTypes.AUDIO_DTS_EXPRESS:
         return C.ENCODING_DTS_HD;

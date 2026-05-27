@@ -798,7 +798,7 @@ public class SsManifestParser implements ParsingLoadable.Parser<SsManifest> {
       } else if (fourCC.equalsIgnoreCase("dtsh")) {
         return MimeTypes.AUDIO_DTS_HD;
       } else if (fourCC.equalsIgnoreCase("dtsl")) {
-        return MimeTypes.AUDIO_EXOPLAYER_DTS_HD_MA_CORELESS;
+        return MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS;
       } else if (fourCC.equalsIgnoreCase("dtse")) {
         return MimeTypes.AUDIO_DTS_EXPRESS;
       } else if (fourCC.equalsIgnoreCase("opus")) {
