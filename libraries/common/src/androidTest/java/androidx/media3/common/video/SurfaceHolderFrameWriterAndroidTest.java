@@ -78,6 +78,7 @@ public final class SurfaceHolderFrameWriterAndroidTest {
 
   @After
   public void tearDown() {
+    // The frameWriter must be closed before the surfaceHolder it is using.
     if (frameWriter != null) {
       frameWriter.close();
     }

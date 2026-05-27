@@ -84,11 +84,12 @@ public final class SurfaceHolderFrameWriterTest {
 
   @After
   public void tearDown() {
-    if (surfaceHolder != null) {
-      surfaceHolder.close();
-    }
+    // The frameWriter must be closed before the surfaceHolder it is using.
     if (frameWriter != null) {
       frameWriter.close();
+    }
+    if (surfaceHolder != null) {
+      surfaceHolder.close();
     }
     if (callbackThread != null) {
       callbackThread.quitSafely();
