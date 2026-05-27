@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
@@ -24,11 +25,13 @@ import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C.ColorTransfer;
+import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -313,6 +316,239 @@ public class GlShaderProgramAdapterTest {
     assertThat(errorReference.get()).isEqualTo(exception);
   }
 
+  @Test
+  public void queue_withHigherDiscontinuityNumber_triggersFlush() {
+    GlTextureFrame frame1 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 1,
+            /* timestampUs= */ 1000L,
+            /* discontinuityNumber= */ 0,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    // Reset flush flag, as transitioning from C.INDEX_UNSET to 0 already triggered the initial
+    // flush.
+    fakeGlShaderProgram.flushed = false;
+
+    GlTextureFrame frame2 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 2,
+            /* timestampUs= */ 2000L,
+            /* discontinuityNumber= */ 1,
+            /* released= */ null);
+
+    // Queuing frame2 with higher discontinuity number (1 > 0) triggers a flush.
+    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+
+    assertThat(fakeGlShaderProgram.flushed).isTrue();
+  }
+
+  @Test
+  public void queue_withLowerDiscontinuityNumber_ignoresAndReleasesFrame() {
+    GlTextureFrame frame1 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 1,
+            /* timestampUs= */ 1000L,
+            /* discontinuityNumber= */ 1,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    // Current stream discontinuity number becomes 1.
+    assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
+
+    AtomicBoolean frame2Released = new AtomicBoolean();
+    GlTextureFrame frame2 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 2, /* timestampUs= */ 2000L, /* discontinuityNumber= */ 0, frame2Released);
+
+    // Frame with lower discontinuity number is queued. It is ignored and immediately released.
+    boolean frame2Queued = glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {});
+
+    assertThat(frame2Queued).isTrue();
+    assertThat(fakeGlShaderProgram.flushed).isTrue();
+    assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
+    assertThat(frame2Released.get()).isTrue();
+  }
+
+  @Test
+  public void queue_withHigherDiscontinuityNumberThanPendingFrame_doesNotQueuePendingFrame() {
+    GlTextureFrame frame1 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 1,
+            /* timestampUs= */ 1000L,
+            /* discontinuityNumber= */ 0,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    // Downstream has no capacity. Queueing frame2 with same discontinuity will block and trigger
+    // wakeup.
+    GlTextureFrame frame2 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 2,
+            /* timestampUs= */ 2000L,
+            /* discontinuityNumber= */ 0,
+            /* released= */ null);
+    AtomicBoolean wakeupCalled = new AtomicBoolean();
+    boolean queued2 =
+        glShaderProgramAdapter.queue(frame2, directExecutor(), () -> wakeupCalled.set(true));
+    assertThat(queued2).isFalse();
+
+    // Now queue frame3 with higher discontinuity number, triggering a flush.
+    GlTextureFrame frame3 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 3,
+            /* timestampUs= */ 3000L,
+            /* discontinuityNumber= */ 1,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame3, directExecutor(), () -> {})).isTrue();
+
+    // Seeking should have reset the shader program input capacity. If not flushed, the wakeup
+    // listener should have been invoked. But after a flush, the wakeup listener of the old
+    // stream (bearing a lower discontinuity number) should have been cleared and not invoked.
+    assertThat(wakeupCalled.get()).isFalse();
+  }
+
+  @Test
+  public void queue_afterDiscontinuityNumberIncrement_propagatesNewFormatCorrectly() {
+    AtomicBoolean frame1Released = new AtomicBoolean();
+    Format format1 =
+        new Format.Builder()
+            .setWidth(TEXTURE_SIZE)
+            .setHeight(TEXTURE_SIZE)
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .build();
+    GlTextureFrame frame1 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(
+                    /* texId= */ 1, /* fboId= */ -1, /* rboId= */ -1, TEXTURE_SIZE, TEXTURE_SIZE),
+                directExecutor(),
+                textureInfo -> frame1Released.set(true))
+            .setPresentationTimeUs(1000L)
+            .setFormat(format1)
+            .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 0))
+            .build();
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    // Seek occurs, queueing a new frame with higher discontinuity number and new dimensions/format.
+    int newWidth = TEXTURE_SIZE * 2;
+    int newHeight = TEXTURE_SIZE * 2;
+    Format format2 =
+        new Format.Builder()
+            .setWidth(newWidth)
+            .setHeight(newHeight)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    AtomicBoolean frame2Released = new AtomicBoolean();
+    GlTextureFrame frame2 =
+        new GlTextureFrame.Builder(
+                new GlTextureInfo(
+                    /* texId= */ 2, /* fboId= */ -1, /* rboId= */ -1, newWidth, newHeight),
+                directExecutor(),
+                textureInfo -> frame2Released.set(true))
+            .setPresentationTimeUs(2000L)
+            .setFormat(format2)
+            .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 1))
+            .build();
+    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+
+    // New output frame becomes available.
+    int outputWidth = newWidth * 2;
+    int outputHeight = newHeight * 2;
+    GlTextureInfo outputTexture =
+        new GlTextureInfo(
+            /* texId= */ 102,
+            /* fboId= */ -1,
+            /* rboId= */ -1,
+            /* width= */ outputWidth,
+            /* height= */ outputHeight);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 2000L);
+
+    // Verify that the format forwarded downstream is based on the new format format2.
+    assertThat(downstreamConsumer.queuedFrames).hasSize(1);
+    GlTextureFrame forwardedFrame = downstreamConsumer.queuedFrames.get(0);
+    assertThat(forwardedFrame.glTextureInfo).isEqualTo(outputTexture);
+    assertThat(forwardedFrame.presentationTimeUs).isEqualTo(2000L);
+    assertThat(forwardedFrame.format.width).isEqualTo(outputWidth);
+    assertThat(forwardedFrame.format.height).isEqualTo(outputHeight);
+    assertThat(forwardedFrame.format.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+  }
+
+  @Test
+  public void queue_withHigherDiscontinuityNumber_releasesInFlightFrames() {
+    AtomicBoolean frame1Released = new AtomicBoolean();
+    GlTextureFrame frame1 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 1, /* timestampUs= */ 1000L, /* discontinuityNumber= */ 0, frame1Released);
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(frame1Released.get()).isFalse();
+
+    AtomicBoolean frame2Released = new AtomicBoolean();
+    GlTextureFrame frame2 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 2, /* timestampUs= */ 2000L, /* discontinuityNumber= */ 1, frame2Released);
+
+    // Queuing frame2 with higher discontinuity number triggers a flush, which should release
+    // frame1.
+    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+
+    assertThat(frame1Released.get()).isTrue();
+    assertThat(frame2Released.get()).isFalse();
+  }
+
+  @Test
+  public void queue_multipleConsecutiveDiscontinuityNumberIncrements_flushesEachTime() {
+    GlTextureFrame frame1 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 1,
+            /* timestampUs= */ 1000L,
+            /* discontinuityNumber= */ 0,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    // 1st stream change.
+    fakeGlShaderProgram.flushed = false;
+    GlTextureFrame frame2 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 2,
+            /* timestampUs= */ 2000L,
+            /* discontinuityNumber= */ 1,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+    assertThat(fakeGlShaderProgram.flushed).isTrue();
+
+    // 2nd stream change.
+    fakeGlShaderProgram.flushed = false;
+    GlTextureFrame frame3 =
+        createTestFrameWithDiscontinuityNumber(
+            /* texId= */ 3,
+            /* timestampUs= */ 3000L,
+            /* discontinuityNumber= */ 2,
+            /* released= */ null);
+    assertThat(glShaderProgramAdapter.queue(frame3, directExecutor(), () -> {})).isTrue();
+    assertThat(fakeGlShaderProgram.flushed).isTrue();
+  }
+
+  private static GlTextureFrame createTestFrameWithDiscontinuityNumber(
+      int texId, long timestampUs, int discontinuityNumber, @Nullable AtomicBoolean released) {
+    return new GlTextureFrame.Builder(
+            new GlTextureInfo(
+                texId,
+                /* fboId= */ -1,
+                /* rboId= */ -1,
+                /* width= */ TEXTURE_SIZE,
+                /* height= */ TEXTURE_SIZE),
+            directExecutor(),
+            /* releaseTextureCallback= */ textureInfo -> {
+              if (released != null) {
+                released.set(true);
+              }
+            })
+        .setPresentationTimeUs(timestampUs)
+        .setFormat(new Format.Builder().setWidth(TEXTURE_SIZE).setHeight(TEXTURE_SIZE).build())
+        .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, discontinuityNumber))
+        .build();
+  }
+
   private static GlTextureFrame createTestFrame(
       int texId, long timestampUs, AtomicBoolean released) {
     return new GlTextureFrame.Builder(
@@ -426,11 +662,13 @@ public class GlShaderProgramAdapterTest {
     private InputListener inputListener;
     @Nullable private ErrorListener errorListener;
     boolean endOfInputStreamSignaled;
+    boolean flushed;
 
     FakeGlShaderProgram() {
       queuedFrames = new ArrayList<>();
       releasedFrames = new ArrayList<>();
       endOfInputStreamSignaled = false;
+      flushed = false;
       inputListener = new InputListener() {};
     }
 
@@ -473,7 +711,9 @@ public class GlShaderProgramAdapterTest {
 
     @Override
     public void flush() {
+      flushed = true;
       inputListener.onFlush();
+      inputListener.onReadyToAcceptInputFrame();
     }
 
     @Override

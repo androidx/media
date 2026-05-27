@@ -163,6 +163,18 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
    */
   public static final String KEY_EFFECTS = "KEY_EFFECTS";
 
+  /**
+   * Metadata key for storing the frame discontinuity number, in {@link Frame#getMetadata()} and
+   * {@link GlTextureFrame#getMetadata()}.
+   *
+   * <p>The number is an integer, incremented every time the player reports a discontinuity (for
+   * example, when seeking).
+   *
+   * <p>The number is only mandatory for previewing use cases. It is used to trigger flushes in
+   * {@link GlShaderProgram} implementations during discontinuities.
+   */
+  public static final String KEY_FRAME_DISCONTINUITY_NUMBER = "KEY_FRAME_DISCONTINUITY_NUMBER";
+
   private static final long TIMEOUT_MS = 500;
 
   private final Context context;

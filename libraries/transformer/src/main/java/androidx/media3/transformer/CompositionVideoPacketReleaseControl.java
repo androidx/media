@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -56,6 +57,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final FixedFrameRateEstimator frameRateEstimator;
   private volatile boolean isEnded;
   private final Listener listener;
+  // Accessed on the playback thread only.
+  private int currentStreamDiscontinuityNumber;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
   public interface Listener {
@@ -173,6 +176,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     if (sequenceIndex == 0) {
       reset();
     }
+    currentStreamDiscontinuityNumber++;
   }
 
   @Override
@@ -267,10 +271,11 @@ import java.util.concurrent.ConcurrentLinkedDeque;
               .put(Frame.KEY_PRESENTATION_TIME_US, effectFrame.presentationTimeUs)
               .put(Frame.KEY_DISPLAY_TIME_NS, releaseTimeNs);
       if (effectFrame.getMetadata() instanceof CompositionFrameMetadata) {
-        metadataBuilder.put(
-            CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, effectFrame.getMetadata());
+        CompositionFrameMetadata frameMetadata =
+            (CompositionFrameMetadata) effectFrame.getMetadata();
+        metadataBuilder.put(CompositionFrameMetadata.KEY_COMPOSITION_FRAME_METADATA, frameMetadata);
       }
-
+      metadataBuilder.put(KEY_FRAME_DISCONTINUITY_NUMBER, currentStreamDiscontinuityNumber);
       DefaultHardwareBufferFrame commonFrame =
           new DefaultHardwareBufferFrame.Builder(checkNotNull(effectFrame.hardwareBuffer))
               .setFormat(effectFrame.format)

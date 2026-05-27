@@ -15,11 +15,14 @@
  */
 package androidx.media3.effect;
 
+import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
@@ -47,6 +50,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>Currently, only supports {@link GlShaderProgram GlShaderPrograms} that output the same amount
  * of frames as input.
  */
+@RequiresApi(26)
 @ExperimentalApi // TODO: b/505721737 Remove once FrameProcessor is production ready.
 /* package */ final class GlShaderProgramAdapter
     implements GlTextureFrameProcessor, InputListener, OutputListener {
@@ -64,6 +68,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Runnable pendingWakeupListener;
   @Nullable private Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
+  private int currentStreamDiscontinuityNumber;
 
   public GlShaderProgramAdapter(
       GlShaderProgram glShaderProgram,
@@ -83,6 +88,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     inFlightFrames = new HashMap<>();
     pendingOutputFrames = new ArrayDeque<>();
     inputFormats = new HashMap<>();
+    currentStreamDiscontinuityNumber = C.INDEX_UNSET;
   }
 
   @Override
@@ -94,6 +100,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
     // TODO: b/505721737 - Support frame dropping and repeating.
+    int frameDiscontinuityNumber =
+        (int)
+            frame
+                .getMetadata()
+                .getOrDefault(KEY_FRAME_DISCONTINUITY_NUMBER, /* defaultValue= */ C.INDEX_UNSET);
+    if (frameDiscontinuityNumber != C.INDEX_UNSET) {
+      // Previewing mode.
+      if (currentStreamDiscontinuityNumber > frameDiscontinuityNumber) {
+        // Frame from the old stream arrives, ignore it.
+        frame.release(/* releaseFence= */ null);
+        return true;
+      }
+
+      if (currentStreamDiscontinuityNumber < frameDiscontinuityNumber) {
+        // Discontinuity number changed, need to flush the internal shader.
+        flushInternal();
+        currentStreamDiscontinuityNumber = frameDiscontinuityNumber;
+      }
+    }
+
     inputFormats.put(frame.presentationTimeUs, frame.format);
     if (shaderInputCapacity > 0) {
       shaderInputCapacity--;
@@ -126,12 +152,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void onFlush() {
-    // TODO: b/505721737 - Support seeking.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public void onOutputFrameAvailable(GlTextureInfo outputTexture, long presentationTimeUs) {
     // We don't support GlShaderPrograms that modify presentationTimeUs.
     Format inputFormat = checkNotNull(inputFormats.remove(presentationTimeUs));
@@ -161,6 +181,39 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkNotNull(downstreamConsumer).signalEndOfStream();
   }
 
+  @Override
+  public void signalEndOfStream() {
+    glShaderProgram.signalEndOfCurrentInputStream();
+  }
+
+  @Override
+  public void close() throws VideoFrameProcessingException {
+    glShaderProgram.release();
+    releasePendingFrames();
+  }
+
+  /** Called on the GL thread. */
+  private void flushInternal() {
+    shaderInputCapacity = 0;
+    pendingWakeupListener = null;
+    pendingWakeupExecutor = null;
+    releasePendingFrames();
+    glShaderProgram.flush();
+  }
+
+  private void releasePendingFrames() {
+    if (!inFlightFrames.isEmpty()) {
+      for (GlTextureFrame frame : inFlightFrames.values()) {
+        frame.release(/* releaseFence= */ null);
+      }
+      inFlightFrames.clear();
+    }
+    while (!pendingOutputFrames.isEmpty()) {
+      pendingOutputFrames.remove().release(/* releaseFence= */ null);
+    }
+    inputFormats.clear();
+  }
+
   /** Called on the GL thread. */
   private void tryQueueFramesDownstream() {
     checkNotNull(downstreamConsumer);
@@ -180,25 +233,5 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         return;
       }
     }
-  }
-
-  @Override
-  public void signalEndOfStream() {
-    glShaderProgram.signalEndOfCurrentInputStream();
-  }
-
-  @Override
-  public void close() throws VideoFrameProcessingException {
-    glShaderProgram.release();
-    if (!inFlightFrames.isEmpty()) {
-      for (GlTextureFrame frame : inFlightFrames.values()) {
-        frame.release(/* releaseFence= */ null);
-      }
-      inFlightFrames.clear();
-    }
-    while (!pendingOutputFrames.isEmpty()) {
-      pendingOutputFrames.remove().release(/* releaseFence= */ null);
-    }
-    inputFormats.clear();
   }
 }
