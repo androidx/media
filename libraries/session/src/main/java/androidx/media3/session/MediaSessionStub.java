@@ -116,12 +116,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -142,7 +140,7 @@ import java.util.concurrent.ExecutionException;
 
   private final WeakReference<MediaSessionImpl> sessionImpl;
   private final ConnectedControllersManager<IBinder> connectedControllersManager;
-  private final Set<ControllerInfo> pendingControllers;
+  private final CopyOnWriteArraySet<ControllerInfo> pendingControllers;
 
   private ImmutableBiMap<TrackGroup, String> trackGroupIdMap;
   private ImmutableMap<String, String> trackGroupOriginalToUniqueIdMap;
@@ -153,8 +151,7 @@ import java.util.concurrent.ExecutionException;
     // Initialize members with params.
     this.sessionImpl = new WeakReference<>(sessionImpl);
     connectedControllersManager = new ConnectedControllersManager<>(sessionImpl);
-    // ConcurrentHashMap has a bug in APIs 21-22 that can result in lost updates.
-    pendingControllers = Collections.synchronizedSet(new HashSet<>());
+    pendingControllers = new CopyOnWriteArraySet<>();
     trackGroupIdMap = ImmutableBiMap.of();
     trackGroupOriginalToUniqueIdMap = ImmutableMap.of();
   }
@@ -516,10 +513,16 @@ import java.util.concurrent.ExecutionException;
       return;
     }
     pendingControllers.add(controllerInfo);
-    postOrRunOnApplicationHandler(
+    // Use direct postOrRun with sessionImpl's handler instead of postOrRunOnApplicationHandler().
+    // postOrRunOnApplicationHandler() queries the session weak reference, which may concurrently
+    // clear during session release, causing the task to be silently skipped. Using direct postOrRun
+    // guarantees the connection task executes and purges pending controllers even after release.
+    postOrRun(
+        sessionImpl.getApplicationHandler(),
         () -> {
           if (sessionImpl.isReleased()) {
             pendingControllers.remove(controllerInfo);
+            SessionUtil.disconnectIMediaController(caller);
             return;
           }
           ListenableFuture<MediaSession.ConnectionResult> connectionResultFuture =
