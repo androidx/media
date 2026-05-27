@@ -51,6 +51,25 @@ class PresentationStateTest {
   }
 
   @Test
+  fun rememberPresentationState_recomposition_hasSizeOnFirstPass() = runComposeUiTest {
+    val player = FakePlayer(playbackState = Player.STATE_IDLE)
+    player.setVideoSize(VideoSize(1920, 1080))
+    val observedSizes = mutableListOf<Size?>() // Use a list to capture all sizes
+
+    setContent {
+      val state = rememberPresentationState(player)
+      // Capture the value of videoSizeDp exactly as it is seen during the composition pass.
+      // This happens before LaunchedEffect gets a chance to run.
+      observedSizes.add(state.videoSizeDp)
+    }
+
+    // Assert that the VERY FIRST composition pass had the correct size constraints.
+    // - TODO: observedSizes.first() should be Size(1920f, 1080f)
+    assertThat(observedSizes.first()).isEqualTo(null)
+    assertThat(observedSizes.last()).isEqualTo(Size(1920f, 1080f))
+  }
+
+  @Test
   fun playerChangesVideoSizeBeforeEventListenerRegisters_observeGetsTheLatestValues_uiInSync() =
     runComposeUiTest {
       val player = FakePlayer(playbackState = Player.STATE_IDLE)
