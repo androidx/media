@@ -635,9 +635,19 @@ public class MediaSessionTest {
     TestHandler testHandler = new TestHandler(controller.getApplicationLooper());
 
     for (long bufferedPositionMs = 0; bufferedPositionMs < 5000; bufferedPositionMs += 1000) {
-      player.bufferedPosition = bufferedPositionMs;
-      Thread.sleep(50L);
-      bufferedPositionsMs.add(testHandler.postAndSync(controller::getBufferedPosition));
+      long targetPosition = bufferedPositionMs;
+      testHandler.postAndSync(
+          () -> {
+            player.bufferedPosition = targetPosition;
+          });
+      long startTimeMs = SystemClock.elapsedRealtime();
+      long controllerBufferedPosition = testHandler.postAndSync(controller::getBufferedPosition);
+      while (controllerBufferedPosition != targetPosition
+          && SystemClock.elapsedRealtime() - startTimeMs < TIMEOUT_MS) {
+        Thread.sleep(/* millis= */ 10);
+        controllerBufferedPosition = testHandler.postAndSync(controller::getBufferedPosition);
+      }
+      bufferedPositionsMs.add(controllerBufferedPosition);
     }
 
     assertThat(bufferedPositionsMs).containsExactly(0L, 1000L, 2000L, 3000L, 4000L).inOrder();
@@ -664,8 +674,13 @@ public class MediaSessionTest {
     TestHandler testHandler = new TestHandler(controller.getApplicationLooper());
 
     for (long bufferedPositionMs = 0; bufferedPositionMs < 5000; bufferedPositionMs += 1000) {
-      player.bufferedPosition = bufferedPositionMs;
-      Thread.sleep(50L);
+      long targetPosition = bufferedPositionMs;
+      testHandler.postAndSync(
+          () -> {
+            player.bufferedPosition = targetPosition;
+          });
+      // Sleep to ensure no periodic updates erroneously occur.
+      Thread.sleep(/* millis= */ 50);
       bufferedPositionsMs.add(testHandler.postAndSync(controller::getBufferedPosition));
     }
 
