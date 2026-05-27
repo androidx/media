@@ -216,6 +216,8 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Fix transient playback stalls or failures during RTSP playback
+        preparation caused by UDP port binding errors.
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
