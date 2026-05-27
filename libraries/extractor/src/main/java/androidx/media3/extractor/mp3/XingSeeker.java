@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
@@ -65,7 +66,6 @@ import androidx.media3.extractor.SeekPoint;
         position,
         xingFrame.header.frameSize,
         durationUs,
-        xingFrame.computeAverageBitrate(dataSize),
         dataSize,
         xingFrame.tableOfContents);
   }
@@ -90,13 +90,12 @@ import androidx.media3.extractor.SeekPoint;
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
-      int averageBitrate,
       long dataSize,
       @Nullable long[] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;
-    this.averageBitrate = averageBitrate;
+    this.averageBitrate = computeAverageBitrate(dataSize - xingFrameSize, durationUs);
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
     dataEndPosition = dataSize == C.LENGTH_UNSET ? C.INDEX_UNSET : dataStartPosition + dataSize;

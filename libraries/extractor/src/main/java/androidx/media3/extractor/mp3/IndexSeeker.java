@@ -15,11 +15,11 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Util;
 import androidx.media3.extractor.IndexSeekMap;
-import java.math.RoundingMode;
 
 /** MP3 seeker that builds a time-to-byte mapping as the stream is read. */
 /* package */ final class IndexSeeker implements Seeker {
@@ -40,18 +40,7 @@ import java.math.RoundingMode;
             durationUs);
     this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
-    if (durationUs != C.TIME_UNSET) {
-      long bitrate =
-          Util.scaleLargeValue(
-              dataEndPosition - dataStartPosition,
-              C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-              durationUs,
-              RoundingMode.HALF_UP);
-      this.averageBitrate =
-          bitrate > 0 && bitrate <= Integer.MAX_VALUE ? (int) bitrate : C.RATE_UNSET_INT;
-    } else {
-      this.averageBitrate = C.RATE_UNSET_INT;
-    }
+    this.averageBitrate = computeAverageBitrate(dataEndPosition - dataStartPosition, durationUs);
   }
 
   @Override

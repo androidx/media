@@ -54,10 +54,7 @@ public final class VbriSeekerTest {
     int expectedAverageBitrate =
         (int)
             Util.scaleLargeValue(
-                dataSize,
-                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-                durationUs,
-                RoundingMode.HALF_UP);
+                dataSize, C.BITS_PER_BYTE * C.MICROS_PER_SECOND, durationUs, RoundingMode.HALF_UP);
 
     assertThat(seeker.getAverageBitrate()).isEqualTo(expectedAverageBitrate);
     assertThat(seeker.getAverageBitrate()).isNotEqualTo(header.bitrate);
