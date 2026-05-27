@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,8 +43,6 @@ private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO = CLIPPING_THUMB_WIDTH_RATIO 
 /** The ratio of the maximum position slider length to the width of the image row. */
 private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - (CLIPPING_THUMB_PLAIN_WIDTH_RATIO * 2)
 
-private val CLIPPED_IMAGES_FILTER_COLOR = Color.DarkGray.copy(alpha = 0.5f)
-
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
  * position.
@@ -60,15 +59,18 @@ private val CLIPPED_IMAGES_FILTER_COLOR = Color.DarkGray.copy(alpha = 0.5f)
  *   They should all have the same size. If this list is empty, the component will render an empty
  *   [Box] instead.
  * @param modifier The [Modifier] to be applied to the slider.
+ * @param colors The [ClippingSliderColors] used to style the slider.
  * @param shape The [RoundedCornerShape] used to define the slider's shape.
  */
 // TODO: b/505719491
+//  - Implement color defaults
 //  - Decide and test what the slider should look like for RTL locales
 //  - Move to material3 module and mark API unstable
 @Composable
 fun ClippingSlider(
   bitmaps: ImmutableList<Bitmap>,
   modifier: Modifier = Modifier,
+  colors: ClippingSliderColors,
   shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
 ) {
   if (bitmaps.isEmpty()) {
@@ -87,7 +89,63 @@ fun ClippingSlider(
     // TODO: b/505719491 - Pass actual clippingRange
     val clippingRange = 0.25f..0.75f
     ImageRow(bitmaps, Modifier.fillMaxWidth().clip(shape))
-    ClippedImagesFilter(clippingRange, Modifier.fillMaxSize().clip(shape))
+    ClippedImagesFilter(
+      clippingRange,
+      Modifier.fillMaxSize().clip(shape),
+      colors.clippedFilterColor,
+    )
+  }
+}
+
+/**
+ * Represents the colors used in a [ClippingSlider] to customize its appearance.
+ *
+ * @property clippingFrameColor The color of the selection frame and of the clipping handles.
+ * @property clippingIconColor The color used to tint the icons within the clipping thumbs.
+ * @property positionThumbColor The color of the thumb representing the current playback position.
+ * @property clippedFilterColor The color of the filter applied to the clipped areas of the slider.
+ *   The image bitmaps underneath remain visible if the alpha is less than 1.
+ */
+@Immutable
+class ClippingSliderColors(
+  val clippingFrameColor: Color,
+  val clippingIconColor: Color,
+  val positionThumbColor: Color,
+  val clippedFilterColor: Color,
+) {
+
+  /** Returns a copy of this ClippingSliderColors, optionally overriding some of the values. */
+  fun copy(
+    clippingFrameColor: Color = this.clippingFrameColor,
+    clippingIconColor: Color = this.clippingIconColor,
+    positionThumbColor: Color = this.positionThumbColor,
+    clippedFilterColor: Color = this.clippedFilterColor,
+  ): ClippingSliderColors =
+    ClippingSliderColors(
+      clippingFrameColor,
+      clippingIconColor,
+      positionThumbColor,
+      clippedFilterColor,
+    )
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is ClippingSliderColors) return false
+
+    if (clippingFrameColor != other.clippingFrameColor) return false
+    if (clippingIconColor != other.clippingIconColor) return false
+    if (positionThumbColor != other.positionThumbColor) return false
+    if (clippedFilterColor != other.clippedFilterColor) return false
+
+    return true
+  }
+
+  override fun hashCode(): Int {
+    var result = clippingFrameColor.hashCode()
+    result = 31 * result + clippingIconColor.hashCode()
+    result = 31 * result + positionThumbColor.hashCode()
+    result = 31 * result + clippedFilterColor.hashCode()
+    return result
   }
 }
 
@@ -110,18 +168,19 @@ private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifi
 private fun ClippedImagesFilter(
   clippingRange: ClosedFloatingPointRange<Float>,
   modifier: Modifier = Modifier,
+  clippedFilterColor: Color,
 ) {
   Canvas(modifier) {
     val width = size.width
     val height = size.height
     val positionSliderStart = logicalToVisualPositionSliderStart(clippingRange.start) * width
     if (positionSliderStart > 0f) {
-      drawRect(CLIPPED_IMAGES_FILTER_COLOR, size = Size(positionSliderStart, height))
+      drawRect(clippedFilterColor, size = Size(positionSliderStart, height))
     }
     val positionSliderEnd = logicalToVisualPositionSliderEnd(clippingRange.endInclusive) * width
     if (positionSliderEnd < width) {
       drawRect(
-        CLIPPED_IMAGES_FILTER_COLOR,
+        clippedFilterColor,
         topLeft = Offset(x = positionSliderEnd, y = 0f),
         size = Size(width - positionSliderEnd, height),
       )
