@@ -43,7 +43,10 @@ import java.math.RoundingMode;
     if (durationUs != C.TIME_UNSET) {
       long bitrate =
           Util.scaleLargeValue(
-              dataStartPosition - dataEndPosition, 8, durationUs, RoundingMode.HALF_UP);
+              dataEndPosition - dataStartPosition,
+              C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+              durationUs,
+              RoundingMode.HALF_UP);
       this.averageBitrate =
           bitrate > 0 && bitrate <= Integer.MAX_VALUE ? (int) bitrate : C.RATE_UNSET_INT;
     } else {

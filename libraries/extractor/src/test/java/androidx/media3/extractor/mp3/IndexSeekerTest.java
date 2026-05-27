@@ -76,6 +76,17 @@ public class IndexSeekerTest {
   }
 
   @Test
+  public void constructor_calculatesCorrectAverageBitrate() {
+    long durationUs = 1_000_000;
+    long dataStartPosition = 100;
+    long dataEndPosition = 1100;
+
+    IndexSeeker seeker = new IndexSeeker(durationUs, dataStartPosition, dataEndPosition);
+
+    assertThat(seeker.getAverageBitrate()).isEqualTo(8_000);
+  }
+
+  @Test
   public void seeking_handlesSeekToZero() throws Exception {
     String fileName = TEST_FILE_XING_NO_TOC;
     Uri fileUri = TestUtil.buildAssetUri(fileName);
