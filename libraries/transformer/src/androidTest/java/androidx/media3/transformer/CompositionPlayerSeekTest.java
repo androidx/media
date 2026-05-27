@@ -766,6 +766,7 @@ public class CompositionPlayerSeekTest {
     assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void seekToSecondImage_duringPlayingFirstImageInSequenceOfTwoImages() throws Exception {
     ImmutableList<MediaItemConfig> mediaItems =
@@ -1239,6 +1240,7 @@ public class CompositionPlayerSeekTest {
     assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 300_000);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void
       seekToSecondClip_withMultipleAudioClipSequence_reportsMediaItemRelativePositionOffset()

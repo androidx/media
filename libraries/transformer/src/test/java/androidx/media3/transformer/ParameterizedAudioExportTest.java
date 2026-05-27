@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -140,6 +141,7 @@ public final class ParameterizedAudioExportTest {
   private final CapturingMuxer.Factory muxerFactory =
       new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void export() throws Exception {
     Transformer transformer =

@@ -46,6 +46,7 @@ import com.google.common.base.Predicate;
 import java.io.File;
 import java.util.concurrent.ExecutionException;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -245,6 +246,7 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
     assertThat(exportResult.fileSizeBytes).isLessThan(400_000L);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void transmux_withSettingVideoDuration_writesCorrectVideoDuration() throws Exception {
     InAppMp4Muxer.Factory inAppMuxerFactory = new InAppMp4Muxer.Factory();

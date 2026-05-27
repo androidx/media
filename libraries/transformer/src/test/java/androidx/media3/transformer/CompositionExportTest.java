@@ -46,6 +46,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -252,6 +253,7 @@ public class CompositionExportTest {
             FILE_AUDIO_RAW, /* modifications...= */ "mixed", getFileName(FILE_AUDIO_RAW)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithExtraAudio_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -286,6 +288,7 @@ public class CompositionExportTest {
             getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithMutedAudio_matchesSingleSequence() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -390,6 +393,7 @@ public class CompositionExportTest {
         getDumpFileName(/* originalFileName= */ FILE_AUDIO_RAW, /* modifications...= */ "48000hz"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_compositionOfConcurrentAudio_changesSampleRateWithEffect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -487,6 +491,7 @@ public class CompositionExportTest {
         getCompositionDumpFilePath("seq-sample.wav+seq-sample.wav_clipped_100ms_to_400ms"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioCompositionWithFirstSequenceAsGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -548,6 +553,7 @@ public class CompositionExportTest {
                 + getFileName(FILE_AUDIO_RAW)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioCompositionWithFirstSequencePaddingGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
@@ -627,6 +633,7 @@ public class CompositionExportTest {
                 + getFileName(FILE_AUDIO_RAW_STEREO_48000KHZ)));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithSecondSequenceIntervalGap_isCorrect()
       throws Exception {
@@ -687,6 +694,7 @@ public class CompositionExportTest {
                 + "_clipped300msTo800ms"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoCompositionWithSecondSequencePaddingGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);

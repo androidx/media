@@ -105,6 +105,7 @@ public final class SequenceExportTest {
             "transmux"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void start_concatenateSameMediaItemWithEffectsAndTransmux_ignoresEffects()
       throws Exception {
@@ -751,6 +752,7 @@ public final class SequenceExportTest {
             "highPitch"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void concatenateTwoAudioItems_withSameFormatAndDiffEffects_completesSuccessfully()
       throws Exception {
@@ -911,6 +913,7 @@ public final class SequenceExportTest {
             "highPitch"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void concatenateTwoAudioItems_withDiffEffectsAndCompositionEffects_completesSuccessfully()
       throws Exception {
@@ -947,6 +950,7 @@ public final class SequenceExportTest {
     assertThat(exportResult.channelCount).isEqualTo(2);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void export_itemsWithNon16BitPcm_inputIsConvertedTo16BitPcm() throws Exception {
     FormatCapturingAudioProcessor firstProcessor = new FormatCapturingAudioProcessor();

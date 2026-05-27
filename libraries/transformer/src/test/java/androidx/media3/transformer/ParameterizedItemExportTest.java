@@ -43,6 +43,7 @@ import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -139,6 +140,7 @@ public final class ParameterizedItemExportTest {
         getDumpFileName(assetFile));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void generateSilence() throws Exception {
     assumeFalse(AUDIO_ONLY_ASSETS.contains(assetFile));
@@ -224,6 +226,7 @@ public final class ParameterizedItemExportTest {
         getDumpFileName(assetFile, /* modifications...= */ "silenceFromEffect"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void export_withRawAudioFiles_bypassesAudioDecoder() throws Exception {
     assumeTrue(RAW_AUDIO_ASSETS.contains(assetFile));

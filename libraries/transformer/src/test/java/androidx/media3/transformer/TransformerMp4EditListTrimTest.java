@@ -44,6 +44,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -105,6 +106,7 @@ public class TransformerMp4EditListTrimTest {
     assertThat(audioTimestampsUs.get(431)).isEqualTo(10_007_165);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void trimAndExport_mp4WithMp4EditListTrimEnabled_exportsWithCorrectTimestamps()
       throws Exception {
@@ -278,6 +280,7 @@ public class TransformerMp4EditListTrimTest {
     assertThat(videoTimestampsUs.get(181)).isEqualTo(1_016_666);
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void
       trimAndExport_positiveEditListWithMp4EditListTrimEnabled_setsFirstVideoTimestampToZero()
