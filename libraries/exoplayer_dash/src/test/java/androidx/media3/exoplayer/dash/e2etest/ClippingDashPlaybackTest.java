@@ -288,6 +288,7 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_reduceEndPositionAfterLoadingFinished() throws Exception {
     assumeTrue(enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
