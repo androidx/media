@@ -96,6 +96,10 @@
         ([#3206](https://github.com/androidx/media/pull/3206)).
 *   Inspector:
 *   Audio:
+    *   Add a 100ms grace period in ExoPlayer's audio renderers when
+        transitioning from ready to not-ready state, to debounce transient
+        underruns and avoid unexpected buffering states during active playout
+        ([#3210](https://github.com/androidx/media/issues/3210)).
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
         the platform decoder, allowing `DefaultAudioSink` to use this explicit
         mask instead of inferring one from the channel count.

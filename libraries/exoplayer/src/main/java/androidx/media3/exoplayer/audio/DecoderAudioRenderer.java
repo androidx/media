@@ -114,6 +114,8 @@ public abstract class DecoderAudioRenderer<
 
   private static final String TAG = "DecoderAudioRenderer";
 
+  private static final long READY_GRACE_PERIOD_MS = 100;
+
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @java.lang.annotation.Target(TYPE_USE)
@@ -182,6 +184,8 @@ public abstract class DecoderAudioRenderer<
   private long largestQueuedPresentationTimeUs;
   private long lastBufferInStreamPresentationTimeUs;
   private long nextBufferToWritePresentationTimeUs;
+  private long firstNotReadyTimeMs;
+  private boolean hasBeenReady;
 
   @Nullable private Renderer.WakeupListener wakeupListener;
   private @MonotonicNonNull Executor playbackThreadExecutor;
@@ -248,6 +252,8 @@ public abstract class DecoderAudioRenderer<
     largestQueuedPresentationTimeUs = C.TIME_UNSET;
     lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override
@@ -644,7 +650,25 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData();
+    boolean isReady = audioSink.hasPendingData();
+    if (isReady) {
+      firstNotReadyTimeMs = C.TIME_UNSET;
+      hasBeenReady = true;
+      return true;
+    }
+    if (hasBeenReady && isStarted && isSourceReady() && !hasReadStreamToEnd()) {
+      // Engage a grace period for downstream underruns, but exclude genuine upstream starvation
+      // (isSourceReady() is false) and natural stream transitions (hasReadStreamToEnd() is true).
+      long elapsedRealtimeMs = getClock().elapsedRealtime();
+      if (firstNotReadyTimeMs == C.TIME_UNSET) {
+        firstNotReadyTimeMs = elapsedRealtimeMs;
+        return true;
+      }
+      if (elapsedRealtimeMs - firstNotReadyTimeMs < READY_GRACE_PERIOD_MS) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -695,6 +719,8 @@ public abstract class DecoderAudioRenderer<
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
     hasPendingReportedSkippedSilence = false;
     hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
@@ -717,6 +743,8 @@ public abstract class DecoderAudioRenderer<
     audioSink.pause();
     isStarted = false;
     hasReportedAudioPositionAdvancing = false;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override

@@ -125,6 +125,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    */
   private static final String VIVO_BITS_PER_SAMPLE_KEY = "v-bits-per-sample";
 
+  private static final long READY_GRACE_PERIOD_MS = 100;
+
   private final Context context;
   private final EventDispatcher eventDispatcher;
   private final AudioSink audioSink;
@@ -146,6 +148,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private int rendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
+  private long firstNotReadyTimeMs;
+  private boolean hasBeenReady;
 
   /**
    * @param context A context.
@@ -326,6 +330,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     rendererPriority = C.PRIORITY_PLAYBACK;
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override
@@ -752,6 +758,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
     hasPendingReportedSkippedSilence = false;
     hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
@@ -771,6 +779,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     audioSink.pause();
     super.onStopped();
     hasReportedAudioPositionAdvancing = false;
+    firstNotReadyTimeMs = C.TIME_UNSET;
+    hasBeenReady = false;
   }
 
   @Override
@@ -820,7 +830,25 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData();
+    boolean isReady = audioSink.hasPendingData();
+    if (isReady) {
+      firstNotReadyTimeMs = C.TIME_UNSET;
+      hasBeenReady = true;
+      return true;
+    }
+    if (hasBeenReady && isStarted && isSourceReady() && !hasReadStreamToEnd()) {
+      // Engage a grace period for downstream underruns, but exclude genuine upstream starvation
+      // (isSourceReady() is false) and natural stream transitions (hasReadStreamToEnd() is true).
+      long elapsedRealtimeMs = getClock().elapsedRealtime();
+      if (firstNotReadyTimeMs == C.TIME_UNSET) {
+        firstNotReadyTimeMs = elapsedRealtimeMs;
+        return true;
+      }
+      if (elapsedRealtimeMs - firstNotReadyTimeMs < READY_GRACE_PERIOD_MS) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override

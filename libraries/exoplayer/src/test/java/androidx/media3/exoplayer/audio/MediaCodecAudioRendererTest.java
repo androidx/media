@@ -1574,6 +1574,136 @@ public class MediaCodecAudioRendererTest {
     verify(audioRendererEventListener).onAudioCodecParametersChanged(codecParameters);
   }
 
+  @Test
+  public void isReady_withoutPreviousReadyState_returnsFalse() throws Exception {
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ false);
+    setupRendererWithFakeClock(fakeClock);
+    enableAndStartRenderer();
+
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    assertThat(mediaCodecAudioRenderer.isReady()).isFalse();
+  }
+
+  @Test
+  public void isReady_duringTransientUnderrun_returnsTrueForGracePeriodDuration() throws Exception {
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ false);
+    setupRendererWithFakeClock(fakeClock);
+    enableAndStartRenderer();
+
+    // 1. Transition to ready state
+    when(audioSink.hasPendingData()).thenReturn(true);
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // 2. Transition to dry (underrun) state
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    // First call to isReady in underrun triggers the grace period
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // Advance clock, still within grace period (< 100ms)
+    fakeClock.advanceTime(99);
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+  }
+
+  @Test
+  public void isReady_persistentUnderrun_returnsFalseAfterGracePeriodDuration() throws Exception {
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ false);
+    setupRendererWithFakeClock(fakeClock);
+    enableAndStartRenderer();
+
+    // 1. Transition to ready state
+    when(audioSink.hasPendingData()).thenReturn(true);
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // 2. Transition to dry (underrun) state
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    // First call triggers grace period
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // Advance clock past the grace period (>= 100ms)
+    fakeClock.advanceTime(100);
+    assertThat(mediaCodecAudioRenderer.isReady()).isFalse();
+  }
+
+  @Test
+  public void isReady_onPositionReset_resetsGracePeriodState() throws Exception {
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ false);
+    setupRendererWithFakeClock(fakeClock);
+    enableAndStartRenderer();
+
+    // 1. Transition to ready state
+    when(audioSink.hasPendingData()).thenReturn(true);
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // 2. Perform position reset
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    // 3. Transition to dry state
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    // Should return false immediately (no grace period) because grace period state was reset
+    assertThat(mediaCodecAudioRenderer.isReady()).isFalse();
+  }
+
+  @Test
+  public void isReady_onStopped_resetsGracePeriodState() throws Exception {
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ false);
+    setupRendererWithFakeClock(fakeClock);
+    enableAndStartRenderer();
+
+    // 1. Transition to ready state
+    when(audioSink.hasPendingData()).thenReturn(true);
+    assertThat(mediaCodecAudioRenderer.isReady()).isTrue();
+
+    // 2. Stop and start renderer
+    mediaCodecAudioRenderer.stop();
+    mediaCodecAudioRenderer.start();
+
+    // 3. Transition to dry state
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    // Should return false immediately (no grace period) because grace period state was reset
+    assertThat(mediaCodecAudioRenderer.isReady()).isFalse();
+  }
+
+  private void setupRendererWithFakeClock(FakeClock fakeClock) {
+    mediaCodecAudioRenderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            /* eventHandler= */ new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, fakeClock);
+  }
+
+  private void enableAndStartRenderer() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            AUDIO_AAC,
+            ImmutableList.of(oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME)));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+  }
+
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {
     if (queueingThread != null) {
       shadowOf(queueingThread.getLooper()).idle();
