@@ -74,7 +74,13 @@ public class ParameterizedImagePlaybackTest {
     assumeTrue(SDK_INT < 33 || !inputFiles.contains("avif/white-1x1.avif"));
     Context applicationContext = ApplicationProvider.getApplicationContext();
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
-    ExoPlayer player = new ExoPlayer.Builder(applicationContext).setClock(clock).build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            // TODO: b/467996435 - Remove this when the test doesn't trigger the stuckness detection
+            //  on CI.
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setClock(clock)
+            .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     List<String> sortedInputFiles = new ArrayList<>(inputFiles);
     Collections.sort(sortedInputFiles);

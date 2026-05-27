@@ -41,6 +41,8 @@ public class ImagePlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            // TODO: b/467996435 - Remove this when the test doesn't trigger the stuckness detection
+            //  on CI.
             .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
