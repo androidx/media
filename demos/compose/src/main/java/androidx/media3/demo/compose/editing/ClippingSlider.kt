@@ -33,7 +33,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.media3.demo.compose.R
 import com.google.common.collect.ImmutableList
 
 /** The ratio of the total width of a clipping thumb to the width of the image row. */
@@ -61,6 +64,10 @@ private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - (CLIPPING_THUMB_PLAIN_
  * @param modifier The [Modifier] to be applied to the slider.
  * @param colors The [ClippingSliderColors] used to style the slider.
  * @param shape The [RoundedCornerShape] used to define the slider's shape.
+ * @param clippingThumbPainter A composable lambda that provides icons for the clipping thumbs. The
+ *   first boolean passed to the lambda indicates which of the two clipping handles is currently
+ *   being painted. The second boolean indicates whether the thumb has reached its absolute boundary
+ *   within the media (start of media for the start thumb, end of the media for the end thumb).
  */
 // TODO: b/505719491
 //  - Implement color defaults
@@ -72,6 +79,8 @@ fun ClippingSlider(
   modifier: Modifier = Modifier,
   colors: ClippingSliderColors,
   shape: RoundedCornerShape = RoundedCornerShape(percent = 30),
+  clippingThumbPainter: @Composable (isStart: Boolean, isAtLimit: Boolean) -> Painter =
+    defaultClippingThumbPainterIcon,
 ) {
   if (bitmaps.isEmpty()) {
     Box(modifier)
@@ -209,3 +218,12 @@ private fun logicalToVisualPositionSliderStart(clippingStart: Float): Float =
  */
 private fun logicalToVisualPositionSliderEnd(clippingEnd: Float): Float =
   (clippingEnd * POSITION_SLIDER_MAX_LENGTH_RATIO) + CLIPPING_THUMB_PLAIN_WIDTH_RATIO
+
+private val defaultClippingThumbPainterIcon:
+  @Composable
+  (isStart: Boolean, isAtLimit: Boolean) -> Painter =
+  @Composable { isStart, isAtLimit ->
+    if (isAtLimit) painterResource(R.drawable.media3_icon_clip_thumb_limit)
+    else if (isStart) painterResource(R.drawable.media3_icon_clip_thumb_left_arrow)
+    else painterResource(R.drawable.media3_icon_clip_thumb_right_arrow)
+  }
