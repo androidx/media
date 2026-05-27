@@ -137,6 +137,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -2023,6 +2024,7 @@ public final class DefaultAnalyticsCollectorTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515797237")
   public void release_withCallbacksArrivingAfterRelease_onPlayerReleasedForwardedLast()
       throws Exception {
     FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);

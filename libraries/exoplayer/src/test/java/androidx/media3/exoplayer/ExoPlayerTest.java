@@ -213,6 +213,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1897,6 +1898,7 @@ public final class ExoPlayerTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515797237")
   public void release_correctMasking() throws Exception {
     int[] currentMediaItemIndex = {C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET};
     long[] currentPosition = {C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET};

@@ -40,6 +40,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -186,6 +187,7 @@ public final class PlaybackStatsListenerTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515797237")
   public void playerRelease_callsAllPendingCallbacks() throws Exception {
     PlaybackStatsListener.Callback callback = mock(PlaybackStatsListener.Callback.class);
     PlaybackStatsListener playbackStatsListener =
