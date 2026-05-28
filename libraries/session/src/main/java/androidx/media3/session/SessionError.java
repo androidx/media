@@ -32,7 +32,6 @@ import java.lang.annotation.Target;
 import java.util.Objects;
 
 /** Provides information about a session error. */
-@UnstableApi
 public final class SessionError {
 
   /**
@@ -43,6 +42,7 @@ public final class SessionError {
    *   <li>Error code: Negative integer
    * </ul>
    */
+  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -130,10 +130,12 @@ public final class SessionError {
       PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 
   /** Error code representing that navigation failed because the playlist was exhausted. */
+  @UnstableApi
   public static final int ERROR_SESSION_END_OF_PLAYLIST =
       PlaybackException.ERROR_CODE_END_OF_PLAYLIST;
 
   /** Error code representing that the requested content is already playing. */
+  @UnstableApi
   public static final int ERROR_SESSION_CONTENT_ALREADY_PLAYING =
       PlaybackException.ERROR_CODE_CONTENT_ALREADY_PLAYING;
 
@@ -141,6 +143,7 @@ public final class SessionError {
   /* package */ static final String DEFAULT_ERROR_MESSAGE = "no error message provided";
 
   /** Returns the name of a given error code. */
+  @UnstableApi
   public static String getErrorCodeName(@Code int errorCode) {
     switch (errorCode) {
       case ERROR_UNKNOWN:
@@ -182,9 +185,9 @@ public final class SessionError {
     }
   }
 
-  public @SessionError.Code int code;
-  public String message;
-  public Bundle extras;
+  @UnstableApi public @SessionError.Code int code;
+  @UnstableApi public String message;
+  @UnstableApi public Bundle extras;
 
   /**
    * Creates an instance with {@linkplain Bundle#EMPTY an empty extras bundle}.
@@ -193,6 +196,7 @@ public final class SessionError {
    * @param message The error message.
    * @throws IllegalArgumentException if the result code is not an error result code.
    */
+  @UnstableApi
   public SessionError(@SessionError.Code int code, String message) {
     this(code, message, Bundle.EMPTY);
   }
@@ -205,6 +209,7 @@ public final class SessionError {
    * @param extras The error extras.
    * @throws IllegalArgumentException if the result code is not an error result code.
    */
+  @UnstableApi
   public SessionError(@SessionError.Code int code, String message, Bundle extras) {
     checkArgument(code < 0 || code == INFO_CANCELLED);
     this.code = code;
@@ -213,6 +218,7 @@ public final class SessionError {
   }
 
   /** Checks the given error for equality while ignoring {@link #extras}. */
+  @UnstableApi
   @Override
   public boolean equals(@Nullable Object o) {
     if (this == o) {
@@ -225,6 +231,7 @@ public final class SessionError {
     return code == that.code && Objects.equals(message, that.message);
   }
 
+  @UnstableApi
   @Override
   public int hashCode() {
     return Objects.hash(code, message);
@@ -237,6 +244,7 @@ public final class SessionError {
   private static final String FIELD_EXTRAS = Util.intToStringMaxRadix(2);
 
   /** Returns a {@link Bundle} representing the information stored in this object. */
+  @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_CODE, code);
@@ -248,6 +256,7 @@ public final class SessionError {
   }
 
   /** Restores a {@code SessionError} from a {@link Bundle}. */
+  @UnstableApi
   public static SessionError fromBundle(Bundle bundle) {
     int code =
         bundle.getInt(FIELD_CODE, /* defaultValue= */ PlaybackException.ERROR_CODE_UNSPECIFIED);

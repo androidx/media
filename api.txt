@@ -1928,7 +1928,7 @@ package androidx.media3.session {
     field @Nullable public final value: V;
   }
 
-  @IntDef({androidx.media3.session.LibraryResult.RESULT_SUCCESS, 0x1, 0xffffffff, 0xfffffffe, 0xfffffffd, 0xfffffffc, 0xfffffffb, 0xffffff9c, 0xfffffffa, 0xffffff9a, 0xffffff99, 0xffffff98, 0xffffff97, 0xffffff96, 0xffffff95, 0xffffff94}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface LibraryResult.Code {
+  @IntDef({androidx.media3.session.LibraryResult.RESULT_SUCCESS, androidx.media3.session.SessionError.INFO_CANCELLED, androidx.media3.session.SessionError.ERROR_UNKNOWN, androidx.media3.session.SessionError.ERROR_INVALID_STATE, androidx.media3.session.SessionError.ERROR_BAD_VALUE, androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED, androidx.media3.session.SessionError.ERROR_IO, androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED, androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED, androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, androidx.media3.session.SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED, androidx.media3.session.SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT, androidx.media3.session.SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED, androidx.media3.session.SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION, androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED, androidx.media3.session.SessionError.ERROR_SESSION_SETUP_REQUIRED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface LibraryResult.Code {
   }
 
   public final class MediaBrowser extends androidx.media3.session.MediaController {
@@ -2266,6 +2266,24 @@ package androidx.media3.session {
     method public remove(_: @androidx.media3.session.SessionCommand.CommandCode int): androidx.media3.session.SessionCommands.Builder;
   }
 
+  public final class SessionError {
+    field public static final ERROR_BAD_VALUE: int = -3; // 0xfffffffd
+    field public static final ERROR_INVALID_STATE: int = -2; // 0xfffffffe
+    field public static final ERROR_IO: int = -5; // 0xfffffffb
+    field public static final ERROR_NOT_SUPPORTED: int = -6; // 0xfffffffa
+    field public static final ERROR_PERMISSION_DENIED: int = -4; // 0xfffffffc
+    field public static final ERROR_SESSION_AUTHENTICATION_EXPIRED: int = -102; // 0xffffff9a
+    field public static final ERROR_SESSION_CONCURRENT_STREAM_LIMIT: int = -104; // 0xffffff98
+    field public static final ERROR_SESSION_DISCONNECTED: int = -100; // 0xffffff9c
+    field public static final ERROR_SESSION_NOT_AVAILABLE_IN_REGION: int = -106; // 0xffffff96
+    field public static final ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED: int = -105; // 0xffffff97
+    field public static final ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED: int = -103; // 0xffffff99
+    field public static final ERROR_SESSION_SETUP_REQUIRED: int = -108; // 0xffffff94
+    field public static final ERROR_SESSION_SKIP_LIMIT_REACHED: int = -107; // 0xffffff95
+    field public static final ERROR_UNKNOWN: int = -1; // 0xffffffff
+    field public static final INFO_CANCELLED: int = 1; // 0x1
+  }
+
   public final class SessionResult {
     ctor public SessionResult(_: @androidx.media3.session.SessionResult.Code int);
     ctor public SessionResult(_: @androidx.media3.session.SessionResult.Code int, _: android.os.Bundle);
@@ -2290,7 +2308,7 @@ package androidx.media3.session {
     field public final resultCode: @androidx.media3.session.SessionResult.Code int;
   }
 
-  @IntDef({androidx.media3.session.SessionResult.RESULT_SUCCESS, 0x1, 0xffffffff, 0xfffffffe, 0xfffffffd, 0xfffffffc, 0xfffffffb, 0xffffff9c, 0xfffffffa, 0xffffff9a, 0xffffff99, 0xffffff98, 0xffffff97, 0xffffff96, 0xffffff95, 0xffffff94}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface SessionResult.Code {
+  @IntDef({androidx.media3.session.SessionResult.RESULT_SUCCESS, androidx.media3.session.SessionError.INFO_CANCELLED, androidx.media3.session.SessionError.ERROR_UNKNOWN, androidx.media3.session.SessionError.ERROR_INVALID_STATE, androidx.media3.session.SessionError.ERROR_BAD_VALUE, androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED, androidx.media3.session.SessionError.ERROR_IO, androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED, androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED, androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, androidx.media3.session.SessionError.ERROR_SESSION_PREMIUM_ACCOUNT_REQUIRED, androidx.media3.session.SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT, androidx.media3.session.SessionError.ERROR_SESSION_PARENTAL_CONTROL_RESTRICTED, androidx.media3.session.SessionError.ERROR_SESSION_NOT_AVAILABLE_IN_REGION, androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED, androidx.media3.session.SessionError.ERROR_SESSION_SETUP_REQUIRED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface SessionResult.Code {
   }
 
   public final class SessionToken {
