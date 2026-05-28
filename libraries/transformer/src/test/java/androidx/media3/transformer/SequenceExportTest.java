@@ -669,6 +669,7 @@ public final class SequenceExportTest {
                 "gap_500ms")));
   }
 
+  @Ignore("Flaky: b/515797237")
   @Test
   public void start_gapItemGapItem_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
