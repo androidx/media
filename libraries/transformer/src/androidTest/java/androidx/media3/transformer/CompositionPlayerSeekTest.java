@@ -1350,7 +1350,7 @@ public class CompositionPlayerSeekTest {
               player.get().seekTo(/* positionMs= */ 400);
               player.get().setScrubbingModeEnabled(false);
             });
-    playerTestListener.waitUntilPlayerReady();
+    playerTestListener.waitUntilPlayerReadyAndUnsuppressed();
 
     assertThat(lastPositionOffsetUsFirstSequence.get())
         .isEqualTo(

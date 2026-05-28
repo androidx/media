@@ -33,9 +33,13 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   private final ConditionVariable playerReady;
   private final ConditionVariable playerEnded;
   private final ConditionVariable firstFrameRendered;
+  private final ConditionVariable playerReadyAndUnsuppressed;
   private final AtomicReference<@NullableType PlaybackException> playbackException;
   private final long testTimeoutMs;
   private @MonotonicNonNull DecoderCounters videoDecoderCounters;
+
+  private int playbackState;
+  private int playbackSuppressionReason;
 
   /**
    * Creates a new instance.
@@ -48,8 +52,11 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
     playerReady = new ConditionVariable();
     playerEnded = new ConditionVariable();
     firstFrameRendered = new ConditionVariable();
+    playerReadyAndUnsuppressed = new ConditionVariable();
     playbackException = new AtomicReference<>();
     this.testTimeoutMs = testTimeoutMs;
+    playbackState = Player.STATE_IDLE;
+    playbackSuppressionReason = Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_IDLE idle}. */
@@ -60,6 +67,11 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_READY ready}. */
   public void waitUntilPlayerReady() throws TimeoutException, PlaybackException {
     waitOrThrow(playerReady);
+  }
+
+  /** Waits until the player is READY and the playback suppression reason is NONE. */
+  public void waitUntilPlayerReadyAndUnsuppressed() throws TimeoutException, PlaybackException {
+    waitOrThrow(playerReadyAndUnsuppressed);
   }
 
   /** Waits until the {@link Player player} is {@linkplain Player#STATE_ENDED ended}. */
@@ -88,12 +100,27 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
 
   @Override
   public void onPlaybackStateChanged(int playbackState) {
+    this.playbackState = playbackState;
+    maybeOpenReadyAndUnsuppressed();
     if (playbackState == Player.STATE_IDLE) {
       playerIdle.open();
     } else if (playbackState == Player.STATE_READY) {
       playerReady.open();
     } else if (playbackState == Player.STATE_ENDED) {
       playerEnded.open();
+    }
+  }
+
+  @Override
+  public void onPlaybackSuppressionReasonChanged(int playbackSuppressionReason) {
+    this.playbackSuppressionReason = playbackSuppressionReason;
+    maybeOpenReadyAndUnsuppressed();
+  }
+
+  private void maybeOpenReadyAndUnsuppressed() {
+    if (playbackState == Player.STATE_READY
+        && playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) {
+      playerReadyAndUnsuppressed.open();
     }
   }
 
@@ -109,6 +136,7 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
     playerReady.open();
     playerEnded.open();
     firstFrameRendered.open();
+    playerReadyAndUnsuppressed.open();
   }
 
   // AnalyticsListener methods
@@ -128,7 +156,10 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
     playerReady.close();
     playerEnded.close();
     firstFrameRendered.close();
+    playerReadyAndUnsuppressed.close();
     playbackException.set(null);
+    playbackState = Player.STATE_IDLE;
+    playbackSuppressionReason = Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
   // Internal methods
