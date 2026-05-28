@@ -48,6 +48,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
@@ -1252,7 +1253,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     checkState(mediaCrypto == null);
     DrmSession codecDrmSession = this.codecDrmSession;
     @Nullable CryptoConfig cryptoConfig = codecDrmSession.getCryptoConfig();
-    if (FrameworkCryptoConfig.WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC
+    if (MediaLibraryInfo.enableWorkarounds()
+        && FrameworkCryptoConfig.WORKAROUND_DEVICE_NEEDS_KEYS_TO_CONFIGURE_CODEC
         && cryptoConfig instanceof FrameworkCryptoConfig) {
       @DrmSession.State int drmSessionState = codecDrmSession.getState();
       if (drmSessionState == DrmSession.STATE_ERROR) {
@@ -2836,6 +2838,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return The mode specifying when the adaptation workaround should be enabled.
    */
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return ADAPTATION_WORKAROUND_MODE_NEVER;
+    }
     if (SDK_INT <= 25
         && "OMX.Exynos.avc.dec.secure".equals(name)
         && (Build.MODEL.startsWith("SM-T585")
@@ -2869,6 +2874,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     {@link MediaFormat}. False otherwise.
    */
   private static boolean codecNeedsSosFlushWorkaround(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     return SDK_INT == 29 && "c2.android.aac.decoder".equals(name);
   }
 
@@ -2887,6 +2895,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   // TODO: b/416719590 - Remove this suppression when the false positive is fixed.
   @SuppressWarnings("ObsoleteSdkInt")
   private static boolean codecNeedsEosPropagationWorkaround(MediaCodecInfo codecInfo) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     String name = codecInfo.name;
     return (SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
         || (SDK_INT <= 29
@@ -2913,6 +2924,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set. False otherwise.
    */
   private static boolean codecNeedsEosFlushWorkaround(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     return SDK_INT == 23 && "OMX.google.vorbis.decoder".equals(name);
   }
 

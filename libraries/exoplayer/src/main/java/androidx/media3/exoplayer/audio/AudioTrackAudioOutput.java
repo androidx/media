@@ -34,6 +34,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
@@ -538,7 +539,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (!MediaLibraryInfo.enableWorkarounds()) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -562,7 +563,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (!MediaLibraryInfo.enableWorkarounds()) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -583,7 +584,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
-   * AudioTrackAudioOutputProvider#failOnSpuriousAudioTimestamp} is set.
+   * MediaLibraryInfo#enableWorkarounds()} is false.
    */
   @UnstableApi
   public static final class InvalidAudioTrackTimestampException extends RuntimeException {

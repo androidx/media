@@ -57,6 +57,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
@@ -1522,10 +1523,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             HEVC_MAX_INPUT_SIZE_THRESHOLD,
             getMaxSampleSize(/* pixelCount= */ width * height, /* minCompressionRatio= */ 2));
       case MimeTypes.VIDEO_H264:
-        if ("BRAVIA 4K 2015".equals(Build.MODEL) // Sony Bravia 4K
-            || ("Amazon".equals(Build.MANUFACTURER)
-                && ("KFSOWI".equals(Build.MODEL) // Kindle Soho
-                    || ("AFTS".equals(Build.MODEL) && codecInfo.secure)))) { // Fire TV Gen 2
+        if (MediaLibraryInfo.enableWorkarounds()
+            && ("BRAVIA 4K 2015".equals(Build.MODEL) // Sony Bravia 4K
+                || ("Amazon".equals(Build.MANUFACTURER)
+                    && ("KFSOWI".equals(Build.MODEL) // Kindle Soho
+                        || ("AFTS".equals(Build.MODEL) && codecInfo.secure))))) { // Fire TV Gen 2
           // Use the default value for cases where platform limitations may prevent buffers of the
           // calculated maximum input size from being allocated.
           return Format.NO_VALUE;
@@ -2779,6 +2781,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    *     ExoPlayer.
    */
   private static boolean deviceNeedsNoPostProcessWorkaround() {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     // Nvidia devices prior to M try to adjust the playback rate to better map the frame-rate of
     // content to the refresh rate of the display. For example playback of 23.976fps content is
     // adjusted to play at 1.001x speed when the output display is 60Hz. Unfortunately the
@@ -2945,6 +2950,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private static boolean evaluateDeviceNeedsSetOutputSurfaceWorkaround() {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     if (SDK_INT <= 28) {
       // Workaround for MiTV and MiBox devices which have been observed broken up to API 28.
       // https://github.com/google/ExoPlayer/issues/5169,

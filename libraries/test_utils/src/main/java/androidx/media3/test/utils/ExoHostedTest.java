@@ -23,6 +23,7 @@ import android.view.Surface;
 import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
 import androidx.annotation.Size;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
@@ -34,7 +35,6 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -49,10 +49,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public abstract class ExoHostedTest implements HostedTest {
 
   static {
-    // DefaultAudioSink is able to work around spurious timestamps reported by the platform (by
-    // ignoring them). Disable this workaround, since we're interested in testing that the
+    // Disable all device and codec-specific workarounds, since we're interested in testing that the
     // underlying platform is behaving correctly.
-    AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp = true;
+    MediaLibraryInfo.setEnableWorkarounds(false);
   }
 
   public static final long MAX_PLAYING_TIME_DISCREPANCY_MS = 5000;

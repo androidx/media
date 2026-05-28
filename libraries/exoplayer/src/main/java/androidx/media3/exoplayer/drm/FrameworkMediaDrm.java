@@ -37,6 +37,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
@@ -479,12 +480,13 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     }
 
     // Some Amazon devices require data to be extracted from the PSSH atom for PlayReady.
-    if ((C.PLAYREADY_UUID.equals(uuid)
-        && "Amazon".equals(Build.MANUFACTURER)
-        && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
-            || "AFTS".equals(Build.MODEL) // Fire TV Gen 2
-            || "AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
-            || "AFTT".equals(Build.MODEL)))) { // Fire TV Stick Gen 2
+    if (MediaLibraryInfo.enableWorkarounds()
+        && (C.PLAYREADY_UUID.equals(uuid)
+            && "Amazon".equals(Build.MANUFACTURER)
+            && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
+                || "AFTS".equals(Build.MODEL) // Fire TV Gen 2
+                || "AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
+                || "AFTT".equals(Build.MODEL)))) { // Fire TV Stick Gen 2
       byte[] psshData = PsshAtomUtil.parseSchemeSpecificData(initData, uuid);
       if (psshData != null) {
         // Extraction succeeded, so return the extracted data.
@@ -526,7 +528,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
    * <p>See <a href="https://github.com/google/ExoPlayer/issues/4413">GitHub issue #4413</a>.
    */
   private static boolean needsForceWidevineL3Workaround() {
-    return "ASUS_Z00AD".equals(Build.MODEL);
+    return MediaLibraryInfo.enableWorkarounds() && "ASUS_Z00AD".equals(Build.MODEL);
   }
 
   /**

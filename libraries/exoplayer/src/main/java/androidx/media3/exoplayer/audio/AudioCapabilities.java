@@ -40,6 +40,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.UnstableApi;
@@ -488,7 +489,10 @@ public final class AudioCapabilities {
 
     // Workaround for Nexus Player not reporting support for mono passthrough. See
     // [Internal: b/34268671].
-    if (SDK_INT <= 26 && "fugu".equals(Build.DEVICE) && channelCount == 1) {
+    if (MediaLibraryInfo.enableWorkarounds()
+        && SDK_INT <= 26
+        && "fugu".equals(Build.DEVICE)
+        && channelCount == 1) {
       channelCount = 2;
     }
 

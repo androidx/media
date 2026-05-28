@@ -244,12 +244,6 @@ import java.util.ArrayList;
       }
     }
 
-    @Override
-    protected boolean codecNeedsSetOutputSurfaceWorkaround(String name) {
-      // Disable all workarounds for testing - devices that require the workaround should fail GTS.
-      return false;
-    }
-
     // TODO: b/321230611 - Remove this override when 'late' buffers that result in identical release
     //  timestamps are reported as 'dropped' instead of 'skipped'.
     @Override

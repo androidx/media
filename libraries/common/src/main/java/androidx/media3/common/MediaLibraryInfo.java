@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.util.HashSet;
@@ -50,6 +51,30 @@ public final class MediaLibraryInfo {
 
   /** Whether the library was compiled with {@link TraceUtil} trace enabled. */
   public static final boolean TRACE_ENABLED = true;
+
+  /**
+   * Whether to enable device-specific workarounds.
+   *
+   * <p>When set to {@code false}, the library will attempt to bypass device and codec-specific
+   * workarounds, running raw platform code to expose potential platform bugs.
+   */
+  @SuppressWarnings("NonFinalStaticField") // Test-only access
+  private static boolean enableWorkarounds = true;
+
+  /** Returns whether device-specific workarounds are enabled. */
+  public static boolean enableWorkarounds() {
+    return enableWorkarounds;
+  }
+
+  /**
+   * Sets whether device-specific workarounds are enabled.
+   *
+   * <p>This should only be called for certification testing.
+   */
+  @VisibleForTesting
+  public static void setEnableWorkarounds(boolean enable) {
+    enableWorkarounds = enable;
+  }
 
   // LINT.IfChange(interface_version)
   /**

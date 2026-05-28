@@ -40,6 +40,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -1216,7 +1217,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    * <p>See <a href="https://github.com/google/ExoPlayer/issues/5821">GitHub issue #5821</a>.
    */
   private static boolean deviceDoesntSupportOperatingRate() {
-    return SDK_INT == 23 && ("ZTE B2017G".equals(Build.MODEL) || "AXON 7 mini".equals(Build.MODEL));
+    return MediaLibraryInfo.enableWorkarounds()
+        && SDK_INT == 23
+        && ("ZTE B2017G".equals(Build.MODEL) || "AXON 7 mini".equals(Build.MODEL));
   }
 
   /**
@@ -1226,6 +1229,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
    * <p>See [Internal: b/35655036].
    */
   private static boolean codecNeedsDiscardChannelsWorkaround(String codecName) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     // The workaround applies to Samsung Galaxy S6 and Samsung Galaxy S7.
     return SDK_INT < 24
         && "OMX.SEC.aac.dec".equals(codecName)

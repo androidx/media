@@ -49,6 +49,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.CodecSpecificDataUtil.MediaCodecProfileAndLevel;
@@ -977,6 +978,9 @@ public final class MediaCodecInfo {
    *     new format's configuration data.
    */
   private static boolean needsAdaptationReconfigureWorkaround(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     return Build.MODEL.startsWith("SM-T230") && "OMX.MARVELL.VIDEO.HW.CODA7542DECODER".equals(name);
   }
 
@@ -1005,6 +1009,9 @@ public final class MediaCodecInfo {
    * @return Whether to enable the workaround.
    */
   private static boolean needsRotatedVerticalResolutionWorkaround(String name) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     if ("OMX.MTK.VIDEO.DECODER.HEVC".equals(name) && "mcv5a".equals(Build.DEVICE)) {
       // See https://github.com/google/ExoPlayer/issues/6612.
       return false;
@@ -1017,6 +1024,9 @@ public final class MediaCodecInfo {
    * a device declares support for a profile it doesn't actually support.
    */
   private static boolean needsProfileExcludedWorkaround(String mimeType, int profile) {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     // See https://github.com/google/ExoPlayer/issues/3537
     return MimeTypes.VIDEO_H265.equals(mimeType)
         && CodecProfileLevel.HEVCProfileMain10 == profile
@@ -1025,6 +1035,9 @@ public final class MediaCodecInfo {
 
   /** Returns whether the device is known to have issues with the detached surface mode. */
   private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
+    if (!MediaLibraryInfo.enableWorkarounds()) {
+      return false;
+    }
     if (SDK_INT > 37) {
       // After API 37, we assume that detached surface mode is supported and we don't apply the
       // workaround. Devices should not declare support for FEATURE_DetachedSurface unless they
