@@ -54,6 +54,8 @@
         `DefaultBandwidthMeter.Builder.setInitialBitrateSupplier()`.
     *   Enable dynamic scheduling by default. `ExoPlayer` playback work loop
         will run dynamically as opposed to on a static interval.
+    *   Remove an unnecessary reset that can occur when joining tracks with
+        pre-roll samples to active playback.
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:

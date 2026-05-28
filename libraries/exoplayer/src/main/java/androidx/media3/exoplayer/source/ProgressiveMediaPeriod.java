@@ -336,6 +336,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // disabled all tracks.
     boolean seekRequired =
         seenFirstTrackSelection ? oldEnabledTrackCount == 0 : positionUs != 0 && !isSingleSample;
+    boolean hasPreroll = false;
     // Select new tracks.
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
@@ -346,7 +347,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         checkState(!trackEnabledStates[track]);
         enabledTrackCount++;
         trackEnabledStates[track] = true;
-        pendingInitialDiscontinuity |= selection.getSelectedFormat().hasPrerollSamples;
+        hasPreroll |= selection.getSelectedFormat().hasPrerollSamples;
         streams[i] = new SampleStreamImpl(track);
         streamResetFlags[i] = true;
 
@@ -367,6 +368,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   && !sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ true);
         }
       }
+    }
+
+    if (pendingInitialDiscontinuity || !seenFirstTrackSelection) {
+      pendingInitialDiscontinuity = hasPreroll;
     }
 
     if (loadOnlySelectedTracks) {
@@ -963,7 +968,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 .build();
       }
       trackArray[i] = new TrackGroup(/* id= */ Integer.toString(i), trackFormat);
-      pendingInitialDiscontinuity |= trackFormat.hasPrerollSamples;
       sampleQueues[i].setReadEndTimeUs(endPositionUs);
     }
     trackState = new TrackState(new TrackGroupArray(trackArray), trackIsAudioVideoFlags);

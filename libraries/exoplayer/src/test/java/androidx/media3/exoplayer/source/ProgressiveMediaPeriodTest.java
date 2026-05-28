@@ -21,6 +21,9 @@ import static com.google.common.truth.Truth.assertThat;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.DataReader;
+import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.AssetDataSource;
@@ -37,13 +40,18 @@ import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.png.PngExtractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
@@ -198,6 +206,104 @@ public final class ProgressiveMediaPeriodTest {
     assertThat(trackGroups.get(0).getFormat(0).primaryTrackGroupId).isNull();
     assertThat(trackGroups.get(1).getFormat(0).primaryTrackGroupId)
         .isEqualTo(trackGroups.get(0).id);
+  }
+
+  @Test
+  public void selectTracks_joiningStreamWithPrerollSamples_doesNotIncurExtraDiscontinuity()
+      throws Exception {
+    ProgressiveMediaExtractor extractor =
+        new ProgressiveMediaExtractor() {
+          @Override
+          public void init(
+              DataReader dataReader,
+              Uri uri,
+              Map<String, List<String>> responseHeaders,
+              long position,
+              long length,
+              ExtractorOutput output) {
+            // Provide custom formats that have pre-roll samples.
+            output
+                .track(0, C.TRACK_TYPE_AUDIO)
+                .format(
+                    new Format.Builder()
+                        .setSampleMimeType(MimeTypes.AUDIO_AAC)
+                        .setHasPrerollSamples(true)
+                        .build());
+            output
+                .track(1, C.TRACK_TYPE_VIDEO)
+                .format(
+                    new Format.Builder()
+                        .setSampleMimeType(MimeTypes.VIDEO_H264)
+                        .setHasPrerollSamples(true)
+                        .build());
+            output.endTracks();
+            output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
+          }
+
+          @Override
+          public void release() {}
+
+          @Override
+          public void disableSeekingOnMp3Streams() {}
+
+          @Override
+          public long getCurrentInputPosition() {
+            return 0;
+          }
+
+          @Override
+          public void seek(long position, long timeUs) {}
+
+          @Override
+          public int read(PositionHolder positionHolder) {
+            return Extractor.RESULT_END_OF_INPUT;
+          }
+        };
+
+    // Create the period using the custom extractor.
+    ProgressiveMediaPeriod mediaPeriod =
+        createMediaPeriod(
+            Uri.parse("asset://android_asset/media/mp4/sample.mp4"),
+            extractor,
+            /* imageDurationUs= */ C.TIME_UNSET,
+            /* executor= */ null,
+            /* executorReleased= */ null);
+
+    TrackGroupArray trackGroups = mediaPeriod.getTrackGroups();
+    @NullableType ExoTrackSelection[] selections = new ExoTrackSelection[trackGroups.length];
+    @NullableType SampleStream[] streams = new SampleStream[trackGroups.length];
+
+    // 1. Initially select only the audio track (track 0).
+    selections[0] = new FakeTrackSelection(trackGroups.get(0), 0);
+    long unused =
+        mediaPeriod.selectTracks(
+            selections,
+            /* mayRetainStreamFlags= */ new boolean[2],
+            streams,
+            /* streamResetFlags= */ new boolean[2],
+            /* positionUs= */ 0);
+
+    // Verify initial discontinuity for first track selection.
+    assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(0);
+
+    // 2. Simulate seeking to a non-zero position.
+    long seekPositionUs = 5 * C.MICROS_PER_SECOND;
+    unused = mediaPeriod.seekToUs(seekPositionUs);
+
+    // 3. Join the video stream (track 1) at the non-zero position.
+    selections[1] = new FakeTrackSelection(trackGroups.get(1), 0);
+    unused =
+        mediaPeriod.selectTracks(
+            selections,
+            /* mayRetainStreamFlags= */ new boolean[2],
+            streams,
+            /* streamResetFlags= */ new boolean[2],
+            /* positionUs= */ seekPositionUs);
+
+    // Verify no extra discontinuity when selecting the second stream.
+    assertThat(mediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+
+    mediaPeriod.release();
   }
 
   private static @SampleStream.ReadDataResult int readProgressiveStream(
