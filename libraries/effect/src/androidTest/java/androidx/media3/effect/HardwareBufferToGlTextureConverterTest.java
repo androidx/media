@@ -36,6 +36,7 @@ import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaFormat;
+import androidx.annotation.Nullable;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -46,8 +47,9 @@ import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameProcessor.FrameCompletionListener;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.ndk.HardwareBufferJni;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
@@ -120,16 +122,25 @@ public final class HardwareBufferToGlTextureConverterTest {
     HardwareBuffer hardwareBuffer = hardwareBitmap.getHardwareBuffer();
 
     AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameCompletionListener completionListener =
-        (frame, releaseFence) -> {
-          if (releaseFence != null) {
-            if (!releaseFence.awaitMs(FENCE_TIMEOUT_MS)) {
-              throw new IllegalStateException("Release fence timed out.");
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              if (!releaseFence.awaitMs(FENCE_TIMEOUT_MS)) {
+                throw new IllegalStateException("Release fence timed out.");
+              }
+              releaseFence.close();
             }
-            releaseFence.close();
+            hardwareBuffer.close();
+            completedFrame.set(frame);
           }
-          hardwareBuffer.close();
-          completedFrame.set(frame);
         };
 
     int width = expectedBitmap.getWidth();
@@ -144,7 +155,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                     .build())
             .build();
 
-    Bitmap actualBitmap = convertAndCaptureBitmap(hardwareBufferFrame, completionListener);
+    Bitmap actualBitmap = convertAndCaptureBitmap(hardwareBufferFrame, listener);
 
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -193,24 +204,33 @@ public final class HardwareBufferToGlTextureConverterTest {
             .build();
 
     AtomicReference<Frame> completedFrame = new AtomicReference<>();
-    FrameCompletionListener completionListener =
-        (frame, releaseFence) -> {
-          if (releaseFence != null) {
-            if (!releaseFence.awaitMs(FENCE_TIMEOUT_MS)) {
-              throw new IllegalStateException("Release fence timed out.");
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+            if (releaseFence != null) {
+              if (!releaseFence.awaitMs(FENCE_TIMEOUT_MS)) {
+                throw new IllegalStateException("Release fence timed out.");
+              }
+              releaseFence.close();
             }
-            releaseFence.close();
+            inputHardwareBuffer.close();
+            inputImage.close();
+            completedFrame.set(frame);
           }
-          inputHardwareBuffer.close();
-          inputImage.close();
-          completedFrame.set(frame);
         };
 
     HardwareBufferFrame inputHardwareBufferFrame =
         new DefaultHardwareBufferFrame.Builder(inputHardwareBuffer).setFormat(inputFormat).build();
     Bitmap expectedBitmap = BitmapPixelTestUtil.readBitmap("media/png/first_frame_1920x1080.png");
 
-    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, completionListener);
+    Bitmap actualBitmap = convertAndCaptureBitmap(inputHardwareBufferFrame, listener);
 
     assertThat(
             getBitmapAveragePixelAbsoluteDifferenceArgb8888(
@@ -221,8 +241,7 @@ public final class HardwareBufferToGlTextureConverterTest {
   }
 
   private Bitmap convertAndCaptureBitmap(
-      HardwareBufferFrame hardwareBufferFrame, FrameCompletionListener completionListener)
-      throws Exception {
+      HardwareBufferFrame hardwareBufferFrame, FrameProcessor.Listener listener) throws Exception {
     AtomicReference<Bitmap> actualBitmap = new AtomicReference<>();
     CountDownLatch bitmapCaptured = new CountDownLatch(1);
     glExecutorService
@@ -235,7 +254,7 @@ public final class HardwareBufferToGlTextureConverterTest {
                         /* hardwareBufferFrame= */ hardwareBufferFrame,
                         glExecutorService,
                         /* listenerExecutor= */ directExecutor(),
-                        completionListener);
+                        listener);
 
                 int textureWidth = glTextureFrame.glTextureInfo.width;
                 int textureHeight = glTextureFrame.glTextureInfo.height;
@@ -280,7 +299,17 @@ public final class HardwareBufferToGlTextureConverterTest {
                         hardwareBufferFrame,
                         glExecutorService,
                         directExecutor(),
-                        (frame, releaseFence) -> {});
+                        new FrameProcessor.Listener() {
+                          @Override
+                          public void onWakeup() {}
+
+                          @Override
+                          public void onError(VideoFrameProcessingException exception) {}
+
+                          @Override
+                          public void onFrameProcessed(
+                              Frame frame, @Nullable SyncFenceWrapper releaseFence) {}
+                        });
 
                 converter.releaseGlResources(hardwareBufferFrame);
                 // This should be no-op as GL resources is already released.

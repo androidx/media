@@ -78,8 +78,10 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.SurfaceHolderFrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -136,6 +138,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -747,6 +750,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       packetConsumerReportsRenderingEvents = false;
     }
     if (SDK_INT >= 28 && frameProcessorFactory != null) {
+      Executor listenerExecutor = new HandlerExecutor(applicationHandler, internalListener);
       // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
       if (hardwareBufferJniWrapper != null) {
         hardwareBufferPostProcessor =
@@ -754,7 +758,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                 hardwareBufferJniWrapper,
                 /* internalExecutor= */ Util.newSingleThreadExecutor(
                     "BitmapToHardwareBufferProcessor::Thread"),
-                /* errorExecutor= */ directExecutor(),
+                /* errorExecutor= */ listenerExecutor,
                 /* errorCallback= */ internalListener::onError);
       } else {
         hardwareBufferPostProcessor = null;
@@ -763,16 +767,20 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           SDK_INT >= 33
               ? SurfaceHolderFrameWriter.create(
                   /* surfaceHolder= */ null,
-                  /* surfaceHolderExecutor= */ applicationHandler::post,
+                  /* surfaceHolderExecutor= */ listenerExecutor,
                   internalListener,
                   directExecutor())
               : SurfaceHolderFrameWriter.create(
                   /* surfaceHolder= */ null,
-                  /* surfaceHolderExecutor= */ applicationHandler::post,
+                  /* surfaceHolderExecutor= */ listenerExecutor,
                   internalListener,
                   directExecutor(),
                   checkNotNull(hardwareBufferJniWrapper));
-      frameProcessor = frameProcessorFactory.create(surfaceHolderFrameWriter);
+      frameProcessor =
+          frameProcessorFactory.create(
+              surfaceHolderFrameWriter,
+              /* listenerExecutor= */ listenerExecutor,
+              /* listener= */ internalListener);
 
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
@@ -2420,7 +2428,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           PlaybackVideoGraphWrapper.Listener,
           SurfaceHolderHardwareBufferFrameQueue.Listener,
           CompositionVideoPacketReleaseControl.Listener,
-          SurfaceHolderFrameWriter.Listener {
+          SurfaceHolderFrameWriter.Listener,
+          FrameProcessor.Listener {
 
     // AudioFocusManager.PlayerControl methods. Called on the application thread.
 
@@ -2563,6 +2572,20 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   videoFrameProcessingException,
                   PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
     }
+
+    // FrameProcessor.Listener methods
+
+    @Override
+    public void onWakeup() {
+      // TODO: b/517459813 - Wake up the renderers.
+    }
+
+    @Override
+    public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+      if (SDK_INT >= 26 && videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.onFrameProcessed(frame, onCompleteFence);
+      }
+    }
   }
 
   // TODO: b/510766403 - Remove once PacketConsumer entrypoint is removed.
@@ -2573,11 +2596,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           RenderingPacketConsumer<ImmutableList<HardwareBufferFrame>, HardwareBufferFrameQueue>
               packetProcessor) {
     if (SDK_INT >= 26 && packetProcessor != null) {
-      return output -> {
+      return (output, listenerExecutor, listener) -> {
         HardwareBufferFrameQueue adaptedQueue =
             new FrameWriterToHardwareBufferFrameQueueAdapter(output);
         packetProcessor.setRenderOutput(adaptedQueue);
-        return new PacketConsumerToFrameProcessorAdapter(packetProcessor);
+        return new PacketConsumerToFrameProcessorAdapter(
+            packetProcessor, listenerExecutor, listener);
       };
     }
     return null;
@@ -2591,8 +2615,31 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (SDK_INT >= 26 && packetConsumerFactory != null) {
       PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer =
           packetConsumerFactory.create();
-      return output -> new PacketConsumerToFrameProcessorAdapter(packetConsumer);
+      return (output, listenerExecutor, listener) ->
+          new PacketConsumerToFrameProcessorAdapter(packetConsumer, listenerExecutor, listener);
     }
     return null;
+  }
+
+  private static final class HandlerExecutor implements Executor {
+    private final HandlerWrapper handler;
+    private final InternalListener internalListener;
+
+    private HandlerExecutor(HandlerWrapper handler, InternalListener internalListener) {
+      this.handler = handler;
+      this.internalListener = internalListener;
+    }
+
+    @Override
+    public void execute(Runnable command) {
+      handler.post(
+          () -> {
+            try {
+              command.run();
+            } catch (RuntimeException e) {
+              internalListener.onError(e);
+            }
+          });
+    }
   }
 }

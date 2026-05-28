@@ -23,8 +23,10 @@ import androidx.media3.common.C;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -53,8 +55,31 @@ public class FakeFrameProcessor implements FrameProcessor {
     }
 
     @Override
+    public FakeFrameProcessor create(
+        FrameWriter output, Executor listenerExecutor, Listener listener) {
+      createdProcessor =
+          new FakeFrameProcessor(output, listenerExecutor, listener, shouldCompleteIncomingFrames);
+      return createdProcessor;
+    }
+
+    /** Helper create method for tests that don't need to specify listener. */
     public FakeFrameProcessor create(FrameWriter output) {
-      createdProcessor = new FakeFrameProcessor(output, shouldCompleteIncomingFrames);
+      createdProcessor =
+          new FakeFrameProcessor(
+              output,
+              /* listenerExecutor= */ Runnable::run,
+              new Listener() {
+                @Override
+                public void onWakeup() {}
+
+                @Override
+                public void onError(VideoFrameProcessingException exception) {}
+
+                @Override
+                public void onFrameProcessed(
+                    Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+              },
+              shouldCompleteIncomingFrames);
       return createdProcessor;
     }
   }
@@ -74,34 +99,37 @@ public class FakeFrameProcessor implements FrameProcessor {
   /** Marker class representing a {@link #signalEndOfStream()} call. */
   public static final class EosEvent implements Event {}
 
+  private final FrameWriter output;
+  private final Executor listenerExecutor;
+  private final Listener listener;
+
   /** All the frames and EOS events queued to this {@link FrameProcessor}. */
   private final List<Event> queuedEvents;
 
-  private final FrameWriter output;
   private final boolean shouldCompleteIncomingFrames;
 
-  @Nullable public FrameCompletionListener lastCompletionListener;
   @Nullable public List<AsyncFrame> lastFrames;
 
-  public FakeFrameProcessor(FrameWriter output, boolean shouldCompleteIncomingFrames) {
+  private FakeFrameProcessor(
+      FrameWriter output,
+      Executor listenerExecutor,
+      Listener listener,
+      boolean shouldCompleteIncomingFrames) {
     this.queuedEvents = new ArrayList<>();
     this.output = output;
+    this.listenerExecutor = listenerExecutor;
+    this.listener = listener;
     this.shouldCompleteIncomingFrames = shouldCompleteIncomingFrames;
   }
 
   @Override
-  public boolean queue(
-      List<AsyncFrame> frames,
-      Executor listenerExecutor,
-      Runnable wakeupListener,
-      FrameCompletionListener completionListener)
-      throws VideoFrameProcessingException {
+  public boolean queue(List<AsyncFrame> frames) {
     queuedEvents.add(new FramesEvent(frames));
-    this.lastCompletionListener = completionListener;
     this.lastFrames = frames;
     if (shouldCompleteIncomingFrames) {
       for (AsyncFrame asyncFrame : frames) {
-        listenerExecutor.execute(() -> completionListener.onFrameProcessed(asyncFrame.frame, null));
+        listenerExecutor.execute(
+            () -> listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null));
       }
     }
     return true;
@@ -144,5 +172,10 @@ public class FakeFrameProcessor implements FrameProcessor {
                   .collect(toImmutableList());
             })
         .collect(toImmutableList());
+  }
+
+  /** Simulates a video frame processing error by notifying the listener. */
+  public void triggerError(VideoFrameProcessingException exception) {
+    listenerExecutor.execute(() -> listener.onError(exception));
   }
 }

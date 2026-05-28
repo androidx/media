@@ -1543,11 +1543,12 @@ public final class Transformer {
     if (factory == null && localPacketProcessor != null) {
       if (SDK_INT >= 26) {
         factory =
-            output -> {
+            (output, listenerExecutor, listener) -> {
               HardwareBufferFrameQueue adaptedQueue =
                   new FrameWriterToHardwareBufferFrameQueueAdapter(output);
               localPacketProcessor.setRenderOutput(adaptedQueue);
-              return new PacketConsumerToFrameProcessorAdapter(localPacketProcessor);
+              return new PacketConsumerToFrameProcessorAdapter(
+                  localPacketProcessor, listenerExecutor, listener);
             };
       } else {
         throw new IllegalStateException("API 26+ required to use PacketProcessor in Transformer");

@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -45,6 +44,7 @@ import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.GlTextureFrameRenderer;
@@ -56,7 +56,10 @@ import androidx.media3.transformer.Codec.EncoderFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -83,8 +86,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private final LogSessionId logSessionId;
   @Nullable private final BitmapToHardwareBufferProcessor hardwareBufferPostProcessor;
 
-  private final HandlerWrapper handlerWrapper;
   private final Queue<PendingQueueCall> pendingQueueCalls;
+  private final Map<Frame, HardwareBufferFrame> inFlightFrames;
   private boolean hasPendingEos;
   private int outputRotationDegrees;
 
@@ -128,8 +131,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.fallbackListener = fallbackListener;
     this.firstInputFormat = firstInputFormat;
     this.logSessionId = logSessionId;
-    this.handlerWrapper = handlerWrapper;
     this.pendingQueueCalls = new ArrayDeque<>();
+    this.inFlightFrames = new HashMap<>();
     finalFramePresentationTimeUs = C.TIME_UNSET;
     lastMuxerInputBufferTimestampUs = C.TIME_UNSET;
     encoderOutputBuffer =
@@ -140,6 +143,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     PacketConsumerVideoSampleExporter thisRef = this;
 
     ComponentListener componentListener = new ComponentListener();
+    Executor listenerExecutor = new HandlerExecutor(handlerWrapper, componentListener);
 
     // TODO: b/484926720 - add executor to the Listener callbacks.
     if (SDK_INT >= 33) {
@@ -176,7 +180,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } else {
       throw new UnsupportedOperationException();
     }
-    frameProcessor = frameProcessorFactory.create(frameWriter);
+    frameProcessor =
+        frameProcessorFactory.create(
+            frameWriter, listenerExecutor, /* listener= */ componentListener);
     if (hardwareBufferJniWrapper != null) {
       hardwareBufferPostProcessor =
           new BitmapToHardwareBufferProcessor(
@@ -381,7 +387,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private final class ComponentListener
-      implements PacketConsumerHardwareBufferFrameQueue.Listener, EncoderFrameWriter.Listener {
+      implements PacketConsumerHardwareBufferFrameQueue.Listener,
+          EncoderFrameWriter.Listener,
+          FrameProcessor.Listener {
 
     @Override
     public SurfaceInfo getRendererSurfaceInfo(Format format) throws VideoFrameProcessingException {
@@ -452,6 +460,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void onError(VideoFrameProcessingException e) {
       errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
     }
+
+    // FrameProcessor.Listener methods
+
+    @Override
+    public void onWakeup() {
+      drainPendingQueueCalls();
+    }
+
+    @Override
+    public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+      checkNotNull(inFlightFrames.remove(frame)).release(releaseFence);
+    }
   }
 
   private void drainPendingQueueCalls() {
@@ -460,30 +480,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (call == null) {
         break;
       }
-      try {
-        boolean queued =
-            frameProcessor.queue(
-                call.asyncFrames,
-                directExecutor(),
-                () -> handlerWrapper.post(this::drainPendingQueueCalls),
-                (frame, fence) -> {
-                  checkArgument(frame instanceof DefaultHardwareBufferFrame);
-                  HardwareBuffer hardwareBuffer =
-                      ((DefaultHardwareBufferFrame) frame).getHardwareBuffer();
-                  for (HardwareBufferFrame effectFrameToRelease : call.hardwareBufferFrames) {
-                    if (effectFrameToRelease.hardwareBuffer == hardwareBuffer) {
-                      effectFrameToRelease.release(fence);
-                      break;
-                    }
-                  }
-                });
-        if (queued) {
-          pendingQueueCalls.poll();
-        } else {
-          break;
+      boolean queued = frameProcessor.queue(call.asyncFrames);
+      if (queued) {
+        for (int i = 0; i < call.asyncFrames.size(); i++) {
+          inFlightFrames.put(call.asyncFrames.get(i).frame, call.hardwareBufferFrames.get(i));
         }
-      } catch (VideoFrameProcessingException e) {
-        errorConsumer.accept(ExportException.createForVideoFrameProcessingException(e));
+        pendingQueueCalls.poll();
+      } else {
         break;
       }
     }
@@ -523,6 +526,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         ImmutableList<HardwareBufferFrame> hardwareBufferFrames) {
       this.asyncFrames = asyncFrames;
       this.hardwareBufferFrames = hardwareBufferFrames;
+    }
+  }
+
+  private static final class HandlerExecutor implements Executor {
+    private final HandlerWrapper handler;
+    private final ComponentListener componentListener;
+
+    private HandlerExecutor(HandlerWrapper handler, ComponentListener componentListener) {
+      this.handler = handler;
+      this.componentListener = componentListener;
+    }
+
+    @Override
+    public void execute(Runnable command) {
+      handler.post(
+          () -> {
+            try {
+              command.run();
+            } catch (RuntimeException e) {
+              componentListener.onError(VideoFrameProcessingException.from(e));
+            }
+          });
     }
   }
 }

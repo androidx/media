@@ -20,18 +20,16 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import android.hardware.HardwareBuffer;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.DefaultHardwareBufferFrame;
 import androidx.media3.common.video.Frame;
 import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.HardwareBufferFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -40,7 +38,10 @@ import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 // TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
@@ -59,6 +60,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final Listener listener;
   // Accessed on the playback thread only.
   private int currentStreamDiscontinuityNumber;
+  private final Map<Frame, HardwareBufferFrame> inFlightFrames;
 
   /** Listener for {@link CompositionVideoPacketReleaseControl} events. */
   public interface Listener {
@@ -93,6 +95,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     this.downstreamFrameProcessor = downstreamFrameProcessor;
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
+    inFlightFrames = Collections.synchronizedMap(new HashMap<>());
     // Allow the first frame to be rendered before playback starts.
     videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
   }
@@ -202,6 +205,11 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     videoFrameReleaseControl.onStopped();
   }
 
+  /** Called when a frame has been fully processed by the downstream {@link FrameProcessor}. */
+  public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper releaseFence) {
+    checkNotNull(inFlightFrames.remove(frame)).release(releaseFence);
+  }
+
   /**
    * {@linkplain HardwareBufferFrame#release Releases} all frames that have not been sent
    * downstream, and {@link VideoFrameReleaseControl#reset() resets} the release control.
@@ -264,6 +272,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private boolean setReleaseTimeAndQueueDownstream(
       ImmutableList<HardwareBufferFrame> packet, long releaseTimeNs) {
     ImmutableList.Builder<AsyncFrame> asyncFrameListBuilder = ImmutableList.builder();
+    Map<Frame, HardwareBufferFrame> pendingInFlightFrames = new HashMap<>();
     for (int i = 0; i < packet.size(); i++) {
       HardwareBufferFrame effectFrame = packet.get(i);
       ImmutableMap.Builder<String, Object> metadataBuilder =
@@ -285,29 +294,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
               .build();
 
       asyncFrameListBuilder.add(new AsyncFrame(commonFrame, effectFrame.acquireFence));
+      pendingInFlightFrames.put(commonFrame, effectFrame);
     }
 
-    try {
-      return downstreamFrameProcessor.queue(
-          asyncFrameListBuilder.build(),
-          /* listenerExecutor= */ directExecutor(),
-          /* wakeupListener= */ () -> {},
-          /* completionListener= */ (frame, fence) -> {
-            if (frame instanceof DefaultHardwareBufferFrame) {
-              DefaultHardwareBufferFrame hbFrame = (DefaultHardwareBufferFrame) frame;
-              HardwareBuffer hardwareBuffer = hbFrame.getHardwareBuffer();
-              for (int i = 0; i < packet.size(); i++) {
-                HardwareBufferFrame effectFrameToRelease = packet.get(i);
-                if (effectFrameToRelease.hardwareBuffer == hardwareBuffer) {
-                  effectFrameToRelease.release(fence);
-                  break;
-                }
-              }
-            }
-          });
-    } catch (VideoFrameProcessingException e) {
-      listener.onError(e);
-      return false;
+    boolean queued = downstreamFrameProcessor.queue(asyncFrameListBuilder.build());
+    if (queued) {
+      inFlightFrames.putAll(pendingInFlightFrames);
     }
+    return queued;
   }
 }

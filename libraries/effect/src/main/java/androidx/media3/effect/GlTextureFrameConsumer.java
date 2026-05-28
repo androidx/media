@@ -35,6 +35,7 @@ public interface GlTextureFrameConsumer extends AutoCloseable {
   }
 
   // TODO: b/505721737 - Consider extending to multiple frame input for compositor implementation.
+  // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
   /**
    * Attempts to queue a frame for processing.
    *

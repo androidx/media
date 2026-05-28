@@ -247,9 +247,10 @@ public final class TranscodeQualityTest {
           DefaultHardwareBufferEffectsPipeline.create(context, HardwareBufferJni.INSTANCE);
       return NdkTransformerBuilder.create(context)
           .setFrameProcessorFactory(
-              output -> {
+              (output, listenerExecutor, listener) -> {
                 pipeline.setRenderOutput(new FrameWriterToHardwareBufferFrameQueueAdapter(output));
-                return new PacketConsumerToFrameProcessorAdapter(pipeline);
+                return new PacketConsumerToFrameProcessorAdapter(
+                    pipeline, listenerExecutor, listener);
               });
     }
     return new Transformer.Builder(context);

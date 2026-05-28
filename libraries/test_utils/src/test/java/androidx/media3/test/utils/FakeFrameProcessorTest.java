@@ -19,9 +19,10 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameProcessor.FrameCompletionListener;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -47,35 +48,11 @@ public final class FakeFrameProcessorTest {
   }
 
   @Test
-  public void queue_addsFramesEventAndStoresListeners() throws Exception {
-    TestFrameWriter frameWriter = new TestFrameWriter();
-    FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
-    ImmutableList<AsyncFrame> frames = ImmutableList.of();
-    FrameCompletionListener completionListener = (frame, fence) -> {};
-
-    boolean result =
-        processor.queue(
-            frames,
-            /* listenerExecutor= */ Runnable::run,
-            /* wakeupListener= */ () -> {},
-            completionListener);
-
-    assertThat(result).isTrue();
-    assertThat(processor.lastFrames).isSameInstanceAs(frames);
-    assertThat(processor.lastCompletionListener).isSameInstanceAs(completionListener);
-
-    ImmutableList<FakeFrameProcessor.Event> events = processor.getQueuedEvents();
-    assertThat(events).hasSize(1);
-    assertThat(events.get(0)).isInstanceOf(FakeFrameProcessor.FramesEvent.class);
-    assertThat(((FakeFrameProcessor.FramesEvent) events.get(0)).frames).isSameInstanceAs(frames);
-  }
-
-  @Test
   public void signalEndOfStream_addsEosEventAndSignalsOutput() {
     TestFrameWriter frameWriter = new TestFrameWriter();
     FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
+            .create(frameWriter);
 
     processor.signalEndOfStream();
 
@@ -86,18 +63,14 @@ public final class FakeFrameProcessorTest {
   }
 
   @Test
-  public void queueAndSignalEndOfStream_maintainsOrder() throws Exception {
+  public void queueAndSignalEndOfStream_maintainsOrder() {
     TestFrameWriter frameWriter = new TestFrameWriter();
     FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
+            .create(frameWriter);
     ImmutableList<AsyncFrame> frames = ImmutableList.of();
 
-    boolean queued =
-        processor.queue(
-            frames,
-            /* listenerExecutor= */ Runnable::run,
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (frame, fence) -> {});
+    boolean queued = processor.queue(frames);
     processor.signalEndOfStream();
 
     assertThat(queued).isTrue();
@@ -111,7 +84,8 @@ public final class FakeFrameProcessorTest {
   public void close_doesNotThrow() {
     TestFrameWriter frameWriter = new TestFrameWriter();
     FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
+            .create(frameWriter);
 
     // Should complete without exceptions.
     processor.close();
@@ -120,37 +94,36 @@ public final class FakeFrameProcessorTest {
   @Test
   public void queue_multipleTimes_updatesLastFieldsAndAddsMultipleEvents() throws Exception {
     TestFrameWriter frameWriter = new TestFrameWriter();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
     FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ false);
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
+            .create(frameWriter, Runnable::run, listener);
 
     // First queue call
     AsyncFrame frame1 = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames1 = ImmutableList.of(frame1);
-    FrameCompletionListener listener1 = (frame, fence) -> {};
 
-    boolean queued1 =
-        processor.queue(
-            frames1,
-            /* listenerExecutor= */ Runnable::run,
-            /* wakeupListener= */ () -> {},
-            listener1);
+    boolean queued1 = processor.queue(frames1);
 
     // Second queue call
     AsyncFrame frame2 = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames2 = ImmutableList.of(frame2);
-    FrameCompletionListener listener2 = (frame, fence) -> {};
 
-    boolean queued2 =
-        processor.queue(
-            frames2,
-            /* listenerExecutor= */ Runnable::run,
-            /* wakeupListener= */ () -> {},
-            listener2);
+    boolean queued2 = processor.queue(frames2);
 
     assertThat(queued1).isTrue();
     assertThat(queued2).isTrue();
     assertThat(processor.lastFrames).isSameInstanceAs(frames2);
-    assertThat(processor.lastCompletionListener).isSameInstanceAs(listener2);
 
     ImmutableList<FakeFrameProcessor.Event> events = processor.getQueuedEvents();
     assertThat(events).hasSize(2);
@@ -161,25 +134,57 @@ public final class FakeFrameProcessorTest {
   @Test
   public void queue_withCompleteIncomingFramesTrue_invokesCompletionListener() throws Exception {
     TestFrameWriter frameWriter = new TestFrameWriter();
+    boolean[] listenerInvoked = new boolean[1];
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+            listenerInvoked[0] = true;
+          }
+        };
     FakeFrameProcessor processor =
-        new FakeFrameProcessor(frameWriter, /* shouldCompleteIncomingFrames= */ true);
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ true)
+            .create(frameWriter, Runnable::run, listener);
     AsyncFrame frame = new AsyncFrame(/* frame= */ null, /* acquireFence= */ null);
     ImmutableList<AsyncFrame> frames = ImmutableList.of(frame);
-    boolean[] listenerInvoked = new boolean[1];
-    FrameCompletionListener completionListener =
-        (f, fence) -> {
-          listenerInvoked[0] = true;
-        };
 
-    boolean queued =
-        processor.queue(
-            frames,
-            /* listenerExecutor= */ Runnable::run,
-            /* wakeupListener= */ () -> {},
-            completionListener);
+    boolean queued = processor.queue(frames);
 
     assertThat(queued).isTrue();
     assertThat(listenerInvoked[0]).isTrue();
+  }
+
+  @Test
+  public void triggerError_invokesOnErrorListener() throws Exception {
+    TestFrameWriter frameWriter = new TestFrameWriter();
+    VideoFrameProcessingException[] exceptionHolder = new VideoFrameProcessingException[1];
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {
+            exceptionHolder[0] = exception;
+          }
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
+    FakeFrameProcessor processor =
+        new FakeFrameProcessor.Factory(/* shouldCompleteIncomingFrames= */ false)
+            .create(frameWriter, Runnable::run, listener);
+    VideoFrameProcessingException exception = new VideoFrameProcessingException("Test error");
+
+    processor.triggerError(exception);
+
+    assertThat(exceptionHolder[0]).isSameInstanceAs(exception);
   }
 
   /** A simple Fake {@link FrameWriter} for testing. */

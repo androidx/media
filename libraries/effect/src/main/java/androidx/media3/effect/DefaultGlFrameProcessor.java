@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A {@link FrameProcessor} implementation that executes a chain of {@link GlTextureFrameConsumer}s.
@@ -58,11 +57,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
 
   /** Converts from {@link HardwareBuffer} to {@link GlTextureFrame}. */
   interface HardwareBufferConverter extends AutoCloseable {
+
+    // TODO: b/517424999 - Unify the listeners to follow the same pattern as FrameProcessor.
     GlTextureFrame convert(
         HardwareBufferFrame hardwareBufferFrame,
         Executor glExecutor,
         Executor listenerExecutor,
-        FrameCompletionListener completionListener)
+        FrameProcessor.Listener listener)
         throws VideoFrameProcessingException;
 
     /**
@@ -71,8 +72,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
      * <p>Don't call this method if the {@linkplain #convert converted} {@link GlTextureFrame} is
      * accepted by a downstream {@link GlTextureFrameConsumer}.
      *
-     * <p>This releases associated resources without notifying the {@link FrameCompletionListener}
-     * that was passed in via {@link #convert}.
+     * <p>This releases associated resources without notifying the {@link
+     * FrameProcessor.Listener#onFrameProcessed} that was passed in via {@link #convert}.
      *
      * <p>This is used when a converted frame is rejected by downstream pipeline consumers,
      * preserving the underlying {@code HardwareBuffer} for subsequent queue retries.
@@ -89,11 +90,10 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     private final Context context;
     private final GlObjectsProvider glObjectsProvider;
     private final ListeningExecutorService glExecutorService;
-    private final HardwareBufferConverter hardwareBufferConverter;
-    private final Consumer<VideoFrameProcessingException> errorConsumer;
+    @Nullable private final HardwareBufferConverter hardwareBufferConverter;
 
-    @Nullable private HardwareBufferJniWrapper hardwareBufferJniWrapper;
-    private @MonotonicNonNull GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+    @Nullable private final HardwareBufferJniWrapper hardwareBufferJniWrapper;
+    @Nullable private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
 
     /**
      * Creates an instance.
@@ -106,15 +106,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
         Context context,
         GlObjectsProvider glObjectsProvider,
         HardwareBufferJniWrapper hardwareBufferJniWrapper,
-        ListeningExecutorService glExecutorService,
-        Consumer<VideoFrameProcessingException> errorConsumer) {
+        ListeningExecutorService glExecutorService) {
       this.context = context.getApplicationContext();
       this.glObjectsProvider = glObjectsProvider;
       this.hardwareBufferJniWrapper = hardwareBufferJniWrapper;
-      this.errorConsumer = errorConsumer;
       this.glExecutorService = glExecutorService;
-      hardwareBufferConverter =
-          new HardwareBufferToGlTextureConverter(context, hardwareBufferJniWrapper, errorConsumer);
+      hardwareBufferConverter = null;
+      frameWriterGlTextureFrameConsumer = null;
     }
 
     /**
@@ -135,25 +133,34 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       this.glExecutorService = glExecutorService;
       this.hardwareBufferConverter = hardwareBufferConverter;
       this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
-      errorConsumer =
-          (exception) -> {
-            throw new IllegalStateException(exception);
-          };
+      hardwareBufferJniWrapper = null;
     }
 
     @Override
-    public DefaultGlFrameProcessor create(FrameWriter frameWriter) {
+    public DefaultGlFrameProcessor create(
+        FrameWriter output, Executor listenerExecutor, FrameProcessor.Listener listener) {
+      GlTextureFrameConsumer frameWriterGlTextureFrameConsumer =
+          this.frameWriterGlTextureFrameConsumer;
       if (frameWriterGlTextureFrameConsumer == null && hardwareBufferJniWrapper != null) {
         frameWriterGlTextureFrameConsumer =
-            new FrameWriterGlTextureFrameConsumer(context, frameWriter, hardwareBufferJniWrapper);
+            new FrameWriterGlTextureFrameConsumer(context, output, hardwareBufferJniWrapper);
+      }
+      HardwareBufferConverter hardwareBufferConverter = this.hardwareBufferConverter;
+      if (hardwareBufferConverter == null && hardwareBufferJniWrapper != null) {
+        hardwareBufferConverter =
+            new HardwareBufferToGlTextureConverter(
+                context,
+                hardwareBufferJniWrapper,
+                e -> listenerExecutor.execute(() -> listener.onError(e)));
       }
       return new DefaultGlFrameProcessor(
           context,
           glExecutorService,
           glObjectsProvider,
-          hardwareBufferConverter,
+          checkNotNull(hardwareBufferConverter),
           checkNotNull(frameWriterGlTextureFrameConsumer),
-          errorConsumer);
+          listenerExecutor,
+          listener);
     }
   }
 
@@ -182,6 +189,8 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   private final GlObjectsProvider glObjectsProvider;
   private final HardwareBufferConverter hardwareBufferConverter;
   private final GlTextureFrameConsumer frameWriterGlTextureFrameConsumer;
+  private final Executor listenerExecutor;
+  private final FrameProcessor.Listener listener;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
   // Accessed on the OpenGL thread.
   private final List<GlTextureFrameProcessor> effectProcessorChain;
@@ -196,10 +205,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       GlObjectsProvider glObjectsProvider,
       HardwareBufferConverter hardwareBufferConverter,
       GlTextureFrameConsumer frameWriterGlTextureFrameConsumer,
-      Consumer<VideoFrameProcessingException> errorConsumer) {
+      Executor listenerExecutor,
+      FrameProcessor.Listener listener) {
     this.context = context;
     this.glObjectsProvider = glObjectsProvider;
-    this.errorConsumer = errorConsumer;
+    this.listenerExecutor = listenerExecutor;
+    this.listener = listener;
+    this.errorConsumer = e -> listenerExecutor.execute(() -> listener.onError(e));
     this.glExecutorService = glExecutorService;
     this.hardwareBufferConverter = hardwareBufferConverter;
     this.frameWriterGlTextureFrameConsumer = frameWriterGlTextureFrameConsumer;
@@ -209,18 +221,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   @Override
-  public boolean queue(
-      List<AsyncFrame> frames,
-      Executor listenerExecutor,
-      Runnable wakeupListener,
-      FrameCompletionListener completionListener) {
+  public boolean queue(List<AsyncFrame> frames) {
     checkArgument(!frames.isEmpty());
     // TODO: b/505721737 - Don't block the calling thread for result.
     CompletableFuture<Boolean> queueResult = new CompletableFuture<>();
     submitToGlExecutor(
         () -> {
-          queueFramesInternal(
-              frames, queueResult, listenerExecutor, wakeupListener, completionListener);
+          queueFramesInternal(frames, queueResult);
           return null;
         });
 
@@ -233,7 +240,7 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
       if (e instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
-      errorConsumer.accept(VideoFrameProcessingException.from(e));
+      listenerExecutor.execute(() -> listener.onError(VideoFrameProcessingException.from(e)));
       return false;
     }
   }
@@ -267,19 +274,14 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
   }
 
   /** The method runs on the GL thread. */
-  private void queueFramesInternal(
-      List<AsyncFrame> frames,
-      CompletableFuture<Boolean> queueResult,
-      Executor listenerExecutor,
-      Runnable wakeupListener,
-      FrameCompletionListener completionListener)
+  private void queueFramesInternal(List<AsyncFrame> frames, CompletableFuture<Boolean> queueResult)
       throws VideoFrameProcessingException {
     for (int i = 1; i < frames.size(); i++) {
       // TODO: b/337107769 - Support multiple input frames.
       AsyncFrame asyncFrame = frames.get(i);
       boolean unused = waitAndCloseFence(asyncFrame);
       listenerExecutor.execute(
-          () -> completionListener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null));
+          () -> listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null));
     }
 
     AsyncFrame asyncFrame = frames.get(0);
@@ -293,13 +295,13 @@ public final class DefaultGlFrameProcessor implements FrameProcessor {
     HardwareBufferFrame hardwareBufferFrame = (HardwareBufferFrame) frame;
     GlTextureFrame glTextureFrame =
         hardwareBufferConverter.convert(
-            hardwareBufferFrame, glExecutorService, listenerExecutor, completionListener);
+            hardwareBufferFrame, glExecutorService, listenerExecutor, listener);
 
     boolean queued =
         firstGlTextureFrameConsumer.queue(
             glTextureFrame,
-            /* listenerExecutor= */ glExecutorService,
-            /* wakeupListener= */ wakeupListener);
+            /* listenerExecutor= */ listenerExecutor,
+            /* wakeupListener= */ listener::onWakeup);
     if (!queued) {
       // If the frame is not queued, the same frame will be queued again and hence converted again.
       // Releasing the allocated GL resources to prevent leaking.

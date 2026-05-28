@@ -25,18 +25,24 @@ import java.util.concurrent.Executor;
 @ExperimentalApi // TODO: b/498176910 Remove once FrameProcessor is production ready.
 public interface FrameProcessor extends AutoCloseable {
 
-  /** Factory for FrameProcessor instances. */
-  interface Factory {
-
-    /** Creates a {@link FrameProcessor} that sends frames to the given {@link FrameWriter}. */
-    FrameProcessor create(FrameWriter output);
-  }
-
-  /** A listener for frame completion events. */
-  interface FrameCompletionListener {
+  /** Listener for {@link FrameProcessor} events. */
+  interface Listener {
 
     /**
-     * Called when a frame has been fully processed.
+     * Notifies the {@link Listener} that the {@link FrameProcessor} is ready for {@link #queue} to
+     * be called again.
+     */
+    void onWakeup();
+
+    /**
+     * Notifies the {@link Listener} that an exception has occurred during frame processing.
+     *
+     * @param exception The {@link VideoFrameProcessingException}.
+     */
+    void onError(VideoFrameProcessingException exception);
+
+    /**
+     * Notifies the {@link Listener} that a frame has been fully processed.
      *
      * @param frame The queued {@link Frame}.
      * @param onCompleteFence A {@link SyncFenceWrapper} that will signal when the processor has
@@ -45,37 +51,36 @@ public interface FrameProcessor extends AutoCloseable {
     void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence);
   }
 
+  /** Factory for FrameProcessor instances. */
+  interface Factory {
+
+    /**
+     * Creates a {@link FrameProcessor} that sends frames to the given {@link FrameWriter}.
+     *
+     * @param output The {@link FrameWriter} to which the {@link FrameProcessor} outputs.
+     * @param listenerExecutor The {@link Executor} on which the {@code listener} is invoked.
+     * @param listener A {@link Listener} to be invoked for {@link FrameProcessor} events.
+     */
+    FrameProcessor create(FrameWriter output, Executor listenerExecutor, Listener listener);
+  }
+
   /**
    * Attempts to queue a {@link List} of {@linkplain AsyncFrame frames} for processing.
    *
    * <p>All frames provided in a single invocation of this method represent the exact same point in
    * time.
    *
-   * <p>If this consumer is at capacity, this method returns {@code false} and the {@code
-   * wakeupListener} will be invoked on the {@code listenerExecutor} when capacity becomes
-   * available.
+   * <p>If this consumer is at capacity, this method returns {@code false} and the {@link
+   * Listener#onWakeup()} will be invoked when capacity becomes available.
    *
-   * <p>Only the most recent {@code wakeupListener} will be notified when capacity is available.
-   *
-   * <p>If this method returns {@code true}, the {@code completionListener} must be called on the
-   * {@code listenerExecutor} once for every input {@link AsyncFrame#frame} queued in {@code
-   * frames}.
+   * <p>If this method returns {@code true}, {@link FrameProcessor.Listener#onFrameProcessed} must
+   * be called once with every input {@link AsyncFrame#frame} instance queued, once the {@link
+   * FrameProcessor} has finished processing the {@code frames}.
    *
    * @param frames The frames to queue.
-   * @param listenerExecutor The {@link Executor} on which the {@code wakeupListener} and {@code
-   *     completionListener} are invoked.
-   * @param wakeupListener A {@link Runnable} to be invoked when capacity becomes available.
-   * @param completionListener A {@link FrameCompletionListener} to be invoked when the frame has
-   *     been processed.
    * @return {@code true} if the frames were queued, {@code false} if the consumer is at capacity.
-   * @throws VideoFrameProcessingException If processing fails.
    */
-  boolean queue(
-      List<AsyncFrame> frames,
-      Executor listenerExecutor,
-      Runnable wakeupListener,
-      FrameCompletionListener completionListener)
-      throws VideoFrameProcessingException;
+  boolean queue(List<AsyncFrame> frames);
 
   /**
    * Notifies this processor that the current stream has ended.

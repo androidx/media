@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.ExperimentalApi;
@@ -51,13 +50,17 @@ public final class PacketConsumerToFrameProcessorAdapter implements FrameProcess
   private final ExecutorService executorService;
 
   private volatile @MonotonicNonNull Exception pendingException;
-  @Nullable private volatile Runnable pendingWakeupListener;
-  @Nullable private volatile Executor pendingWakeupExecutor;
+  private final Executor listenerExecutor;
+  private final Listener listener;
 
   @SuppressWarnings("nullness:methodref.receiver.bound.invalid") // "this" reference
   public PacketConsumerToFrameProcessorAdapter(
-      PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer) {
+      PacketConsumer<ImmutableList<HardwareBufferFrame>> packetConsumer,
+      Executor listenerExecutor,
+      Listener listener) {
     this.packetConsumer = packetConsumer;
+    this.listenerExecutor = listenerExecutor;
+    this.listener = listener;
     this.executorService =
         Util.newSingleThreadExecutor("PacketConsumerToFrameProcessorAdapter::Thread");
     this.packetConsumerCaller =
@@ -66,20 +69,10 @@ public final class PacketConsumerToFrameProcessorAdapter implements FrameProcess
   }
 
   @Override
-  public boolean queue(
-      List<AsyncFrame> frames,
-      Executor listenerExecutor,
-      Runnable wakeupListener,
-      FrameCompletionListener completionListener)
-      throws VideoFrameProcessingException {
-
-    Exception exception = pendingException;
-    if (exception != null) {
-      throw VideoFrameProcessingException.from(exception);
+  public boolean queue(List<AsyncFrame> frames) {
+    if (pendingException != null) {
+      return false;
     }
-
-    this.pendingWakeupListener = wakeupListener;
-    this.pendingWakeupExecutor = listenerExecutor;
 
     ImmutableList.Builder<HardwareBufferFrame> frameListBuilder = ImmutableList.builder();
     for (AsyncFrame asyncFrame : frames) {
@@ -95,7 +88,7 @@ public final class PacketConsumerToFrameProcessorAdapter implements FrameProcess
               directExecutor(),
               releaseFence ->
                   listenerExecutor.execute(
-                      () -> completionListener.onFrameProcessed(asyncFrame.frame, releaseFence)));
+                      () -> listener.onFrameProcessed(asyncFrame.frame, releaseFence)));
 
       effectFrameBuilder.setPresentationTimeUs(hardwareBufferFrame.getContentTimeUs());
 
@@ -147,11 +140,8 @@ public final class PacketConsumerToFrameProcessorAdapter implements FrameProcess
   private void onException(Exception exception) {
     if (pendingException == null) {
       pendingException = exception;
-      Runnable wakeupListener = pendingWakeupListener;
-      Executor wakeupExecutor = pendingWakeupExecutor;
-      if (wakeupListener != null && wakeupExecutor != null) {
-        wakeupExecutor.execute(wakeupListener);
-      }
+      listenerExecutor.execute(
+          () -> listener.onError(VideoFrameProcessingException.from(exception)));
     }
   }
 }

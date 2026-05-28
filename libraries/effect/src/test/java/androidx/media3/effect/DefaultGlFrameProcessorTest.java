@@ -27,10 +27,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.AsyncFrame;
 import androidx.media3.common.video.Frame;
-import androidx.media3.common.video.FrameProcessor.FrameCompletionListener;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.FrameWriter;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
@@ -76,7 +77,20 @@ public final class DefaultGlFrameProcessorTest {
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
-            .create(frameWriter);
+            .create(
+                frameWriter,
+                /* listenerExecutor= */ Runnable::run,
+                new FrameProcessor.Listener() {
+                  @Override
+                  public void onWakeup() {}
+
+                  @Override
+                  public void onError(VideoFrameProcessingException exception) {}
+
+                  @Override
+                  public void onFrameProcessed(
+                      Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+                });
     assertThat(processor).isNotNull();
   }
 
@@ -97,11 +111,7 @@ public final class DefaultGlFrameProcessorTest {
             ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
 
     boolean frameQueued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
 
     assertThat(frameQueued).isTrue();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
@@ -127,10 +137,7 @@ public final class DefaultGlFrameProcessorTest {
 
     boolean frame1Queued =
         processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithEffect1, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+            ImmutableList.of(new AsyncFrame(frameWithEffect1, /* acquireFence= */ null)));
 
     assertThat(frame1Queued).isTrue();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
@@ -143,10 +150,7 @@ public final class DefaultGlFrameProcessorTest {
 
     boolean frame2Queued =
         processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithoutEffect, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+            ImmutableList.of(new AsyncFrame(frameWithoutEffect, /* acquireFence= */ null)));
 
     assertThat(frame2Queued).isTrue();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(2);
@@ -161,10 +165,7 @@ public final class DefaultGlFrameProcessorTest {
 
     boolean frame3Queued =
         processor.queue(
-            ImmutableList.of(new AsyncFrame(frameWithEffect2, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+            ImmutableList.of(new AsyncFrame(frameWithEffect2, /* acquireFence= */ null)));
 
     assertThat(frame3Queued).isTrue();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(3);
@@ -191,15 +192,33 @@ public final class DefaultGlFrameProcessorTest {
     Frame frame2 = new FakeHardwareBufferFrame(ImmutableMap.of());
 
     List<Frame> completedFrames = new ArrayList<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+            completedFrames.add(frame);
+          }
+        };
+    if (processor != null) {
+      processor.close();
+    }
+    processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener);
+
     boolean framesQueued =
         processor.queue(
             ImmutableList.of(
                 new AsyncFrame(frame0, /* acquireFence= */ null),
                 new AsyncFrame(frame1, /* acquireFence= */ null),
-                new AsyncFrame(frame2, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> completedFrames.add(f));
+                new AsyncFrame(frame2, /* acquireFence= */ null)));
 
     assertThat(framesQueued).isTrue();
     // frame0 comes last because frames 1 and 2 are released before processing frame0
@@ -225,12 +244,29 @@ public final class DefaultGlFrameProcessorTest {
             ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
 
     List<Frame> completedFrames = new ArrayList<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {}
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+            completedFrames.add(frame);
+          }
+        };
+    if (processor != null) {
+      processor.close();
+    }
+    processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener);
+
     boolean frameQueued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> completedFrames.add(f));
+        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
 
     assertThat(frameQueued).isTrue();
     assertThat(completedFrames).containsExactly(frame).inOrder();
@@ -254,23 +290,36 @@ public final class DefaultGlFrameProcessorTest {
         new FakeHardwareBufferFrame(
             ImmutableMap.of(DefaultGlFrameProcessor.KEY_EFFECTS, ImmutableList.of(fakeEffect)));
 
+    ArrayList<Boolean> wakeupNotified = new ArrayList<>();
+    FrameProcessor.Listener listener =
+        new FrameProcessor.Listener() {
+          @Override
+          public void onWakeup() {
+            wakeupNotified.add(true);
+          }
+
+          @Override
+          public void onError(VideoFrameProcessingException exception) {}
+
+          @Override
+          public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {}
+        };
+    if (processor != null) {
+      processor.close();
+    }
+    processor =
+        new DefaultGlFrameProcessor.Factory(
+                context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
+            .create(frameWriter, directExecutor(), listener);
+
     boolean frame1Queued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+        processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null)));
 
     assertThat(frame1Queued).isTrue();
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
 
-    ArrayList<Boolean> wakeupNotified = new ArrayList<>();
     boolean frame2Queued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> wakeupNotified.add(true),
-            /* completionListener= */ (f, fence) -> {});
+        processor.queue(ImmutableList.of(new AsyncFrame(frame2, /* acquireFence= */ null)));
 
     assertThat(frame2Queued).isFalse();
     assertThat(wakeupNotified).isEmpty();
@@ -295,11 +344,7 @@ public final class DefaultGlFrameProcessorTest {
     Frame frame = new FakeHardwareBufferFrame(ImmutableMap.of());
 
     boolean frameQueued =
-        processor.queue(
-            ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)),
-            /* listenerExecutor= */ directExecutor(),
-            /* wakeupListener= */ () -> {},
-            /* completionListener= */ (f, fence) -> {});
+        processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
 
     assertThat(frameQueued).isFalse();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
@@ -354,7 +399,7 @@ public final class DefaultGlFrameProcessorTest {
         HardwareBufferFrame hardwareBufferFrame,
         Executor glExecutor,
         Executor listenerExecutor,
-        FrameCompletionListener completionListener) {
+        FrameProcessor.Listener listener) {
       framesReceived++;
       return new GlTextureFrame.Builder(
               new GlTextureInfo(
@@ -365,10 +410,10 @@ public final class DefaultGlFrameProcessorTest {
                   /* height= */ 100),
               /* releaseTextureExecutor= */ directExecutor(),
               /* releaseTextureCallback= */ info -> {
-                if (completionListener != null) {
+                if (listener != null) {
                   listenerExecutor.execute(
                       () ->
-                          completionListener.onFrameProcessed(
+                          listener.onFrameProcessed(
                               hardwareBufferFrame, /* onCompleteFence= */ null));
                 }
               })

@@ -40,7 +40,7 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.video.FrameProcessor.FrameCompletionListener;
+import androidx.media3.common.video.FrameProcessor;
 import androidx.media3.common.video.HardwareBufferFrame;
 import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.FrameProcessorUtils.EglImageTextureWrapper;
@@ -79,7 +79,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       HardwareBufferFrame hardwareBufferFrame,
       Executor glExecutor,
       Executor listenerExecutor,
-      FrameCompletionListener completionListener)
+      FrameProcessor.Listener listener)
       throws VideoFrameProcessingException {
 
     HardwareBuffer hardwareBuffer = checkNotNull(hardwareBufferFrame.getHardwareBuffer());
@@ -177,7 +177,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 // TODO: b/505721737 - The input should be released only after writing to the
                 //  output surface, in previewing.
                 listenerExecutor.execute(
-                    () -> completionListener.onFrameProcessed(hardwareBufferFrame, glReadFence));
+                    () -> listener.onFrameProcessed(hardwareBufferFrame, glReadFence));
               } catch (GlException e) {
                 errorConsumer.accept(VideoFrameProcessingException.from(e));
               }

@@ -20,6 +20,7 @@ import static androidx.media3.effect.HardwareBufferFrame.END_OF_STREAM_FRAME;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.hardware.HardwareBuffer;
@@ -579,10 +580,73 @@ public class CompositionVideoPacketReleaseControlTest {
     AsyncFrame asyncFrame = frameProcessor.lastFrames.get(0);
     assertThat(releasedFrameTimestamps).isEmpty();
 
-    checkNotNull(frameProcessor.lastCompletionListener)
-        .onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame.frame, /* releaseFence= */ null);
 
     assertThat(releasedFrameTimestamps).containsExactly(100_000L);
+  }
+
+  @Test
+  public void onFrameProcessed_multipleFramesInFlight_releasesInOrderAndOutOfOrder()
+      throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet1 =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    ImmutableList<HardwareBufferFrame> packet2 =
+        createPacket(/* presentationTimeUs= */ 200_000, /* sequencePresentationTimeUs= */ 200_000);
+
+    compositionVideoPacketReleaseControl.queue(packet1);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    fakeClock.advanceTime(/* timeDiffMs= */ 100);
+    compositionVideoPacketReleaseControl.queue(packet2);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 200_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    assertThat(releasedFrameTimestamps).isEmpty();
+
+    ImmutableList<FakeFrameProcessor.Event> events = frameProcessor.getQueuedEvents();
+    assertThat(events).hasSize(2);
+    AsyncFrame asyncFrame2 = ((FakeFrameProcessor.FramesEvent) events.get(1)).frames.get(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame2.frame, /* releaseFence= */ null);
+
+    assertThat(releasedFrameTimestamps).containsExactly(200_000L);
+
+    AsyncFrame asyncFrame1 = ((FakeFrameProcessor.FramesEvent) events.get(0)).frames.get(0);
+    compositionVideoPacketReleaseControl.onFrameProcessed(
+        asyncFrame1.frame, /* releaseFence= */ null);
+
+    assertThat(releasedFrameTimestamps).containsExactly(200_000L, 100_000L);
+  }
+
+  @Test
+  public void onFrameProcessed_nonMatchingFrame_doesNotRelease() throws Exception {
+    compositionVideoPacketReleaseControl.onStarted();
+    ImmutableList<HardwareBufferFrame> packet =
+        createPacket(/* presentationTimeUs= */ 100_000, /* sequencePresentationTimeUs= */ 100_000);
+    compositionVideoPacketReleaseControl.queue(packet);
+    compositionVideoPacketReleaseControl.onRender(
+        /* compositionTimePositionUs= */ 100_000,
+        /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
+
+    DefaultHardwareBufferFrame frame =
+        new DefaultHardwareBufferFrame.Builder(checkNotNull(placeholderBuffer))
+            .setFormat(new Format.Builder().build())
+            .setContentTimeUs(0)
+            .build();
+
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            compositionVideoPacketReleaseControl.onFrameProcessed(frame, /* releaseFence= */ null));
+    assertThat(releasedFrameTimestamps).isEmpty();
   }
 
   private ImmutableList<HardwareBufferFrame> createPacket(
