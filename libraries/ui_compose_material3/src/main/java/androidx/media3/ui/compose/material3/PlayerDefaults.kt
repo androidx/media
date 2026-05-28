@@ -30,10 +30,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.ErrorMessageProvider
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.material3.buttons.NextButton
@@ -44,6 +49,8 @@ import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
 import androidx.media3.ui.compose.material3.indicator.DurationText
 import androidx.media3.ui.compose.material3.indicator.PositionText
 import androidx.media3.ui.compose.material3.indicator.ProgressSlider
+import androidx.media3.ui.compose.material3.text.ErrorText
+import androidx.media3.ui.compose.material3.text.rememberDefaultErrorMessageProvider
 
 /**
  * Contains the default values used by [Player].
@@ -226,6 +233,37 @@ object PlayerDefaults {
         below(player)
       }
     }
+  }
+
+  /**
+   * A Composable for displaying an error message overlay on top of the player.
+   *
+   * @param player The [Player] instance to observe for errors.
+   * @param modifier The [Modifier] to be applied to the layout.
+   * @param color The [Color] of the error text.
+   * @param customErrorMessage An optional custom message to display permanently.
+   * @param errorMessageProvider An optional [ErrorMessageProvider] used to format the
+   *   [PlaybackException].
+   */
+  @Composable
+  fun ErrorOverlay(
+    player: Player?,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    customErrorMessage: CharSequence? = null,
+    errorMessageProvider: ErrorMessageProvider<PlaybackException>? =
+      rememberDefaultErrorMessageProvider(),
+  ) {
+    ErrorText(
+      player = player,
+      modifier =
+        modifier
+          .background(PlayerTokens.controlsBackgroundColor, RoundedCornerShape(4.dp))
+          .padding(8.dp),
+      color = color,
+      customErrorMessage = customErrorMessage,
+      errorMessageProvider = errorMessageProvider,
+    )
   }
 
   @Composable

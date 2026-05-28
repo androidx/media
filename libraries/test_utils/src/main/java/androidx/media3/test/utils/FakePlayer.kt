@@ -21,6 +21,7 @@ import androidx.media3.common.C
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
@@ -289,6 +290,24 @@ class FakePlayer(
    */
   fun setSeekForwardIncrementMs(seekForwardIncrementMs: Long) {
     state = state.buildUpon().setSeekForwardIncrementMs(seekForwardIncrementMs).build()
+    invalidateState()
+  }
+
+  /**
+   * Sets the last error that caused playback to fail.
+   *
+   * Note that the player's state must be [Player.STATE_IDLE] when an error is set. If an error is
+   * provided and the player is not currently in [Player.STATE_IDLE], this method will automatically
+   * update the playback state to [Player.STATE_IDLE].
+   *
+   * @param playerError The last error that caused playback to fail, or null if there is no error.
+   */
+  fun setPlayerError(playerError: PlaybackException?) {
+    val builder = state.buildUpon()
+    if (playerError != null) {
+      builder.setPlaybackState(STATE_IDLE)
+    }
+    state = builder.setPlayerError(playerError).build()
     invalidateState()
   }
 

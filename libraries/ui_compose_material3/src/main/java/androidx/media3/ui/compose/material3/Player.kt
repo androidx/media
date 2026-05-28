@@ -20,6 +20,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 import androidx.media3.ui.compose.SurfaceType
+import androidx.media3.ui.compose.material3.PlayerTokens.ErrorVerticalOffsetFromControls
 
 /**
  * A composable that provides a basic player UI layout with default controls and a shutter.
@@ -90,6 +92,8 @@ fun Player(player: Player?, modifier: Modifier = Modifier) {
  *   [showControls].
  * @param bottomControls A composable aligned with [Alignment.BottomCenter], receiving the [player]
  *   and [showControls].
+ * @param errorOverlay Slot for the error message overlay. Defaults to
+ *   [PlayerDefaults.ErrorOverlay].
  */
 @ExperimentalApi // TODO: b/490015547 - Move to stable/unstable
 @Composable
@@ -110,6 +114,7 @@ fun Player(
   bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.BottomControls(player, showControls)
   },
+  errorOverlay: (@Composable BoxScope.(Player?) -> Unit)? = { PlayerDefaults.ErrorOverlay(it) },
 ) {
   PlayerImpl(
     player,
@@ -122,6 +127,7 @@ fun Player(
     topControls,
     centerControls,
     bottomControls,
+    errorOverlay,
   )
 }
 
@@ -143,6 +149,7 @@ private fun PlayerImpl(
   bottomControls: (@Composable BoxScope.(Player?, Boolean) -> Unit)? = { player, showControls ->
     PlayerDefaults.BottomControls(player, showControls)
   },
+  errorOverlay: (@Composable BoxScope.(Player?) -> Unit)? = { PlayerDefaults.ErrorOverlay(it) },
 ) {
   val topControlsFocus = remember { FocusRequester() }
   val centerControlsFocus = remember { FocusRequester() }
@@ -156,6 +163,15 @@ private fun PlayerImpl(
       keepContentOnReset = keepContentOnReset,
       shutter = shutter,
     )
+
+    // Error overlay should not cover the controls that can be used to recover from the error
+    Box(
+      Modifier.align(Alignment.Center).offset(y = ErrorVerticalOffsetFromControls).fillMaxWidth(),
+      contentAlignment = Alignment.Center,
+    ) {
+      errorOverlay?.invoke(this, player)
+    }
+
     // this = BoxScope of a container-Box
     Box(
       Modifier.align(Alignment.TopCenter)

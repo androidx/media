@@ -212,8 +212,12 @@
         It provides a compact affordance to control the `Player` while
         displaying the title, artist, artwork, and progress of the current media
         item.
+    *   Add `ErrorState` class and the corresponding `rememberErrorState`
+        Composable to `media3-ui-compose` module. Add `ErrorText` Composable to
+        `media3-ui-compose-material3` and make it a default overlay on the
+        `Player`.
     *   Publish `PlayerDefaults` object with composables for `TopControls`,
-        `CenterControls`, and `BottomControls`.
+        `CenterControls`, `BottomControls`, and `ErrorOverlay`.
     *   Add `FocusRequester` to `Player` Composable and its content slots.
 *   Downloads:
 *   OkHttp extension:

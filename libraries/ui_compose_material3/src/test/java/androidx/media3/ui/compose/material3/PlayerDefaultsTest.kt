@@ -27,6 +27,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.PlaybackException
 import androidx.media3.test.utils.FakePlayer
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -245,5 +246,39 @@ class PlayerDefaultsTest {
 
     composeTestRule.onNodeWithText("Slider received player").assertIsDisplayed()
     composeTestRule.onNodeWithText("Content received player").assertIsDisplayed()
+  }
+
+  @Test
+  fun errorMessage_customMessage_isDisplayed() {
+    composeTestRule.setContent {
+      PlayerDefaults.ErrorOverlay(
+        player =
+          FakePlayer().apply {
+            playerError =
+              PlaybackException(
+                /* message= */ null,
+                /* cause= */ null,
+                PlaybackException.ERROR_CODE_DECODING_FAILED,
+              )
+          },
+        modifier = Modifier.testTag("error_overlay"),
+        customErrorMessage = "An Error",
+      )
+    }
+
+    composeTestRule.onNodeWithTag("error_overlay").assertIsDisplayed()
+    composeTestRule.onNodeWithText("An Error").assertIsDisplayed()
+  }
+
+  @Test
+  fun errorMessage_nullError_isNotDisplayed() {
+    composeTestRule.setContent {
+      PlayerDefaults.ErrorOverlay(
+        player = FakePlayer(),
+        modifier = Modifier.testTag("error_overlay"),
+      )
+    }
+
+    composeTestRule.onNodeWithTag("error_overlay").assertDoesNotExist()
   }
 }

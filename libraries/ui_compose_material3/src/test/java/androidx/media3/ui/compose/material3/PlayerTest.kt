@@ -223,4 +223,47 @@ class PlayerTest {
 
     composeTestRule.onNodeWithTag("customShutter", useUnmergedTree = true).assertIsDisplayed()
   }
+
+  @Test
+  fun player_errorControls_areDisplayedAndAlignedCorrectly() {
+    val player = FakePlayer()
+    composeTestRule.setContent {
+      Player(
+        player,
+        Modifier.testTag(playerTestTag),
+        errorOverlay = { _ -> Box(Modifier.testTag("errorMessage")) { BasicText("Error") } },
+      )
+    }
+
+    composeTestRule.onNodeWithTag(playerTestTag).assertExists()
+    composeTestRule.onNodeWithTag("errorMessage", useUnmergedTree = true).assertIsDisplayed()
+  }
+
+  @Test
+  fun player_customErrorMessage_reactsToPlayerChange() {
+    val player = FakePlayer()
+    lateinit var isPlayerNull: MutableState<Boolean>
+    composeTestRule.setContent {
+      isPlayerNull = remember { mutableStateOf(false) }
+      Player(
+        player = if (isPlayerNull.value) null else player,
+        Modifier.testTag(playerTestTag),
+        errorOverlay = { player ->
+          val tag = if (player != null) "errorMessageWithPlayer" else "errorMessageWithoutPlayer"
+          Box(Modifier.testTag(tag)) { BasicText("Error") }
+        },
+      )
+    }
+
+    composeTestRule
+      .onNodeWithTag("errorMessageWithPlayer", useUnmergedTree = true)
+      .assertIsDisplayed()
+
+    isPlayerNull.value = true
+    composeTestRule.waitForIdle()
+
+    composeTestRule
+      .onNodeWithTag("errorMessageWithoutPlayer", useUnmergedTree = true)
+      .assertIsDisplayed()
+  }
 }
