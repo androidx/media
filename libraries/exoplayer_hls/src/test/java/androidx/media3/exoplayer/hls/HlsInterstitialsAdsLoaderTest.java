@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static androidx.media3.common.AdPlaybackState.AD_STATE_AVAILABLE;
+import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SKIP;
 import static androidx.media3.common.Player.STATE_READY;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -80,6 +83,7 @@ import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -125,6 +129,7 @@ public class HlsInterstitialsAdsLoaderTest {
 
   @Before
   public void setUp() {
+    when(mockPlayer.getApplicationLooper()).thenReturn(Looper.getMainLooper());
     adsLoader = new HlsInterstitialsAdsLoader(() -> new ByteArrayDataSource(new JsonUriResolver()));
     adsLoader.addListener(mockAdsLoaderListener);
     assetListLoadingListener = new AssetListLoadingListener();
@@ -2879,6 +2884,7 @@ public class HlsInterstitialsAdsLoaderTest {
                         .setUri("http://0")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
                         .build())
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 1,
@@ -2886,6 +2892,7 @@ public class HlsInterstitialsAdsLoaderTest {
                         .setUri("http://1")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
                         .build())
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 2,
@@ -3254,6 +3261,7 @@ public class HlsInterstitialsAdsLoaderTest {
                         .setUri("http://0")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
                         .build())
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 2,
@@ -3261,6 +3269,7 @@ public class HlsInterstitialsAdsLoaderTest {
                         .setUri("http://1")
                         .setMimeType(MimeTypes.APPLICATION_M3U8)
                         .build())
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 3, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 3,
@@ -3454,6 +3463,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 0,
                     /* skipInfo= */ expectedSkipInfo)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 1,
@@ -3465,6 +3475,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 1,
                     /* skipInfo= */ expectedSkipInfo)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 2,
@@ -3550,6 +3561,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 0,
                     /* skipInfo= */ expectedSkipInfo)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 1,
@@ -3561,6 +3573,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 1,
                     /* skipInfo= */ expectedSkipInfo)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-0")
                 .withAvailableAdMediaItem(
                     /* adGroupIndex= */ 0,
                     /* adIndexInAdGroup= */ 2,
@@ -4606,8 +4619,7 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -4653,8 +4665,7 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     AdPlaybackState adPlaybackState = adPlaybackStateArgumentCaptor.getValue();
-    assertThat(adPlaybackState.getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackState.getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
   }
 
   @Test
@@ -4713,12 +4724,9 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[2])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[2]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[1])
@@ -4782,12 +4790,9 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[2])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[2]).isEqualTo(AD_STATE_AVAILABLE);
   }
 
   @Test
@@ -4832,8 +4837,7 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -4880,8 +4884,7 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -4939,12 +4942,9 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -5041,12 +5041,10 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -5100,12 +5098,10 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[1]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
   }
@@ -5171,14 +5167,10 @@ public class HlsInterstitialsAdsLoaderTest {
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
-    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
-    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(1).getAdGroup(0).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[0]).isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(adPlaybackStates.get(0).getAdGroup(1).states[1]).isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(1).getAdGroup(1).states[1])
@@ -5374,13 +5366,13 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(adPlaybackState.getAllValues().get(0).getAdGroup(2).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE); // asset list resolved
+        .isEqualTo(AD_STATE_AVAILABLE); // asset list resolved
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(2).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED); // ad was skipped and reported to the source
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(2).states[0])
@@ -5456,15 +5448,15 @@ public class HlsInterstitialsAdsLoaderTest {
     verify(mockEventListener, times(4)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(
@@ -5476,9 +5468,9 @@ public class HlsInterstitialsAdsLoaderTest {
                 .uri)
         .isEqualTo(Uri.parse("http://example.com/media-0-0.m3u8"));
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(
             adPlaybackStates
                 .get(3)
@@ -5605,15 +5597,15 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(adPlaybackState.getAllValues().get(0).getAdGroup(2).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE); // asset list resolved
+        .isEqualTo(AD_STATE_AVAILABLE); // asset list resolved
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(1).getAdGroup(2).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(1).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE); // ad was made available and reported
+        .isEqualTo(AD_STATE_AVAILABLE); // ad was made available and reported
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(1).mediaItems[0])
         .isEqualTo(availableMediaItem);
     assertThat(adPlaybackState.getAllValues().get(2).getAdGroup(2).states[0])
@@ -5694,11 +5686,11 @@ public class HlsInterstitialsAdsLoaderTest {
     verify(mockEventListener, times(3)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 1).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 1).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 1).states[2])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 1).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 1).states[1])
@@ -5706,11 +5698,11 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 1).states[2])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 1).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 1).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 1).states[2])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(
             adPlaybackStates
                 .get(2)
@@ -5839,21 +5831,21 @@ public class HlsInterstitialsAdsLoaderTest {
     verify(mockEventListener, times(4)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_PLAYED);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_PLAYED);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_PLAYED);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(
             adPlaybackStates
                 .get(3)
@@ -5924,19 +5916,19 @@ public class HlsInterstitialsAdsLoaderTest {
     verify(mockEventListener, times(4)).onAdPlaybackState(adPlaybackStateArgumentCaptor.capture());
     List<AdPlaybackState> adPlaybackStates = adPlaybackStateArgumentCaptor.getAllValues();
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(0).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(1).getAdGroup(/* adGroupIndex= */ 0).states[1])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[0])
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     assertThat(adPlaybackStates.get(2).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_ERROR);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[0])
-        .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
+        .isEqualTo(AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_ERROR);
   }
@@ -6553,7 +6545,1043 @@ public class HlsInterstitialsAdsLoaderTest {
     ContentMediaSourceAdDataHolder holder = new ContentMediaSourceAdDataHolder();
 
     // Must not throw an exception because the empty list is immutable.
-    holder.removePendingSnapInResolutionUntilIndexInclusive("adsid", 2);
+    holder.removePendingSnapInResolutionUntilIndexInclusive("adsid", /* resolvedIndex= */ 2);
+  }
+
+  @Test
+  public void unresolvedAssetListData_putGetAndRemove_correctOperations() {
+    Interstitial interstitial =
+        new Interstitial(
+            /* id= */ "ad1",
+            /* assetUri= */ null,
+            /* assetListUri= */ Uri.parse("http://example.com/asset_list.json"),
+            /* startDateUnixUs= */ 0L,
+            /* endDateUnixUs= */ C.TIME_UNSET,
+            /* durationUs= */ C.TIME_UNSET,
+            /* plannedDurationUs= */ C.TIME_UNSET,
+            /* cue= */ ImmutableList.of(),
+            /* endOnNext= */ false,
+            /* resumeOffsetUs= */ 0,
+            /* playoutLimitUs= */ C.TIME_UNSET,
+            ImmutableList.of(SNAP_TYPE_IN, SNAP_TYPE_OUT),
+            ImmutableList.of(),
+            /* clientDefinedAttributes= */ ImmutableList.of(),
+            /* contentMayVary= */ false,
+            /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_PRIMARY,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
+    ContentMediaSourceAdDataHolder holder = new ContentMediaSourceAdDataHolder();
+
+    holder.putUnresolvedAssetListData(
+        /* adsId= */ "adsId",
+        /* adGroupIndex= */ 1,
+        /* adIndexInAdGroup= */ 0,
+        /* adGroupTimeUs= */ 10_000L,
+        MediaItem.fromUri("http://1"),
+        interstitial,
+        /* playlistTargetDurationUs= */ 2_000L);
+    holder.putUnresolvedAssetListData(
+        /* adsId= */ "adsId",
+        /* adGroupIndex= */ 12,
+        /* adIndexInAdGroup= */ 0,
+        /* adGroupTimeUs= */ 20_000L,
+        MediaItem.fromUri("http://2"),
+        interstitial,
+        /* playlistTargetDurationUs= */ 2_000L);
+
+    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(2);
+
+    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 10_000L);
+
+    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(1);
+    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(1);
+
+    // Remove the same asset list data again.
+    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 10_000L);
+
+    assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(1);
+    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(1);
+
+    holder.removeUnresolvedAssetListData("adsId", /* adGroupTimeUs= */ 20_000L);
+
+    assertThat(holder.getUnresolvedAssetLists("adsId")).isEmpty();
+    assertThat(holder.getUnresolvedAssetListCount("adsId")).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithInterstitialsId_resetsResolvedAssetList_assetListResolvesAgain()
+          throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[1])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[2])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip all ads to make the ad group eligible for reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    assetListLoadingListener.reset();
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Seek and notify ads loader of the seek to trigger the asset list resolution again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    // The reset state after calling `setWithAssetListReset`
+    AdPlaybackState resetState = finalAdPlaybackCaptor.getAllValues().get(3);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    // The refreshed state after the asset list has resolved again.
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getAllValues().get(4);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            refreshedState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[2].localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://2"));
+    assertThat(refreshedState.getAdGroup(0).mediaItems[2].localConfiguration.mimeType)
+        .isEqualTo(MimeTypes.APPLICATION_M3U8);
+  }
+
+  @Test
+  public void setWithAssetListResetWithAdGroupIndex_resetsResolvedAssetList_assetListResolvesAgain()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[1])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[2])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip all ads to make the ad group eligible for reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* adGroupIndex= */ 0);
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    assetListLoadingListener.reset();
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    // The reset state after calling `setWithAssetListReset`
+    AdPlaybackState resetState = finalAdPlaybackCaptor.getAllValues().get(3);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    // The refreshed state after the asset list has resolved again.
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getAllValues().get(4);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            refreshedState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[2].localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://2"));
+    assertThat(refreshedState.getAdGroup(0).mediaItems[2].localConfiguration.mimeType)
+        .isEqualTo(MimeTypes.APPLICATION_M3U8);
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithInterstitialsIdAsync_resetsResolvedAssetList_assetListResolvesAgain()
+          throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[1])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[2])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip all ads to make the ad group eligible for reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    ListenableFuture<Boolean> future =
+        adsLoader.setWithAssetListResetAsync(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0");
+    runMainLooperUntil(future::isDone, TIMEOUT_MS, Clock.DEFAULT);
+    assertThat(future.get()).isTrue();
+
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    assetListLoadingListener.reset();
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Seek and notify ads loader of the seek to trigger the asset list resolution again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    // The reset state after calling `setWithAssetListReset`
+    AdPlaybackState resetState = finalAdPlaybackCaptor.getAllValues().get(3);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    // The refreshed state after the asset list has resolved again.
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getAllValues().get(4);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            refreshedState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[2].localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://2"));
+    assertThat(refreshedState.getAdGroup(0).mediaItems[2].localConfiguration.mimeType)
+        .isEqualTo(MimeTypes.APPLICATION_M3U8);
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithAdGroupIndexAsync_resetsResolvedAssetList_assetListResolvesAgain()
+          throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[1])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states[2])
+        .isEqualTo(AD_STATE_AVAILABLE);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip all ads to make the ad group eligible for reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    ListenableFuture<Boolean> future =
+        adsLoader.setWithAssetListResetAsync(/* adsId= */ "adsId", /* adGroupIndex= */ 0);
+    runMainLooperUntil(future::isDone, TIMEOUT_MS, Clock.DEFAULT);
+    assertThat(future.get()).isTrue();
+
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    assetListLoadingListener.reset();
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(5)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    // The reset state after calling `setWithAssetListReset`
+    AdPlaybackState resetState = finalAdPlaybackCaptor.getAllValues().get(3);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    // The refreshed state after the asset list has resolved again.
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getAllValues().get(4);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+    assertThat(
+            refreshedState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[2].localConfiguration.uri)
+        .isEqualTo(Uri.parse("http://2"));
+    assertThat(refreshedState.getAdGroup(0).mediaItems[2].localConfiguration.mimeType)
+        .isEqualTo(MimeTypes.APPLICATION_M3U8);
+  }
+
+  @Test
+  public void setWithAssetListResetWithInterstitialsId_withAvailableAds_doesNothingAndReturnsFalse()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockEventListener, times(2)).onAdPlaybackState(any());
+
+    assertThat(adsLoader.setWithAssetListReset("adsId", "ad0-0")).isFalse();
+
+    // No further ad playback updates.
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState unresolvedState = adPlaybackStateCaptor.getAllValues().get(0);
+    assertThat(unresolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void setWithAssetListResetWithAdGroupIndex_withAvailableAds_doesNothingAndReturnsFalse()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockEventListener, times(2)).onAdPlaybackState(any());
+
+    assertThat(adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* adGroupIndex= */ 0))
+        .isFalse();
+
+    // No further ad playback updates.
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getAllValues().get(1);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void setWithAssetListResetWithInterstitialsId_adGroupNotEligibleForReset_returnsFalse()
+      throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist) hlsPlaylistParser.parse(Uri.EMPTY, inputStream);
+    adsLoader.setPlayer(mockPlayer);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(MediaItem.fromUri(Uri.EMPTY));
+
+    // Ads loader didn't see the timeline yet.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "ad0-0")).isFalse();
+
+    // Start and process the timeline with the HLS playlist with a single intersitial to be played.
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)}, contentWindowDefinition);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(fakeTimeline);
+    adsLoader.handleContentTimelineChanged(adsMediaSource, fakeTimeline);
+
+    // Assert false unknown ads ID.
+    assertThat(adsLoader.setWithAssetListReset("unknownAdsId", /* interstitialsId= */ "ad0-0"))
+        .isFalse();
+    // Assert false because ad group still contains playable ads.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "ad0-0")).isFalse();
+
+    // Assert the above asserts are not false positives.
+    assertThat(adsLoader.getAdsResumptionStates()).hasSize(1);
+    // Skip the ad in the timeline to enable the ad group for being reset.
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackState.capture());
+    FakeTimeline adFakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)},
+            contentWindowDefinition
+                .buildUpon()
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
+                .build());
+    when(mockPlayer.getCurrentTimeline()).thenReturn(adFakeTimeline);
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+
+    // Finally assert the skipped unplayable ad group can actually be reset.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "ad0-0")).isTrue();
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithAdGroupIndex_withMissingAdPlaybackStateAndAdsToPlay_returnsFalse()
+          throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist) hlsPlaylistParser.parse(Uri.EMPTY, inputStream);
+    adsLoader.setPlayer(mockPlayer);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(MediaItem.fromUri(Uri.EMPTY));
+
+    // No ad playback state for the given ads ID
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* adGroupIndex= */ 0)).isFalse();
+
+    // Start and process the playlist in the timeline
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)}, contentWindowDefinition);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(fakeTimeline);
+    adsLoader.handleContentTimelineChanged(adsMediaSource, fakeTimeline);
+
+    // No ad playback state for unknown ads ID
+    assertThat(adsLoader.setWithAssetListReset("adsId2", /* adGroupIndex= */ 0)).isFalse();
+    // Ad playback state with playable ads (must be played, skipped or failed ads only)
+    assertThat(adsLoader.getAdsResumptionStates()).hasSize(1);
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* adGroupIndex= */ 0)).isFalse();
+
+    // Skip the ad in the timeline
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackState.capture());
+    FakeTimeline adFakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)},
+            contentWindowDefinition
+                .buildUpon()
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
+                .build());
+    when(mockPlayer.getCurrentTimeline()).thenReturn(adFakeTimeline);
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+
+    // Assert the skipped ad group can be reset
+    assertThat(adsLoader.getAdsResumptionStates()).hasSize(1);
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* adGroupIndex= */ 0)).isTrue();
+  }
+
+  @Test
+  public void setWithAssetListReset_fromErrorState_resetsAndResolvesAgain() throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    // Verify initial resolution of the asset list
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, atLeast(1)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getValue();
+    assertThat(resolvedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+
+    // Mark ad 0 as error, and skip ad 1 and 2. Then reset.
+    adsLoader.handlePrepareError(
+        adsMediaSource, /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, new IOException());
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2);
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+
+    // Assert that reset was successful.
+    ArgumentCaptor<AdPlaybackState> resetAdPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, atLeast(1)).onAdPlaybackState(resetAdPlaybackStateCaptor.capture());
+    AdPlaybackState resetState = resetAdPlaybackStateCaptor.getValue();
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(1);
+    assertThat(resetState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_UNAVAILABLE);
+    assetListLoadingListener.reset();
+    reset(mockEventListener);
+    // Prepare seeking.
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+
+    // Seek back before the ad group with the reset asset list that should start resolving again.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    // Wait for asset list resolution was triggered by seek.
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getValue();
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void setWithAssetListReset_multipleConsecutiveCycles_resetsAndResolvesCorrectly()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+
+    // Cycle 1: Skip all ads, reset, seek back
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    assetListLoadingListener.reset();
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+
+    // Cycle 2: Skip all ads again, reset again, seek back again
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+    assetListLoadingListener.reset();
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, atLeast(1)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getValue();
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void setWithAssetListReset_inLiveStream_resetsAndResolvesCorrectly() throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:6,\nmain0.0.ts\n"
+            + "#EXTINF:6,\nmain1.0.ts\n"
+            + "#EXTINF:6,\nmain2.0.ts\n"
+            + "#EXTINF:6,\nmain3.0.ts\n"
+            + "#EXTINF:6,\nmain4.0.ts\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:12.000Z\"," // mid roll
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    HlsMediaPlaylist contentMediaPlaylist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser()
+                .parse(Uri.EMPTY, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+    TimelineWindowDefinition initialWindow =
+        new TimelineWindowDefinition.Builder()
+            .setDynamic(true)
+            .setLive(true)
+            .setPlaceholder(true)
+            .setDurationUs(contentMediaPlaylist.durationUs)
+            .setDefaultPositionUs(contentMediaPlaylist.durationUs / 2)
+            .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
+            .setWindowPositionInFirstPeriodUs(0L)
+            .setMediaItem(contentMediaItem)
+            .build();
+    when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(initialWindow));
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(0);
+    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(0);
+    adsLoader.setPlayer(mockPlayer);
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    reset(mockEventListener);
+    HlsManifest hlsManifest =
+        new HlsManifest(/* multivariantPlaylist= */ null, contentMediaPlaylist);
+    TimelineWindowDefinition liveWindow = initialWindow.buildUpon().setPlaceholder(false).build();
+    adsLoader.handleContentTimelineChanged(
+        adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, liveWindow));
+    // Wait until the asset list is resolved asynchronously.
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    // Update the player timeline with the ad playback state.
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    AdPlaybackState resolvedState = adPlaybackStateCaptor.getValue();
+    when(mockPlayer.getCurrentTimeline())
+        .thenReturn(
+            new FakeTimeline(
+                liveWindow
+                    .buildUpon()
+                    .setAdPlaybackStates(ImmutableList.of(resolvedState))
+                    .build()));
+    when(mockPlayer.getContentPosition()).thenReturn(15_000L);
+    ArgumentCaptor<Player.Listener> playerListenerCaptor =
+        ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(playerListenerCaptor.capture());
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+    // Skip the ad to enable it for being reset.
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+
+    assetListLoadingListener.reset();
+    reset(mockEventListener);
+    // Seek and tell the ads loader about it.
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    playerListenerCaptor
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 120_000L,
+                /* contentPositionMs= */ 120_0000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_SEEK);
+
+    // Wait for asset list resolution and assert ad playback state.
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    AdPlaybackState refreshedState = finalAdPlaybackCaptor.getValue();
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).count).isEqualTo(3);
+    assertThat(refreshedState.getAdGroup(/* adGroupIndex= */ 0).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
+  }
+
+  @Test
+  public void setWithAssetListReset_withMultipleInterstitials_resetsIndependently()
+      throws Exception {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // mid roll 1
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:45.000Z\"," // mid roll 2
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    runMainLooperUntil(() -> assetListLoadingListener.completed(2), TIMEOUT_MS, Clock.DEFAULT);
+
+    when(mockPlayer.getContentPosition()).thenReturn(10_000L);
+    // Skip ad group 0, but leave ad group 1 available
+    adsLoader.setWithSkippedAdGroup(/* adGroupIndex= */ 0);
+
+    assertThat(
+            adsLoader.setWithAssetListReset(/* adsId= */ "adsId", /* interstitialsId= */ "ad0-0"))
+        .isTrue();
+
+    // Verify ad group 1 is still available and untouched
+    ArgumentCaptor<AdPlaybackState> finalAdPlaybackCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, atLeast(1)).onAdPlaybackState(finalAdPlaybackCaptor.capture());
+    AdPlaybackState currentState = finalAdPlaybackCaptor.getValue();
+    assertThat(currentState.getAdGroup(/* adGroupIndex= */ 0).states[0])
+        .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
+    assertThat(currentState.getAdGroup(/* adGroupIndex= */ 1).count).isEqualTo(3);
+    assertThat(currentState.getAdGroup(/* adGroupIndex= */ 1).states)
+        .asList()
+        .containsExactly(AD_STATE_AVAILABLE, AD_STATE_AVAILABLE, AD_STATE_AVAILABLE);
   }
 
   private List<AdPlaybackState> callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
@@ -6772,12 +7800,21 @@ public class HlsInterstitialsAdsLoaderTest {
       this.assetListLoadFailedCounter = new AtomicInteger();
     }
 
-    public boolean completed() {
+    private boolean completed() {
       return assetListLoadCompletedCounter.get() > 0;
     }
 
-    public boolean failed() {
+    private boolean completed(int count) {
+      return assetListLoadCompletedCounter.get() >= count;
+    }
+
+    private boolean failed() {
       return assetListLoadFailedCounter.get() > 0;
+    }
+
+    private void reset() {
+      assetListLoadCompletedCounter.set(0);
+      assetListLoadFailedCounter.set(0);
     }
 
     @Override

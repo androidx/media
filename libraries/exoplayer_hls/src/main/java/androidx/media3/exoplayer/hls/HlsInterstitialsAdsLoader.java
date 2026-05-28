@@ -38,6 +38,7 @@ import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstiti
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -45,11 +46,13 @@ import static java.lang.Math.min;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
 import android.util.LongSparseArray;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdPlaybackState.SkipInfo;
@@ -86,6 +89,7 @@ import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -872,6 +876,245 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
+  /**
+   * Resets the ad group corresponding to the given ad group to make the asset list available for
+   * scheduling for resolution again.
+   *
+   * <p>All ads previously contained in the group are removed and the ad group is reset to a single
+   * {@linkplain AdPlaybackState#AD_STATE_UNAVAILABLE unavailable} ad with the media item removed.
+   * When the asset list is resolved, the ad group is re-populated according to the asset list
+   * content.
+   *
+   * <p>If no ad playback state for the given ads ID is found or the ad group index points to an ad
+   * group that corresponds to an interstitials without an asset list URI, then calling this method
+   * is a no-op and returns false.
+   *
+   * <p>All ads in the ad group must be either in state {@link AdPlaybackState#AD_STATE_PLAYED},
+   * {@link AdPlaybackState#AD_STATE_SKIPPED} or {@link AdPlaybackState#AD_STATE_ERROR} or calling
+   * this method is a no-op and returns false.
+   *
+   * @param adsId The ads ID of the content source.
+   * @param adGroupIndex The ad group index.
+   * @return true if an asset list has been made available for resolution, false means a no-op.
+   */
+  @CanIgnoreReturnValue
+  public boolean setWithAssetListReset(Object adsId, int adGroupIndex) {
+    AdPlaybackState adPlaybackState = contentMediaSourceAdDataHolder.getAdPlaybackState(adsId);
+    if (adPlaybackState == null
+        || adGroupIndex < 0
+        || adGroupIndex >= adPlaybackState.adGroupCount) {
+      Log.w(
+          TAG,
+          "no ad playback state or ad group found for ads ID "
+              + adsId
+              + " with adGroupIndex="
+              + adGroupIndex);
+      return false;
+    }
+    AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+    Interstitial interstitial = getAssetListInterstitial(adsId, checkNotNull(adGroup.ids[0]));
+    return interstitial != null
+        && validateAdGroupForReset(interstitial, adGroup)
+        && setWithAssetListReset(adsId, interstitial, adGroupIndex, adPlaybackState);
+  }
+
+  /**
+   * Resets the ad group corresponding to the given interstitial ID to make the asset list available
+   * for scheduling for resolution again.
+   *
+   * <p>See {@link #setWithAssetListReset(Object, int)} for more info.
+   *
+   * @param adsId The ads ID of the content source.
+   * @param interstitialsId The ID of the interstitial ID to be reset.
+   * @return true if an asset list has been made available for resolution, false means a no-op.
+   */
+  @CanIgnoreReturnValue
+  public boolean setWithAssetListReset(Object adsId, String interstitialsId) {
+    AdPlaybackState adPlaybackState = contentMediaSourceAdDataHolder.getAdPlaybackState(adsId);
+    if (adPlaybackState == null) {
+      Log.w(TAG, "no ad playback state found for ads ID " + adsId);
+      return false;
+    }
+    Interstitial interstitial = getAssetListInterstitial(adsId, interstitialsId);
+    if (interstitial == null) {
+      Log.w(TAG, "asset list interstitial with ID '" + interstitialsId + "' not found");
+      return false;
+    }
+    int adGroupIndex = C.INDEX_UNSET;
+    for (int i = adPlaybackState.removedAdGroupCount; i < adPlaybackState.adGroupCount; i++) {
+      int adIndexInAdGroup = adPlaybackState.getAdGroup(i).getIndexOfAdId(interstitial.id);
+      if (adIndexInAdGroup != C.INDEX_UNSET) {
+        AdGroup adGroup = adPlaybackState.getAdGroup(i);
+        if (!validateAdGroupForReset(interstitial, adGroup)) {
+          return false;
+        }
+        // Found a valid ad group for reset.
+        adGroupIndex = i;
+        break;
+      }
+    }
+    return setWithAssetListReset(adsId, interstitial, adGroupIndex, adPlaybackState);
+  }
+
+  private boolean setWithAssetListReset(
+      Object adsId, Interstitial interstitial, int adGroupIndex, AdPlaybackState adPlaybackState) {
+    if (adGroupIndex == C.INDEX_UNSET) {
+      return false;
+    }
+    Player player = checkNotNull(this.player);
+    MediaItem currentMediaItem = checkNotNull(player.getCurrentMediaItem());
+    // Reset to a single unavailable ad.
+    adPlaybackState =
+        adPlaybackState
+            .withRemovedAdsAfterIndex(/* adGroupIndex= */ adGroupIndex, /* adIndexInAdGroup= */ 0)
+            .withUnavailableAdGroup(adGroupIndex);
+    AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+    HlsMediaPlaylist lastProcessedPlaylist =
+        contentMediaSourceAdDataHolder.getLastProcessedPlaylist(adsId);
+    // Add the unresolved asset list data to be scheduled on demand
+    contentMediaSourceAdDataHolder.putUnresolvedAssetListData(
+        adsId,
+        adGroupIndex,
+        /* adIndexInAdGroup= */ 0,
+        adGroup.timeUs,
+        checkNotNull(contentMediaSourceAdDataHolder.getMediaItem(adsId)),
+        interstitial,
+        checkNotNull(lastProcessedPlaylist).targetDurationUs);
+    putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
+
+    AdsConfiguration currentAdsConfiguration =
+        checkNotNull(currentMediaItem.localConfiguration).adsConfiguration;
+    if (currentAdsConfiguration != null && Objects.equals(adsId, currentAdsConfiguration.adsId)) {
+      // If the reset ad group is part of the current content it may be immediately scheduled.
+      Timeline currentTimeline = player.getCurrentTimeline();
+      Window window = currentTimeline.getWindow(player.getCurrentMediaItemIndex(), new Window());
+      maybeExecuteOrSetNextAssetListResolutionMessage(
+          adsId,
+          currentTimeline,
+          player.getCurrentMediaItemIndex(),
+          window.positionInFirstPeriodUs,
+          msToUs(player.getContentPosition()));
+    }
+    return true;
+  }
+
+  /**
+   * Asynchronously resets an ad group to make the asset list available for resolution again.
+   *
+   * <p>The reset logic is posted as a new event to the looper of the calling thread. This ensures
+   * that the reset is executed after the current looper iteration completes and after other {@link
+   * Player.Listener} components (like the ad loader itself) have finished applying their changes to
+   * the {@link AdPlaybackState}.
+   *
+   * <p>For example, if an app wants to reactivate an interstitial immediately after it has finished
+   * playback, an asynchronous call ensures that the internal ad playback state update — marking the
+   * ad as {@linkplain AdPlaybackState#AD_STATE_PLAYED played} — has been processed by the ad loader
+   * before this method validates that the ad group is in a resettable state.
+   *
+   * <p>See {@link #setWithAssetListReset(Object, int)} for requirements and details on how the
+   * {@link AdPlaybackState} is modified.
+   *
+   * @param adsId The ads ID of the content source.
+   * @param adGroupIndex The ad group index.
+   * @return A {@link ListenableFuture} that completes with {@code true} if the asset list was made
+   *     available for resolution, or {@code false} if the operation was a no-op.
+   */
+  @CanIgnoreReturnValue
+  public ListenableFuture<Boolean> setWithAssetListResetAsync(Object adsId, int adGroupIndex) {
+    return CallbackToFutureAdapter.getFuture(
+        completer -> {
+          // Create the task to be posted to the player looper
+          Runnable resetTask =
+              () -> {
+                try {
+                  // Execute the existing synchronous reset logic
+                  boolean result = setWithAssetListReset(adsId, adGroupIndex);
+                  completer.set(result);
+                } catch (RuntimeException e) {
+                  completer.setException(e);
+                }
+              };
+
+          Handler handler = new Handler(checkNotNull(Looper.myLooper()));
+          handler.post(resetTask);
+
+          // Provide a cancellation listener to remove the task if the future is cancelled
+          completer.addCancellationListener(
+              () -> handler.removeCallbacks(resetTask), directExecutor());
+
+          return "setWithAssetListReset for adsId=" + adsId + " at index=" + adGroupIndex;
+        });
+  }
+
+  /**
+   * Asynchronously resets an ad group corresponding to the given interstitial ID to make the asset
+   * list available for resolution again.
+   *
+   * <p>The reset logic is posted as a new event to the looper of the calling thread. This ensures
+   * that the reset is executed after the current looper iteration completes and after other {@link
+   * Player.Listener} components (like the ad loader itself) have finished applying their changes to
+   * the {@link AdPlaybackState}.
+   *
+   * <p>For example, if an app wants to reactivate an interstitial immediately after it has finished
+   * playback, an asynchronous call ensures that the internal ad playback state update — marking the
+   * ad as {@linkplain AdPlaybackState#AD_STATE_PLAYED played} — has been processed by the ad loader
+   * before this method validates that the ad group is in a resettable state.
+   *
+   * <p>See {@link #setWithAssetListReset(Object, String)} for requirements and details on how the
+   * {@link AdPlaybackState} is modified.
+   *
+   * @param adsId The ads ID of the content source.
+   * @param interstitialsId The ID of the interstitial ID to be reset.
+   * @return A {@link ListenableFuture} that completes with {@code true} if the asset list was made
+   *     available for resolution, or {@code false} if the operation was a no-op.
+   */
+  @CanIgnoreReturnValue
+  public ListenableFuture<Boolean> setWithAssetListResetAsync(
+      Object adsId, String interstitialsId) {
+    return CallbackToFutureAdapter.getFuture(
+        completer -> {
+          // Create the task to be posted to the player looper
+          Runnable resetTask =
+              () -> {
+                try {
+                  // Execute the existing synchronous reset logic
+                  boolean result = setWithAssetListReset(adsId, interstitialsId);
+                  completer.set(result);
+                } catch (RuntimeException e) {
+                  completer.setException(e);
+                }
+              };
+
+          Handler handler = new Handler(checkNotNull(Looper.myLooper()));
+          handler.post(resetTask);
+
+          // Provide a cancellation listener to remove the task if the future is cancelled
+          completer.addCancellationListener(
+              () -> handler.removeCallbacks(resetTask), directExecutor());
+
+          return "setWithAssetListReset for adsId="
+              + adsId
+              + " with interstitialsId="
+              + interstitialsId;
+        });
+  }
+
+  private boolean validateAdGroupForReset(Interstitial interstitial, AdGroup adGroup) {
+    // validate that the ad group is in a state that can be reset.
+    for (int i = 0; i < adGroup.count; i++) {
+      if (!interstitial.id.equals(adGroup.ids[i])) {
+        Log.w(TAG, "only ad groups populated by a single interstitial can be reset");
+        return false;
+      } else if (adGroup.states[i] == AD_STATE_UNAVAILABLE
+          || adGroup.states[i] == AD_STATE_AVAILABLE) {
+        Log.w(TAG, "an ad group with playable ads can't be reset");
+        // Asset list wasn't resolved yet and is still waiting for being resolved.
+        return false;
+      }
+    }
+    return true;
+  }
+
   private void removeUnresolvedAssetListOfAdGroup(
       AdPlaybackState adPlaybackState, AdGroup adGroup) {
     checkArgument(adPlaybackState.adsId != null);
@@ -923,7 +1166,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       // Set the player listener when the first ad starts.
       checkNotNull(player, "setPlayer(Player) needs to be called").addListener(playerListener);
     }
-    contentMediaSourceAdDataHolder.startContentSource(adsId, eventListener);
+    contentMediaSourceAdDataHolder.startContentSource(
+        adsId, adsMediaSource.getMediaItem(), eventListener);
     MediaItem mediaItem = adsMediaSource.getMediaItem();
     if (isHlsMediaItem(mediaItem)) {
       if (adsId instanceof String && resumptionStates.containsKey(adsId)) {
@@ -1021,6 +1265,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         maybeExecuteOrSetNextAssetListResolutionMessage(
             adsId, timeline, /* windowIndex= */ 0, publicPositionInFirstPeriod, contentPositionUs);
       }
+      contentMediaSourceAdDataHolder.setLastProcessedPlaylist(adsId, mediaPlaylist);
     }
     boolean adPlaybackStateUpdated = putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);
     if (!contentMediaSourceAdDataHolder.isUnsupportedContentMediaSource(adsId)) {
@@ -1203,20 +1448,20 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
   @Nullable
   private RunnableAtPosition getNextAssetResolution(Object adsId, long periodPositionUs) {
-    Map<Long, AssetListData> assetListDataMap =
-        checkNotNull(contentMediaSourceAdDataHolder.getUnresolvedAssetLists(adsId));
-    for (Long assetListTimeUs : assetListDataMap.keySet()) {
-      if (periodPositionUs <= assetListTimeUs) {
-        AssetListData assetListData = checkNotNull(assetListDataMap.get(assetListTimeUs));
-        return new RunnableAtPosition(
-            /* adStartTimeUs= */ assetListTimeUs,
-            assetListData.targetDurationUs,
-            () -> {
-              if (assetListDataMap.remove(assetListTimeUs) != null) {
-                startLoadingAssetList(assetListData);
-              }
-            });
-      }
+    AssetListData assetListData =
+        contentMediaSourceAdDataHolder.getNextUnresolvedAssetListData(adsId, periodPositionUs);
+    if (assetListData != null) {
+      return new RunnableAtPosition(
+          /* adStartTimeUs= */ assetListData.adGroupTimeUs,
+          assetListData.targetDurationUs,
+          () -> {
+            AssetListData resolvedAssetListData =
+                contentMediaSourceAdDataHolder.removeUnresolvedAssetListData(
+                    adsId, assetListData.adGroupTimeUs);
+            if (resolvedAssetListData != null) {
+              startLoadingAssetList(assetListData);
+            }
+          });
     }
     return null;
   }
@@ -1590,17 +1835,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                   .setMimeType(MimeTypes.APPLICATION_M3U8)
                   .build());
     } else {
-      Object adsId = checkNotNull(adPlaybackState.adsId);
-      checkNotNull(contentMediaSourceAdDataHolder.getUnresolvedAssetLists(adsId))
-          .put(
-              adGroup.timeUs != C.TIME_END_OF_SOURCE ? adGroup.timeUs : Long.MAX_VALUE,
-              new AssetListData(
-                  mediaItem,
-                  adsId,
-                  interstitial,
-                  adGroupIndex,
-                  adIndexInAdGroup,
-                  playlistTargetDurationUs));
+      contentMediaSourceAdDataHolder.putUnresolvedAssetListData(
+          checkNotNull(adPlaybackState.adsId),
+          adGroupIndex,
+          adIndexInAdGroup,
+          adGroup.timeUs,
+          mediaItem,
+          interstitial,
+          playlistTargetDurationUs);
     }
     return adPlaybackState;
   }
@@ -1663,6 +1905,23 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           ? interstitial.resumeOffsetUs
           : resolveInterstitialDurationUs(interstitial, C.TIME_UNSET);
     }
+  }
+
+  @VisibleForTesting
+  @Nullable
+  /* package */ Interstitial getAssetListInterstitial(Object adsId, String id) {
+    HlsMediaPlaylist lastProcessedPlaylist =
+        contentMediaSourceAdDataHolder.getLastProcessedPlaylist(adsId);
+    if (lastProcessedPlaylist == null) {
+      return null;
+    }
+    for (int i = 0; i < lastProcessedPlaylist.interstitials.size(); i++) {
+      if (id.equals(lastProcessedPlaylist.interstitials.get(i).id)) {
+        Interstitial interstitial = lastProcessedPlaylist.interstitials.get(i);
+        return interstitial.assetListUri != null ? interstitial : null;
+      }
+    }
+    return null;
   }
 
   @VisibleForTesting
@@ -1848,11 +2107,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
   @VisibleForTesting
   /* package */ static final class ContentMediaSourceAdDataHolder {
-    private final Map<Object, EventListener> activeEventListeners;
+    private final Map<Object, Pair<EventListener, MediaItem>> activeEventListeners;
     private final Map<Object, AdPlaybackState> activeAdPlaybackStates;
     private final Map<Object, Set<String>> insertedInterstitialIds;
     private final Map<Object, TreeMap<Long, AssetListData>> unresolvedAssetLists;
     private final Map<Object, List<PendingSnapInResolution>> pendingSnapInResolutions;
+    private final Map<Object, HlsMediaPlaylist> lastProcessedPlaylists;
     private final Set<Object> contentSourceAwaitingFirstAdToStart;
     private final Set<Object> unsupportedAdsIds;
 
@@ -1863,6 +2123,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       insertedInterstitialIds = new HashMap<>();
       unresolvedAssetLists = new HashMap<>();
       pendingSnapInResolutions = new HashMap<>();
+      lastProcessedPlaylists = new HashMap<>();
       contentSourceAwaitingFirstAdToStart = new HashSet<>();
       unsupportedAdsIds = new HashSet<>();
     }
@@ -1873,12 +2134,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     /** Start a content source for the given ads ID. */
-    @Nullable
-    public EventListener startContentSource(Object adsId, EventListener listener) {
+    public void startContentSource(
+        Object adsId, MediaItem contentMediaItem, EventListener listener) {
       insertedInterstitialIds.put(adsId, new HashSet<>());
       unresolvedAssetLists.put(adsId, new TreeMap<>());
       contentSourceAwaitingFirstAdToStart.add(adsId);
-      return activeEventListeners.put(adsId, listener);
+      Pair<AdsLoader.EventListener, MediaItem> eventListenerMediaItemPair =
+          new Pair<>(listener, contentMediaItem);
+      activeEventListeners.put(adsId, eventListenerMediaItemPair);
     }
 
     /** Notifies that an ad period for the given adsId has started playback. */
@@ -1909,7 +2172,15 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     /** Returns the event listener for the given ads ID, or null if not found. */
     @Nullable
     public EventListener getEventListener(Object adsId) {
-      return activeEventListeners.get(adsId);
+      Pair<EventListener, MediaItem> eventListenerMediaItemPair = activeEventListeners.get(adsId);
+      return eventListenerMediaItemPair != null ? eventListenerMediaItemPair.first : null;
+    }
+
+    /** Returns the media item of the content source for the given ads ID, or null if not found. */
+    @Nullable
+    public MediaItem getMediaItem(Object adsId) {
+      Pair<EventListener, MediaItem> eventListenerMediaItemPair = activeEventListeners.get(adsId);
+      return eventListenerMediaItemPair != null ? eventListenerMediaItemPair.second : null;
     }
 
     /** Adds an ads ID of a content source that was started but is not supported. */
@@ -1958,15 +2229,60 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     /** Returns the map of unresolved asset lists for the given ads ID, or null if not found. */
-    @Nullable
     public Map<Long, AssetListData> getUnresolvedAssetLists(Object adsId) {
-      return unresolvedAssetLists.get(adsId);
+      TreeMap<Long, AssetListData> assetListMap = unresolvedAssetLists.get(adsId);
+      if (assetListMap == null) {
+        assetListMap = new TreeMap<>();
+        unresolvedAssetLists.put(adsId, assetListMap);
+      }
+      return assetListMap;
+    }
+
+    public void putUnresolvedAssetListData(
+        Object adsId,
+        int adGroupIndex,
+        int adIndexInAdGroup,
+        long adGroupTimeUs,
+        MediaItem mediaItem,
+        Interstitial interstitial,
+        long playlistTargetDurationUs) {
+      Map<Long, AssetListData> unresolveAssetListData = getUnresolvedAssetLists(adsId);
+      long adGroupInsertionTimeUs =
+          adGroupTimeUs != C.TIME_END_OF_SOURCE ? adGroupTimeUs : Long.MAX_VALUE;
+      unresolveAssetListData.put(
+          adGroupInsertionTimeUs,
+          new AssetListData(
+              mediaItem,
+              adsId,
+              interstitial,
+              adGroupIndex,
+              adIndexInAdGroup,
+              adGroupInsertionTimeUs,
+              playlistTargetDurationUs));
+    }
+
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    @Nullable
+    /* package */ AssetListData removeUnresolvedAssetListData(Object adsId, long adGroupTimeUs) {
+      return getUnresolvedAssetLists(adsId).remove(adGroupTimeUs);
     }
 
     /** Return the number of unresolved asset list for the given ads ID. */
     public int getUnresolvedAssetListCount(Object adsId) {
       TreeMap<Long, AssetListData> assetListDataTreeMap = unresolvedAssetLists.get(adsId);
       return assetListDataTreeMap != null ? assetListDataTreeMap.size() : 0;
+    }
+
+    @Nullable
+    private AssetListData getNextUnresolvedAssetListData(Object adsId, long periodPositionUs) {
+      Map<Long, AssetListData> assetListDataMap = checkNotNull(getUnresolvedAssetLists(adsId));
+      for (Long assetListTimeUs : assetListDataMap.keySet()) {
+        if (periodPositionUs <= assetListTimeUs) {
+          return checkNotNull(assetListDataMap.get(assetListTimeUs));
+        }
+      }
+      return null;
     }
 
     public void putPendingSnapInResolution(
@@ -2009,6 +2325,15 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           checkNotNull(getPendingSnapInResolutions(adsId));
       resolvedIndex = min(resolvedIndex, pendingResolutions.size() - 1);
       pendingResolutions.subList(0, resolvedIndex + 1).clear();
+    }
+
+    private void setLastProcessedPlaylist(Object adsId, HlsMediaPlaylist mediaPlaylist) {
+      lastProcessedPlaylists.put(adsId, mediaPlaylist);
+    }
+
+    @Nullable
+    private HlsMediaPlaylist getLastProcessedPlaylist(Object adsId) {
+      return lastProcessedPlaylists.get(adsId);
     }
   }
 
@@ -2084,9 +2409,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                 .setUri(asset.uri)
                 .setMimeType(MimeTypes.APPLICATION_M3U8)
                 .build();
+        // Set the interstitial ID to track the origin of the ad.
         adPlaybackState =
-            adPlaybackState.withAvailableAdMediaItem(
-                assetListData.adGroupIndex, adIndex, mediaItem);
+            adPlaybackState
+                .withAvailableAdMediaItem(assetListData.adGroupIndex, adIndex, mediaItem)
+                .withAdId(assetListData.adGroupIndex, adIndex, assetListData.interstitial.id);
         if (assetList.skipInfo != null) {
           adPlaybackState =
               adPlaybackState.withAdSkipInfo(
@@ -2190,11 +2517,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
-  private static class AssetListData {
+  /* package */ static class AssetListData {
     private final MediaItem mediaItem;
     private final Object adsId;
     private final int adGroupIndex;
     private final int adIndexInAdGroup;
+    private final long adGroupTimeUs;
     private final long targetDurationUs;
     private final Interstitial interstitial;
 
@@ -2205,12 +2533,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         Interstitial interstitial,
         int adGroupIndex,
         int adIndexInAdGroup,
+        long adGroupTimeUs,
         long targetDurationUs) {
       checkArgument(interstitial.assetListUri != null);
       this.mediaItem = mediaItem;
       this.adsId = adsId;
       this.adGroupIndex = adGroupIndex;
       this.adIndexInAdGroup = adIndexInAdGroup;
+      this.adGroupTimeUs = adGroupTimeUs;
       this.targetDurationUs = targetDurationUs;
       this.interstitial = interstitial;
     }
@@ -2224,6 +2554,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       return adGroupIndex == that.adGroupIndex
           && adIndexInAdGroup == that.adIndexInAdGroup
           && targetDurationUs == that.targetDurationUs
+          && adGroupTimeUs == that.adGroupTimeUs
           && Objects.equals(mediaItem, that.mediaItem)
           && Objects.equals(adsId, that.adsId)
           && Objects.equals(interstitial, that.interstitial);
@@ -2236,6 +2567,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       result = 31 * result + interstitial.hashCode();
       result = 31 * result + adGroupIndex;
       result = 31 * result + adIndexInAdGroup;
+      result = (int) (31L * result + adGroupTimeUs);
       result = (int) (31L * result + targetDurationUs);
       return result;
     }

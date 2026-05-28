@@ -24,6 +24,7 @@ android {
 
 dependencies {
   implementation(libs.androidx.annotation)
+  implementation(libs.androidx.concurrent.futures)
   api(project(":lib-exoplayer"))
   testImplementation(project(":test-utils-robolectric"))
   testImplementation(project(":test-utils"))

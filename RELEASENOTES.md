@@ -219,6 +219,9 @@
 *   HLS extension:
     *   Add support for HLS Content Steering and Pathway Cloning
         ([#1689](https://github.com/androidx/media/issues/1689)).
+    *   Add `setWithAssetListReset` to `HlsInterstitialsAdsLoader` to allow apps
+        to reset fully processed asset list interstitials back to an unavailable
+        state for on-demand re-resolution.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
