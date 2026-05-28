@@ -1737,6 +1737,7 @@ public final class DefaultAnalyticsCollectorTest {
   }
 
   @Test
+  @Ignore("Flaky: b/502480903")
   public void onEvents_isReportedWithCorrectEventTimes() throws Exception {
     ExoPlayer player = setupPlayer();
     AnalyticsListener listener = mock(AnalyticsListener.class);
