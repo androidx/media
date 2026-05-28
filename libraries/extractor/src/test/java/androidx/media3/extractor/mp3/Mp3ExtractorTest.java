@@ -20,9 +20,13 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.metadata.id3.ApicFrame;
+import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.ExtractorAsserts.AssertionConfig;
 import androidx.media3.test.utils.FakeExtractorInput;
@@ -340,6 +344,38 @@ public final class Mp3ExtractorTest {
         "media/mp3/bear-vbr-xing-header-replaygain-accurate.mp3",
         /* peekLimit= */ 1201,
         simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithId3_withDisableArtworkFlag_parsesTextButOmitsArtwork() throws Exception {
+    byte[] fileBytes =
+        TestUtil.getByteArray(
+            ApplicationProvider.getApplicationContext(), "media/mp3/bear-id3.mp3");
+    Mp3Extractor extractor = new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_ARTWORK_METADATA);
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    Format audioFormat = output.trackOutputs.get(0).lastFormat;
+
+    assertThat(audioFormat.metadata).isNotNull();
+    assertThat(audioFormat.metadata.length()).isGreaterThan(0);
+    boolean foundText = false;
+    boolean foundArtwork = false;
+    for (int i = 0; i < audioFormat.metadata.length(); i++) {
+      Metadata.Entry entry = audioFormat.metadata.get(i);
+      if (entry instanceof TextInformationFrame) {
+        foundText = true;
+      } else if (entry instanceof ApicFrame) {
+        foundArtwork = true;
+      }
+    }
+    assertThat(foundText).isTrue();
+    assertThat(foundArtwork).isFalse();
   }
 
   @Nullable

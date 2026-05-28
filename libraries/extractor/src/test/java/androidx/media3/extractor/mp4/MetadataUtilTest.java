@@ -42,7 +42,7 @@ public final class MetadataUtilTest {
               'm' // Type = ©nam
             });
 
-    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, /* ignoreArtwork= */ false);
 
     assertThat(entry).isNull();
     assertThat(ilst.getPosition()).isEqualTo(8);
@@ -56,7 +56,7 @@ public final class MetadataUtilTest {
               0, 0, 0, 0 // Size = 0 bytes
             });
 
-    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, /* ignoreArtwork= */ false);
 
     assertThat(entry).isNull();
     assertThat(ilst.getPosition()).isEqualTo(4);
@@ -70,7 +70,7 @@ public final class MetadataUtilTest {
               0, 0, 0, 4 // Size = 4 bytes
             });
 
-    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, /* ignoreArtwork= */ false);
 
     assertThat(entry).isNull();
     assertThat(ilst.getPosition()).isEqualTo(4);
@@ -99,9 +99,46 @@ public final class MetadataUtilTest {
               0 // 7 trailing bytes
             });
 
-    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, /* ignoreArtwork= */ false);
 
     assertThat(entry).isNull();
     assertThat(ilst.getPosition()).isEqualTo(15);
+  }
+
+  @Test
+  public void parseIlstElement_withCoverArtAndIgnoreArtwork_returnsNullAndAdvancesPosition() {
+    ParsableByteArray ilst =
+        new ParsableByteArray(
+            new byte[] {
+              0,
+              0,
+              0,
+              24, // Size = 24 bytes
+              'c',
+              'o',
+              'v',
+              'r', // Type = covr
+              0,
+              0,
+              0,
+              16, // Data child box size
+              'd',
+              'a',
+              't',
+              'a',
+              0,
+              0,
+              0,
+              13, // jpeg flags
+              0,
+              0,
+              0,
+              0 // empty
+            });
+
+    Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, /* ignoreArtwork= */ true);
+
+    assertThat(entry).isNull();
+    assertThat(ilst.getPosition()).isEqualTo(24);
   }
 }

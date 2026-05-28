@@ -78,7 +78,8 @@ public final class Mp3Extractor implements Extractor {
         FLAG_ENABLE_CONSTANT_BITRATE_SEEKING,
         FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS,
         FLAG_ENABLE_INDEX_SEEKING,
-        FLAG_DISABLE_ID3_METADATA
+        FLAG_DISABLE_ID3_METADATA,
+        FLAG_DISABLE_ARTWORK_METADATA
       })
   public @interface Flags {}
 
@@ -129,6 +130,9 @@ public final class Mp3Extractor implements Extractor {
    * required.
    */
   public static final int FLAG_DISABLE_ID3_METADATA = 1 << 3;
+
+  /** Flag to disable parsing of artwork metadata. */
+  public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 4;
 
   private static final String TAG = "Mp3Extractor";
 
@@ -395,8 +399,11 @@ public final class Mp3Extractor implements Extractor {
       // We need to parse enough ID3 metadata to retrieve any gapless/seeking playback information
       // even if ID3 metadata parsing is disabled.
       boolean parseAllId3Frames = (flags & FLAG_DISABLE_ID3_METADATA) == 0;
+      boolean ignoreArtwork = (flags & FLAG_DISABLE_ARTWORK_METADATA) != 0;
       Id3Decoder.FramePredicate id3FramePredicate =
-          parseAllId3Frames ? null : REQUIRED_ID3_FRAME_PREDICATE;
+          !parseAllId3Frames
+              ? REQUIRED_ID3_FRAME_PREDICATE
+              : (ignoreArtwork ? Id3Decoder.NO_ARTWORK_PREDICATE : null);
       id3Metadata = id3Peeker.peekId3Data(input, id3FramePredicate, MAX_SEARCH_BYTES);
       if (id3Metadata != null) {
         gaplessInfoHolder.setFromMetadata(id3Metadata);

@@ -54,16 +54,20 @@ public final class FlacMetadataReader {
    *
    * @param input Input stream to peek the ID3 data from.
    * @param parseData Whether to parse the ID3 frames.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed ID3 data, or {@code null} if there is no such data or if {@code parseData}
    *     is {@code false}.
    * @throws IOException If peeking from the input fails. In this case, there is no guarantee on the
    *     peek position.
    */
   @Nullable
-  public static Metadata peekId3Metadata(ExtractorInput input, boolean parseData)
-      throws IOException {
+  public static Metadata peekId3Metadata(
+      ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
     @Nullable
-    Id3Decoder.FramePredicate id3FramePredicate = parseData ? null : Id3Decoder.NO_FRAMES_PREDICATE;
+    Id3Decoder.FramePredicate id3FramePredicate =
+        !parseData
+            ? Id3Decoder.NO_FRAMES_PREDICATE
+            : (ignoreArtwork ? Id3Decoder.NO_ARTWORK_PREDICATE : null);
     @Nullable
     Metadata id3Metadata =
         new Id3Peeker().peekId3Data(input, id3FramePredicate, /* maxTagPeekBytes= */ 0);
@@ -92,17 +96,18 @@ public final class FlacMetadataReader {
    *
    * @param input Input stream to read the ID3 data from.
    * @param parseData Whether to parse the ID3 frames.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed ID3 data, or {@code null} if there is no such data or if {@code parseData}
    *     is {@code false}.
    * @throws IOException If reading from the input fails. In this case, the read position is left
    *     unchanged and there is no guarantee on the peek position.
    */
   @Nullable
-  public static Metadata readId3Metadata(ExtractorInput input, boolean parseData)
-      throws IOException {
+  public static Metadata readId3Metadata(
+      ExtractorInput input, boolean parseData, boolean ignoreArtwork) throws IOException {
     input.resetPeekPosition();
     long startingPeekPosition = input.getPeekPosition();
-    @Nullable Metadata id3Metadata = peekId3Metadata(input, parseData);
+    @Nullable Metadata id3Metadata = peekId3Metadata(input, parseData, ignoreArtwork);
     int peekedId3Bytes = (int) (input.getPeekPosition() - startingPeekPosition);
     input.skipFully(peekedId3Bytes);
     return id3Metadata;
@@ -138,6 +143,7 @@ public final class FlacMetadataReader {
    *     stream info data. If the block read is a Vorbis comment block or a picture block, the
    *     holder contains a copy of the existing stream metadata with the corresponding metadata
    *     added. Otherwise, the metadata in the holder is unchanged.
+   * @param ignoreArtwork Whether to ignore artwork metadata blocks.
    * @return Whether the block read is the last metadata block.
    * @throws IllegalArgumentException If the block read is not a stream info block and the metadata
    *     in {@code metadataHolder} is {@code null}. In this case, the read position will be at the
@@ -146,7 +152,8 @@ public final class FlacMetadataReader {
    *     the start of a metadata block and there is no guarantee on the peek position.
    */
   public static boolean readMetadataBlock(
-      ExtractorInput input, FlacStreamMetadataHolder metadataHolder) throws IOException {
+      ExtractorInput input, FlacStreamMetadataHolder metadataHolder, boolean ignoreArtwork)
+      throws IOException {
     input.resetPeekPosition();
     ParsableBitArray scratch = new ParsableBitArray(new byte[4]);
     input.peekFully(scratch.data, 0, FlacConstants.METADATA_BLOCK_HEADER_SIZE);
@@ -169,12 +176,16 @@ public final class FlacMetadataReader {
         metadataHolder.flacStreamMetadata =
             flacStreamMetadata.copyWithVorbisComments(vorbisComments);
       } else if (type == FlacConstants.METADATA_TYPE_PICTURE) {
-        ParsableByteArray pictureBlock = new ParsableByteArray(length);
-        input.readFully(pictureBlock.getData(), 0, length);
-        pictureBlock.skipBytes(FlacConstants.METADATA_BLOCK_HEADER_SIZE);
-        PictureFrame pictureFrame = PictureFrame.fromPictureBlock(pictureBlock);
-        metadataHolder.flacStreamMetadata =
-            flacStreamMetadata.copyWithPictureFrames(ImmutableList.of(pictureFrame));
+        if (ignoreArtwork) {
+          input.skipFully(length);
+        } else {
+          ParsableByteArray pictureBlock = new ParsableByteArray(length);
+          input.readFully(pictureBlock.getData(), 0, length);
+          pictureBlock.skipBytes(FlacConstants.METADATA_BLOCK_HEADER_SIZE);
+          PictureFrame pictureFrame = PictureFrame.fromPictureBlock(pictureBlock);
+          metadataHolder.flacStreamMetadata =
+              flacStreamMetadata.copyWithPictureFrames(ImmutableList.of(pictureFrame));
+        }
       } else {
         input.skipFully(length);
       }

@@ -204,9 +204,10 @@ public final class BoxParser {
    * Parses a udta box.
    *
    * @param udtaBox The udta (user data) box to decode.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return Parsed metadata.
    */
-  public static Metadata parseUdta(LeafBox udtaBox) {
+  public static Metadata parseUdta(LeafBox udtaBox, boolean ignoreArtwork) {
     ParsableByteArray udtaData = udtaBox.data;
     udtaData.setPosition(Mp4Box.HEADER_SIZE);
     Metadata metadata = new Metadata();
@@ -217,7 +218,8 @@ public final class BoxParser {
       if (atomType == Mp4Box.TYPE_meta) {
         udtaData.setPosition(atomPosition);
         metadata =
-            metadata.copyWithAppendedEntriesFrom(parseUdtaMeta(udtaData, atomPosition + atomSize));
+            metadata.copyWithAppendedEntriesFrom(
+                parseUdtaMeta(udtaData, atomPosition + atomSize, ignoreArtwork));
       } else if (atomType == Mp4Box.TYPE_smta) {
         udtaData.setPosition(atomPosition);
         metadata =
@@ -1003,7 +1005,7 @@ public final class BoxParser {
   }
 
   @Nullable
-  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit) {
+  private static Metadata parseUdtaMeta(ParsableByteArray meta, int limit, boolean ignoreArtwork) {
     meta.skipBytes(Mp4Box.HEADER_SIZE);
     maybeSkipRemainingMetaBoxHeaderBytes(meta);
     while (meta.getPosition() < limit) {
@@ -1012,7 +1014,7 @@ public final class BoxParser {
       int atomType = meta.readInt();
       if (atomType == Mp4Box.TYPE_ilst) {
         meta.setPosition(atomPosition);
-        return parseIlst(meta, atomPosition + atomSize);
+        return parseIlst(meta, atomPosition + atomSize, ignoreArtwork);
       }
       meta.setPosition(atomPosition + atomSize);
     }
@@ -1020,11 +1022,11 @@ public final class BoxParser {
   }
 
   @Nullable
-  private static Metadata parseIlst(ParsableByteArray ilst, int limit) {
+  private static Metadata parseIlst(ParsableByteArray ilst, int limit, boolean ignoreArtwork) {
     ilst.skipBytes(Mp4Box.HEADER_SIZE);
     ArrayList<Metadata.Entry> entries = new ArrayList<>();
     while (ilst.getPosition() < limit) {
-      @Nullable Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst);
+      @Nullable Metadata.Entry entry = MetadataUtil.parseIlstElement(ilst, ignoreArtwork);
       if (entry != null) {
         entries.add(entry);
       }

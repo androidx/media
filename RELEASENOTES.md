@@ -66,6 +66,12 @@
         custom format ordering and ABR selection priority beyond bitrate-only
         ordering.
 *   Extractors:
+    *   MP4, MP3, and FLAC: Add `FLAG_DISABLE_ARTWORK_METADATA` to allow
+        discarding attached pictures and cover art metadata during container
+        parsing to reduce runtime memory consumption
+        ([#2077](https://github.com/androidx/media/issues/2077)). This can also
+        be enabled centrally via
+        `DefaultExtractorsFactory.setDisableArtworkMetadata`.
     *   MP4: Add support for extracting ITU-T T.35 (`it35`) timed metadata
         tracks.
     *   MP4: Add support for extracting chapter metadata (both Nero and

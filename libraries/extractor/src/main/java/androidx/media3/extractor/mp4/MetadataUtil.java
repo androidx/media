@@ -143,10 +143,11 @@ import com.google.common.collect.ImmutableList;
    * unrecognized.
    *
    * @param ilst Holds the data to be parsed.
+   * @param ignoreArtwork Whether to ignore artwork metadata.
    * @return The parsed element, or null if the element's type was not recognized.
    */
   @Nullable
-  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst) {
+  public static Metadata.Entry parseIlstElement(ParsableByteArray ilst, boolean ignoreArtwork) {
     int position = ilst.getPosition();
     int size = ilst.readInt();
     if (size < Mp4Box.HEADER_SIZE) {
@@ -200,7 +201,7 @@ import com.google.common.collect.ImmutableList;
       } else if (type == TYPE_COMPILATION) {
         return parseIntegerAttribute(type, "TCMP", ilst, true, true);
       } else if (type == TYPE_COVER_ART) {
-        return parseCoverArt(ilst);
+        return ignoreArtwork ? null : parseCoverArt(ilst);
       } else if (type == TYPE_ALBUM_ARTIST) {
         return parseTextAttribute(type, "TPE2", ilst);
       } else if (type == TYPE_SORT_TRACK_NAME) {

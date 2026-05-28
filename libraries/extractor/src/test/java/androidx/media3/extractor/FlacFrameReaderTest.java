@@ -507,7 +507,9 @@ public class FlacFrameReaderTest {
 
     boolean lastMetadataBlock = false;
     while (!lastMetadataBlock) {
-      lastMetadataBlock = FlacMetadataReader.readMetadataBlock(input, streamMetadataHolder);
+      lastMetadataBlock =
+          FlacMetadataReader.readMetadataBlock(
+              input, streamMetadataHolder, /* ignoreArtwork= */ false);
     }
 
     return input;

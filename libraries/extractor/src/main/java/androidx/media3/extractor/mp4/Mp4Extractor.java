@@ -107,7 +107,8 @@ public final class Mp4Extractor implements Extractor {
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
         FLAG_READ_AUXILIARY_TRACKS,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
-        FLAG_OMIT_TRACK_SAMPLE_TABLE
+        FLAG_OMIT_TRACK_SAMPLE_TABLE,
+        FLAG_DISABLE_ARTWORK_METADATA
       })
   public @interface Flags {}
 
@@ -170,6 +171,9 @@ public final class Mp4Extractor implements Extractor {
    * retrieval scenarios where individual sample data is not required.
    */
   public static final int FLAG_OMIT_TRACK_SAMPLE_TABLE = 1 << 8;
+
+  /** Flag to disable parsing of artwork metadata. */
+  public static final int FLAG_DISABLE_ARTWORK_METADATA = 1 << 9;
 
   /** The maximum number of sync samples to scan when searching for a thumbnail. */
   private static final int MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL = 20;
@@ -634,7 +638,9 @@ public final class Mp4Extractor implements Extractor {
     @Nullable Metadata udtaMetadata = null;
     @Nullable Mp4Box.LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
     if (udta != null) {
-      udtaMetadata = BoxParser.parseUdta(udta);
+      udtaMetadata =
+          BoxParser.parseUdta(
+              udta, /* ignoreArtwork= */ (flags & FLAG_DISABLE_ARTWORK_METADATA) != 0);
       gaplessInfoHolder.setFromMetadata(udtaMetadata);
     }
 

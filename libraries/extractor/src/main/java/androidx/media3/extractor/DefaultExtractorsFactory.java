@@ -139,6 +139,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
 
   private boolean constantBitrateSeekingEnabled;
   private boolean constantBitrateSeekingAlwaysEnabled;
+  private boolean disableArtworkMetadata;
   private @AdtsExtractor.Flags int adtsFlags;
   private @AmrExtractor.Flags int amrFlags;
   private @FlacExtractor.Flags int flacFlags;
@@ -205,6 +206,22 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   public synchronized DefaultExtractorsFactory setConstantBitrateSeekingAlwaysEnabled(
       boolean constantBitrateSeekingAlwaysEnabled) {
     this.constantBitrateSeekingAlwaysEnabled = constantBitrateSeekingAlwaysEnabled;
+    return this;
+  }
+
+  /**
+   * Convenience method to set whether parsing of artwork metadata should be disabled for all
+   * extractors that support it. If set to true, the flags required to disable this functionality
+   * will be OR'd with those passed to the setters when creating extractor instances. If set to
+   * false then the flags passed to the setters will be used without modification.
+   *
+   * @param disableArtworkMetadata Whether parsing of artwork metadata should be disabled.
+   * @return The factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public synchronized DefaultExtractorsFactory setDisableArtworkMetadata(
+      boolean disableArtworkMetadata) {
+    this.disableArtworkMetadata = disableArtworkMetadata;
     return this;
   }
 
@@ -488,11 +505,13 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                         : 0)));
         break;
       case FileTypes.FLAC:
-        @Nullable Extractor flacExtractor = FLAC_EXTENSION_LOADER.getExtractor(flacFlags);
+        int effectiveFlacFlags =
+            flacFlags | (disableArtworkMetadata ? FlacExtractor.FLAG_DISABLE_ARTWORK_METADATA : 0);
+        @Nullable Extractor flacExtractor = FLAC_EXTENSION_LOADER.getExtractor(effectiveFlacFlags);
         if (flacExtractor != null) {
           extractors.add(flacExtractor);
         } else {
-          extractors.add(new FlacExtractor(flacFlags));
+          extractors.add(new FlacExtractor(effectiveFlacFlags));
         }
         break;
       case FileTypes.FLV:
@@ -516,7 +535,8 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                         : 0)
                     | (constantBitrateSeekingAlwaysEnabled
                         ? Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS
-                        : 0)));
+                        : 0)
+                    | (disableArtworkMetadata ? Mp3Extractor.FLAG_DISABLE_ARTWORK_METADATA : 0)));
         break;
       case FileTypes.MP4:
         extractors.add(
@@ -528,16 +548,18 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                         codecsToParseWithinGopSampleDependencies)
                     | (textTrackTranscodingEnabled
                         ? 0
-                        : FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
+                        : FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)
+                    | (disableArtworkMetadata
+                        ? FragmentedMp4Extractor.FLAG_DISABLE_ARTWORK_METADATA
+                        : 0)));
         extractors.add(
             new Mp4Extractor(
                 subtitleParserFactory,
                 mp4Flags
                     | Mp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
                         codecsToParseWithinGopSampleDependencies)
-                    | (textTrackTranscodingEnabled
-                        ? 0
-                        : Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)));
+                    | (textTrackTranscodingEnabled ? 0 : Mp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA)
+                    | (disableArtworkMetadata ? Mp4Extractor.FLAG_DISABLE_ARTWORK_METADATA : 0)));
         break;
       case FileTypes.OGG:
         extractors.add(new OggExtractor());
