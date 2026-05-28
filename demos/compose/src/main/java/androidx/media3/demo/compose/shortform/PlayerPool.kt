@@ -15,60 +15,53 @@
  */
 package androidx.media3.demo.compose.shortform
 
-import android.os.Handler
-import android.os.Looper
+import androidx.annotation.MainThread
 import androidx.annotation.OptIn
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Builder
 import androidx.media3.exoplayer.util.EventLogger
-import com.google.common.collect.BiMap
-import com.google.common.collect.HashBiMap
-import com.google.common.collect.Maps
-import java.util.Collections
-import java.util.LinkedList
-import java.util.Queue
+import kotlinx.coroutines.channels.Channel
 
+/**
+ * A [Channel]-based pool of [Player] instances.
+ *
+ * Why use channels:
+ * - Built-in Suspension: A standard Queue doesn't know how to wait. If it is empty, we would either
+ *   get null or an exception, plus we would need to poll() at a regular interval. Channel's
+ *   `receive()` suspending function solves that.
+ * - Native Cancellation Support: When a user is swiping quickly through a VerticalPager, they might
+ *   leave a page before the player even finishes loading. Because `Channel.receive()` is a
+ *   suspending function, it fully supports Coroutine cancellation.
+ */
+@MainThread
 @OptIn(UnstableApi::class)
-internal class PlayerPool(private val numberOfPlayers: Int, preloadManagerBuilder: Builder) {
+internal class PlayerPool(
+  private val poolCapacity: Int,
+  private val preloadManagerBuilder: Builder,
+) {
+  private val availablePlayers = Channel<ExoPlayer>(Channel.UNLIMITED)
+  private val allPlayers = mutableListOf<ExoPlayer>()
+  private var isReleased = false
 
-  /** Creates a player instance to be used by the pool. */
-  interface PlayerFactory {
-    /** Creates an [ExoPlayer] instance. */
-    fun createPlayer(): ExoPlayer
-  }
-
-  private val availablePlayerQueue: Queue<Int> = LinkedList()
-  private val playerMap: BiMap<Int, ExoPlayer> = Maps.synchronizedBiMap(HashBiMap.create())
-  private val playerRequestTokenSet: MutableSet<Int> = Collections.synchronizedSet(HashSet<Int>())
-  private val playerFactory: PlayerFactory = DefaultPlayerFactory(preloadManagerBuilder)
-
-  fun acquirePlayer(token: Int, callback: (ExoPlayer) -> Unit) {
-    synchronized(playerMap) {
-      // Add token to set of views requesting players
-      playerRequestTokenSet.add(token)
-      acquirePlayerInternal(token, callback)
+  /** Suspends until a player is available in the pool. */
+  suspend fun acquirePlayer(): ExoPlayer {
+    check(!isReleased) { "PlayerPool is already released" }
+    // Use an idle player if one is immediately available in the channel
+    availablePlayers.tryReceive().getOrNull()?.let {
+      return it
     }
-  }
 
-  private fun acquirePlayerInternal(token: Int, callback: (ExoPlayer) -> Unit) {
-    synchronized(playerMap) {
-      if (!availablePlayerQueue.isEmpty()) {
-        val playerNumber = availablePlayerQueue.remove()
-        playerMap[playerNumber]?.let { callback.invoke(it) }
-        playerRequestTokenSet.remove(token)
-        return
-      } else if (playerMap.size < numberOfPlayers) {
-        val player = playerFactory.createPlayer()
-        playerMap[playerMap.size] = player
-        callback.invoke(player)
-        playerRequestTokenSet.remove(token)
-        return
-      } else if (playerRequestTokenSet.contains(token)) {
-        Handler(Looper.getMainLooper()).postDelayed({ acquirePlayerInternal(token, callback) }, 500)
-      }
+    // If all the players are busy, but the pool isn't full, create a new one and return it directly
+    if (allPlayers.size < poolCapacity) {
+      val player = preloadManagerBuilder.buildExoPlayer()
+      player.addAnalyticsListener(EventLogger("player-${allPlayers.size + 1}-of-$poolCapacity"))
+      player.repeatMode = ExoPlayer.REPEAT_MODE_ONE
+      allPlayers.add(player)
+      return player
     }
+    return availablePlayers.receive()
   }
 
   /** Calls [Player.play()] for the given player and pauses all other players. */
@@ -77,53 +70,22 @@ internal class PlayerPool(private val numberOfPlayers: Int, preloadManagerBuilde
     player.play()
   }
 
-  /**
-   * Pauses all players.
-   *
-   * @param keepOngoingPlayer The optional player that should keep playing if not paused.
-   */
   private fun pauseAllPlayers(keepOngoingPlayer: Player? = null) {
-    for (player in playerMap.values) {
-      if (player != keepOngoingPlayer) {
-        player.pause()
-      }
-    }
+    allPlayers.filter { it != keepOngoingPlayer }.forEach(Player::pause)
   }
 
-  fun releasePlayer(token: Int, player: ExoPlayer?) {
-    synchronized(playerMap) {
-      // Remove token from set of views requesting players & remove potential callbacks
-      // trying to grab the player
-      playerRequestTokenSet.remove(token)
-      // Stop the player and release into the pool for reusing, do not player.release()
-      player?.stop()
-      player?.clearMediaItems()
-      if (player != null) {
-        val playerNumber = playerMap.inverse()[player]
-        availablePlayerQueue.add(playerNumber)
-      }
+  fun returnToPool(player: ExoPlayer?) {
+    player?.apply {
+      stop()
+      clearMediaItems()
+      val unused = availablePlayers.trySend(this)
     }
   }
 
   fun destroyPlayers() {
-    synchronized(playerMap) {
-      for (i in 0 until playerMap.size) {
-        playerMap[i]?.release()
-        playerMap.remove(i)
-      }
-    }
-  }
-
-  @OptIn(UnstableApi::class)
-  private class DefaultPlayerFactory(private val preloadManagerBuilder: Builder) : PlayerFactory {
-    private var playerCounter = 0
-
-    override fun createPlayer(): ExoPlayer {
-      val player = preloadManagerBuilder.buildExoPlayer()
-      player.addAnalyticsListener(EventLogger("player-$playerCounter"))
-      playerCounter++
-      player.repeatMode = ExoPlayer.REPEAT_MODE_ONE
-      return player
-    }
+    isReleased = true
+    allPlayers.forEach(Player::release)
+    allPlayers.clear()
+    availablePlayers.cancel()
   }
 }
