@@ -47,7 +47,7 @@ public final class VbriSeekerTest {
                 /* inputLength= */ C.LENGTH_UNSET,
                 VBRI_FRAME_POSITION,
                 header,
-                createVbriFrame(dataSize, frameCount, /* segmentSizes= */ 400, 600)));
+                createVbriFrame(dataSize, frameCount, /* segmentSizes...= */ 400, 600)));
     long durationUs =
         Util.sampleCountToDurationUs(
             ((long) frameCount * header.samplesPerFrame) - 1, header.sampleRate);
