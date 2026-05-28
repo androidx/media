@@ -738,6 +738,13 @@ public final class TtmlParser implements SubtitleParser {
     if (parent != null && parent.startTimeUs != C.TIME_UNSET) {
       if (startTime != C.TIME_UNSET) {
         startTime += parent.startTimeUs;
+      } else {
+        // Per TTML2 §12.2.1 and SMIL 3.0 §5.4.3, when `begin` is absent on a timed element
+        // inside a parallel or sequential time container, the implicit value is 0s, which
+        // resolves to the parent's start time. Without this, an element whose timing is
+        // carried by a wrapping ancestor (e.g. a `<p>` inside a `<div begin="…">`) would
+        // keep an unset startTimeUs and never be emitted as a cue.
+        startTime = parent.startTimeUs;
       }
       if (endTime != C.TIME_UNSET) {
         endTime += parent.startTimeUs;
