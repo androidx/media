@@ -255,12 +255,18 @@ public class TransformerEndToEndTest {
     ExportTestResult unused =
         new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
 
-    // We should observe a duration 16ms longer than the actual stream to account for the duration
-    // miscalculation.
-    assertThat(bytesRead.get() / 2)
-        .isEqualTo(
-            durationUsToSampleCount(
-                MP3_ASSET_CBR_TRAILING_ID3V1.audioDurationUs + 16_000, /* sampleRate= */ 44100));
+    // We should observe either:
+    // - A duration 16ms longer than the actual stream (46785 samples) to account for the duration
+    //   miscalculation if silence padding is appended.
+    // - The actual stream duration (46080 samples) if the corrected duration is already known when
+    //   configuring the silence appending processor (no silence is appended).
+    long actualSampleCount = bytesRead.get() / 2;
+    long expectedSampleCountWithPadding =
+        durationUsToSampleCount(
+            MP3_ASSET_CBR_TRAILING_ID3V1.audioDurationUs + 16_000, /* sampleRate= */ 44100);
+    long expectedSampleCountWithoutPadding = 46_080L; // 40 MP3 frames of 1152 samples each
+    assertThat(actualSampleCount)
+        .isIn(ImmutableList.of(expectedSampleCountWithPadding, expectedSampleCountWithoutPadding));
   }
 
   @Test
