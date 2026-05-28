@@ -21,7 +21,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
-import java.math.RoundingMode;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
