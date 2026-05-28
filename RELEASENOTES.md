@@ -233,6 +233,8 @@
         to reset fully processed asset list interstitials back to an unavailable
         state for on-demand re-resolution.
 *   DASH extension:
+    *   Separate CEA closed captions into different `TrackGroup`s based on
+        language ([#3113](https://github.com/androidx/media/issues/3113)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix transient playback stalls or failures during RTSP playback

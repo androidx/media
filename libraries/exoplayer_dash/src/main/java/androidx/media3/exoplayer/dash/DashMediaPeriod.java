@@ -747,9 +747,7 @@ import java.util.regex.Pattern;
       }
       primaryGroupClosedCaptionTrackFormats[i] =
           getClosedCaptionTrackFormats(adaptationSets, groupedAdaptationSetIndices[i]);
-      if (primaryGroupClosedCaptionTrackFormats[i].length != 0) {
-        numEmbeddedTrackGroups++;
-      }
+      numEmbeddedTrackGroups += primaryGroupClosedCaptionTrackFormats[i].length;
     }
     return numEmbeddedTrackGroups;
   }
@@ -790,7 +788,7 @@ import java.util.regex.Pattern;
       int eventMessageTrackGroupIndex =
           primaryGroupHasEventMessageTrackFlags[i] ? trackGroupCount++ : C.INDEX_UNSET;
       int closedCaptionTrackGroupIndex =
-          primaryGroupClosedCaptionTrackFormats[i].length != 0 ? trackGroupCount++ : C.INDEX_UNSET;
+          primaryGroupClosedCaptionTrackFormats[i].length != 0 ? trackGroupCount : C.INDEX_UNSET;
 
       maybeUpdateFormatsForParsedText(chunkSourceFactory, formats);
       trackGroups[primaryTrackGroupIndex] = new TrackGroup(trackGroupId, formats);
@@ -800,7 +798,8 @@ import java.util.regex.Pattern;
               adaptationSetIndices,
               primaryTrackGroupIndex,
               eventMessageTrackGroupIndex,
-              closedCaptionTrackGroupIndex);
+              closedCaptionTrackGroupIndex,
+              primaryGroupClosedCaptionTrackFormats[i].length);
       if (eventMessageTrackGroupIndex != C.INDEX_UNSET) {
         String eventMessageTrackGroupId = trackGroupId + ":emsg";
         Format format =
@@ -814,23 +813,33 @@ import java.util.regex.Pattern;
             TrackGroupInfo.embeddedEmsgTrack(adaptationSetIndices, primaryTrackGroupIndex);
       }
       if (closedCaptionTrackGroupIndex != C.INDEX_UNSET) {
-        String closedCaptionTrackGroupId = trackGroupId + ":cc";
-        trackGroupInfos[closedCaptionTrackGroupIndex] =
-            TrackGroupInfo.embeddedClosedCaptionTrack(
-                adaptationSetIndices,
-                primaryTrackGroupIndex,
-                ImmutableList.copyOf(primaryGroupClosedCaptionTrackFormats[i]));
-        maybeUpdateFormatsForParsedText(
-            chunkSourceFactory, primaryGroupClosedCaptionTrackFormats[i]);
-        for (int j = 0; j < primaryGroupClosedCaptionTrackFormats[i].length; j++) {
-          primaryGroupClosedCaptionTrackFormats[i][j] =
-              primaryGroupClosedCaptionTrackFormats[i][j]
+        Format[] closedCaptionFormats = primaryGroupClosedCaptionTrackFormats[i];
+        maybeUpdateFormatsForParsedText(chunkSourceFactory, closedCaptionFormats);
+
+        for (int currentCaptionIndex = 0;
+            currentCaptionIndex < closedCaptionFormats.length;
+            currentCaptionIndex++) {
+          Format originalFormat = closedCaptionFormats[currentCaptionIndex];
+          primaryGroupClosedCaptionTrackFormats[i][currentCaptionIndex] =
+              closedCaptionFormats[currentCaptionIndex]
                   .buildUpon()
                   .setPrimaryTrackGroupId(trackGroupId)
                   .build();
+
+          trackGroupInfos[closedCaptionTrackGroupIndex] =
+              TrackGroupInfo.embeddedClosedCaptionTrack(
+                  adaptationSetIndices, primaryTrackGroupIndex, originalFormat);
+
+          String closedCaptionTrackGroupId = trackGroupId + ":cc:" + currentCaptionIndex;
+          trackGroups[closedCaptionTrackGroupIndex] =
+              new TrackGroup(
+                  closedCaptionTrackGroupId,
+                  primaryGroupClosedCaptionTrackFormats[i][currentCaptionIndex]);
+
+          closedCaptionTrackGroupIndex++;
         }
-        trackGroups[closedCaptionTrackGroupIndex] =
-            new TrackGroup(closedCaptionTrackGroupId, primaryGroupClosedCaptionTrackFormats[i]);
+
+        trackGroupCount += closedCaptionFormats.length;
       }
     }
     return trackGroupCount;
@@ -865,11 +874,21 @@ import java.util.regex.Pattern;
           trackGroups.get(trackGroupInfo.embeddedEventMessageTrackGroupIndex);
       embeddedTrackCount++;
     }
+    ImmutableList.Builder<Format> embeddedClosedCaptionOriginalFormatsBuilder =
+        ImmutableList.builder();
+    if (trackGroupInfo.embeddedClosedCaptionTrackGroupStartIndex != C.INDEX_UNSET) {
+      for (int i = 0; i < trackGroupInfo.embeddedClosedCaptionTrackGroupLength; i++) {
+        Format closedCaptionsFormat =
+            trackGroupInfos[trackGroupInfo.embeddedClosedCaptionTrackGroupStartIndex + i]
+                .embeddedClosedCaptionTrackOriginalFormat;
+
+        if (closedCaptionsFormat != null) {
+          embeddedClosedCaptionOriginalFormatsBuilder.add(closedCaptionsFormat);
+        }
+      }
+    }
     ImmutableList<Format> embeddedClosedCaptionOriginalFormats =
-        trackGroupInfo.embeddedClosedCaptionTrackGroupIndex != C.INDEX_UNSET
-            ? trackGroupInfos[trackGroupInfo.embeddedClosedCaptionTrackGroupIndex]
-                .embeddedClosedCaptionTrackOriginalFormats
-            : ImmutableList.of();
+        embeddedClosedCaptionOriginalFormatsBuilder.build();
     embeddedTrackCount += embeddedClosedCaptionOriginalFormats.size();
 
     Format[] embeddedTrackFormats = new Format[embeddedTrackCount];
@@ -880,13 +899,16 @@ import java.util.regex.Pattern;
       embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_METADATA;
       embeddedTrackCount++;
     }
-    List<Format> embeddedClosedCaptionTrackFormats = new ArrayList<>();
+    ImmutableList.Builder<Format> embeddedClosedCaptionTrackFormatsBuilder =
+        ImmutableList.builder();
     for (int i = 0; i < embeddedClosedCaptionOriginalFormats.size(); i++) {
       embeddedTrackFormats[embeddedTrackCount] = embeddedClosedCaptionOriginalFormats.get(i);
       embeddedTrackTypes[embeddedTrackCount] = C.TRACK_TYPE_TEXT;
-      embeddedClosedCaptionTrackFormats.add(embeddedTrackFormats[embeddedTrackCount]);
+      embeddedClosedCaptionTrackFormatsBuilder.add(embeddedTrackFormats[embeddedTrackCount]);
       embeddedTrackCount++;
     }
+    ImmutableList<Format> embeddedClosedCaptionTrackFormats =
+        embeddedClosedCaptionTrackFormatsBuilder.build();
     PlayerTrackEmsgHandler trackPlayerEmsgHandler =
         manifest.dynamic && enableEventMessageTrack
             ? playerEmsgHandler.newPlayerTrackEmsgHandler()
@@ -1112,33 +1134,36 @@ import java.util.regex.Pattern;
      */
     private static final int CATEGORY_MANIFEST_EVENTS = 2;
 
-    public final int[] adaptationSetIndices;
-    public final @C.TrackType int trackType;
-    public final @TrackGroupCategory int trackGroupCategory;
+    private final int[] adaptationSetIndices;
+    private final @C.TrackType int trackType;
+    private final @TrackGroupCategory int trackGroupCategory;
 
-    public final int eventStreamGroupIndex;
-    public final int primaryTrackGroupIndex;
-    public final int embeddedEventMessageTrackGroupIndex;
-    public final int embeddedClosedCaptionTrackGroupIndex;
+    private final int eventStreamGroupIndex;
+    private final int primaryTrackGroupIndex;
+    private final int embeddedEventMessageTrackGroupIndex;
+    private final int embeddedClosedCaptionTrackGroupStartIndex;
+    private final int embeddedClosedCaptionTrackGroupLength;
 
-    /** Only non-empty for track groups representing embedded caption tracks. */
-    public final ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats;
+    /** Only non-null for track groups representing embedded caption tracks. */
+    @Nullable private final Format embeddedClosedCaptionTrackOriginalFormat;
 
     public static TrackGroupInfo primaryTrack(
         int trackType,
         int[] adaptationSetIndices,
         int primaryTrackGroupIndex,
         int embeddedEventMessageTrackGroupIndex,
-        int embeddedClosedCaptionTrackGroupIndex) {
+        int embeddedClosedCaptionTrackGroupStartIndex,
+        int embeddedClosedCaptionTrackGroupLength) {
       return new TrackGroupInfo(
           trackType,
           CATEGORY_PRIMARY,
           adaptationSetIndices,
           primaryTrackGroupIndex,
           embeddedEventMessageTrackGroupIndex,
-          embeddedClosedCaptionTrackGroupIndex,
+          embeddedClosedCaptionTrackGroupStartIndex,
+          embeddedClosedCaptionTrackGroupLength,
           /* eventStreamGroupIndex= */ -1,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          /* embeddedClosedCaptionTrackOriginalFormat= */ null);
     }
 
     public static TrackGroupInfo embeddedEmsgTrack(
@@ -1150,14 +1175,13 @@ import java.util.regex.Pattern;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
+          C.LENGTH_UNSET,
           /* eventStreamGroupIndex= */ -1,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          /* embeddedClosedCaptionTrackOriginalFormat= */ null);
     }
 
     public static TrackGroupInfo embeddedClosedCaptionTrack(
-        int[] adaptationSetIndices,
-        int primaryTrackGroupIndex,
-        ImmutableList<Format> originalFormats) {
+        int[] adaptationSetIndices, int primaryTrackGroupIndex, Format originalFormat) {
       return new TrackGroupInfo(
           C.TRACK_TYPE_TEXT,
           CATEGORY_EMBEDDED,
@@ -1165,8 +1189,9 @@ import java.util.regex.Pattern;
           primaryTrackGroupIndex,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
+          C.LENGTH_UNSET,
           /* eventStreamGroupIndex= */ -1,
-          originalFormats);
+          originalFormat);
     }
 
     public static TrackGroupInfo mpdEventTrack(int eventStreamIndex) {
@@ -1177,8 +1202,9 @@ import java.util.regex.Pattern;
           /* primaryTrackGroupIndex= */ -1,
           C.INDEX_UNSET,
           C.INDEX_UNSET,
+          C.LENGTH_UNSET,
           eventStreamIndex,
-          /* embeddedClosedCaptionTrackOriginalFormats= */ ImmutableList.of());
+          /* embeddedClosedCaptionTrackOriginalFormat= */ null);
     }
 
     private TrackGroupInfo(
@@ -1187,17 +1213,19 @@ import java.util.regex.Pattern;
         int[] adaptationSetIndices,
         int primaryTrackGroupIndex,
         int embeddedEventMessageTrackGroupIndex,
-        int embeddedClosedCaptionTrackGroupIndex,
+        int embeddedClosedCaptionTrackGroupStartIndex,
+        int embeddedClosedCaptionTrackGroupLength,
         int eventStreamGroupIndex,
-        ImmutableList<Format> embeddedClosedCaptionTrackOriginalFormats) {
+        @Nullable Format embeddedClosedCaptionTrackOriginalFormat) {
       this.trackType = trackType;
       this.adaptationSetIndices = adaptationSetIndices;
       this.trackGroupCategory = trackGroupCategory;
       this.primaryTrackGroupIndex = primaryTrackGroupIndex;
       this.embeddedEventMessageTrackGroupIndex = embeddedEventMessageTrackGroupIndex;
-      this.embeddedClosedCaptionTrackGroupIndex = embeddedClosedCaptionTrackGroupIndex;
+      this.embeddedClosedCaptionTrackGroupStartIndex = embeddedClosedCaptionTrackGroupStartIndex;
+      this.embeddedClosedCaptionTrackGroupLength = embeddedClosedCaptionTrackGroupLength;
       this.eventStreamGroupIndex = eventStreamGroupIndex;
-      this.embeddedClosedCaptionTrackOriginalFormats = embeddedClosedCaptionTrackOriginalFormats;
+      this.embeddedClosedCaptionTrackOriginalFormat = embeddedClosedCaptionTrackOriginalFormat;
     }
   }
 }
