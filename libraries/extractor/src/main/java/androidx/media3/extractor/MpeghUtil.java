@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.ts;
+package androidx.media3.extractor;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableBitArray;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
@@ -37,7 +38,7 @@ import java.nio.ByteBuffer;
 public final class MpeghUtil {
 
   /**
-   *  Maximum rate for an MPEG-H audio stream, in bytes per second.
+   * Maximum rate for an MPEG-H audio stream, in bytes per second.
    * 56 channels × 288 kbps/channel = 16128 kbps -> 2016000 bytes/s
    * assumes 1024-sample frame length at 48000 Hz for MPEG-H BL L4 maximum
    */
@@ -753,14 +754,9 @@ public final class MpeghUtil {
    * @param buffer The data to parse, containing complete MPEG-H access units
    * @return The number of truncated samples.
    */
-  public static int getTruncationSampleCount(ByteBuffer buffer) {
+  public static int getTruncationSampleCount(ParsableByteArray buffer) {
     int truncationSamples = 0;
-    int bufferPos = buffer.position();
-    byte[] bytes = new byte[buffer.remaining()];
-    buffer.get(bytes);
-    buffer.position(bufferPos);
-    ParsableBitArray bitArray = new ParsableBitArray(bytes);
-
+    ParsableBitArray bitArray = new ParsableBitArray(buffer.getData(), buffer.limit());
     MhasPacketHeader header = new MhasPacketHeader();
     while (bitArray.bitsLeft() > 0) {
       try {

@@ -15,85 +15,52 @@
  */
 package androidx.media3.decoder.mpegh;
 
-import static androidx.media3.decoder.mpegh.MpeghAudioRenderer.CODEC_PARAM_MPEGH_UI_CONFIG;
-import static androidx.media3.decoder.mpegh.MpeghAudioRenderer.CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER;
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
-import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.decoder.SimpleDecoderOutputBuffer;
-import androidx.media3.exoplayer.CodecParameters;
-import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import java.nio.ByteBuffer;
-import java.util.Set;
 
 /** MPEG-H decoder. */
 @UnstableApi
-public final class MpeghDecoder
-    extends SimpleDecoder<DecoderInputBuffer, SimpleDecoderOutputBuffer, MpeghDecoderException> {
-
-  /** The default input buffer size. */
-  private static final int DEFAULT_INPUT_BUFFER_SIZE = 2048 * 6;
-
-  /**
-   * The maximum padding required for MPEG-H UI manager data added to the input buffer. This is
-   * based on the size of a single MPEG-H AU.
-   */
-  private static final int UI_MANAGER_PADDING_SIZE = 2048;
+public final class MpeghDecoder extends MpeghBaseDecoder {
 
   private static final int TARGET_LAYOUT_CICP = 2;
 
-  private final ByteBuffer tmpOutputBuffer;
-  private final MpeghUiCommandHelper uiHelper;
-
-  private @Nullable MpeghDecoderJni decoder;
+  private final MpeghDecoderJni decoder;
   private long outPtsUs;
-  private int outChannels;
-  private int outSampleRate;
-  private @Nullable MpeghUiManagerJni uiManager;
+
+  private final ByteBuffer tmpOutputBuffer;
 
   /**
    * Creates an MPEG-H decoder.
    *
-   * @param format The input {@link Format}.
-   * @param numInputBuffers The number of input buffers.
+   * @param format           The input {@link Format}.
+   * @param numInputBuffers  The number of input buffers.
    * @param numOutputBuffers The number of output buffers.
-   * @param uiHelper A helper class to hold variables/commands which are obtained in the {@link
-   *     MpeghAudioRenderer} and are needed to perform the UI handling.
+   * @param uiHelper         A helper class to hold variables/commands which are obtained in the {@link
+   *                         MpeghAudioRenderer} and are needed to perform the UI handling.
    * @throws MpeghDecoderException If an exception occurs when initializing the decoder.
    */
   public MpeghDecoder(
-      Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper uiHelper, boolean directPlayback)
+      Format format, int numInputBuffers, int numOutputBuffers, MpeghUiCommandHelper uiHelper)
       throws MpeghDecoderException {
-    super(new DecoderInputBuffer[numInputBuffers], new SimpleDecoderOutputBuffer[numOutputBuffers]);
-    if (!MpeghLibrary.isAvailable()) {
-      throw new MpeghDecoderException("Failed to load decoder native libraries.");
-    }
+    super(format, numInputBuffers, numOutputBuffers, uiHelper);
 
     outChannels = 2;
     outSampleRate = 48000;
-
-    int initialInputBufferSize =
-        format.maxInputSize != Format.NO_VALUE ? format.maxInputSize : DEFAULT_INPUT_BUFFER_SIZE;
-    // Add padding for MPEG-H UI manager data so we don't need to reallocate at runtime.
-    setInitialInputBufferSize(initialInputBufferSize + UI_MANAGER_PADDING_SIZE);
+    outSampleMimeType = MimeTypes.AUDIO_RAW;
+    outPcmEncoding = C.ENCODING_PCM_16BIT;
 
     // Allocate memory for the temporary output of the native MPEG-H decoder.
     tmpOutputBuffer =
         ByteBuffer.allocateDirect(
             3072 * 24 * 6
                 * 2); // MAX_FRAME_LENGTH * MAX_NUM_CHANNELS * MAX_NUM_FRAMES * BYTES_PER_SAMPLE
-
-    this.uiHelper = uiHelper;
-
-    if (directPlayback) {
-      return;
-    }
 
     byte[] configData = new byte[0];
     if (!format.initializationData.isEmpty()
@@ -112,144 +79,60 @@ public final class MpeghDecoder
   }
 
   @Override
-  protected DecoderInputBuffer createInputBuffer() {
-    return new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
-  }
-
-  @Override
-  protected SimpleDecoderOutputBuffer createOutputBuffer() {
-    return new SimpleDecoderOutputBuffer(this::releaseOutputBuffer);
-  }
-
-  @Override
-  protected MpeghDecoderException createUnexpectedDecodeException(Throwable error) {
-    return new MpeghDecoderException("Unexpected decode error", error);
-  }
-
-  @Override
   @Nullable
   protected MpeghDecoderException decode(
       DecoderInputBuffer inputBuffer, SimpleDecoderOutputBuffer outputBuffer, boolean reset) {
-    if (decoder != null) {
-      if (reset) {
-        try {
-          decoder.flush();
-        } catch (MpeghDecoderException e) {
-          return e;
-        }
-      }
-    }
 
-    // lazy initialization of UI manager
-    if (uiManager == null
-        && MimeTypes.AUDIO_MPEGH_MHM1.equals(checkNotNull(inputBuffer.format).sampleMimeType)) {
-
-      ByteBuffer persistenceBuffer = uiHelper.getPersistenceStorage();
-
-      int persistenceBufferSize = 0;
-      if (persistenceBuffer != null) {
-        persistenceBufferSize = persistenceBuffer.capacity();
-      }
-
-      uiManager = new MpeghUiManagerJni();
+    if (reset) {
       try {
-        uiManager.init(persistenceBuffer, persistenceBufferSize);
+        decoder.flush();
       } catch (MpeghDecoderException e) {
         return e;
       }
+    }
 
-      // apply MPEG-H system settings
-      for (String command : uiHelper.getCommands(/* includeSystemSettings= */ true)) {
-        uiManager.command(command);
-      }
+    MpeghDecoderException exception = super.decode(inputBuffer, outputBuffer, reset);
+    if (exception != null) {
+      return exception;
     }
 
     // Get the data from the input buffer.
     ByteBuffer inputData = Util.castNonNull(inputBuffer.data);
     int inputSize = inputData.limit();
 
-    if (uiManager != null) {
-      // Allow the UI manager to access the whole buffer (including padding).
-      inputData.limit(inputData.capacity());
-
-      boolean feedSuccess = uiManager.feed(inputData, inputSize);
-      if (feedSuccess) {
-        for (String command : uiHelper.getCommands(/* includeSystemSettings= */ false)) {
-          uiManager.command(command);
-        }
-
-        // process the access unit with the UI manager
-        boolean forceUiUpdate = uiHelper.getForceUiUpdate();
-        inputSize = uiManager.update(inputData, inputSize, forceUiUpdate);
-        inputData.limit(inputSize);
-        uiHelper.setForceUiUpdate(false);
-
-        boolean newOsdAvailable = uiManager.newOsdAvailable();
-        if (newOsdAvailable) {
-          String osdXml = uiManager.getOsd();
-
-          @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
-          @Nullable
-          AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
-          if (subscribedKeys != null && dispatcher != null) {
-            if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_CONFIG)) {
-              // reset CodecParameter with KEY_MPEGH_UI_CONFIG to null as it is possible that the
-              // last config needs to be resent, because only 'real' changes are propagated
-              // further on by audioCodecParametersChanged
-              dispatcher.audioCodecParametersChanged(
-                  new CodecParameters.Builder()
-                      .setString(CODEC_PARAM_MPEGH_UI_CONFIG, null)
-                      .build());
-              // actually send the current MPEG-H UI config
-              dispatcher.audioCodecParametersChanged(
-                  new CodecParameters.Builder()
-                      .setString(CODEC_PARAM_MPEGH_UI_CONFIG, osdXml)
-                      .build());
-            }
-          }
-        }
-      }
-    }
-
     int numBytes = 0;
     tmpOutputBuffer.clear();
-    if (decoder != null) {
-      long inputPtsUs = inputBuffer.timeUs;
 
-      // Process/decode the incoming data.
+    long inputPtsUs = inputBuffer.timeUs;
+
+    // Process/decode the incoming data.
+    try {
+      decoder.process(inputData, inputSize, inputPtsUs);
+    } catch (MpeghDecoderException e) {
+      return e;
+    }
+
+    // Get as many decoded samples as possible.
+    int outputSize;
+    int cnt = 0;
+    do {
       try {
-        decoder.process(inputData, inputSize, inputPtsUs);
+        outputSize = decoder.getSamples(tmpOutputBuffer, numBytes);
       } catch (MpeghDecoderException e) {
         return e;
       }
+      // To concatenate possible additional audio frames, increase the write position.
+      numBytes += outputSize;
 
-      // Get as many decoded samples as possible.
-      int outputSize;
-      int cnt = 0;
-      do {
-        try {
-          outputSize = decoder.getSamples(tmpOutputBuffer, numBytes);
-        } catch (MpeghDecoderException e) {
-          return e;
-        }
-        // To concatenate possible additional audio frames, increase the write position.
-        numBytes += outputSize;
+      if (cnt == 0 && outputSize > 0) {
+        // Only use the first frame for info about PTS, number of channels and sample rate.
+        outPtsUs = decoder.getPts();
+        outChannels = decoder.getNumChannels();
+        outSampleRate = decoder.getSamplerate();
+      }
 
-        if (cnt == 0 && outputSize > 0) {
-          // Only use the first frame for info about PTS, number of channels and sample rate.
-          outPtsUs = decoder.getPts();
-          outChannels = decoder.getNumChannels();
-          outSampleRate = decoder.getSamplerate();
-        }
-
-        cnt++;
-      } while (outputSize > 0);
-    } else {
-      outPtsUs = inputBuffer.timeUs;
-      numBytes = inputData.remaining();
-      tmpOutputBuffer.put(inputData);
-      tmpOutputBuffer.rewind();
-    }
+      cnt++;
+    } while (outputSize > 0);
 
     int outputSizeTotal = numBytes;
     tmpOutputBuffer.limit(outputSizeTotal);
@@ -262,11 +145,8 @@ public final class MpeghDecoder
       outputBuffer.init(outPtsUs, outputSizeTotal);
 
       // copy temporary output to output buffer
-      if (decoder != null) {
-        outputBuffer.data.asShortBuffer().put(tmpOutputBuffer.asShortBuffer());
-      } else {
-        outputBuffer.data.put(tmpOutputBuffer);
-      }
+      outputBuffer.data.asShortBuffer().put(tmpOutputBuffer.asShortBuffer());
+
       outputBuffer.data.rewind();
     } else {
       // if no output data is available signalize that only decoding/processing was possible
@@ -278,40 +158,6 @@ public final class MpeghDecoder
   @Override
   public void release() {
     super.release();
-
-    if (uiManager != null) {
-      ByteBuffer persistenceBuffer = uiHelper.getPersistenceStorage();
-      if (persistenceBuffer != null) {
-        persistenceBuffer.rewind();
-        int unused = uiManager.destroy(persistenceBuffer, persistenceBuffer.capacity());
-        @Nullable Set<String> subscribedKeys = uiHelper.getSubscribedCodecParameterKeys();
-        @Nullable
-        AudioRendererEventListener.EventDispatcher dispatcher = uiHelper.getEventDispatcher();
-        if (subscribedKeys != null && dispatcher != null) {
-          if (subscribedKeys.contains(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER)) {
-            dispatcher.audioCodecParametersChanged(
-                new CodecParameters.Builder()
-                    .setByteBuffer(CODEC_PARAM_MPEGH_UI_PERSISTENCE_BUFFER, persistenceBuffer)
-                    .build());
-          }
-        }
-      }
-      uiManager = null;
-    }
-
-    if (decoder != null) {
-      decoder.destroy();
-      decoder = null;
-    }
-  }
-
-  /** Returns the channel count of output audio. */
-  public int getChannelCount() {
-    return outChannels;
-  }
-
-  /** Returns the sample rate of output audio. */
-  public int getSampleRate() {
-    return outSampleRate;
+    decoder.destroy();
   }
 }

@@ -40,11 +40,12 @@ import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
-import androidx.media3.extractor.ts.MpeghUtil;
+import androidx.media3.extractor.MpeghUtil;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
@@ -113,6 +114,8 @@ public final class AudioTrackAudioOutput implements AudioOutput {
   private int lastUnderrunCount;
   private boolean hasData;
 
+  private final ParsableByteArray mpeghScratchBytes;
+
   /**
    * @deprecated Use {@link
    *     #AudioTrackAudioOutput(AudioTrack,OutputConfig,CapabilityChangeListener,float,Clock)}
@@ -175,6 +178,8 @@ public final class AudioTrackAudioOutput implements AudioOutput {
           new OnRoutingChangedListenerApi24(audioTrack, capabilityChangeListener);
     }
     offloadStreamEventCallbackV29 = isOffloadedPlayback() ? new StreamEventCallbackV29() : null;
+
+    mpeghScratchBytes = new ParsableByteArray();
   }
 
   /** Returns the {@link AudioTrack} instance used for audio output. */
@@ -246,9 +251,10 @@ public final class AudioTrackAudioOutput implements AudioOutput {
       // If this is the first encoded sample, calculate the sample size in frames.
       framesPerEncodedSample = DefaultAudioSink.getFramesPerEncodedSample(config.encoding, buffer);
     }
-    int truncationSamples = 0;
     if (isMpegh && buffer.remaining() == buffer.limit()) {
-      truncationSamples = MpeghUtil.getTruncationSampleCount(buffer);
+      mpeghScratchBytes.reset(buffer.remaining());
+      buffer.get(mpeghScratchBytes.getData(), 0, buffer.remaining());
+      buffer.rewind();
     }
     maybeReportUnderrun();
     int bytesRemaining = buffer.remaining();
@@ -284,6 +290,10 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     } else if (fullyHandled) {
       // For non-PCM we can only be sure about the number of written frames once the entire buffer
       // is submitted.
+      int truncationSamples = 0;
+      if (isMpegh) {
+        truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
+      }
       writtenEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
     }
     return fullyHandled;

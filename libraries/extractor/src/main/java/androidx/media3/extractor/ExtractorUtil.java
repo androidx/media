@@ -21,7 +21,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.OpusUtil;
-import androidx.media3.extractor.ts.MpeghUtil;
 import java.io.EOFException;
 import java.io.IOException;
 import org.checkerframework.dataflow.qual.Pure;

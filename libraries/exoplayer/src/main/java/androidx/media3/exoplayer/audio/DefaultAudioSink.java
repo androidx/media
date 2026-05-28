@@ -52,6 +52,7 @@ import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.OpusUtil;
@@ -66,7 +67,7 @@ import androidx.media3.extractor.Ac4Util;
 import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.ExtractorUtil;
 import androidx.media3.extractor.MpegAudioUtil;
-import androidx.media3.extractor.ts.MpeghUtil;
+import androidx.media3.extractor.MpeghUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -607,6 +608,8 @@ public final class DefaultAudioSink implements AudioSink {
   private long outputStreamOffsetUs;
   private float volume;
 
+  private final ParsableByteArray mpeghScratchBytes;
+
   @Nullable private ByteBuffer inputBuffer;
   private int inputBufferAccessUnitCount;
   @Nullable private ByteBuffer outputBuffer;
@@ -645,6 +648,7 @@ public final class DefaultAudioSink implements AudioSink {
     availableAudioProcessors =
         ImmutableList.of(trimmingAudioProcessor, channelMappingAudioProcessor);
     volume = 1f;
+    mpeghScratchBytes = new ParsableByteArray();
     audioSessionId = C.AUDIO_SESSION_ID_UNSET;
     auxEffectInfo = new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, 0f);
     mediaPositionParameters =
@@ -1023,9 +1027,10 @@ public final class DefaultAudioSink implements AudioSink {
         }
       }
 
-      int truncationSamples = 0;
-      if (Util.isMpegh(configuration.outputConfig.encoding)) {
-        truncationSamples += MpeghUtil.getTruncationSampleCount(buffer);
+      if (Util.isMpegh(configuration.outputConfig.encoding) && buffer.remaining() == buffer.limit()) {
+        mpeghScratchBytes.reset(buffer.remaining());
+        buffer.get(mpeghScratchBytes.getData(), 0, buffer.remaining());
+        buffer.rewind();
       }
 
       if (afterDrainParameters != null) {
@@ -1071,6 +1076,10 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.isPcm()) {
         submittedPcmBytes += buffer.remaining();
       } else {
+        int truncationSamples = 0;
+        if (Util.isMpegh(configuration.outputConfig.encoding)) {
+          truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
+        }
         submittedEncodedFrames += (long) framesPerEncodedSample * encodedAccessUnitCount - truncationSamples;
       }
 
@@ -1269,9 +1278,10 @@ public final class DefaultAudioSink implements AudioSink {
     if (outputBuffer == null) {
       return;
     }
-    int truncationSamples = 0;
     if (Util.isMpegh(configuration.outputConfig.encoding) && outputBuffer.remaining() == outputBuffer.limit()) {
-      truncationSamples = MpeghUtil.getTruncationSampleCount(outputBuffer);
+      mpeghScratchBytes.reset(outputBuffer.remaining());
+      outputBuffer.get(mpeghScratchBytes.getData(), 0, outputBuffer.remaining());
+      outputBuffer.rewind();
     }
     if (writeExceptionPendingExceptionHolder.shouldWaitBeforeRetry()) {
       return;
@@ -1338,19 +1348,13 @@ public final class DefaultAudioSink implements AudioSink {
         checkState(outputBuffer == inputBuffer);
         int truncationSamples = 0;
         if (Util.isMpegh(configuration.outputConfig.encoding)) {
-          ParsableByteArray byteBuffer = new ParsableByteArray();
-          int bufferLimit = outputBuffer.limit();
-          byteBuffer.reset(bufferLimit);
-          outputBuffer.get(byteBuffer.getData(), 0, bufferLimit);
-          outputBuffer.position(0);
-          truncationSamples = MpeghUtil.getTruncationSampleCount(byteBuffer);
+          truncationSamples = MpeghUtil.getTruncationSampleCount(mpeghScratchBytes);
         }
         writtenEncodedFrames +=
             ((long) framesPerEncodedSample * inputBufferAccessUnitCount)
                 - truncationSamples
                 - currentBufferFramesWritten;
-        currentBufferFramesWritten = 0;      }
-      outputBuffer = null;
+        currentBufferFramesWritten = 0;      }      outputBuffer = null;
     } else {
       if (!configuration.isPcm() && bytesWritten > 0) {
         checkState(inputBufferOriginalRemaining > 0);
