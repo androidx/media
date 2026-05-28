@@ -372,6 +372,118 @@ public final class SurfaceHolderFrameWriterAndroidTest {
     listener.lastException = null;
   }
 
+  @Test
+  public void configure_propagatesPixelFormat() throws Exception {
+    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
+    CountDownLatch wakeupLatch = new CountDownLatch(1);
+    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setPixelFormat(HardwareBuffer.RGB_565)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    Future<?> unused =
+        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
+
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+    AsyncFrame asyncFrame =
+        frameWriter.dequeueInputFrame(
+            /* wakeupExecutor= */ directExecutor(),
+            /* wakeupListener= */ () -> {
+              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+              wakeupLatch.countDown();
+            });
+
+    assertThat(asyncFrame).isNull();
+
+    allowSurfaceHolderExecution.open();
+
+    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    asyncFrame = asyncFrameRef.get();
+    assertThat(asyncFrame).isNotNull();
+    HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
+    assertThat(frame.getFormat()).isEqualTo(format);
+    assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGB_565);
+  }
+
+  @Test
+  public void configure_withoutPixelFormat_propagatesDefaultSdrPixelFormat() throws Exception {
+    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
+    CountDownLatch wakeupLatch = new CountDownLatch(1);
+    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    Future<?> unused =
+        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
+
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+    AsyncFrame asyncFrame =
+        frameWriter.dequeueInputFrame(
+            /* wakeupExecutor= */ directExecutor(),
+            /* wakeupListener= */ () -> {
+              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+              wakeupLatch.countDown();
+            });
+
+    assertThat(asyncFrame).isNull();
+
+    allowSurfaceHolderExecution.open();
+
+    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    asyncFrame = asyncFrameRef.get();
+    assertThat(asyncFrame).isNotNull();
+    HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
+    assertThat(frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
+    assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_8888);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34)
+  public void configure_withoutPixelFormat_propagatesDefaultHdrPixelFormat() throws Exception {
+    AtomicReference<AsyncFrame> asyncFrameRef = new AtomicReference<>();
+    CountDownLatch wakeupLatch = new CountDownLatch(1);
+    ConditionVariable allowSurfaceHolderExecution = new ConditionVariable();
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .build())
+            .build();
+    Future<?> unused =
+        surfaceHolderExecutor.submit(() -> allowSurfaceHolderExecution.block(TEST_TIMEOUT_MS));
+
+    frameWriter.configure(format, /* usage= */ Frame.USAGE_GPU_SAMPLED_IMAGE);
+    AsyncFrame asyncFrame =
+        frameWriter.dequeueInputFrame(
+            /* wakeupExecutor= */ directExecutor(),
+            /* wakeupListener= */ () -> {
+              asyncFrameRef.set(frameWriter.dequeueInputFrame(directExecutor(), () -> {}));
+              wakeupLatch.countDown();
+            });
+
+    assertThat(asyncFrame).isNull();
+
+    allowSurfaceHolderExecution.open();
+
+    assertThat(wakeupLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    asyncFrame = asyncFrameRef.get();
+    assertThat(asyncFrame).isNotNull();
+    HardwareBufferFrame frame = (HardwareBufferFrame) asyncFrame.frame;
+    assertThat(frame.getFormat().pixelFormat).isEqualTo(Format.NO_VALUE);
+    assertThat(frame.getHardwareBuffer().getFormat()).isEqualTo(HardwareBuffer.RGBA_1010102);
+  }
+
   private static class FakeListener implements SurfaceHolderFrameWriter.Listener {
     final CountDownLatch errorLatch;
     CountDownLatch renderedLatch;

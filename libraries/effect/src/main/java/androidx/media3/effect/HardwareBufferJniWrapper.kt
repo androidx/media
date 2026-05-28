@@ -19,11 +19,12 @@ import android.graphics.Bitmap
 import android.hardware.HardwareBuffer
 import androidx.annotation.RequiresApi
 import androidx.media3.common.util.ExperimentalApi
+import androidx.media3.common.video.HardwareBufferNativeHelpers
 
 /** Wrapper for [HardwareBuffer] JNI methods. */
 @RequiresApi(26)
 @ExperimentalApi // TODO: b/474075198: Remove once FrameConsumer API is stable.
-interface HardwareBufferJniWrapper {
+interface HardwareBufferJniWrapper : HardwareBufferNativeHelpers {
   /** Creates an EGLImage from a [HardwareBuffer]. */
   fun nativeCreateEglImageFromHardwareBuffer(
     displayHandle: Long,
@@ -47,7 +48,7 @@ interface HardwareBufferJniWrapper {
    * [Bitmap.Config.ARGB_8888] and [HardwareBuffer.RGBA_8888] or [Bitmap.Config.RGBA_1010102] and
    * [HardwareBuffer.RGBA_1010102].
    */
-  fun nativeCopyBitmapToHardwareBuffer(bitmap: Bitmap, hb: HardwareBuffer): Boolean
+  override fun nativeCopyBitmapToHardwareBuffer(bitmap: Bitmap, hb: HardwareBuffer): Boolean
 
   /**
    * Copies the contents of a source [HardwareBuffer] to a destination [HardwareBuffer]. Returns
@@ -59,7 +60,7 @@ interface HardwareBufferJniWrapper {
    * The formats of the source and destination buffers must match, and be either
    * [HardwareBuffer.RGBA_8888] or [HardwareBuffer.RGBA_1010102].
    */
-  fun nativeCopyHardwareBufferToHardwareBuffer(
+  override fun nativeCopyHardwareBufferToHardwareBuffer(
     srcHb: HardwareBuffer,
     dstHb: HardwareBuffer,
   ): Boolean

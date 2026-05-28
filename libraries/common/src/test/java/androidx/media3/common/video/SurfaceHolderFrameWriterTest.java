@@ -23,6 +23,7 @@ import static org.robolectric.Shadows.shadowOf;
 import android.hardware.HardwareBuffer;
 import android.os.Handler;
 import android.os.HandlerThread;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -185,6 +186,51 @@ public final class SurfaceHolderFrameWriterTest {
 
     assertThat(surfaceHolder.imageReader).isNotNull();
     assertThat(surfaceHolder.imageReader.getImageFormat()).isEqualTo(HardwareBuffer.RGB_565);
+  }
+
+  @Test
+  @Config(sdk = 32)
+  public void getInfo_hdrFormatOnApi32_returnsFalse() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .build())
+            .build();
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isFalse();
+  }
+
+  @Test
+  @Config(sdk = 33)
+  public void getInfo_hdrFormatOnApi33_returnsTrue() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(
+                new ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_LIMITED)
+                    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+                    .build())
+            .build();
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
+  }
+
+  @Test
+  public void getInfo_sdrFormat_returnsTrue() {
+    Format format =
+        new Format.Builder()
+            .setWidth(WIDTH)
+            .setHeight(HEIGHT)
+            .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
+            .build();
+    assertThat(frameWriter.getInfo().isSupported(format, /* usage= */ 0L)).isTrue();
   }
 
   @Test

@@ -212,7 +212,10 @@ public final class SurfaceHolderFrameWriter implements FrameWriter, SurfaceHolde
   @Override
   public Info getInfo() {
     return (format, usageFlags) ->
-        format.colorInfo != null && format.width > 0 && format.height > 0;
+        format.colorInfo != null
+            && (!ColorInfo.isTransferHdr(format.colorInfo) || SDK_INT >= 33)
+            && format.width > 0
+            && format.height > 0;
   }
 
   @Override

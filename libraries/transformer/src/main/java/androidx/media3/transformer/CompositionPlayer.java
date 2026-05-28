@@ -79,7 +79,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.FrameProcessor;
-import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SurfaceHolderFrameWriter;
 import androidx.media3.effect.BitmapToHardwareBufferProcessor;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -646,8 +646,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
 
-  @Nullable
-  private final SurfaceHolderHardwareBufferFrameQueue surfaceHolderHardwareBufferFrameQueue;
+  @Nullable private final SurfaceHolderFrameWriter surfaceHolderFrameWriter;
 
   // Applications can choose to render frames to screen themselves, or use media3 components.
   // CompositionPlayer only receives events when frames are rendered on screen when media3
@@ -760,22 +759,20 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       } else {
         hardwareBufferPostProcessor = null;
       }
-      surfaceHolderHardwareBufferFrameQueue =
+      surfaceHolderFrameWriter =
           SDK_INT >= 33
-              ? SurfaceHolderHardwareBufferFrameQueue.create(
+              ? SurfaceHolderFrameWriter.create(
                   /* surfaceHolder= */ null,
                   /* surfaceHolderExecutor= */ applicationHandler::post,
                   internalListener,
                   directExecutor())
-              : SurfaceHolderHardwareBufferFrameQueue.create(
+              : SurfaceHolderFrameWriter.create(
                   /* surfaceHolder= */ null,
                   /* surfaceHolderExecutor= */ applicationHandler::post,
                   internalListener,
                   directExecutor(),
                   checkNotNull(hardwareBufferJniWrapper));
-      FrameWriter frameWriter =
-          new HardwareBufferFrameQueueToFrameWriterAdapter(surfaceHolderHardwareBufferFrameQueue);
-      frameProcessor = frameProcessorFactory.create(frameWriter);
+      frameProcessor = frameProcessorFactory.create(surfaceHolderFrameWriter);
 
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
@@ -793,7 +790,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     } else {
       hardwareBufferPostProcessor = null;
       frameProcessor = null;
-      surfaceHolderHardwareBufferFrameQueue = null;
+      surfaceHolderFrameWriter = null;
       frameAggregator = null;
       videoPacketReleaseControl = null;
     }
@@ -1093,8 +1090,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (frameProcessor != null) {
       frameProcessor.close();
     }
-    if (SDK_INT >= 28 && surfaceHolderHardwareBufferFrameQueue != null) {
-      surfaceHolderHardwareBufferFrameQueue.release();
+    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+      surfaceHolderFrameWriter.close();
     }
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
@@ -2020,8 +2017,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private void setVideoSurfaceHolderInternal(SurfaceHolder surfaceHolder) {
-    if (SDK_INT >= 28 && surfaceHolderHardwareBufferFrameQueue != null) {
-      surfaceHolderHardwareBufferFrameQueue.setSurfaceHolder(surfaceHolder);
+    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+      surfaceHolderFrameWriter.setSurfaceHolder(surfaceHolder);
       return;
     }
     removeSurfaceCallbacks();
@@ -2057,8 +2054,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    */
   private void clearVideoSurfaceInternal() {
     displaySurface = null;
-    if (SDK_INT >= 33 && surfaceHolderHardwareBufferFrameQueue != null) {
-      surfaceHolderHardwareBufferFrameQueue.setSurfaceHolder(null);
+    if (SDK_INT >= 28 && surfaceHolderFrameWriter != null) {
+      surfaceHolderFrameWriter.setSurfaceHolder(null);
     }
     if (compositionPlayerInternal != null) {
       ConditionVariable surfaceCleared = new ConditionVariable();
@@ -2422,7 +2419,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           SurfaceHolder.Callback,
           PlaybackVideoGraphWrapper.Listener,
           SurfaceHolderHardwareBufferFrameQueue.Listener,
-          CompositionVideoPacketReleaseControl.Listener {
+          CompositionVideoPacketReleaseControl.Listener,
+          SurfaceHolderFrameWriter.Listener {
 
     // AudioFocusManager.PlayerControl methods. Called on the application thread.
 
