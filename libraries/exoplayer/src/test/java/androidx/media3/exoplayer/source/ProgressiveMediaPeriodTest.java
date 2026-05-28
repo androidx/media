@@ -81,8 +81,7 @@ public final class ProgressiveMediaPeriodTest {
   }
 
   @Test
-  // TODO: b/510747371 - Enable this on API 34+ when ShadowMediaParser is fixed.
-  @Config(minSdk = 30, maxSdk = 33) // MediaParser is only available on API 30+.
+  @Config(minSdk = 30) // MediaParser is only available on API 30+.
   public void prepareUsingMediaParser_updatesSourceInfoBeforeOnPreparedCallback()
       throws TimeoutException {
     MediaParserExtractorAdapter extractor =
