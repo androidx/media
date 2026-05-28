@@ -57,8 +57,6 @@ import org.robolectric.shadows.ShadowSystemClock;
 // - Different sources for licenseServerUrl.
 // - Multiple acquisitions & releases for same keys -> multiple requests.
 // - Key denial.
-// TODO: b/510747751 - Enable this on all API levels when FakeExoMediaDrm supports API < 26.
-@Config(minSdk = 26)
 @RunWith(AndroidJUnit4.class)
 public class DefaultDrmSessionManagerTest {
 

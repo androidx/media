@@ -142,11 +142,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.robolectric.annotation.Config;
 
 /** Integration test for {@link DefaultAnalyticsCollector}. */
-// TODO: b/510747751 - Enable this on all API levels when FakeExoMediaDrm supports API < 26.
-@Config(minSdk = 26)
 @RunWith(AndroidJUnit4.class)
 public final class DefaultAnalyticsCollectorTest {
 
