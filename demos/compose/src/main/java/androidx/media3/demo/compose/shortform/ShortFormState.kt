@@ -42,8 +42,6 @@ internal class ShortFormState(
   private val context: Context,
   private val mediaItems: List<MediaItem>,
   private val playerPoolCapacity: Int = 3,
-  private val managedItemCount: Int = 20,
-  private val itemAddRemoveCount: Int = 4,
 ) {
   var isReady by mutableStateOf(false)
     private set
@@ -63,8 +61,6 @@ internal class ShortFormState(
     )
   }
   private val cache: Cache by cacheDelegate
-
-  private val currentMediaItemsAndIndexes = ArrayDeque<Pair<MediaItem, Int>>()
 
   private val targetPreloadStatusControl =
     object : TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {
@@ -102,11 +98,6 @@ internal class ShortFormState(
     playerPool = PlayerPool(playerPoolCapacity, preloadManagerBuilder)
     preloadManager = preloadManagerBuilder.build()
 
-    addMediaItems(
-      startIndex = 0,
-      count = minOf(mediaItems.size, managedItemCount),
-      isAddingToEnd = true,
-    )
     isReady = true
   }
 
@@ -117,66 +108,21 @@ internal class ShortFormState(
       .setCustomCacheKey(index.toString())
       .build()
 
-  fun updateCurrentPage(page: Int) {
+  internal fun updateCurrentPage(page: Int) {
     targetPreloadStatusControl.currentPlayingIndex = page
     if (::preloadManager.isInitialized) {
       preloadManager.setCurrentPlayingIndex(page)
     }
-
-    val firstIndex = currentMediaItemsAndIndexes.firstOrNull()?.second ?: return
-    val lastIndex = currentMediaItemsAndIndexes.lastOrNull()?.second ?: return
-
-    when {
-      lastIndex - page <= 2 -> {
-        addMediaItems(lastIndex + 1, itemAddRemoveCount, isAddingToEnd = true)
-        removeMediaItems(itemAddRemoveCount, isRemovingFromEnd = false)
-      }
-      page - firstIndex <= 2 -> {
-        addMediaItems(firstIndex - 1, itemAddRemoveCount, isAddingToEnd = false)
-        removeMediaItems(itemAddRemoveCount, isRemovingFromEnd = true)
-      }
-    }
   }
 
-  private fun addMediaItems(startIndex: Int, count: Int, isAddingToEnd: Boolean) {
-    if (startIndex < 0 || !::preloadManager.isInitialized) return
-
-    val indices =
-      if (isAddingToEnd) {
-        startIndex until (startIndex + count)
-      } else {
-        startIndex downTo maxOf(0, startIndex - count + 1)
-      }
-
-    val newItemsAndIndexes = indices.map { getMediaItem(it) to it }
-
-    if (isAddingToEnd) {
-      currentMediaItemsAndIndexes.addAll(newItemsAndIndexes)
-    } else {
-      newItemsAndIndexes.forEach(currentMediaItemsAndIndexes::addFirst)
-    }
-
-    preloadManager.addMediaItems(
-      newItemsAndIndexes.map { it.first },
-      newItemsAndIndexes.map { it.second },
-    )
-  }
-
-  private fun removeMediaItems(count: Int, isRemovingFromEnd: Boolean) {
+  internal fun addMediaItems(indices: IntRange) {
     if (!::preloadManager.isInitialized) return
-    val itemsToRemoveCount = minOf(count, currentMediaItemsAndIndexes.size - managedItemCount)
-    if (itemsToRemoveCount <= 0) return
+    preloadManager.addMediaItems(indices.map(::getMediaItem), indices.toList())
+  }
 
-    val mediaItemsToRemove =
-      List(itemsToRemoveCount) {
-        if (isRemovingFromEnd) {
-          currentMediaItemsAndIndexes.removeLast().first
-        } else {
-          currentMediaItemsAndIndexes.removeFirst().first
-        }
-      }
-
-    preloadManager.removeMediaItems(mediaItemsToRemove)
+  internal fun removeMediaItems(indices: IntRange) {
+    if (!::preloadManager.isInitialized) return
+    preloadManager.removeMediaItems(indices.map(::getMediaItem))
   }
 
   /**
@@ -188,7 +134,6 @@ internal class ShortFormState(
     if (!isReady) return
     if (::preloadManager.isInitialized) preloadManager.release()
     if (::playerPool.isInitialized) playerPool.destroyPlayers()
-    currentMediaItemsAndIndexes.clear()
     isReady = false
   }
 }
@@ -197,13 +142,11 @@ internal class ShortFormState(
 internal fun rememberShortFormState(
   mediaItems: List<MediaItem>,
   playerPoolCapacity: Int = 3,
-  managedItemCount: Int = 20,
-  itemAddRemoveCount: Int = 4,
 ): ShortFormState {
   val context = LocalContext.current
   val state =
-    remember(context, mediaItems, playerPoolCapacity, managedItemCount, itemAddRemoveCount) {
-      ShortFormState(context, mediaItems, playerPoolCapacity, managedItemCount, itemAddRemoveCount)
+    remember(context, mediaItems, playerPoolCapacity) {
+      ShortFormState(context, mediaItems, playerPoolCapacity)
     }
   LaunchedEffect(state) { state.initialize() }
   DisposableEffect(state) { onDispose(state::release) }

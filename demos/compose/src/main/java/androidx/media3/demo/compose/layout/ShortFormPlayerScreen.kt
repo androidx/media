@@ -39,6 +39,7 @@ import androidx.media3.demo.compose.shortform.ShortFormState
 import androidx.media3.demo.compose.shortform.rememberShortFormState
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
+import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import kotlinx.coroutines.launch
 
@@ -58,6 +59,16 @@ internal fun ShortFormPlayerScreen(
     return
   }
   val pagerState = rememberPagerState { mediaItems.size }
+
+  SlidingWindowEffect(
+    pagerState = pagerState,
+    maxLookbehind = 3,
+    maxLookahead = 6,
+    batchSize = 4,
+    prefetchDistance = 2,
+    onRangeEnterWindow = state::addMediaItems,
+    onRangeLeaveWindow = state::removeMediaItems,
+  )
 
   LaunchedEffect(pagerState) {
     snapshotFlow { pagerState.settledPage }.collect(state::updateCurrentPage)
