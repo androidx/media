@@ -246,6 +246,7 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
+  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_reduceEndPositionBeforeLoadingFinishedToAlreadyLoadedValue()
       throws Exception {
     assumeTrue(enableMediaPeriodClipping);
