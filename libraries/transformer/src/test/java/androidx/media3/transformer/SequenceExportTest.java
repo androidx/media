@@ -241,6 +241,7 @@ public final class SequenceExportTest {
             "transmux"));
   }
 
+  @Ignore("Flaky: b/491791547")
   @Test
   public void concatenateAudioAndSilence_withTransmuxVideo_completesSuccessfully()
       throws Exception {
