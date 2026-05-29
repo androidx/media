@@ -7216,6 +7216,141 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void setWithAssetListResetWithInterstitialsId_unknownInterstitialId_returnsFalse()
+      throws IOException {
+    // Populate the timeline with a single interstitial.
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\","
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist) hlsPlaylistParser.parse(Uri.EMPTY, inputStream);
+    adsLoader.setPlayer(mockPlayer);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(MediaItem.fromUri(Uri.EMPTY));
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)}, contentWindowDefinition);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(fakeTimeline);
+    adsLoader.handleContentTimelineChanged(adsMediaSource, fakeTimeline);
+
+    // Assert false because of unknown interstitial ID.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "unknown-id"))
+        .isFalse();
+  }
+
+  @Test
+  public void setWithAssetListResetWithInterstitialsId_interstitialOutsideWindow_returnsFalse()
+      throws IOException {
+    // Populate the timeline with a single interstitial.
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:38.000Z\"," // -2s, before window.
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist) hlsPlaylistParser.parse(Uri.EMPTY, inputStream);
+    adsLoader.setPlayer(mockPlayer);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(MediaItem.fromUri(Uri.EMPTY));
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)}, contentWindowDefinition);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(fakeTimeline);
+    adsLoader.handleContentTimelineChanged(adsMediaSource, fakeTimeline);
+
+    // The interstitial is ignored in VOD because it's outside the window and not pre/post roll.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "ad0-0")).isFalse();
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackState.capture());
+    assertThat(adPlaybackState.getAllValues()).containsExactly(new AdPlaybackState("adsId"));
+    verifyNoMoreInteractions(mockEventListener);
+  }
+
+  @Test
+  public void
+      setWithAssetListResetWithInterstitialsId_adGroupWithMultipleInterstitials_returnsFalse()
+          throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\","
+            + "X-ASSET-LIST=\"http://three-assets\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\"," // different ID
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:43.000Z\"," // Same start time
+            + "X-ASSET-LIST=\"http://three-assets-2\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist) hlsPlaylistParser.parse(Uri.EMPTY, inputStream);
+    adsLoader.setPlayer(mockPlayer);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(MediaItem.fromUri(Uri.EMPTY));
+
+    adsLoader.start(adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener);
+    FakeTimeline fakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)}, contentWindowDefinition);
+    when(mockPlayer.getCurrentTimeline()).thenReturn(fakeTimeline);
+    adsLoader.handleContentTimelineChanged(adsMediaSource, fakeTimeline);
+
+    // Both interstitials are mapped to the same ad group (index 0) but have different IDs.
+    ArgumentCaptor<AdPlaybackState> adPlaybackState =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackState.capture());
+    FakeTimeline adFakeTimeline =
+        new FakeTimeline(
+            new Object[] {new HlsManifest(null, mediaPlaylist)},
+            contentWindowDefinition
+                .buildUpon()
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
+                .build());
+    when(mockPlayer.getCurrentTimeline()).thenReturn(adFakeTimeline);
+
+    // We skip all ads, but it should still not allow to reset the group.
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    adsLoader.setWithSkippedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+
+    // Assert false because the ad group consists of multiple interstitials.
+    assertThat(adsLoader.setWithAssetListReset("adsId", /* interstitialsId= */ "ad0-0")).isFalse();
+  }
+
+  @Test
   public void setWithAssetListReset_fromErrorState_resetsAndResolvesAgain() throws Exception {
     String playlistString =
         "#EXTM3U\n"
