@@ -44,6 +44,8 @@ public final class TtmlParserTest {
 
   private static final String SIMPLE_TTML_FILE = "media/ttml/simple.xml";
   private static final String OVERLAPPING_TIMES_TTML_FILE = "media/ttml/overlapping_times.xml";
+  private static final String INHERIT_BEGIN_FROM_DIV_TTML_FILE =
+      "media/ttml/inherit_begin_from_div.xml";
   private static final String INLINE_ATTRIBUTES_TTML_FILE =
       "media/ttml/inline_style_attributes.xml";
   private static final String INHERIT_STYLE_TTML_FILE = "media/ttml/inherit_style.xml";
@@ -147,6 +149,49 @@ public final class TtmlParserTest {
     assertThat(fourthCue.startTimeUs).isEqualTo(10_000_000);
     assertThat(fourthCue.endTimeUs).isEqualTo(11_000_000);
     assertThat(fourthCue.cues.stream().map(c -> c.text.toString())).containsExactly("cue 1");
+  }
+
+  @Test
+  public void inheritBeginFromDiv_allCues() throws Exception {
+    // Validates TTML2 §12.2.1 default-`begin`-0s rule: a <p> with no `begin`
+    // inside a timed <div> (a parallel time container) inherits the <div>'s start; previously
+    // such cues were silently dropped (0 cues emitted) by the extraction-time path.
+    //
+    // The single fixture exercises every in-scope <div begin/end>-wraps-<p> variant; expected
+    // cues in time order.
+    ImmutableList<CuesWithTiming> allCues = getAllCues(INHERIT_BEGIN_FROM_DIV_TTML_FILE);
+
+    assertThat(allCues).hasSize(6);
+
+    CuesWithTiming lara = allCues.get(0);
+    assertThat(lara.startTimeUs).isEqualTo(69_583_000);
+    assertThat(lara.endTimeUs).isEqualTo(71_125_000);
+    assertThat(lara.cues.stream().map(c -> c.text.toString())).containsExactly("Lara.");
+
+    CuesWithTiming stil = allCues.get(1);
+    assertThat(stil.startTimeUs).isEqualTo(72_000_000);
+    assertThat(stil.endTimeUs).isEqualTo(74_500_000);
+    assertThat(stil.cues.stream().map(c -> c.text.toString())).containsExactly("Stil.");
+
+    CuesWithTiming offset = allCues.get(2);
+    assertThat(offset.startTimeUs).isEqualTo(122_000_000);
+    assertThat(offset.endTimeUs).isEqualTo(125_000_000);
+    assertThat(offset.cues.stream().map(c -> c.text.toString())).containsExactly("offset");
+
+    CuesWithTiming dur = allCues.get(3);
+    assertThat(dur.startTimeUs).isEqualTo(180_000_000);
+    assertThat(dur.endTimeUs).isEqualTo(184_000_000);
+    assertThat(dur.cues.stream().map(c -> c.text.toString())).containsExactly("dur");
+
+    CuesWithTiming nested = allCues.get(4);
+    assertThat(nested.startTimeUs).isEqualTo(242_000_000);
+    assertThat(nested.endTimeUs).isEqualTo(245_000_000);
+    assertThat(nested.cues.stream().map(c -> c.text.toString())).containsExactly("nested");
+
+    CuesWithTiming bare = allCues.get(5);
+    assertThat(bare.startTimeUs).isEqualTo(300_000_000);
+    assertThat(bare.endTimeUs).isEqualTo(302_000_000);
+    assertThat(bare.cues.stream().map(c -> c.text.toString())).containsExactly("bare");
   }
 
   @Test

@@ -144,6 +144,8 @@
 *   Text:
     *   TTML: Fallback to `displayAlign` from `style` for regions
         ([#2559](https://github.com/androidx/media/issues/2559)).
+    *   TTML: Inherit cue start time from parent of `<p>` elements
+        ([#3246](https://github.com/androidx/media/issues/3246)).
 *   Metadata:
     *   Add `MediaMetadata.discSubtitle` field and parse it from ID3v2.4 `TSST`
         and Vorbis `DISCSUBTITLE` data.
