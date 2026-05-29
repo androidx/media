@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -36,9 +37,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.demo.compose.shortform.ShortFormState
+import androidx.media3.demo.compose.shortform.PlayerPool
 import androidx.media3.demo.compose.shortform.rememberShortFormState
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
@@ -78,12 +80,19 @@ internal fun ShortFormPlayerScreen(
   }
 
   VerticalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
+    val mediaItem = state.getMediaItem(page)
     val player =
       rememberPooledPlayer(
-        mediaItem = state.getMediaItem(page),
-        pageIndex = page,
-        state = state,
-        isPageActive = page == pagerState.settledPage,
+        mediaItem = mediaItem,
+        playerPool = state.playerPool,
+        mediaSourceProvider = {
+          state.preloadManager.getMediaSource(mediaItem)
+            ?: run {
+              state.preloadManager.add(mediaItem, page)
+              state.preloadManager.getMediaSource(mediaItem)!!
+            }
+        },
+        isActive = page == pagerState.settledPage,
       )
 
     val playPauseButtonState = rememberPlayPauseButtonState(player)
@@ -100,9 +109,9 @@ internal fun ShortFormPlayerScreen(
 @Composable
 internal fun rememberPooledPlayer(
   mediaItem: MediaItem,
-  pageIndex: Int,
-  state: ShortFormState,
-  isPageActive: Boolean,
+  playerPool: PlayerPool,
+  mediaSourceProvider: () -> MediaSource,
+  isActive: Boolean,
 ): ExoPlayer? {
   // Why we need 3 player variables:
   // -- player (The UI State): The Compose MutableState that is required for the UI to
@@ -116,34 +125,28 @@ internal fun rememberPooledPlayer(
   // launch block that can never change or be null. It is safe for p.setMediaSource(...) calls.
   var player: ExoPlayer? by remember { mutableStateOf(null) }
   val scope = rememberCoroutineScope()
+  val currentMediaSourceProvider by rememberUpdatedState(mediaSourceProvider)
 
-  DisposableEffect(state) {
+  DisposableEffect(mediaItem, playerPool) {
     var acquiredPlayer: ExoPlayer? = null
     val job = scope.launch {
-      val p = state.playerPool.acquirePlayer()
+      val p = playerPool.acquirePlayer()
       acquiredPlayer = p
       player = p
-
-      val mediaSource =
-        state.preloadManager.getMediaSource(mediaItem)
-          ?: run {
-            state.preloadManager.add(mediaItem, pageIndex)
-            state.preloadManager.getMediaSource(mediaItem)!!
-          }
-      p.setMediaSource(mediaSource)
+      p.setMediaSource(currentMediaSourceProvider())
       p.prepare()
-      if (isPageActive) state.playerPool.play(p)
+      if (isActive) playerPool.play(p)
     }
     onDispose {
       job.cancel()
-      state.playerPool.returnToPool(acquiredPlayer)
+      playerPool.returnToPool(acquiredPlayer)
       player = null
     }
   }
 
-  LifecycleStartEffect(isPageActive, player) {
-    if (isPageActive) {
-      player?.let(state.playerPool::play)
+  LifecycleStartEffect(isActive, player) {
+    if (isActive) {
+      player?.let(playerPool::play)
     } else {
       player?.pause()
     }
