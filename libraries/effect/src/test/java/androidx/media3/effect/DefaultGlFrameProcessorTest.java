@@ -40,6 +40,7 @@ import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,8 @@ import org.junit.runner.RunWith;
 public final class DefaultGlFrameProcessorTest {
 
   private final Context context = getApplicationContext();
+  private ArrayDeque<Runnable> queuedFrameProcessedTasks;
+  private Executor testExecutor;
 
   private FakeHardwareBufferConverter fakeHardwareBufferConverter;
   private FakeGlShaderProgram fakeGlShaderProgram;
@@ -73,13 +76,15 @@ public final class DefaultGlFrameProcessorTest {
     fakeGlTextureFrameConsumer = new FakeGlTextureFrameConsumer(frameWriter);
     fakeEffect = (context, useHdr) -> fakeGlShaderProgram;
     glExecutorService = listeningDecorator(Util.newSingleThreadExecutor("Effect:GlThread"));
+    queuedFrameProcessedTasks = new ArrayDeque<>();
+    testExecutor = queuedFrameProcessedTasks::add;
 
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
             .create(
                 frameWriter,
-                /* listenerExecutor= */ Runnable::run,
+                testExecutor,
                 new FrameProcessor.Listener() {
                   @Override
                   public void onWakeup() {}
@@ -211,7 +216,7 @@ public final class DefaultGlFrameProcessorTest {
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
-            .create(frameWriter, directExecutor(), listener);
+            .create(frameWriter, testExecutor, listener);
 
     boolean framesQueued =
         processor.queue(
@@ -221,6 +226,9 @@ public final class DefaultGlFrameProcessorTest {
                 new AsyncFrame(frame2, /* acquireFence= */ null)));
 
     assertThat(framesQueued).isTrue();
+    // Three tasks are expected: 2 for frames 1 and 2 (instantly completed because multi-frame is
+    // not supported yet) and 1 for frame 0 (completed on release by FakeGlTextureFrameConsumer).
+    executeQueuedTasks(queuedFrameProcessedTasks, 3);
     // frame0 comes last because frames 1 and 2 are released before processing frame0
     assertThat(completedFrames).containsExactly(frame1, frame2, frame0).inOrder();
     assertThat(fakeHardwareBufferConverter.framesReceived).isEqualTo(1);
@@ -263,12 +271,13 @@ public final class DefaultGlFrameProcessorTest {
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
-            .create(frameWriter, directExecutor(), listener);
+            .create(frameWriter, testExecutor, listener);
 
     boolean frameQueued =
         processor.queue(ImmutableList.of(new AsyncFrame(frame, /* acquireFence= */ null)));
 
     assertThat(frameQueued).isTrue();
+    executeQueuedTasks(queuedFrameProcessedTasks, 1);
     assertThat(completedFrames).containsExactly(frame).inOrder();
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
 
@@ -310,7 +319,7 @@ public final class DefaultGlFrameProcessorTest {
     processor =
         new DefaultGlFrameProcessor.Factory(
                 context, glExecutorService, fakeHardwareBufferConverter, fakeGlTextureFrameConsumer)
-            .create(frameWriter, directExecutor(), listener);
+            .create(frameWriter, testExecutor, listener);
 
     boolean frame1Queued =
         processor.queue(ImmutableList.of(new AsyncFrame(frame1, /* acquireFence= */ null)));
@@ -327,6 +336,8 @@ public final class DefaultGlFrameProcessorTest {
 
     glExecutorService.submit(() -> fakeGlShaderProgram.signalReadyToAcceptInputFrame()).get();
     waitUntilGlThreadFinishes();
+
+    executeQueuedTasks(queuedFrameProcessedTasks, 2);
 
     assertThat(wakeupNotified).containsExactly(true);
     assertThat(frameWriter.queuedFrames).isEqualTo(1);
@@ -354,6 +365,13 @@ public final class DefaultGlFrameProcessorTest {
 
   private void waitUntilGlThreadFinishes() throws ExecutionException, InterruptedException {
     glExecutorService.submit(() -> {}).get();
+  }
+
+  private static void executeQueuedTasks(ArrayDeque<Runnable> queuedTasks, int expectedSize) {
+    assertThat(queuedTasks).hasSize(expectedSize);
+    for (int i = 0; i < expectedSize; i++) {
+      queuedTasks.remove().run();
+    }
   }
 
   // TODO: b/505721737 - Consider moving fakes into a utility class.

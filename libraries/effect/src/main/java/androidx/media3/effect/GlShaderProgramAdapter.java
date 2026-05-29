@@ -16,6 +16,7 @@
 package androidx.media3.effect;
 
 import static androidx.media3.effect.DefaultGlFrameProcessor.KEY_FRAME_DISCONTINUITY_NUMBER;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -35,6 +36,7 @@ import androidx.media3.effect.GlTextureFrameConsumer.GlTextureFrameProcessor;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import org.checkerframework.checker.initialization.qual.Initialized;
@@ -59,7 +61,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final GlObjectsProvider glObjectsProvider;
   // Map from texId -> input Frame
   private final Map<Integer, GlTextureFrame> inFlightFrames;
-  private final Map<Long, Format> inputFormats;
   private final Queue<GlTextureFrame> pendingOutputFrames;
   private final Executor glExecutor;
   private final Consumer<VideoFrameProcessingException> errorConsumer;
@@ -69,6 +70,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Executor pendingWakeupExecutor;
   private int shaderInputCapacity;
   private int currentStreamDiscontinuityNumber;
+  @Nullable private Format currentFormat;
+  private boolean inputStreamEnded;
 
   public GlShaderProgramAdapter(
       GlShaderProgram glShaderProgram,
@@ -87,7 +90,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.glShaderProgram.setErrorListener(directExecutor(), errorConsumer::accept);
     inFlightFrames = new HashMap<>();
     pendingOutputFrames = new ArrayDeque<>();
-    inputFormats = new HashMap<>();
     currentStreamDiscontinuityNumber = C.INDEX_UNSET;
   }
 
@@ -99,7 +101,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean queue(GlTextureFrame frame, Executor listenerExecutor, Runnable wakeupListener) {
-    // TODO: b/505721737 - Support frame dropping and repeating.
+    checkArgument(
+        !Objects.equals(listenerExecutor, directExecutor()),
+        "wakeupListener must not be executed on a direct executor");
+
     int frameDiscontinuityNumber =
         (int)
             frame
@@ -120,7 +125,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    inputFormats.put(frame.presentationTimeUs, frame.format);
+    if (currentFormat == null) {
+      currentFormat = frame.format;
+      inputStreamEnded = false;
+    }
+    if (!frame.format.equals(currentFormat)) {
+      pendingWakeupListener = wakeupListener;
+      pendingWakeupExecutor = listenerExecutor;
+      if (!inputStreamEnded) {
+        inputStreamEnded = true;
+        glShaderProgram.signalEndOfCurrentInputStream();
+      }
+      return false;
+    }
+
     if (shaderInputCapacity > 0) {
       shaderInputCapacity--;
       inFlightFrames.put(frame.glTextureInfo.texId, frame);
@@ -154,7 +172,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void onOutputFrameAvailable(GlTextureInfo outputTexture, long presentationTimeUs) {
     // We don't support GlShaderPrograms that modify presentationTimeUs.
-    Format inputFormat = checkNotNull(inputFormats.remove(presentationTimeUs));
+    Format inputFormat = checkNotNull(currentFormat);
     GlTextureFrame outputGlTextureFrame =
         new GlTextureFrame.Builder(
                 outputTexture,
@@ -178,12 +196,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onCurrentOutputStreamEnded() {
+    currentFormat = null;
     checkNotNull(downstreamConsumer).signalEndOfStream();
+
+    if (pendingWakeupListener != null && pendingWakeupExecutor != null) {
+      pendingWakeupExecutor.execute(pendingWakeupListener);
+      pendingWakeupListener = null;
+      pendingWakeupExecutor = null;
+    }
   }
 
   @Override
   public void signalEndOfStream() {
-    glShaderProgram.signalEndOfCurrentInputStream();
+    if (!inputStreamEnded) {
+      glShaderProgram.signalEndOfCurrentInputStream();
+      inputStreamEnded = true;
+    }
   }
 
   @Override
@@ -195,8 +223,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Called on the GL thread. */
   private void flushInternal() {
     shaderInputCapacity = 0;
-    pendingWakeupListener = null;
-    pendingWakeupExecutor = null;
     releasePendingFrames();
     glShaderProgram.flush();
   }
@@ -211,7 +237,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     while (!pendingOutputFrames.isEmpty()) {
       pendingOutputFrames.remove().release(/* releaseFence= */ null);
     }
-    inputFormats.clear();
+    pendingWakeupListener = null;
+    pendingWakeupExecutor = null;
+    currentFormat = null;
+    inputStreamEnded = false;
   }
 
   /** Called on the GL thread. */

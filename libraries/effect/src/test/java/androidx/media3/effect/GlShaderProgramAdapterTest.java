@@ -32,6 +32,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -78,7 +79,7 @@ public class GlShaderProgramAdapterTest {
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
 
     // Fake shader program starts with capacity of 1 when setInputListener is called.
-    boolean queued = glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {});
+    boolean queued = glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {});
 
     assertThat(queued).isTrue();
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
@@ -89,6 +90,8 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_withoutCapacity_returnsFalseAndRegistersWakeupListener() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
     AtomicBoolean frame1Released = new AtomicBoolean();
     GlTextureFrame inputFrame1 =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frame1Released);
@@ -99,18 +102,21 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean wakeupCalled = new AtomicBoolean();
 
     // First frame consumes the single capacity.
-    assertThat(glShaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
-
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
     // Second frame should fail to queue.
-    boolean queued =
-        glShaderProgramAdapter.queue(inputFrame2, directExecutor(), () -> wakeupCalled.set(true));
+    assertThat(
+            glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> wakeupCalled.set(true)))
+        .isFalse();
 
-    assertThat(queued).isFalse();
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
 
     // Signal that a frame is processed to trigger the wakeup listener.
     glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
     glShaderProgramAdapter.onReadyToAcceptInputFrame();
+
+    // The wakeup task is now queued. Execute it manually.
+    assertThat(queuedWakeupTasks).hasSize(1);
+    queuedWakeupTasks.remove().run();
 
     assertThat(wakeupCalled.get()).isTrue();
     assertThat(frame1Released.get()).isTrue();
@@ -122,7 +128,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     int outputSize = TEXTURE_SIZE * 4;
     GlTextureInfo outputTexture =
@@ -150,7 +156,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     // Force the downstream capacity to block queueing
     downstreamConsumer.setCapacity(0);
@@ -202,7 +208,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean inputFrameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, inputFrameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     // Force downstream capacity to 0 so output frame becomes pending in glshaderProgramAdapter.
     downstreamConsumer.setCapacity(0);
@@ -230,7 +236,7 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     FakeGlTextureFrameConsumer newDownstreamConsumer = new FakeGlTextureFrameConsumer();
 
@@ -240,6 +246,8 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_repetitivelyWithoutCapacity_executesLastWakeupListener() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
     AtomicBoolean frame1Released = new AtomicBoolean();
     GlTextureFrame inputFrame1 =
         createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frame1Released);
@@ -254,21 +262,27 @@ public class GlShaderProgramAdapterTest {
     AtomicBoolean wakeup3Called = new AtomicBoolean();
 
     // First frame consumes the single capacity.
-    assertThat(glShaderProgramAdapter.queue(inputFrame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
     // Queueing frame2 should fail
     assertThat(
             glShaderProgramAdapter.queue(
-                inputFrame2, directExecutor(), /* wakeupListener= */ () -> wakeup2Called.set(true)))
+                inputFrame2, testExecutor, /* wakeupListener= */ () -> wakeup2Called.set(true)))
         .isFalse();
+    // Queueing frame3 should fail and overwrite the pending wakeupListener
     assertThat(
             glShaderProgramAdapter.queue(
-                inputFrame3, directExecutor(), /* wakeupListener= */ () -> wakeup3Called.set(true)))
+                inputFrame3, testExecutor, /* wakeupListener= */ () -> wakeup3Called.set(true)))
         .isFalse();
 
     // Signal that a frame is processed to trigger the pending wakeup listener.
     glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
     glShaderProgramAdapter.onReadyToAcceptInputFrame();
 
+    // The last wakeup task is now queued. We must execute it manually.
+    assertThat(queuedWakeupTasks).hasSize(1);
+    queuedWakeupTasks.remove().run();
+
+    // Assert that only the third listener was invoked.
     assertThat(wakeup2Called.get()).isFalse();
     assertThat(wakeup3Called.get()).isTrue();
     assertThat(errorReference.get()).isNull();
@@ -276,10 +290,9 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void onOutputFrameAvailable_whenDownstreamThrowsException_propagatesToErrorConsumer() {
-    AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
-        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, new AtomicBoolean());
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     VideoFrameProcessingException exception = new VideoFrameProcessingException("downstream error");
     downstreamConsumer.setExceptionToThrowOnQueue(exception);
@@ -294,10 +307,9 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queueDownstream_whenDownstreamThrowsException_propagatesToErrorConsumer() {
-    AtomicBoolean frameReleased = new AtomicBoolean();
     GlTextureFrame inputFrame =
-        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, frameReleased);
-    assertThat(glShaderProgramAdapter.queue(inputFrame, directExecutor(), () -> {})).isTrue();
+        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, new AtomicBoolean());
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
 
     // Force output frames become pending in glShaderProgramAdapter.
     downstreamConsumer.setCapacity(0);
@@ -318,13 +330,14 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_withHigherDiscontinuityNumber_triggersFlush() {
+    Executor testExecutor = task -> {};
     GlTextureFrame frame1 =
         createTestFrameWithDiscontinuityNumber(
             /* texId= */ 1,
             /* timestampUs= */ 1000L,
             /* discontinuityNumber= */ 0,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
 
     // Reset flush flag, as transitioning from C.INDEX_UNSET to 0 already triggered the initial
     // flush.
@@ -338,20 +351,21 @@ public class GlShaderProgramAdapterTest {
             /* released= */ null);
 
     // Queuing frame2 with higher discontinuity number (1 > 0) triggers a flush.
-    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame2, testExecutor, () -> {})).isTrue();
 
     assertThat(fakeGlShaderProgram.flushed).isTrue();
   }
 
   @Test
   public void queue_withLowerDiscontinuityNumber_ignoresAndReleasesFrame() {
+    Executor testExecutor = task -> {};
     GlTextureFrame frame1 =
         createTestFrameWithDiscontinuityNumber(
             /* texId= */ 1,
             /* timestampUs= */ 1000L,
             /* discontinuityNumber= */ 1,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
 
     // Current stream discontinuity number becomes 1.
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
@@ -362,7 +376,7 @@ public class GlShaderProgramAdapterTest {
             /* texId= */ 2, /* timestampUs= */ 2000L, /* discontinuityNumber= */ 0, frame2Released);
 
     // Frame with lower discontinuity number is queued. It is ignored and immediately released.
-    boolean frame2Queued = glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {});
+    boolean frame2Queued = glShaderProgramAdapter.queue(frame2, testExecutor, () -> {});
 
     assertThat(frame2Queued).isTrue();
     assertThat(fakeGlShaderProgram.flushed).isTrue();
@@ -372,13 +386,16 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_withHigherDiscontinuityNumberThanPendingFrame_doesNotQueuePendingFrame() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
     GlTextureFrame frame1 =
         createTestFrameWithDiscontinuityNumber(
             /* texId= */ 1,
             /* timestampUs= */ 1000L,
             /* discontinuityNumber= */ 0,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
 
     // Downstream has no capacity. Queueing frame2 with same discontinuity will block and trigger
     // wakeup.
@@ -389,9 +406,9 @@ public class GlShaderProgramAdapterTest {
             /* discontinuityNumber= */ 0,
             /* released= */ null);
     AtomicBoolean wakeupCalled = new AtomicBoolean();
-    boolean queued2 =
-        glShaderProgramAdapter.queue(frame2, directExecutor(), () -> wakeupCalled.set(true));
-    assertThat(queued2).isFalse();
+
+    assertThat(glShaderProgramAdapter.queue(frame2, testExecutor, () -> wakeupCalled.set(true)))
+        .isFalse();
 
     // Now queue frame3 with higher discontinuity number, triggering a flush.
     GlTextureFrame frame3 =
@@ -400,7 +417,10 @@ public class GlShaderProgramAdapterTest {
             /* timestampUs= */ 3000L,
             /* discontinuityNumber= */ 1,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame3, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame3, testExecutor, () -> {})).isTrue();
+
+    // We assert that the executor was never asked to run the task
+    assertThat(queuedWakeupTasks).isEmpty();
 
     // Seeking should have reset the shader program input capacity. If not flushed, the wakeup
     // listener should have been invoked. But after a flush, the wakeup listener of the old
@@ -410,6 +430,7 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_afterDiscontinuityNumberIncrement_propagatesNewFormatCorrectly() {
+    Executor testExecutor = task -> {};
     AtomicBoolean frame1Released = new AtomicBoolean();
     Format format1 =
         new Format.Builder()
@@ -427,7 +448,7 @@ public class GlShaderProgramAdapterTest {
             .setFormat(format1)
             .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 0))
             .build();
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
 
     // Seek occurs, queueing a new frame with higher discontinuity number and new dimensions/format.
     int newWidth = TEXTURE_SIZE * 2;
@@ -449,7 +470,7 @@ public class GlShaderProgramAdapterTest {
             .setFormat(format2)
             .setMetadata(ImmutableMap.of(KEY_FRAME_DISCONTINUITY_NUMBER, 1))
             .build();
-    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame2, testExecutor, () -> {})).isTrue();
 
     // New output frame becomes available.
     int outputWidth = newWidth * 2;
@@ -475,11 +496,12 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_withHigherDiscontinuityNumber_releasesInFlightFrames() {
+    Executor testExecutor = task -> {};
     AtomicBoolean frame1Released = new AtomicBoolean();
     GlTextureFrame frame1 =
         createTestFrameWithDiscontinuityNumber(
             /* texId= */ 1, /* timestampUs= */ 1000L, /* discontinuityNumber= */ 0, frame1Released);
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
     assertThat(frame1Released.get()).isFalse();
 
     AtomicBoolean frame2Released = new AtomicBoolean();
@@ -489,7 +511,7 @@ public class GlShaderProgramAdapterTest {
 
     // Queuing frame2 with higher discontinuity number triggers a flush, which should release
     // frame1.
-    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame2, testExecutor, () -> {})).isTrue();
 
     assertThat(frame1Released.get()).isTrue();
     assertThat(frame2Released.get()).isFalse();
@@ -497,13 +519,14 @@ public class GlShaderProgramAdapterTest {
 
   @Test
   public void queue_multipleConsecutiveDiscontinuityNumberIncrements_flushesEachTime() {
+    Executor testExecutor = task -> {};
     GlTextureFrame frame1 =
         createTestFrameWithDiscontinuityNumber(
             /* texId= */ 1,
             /* timestampUs= */ 1000L,
             /* discontinuityNumber= */ 0,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame1, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame1, testExecutor, () -> {})).isTrue();
 
     // 1st stream change.
     fakeGlShaderProgram.flushed = false;
@@ -513,7 +536,7 @@ public class GlShaderProgramAdapterTest {
             /* timestampUs= */ 2000L,
             /* discontinuityNumber= */ 1,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame2, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame2, testExecutor, () -> {})).isTrue();
     assertThat(fakeGlShaderProgram.flushed).isTrue();
 
     // 2nd stream change.
@@ -524,8 +547,191 @@ public class GlShaderProgramAdapterTest {
             /* timestampUs= */ 3000L,
             /* discontinuityNumber= */ 2,
             /* released= */ null);
-    assertThat(glShaderProgramAdapter.queue(frame3, directExecutor(), () -> {})).isTrue();
+    assertThat(glShaderProgramAdapter.queue(frame3, testExecutor, () -> {})).isTrue();
     assertThat(fakeGlShaderProgram.flushed).isTrue();
+  }
+
+  @Test
+  public void queue_withDifferentFormat_signalsEosRejectsFrameAndWakesUp() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
+    Format formatA = new Format.Builder().setWidth(100).setHeight(100).build();
+    Format formatB = new Format.Builder().setWidth(200).setHeight(200).build();
+    AtomicBoolean frame1Released = new AtomicBoolean();
+    GlTextureFrame inputFrame1 =
+        createTestFrameWithFormat(
+            /* texId= */ 1, /* timestampUs= */ 1000L, formatA, frame1Released);
+    AtomicBoolean frame2Released = new AtomicBoolean();
+    GlTextureFrame inputFrame2 =
+        createTestFrameWithFormat(
+            /* texId= */ 2, /* timestampUs= */ 2000L, formatB, frame2Released);
+    AtomicBoolean wakeupCalled = new AtomicBoolean();
+
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
+    assertThat(
+            glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> wakeupCalled.set(true)))
+        .isFalse();
+
+    assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
+
+    assertThat(queuedWakeupTasks).hasSize(1);
+    queuedWakeupTasks.remove().run();
+
+    assertThat(wakeupCalled.get()).isTrue();
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void onOutputFrameAvailable_calledMultipleTimes_repeatsSameOutputFrame() {
+    GlTextureFrame inputFrame =
+        createTestFrame(/* texId= */ 1, /* timestampUs= */ 1000L, new AtomicBoolean());
+    assertThat(glShaderProgramAdapter.queue(inputFrame, task -> {}, () -> {})).isTrue();
+
+    int outputSize = 64;
+    GlTextureInfo outputTexture =
+        new GlTextureInfo(/* texId= */ 101, -1, -1, outputSize, outputSize);
+
+    // Increase the downstream consumer's capacity to accept both frames.
+    downstreamConsumer.setCapacity(2);
+
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 1000L);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, /* presentationTimeUs= */ 2000L);
+
+    assertThat(downstreamConsumer.queuedFrames).hasSize(2);
+    assertThat(downstreamConsumer.queuedFrames.get(0).presentationTimeUs).isEqualTo(1000L);
+    assertThat(downstreamConsumer.queuedFrames.get(0).format.width).isEqualTo(outputSize);
+    assertThat(downstreamConsumer.queuedFrames.get(1).presentationTimeUs).isEqualTo(2000L);
+    assertThat(downstreamConsumer.queuedFrames.get(1).format.width).isEqualTo(outputSize);
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void onCurrentOutputStreamEnded_withDroppedFrames_completesWithoutError() {
+    Executor testExecutor = task -> {};
+    Format format = new Format.Builder().setWidth(100).setHeight(100).build();
+    AtomicBoolean frame1Released = new AtomicBoolean();
+    AtomicBoolean frame2Released = new AtomicBoolean();
+
+    GlTextureFrame inputFrame1 = createTestFrameWithFormat(1, 1000L, format, frame1Released);
+    GlTextureFrame inputFrame2 = createTestFrameWithFormat(2, 2000L, format, frame2Released);
+
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
+
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+
+    assertThat(glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> {})).isTrue();
+
+    // Simulates the shader program dropping a frame and outputting just one frame.
+    int outputSize = 50;
+    GlTextureInfo outputTexture =
+        new GlTextureInfo(/* texId= */ 101, -1, -1, outputSize, outputSize);
+    glShaderProgramAdapter.onOutputFrameAvailable(outputTexture, 1000L);
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame2.glTextureInfo);
+
+    glShaderProgramAdapter.onCurrentOutputStreamEnded();
+
+    assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
+    assertThat(downstreamConsumer.queuedFrames).hasSize(1);
+    assertThat(downstreamConsumer.queuedFrames.get(0).presentationTimeUs).isEqualTo(1000L);
+    assertThat(frame1Released.get()).isTrue();
+    assertThat(frame2Released.get()).isTrue();
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void queue_afterStreamEnded_acceptsNewFormat() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
+    Format formatA = new Format.Builder().setWidth(100).setHeight(100).build();
+    Format formatB = new Format.Builder().setWidth(200).setHeight(200).build();
+
+    GlTextureFrame inputFrame1 = createTestFrameWithFormat(1, 1000L, formatA, new AtomicBoolean());
+    GlTextureFrame inputFrame2 = createTestFrameWithFormat(2, 2000L, formatB, new AtomicBoolean());
+    AtomicBoolean wakeupCalled = new AtomicBoolean();
+
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
+
+    // Simulate the shader processing the frame to restore capacity.
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+
+    // This queue attempt correctly fails due to the format change (despite having capacity).
+    assertThat(
+            glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> wakeupCalled.set(true)))
+        .isFalse();
+
+    assertThat(queuedWakeupTasks).hasSize(1);
+    queuedWakeupTasks.remove().run();
+
+    assertThat(wakeupCalled.get()).isTrue();
+    assertThat(glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> {})).isTrue();
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void queue_withDifferentFormat_wakeupListenerRequeuesFrameSuccessfully() {
+    ArrayDeque<Runnable> queuedWakeupTasks = new ArrayDeque<>();
+    Executor testExecutor = queuedWakeupTasks::add;
+    Format formatA = new Format.Builder().setWidth(100).setHeight(100).build();
+    Format formatB = new Format.Builder().setWidth(200).setHeight(200).build();
+    GlTextureFrame inputFrame1 = createTestFrameWithFormat(1, 1000L, formatA, new AtomicBoolean());
+    GlTextureFrame inputFrame2 = createTestFrameWithFormat(2, 2000L, formatB, new AtomicBoolean());
+    AtomicBoolean frame2Queued = new AtomicBoolean();
+
+    // Queue first frame.
+    assertThat(
+            glShaderProgramAdapter.queue(inputFrame1, testExecutor, /* wakeupListener= */ () -> {}))
+        .isTrue();
+    assertThat(downstreamConsumer.endOfStreamSignaled).isFalse();
+
+    // Simulate the shader processing the frame to restore capacity.
+    glShaderProgramAdapter.onInputFrameProcessed(inputFrame1.glTextureInfo);
+    glShaderProgramAdapter.onReadyToAcceptInputFrame();
+
+    // Queue second frame (different format). This rejects the frame and registers the wakeup
+    // listener. In the wakeup listener, we attempt to queue inputFrame2 again.
+    assertThat(
+            glShaderProgramAdapter.queue(
+                inputFrame2,
+                testExecutor,
+                () ->
+                    frame2Queued.set(
+                        glShaderProgramAdapter.queue(
+                            inputFrame2, testExecutor, /* wakeupListener= */ () -> {}))))
+        .isFalse();
+
+    assertThat(queuedWakeupTasks).hasSize(1);
+    assertThat(downstreamConsumer.endOfStreamSignaled).isTrue();
+
+    // Execute the wakeup listener. It should requeue the frame successfully since currentFormat
+    // is now null and capacity has been restored.
+    queuedWakeupTasks.remove().run();
+
+    assertThat(frame2Queued.get()).isTrue();
+    assertThat(errorReference.get()).isNull();
+  }
+
+  @Test
+  public void signalEndOfStream_afterFormatChange_doesNotDoubleSignal() {
+    Executor testExecutor = task -> {};
+    Format formatA = new Format.Builder().setWidth(100).setHeight(100).build();
+    Format formatB = new Format.Builder().setWidth(200).setHeight(200).build();
+
+    GlTextureFrame inputFrame1 = createTestFrameWithFormat(1, 1000L, formatA, new AtomicBoolean());
+    GlTextureFrame inputFrame2 = createTestFrameWithFormat(2, 2000L, formatB, new AtomicBoolean());
+
+    // First frame with formatA is accepted.
+    assertThat(glShaderProgramAdapter.queue(inputFrame1, testExecutor, () -> {})).isTrue();
+    // Second frame with formatB is rejected because it triggers the end of the stream
+    // for formatA. The adapter returns false and awaits the stream to end.
+    assertThat(glShaderProgramAdapter.queue(inputFrame2, testExecutor, () -> {})).isFalse();
+
+    // Calling signalEndOfStream() should not double-signal the underlying glShaderProgram.
+    glShaderProgramAdapter.signalEndOfStream();
+
+    assertThat(fakeGlShaderProgram.endOfInputStreamSignaled).isTrue();
+    assertThat(errorReference.get()).isNull();
   }
 
   private static GlTextureFrame createTestFrameWithDiscontinuityNumber(
@@ -551,17 +757,26 @@ public class GlShaderProgramAdapterTest {
 
   private static GlTextureFrame createTestFrame(
       int texId, long timestampUs, AtomicBoolean released) {
+    return createTestFrameWithFormat(
+        texId,
+        timestampUs,
+        new Format.Builder().setWidth(TEXTURE_SIZE).setHeight(TEXTURE_SIZE).build(),
+        released);
+  }
+
+  private static GlTextureFrame createTestFrameWithFormat(
+      int texId, long timestampUs, Format format, AtomicBoolean released) {
     return new GlTextureFrame.Builder(
             new GlTextureInfo(
                 texId,
                 /* fboId= */ -1,
                 /* rboId= */ -1,
-                /* width= */ TEXTURE_SIZE,
-                /* height= */ TEXTURE_SIZE),
+                /* width= */ format.width,
+                /* height= */ format.height),
             directExecutor(),
             textureInfo -> released.set(true))
         .setPresentationTimeUs(timestampUs)
-        .setFormat(new Format.Builder().setWidth(TEXTURE_SIZE).setHeight(TEXTURE_SIZE).build())
+        .setFormat(format)
         .build();
   }
 
@@ -660,6 +875,7 @@ public class GlShaderProgramAdapterTest {
     final List<QueuedFrameInfo> queuedFrames;
     final List<GlTextureInfo> releasedFrames;
     private InputListener inputListener;
+    private OutputListener outputListener;
     @Nullable private ErrorListener errorListener;
     boolean endOfInputStreamSignaled;
     boolean flushed;
@@ -686,7 +902,9 @@ public class GlShaderProgramAdapterTest {
     }
 
     @Override
-    public void setOutputListener(OutputListener outputListener) {}
+    public void setOutputListener(OutputListener outputListener) {
+      this.outputListener = outputListener;
+    }
 
     @Override
     public void setErrorListener(Executor executor, ErrorListener errorListener) {
@@ -707,6 +925,9 @@ public class GlShaderProgramAdapterTest {
     @Override
     public void signalEndOfCurrentInputStream() {
       endOfInputStreamSignaled = true;
+      if (outputListener != null) {
+        outputListener.onCurrentOutputStreamEnded();
+      }
     }
 
     @Override

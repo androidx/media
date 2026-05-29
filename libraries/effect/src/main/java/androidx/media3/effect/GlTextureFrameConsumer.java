@@ -43,7 +43,9 @@ public interface GlTextureFrameConsumer extends AutoCloseable {
    * be invoked on the {@code listenerExecutor} when capacity becomes available.
    *
    * @param frame The input frame to process.
-   * @param listenerExecutor The executor to run the wakeupListener on.
+   * @param listenerExecutor The {@link Executor} to run the {@code wakeupListener}. Must not
+   *     execute synchronously (e.g., must not be a direct executor) to avoid re-entrant calls to
+   *     {@code queue()}.
    * @param wakeupListener The callback invoked when capacity is freed.
    * @return true if queued successfully, false if at capacity.
    */
