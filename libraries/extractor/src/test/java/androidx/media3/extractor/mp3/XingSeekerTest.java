@@ -24,6 +24,7 @@ import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.math.RoundingMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -84,6 +85,20 @@ public final class XingSeekerTest {
   @Test
   public void getTimeUsAtEndOfStream() {
     assertThat(seeker.getTimeUs(XING_AUDIO_END_POSITION)).isEqualTo(XING_STREAM_DURATION_US);
+  }
+
+  @Test
+  public void getAverageBitrate_returnsAverageFromDataSizeAndDuration() {
+    int expectedAverageBitrate =
+        (int)
+            Util.scaleLargeValue(
+                XING_FRAME.dataSize - XING_FRAME.header.frameSize,
+                C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
+                XING_STREAM_DURATION_US,
+                RoundingMode.HALF_UP);
+
+    assertThat(seeker.getAverageBitrate()).isEqualTo(expectedAverageBitrate);
+    assertThat(seeker.getAverageBitrate()).isNotEqualTo(XING_FRAME.header.bitrate);
   }
 
   // https://github.com/androidx/media/issues/3117#issuecomment-4046538506

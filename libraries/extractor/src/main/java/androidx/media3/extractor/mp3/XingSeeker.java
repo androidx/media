@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
@@ -62,18 +63,13 @@ import androidx.media3.extractor.SeekPoint;
       dataSize = xingFrame.dataSize;
     }
     return new XingSeeker(
-        position,
-        xingFrame.header.frameSize,
-        durationUs,
-        xingFrame.header.bitrate,
-        dataSize,
-        xingFrame.tableOfContents);
+        position, xingFrame.header.frameSize, durationUs, dataSize, xingFrame.tableOfContents);
   }
 
   private final long dataStartPosition;
   private final int xingFrameSize;
   private final long durationUs;
-  private final int bitrate;
+  private final int averageBitrate;
 
   /** Data size, including the XING frame. */
   private final long dataSize;
@@ -90,13 +86,12 @@ import androidx.media3.extractor.SeekPoint;
       long dataStartPosition,
       int xingFrameSize,
       long durationUs,
-      int bitrate,
       long dataSize,
       @Nullable long[] tableOfContents) {
     this.dataStartPosition = dataStartPosition;
     this.xingFrameSize = xingFrameSize;
     this.durationUs = durationUs;
-    this.bitrate = bitrate;
+    this.averageBitrate = computeAverageBitrate(dataSize - xingFrameSize, durationUs);
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
     dataEndPosition = dataSize == C.LENGTH_UNSET ? C.INDEX_UNSET : dataStartPosition + dataSize;
@@ -173,7 +168,7 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return averageBitrate;
   }
 
   /**

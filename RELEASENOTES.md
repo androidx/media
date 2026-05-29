@@ -106,6 +106,7 @@
     *   MPEG-TS: Ensure the last frame is rendered for streams where the last
         PES packet has a known length
         ([#3206](https://github.com/androidx/media/pull/3206)).
+    *   MP3: Fix bitrate reporting for files with Xing and VBRI header.
 *   Inspector:
 *   Audio:
     *   Add a 100ms grace period in ExoPlayer's audio renderers when

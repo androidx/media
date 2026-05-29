@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static androidx.media3.extractor.mp3.Mp3Util.computeAverageBitrate;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
@@ -106,8 +107,7 @@ import androidx.media3.extractor.SeekPoint;
       endOfMp3Data = max(endOfMp3Data, position);
     }
 
-    return new VbriSeeker(
-        timesUs, positions, durationUs, startOfMp3Data, endOfMp3Data, mpegAudioHeader.bitrate);
+    return new VbriSeeker(timesUs, positions, durationUs, startOfMp3Data, endOfMp3Data);
   }
 
   private final long[] timesUs;
@@ -115,21 +115,20 @@ import androidx.media3.extractor.SeekPoint;
   private final long durationUs;
   private final long dataStartPosition;
   private final long dataEndPosition;
-  private final int bitrate;
+  private final int averageBitrate;
 
   private VbriSeeker(
       long[] timesUs,
       long[] positions,
       long durationUs,
       long dataStartPosition,
-      long dataEndPosition,
-      int bitrate) {
+      long dataEndPosition) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
     this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
-    this.bitrate = bitrate;
+    this.averageBitrate = computeAverageBitrate(dataEndPosition - dataStartPosition, durationUs);
   }
 
   @Override
@@ -171,6 +170,6 @@ import androidx.media3.extractor.SeekPoint;
 
   @Override
   public int getAverageBitrate() {
-    return bitrate;
+    return averageBitrate;
   }
 }
