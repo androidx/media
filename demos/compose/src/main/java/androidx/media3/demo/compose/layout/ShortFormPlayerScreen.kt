@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.compose.layout
 
+import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.VerticalPager
@@ -43,6 +44,7 @@ import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalApi::class)
 @Composable
 internal fun ShortFormPlayerScreen(
   playlistName: String,
@@ -75,25 +77,32 @@ internal fun ShortFormPlayerScreen(
   }
 
   VerticalPager(state = pagerState, modifier = modifier.fillMaxSize()) { page ->
-    ShortFormPlayer(
-      mediaItem = state.getMediaItem(page),
-      pageIndex = page,
-      state = state,
-      isPageActive = page == pagerState.settledPage,
-      modifier = Modifier.fillMaxSize(),
+    val player =
+      rememberPooledPlayer(
+        mediaItem = state.getMediaItem(page),
+        pageIndex = page,
+        state = state,
+        isPageActive = page == pagerState.settledPage,
+      )
+
+    val playPauseButtonState = rememberPlayPauseButtonState(player)
+
+    Player(
+      player = player,
+      showControls = false,
+      contentScale = ContentScale.Crop,
+      modifier = Modifier.fillMaxSize().noRippleClickable(playPauseButtonState::onClick),
     )
   }
 }
 
-@androidx.annotation.OptIn(ExperimentalApi::class)
 @Composable
-internal fun ShortFormPlayer(
+internal fun rememberPooledPlayer(
   mediaItem: MediaItem,
   pageIndex: Int,
   state: ShortFormState,
   isPageActive: Boolean,
-  modifier: Modifier = Modifier,
-) {
+): ExoPlayer? {
   // Why we need 3 player variables:
   // -- player (The UI State): The Compose MutableState that is required for the UI to
   // recompose when the player is loaded. Kotlin prevents smart casting it to a non-null type, as
@@ -140,11 +149,5 @@ internal fun ShortFormPlayer(
     onStopOrDispose { player?.pause() }
   }
 
-  val playPauseButtonState = rememberPlayPauseButtonState(player)
-  Player(
-    player = player,
-    showControls = false,
-    contentScale = ContentScale.Crop,
-    modifier = modifier.noRippleClickable(playPauseButtonState::onClick),
-  )
+  return player
 }
