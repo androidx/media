@@ -14,8 +14,9 @@
      limitations under the License.
 -->
 <lint>
-  <issue id="UnsafeOptInUsageError">
-    <option name="opt-in"
-        value="androidx.media3.common.util.UnstableApi,androidx.media3.common.util.ExperimentalApi" />
+  <!--  TODO: b/515740373 - Enable this lint in Robolectric tests when it has useful signal/noise
+                            ratio. -->
+  <issue id="NewApi">
+    <ignore path="**/src/test/**" />
   </issue>
 </lint>

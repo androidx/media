@@ -32,8 +32,6 @@ android {
     // The test app isn't indexed, and doesn't have translations.
     disable.add("GoogleAppIndexingWarning")
     disable.add("MissingTranslation")
-    // TODO: b/507008072 - Disable this once the violations (NewApi lint wrong location) are fixed.
-    ignoreTestSources = true
   }
 }
 
