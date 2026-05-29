@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.CodecSpecificDataUtil.calculateMediaCodecDolbyVisionLevel;
 import static androidx.media3.common.util.CodecSpecificDataUtil.h263ConstToLevelNumber;
 import static androidx.media3.common.util.CodecSpecificDataUtil.h263ConstToProfileNumber;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.media.AudioFormat;
@@ -354,12 +355,13 @@ public final class MediaFormatUtil {
   }
 
   /** Supports {@link MediaFormat#getString(String, String)} for {@code API < 29}. */
-  @Nullable
   public static String getString(MediaFormat mediaFormat, String name, String defaultValue) {
     if (SDK_INT >= 29) {
       return mediaFormat.getString(name, defaultValue);
     } else {
-      return mediaFormat.containsKey(name) ? mediaFormat.getString(name) : defaultValue;
+      return mediaFormat.containsKey(name)
+          ? checkNotNull(mediaFormat.getString(name))
+          : defaultValue;
     }
   }
 
