@@ -677,6 +677,42 @@ public final class FakeClockTest {
     }
   }
 
+  @Test
+  public void backgroundLooperQuit_doesNotStallMainLooper() throws Exception {
+    HandlerThread handlerThread = new HandlerThread("BackgroundThread");
+    handlerThread.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    HandlerWrapper backgroundHandler =
+        fakeClock.createHandler(handlerThread.getLooper(), /* callback= */ null);
+    HandlerWrapper mainHandler =
+        fakeClock.createHandler(Looper.getMainLooper(), /* callback= */ null);
+    AtomicBoolean mainMessageRun = new AtomicBoolean();
+
+    // 1. Post a quit task to the background handler to initiate self-quit.
+    backgroundHandler.post(handlerThread::quit);
+
+    // 2. Post the target main thread task, which is blocked by the active background looper lock.
+    mainHandler.post(() -> mainMessageRun.set(true));
+
+    // 3. Idle the background looper to execute the quit task.
+    shadowOf(handlerThread.getLooper()).idle();
+
+    // 4. Wait for the background HandlerThread to terminate.
+    long timeoutMs = System.currentTimeMillis() + 5000;
+    while (handlerThread.isAlive()) {
+      if (System.currentTimeMillis() > timeoutMs) {
+        throw new AssertionError("Timed out waiting for background thread to die");
+      }
+      ShadowLooper.idleMainLooper();
+      Thread.sleep(10);
+    }
+
+    // 5. Trigger the now unblocked message on the main thread.
+    ShadowLooper.idleMainLooper();
+
+    assertThat(mainMessageRun.get()).isTrue();
+  }
+
   private static class TestActivity extends Activity {
 
     public Button button;

@@ -51,6 +51,7 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
@@ -71,7 +72,6 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
-import static org.robolectric.shadows.ShadowLooper.idleMainLooper;
 import static org.robolectric.shadows.ShadowLooper.runMainLooperToNextTask;
 
 import android.graphics.SurfaceTexture;
@@ -121,6 +121,7 @@ import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.ReleaseListener;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
@@ -2022,7 +2023,6 @@ public final class DefaultAnalyticsCollectorTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515797237")
   public void release_withCallbacksArrivingAfterRelease_onPlayerReleasedForwardedLast()
       throws Exception {
     FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
@@ -2041,17 +2041,19 @@ public final class DefaultAnalyticsCollectorTest {
               }
             });
     exoPlayer.addAnalyticsListener(analyticsListener);
+    ReleaseListener releaseListener = new ReleaseListener();
+    exoPlayer.addAnalyticsListener(releaseListener);
 
     // Prepare with media to ensure video renderer is enabled.
     exoPlayer.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
     exoPlayer.prepare();
     runUntilPlaybackState(exoPlayer, Player.STATE_READY);
-    // Release and add delay on releasing thread to verify timestamps of events.
+    // Release and wait for release callbacks to fully arrive on the main thread.
     exoPlayer.release();
     long releaseTimeMs = fakeClock.currentTimeMillis();
     fakeClock.advanceTime(1);
-    idleMainLooper();
+    runMainLooperUntil(releaseListener::isReleased);
 
     // Verify video disable events and release events arrived in order.
     ArgumentCaptor<AnalyticsListener.EventTime> videoDisabledEventTime =

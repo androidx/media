@@ -375,9 +375,6 @@ public class FakeClock implements Clock {
   }
 
   private synchronized void maybeTriggerMessage() {
-    if (activeMessageLooper != null && !activeMessageLooper.getThread().isAlive()) {
-      activeMessageLooper = null;
-    }
     if (activeMessageLooper != null) {
       return;
     }
@@ -670,24 +667,46 @@ public class FakeClock implements Clock {
     }
   }
 
-  private static void executeWithLooperContext(Looper looper, Runnable task) {
-    Looper oldLooper = activeThreadLocalLooper.get();
-    activeThreadLocalLooper.set(looper);
-    try {
-      task.run();
-    } finally {
-      activeThreadLocalLooper.set(oldLooper);
-    }
+  private void executeWithLooperContext(Looper looper, Runnable task) {
+    executeWithLooperContext(
+        looper,
+        () -> {
+          task.run();
+          return true;
+        });
   }
 
   @CanIgnoreReturnValue
-  private static <T> T executeWithLooperContext(Looper looper, Supplier<T> task) {
+  private boolean executeWithLooperContext(Looper looper, Supplier<Boolean> task) {
     Looper oldLooper = activeThreadLocalLooper.get();
     activeThreadLocalLooper.set(looper);
     try {
       return task.get();
     } finally {
       activeThreadLocalLooper.set(oldLooper);
+      synchronized (this) {
+        if (!isLooperQueueActive(looper)) {
+          activeMessageLooper = null;
+          maybeTriggerMessage();
+        }
+      }
+    }
+  }
+
+  private static boolean isLooperQueueActive(Looper looper) {
+    if (!looper.getThread().isAlive()) {
+      return false;
+    }
+    Handler handler = new Handler(looper);
+    Runnable testMessage = () -> {};
+    try {
+      if (handler.post(testMessage)) {
+        handler.removeCallbacks(testMessage);
+        return true;
+      }
+      return false;
+    } catch (IllegalStateException e) {
+      return false;
     }
   }
 }

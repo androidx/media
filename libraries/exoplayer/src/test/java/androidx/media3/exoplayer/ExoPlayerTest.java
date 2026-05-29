@@ -191,6 +191,7 @@ import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.media3.test.utils.FakeTrackSelector;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.ReleaseListener;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -213,7 +214,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -422,6 +422,8 @@ public final class ExoPlayerTest {
     player.addListener(mockPlayerListener);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
+    ReleaseListener releaseListener = new ReleaseListener();
+    player.addAnalyticsListener(releaseListener);
     player.setMediaSources(
         ImmutableList.of(
             new FakeMediaSource(timeline, ExoPlayerTestRunner.AUDIO_FORMAT),
@@ -446,9 +448,10 @@ public final class ExoPlayerTest {
     videoSizesFromGetter.add(player.getVideoSize());
     advance(player).untilState(Player.STATE_ENDED);
     videoSizesFromGetter.add(player.getVideoSize());
+    // Release and wait for release callbacks to fully arrive on the main thread.
     player.release();
     surface.release();
-    ShadowLooper.runMainLooperToNextTask();
+    runMainLooperUntil(releaseListener::isReleased);
 
     InOrder playerListenerOrder = inOrder(mockPlayerListener);
     playerListenerOrder.verify(mockPlayerListener).onVideoSizeChanged(new VideoSize(1280, 720));
@@ -1898,7 +1901,6 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515797237")
   public void release_correctMasking() throws Exception {
     int[] currentMediaItemIndex = {C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET};
     long[] currentPosition = {C.TIME_UNSET, C.TIME_UNSET, C.TIME_UNSET};
@@ -11195,6 +11197,8 @@ public final class ExoPlayerTest {
             .build();
     AnalyticsListener listener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(listener);
+    ReleaseListener releaseListener = new ReleaseListener();
+    player.addAnalyticsListener(releaseListener);
     // Do something that requires clean-up callbacks like decoder disabling.
     player.setMediaSource(
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
@@ -11202,8 +11206,9 @@ public final class ExoPlayerTest {
     player.play();
     advance(player).untilState(Player.STATE_READY);
 
+    // Release and wait for release callbacks to fully arrive on the main thread.
     player.release();
-    ShadowLooper.runMainLooperToNextTask();
+    runMainLooperUntil(releaseListener::isReleased);
 
     verify(listener).onVideoDisabled(any(), any());
     verify(listener).onPlayerReleased(any());

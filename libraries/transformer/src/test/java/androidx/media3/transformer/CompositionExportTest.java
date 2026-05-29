@@ -595,7 +595,6 @@ public class CompositionExportTest {
                 + "_clipped100msTo400ms-gap_700ms"));
   }
 
-  @Ignore("Flaky: b/515797237")
   @Test
   public void start_audioVideoCompositionWithSecondSequenceOffsetGap_isCorrect() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);

@@ -526,7 +526,6 @@ public final class MediaItemExportTest {
         context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_VIDEO));
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   public void start_audioVideoItemInAudioVideoSequence_removeAudioWithEffects_generatesSilentAudio()
       throws Exception {
@@ -687,7 +686,6 @@ public final class MediaItemExportTest {
             /* originalFileName= */ FILE_AUDIO_RAW, /* modifications...= */ "doubleSpeed"));
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   public void start_withRawBigEndianAudioInput_completesSuccessfully() throws Exception {
     shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
@@ -962,7 +960,6 @@ public final class MediaItemExportTest {
         context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_VIDEO));
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   public void start_afterCancellation_completesSuccessfully() throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
@@ -1209,7 +1206,6 @@ public final class MediaItemExportTest {
     assertThat(result.fileSizeBytes).isEqualTo(C.LENGTH_UNSET);
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   public void analyze_audioOnlyWithCompositionEffect_completesSuccessfully() throws Exception {
     shadowMediaCodecConfig.addCodec(CODEC_INFO_AAC, /* isEncoder= */ true, THROWING_CODEC_CONFIG);
@@ -1509,7 +1505,6 @@ public final class MediaItemExportTest {
             /* modifications...= */ "transmuxed"));
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   @Config(minSdk = Config.OLDEST_SDK, maxSdk = 29)
   // This test requires Android SDK < 30 with no MediaMuxer negative PTS support.
@@ -1528,7 +1523,6 @@ public final class MediaItemExportTest {
     assertThat(result.exportException).isNull();
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   @Config(minSdk = 25)
   // This test requires Android SDK < 30 for lack of MediaMuxer negative PTS support
