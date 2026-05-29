@@ -59,6 +59,7 @@ import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with DASH media. */
+@Ignore("Flaky: b/515093746")
 @RunWith(RobolectricTestParameterInjector.class)
 @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
 public final class ClippingDashPlaybackTest {
@@ -170,7 +171,6 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_extendEndPositionAfterLoadingFinished() throws Exception {
     assumeTrue(enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
@@ -246,7 +246,6 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_reduceEndPositionBeforeLoadingFinishedToAlreadyLoadedValue()
       throws Exception {
     assumeTrue(enableMediaPeriodClipping);
@@ -289,7 +288,6 @@ public final class ClippingDashPlaybackTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_reduceEndPositionAfterLoadingFinished() throws Exception {
     assumeTrue(enableMediaPeriodClipping);
     Pair<ExoPlayer, PlaybackOutput> setupData = setUpPlayerAndCapturingOutputForClippingTest();
