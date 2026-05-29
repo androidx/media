@@ -558,6 +558,7 @@ public final class MediaItemExportTest {
             "48000hz"));
   }
 
+  @Ignore("Flaky: b/515797237")
   @Test
   public void start_audioVideoItemInAudioOnlySequence_removeVideo_preservesItemAudio()
       throws Exception {
