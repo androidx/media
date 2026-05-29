@@ -45,7 +45,8 @@ class SlidingWindowEffectTest {
       val pagerState = rememberPagerState { 100 }
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        pagerState = pagerState,
+        itemCount = pagerState.pageCount,
+        currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
         batchSize = 3,
@@ -75,7 +76,8 @@ class SlidingWindowEffectTest {
 
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        pagerState = pagerState,
+        itemCount = pagerState.pageCount,
+        currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
         batchSize = 3,
@@ -112,7 +114,8 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        pagerState = pagerState,
+        itemCount = pagerState.pageCount,
+        currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
         batchSize = 3,
@@ -150,7 +153,8 @@ class SlidingWindowEffectTest {
       scope = rememberCoroutineScope()
       VerticalPager(state = pagerState) { Box(Modifier.fillMaxSize()) }
       SlidingWindowEffect(
-        pagerState = pagerState,
+        itemCount = pagerState.pageCount,
+        currentItemProvider = { pagerState.settledPage },
         maxLookbehind = 2,
         maxLookahead = 4,
         batchSize = 3,

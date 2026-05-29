@@ -224,6 +224,9 @@
     *   Publish `PlayerDefaults` object with composables for `TopControls`,
         `CenterControls`, `BottomControls`, and `ErrorOverlay`.
     *   Add `FocusRequester` to `Player` Composable and its content slots.
+    *   Add utils for supporting preloading of MediaItems in UI environments
+        that operate on a sliding window mechanism. Showcase this functionality
+        in `demo-compose` with a new ShortFormPlayerScreen.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
