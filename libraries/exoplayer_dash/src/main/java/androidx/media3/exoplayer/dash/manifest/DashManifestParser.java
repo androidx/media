@@ -155,13 +155,14 @@ public class DashManifestParser extends DefaultHandler
     long publishTimeMs = parseDateTime(xpp, "publishTime", C.TIME_UNSET);
     ProgramInformation programInformation = null;
     UtcTimingElement utcTiming = null;
-    Uri location = null;
+    List<Location> locations = new ArrayList<>();
     ServiceDescriptionElement serviceDescription = null;
     long baseUrlAvailabilityTimeOffsetUs = dynamic ? 0 : C.TIME_UNSET;
+    String documentBaseUriString = documentBaseUri.toString();
     BaseUrl documentBaseUrl =
         new BaseUrl(
-            documentBaseUri.toString(),
-            /* serviceLocation= */ documentBaseUri.toString(),
+            documentBaseUriString,
+            /* serviceLocation= */ documentBaseUriString,
             dvbProfileDeclared ? DEFAULT_DVB_PRIORITY : PRIORITY_UNSET,
             DEFAULT_WEIGHT);
     ArrayList<BaseUrl> parentBaseUrls = Lists.newArrayList(documentBaseUrl);
@@ -185,7 +186,13 @@ public class DashManifestParser extends DefaultHandler
       } else if (XmlPullParserUtil.isStartTag(xpp, "UTCTiming")) {
         utcTiming = parseUtcTiming(xpp);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Location")) {
-        location = UriUtil.resolveToUri(documentBaseUri.toString(), xpp.nextText());
+        String serviceLocation = xpp.getAttributeValue(null, "serviceLocation");
+        String locationUrl = xpp.nextText();
+        String resolvedUrl = UriUtil.resolve(documentBaseUriString, locationUrl);
+        locations.add(
+            serviceLocation != null
+                ? new Location(resolvedUrl, serviceLocation)
+                : new Location(resolvedUrl));
       } else if (XmlPullParserUtil.isStartTag(xpp, "ServiceDescription")) {
         serviceDescription = parseServiceDescription(xpp);
       } else if (XmlPullParserUtil.isStartTag(xpp, "Period") && !seenEarlyAccessPeriod) {
@@ -245,10 +252,16 @@ public class DashManifestParser extends DefaultHandler
         programInformation,
         utcTiming,
         serviceDescription,
-        location,
-        periods);
+        periods,
+        locations);
   }
 
+  /**
+   * @deprecated Use {@link #buildMediaPresentationDescription(long, long, long, boolean, long,
+   *     long, long, long, ProgramInformation, UtcTimingElement, ServiceDescriptionElement, List,
+   *     List)} instead.
+   */
+  @Deprecated
   protected DashManifest buildMediaPresentationDescription(
       long availabilityStartTime,
       long durationMs,
@@ -263,6 +276,38 @@ public class DashManifestParser extends DefaultHandler
       @Nullable ServiceDescriptionElement serviceDescription,
       @Nullable Uri location,
       List<Period> periods) {
+    return buildMediaPresentationDescription(
+        availabilityStartTime,
+        durationMs,
+        minBufferTimeMs,
+        dynamic,
+        minUpdateTimeMs,
+        timeShiftBufferDepthMs,
+        suggestedPresentationDelayMs,
+        publishTimeMs,
+        programInformation,
+        utcTiming,
+        serviceDescription,
+        periods,
+        location == null
+            ? ImmutableList.of()
+            : ImmutableList.of(new Location(location.toString())));
+  }
+
+  protected DashManifest buildMediaPresentationDescription(
+      long availabilityStartTime,
+      long durationMs,
+      long minBufferTimeMs,
+      boolean dynamic,
+      long minUpdateTimeMs,
+      long timeShiftBufferDepthMs,
+      long suggestedPresentationDelayMs,
+      long publishTimeMs,
+      @Nullable ProgramInformation programInformation,
+      @Nullable UtcTimingElement utcTiming,
+      @Nullable ServiceDescriptionElement serviceDescription,
+      List<Period> periods,
+      List<Location> locations) {
     return new DashManifest(
         availabilityStartTime,
         durationMs,
@@ -275,8 +320,8 @@ public class DashManifestParser extends DefaultHandler
         programInformation,
         utcTiming,
         serviceDescription,
-        location,
-        periods);
+        periods,
+        locations);
   }
 
   protected UtcTimingElement parseUtcTiming(XmlPullParser xpp) {

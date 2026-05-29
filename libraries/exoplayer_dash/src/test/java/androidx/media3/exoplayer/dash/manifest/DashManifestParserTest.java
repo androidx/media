@@ -95,6 +95,10 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_DOLBY_VISION = "media/mpd/sample_mpd_dolby";
   private static final String SAMPLE_MPD_SUPPLEMENTAL_CODECS =
       "media/mpd/sample_mpd_supplemental_codecs";
+  private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE =
+      "media/mpd/sample_mpd_multiple_locations_relative";
+  private static final String SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE =
+      "media/mpd/sample_mpd_multiple_locations_absolute";
 
   private static final String NEXT_TAG_NAME = "Next";
   private static final String NEXT_TAG = "<" + NEXT_TAG_NAME + "/>";
@@ -1070,6 +1074,55 @@ public class DashManifestParserTest {
         Iterables.getOnlyElement(Iterables.getOnlyElement(period.adaptationSets).representations);
     assertThat(representation.format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_DOLBY_VISION);
     assertThat(representation.format.codecs).isEqualTo("dvh1.08.03");
+  }
+
+  @SuppressWarnings("deprecation") // Verify deprecated field is parsed correctly.
+  @Test
+  public void parse_multipleLocationsWithAbsoluteUrls_parsedCorrectly() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_ABSOLUTE));
+
+    assertThat(manifest.locations).hasSize(2);
+    assertThat(manifest.locations.get(0).url)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(0).serviceLocation)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(1).url)
+        .isEqualTo("https://example.com/location2/manifest.mpd");
+    assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
+    // Verify backward compatibility location field (points to the last location).
+    assertThat(manifest.location)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
+  }
+
+  @SuppressWarnings("deprecation") // Verify deprecated field is parsed correctly.
+  @Test
+  public void parse_multipleLocationsWithRelativeUrls_parsedCorrectly() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_MULTIPLE_LOCATIONS_RELATIVE));
+
+    assertThat(manifest.locations).hasSize(2);
+    assertThat(manifest.locations.get(0).url)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(0).serviceLocation)
+        .isEqualTo("https://example.com/location1/manifest.mpd");
+    assertThat(manifest.locations.get(1).url)
+        .isEqualTo("https://example.com/location2/manifest.mpd");
+    assertThat(manifest.locations.get(1).serviceLocation).isEqualTo("loc2");
+    // Verify backward compatibility location field (points to the last location).
+    assertThat(manifest.location)
+        .isEqualTo(Uri.parse("https://example.com/location2/manifest.mpd"));
   }
 
   private static List<Descriptor> buildCea608AccessibilityDescriptors(String value) {
