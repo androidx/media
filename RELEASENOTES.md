@@ -56,6 +56,10 @@
         will run dynamically as opposed to on a static interval.
     *   Remove an unnecessary reset that can occur when joining tracks with
         pre-roll samples to active playback.
+    *   In `DefaultBandwidthMeter`, optimize
+        `getInitialBitrateCountryGroupAssignment` to return the country group
+        assignments packed into a 32-bit integer instead of an array, reducing
+        code size and avoiding allocations.
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:

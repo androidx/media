@@ -87,40 +87,37 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   public static final int DEFAULT_SLIDING_WINDOW_MAX_WEIGHT = 2000;
 
   /**
-   * Index for the Wifi group index in the array returned by {@link
+   * Shift for the 2G group index in the packed int returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
    */
-  private static final int COUNTRY_GROUP_INDEX_WIFI = 0;
+  private static final int COUNTRY_GROUP_SHIFT_2G = 3;
 
   /**
-   * Index for the 2G group index in the array returned by {@link
+   * Shift for the 3G group index in the packed int returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
    */
-  private static final int COUNTRY_GROUP_INDEX_2G = 1;
+  private static final int COUNTRY_GROUP_SHIFT_3G = 6;
 
   /**
-   * Index for the 3G group index in the array returned by {@link
+   * Shift for the 4G group index in the packed int returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
    */
-  private static final int COUNTRY_GROUP_INDEX_3G = 2;
+  private static final int COUNTRY_GROUP_SHIFT_4G = 9;
 
   /**
-   * Index for the 4G group index in the array returned by {@link
+   * Shift for the 5G-NSA group index in the packed int returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
    */
-  private static final int COUNTRY_GROUP_INDEX_4G = 3;
+  private static final int COUNTRY_GROUP_SHIFT_5G_NSA = 12;
 
   /**
-   * Index for the 5G-NSA group index in the array returned by {@link
+   * Shift for the 5G-SA group index in the packed int returned by {@link
    * #getInitialBitrateCountryGroupAssignment}.
    */
-  private static final int COUNTRY_GROUP_INDEX_5G_NSA = 4;
+  private static final int COUNTRY_GROUP_SHIFT_5G_SA = 15;
 
-  /**
-   * Index for the 5G-SA group index in the array returned by {@link
-   * #getInitialBitrateCountryGroupAssignment}.
-   */
-  private static final int COUNTRY_GROUP_INDEX_5G_SA = 5;
+  /** Mask to extract the 3-bit country group index. */
+  private static final int COUNTRY_GROUP_INDEX_MASK = 0x7;
 
   // Intentionally mutable static field and using application context to prevent leakage.
   @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
@@ -536,23 +533,28 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
 
   private static long getInitialBitrateEstimatesForCountry(
       @Nullable String countryCode, @C.NetworkType int networkType) {
-    int[] groupIndices = getInitialBitrateCountryGroupAssignment(nullToEmpty(countryCode));
+    int packedGroupIndices = getInitialBitrateCountryGroupAssignment(nullToEmpty(countryCode));
     switch (networkType) {
       case C.NETWORK_TYPE_WIFI:
       case C.NETWORK_TYPE_ETHERNET:
         // Assume default Wifi speed for Ethernet to prevent using the slower fallback.
-        return DEFAULT_INITIAL_BITRATE_ESTIMATES_WIFI.get(groupIndices[COUNTRY_GROUP_INDEX_WIFI]);
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_WIFI.get(
+            packedGroupIndices & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_2G:
-        return DEFAULT_INITIAL_BITRATE_ESTIMATES_2G.get(groupIndices[COUNTRY_GROUP_INDEX_2G]);
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_2G.get(
+            (packedGroupIndices >> COUNTRY_GROUP_SHIFT_2G) & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_3G:
-        return DEFAULT_INITIAL_BITRATE_ESTIMATES_3G.get(groupIndices[COUNTRY_GROUP_INDEX_3G]);
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_3G.get(
+            (packedGroupIndices >> COUNTRY_GROUP_SHIFT_3G) & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_4G:
-        return DEFAULT_INITIAL_BITRATE_ESTIMATES_4G.get(groupIndices[COUNTRY_GROUP_INDEX_4G]);
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_4G.get(
+            (packedGroupIndices >> COUNTRY_GROUP_SHIFT_4G) & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_5G_NSA:
         return DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_NSA.get(
-            groupIndices[COUNTRY_GROUP_INDEX_5G_NSA]);
+            (packedGroupIndices >> COUNTRY_GROUP_SHIFT_5G_NSA) & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_5G_SA:
-        return DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_SA.get(groupIndices[COUNTRY_GROUP_INDEX_5G_SA]);
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_SA.get(
+            (packedGroupIndices >> COUNTRY_GROUP_SHIFT_5G_SA) & COUNTRY_GROUP_INDEX_MASK);
       case C.NETWORK_TYPE_UNKNOWN:
       default:
         return DEFAULT_INITIAL_BITRATE_ESTIMATE;
@@ -560,268 +562,870 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   }
 
   /**
-   * Returns initial bitrate group assignments for a {@code country}. The initial bitrate is a list
-   * of indices for [Wifi, 2G, 3G, 4G, 5G_NSA, 5G_SA].
+   * Returns initial bitrate group assignments for a {@code country} packed into a 32-bit integer.
+   * The packed integer assigns 3 bits for each network type's group index in the following layout:
+   * [Wifi (bits 0-2), 2G (bits 3-5), 3G (bits 6-8), 4G (bits 9-11), 5G_NSA (bits 12-14), 5G_SA
+   * (bits 15-17)].
    */
-  private static int[] getInitialBitrateCountryGroupAssignment(String country) {
+  private static int getInitialBitrateCountryGroupAssignment(String country) {
     switch (country) {
       case "AE":
-        return new int[] {1, 4, 2, 3, 4, 1};
+        return 1
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AL":
-        return new int[] {1, 1, 1, 2, 2, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AO":
-        return new int[] {3, 4, 4, 3, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AR":
-        return new int[] {2, 2, 2, 2, 1, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AS":
-        return new int[] {2, 2, 3, 3, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AU":
-        return new int[] {0, 3, 1, 1, 3, 0};
+        return 0
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AW":
-        return new int[] {2, 2, 3, 4, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BD":
-        return new int[] {2, 1, 3, 2, 4, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BE":
-        return new int[] {0, 0, 1, 0, 1, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BH":
-        return new int[] {1, 3, 1, 3, 4, 2};
+        return 1
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BJ":
-        return new int[] {4, 4, 2, 3, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BM":
-        return new int[] {0, 2, 0, 0, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BN":
-        return new int[] {3, 2, 0, 0, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BO":
-        return new int[] {1, 2, 4, 4, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BR":
-        return new int[] {1, 1, 1, 1, 2, 4};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BS":
-        return new int[] {3, 2, 1, 1, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BT":
-        return new int[] {3, 1, 2, 2, 3, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BW":
-        return new int[] {3, 2, 1, 0, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BY":
-        return new int[] {1, 2, 3, 3, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CF":
-        return new int[] {4, 2, 4, 2, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CH":
-        return new int[] {0, 1, 0, 0, 0, 2};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AG":
       case "CI":
-        return new int[] {2, 4, 3, 4, 2, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BZ":
       case "CK":
-        return new int[] {2, 2, 2, 1, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CN":
-        return new int[] {2, 0, 1, 1, 3, 1};
+        return 2
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CO":
-        return new int[] {2, 3, 3, 2, 2, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CV":
-        return new int[] {2, 3, 0, 1, 2, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CY":
-        return new int[] {1, 0, 1, 0, 0, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CZ":
-        return new int[] {0, 0, 2, 0, 1, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "DE":
-        return new int[] {0, 1, 4, 2, 2, 1};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "DK":
-        return new int[] {0, 0, 2, 0, 0, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "EC":
-        return new int[] {1, 3, 2, 1, 2, 2};
+        return 1
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ES":
-        return new int[] {0, 0, 0, 0, 1, 0};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ET":
-        return new int[] {4, 3, 4, 4, 4, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FI":
-        return new int[] {0, 0, 0, 1, 0, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FJ":
-        return new int[] {3, 2, 2, 3, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FM":
-        return new int[] {4, 2, 4, 0, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FO":
-        return new int[] {0, 2, 2, 0, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FR":
-        return new int[] {1, 1, 1, 1, 0, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GA":
-        return new int[] {3, 4, 0, 0, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GB":
-        return new int[] {1, 1, 3, 2, 2, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GD":
-        return new int[] {2, 2, 0, 0, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GE":
-        return new int[] {1, 1, 0, 2, 2, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GF":
-        return new int[] {3, 2, 3, 3, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GG":
-        return new int[] {0, 2, 1, 1, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GH":
-        return new int[] {3, 3, 3, 2, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GN":
-        return new int[] {3, 4, 4, 2, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GP":
-        return new int[] {2, 1, 1, 3, 2, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GR":
-        return new int[] {1, 0, 0, 0, 1, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GT":
-        return new int[] {2, 1, 2, 1, 2, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GU":
-        return new int[] {2, 2, 4, 3, 3, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GW":
-        return new int[] {4, 4, 1, 2, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GY":
-        return new int[] {3, 1, 1, 3, 2, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "HK":
-        return new int[] {0, 1, 0, 1, 1, 0};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ID":
-        return new int[] {3, 1, 3, 3, 2, 4};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IE":
-        return new int[] {1, 1, 1, 1, 1, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IL":
-        return new int[] {1, 2, 2, 3, 4, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IN":
-        return new int[] {1, 1, 3, 2, 2, 3};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IO":
-        return new int[] {3, 2, 2, 0, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IQ":
-        return new int[] {3, 2, 3, 2, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IR":
-        return new int[] {4, 2, 3, 3, 4, 3};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "IT":
-        return new int[] {0, 1, 1, 2, 1, 2};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GI":
       case "IM":
       case "JE":
-        return new int[] {0, 2, 0, 1, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "JM":
-        return new int[] {2, 4, 3, 1, 2, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "JP":
-        return new int[] {0, 3, 2, 3, 4, 2};
+        return 0
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KE":
-        return new int[] {3, 2, 1, 1, 1, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KG":
-        return new int[] {2, 1, 1, 2, 2, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KH":
-        return new int[] {1, 0, 4, 2, 2, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KR":
-        return new int[] {0, 2, 2, 4, 4, 4};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "HR":
       case "KW":
-        return new int[] {1, 0, 0, 0, 0, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KZ":
-        return new int[] {2, 1, 2, 2, 3, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LA":
-        return new int[] {1, 2, 1, 3, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LB":
-        return new int[] {3, 1, 1, 2, 2, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LC":
-        return new int[] {2, 2, 1, 1, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "DO":
       case "LR":
-        return new int[] {3, 4, 4, 4, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LT":
-        return new int[] {0, 1, 0, 1, 0, 2};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LU":
-        return new int[] {4, 0, 3, 2, 1, 3};
+        return 4
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MA":
-        return new int[] {3, 3, 1, 1, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GL":
       case "MC":
-        return new int[] {1, 2, 2, 0, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MD":
-        return new int[] {1, 0, 0, 0, 2, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ME":
-        return new int[] {2, 0, 0, 1, 3, 2};
+        return 2
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MF":
-        return new int[] {1, 2, 2, 3, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CG":
       case "EG":
       case "MG":
-        return new int[] {3, 4, 3, 3, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MK":
-        return new int[] {1, 0, 0, 1, 3, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CD":
       case "ML":
-        return new int[] {3, 3, 2, 2, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LK":
       case "MM":
-        return new int[] {3, 2, 3, 3, 4, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MN":
-        return new int[] {2, 0, 2, 2, 2, 2};
+        return 2
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MO":
-        return new int[] {0, 2, 4, 4, 3, 1};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MQ":
-        return new int[] {2, 1, 2, 3, 2, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CM":
       case "MR":
-        return new int[] {4, 3, 3, 4, 2, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MU":
-        return new int[] {3, 1, 0, 2, 2, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MV":
-        return new int[] {3, 2, 1, 3, 4, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MW":
-        return new int[] {3, 2, 2, 1, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MX":
-        return new int[] {2, 4, 4, 4, 3, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MY":
-        return new int[] {1, 0, 4, 1, 1, 0};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NA":
-        return new int[] {3, 4, 3, 2, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NG":
-        return new int[] {3, 4, 2, 1, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CR":
       case "NI":
-        return new int[] {2, 4, 4, 4, 2, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NL":
-        return new int[] {2, 1, 4, 3, 0, 4};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NO":
-        return new int[] {0, 0, 3, 0, 0, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NP":
-        return new int[] {2, 2, 4, 3, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NZ":
-        return new int[] {0, 0, 1, 2, 4, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "OM":
-        return new int[] {2, 3, 1, 2, 4, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AM":
       case "PA":
-        return new int[] {2, 3, 2, 3, 2, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PE":
-        return new int[] {1, 2, 4, 4, 3, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PF":
-        return new int[] {2, 2, 3, 1, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "LS":
       case "PG":
-        return new int[] {4, 3, 3, 3, 2, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PH":
-        return new int[] {2, 1, 2, 3, 2, 1};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PK":
-        return new int[] {3, 3, 3, 3, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PL":
-        return new int[] {1, 0, 2, 2, 4, 4};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PR":
-        return new int[] {2, 0, 2, 1, 2, 0};
+        return 2
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PS":
-        return new int[] {3, 4, 1, 3, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "PW":
-        return new int[] {2, 2, 4, 1, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BL":
       case "MP":
       case "PY":
-        return new int[] {1, 2, 2, 2, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "QA":
-        return new int[] {1, 4, 4, 4, 4, 2};
+        return 1
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "RE":
-        return new int[] {0, 3, 2, 3, 1, 2};
+        return 0
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "RO":
-        return new int[] {0, 0, 1, 1, 3, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "RS":
-        return new int[] {1, 0, 0, 1, 2, 2};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "RU":
-        return new int[] {1, 0, 0, 1, 3, 3};
+        return 1
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "RW":
-        return new int[] {3, 3, 2, 0, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SA":
-        return new int[] {3, 1, 1, 2, 2, 0};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AT":
       case "EE":
       case "HU":
@@ -829,91 +1433,246 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       case "LV":
       case "MT":
       case "SE":
-        return new int[] {0, 0, 0, 0, 0, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SG":
-        return new int[] {2, 3, 3, 3, 1, 1};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AQ":
       case "ER":
       case "NU":
       case "SC":
       case "SH":
-        return new int[] {4, 2, 2, 2, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BG":
       case "PT":
       case "SI":
-        return new int[] {0, 0, 0, 0, 1, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "FK":
       case "NF":
       case "SJ":
-        return new int[] {3, 2, 2, 2, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SK":
-        return new int[] {0, 1, 1, 1, 2, 2};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AZ":
       case "DJ":
       case "LY":
       case "SL":
-        return new int[] {4, 2, 3, 3, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SN":
-        return new int[] {4, 4, 3, 2, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SO":
-        return new int[] {2, 2, 3, 4, 4, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SR":
-        return new int[] {2, 4, 4, 1, 2, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "GM":
       case "SS":
-        return new int[] {4, 3, 2, 4, 2, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ST":
-        return new int[] {2, 2, 1, 2, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SV":
-        return new int[] {2, 3, 2, 1, 2, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AF":
       case "SZ":
-        return new int[] {4, 4, 3, 4, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TC":
-        return new int[] {3, 2, 1, 2, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BF":
       case "SD":
       case "SY":
       case "TD":
-        return new int[] {4, 3, 4, 4, 2, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TG":
-        return new int[] {3, 4, 1, 0, 2, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CL":
       case "TH":
-        return new int[] {0, 1, 2, 2, 2, 2};
+        return 0
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "DZ":
       case "TJ":
-        return new int[] {3, 3, 4, 4, 2, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CU":
       case "KI":
       case "NR":
       case "TL":
-        return new int[] {4, 2, 4, 4, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TN":
-        return new int[] {3, 1, 1, 1, 2, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TO":
-        return new int[] {3, 2, 4, 3, 2, 2};
+        return 3
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BA":
       case "JO":
       case "TR":
-        return new int[] {1, 1, 1, 1, 2, 2};
+        return 1
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TT":
-        return new int[] {2, 4, 1, 0, 2, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TW":
-        return new int[] {0, 0, 0, 0, 0, 0};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (0 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "TZ":
-        return new int[] {3, 4, 2, 1, 3, 2};
+        return 3
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "CA":
       case "UA":
-        return new int[] {0, 2, 1, 2, 3, 3};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "UG":
-        return new int[] {3, 3, 2, 3, 4, 2};
+        return 3
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "US":
-        return new int[] {2, 2, 4, 1, 3, 1};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "UY":
-        return new int[] {2, 1, 1, 2, 1, 2};
+        return 2
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "UZ":
-        return new int[] {1, 2, 3, 4, 3, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (3 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AX":
       case "CX":
       case "LI":
@@ -921,7 +1680,12 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       case "PM":
       case "SM":
       case "VA":
-        return new int[] {0, 2, 2, 2, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "AD":
       case "AI":
       case "BB":
@@ -932,45 +1696,115 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       case "KY":
       case "SX":
       case "VC":
-        return new int[] {1, 2, 0, 0, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (0 << COUNTRY_GROUP_SHIFT_3G)
+            | (0 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "VG":
-        return new int[] {2, 2, 1, 1, 2, 4};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (4 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "VI":
-        return new int[] {0, 2, 1, 2, 2, 2};
+        return 0
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "VN":
-        return new int[] {0, 0, 1, 2, 2, 2};
+        return 0
+            | (0 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "KM":
       case "VU":
-        return new int[] {4, 3, 3, 2, 2, 2};
+        return 4
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MH":
       case "TM":
       case "TV":
       case "WF":
-        return new int[] {4, 2, 2, 4, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "MZ":
       case "WS":
-        return new int[] {3, 1, 2, 2, 2, 2};
+        return 3
+            | (1 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "XK":
-        return new int[] {1, 2, 1, 1, 2, 2};
+        return 1
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (1 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "BI":
       case "GQ":
       case "HT":
       case "NE":
       case "VE":
       case "YE":
-        return new int[] {4, 4, 4, 4, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "NC":
       case "YT":
-        return new int[] {2, 3, 3, 4, 2, 2};
+        return 2
+            | (3 << COUNTRY_GROUP_SHIFT_2G)
+            | (3 << COUNTRY_GROUP_SHIFT_3G)
+            | (4 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ZA":
-        return new int[] {2, 4, 2, 1, 1, 2};
+        return 2
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (1 << COUNTRY_GROUP_SHIFT_4G)
+            | (1 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "ZM":
-        return new int[] {4, 4, 4, 3, 2, 2};
+        return 4
+            | (4 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       case "SB":
       case "ZW":
-        return new int[] {4, 2, 4, 3, 2, 2};
+        return 4
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (4 << COUNTRY_GROUP_SHIFT_3G)
+            | (3 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
       default:
-        return new int[] {2, 2, 2, 2, 2, 2};
+        return 2
+            | (2 << COUNTRY_GROUP_SHIFT_2G)
+            | (2 << COUNTRY_GROUP_SHIFT_3G)
+            | (2 << COUNTRY_GROUP_SHIFT_4G)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_NSA)
+            | (2 << COUNTRY_GROUP_SHIFT_5G_SA);
     }
   }
 }
