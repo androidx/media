@@ -32,6 +32,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
@@ -1638,14 +1639,13 @@ public class TransformerEndToEndTest {
     assumeFormatsSupported(
         context,
         testId,
-        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat,
-        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.videoFormat);
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.videoFormat);
     ImmutableList<Effect> videoEffects =
         ImmutableList.of(new SpeedChangeEffect(1.5f), new SpeedChangeEffect(2f));
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
-                MediaItem.fromUri(
-                    Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri)))
+                MediaItem.fromUri(Uri.parse(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri)))
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .setRemoveAudio(true)
             .build();
@@ -1661,7 +1661,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.approximateDurationMs).isEqualTo(10_351L);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(3_334L);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
