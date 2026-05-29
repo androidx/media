@@ -211,7 +211,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
   @Override
   public long getPositionUs() {
-    return audioTrackPositionTracker.getCurrentPositionUs();
+    return audioTrackPositionTracker.getCurrentPositionUs(getWrittenFrames());
   }
 
   @Override

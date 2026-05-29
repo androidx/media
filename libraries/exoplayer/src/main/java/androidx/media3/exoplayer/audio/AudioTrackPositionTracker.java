@@ -215,6 +215,11 @@ import java.lang.reflect.Method;
     onPositionAdvancingFromPositionUs = C.TIME_UNSET;
   }
 
+  /**
+   * Sets the playback speed of the audio track.
+   *
+   * @param audioTrackPlaybackSpeed The playback speed.
+   */
   public void setAudioTrackPlaybackSpeed(float audioTrackPlaybackSpeed) {
     this.audioTrackPlaybackSpeed = audioTrackPlaybackSpeed;
     // Extrapolation from the last audio timestamp relies on the audio rate being constant, so we
@@ -223,7 +228,13 @@ import java.lang.reflect.Method;
     resetSyncParams();
   }
 
-  public long getCurrentPositionUs() {
+  /**
+   * Returns the current playback position estimate in microseconds.
+   *
+   * @param writtenFrames The total number of audio frames written to the track so far.
+   * @return The current playback position estimate in microseconds.
+   */
+  public long getCurrentPositionUs(long writtenFrames) {
     AudioTrack audioTrack = checkNotNull(this.audioTrack);
     if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
       maybeSampleSyncParams();
@@ -237,6 +248,14 @@ import java.lang.reflect.Method;
         useGetTimestampMode
             ? audioTimestampPoller.getTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed)
             : getPlaybackHeadPositionEstimateUs(systemTimeUs);
+
+    long maxPositionUs = sampleCountToDurationUs(writtenFrames, outputSampleRate);
+    if (positionUs >= maxPositionUs) {
+      positionUs = maxPositionUs;
+      resetSyncParams();
+      audioTimestampPoller.reset();
+      return positionUs;
+    }
 
     int audioTrackPlayState = audioTrack.getPlayState();
     if (audioTrackPlayState == PLAYSTATE_PLAYING) {
@@ -293,7 +312,12 @@ import java.lang.reflect.Method;
     return checkNotNull(audioTrack).getPlayState() == PLAYSTATE_PLAYING;
   }
 
-  /** Returns whether the track is in an invalid state and must be recreated. */
+  /**
+   * Returns whether the track is in an invalid state and must be recreated.
+   *
+   * @param writtenFrames The total number of audio frames written to the track so far.
+   * @return Whether the track is stalled.
+   */
   public boolean isStalled(long writtenFrames) {
     return forceResetWorkaroundTimeMs != C.TIME_UNSET
         && writtenFrames > 0
