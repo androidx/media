@@ -45,9 +45,7 @@ import org.robolectric.shadows.ShadowAudioTrack;
 import org.robolectric.shadows.ShadowMediaCodec;
 
 /** End to end playback test for gapless audio playbacks. */
-// TODO: b/511065294 - Run this on more APIs when RandomizedMp3Decoder supports them.
 @RunWith(AndroidJUnit4.class)
-@Config(minSdk = 29)
 public class EndToEndGaplessTest {
   private static final int CODEC_INPUT_BUFFER_SIZE = 5120;
   private static final int CODEC_OUTPUT_BUFFER_SIZE = 5120;
@@ -73,6 +71,7 @@ public class EndToEndGaplessTest {
   }
 
   @Test
+  @Config(minSdk = 29) // AudioFormat.getFrameSizeInBytes is only available from API 29.
   public void testPlayback_twoIdenticalMp3Files() throws Exception {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
