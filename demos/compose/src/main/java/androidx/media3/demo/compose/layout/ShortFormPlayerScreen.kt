@@ -22,29 +22,19 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.ExperimentalApi
-import androidx.media3.demo.compose.shortform.PlayerPool
+import androidx.media3.demo.compose.shortform.rememberPooledPlayer
 import androidx.media3.demo.compose.shortform.rememberShortFormState
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.ui.compose.material3.Player
 import androidx.media3.ui.compose.state.SlidingWindowEffect
 import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalApi::class)
 @Composable
@@ -85,12 +75,15 @@ internal fun ShortFormPlayerScreen(
       rememberPooledPlayer(
         mediaItem = mediaItem,
         playerPool = state.playerPool,
-        mediaSourceProvider = {
-          state.preloadManager.getMediaSource(mediaItem)
-            ?: run {
-              state.preloadManager.add(mediaItem, page)
-              state.preloadManager.getMediaSource(mediaItem)!!
-            }
+        playerSetup = { p: ExoPlayer ->
+          val mediaSource =
+            state.preloadManager.getMediaSource(mediaItem)
+              ?: run {
+                state.preloadManager.add(mediaItem, page)
+                state.preloadManager.getMediaSource(mediaItem)!!
+              }
+          p.setMediaSource(mediaSource)
+          p.prepare()
         },
         isActive = page == pagerState.settledPage,
       )
@@ -104,54 +97,4 @@ internal fun ShortFormPlayerScreen(
       modifier = Modifier.fillMaxSize().noRippleClickable(playPauseButtonState::onClick),
     )
   }
-}
-
-@Composable
-internal fun rememberPooledPlayer(
-  mediaItem: MediaItem,
-  playerPool: PlayerPool,
-  mediaSourceProvider: () -> MediaSource,
-  isActive: Boolean,
-): ExoPlayer? {
-  // Why we need 3 player variables:
-  // -- player (The UI State): The Compose MutableState that is required for the UI to
-  // recompose when the player is loaded. Kotlin prevents smart casting it to a non-null type, as
-  // the compiler cannot guarantee the getter will consistently return a non-null value. We only use
-  // it in the Player composable.
-  // -- acquiredPlayer (The Lifecycle Net): A mutable var declared **outside** the coroutine. This
-  // reference prevents memory leaks during asynchronous cancellation. It guarantees onDispose has a
-  // hard reference to the exact player we acquired.
-  // -- p (The Local Execution val): This is a short-lived, immutable local variable inside the
-  // launch block that can never change or be null. It is safe for p.setMediaSource(...) calls.
-  var player: ExoPlayer? by remember { mutableStateOf(null) }
-  val scope = rememberCoroutineScope()
-  val currentMediaSourceProvider by rememberUpdatedState(mediaSourceProvider)
-
-  DisposableEffect(mediaItem, playerPool) {
-    var acquiredPlayer: ExoPlayer? = null
-    val job = scope.launch {
-      val p = playerPool.acquirePlayer()
-      acquiredPlayer = p
-      player = p
-      p.setMediaSource(currentMediaSourceProvider())
-      p.prepare()
-      if (isActive) playerPool.play(p)
-    }
-    onDispose {
-      job.cancel()
-      playerPool.returnToPool(acquiredPlayer)
-      player = null
-    }
-  }
-
-  LifecycleStartEffect(isActive, player) {
-    if (isActive) {
-      player?.let(playerPool::play)
-    } else {
-      player?.pause()
-    }
-    onStopOrDispose { player?.pause() }
-  }
-
-  return player
 }

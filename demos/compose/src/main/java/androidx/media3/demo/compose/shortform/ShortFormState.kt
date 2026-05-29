@@ -27,13 +27,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.Cache
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
+import androidx.media3.exoplayer.util.EventLogger
 import java.io.File
 import kotlin.math.abs
 
@@ -49,8 +52,10 @@ internal class ShortFormState(
   lateinit var preloadManager: DefaultPreloadManager
     private set
 
-  lateinit var playerPool: PlayerPool
+  lateinit var playerPool: PlayerPool<ExoPlayer>
     private set
+
+  private var playerCounter = 0
 
   private val cacheDelegate = lazy {
     val downloadDirectory = context.getExternalFilesDir(null) ?: context.filesDir
@@ -95,7 +100,14 @@ internal class ShortFormState(
         .setLoadControl(loadControl)
         .setCache(cache)
 
-    playerPool = PlayerPool(playerPoolCapacity, preloadManagerBuilder)
+    playerPool =
+      PlayerPool(playerPoolCapacity) {
+        preloadManagerBuilder.buildExoPlayer().apply {
+          playerCounter++
+          addAnalyticsListener(EventLogger("player-${playerCounter}-of-$playerPoolCapacity"))
+          repeatMode = Player.REPEAT_MODE_ONE
+        }
+      }
     preloadManager = preloadManagerBuilder.build()
 
     isReady = true
