@@ -207,6 +207,9 @@
     *   Fix issue where Bluetooth AVRCP browsing didn't recognise
         `MediaLibraryService` on API 36 and 37.
 *   UI:
+    *   Fix first frame rendering at the wrong size when `ContentFrame` is
+        recomposed mid-playback
+        ([#3238](https://github.com/androidx/media/issues/3238)).
     *   Add `CurrentMediaItemState` class and the corresponding
         `rememberCurrentMediaItemState` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display various

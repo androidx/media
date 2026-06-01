@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,9 +65,29 @@ class PresentationStateTest {
     }
 
     // Assert that the VERY FIRST composition pass had the correct size constraints.
-    // - TODO: observedSizes.first() should be Size(1920f, 1080f)
-    assertThat(observedSizes.first()).isEqualTo(null)
+    assertThat(observedSizes.first()).isEqualTo(Size(1920f, 1080f))
     assertThat(observedSizes.last()).isEqualTo(Size(1920f, 1080f))
+  }
+
+  @Test
+  fun rememberPresentationState_recomposition_syncsVideoSizeImmediately() = runComposeUiTest {
+    val player = FakePlayer()
+    player.setVideoSize(VideoSize(1920, 1080))
+
+    lateinit var recomposeKey: MutableIntState
+    lateinit var state: PresentationState
+
+    setContent {
+      recomposeKey = remember { mutableIntStateOf(0) }
+      key(recomposeKey.intValue) { state = rememberPresentationState(player) }
+    }
+
+    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
+
+    recomposeKey.intValue = 1
+    waitForIdle()
+
+    assertThat(state.videoSizeDp).isEqualTo(Size(1920f, 1080f))
   }
 
   @Test

@@ -49,7 +49,9 @@ fun rememberPresentationState(
   player: Player?,
   keepContentOnReset: Boolean = false,
 ): PresentationState {
-  val presentationState = remember { PresentationState(keepContentOnReset) }
+  val presentationState = remember {
+    PresentationState(keepContentOnReset).apply { this.player = player }
+  }
   LaunchedEffect(player) { presentationState.observe(player) }
   LaunchedEffect(keepContentOnReset) { presentationState.keepContentOnReset = keepContentOnReset }
   return presentationState
@@ -88,7 +90,16 @@ class PresentationState(keepContentOnReset: Boolean = false) {
       }
     }
 
-  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) var player: Player? = null
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+  var player: Player? = null
+    set(value) {
+      field = value
+      // Only update the size if we are attaching a player OR if we don't need to keep the content
+      if (value != null || !keepContentOnReset) {
+        videoSizeDp = getVideoSizeDp(value)
+      }
+      maybeHideSurface(value)
+    }
 
   private var lastPeriodUidWithTracks: Any? = null
 
@@ -101,8 +112,6 @@ class PresentationState(keepContentOnReset: Boolean = false) {
   suspend fun observe(player: Player?) {
     try {
       this@PresentationState.player = player
-      videoSizeDp = getVideoSizeDp(player)
-      maybeHideSurface(player)
       player?.listen { events ->
         if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
           if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
