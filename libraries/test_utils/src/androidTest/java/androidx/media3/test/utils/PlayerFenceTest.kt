@@ -46,6 +46,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -53,10 +54,17 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class PlayerFenceTest {
 
+  private lateinit var player: ExoPlayer
+
+  @After
+  fun releasePlayer() {
+    runBlocking(Dispatchers.Main) { if (::player.isInitialized) player.release() }
+  }
+
   @Test
   fun awaitPlaybackState_ready() =
     runBlocking(Dispatchers.Main) {
-      val player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(SHORT_MP3_ITEM)
 
       player.prepare()
@@ -76,13 +84,17 @@ class PlayerFenceTest {
       playerBuffering.await()
       val playerReady = async { player.awaitPlaybackState(Player.STATE_READY) }
       yield()
-      playerReady.await()
+      try {
+        playerReady.await()
+      } finally {
+        player.release()
+      }
     }
 
   @Test
   fun awaitPlaybackState_nonFatalError_propagatesByDefault() =
     runBlocking(Dispatchers.Main) {
-      val player =
+      player =
         ExoPlayer.Builder(getInstrumentation().context.applicationContext)
           .setRenderersFactory(FailingAudioRenderer.Factory())
           .build()
@@ -99,7 +111,7 @@ class PlayerFenceTest {
   @Test
   fun awaitPlaybackState_nonFatalError_doesntPropagateIfDisabled() =
     runBlocking(Dispatchers.Main) {
-      val player =
+      player =
         ExoPlayer.Builder(getInstrumentation().context.applicationContext)
           .setRenderersFactory(FailingAudioRenderer.Factory())
           .build()
@@ -116,7 +128,7 @@ class PlayerFenceTest {
   @Test
   fun awaitPlaybackState_fatalErrorBeforeWaiting_propagates() = runTest {
     withContext(Dispatchers.Main) {
-      val player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(MediaItem.fromUri("file:///not/a/real/file"))
       player.prepare()
       val errorThrown = CompletableDeferred<Unit>()
@@ -141,7 +153,7 @@ class PlayerFenceTest {
   @Test
   fun awaitPlaybackState_allRegisteredListenersAllowedToComplete() =
     runBlocking(Dispatchers.Main) {
-      val player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       val playbackEndedFromListener = AtomicBoolean(false)
       player.addListener(
         object : Player.Listener {
@@ -174,9 +186,13 @@ class PlayerFenceTest {
       player.setMediaItem(SHORT_MP3_ITEM)
       player.prepare()
       player.play()
-      player.awaitPlaybackState(Player.STATE_READY)
-      backgroundThread.quit()
+      try {
+        player.awaitPlaybackState(Player.STATE_READY)
+      } finally {
+        player.release()
+      }
     }
+    backgroundThread.quit()
   }
 
   private class FailingAudioRenderer(

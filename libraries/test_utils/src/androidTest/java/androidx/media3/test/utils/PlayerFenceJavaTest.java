@@ -26,12 +26,14 @@ import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -47,31 +49,39 @@ public final class PlayerFenceJavaTest {
   private static final MediaItem SHORT_MP3_ITEM =
       MediaItem.fromUri("asset:///media/mp3/play-trimmed.mp3");
 
+  @Nullable private Player player;
+
+  @After
+  public void releasePlayer() {
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              if (player != null) {
+                player.release();
+              }
+            });
+  }
+
   @Test
   public void entersPlaybackState_ready() throws Exception {
-    AtomicReference<Player> player = new AtomicReference<>();
     SettableFuture<Void> playerReadyFuture = SettableFuture.create();
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              player.set(
+              player =
                   new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
-                      .build());
+                      .build();
               playerReadyFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
+                  futureWhen(player).entersPlaybackState(Player.STATE_READY));
 
-              player.get().setMediaItem(SHORT_MP3_ITEM);
-              player.get().prepare();
+              player.setMediaItem(SHORT_MP3_ITEM);
+              player.prepare();
             });
 
     playerReadyFuture.get();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              assertThat(player.get().getPlaybackState()).isEqualTo(Player.STATE_READY);
-              player.get().release();
-            });
+        .runOnMainSync(() -> assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY));
   }
 
   @Test
@@ -108,56 +118,46 @@ public final class PlayerFenceJavaTest {
 
   @Test
   public void entersPlaybackState_blockOnFutureBeforeItsReady() throws Exception {
-    AtomicReference<Player> player = new AtomicReference<>();
     SettableFuture<Void> playerReadyFuture = SettableFuture.create();
     // Deliberately don't use runOnMainSync so it doesn't block the test thread, allowing us to
     // race.
     new Handler(Looper.getMainLooper())
         .post(
             () -> {
-              player.set(
+              player =
                   new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
-                      .build());
+                      .build();
               sleepUninterruptibly(100, MILLISECONDS);
               playerReadyFuture.setFuture(
-                  futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
+                  futureWhen(player).entersPlaybackState(Player.STATE_READY));
 
-              player.get().setMediaItem(SHORT_MP3_ITEM);
-              player.get().prepare();
+              player.setMediaItem(SHORT_MP3_ITEM);
+              player.prepare();
             });
 
-    // This call will happen before the playbackStateFuture() call above.
+    // This call will happen before the entersPlaybackState() call above.
     playerReadyFuture.get();
 
     getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              assertThat(player.get().getPlaybackState()).isEqualTo(Player.STATE_READY);
-              player.get().release();
-            });
+        .runOnMainSync(() -> assertThat(player.getPlaybackState()).isEqualTo(Player.STATE_READY));
   }
 
   @Test
   public void entersPlaybackState_wrongThread_throws() throws Exception {
-    AtomicReference<Player> player = new AtomicReference<>();
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              player.set(
+              player =
                   new ExoPlayer.Builder(getInstrumentation().getContext().getApplicationContext())
-                      .build());
-              player.get().setMediaItem(SHORT_MP3_ITEM);
-              player.get().prepare();
+                      .build();
+              player.setMediaItem(SHORT_MP3_ITEM);
+              player.prepare();
             });
 
     assertThrows(
         IllegalStateException.class,
-        () -> futureWhen(player.get()).entersPlaybackState(Player.STATE_READY));
+        () -> futureWhen(player).entersPlaybackState(Player.STATE_READY));
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              player.get().release();
-            });
+    getInstrumentation().runOnMainSync(() -> {});
   }
 }
