@@ -280,7 +280,6 @@ public class TransformerMp4EditListTrimTest {
     assertThat(videoTimestampsUs.get(181)).isEqualTo(1_016_666);
   }
 
-  @Ignore("Flaky: b/491791547")
   @Test
   public void
       trimAndExport_positiveEditListWithMp4EditListTrimEnabled_setsFirstVideoTimestampToZero()
