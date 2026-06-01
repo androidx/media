@@ -83,7 +83,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -310,22 +309,20 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     CountDownLatch onPostConnectLatch = new CountDownLatch(1);
     CountDownLatch onSetMediaItemsLatch = new CountDownLatch(1);
     SettableFuture<MediaSession.ConnectionResult> onConnectFuture = SettableFuture.create();
-    AtomicLong connectTimestamp = new AtomicLong();
-    AtomicLong postConnectTimestamp = new AtomicLong();
-    AtomicLong onSetMediaItemTimestamp = new AtomicLong();
+    AtomicBoolean onConnectFutureCompletedInsidePostConnect = new AtomicBoolean(false);
+    AtomicBoolean onSetMediaItemsCalledAfterPostConnect = new AtomicBoolean(false);
     List<Boolean> postConnectMethodCall = new ArrayList<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.ConnectionResult> onConnectAsync(
               MediaSession session, ControllerInfo controller) {
-            connectTimestamp.set(System.currentTimeMillis());
             return onConnectFuture;
           }
 
           @Override
           public void onPostConnect(MediaSession session, ControllerInfo controller) {
-            postConnectTimestamp.set(System.currentTimeMillis());
+            onConnectFutureCompletedInsidePostConnect.set(onConnectFuture.isDone());
             postConnectMethodCall.add(player.hasMethodBeenCalled(MockPlayer.METHOD_PLAY));
             onPostConnectLatch.countDown();
           }
@@ -338,7 +335,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               int startIndex,
               long startPositionMs) {
             if (!mediaItems.isEmpty() && mediaItems.get(0).mediaId.equals("mediaIdDelayed")) {
-              onSetMediaItemTimestamp.set(System.currentTimeMillis());
+              onSetMediaItemsCalledAfterPostConnect.set(onPostConnectLatch.getCount() == 0);
               onSetMediaItemsLatch.countDown();
               MediaItem.Builder mediaItem =
                   new MediaItem.Builder()
@@ -375,10 +372,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     assertThat(onSetMediaItemsLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     // Assert that play was not called before onPostConnectLatch was called.
     assertThat(postConnectMethodCall).containsExactly(false);
-    // Assert postConnect was called only after waiting.
-    assertThat(postConnectTimestamp.get() - connectTimestamp.get())
-        .isAtLeast(NO_RESPONSE_TIMEOUT_MS);
-    assertThat(onSetMediaItemTimestamp.get()).isAtLeast(postConnectTimestamp.get());
+    // Assert postConnect was called only after completing the future.
+    assertThat(onConnectFutureCompletedInsidePostConnect.get()).isTrue();
+    // Assert onSetMediaItems was called after postConnect.
+    assertThat(onSetMediaItemsCalledAfterPostConnect.get()).isTrue();
     // Assert pending play task was run eventually.
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
