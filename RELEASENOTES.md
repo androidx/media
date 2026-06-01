@@ -113,6 +113,9 @@
         transitioning from ready to not-ready state, to debounce transient
         underruns and avoid unexpected buffering states during active playout
         ([#3210](https://github.com/androidx/media/issues/3210)).
+    *   Change the default PCM buffer size logic in
+        `DefaultAudioTrackBufferSizeProvider` to use a fixed 500ms buffer to
+        make it less device dependent.
     *   Update `MediaCodecAudioRenderer` to extract the spatial channelMask from
         the platform decoder, allowing `DefaultAudioSink` to use this explicit
         mask instead of inferring one from the channel count.

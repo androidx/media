@@ -30,26 +30,35 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Tests for {@link DefaultAudioTrackBufferSizeProvider} for PCM audio. */
-@RunWith(ParameterizedRobolectricTestRunner.class)
+@RunWith(Parameterized.class)
 public class DefaultAudioTrackBufferSizeProviderPcmTest {
 
   private static final DefaultAudioTrackBufferSizeProvider DEFAULT =
       new DefaultAudioTrackBufferSizeProvider.Builder().build();
 
-  @ParameterizedRobolectricTestRunner.Parameter(0)
+  @SuppressWarnings("deprecation") // Testing deprecated logic
+  private static final DefaultAudioTrackBufferSizeProvider DYNAMIC =
+      new DefaultAudioTrackBufferSizeProvider.Builder()
+          .setMinPcmBufferDurationUs(250_000)
+          .setMaxPcmBufferDurationUs(750_000)
+          .setPcmBufferMultiplicationFactor(4) // Explicitly set to trigger dynamic mode
+          .build();
+
+  @Parameter(0)
   public @C.PcmEncoding int encoding;
 
-  @ParameterizedRobolectricTestRunner.Parameter(1)
+  @Parameter(1)
   public int channelCount;
 
-  @ParameterizedRobolectricTestRunner.Parameter(2)
+  @Parameter(2)
   public int sampleRate;
 
-  @ParameterizedRobolectricTestRunner.Parameters(
-      name = "{index}: encoding={0}, channelCount={1}, sampleRate={2}")
+  @Parameters(name = "{index}: encoding={0}, channelCount={1}, sampleRate={2}")
   public static List<Integer[]> data() {
     return Sets.cartesianProduct(
             ImmutableList.of(
@@ -97,7 +106,70 @@ public class DefaultAudioTrackBufferSizeProviderPcmTest {
   }
 
   @Test
-  public void getBufferSizeInBytes_noMinBufferSize_isMinBufferDuration() {
+  public void getBufferSizeInBytes_customTarget_isTargetBufferSize() {
+    DefaultAudioTrackBufferSizeProvider provider =
+        new DefaultAudioTrackBufferSizeProvider.Builder()
+            .setTargetPcmBufferDurationUs(600_000)
+            .build();
+    int bufferSize =
+        provider.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(600_000)));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Testing deprecated logic
+  public void getBufferSizeInBytes_fixedMode_ignoresMinConstraint() {
+    DefaultAudioTrackBufferSizeProvider provider =
+        new DefaultAudioTrackBufferSizeProvider.Builder()
+            .setTargetPcmBufferDurationUs(500_000)
+            .setMinPcmBufferDurationUs(600_000)
+            .build();
+    int bufferSize =
+        provider.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // Target 500ms is NOT clamped to min 600ms in fixed mode
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(500_000)));
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Testing deprecated logic
+  public void getBufferSizeInBytes_fixedMode_ignoresMaxConstraint() {
+    DefaultAudioTrackBufferSizeProvider provider =
+        new DefaultAudioTrackBufferSizeProvider.Builder()
+            .setTargetPcmBufferDurationUs(500_000)
+            .setMaxPcmBufferDurationUs(400_000)
+            .build();
+    int bufferSize =
+        provider.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // Target 500ms is NOT clamped to max 400ms in fixed mode
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(500_000)));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_default_isDefaultBufferDuration() {
     int bufferSize =
         DEFAULT.getBufferSizeInBytes(
             /* minBufferSizeInBytes= */ 0,
@@ -108,88 +180,11 @@ public class DefaultAudioTrackBufferSizeProviderPcmTest {
             /* bitrate= */ Format.NO_VALUE,
             /* maxAudioTrackPlaybackSpeed= */ 1);
 
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(durationUsToBytes(DEFAULT.minPcmBufferDurationUs)));
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(500_000)));
   }
 
   @Test
-  public void getBufferSizeInBytes_tooSmallMinBufferSize_isMinBufferDuration() {
-    int minBufferSizeInBytes =
-        durationUsToBytes(DEFAULT.minPcmBufferDurationUs / DEFAULT.pcmBufferMultiplicationFactor)
-            - 1;
-    int bufferSize =
-        DEFAULT.getBufferSizeInBytes(
-            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
-            /* encoding= */ encoding,
-            /* outputMode= */ OUTPUT_MODE_PCM,
-            /* pcmFrameSize= */ getPcmFrameSize(),
-            /* sampleRate= */ sampleRate,
-            /* bitrate= */ Format.NO_VALUE,
-            /* maxAudioTrackPlaybackSpeed= */ 1);
-
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(durationUsToBytes(DEFAULT.minPcmBufferDurationUs)));
-  }
-
-  @Test
-  public void getBufferSizeInBytes_lowMinBufferSize_multipliesAudioTrackMinBuffer() {
-    int minBufferSizeInBytes =
-        durationUsToBytes(DEFAULT.minPcmBufferDurationUs / DEFAULT.pcmBufferMultiplicationFactor)
-            + 1;
-    int bufferSize =
-        DEFAULT.getBufferSizeInBytes(
-            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
-            /* encoding= */ encoding,
-            /* outputMode= */ OUTPUT_MODE_PCM,
-            /* pcmFrameSize= */ getPcmFrameSize(),
-            /* sampleRate= */ sampleRate,
-            /* bitrate= */ Format.NO_VALUE,
-            /* maxAudioTrackPlaybackSpeed= */ 1);
-
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(minBufferSizeInBytes * DEFAULT.pcmBufferMultiplicationFactor));
-  }
-
-  @Test
-  public void getBufferSizeInBytes_highMinBufferSize_multipliesAudioTrackMinBuffer() {
-    int minBufferSizeInBytes =
-        durationUsToBytes(DEFAULT.maxPcmBufferDurationUs / DEFAULT.pcmBufferMultiplicationFactor)
-            - 1;
-    int bufferSize =
-        DEFAULT.getBufferSizeInBytes(
-            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
-            /* encoding= */ encoding,
-            /* outputMode= */ OUTPUT_MODE_PCM,
-            /* pcmFrameSize= */ getPcmFrameSize(),
-            /* sampleRate= */ sampleRate,
-            /* bitrate= */ Format.NO_VALUE,
-            /* maxAudioTrackPlaybackSpeed= */ 1);
-
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(minBufferSizeInBytes * DEFAULT.pcmBufferMultiplicationFactor));
-  }
-
-  @Test
-  public void getBufferSizeInBytes_tooHighMinBufferSize_isMaxBufferDuration() {
-    int minBufferSizeInBytes =
-        durationUsToBytes(DEFAULT.maxPcmBufferDurationUs / DEFAULT.pcmBufferMultiplicationFactor)
-            + 1;
-    int bufferSize =
-        DEFAULT.getBufferSizeInBytes(
-            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
-            /* encoding= */ encoding,
-            /* outputMode= */ OUTPUT_MODE_PCM,
-            /* pcmFrameSize= */ getPcmFrameSize(),
-            /* sampleRate= */ sampleRate,
-            /* bitrate= */ Format.NO_VALUE,
-            /* maxAudioTrackPlaybackSpeed= */ 1);
-
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(durationUsToBytes(DEFAULT.maxPcmBufferDurationUs)));
-  }
-
-  @Test
-  public void getBufferSizeInBytes_lowPlaybackSpeed_isScaledByPlaybackSpeed() {
+  public void getBufferSizeInBytes_defaultLowPlaybackSpeed_isScaled() {
     int bufferSize =
         DEFAULT.getBufferSizeInBytes(
             /* minBufferSizeInBytes= */ 0,
@@ -200,12 +195,11 @@ public class DefaultAudioTrackBufferSizeProviderPcmTest {
             /* bitrate= */ Format.NO_VALUE,
             /* maxAudioTrackPlaybackSpeed= */ 1 / 5F);
 
-    assertThat(bufferSize)
-        .isEqualTo(roundUpToFrame(durationUsToBytes(DEFAULT.minPcmBufferDurationUs) / 5));
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(500_000) / 5));
   }
 
   @Test
-  public void getBufferSizeInBytes_highPlaybackSpeed_isScaledByPlaybackSpeed() {
+  public void getBufferSizeInBytes_defaultHighPlaybackSpeed_isScaled() {
     int bufferSize =
         DEFAULT.getBufferSizeInBytes(
             /* minBufferSizeInBytes= */ 0,
@@ -216,7 +210,124 @@ public class DefaultAudioTrackBufferSizeProviderPcmTest {
             /* bitrate= */ Format.NO_VALUE,
             /* maxAudioTrackPlaybackSpeed= */ 8F);
 
-    int expected = roundUpToFrame(durationUsToBytes(DEFAULT.minPcmBufferDurationUs) * 8);
+    int expected = roundUpToFrame(durationUsToBytes(500_000) * 8);
+    assertThat(bufferSize).isEqualTo(expected);
+  }
+
+  // Dynamic Mode Tests (when factor is explicitly set)
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeNoMinBufferSize_isMinBufferDuration() {
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // In dynamic mode, minPcmBufferDurationUs (250ms) applies as a minimum constraint
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(250_000)));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeTooSmallMinBufferSize_isMinBufferDuration() {
+    int minBufferSizeInBytes = durationUsToBytes(250_000 / 4) - 1;
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // In dynamic mode, minPcmBufferDurationUs (250ms) applies
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(250_000)));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeLowMinBufferSize_multipliesMinBufferSize() {
+    int minBufferSizeInBytes = durationUsToBytes(250_000 / 4) + 1;
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // In dynamic mode, returns minBufferSizeInBytes * 4
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(minBufferSizeInBytes * 4));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeHighMinBufferSize_multipliesMinBufferSize() {
+    int minBufferSizeInBytes = durationUsToBytes(750_000 / 4) - 1;
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // In dynamic mode, returns minBufferSizeInBytes * 4
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(minBufferSizeInBytes * 4));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeTooHighMinBufferSize_isMaxBufferDuration() {
+    int minBufferSizeInBytes = durationUsToBytes(750_000 / 4) + 1;
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ minBufferSizeInBytes,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1);
+
+    // In dynamic mode, maxPcmBufferDurationUs (750ms) applies as a maximum constraint
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(750_000)));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeLowPlaybackSpeed_isScaled() {
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 1 / 5F);
+
+    assertThat(bufferSize).isEqualTo(roundUpToFrame(durationUsToBytes(250_000) / 5));
+  }
+
+  @Test
+  public void getBufferSizeInBytes_dynamicModeHighPlaybackSpeed_isScaled() {
+    int bufferSize =
+        DYNAMIC.getBufferSizeInBytes(
+            /* minBufferSizeInBytes= */ 0,
+            /* encoding= */ encoding,
+            /* outputMode= */ OUTPUT_MODE_PCM,
+            /* pcmFrameSize= */ getPcmFrameSize(),
+            /* sampleRate= */ sampleRate,
+            /* bitrate= */ Format.NO_VALUE,
+            /* maxAudioTrackPlaybackSpeed= */ 8F);
+
+    int expected = roundUpToFrame(durationUsToBytes(250_000) * 8);
     assertThat(bufferSize).isEqualTo(expected);
   }
 }

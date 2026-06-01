@@ -38,14 +38,28 @@ import java.math.RoundingMode;
 public class DefaultAudioTrackBufferSizeProvider
     implements DefaultAudioSink.AudioTrackBufferSizeProvider {
 
-  /** Default minimum length for the {@link AudioTrack} buffer, in microseconds. */
+  /**
+   * Default minimum length for the {@link AudioTrack} buffer, in microseconds. Only applies if the
+   * multiplication factor is set to a value other than {@link C#LENGTH_UNSET} via {@link
+   * Builder#setPcmBufferMultiplicationFactor(int)}.
+   */
   private static final int MIN_PCM_BUFFER_DURATION_US = 250_000;
 
-  /** Default maximum length for the {@link AudioTrack} buffer, in microseconds. */
+  /** Default length for the {@link AudioTrack} buffer, in microseconds. */
+  private static final int DEFAULT_PCM_BUFFER_DURATION_US = 500_000;
+
+  /**
+   * Default maximum length for the {@link AudioTrack} buffer, in microseconds. Only applies if the
+   * multiplication factor is set to a value other than {@link C#LENGTH_UNSET} via {@link
+   * Builder#setPcmBufferMultiplicationFactor(int)}.
+   */
   private static final int MAX_PCM_BUFFER_DURATION_US = 750_000;
 
-  /** Default multiplication factor to apply to the minimum buffer size requested. */
-  private static final int PCM_BUFFER_MULTIPLICATION_FACTOR = 4;
+  /**
+   * Default multiplication factor to apply to the minimum buffer size requested. It is unset by
+   * default.
+   */
+  private static final int PCM_BUFFER_MULTIPLICATION_FACTOR = C.LENGTH_UNSET;
 
   /** Default length for passthrough {@link AudioTrack} buffers, in microseconds. */
   private static final int PASSTHROUGH_BUFFER_DURATION_US = 250_000;
@@ -74,6 +88,7 @@ public class DefaultAudioTrackBufferSizeProvider
     private int offloadBufferDurationUs;
     private int ac3BufferMultiplicationFactor;
     private int dtshdBufferMultiplicationFactor;
+    private int targetPcmBufferDurationUs;
 
     /** Creates a new builder. */
     public Builder() {
@@ -84,13 +99,20 @@ public class DefaultAudioTrackBufferSizeProvider
       offloadBufferDurationUs = OFFLOAD_BUFFER_DURATION_US;
       ac3BufferMultiplicationFactor = AC3_BUFFER_MULTIPLICATION_FACTOR;
       dtshdBufferMultiplicationFactor = DTSHD_BUFFER_MULTIPLICATION_FACTOR;
+      targetPcmBufferDurationUs = DEFAULT_PCM_BUFFER_DURATION_US;
     }
 
     /**
      * Sets the minimum length for PCM {@link AudioTrack} buffers, in microseconds. Default is
      * {@link #MIN_PCM_BUFFER_DURATION_US}.
+     *
+     * @deprecated This constraint does not apply to the new default fixed buffer size logic. Use
+     *     {@link #setTargetPcmBufferDurationUs(int)} to configure a fixed buffer size instead. This
+     *     is only used if {@link #setPcmBufferMultiplicationFactor(int)} is explicitly set to
+     *     enable deprecated dynamic logic.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setMinPcmBufferDurationUs(int minPcmBufferDurationUs) {
       this.minPcmBufferDurationUs = minPcmBufferDurationUs;
       return this;
@@ -99,8 +121,14 @@ public class DefaultAudioTrackBufferSizeProvider
     /**
      * Sets the maximum length for PCM {@link AudioTrack} buffers, in microseconds. Default is
      * {@link #MAX_PCM_BUFFER_DURATION_US}.
+     *
+     * @deprecated This constraint does not apply to the new default fixed buffer size logic. Use
+     *     {@link #setTargetPcmBufferDurationUs(int)} to configure a fixed buffer size instead. This
+     *     is only used if {@link #setPcmBufferMultiplicationFactor(int)} is explicitly set to
+     *     enable deprecated dynamic logic.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setMaxPcmBufferDurationUs(int maxPcmBufferDurationUs) {
       this.maxPcmBufferDurationUs = maxPcmBufferDurationUs;
       return this;
@@ -109,10 +137,25 @@ public class DefaultAudioTrackBufferSizeProvider
     /**
      * Sets the multiplication factor to apply to the minimum buffer size requested. Default is
      * {@link #PCM_BUFFER_MULTIPLICATION_FACTOR}.
+     *
+     * <p>Calling this method with a value other than {@link C#LENGTH_UNSET} enables the deprecated
+     * dynamic buffer size logic.
+     *
+     * @deprecated Use the default fixed buffer size logic instead, or configure a fixed target
+     *     using {@link #setTargetPcmBufferDurationUs(int)}. Pass {@link C#LENGTH_UNSET} to not use
+     *     this factor.
      */
     @CanIgnoreReturnValue
+    @Deprecated
     public Builder setPcmBufferMultiplicationFactor(int pcmBufferMultiplicationFactor) {
       this.pcmBufferMultiplicationFactor = pcmBufferMultiplicationFactor;
+      return this;
+    }
+
+    /** Sets the target length for PCM {@link AudioTrack} buffers, in microseconds. */
+    @CanIgnoreReturnValue
+    public Builder setTargetPcmBufferDurationUs(int targetPcmBufferDurationUs) {
+      this.targetPcmBufferDurationUs = targetPcmBufferDurationUs;
       return this;
     }
 
@@ -162,14 +205,31 @@ public class DefaultAudioTrackBufferSizeProvider
     }
   }
 
-  /** The minimum length for PCM {@link AudioTrack} buffers, in microseconds. */
-  protected final int minPcmBufferDurationUs;
+  /**
+   * The minimum length for PCM {@link AudioTrack} buffers, in microseconds.
+   *
+   * @deprecated This constraint does not apply to the new default fixed buffer size logic. Use
+   *     {@link #targetPcmBufferDurationUs} to configure a fixed buffer size instead. This is only
+   *     used if {@link #pcmBufferMultiplicationFactor} is set to enable deprecated dynamic logic.
+   */
+  @Deprecated protected final int minPcmBufferDurationUs;
 
-  /** The maximum length for PCM {@link AudioTrack} buffers, in microseconds. */
-  protected final int maxPcmBufferDurationUs;
+  /**
+   * The maximum length for PCM {@link AudioTrack} buffers, in microseconds.
+   *
+   * @deprecated This constraint does not apply to the new default fixed buffer size logic. Use
+   *     {@link #targetPcmBufferDurationUs} to configure a fixed buffer size instead. This is only
+   *     used if {@link #pcmBufferMultiplicationFactor} is set to enable deprecated dynamic logic.
+   */
+  @Deprecated protected final int maxPcmBufferDurationUs;
 
-  /** The multiplication factor to apply to the minimum buffer size requested. */
-  protected final int pcmBufferMultiplicationFactor;
+  /**
+   * The multiplication factor to apply to the minimum buffer size requested.
+   *
+   * @deprecated Use the default fixed buffer size logic instead, or {@link C#LENGTH_UNSET} to not
+   *     use this factor.
+   */
+  @Deprecated protected final int pcmBufferMultiplicationFactor;
 
   /** The length for passthrough {@link AudioTrack} buffers, in microseconds. */
   protected final int passthroughBufferDurationUs;
@@ -189,6 +249,9 @@ public class DefaultAudioTrackBufferSizeProvider
    */
   public final int dtshdBufferMultiplicationFactor;
 
+  /** The target length for PCM {@link AudioTrack} buffers, in microseconds. */
+  protected final int targetPcmBufferDurationUs;
+
   protected DefaultAudioTrackBufferSizeProvider(Builder builder) {
     minPcmBufferDurationUs = builder.minPcmBufferDurationUs;
     maxPcmBufferDurationUs = builder.maxPcmBufferDurationUs;
@@ -197,6 +260,7 @@ public class DefaultAudioTrackBufferSizeProvider
     offloadBufferDurationUs = builder.offloadBufferDurationUs;
     ac3BufferMultiplicationFactor = builder.ac3BufferMultiplicationFactor;
     dtshdBufferMultiplicationFactor = builder.dtshdBufferMultiplicationFactor;
+    targetPcmBufferDurationUs = builder.targetPcmBufferDurationUs;
   }
 
   @Override
@@ -241,10 +305,14 @@ public class DefaultAudioTrackBufferSizeProvider
 
   /** Returns the buffer size for PCM playback. */
   protected int getPcmBufferSizeInBytes(int minBufferSizeInBytes, int samplingRate, int frameSize) {
-    int targetBufferSize = minBufferSizeInBytes * pcmBufferMultiplicationFactor;
-    int minAppBufferSize = durationUsToBytes(minPcmBufferDurationUs, samplingRate, frameSize);
-    int maxAppBufferSize = durationUsToBytes(maxPcmBufferDurationUs, samplingRate, frameSize);
-    return constrainValue(targetBufferSize, minAppBufferSize, maxAppBufferSize);
+    if (pcmBufferMultiplicationFactor != C.LENGTH_UNSET) {
+      int targetBufferSize = minBufferSizeInBytes * pcmBufferMultiplicationFactor;
+      int minAppBufferSize = durationUsToBytes(minPcmBufferDurationUs, samplingRate, frameSize);
+      int maxAppBufferSize = durationUsToBytes(maxPcmBufferDurationUs, samplingRate, frameSize);
+      return constrainValue(targetBufferSize, minAppBufferSize, maxAppBufferSize);
+    } else {
+      return durationUsToBytes(targetPcmBufferDurationUs, samplingRate, frameSize);
+    }
   }
 
   /** Returns the buffer size for passthrough playback. */

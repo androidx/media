@@ -1210,7 +1210,7 @@ public final class DefaultAudioSinkTest {
                 /* presentationTimeUs= */ 0,
                 /* encodedAccessUnitCount= */ 1))
         .isTrue();
-    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(250_000L);
+    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(500_000L);
   }
 
   @Config(minSdk = 30)
