@@ -105,7 +105,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    *
    * <p>Once called, the caller must not modify the {@link HardwareBufferFrame}s in the packet.
    *
-   * <p>Called on the GL thread.
+   * <p>Called on the playback thread.
    *
    * @param packet The {@link List<HardwareBufferFrame>} to queue.
    */
