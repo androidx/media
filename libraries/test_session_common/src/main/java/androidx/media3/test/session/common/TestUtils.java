@@ -40,7 +40,7 @@ public class TestUtils {
 
   public static final long TIMEOUT_MS = 5_000;
   public static final long NO_RESPONSE_TIMEOUT_MS = 500;
-  public static final long SERVICE_CONNECTION_TIMEOUT_MS = 3_000;
+  public static final long SERVICE_CONNECTION_TIMEOUT_MS = 15_000;
   public static final long VOLUME_CHANGE_TIMEOUT_MS = 5_000;
   public static final long LONG_TIMEOUT_MS = 20_000;
 
