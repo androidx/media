@@ -59,11 +59,13 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.TextureView;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
@@ -71,6 +73,10 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.video.AsyncFrame;
+import androidx.media3.common.video.Frame;
+import androidx.media3.common.video.FrameProcessor;
+import androidx.media3.common.video.FrameWriter;
+import androidx.media3.common.video.SyncFenceWrapper;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.SpeedChangeEffect;
@@ -91,6 +97,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -2390,6 +2397,63 @@ public class CompositionPlayerTest {
         .inOrder();
   }
 
+  @Test
+  public void frameProcessor_interactedWithOnPlaybackThreadExclusively() throws Exception {
+    AtomicReference<Looper> playbackLooper = new AtomicReference<>();
+    AtomicInteger threadViolations = new AtomicInteger();
+    AtomicInteger createCalls = new AtomicInteger();
+    AtomicInteger queueCalls = new AtomicInteger();
+    AtomicInteger signalEndOfStreamCalls = new AtomicInteger();
+    AtomicInteger closeCalls = new AtomicInteger();
+    AtomicInteger onFrameProcessedCalls = new AtomicInteger();
+    AtomicInteger verifyThreadCalls = new AtomicInteger();
+
+    FrameProcessor.Factory threadVerifyingFactory =
+        new FrameProcessor.Factory() {
+          @Override
+          public FrameProcessor create(
+              FrameWriter output, Executor listenerExecutor, FrameProcessor.Listener listener) {
+            createCalls.incrementAndGet();
+            return new ThreadVerifyingFrameProcessor(
+                output,
+                listenerExecutor,
+                listener,
+                playbackLooper,
+                threadViolations,
+                queueCalls,
+                signalEndOfStreamCalls,
+                closeCalls,
+                onFrameProcessedCalls,
+                verifyThreadCalls);
+          }
+        };
+
+    player = createTestHardwareBufferCompositionPlayerBuilder(threadVerifyingFactory).build();
+    playbackLooper.set(player.getPlaybackLooper());
+    assertThat(playbackLooper.get()).isNotNull();
+
+    Composition composition =
+        new Composition.Builder(
+                EditedMediaItemSequence.withVideoFrom(ImmutableList.of(getImageItem())))
+            .build();
+
+    player.setComposition(composition);
+    player.prepare();
+    play(player).untilState(STATE_ENDED);
+
+    Thread playbackThread = player.getPlaybackLooper().getThread();
+    player.release();
+    playbackThread.join(/* millis= */ 10_000);
+
+    assertThat(threadViolations.get()).isEqualTo(0);
+    assertThat(createCalls.get()).isGreaterThan(0);
+    assertThat(queueCalls.get()).isGreaterThan(0);
+    assertThat(signalEndOfStreamCalls.get()).isGreaterThan(0);
+    assertThat(closeCalls.get()).isGreaterThan(0);
+    assertThat(onFrameProcessedCalls.get()).isGreaterThan(0);
+    assertThat(verifyThreadCalls.get()).isGreaterThan(0);
+  }
+
   private static EditedMediaItem getImageItem() {
     return new EditedMediaItem.Builder(
             new MediaItem.Builder()
@@ -2488,6 +2552,103 @@ public class CompositionPlayerTest {
     @Override
     public String toString() {
       return name;
+    }
+  }
+
+  private static final class ThreadVerifyingFrameProcessor implements FrameProcessor {
+    private final FrameProcessor.Listener listener;
+    private final FrameWriter output;
+    private final Executor listenerExecutor;
+    private final AtomicReference<Looper> playbackLooper;
+    private final AtomicInteger threadViolations;
+    private final AtomicInteger queueCalls;
+    private final AtomicInteger signalEndOfStreamCalls;
+    private final AtomicInteger closeCalls;
+    private final AtomicInteger onFrameProcessedCalls;
+    private final AtomicInteger verifyThreadCalls;
+
+    ThreadVerifyingFrameProcessor(
+        FrameWriter output,
+        Executor listenerExecutor,
+        FrameProcessor.Listener listener,
+        AtomicReference<Looper> playbackLooper,
+        AtomicInteger threadViolations,
+        AtomicInteger queueCalls,
+        AtomicInteger signalEndOfStreamCalls,
+        AtomicInteger closeCalls,
+        AtomicInteger onFrameProcessedCalls,
+        AtomicInteger verifyThreadCalls) {
+      this.output = output;
+      this.listenerExecutor = listenerExecutor;
+      this.playbackLooper = playbackLooper;
+      this.threadViolations = threadViolations;
+      this.queueCalls = queueCalls;
+      this.signalEndOfStreamCalls = signalEndOfStreamCalls;
+      this.closeCalls = closeCalls;
+      this.onFrameProcessedCalls = onFrameProcessedCalls;
+      this.verifyThreadCalls = verifyThreadCalls;
+
+      this.listener =
+          new FrameProcessor.Listener() {
+            @Override
+            public void onWakeup() {
+              verifyThread();
+              listener.onWakeup();
+            }
+
+            @Override
+            public void onError(VideoFrameProcessingException exception) {
+              verifyThread();
+              listener.onError(exception);
+            }
+
+            @Override
+            public void onFrameProcessed(Frame frame, @Nullable SyncFenceWrapper onCompleteFence) {
+              verifyThread();
+              ThreadVerifyingFrameProcessor.this.onFrameProcessedCalls.incrementAndGet();
+              listener.onFrameProcessed(frame, onCompleteFence);
+            }
+
+            private void verifyThread() {
+              ThreadVerifyingFrameProcessor.this.verifyThreadCalls.incrementAndGet();
+              if (Looper.myLooper() != ThreadVerifyingFrameProcessor.this.playbackLooper.get()) {
+                ThreadVerifyingFrameProcessor.this.threadViolations.incrementAndGet();
+              }
+            }
+          };
+    }
+
+    @Override
+    public boolean queue(List<AsyncFrame> frames) {
+      verifyThread();
+      queueCalls.incrementAndGet();
+      listenerExecutor.execute(
+          () -> {
+            for (AsyncFrame asyncFrame : frames) {
+              listener.onFrameProcessed(asyncFrame.frame, /* onCompleteFence= */ null);
+            }
+          });
+      return true;
+    }
+
+    @Override
+    public void signalEndOfStream() {
+      verifyThread();
+      signalEndOfStreamCalls.incrementAndGet();
+      output.signalEndOfStream();
+    }
+
+    @Override
+    public void close() {
+      // close() is currently called on the application thread (TODO: b/498547782).
+      closeCalls.incrementAndGet();
+    }
+
+    private void verifyThread() {
+      verifyThreadCalls.incrementAndGet();
+      if (Looper.myLooper() != playbackLooper.get()) {
+        threadViolations.incrementAndGet();
+      }
     }
   }
 }

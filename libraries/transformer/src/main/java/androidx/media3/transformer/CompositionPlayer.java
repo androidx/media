@@ -30,7 +30,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -645,6 +644,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final AudioFocusManager audioFocusManager;
   private final InternalListener internalListener;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+
+  /**
+   * The frame processor used to process video frames.
+   *
+   * <p>All interactions with this processor (including creation, queueing, and releasing) and its
+   * listener callbacks must be executed on the {@link #playbackThread}.
+   */
   @Nullable private final FrameProcessor frameProcessor;
 
   private final ImageReaderAdapter.Factory imageReaderAdapterFactory;
@@ -658,13 +664,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   @Nullable private final HardwareBufferFrameProcessor hardwareBufferPostProcessor;
 
+  private final HandlerThread playbackThread;
+  private final HandlerWrapper playbackThreadHandler;
+
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
 
   private final AnalyticsCollector analyticsCollector;
 
-  private @MonotonicNonNull HandlerThread playbackThread;
-  private @MonotonicNonNull HandlerWrapper playbackThreadHandler;
   private @MonotonicNonNull CompositionPlayerInternal compositionPlayerInternal;
   private @MonotonicNonNull ImmutableList<MediaItemData> playlist;
   private @MonotonicNonNull Composition composition;
@@ -749,63 +756,75 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       frameProcessorFactory = getPacketConsumerFactory(builder.packetConsumerFactory);
       packetConsumerReportsRenderingEvents = false;
     }
-    if (SDK_INT >= 28 && frameProcessorFactory != null) {
-      Executor listenerExecutor = new HandlerExecutor(applicationHandler, internalListener);
-      // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
-      if (hardwareBufferJniWrapper != null) {
-        hardwareBufferPostProcessor =
-            new BitmapToHardwareBufferProcessor(
-                hardwareBufferJniWrapper,
-                /* internalExecutor= */ Util.newSingleThreadExecutor(
-                    "BitmapToHardwareBufferProcessor::Thread"),
-                /* errorExecutor= */ listenerExecutor,
-                /* errorCallback= */ internalListener::onError);
+    playbackThread =
+        new HandlerThread(/* name= */ "CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
+    try {
+      playbackThread.start();
+      playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
+      if (SDK_INT >= 28 && frameProcessorFactory != null) {
+        Executor playbackThreadExecutor =
+            new HandlerExecutor(playbackThreadHandler, internalListener);
+        Executor applicationThreadExecutor =
+            new HandlerExecutor(applicationHandler, internalListener);
+        // Convert CPU Bitmaps to HardwareBuffers when the native helpers are available.
+        if (hardwareBufferJniWrapper != null) {
+          hardwareBufferPostProcessor =
+              new BitmapToHardwareBufferProcessor(
+                  hardwareBufferJniWrapper,
+                  /* internalExecutor= */ Util.newSingleThreadExecutor(
+                      "BitmapToHardwareBufferProcessor::Thread"),
+                  /* errorExecutor= */ playbackThreadExecutor,
+                  /* errorCallback= */ internalListener::onError);
+        } else {
+          hardwareBufferPostProcessor = null;
+        }
+        surfaceHolderFrameWriter =
+            SDK_INT >= 33
+                ? SurfaceHolderFrameWriter.create(
+                    /* surfaceHolder= */ null,
+                    /* surfaceHolderExecutor= */ applicationThreadExecutor,
+                    internalListener,
+                    applicationThreadExecutor)
+                : SurfaceHolderFrameWriter.create(
+                    /* surfaceHolder= */ null,
+                    /* surfaceHolderExecutor= */ applicationThreadExecutor,
+                    internalListener,
+                    applicationThreadExecutor,
+                    checkNotNull(hardwareBufferJniWrapper));
+        frameProcessor =
+            frameProcessorFactory.create(
+                surfaceHolderFrameWriter,
+                /* listenerExecutor= */ playbackThreadExecutor,
+                /* listener= */ internalListener);
+
+        VideoFrameReleaseControl videoFrameReleaseControl =
+            new VideoFrameReleaseControl(
+                this.context,
+                /* frameTimingEvaluator= */ new CompositionFrameTimingEvaluator(
+                    // Convert lateThresholdToDropInputUs to early time.
+                    lateThresholdToDropInputUs != C.TIME_UNSET
+                        ? -lateThresholdToDropInputUs
+                        : C.TIME_UNSET),
+                /* allowedJoiningTimeMs= */ 0);
+        videoFrameReleaseControl.setClock(clock);
+        videoPacketReleaseControl =
+            new CompositionVideoPacketReleaseControl(
+                videoFrameReleaseControl, frameProcessor, internalListener);
       } else {
         hardwareBufferPostProcessor = null;
+        frameProcessor = null;
+        surfaceHolderFrameWriter = null;
+        frameAggregator = null;
+        videoPacketReleaseControl = null;
       }
-      surfaceHolderFrameWriter =
-          SDK_INT >= 33
-              ? SurfaceHolderFrameWriter.create(
-                  /* surfaceHolder= */ null,
-                  /* surfaceHolderExecutor= */ listenerExecutor,
-                  internalListener,
-                  directExecutor())
-              : SurfaceHolderFrameWriter.create(
-                  /* surfaceHolder= */ null,
-                  /* surfaceHolderExecutor= */ listenerExecutor,
-                  internalListener,
-                  directExecutor(),
-                  checkNotNull(hardwareBufferJniWrapper));
-      frameProcessor =
-          frameProcessorFactory.create(
-              surfaceHolderFrameWriter,
-              /* listenerExecutor= */ listenerExecutor,
-              /* listener= */ internalListener);
-
-      VideoFrameReleaseControl videoFrameReleaseControl =
-          new VideoFrameReleaseControl(
-              this.context,
-              /* frameTimingEvaluator= */ new CompositionFrameTimingEvaluator(
-                  // Convert lateThresholdToDropInputUs to early time.
-                  lateThresholdToDropInputUs != C.TIME_UNSET
-                      ? -lateThresholdToDropInputUs
-                      : C.TIME_UNSET),
-              /* allowedJoiningTimeMs= */ 0);
-      videoFrameReleaseControl.setClock(clock);
-      videoPacketReleaseControl =
-          new CompositionVideoPacketReleaseControl(
-              videoFrameReleaseControl, frameProcessor, internalListener);
-    } else {
-      hardwareBufferPostProcessor = null;
-      frameProcessor = null;
-      surfaceHolderFrameWriter = null;
-      frameAggregator = null;
-      videoPacketReleaseControl = null;
+      analyticsCollector = new DefaultAnalyticsCollector(clock);
+      analyticsCollector.setPlayer(this, builder.looper);
+      analyticsCollector.addListener(new EventLogger(TAG));
+      addListener(analyticsCollector);
+    } catch (Throwable t) {
+      playbackThread.quit();
+      throw t;
     }
-    analyticsCollector = new DefaultAnalyticsCollector(clock);
-    analyticsCollector.setPlayer(this, builder.looper);
-    analyticsCollector.addListener(new EventLogger(TAG));
-    addListener(analyticsCollector);
   }
 
   /**
@@ -965,14 +984,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   /**
-   * Returns the {@link Looper} associated with the playback thread or null if the internal player
-   * has not been prepared.
+   * Returns the {@link Looper} associated with the playback thread.
    *
    * <p>This method may be called from any thread.
    */
-  @Nullable
   public Looper getPlaybackLooper() {
-    return playbackThread != null ? playbackThread.getLooper() : null;
+    return playbackThread.getLooper();
   }
 
   /**
@@ -1092,6 +1109,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Log.e(TAG, "Failed to release hardwareBufferPostProcessor.", e);
       }
     }
+    // TODO: b/518679527 - Move close calls of frameAggregator and frameProcessor to the
+    // playback thread.
     if (frameAggregator != null) {
       frameAggregator.close();
     }
@@ -1501,10 +1520,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           .replacePlaybackAudioGraphWrapper(playbackAudioGraphWrapper);
       return;
     }
-
-    playbackThread = new HandlerThread("CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
-    playbackThread.start();
-    playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
 
     setAudioAttributesInternal(audioAttributes, handleAudioFocus);
 
