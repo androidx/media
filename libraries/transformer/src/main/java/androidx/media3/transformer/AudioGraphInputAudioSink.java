@@ -19,6 +19,12 @@ import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.isEncodingLinearPcm;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_DISCONTINUITY;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_FLUSH;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RESET;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -32,6 +38,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.audio.AudioSink;
 import java.nio.ByteBuffer;
@@ -149,6 +156,17 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     checkArgument(supportsFormat(audioSinkConfig.format));
     // TODO: b/303029969 - Evaluate throwing vs ignoring for null outputChannels.
     checkArgument(audioSinkConfig.outputChannelMapping == null);
+
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
+        Integer.toHexString(this.hashCode()),
+        EVENT_INPUT_FORMAT,
+        C.TIME_UNSET,
+        "AudioSinkConfig[format:%s, timeline:%s, MediaPeriodId:%s]",
+        audioSinkConfig.format,
+        audioSinkConfig.timeline,
+        String.valueOf(audioSinkConfig.mediaPeriodId));
+
     currentInputFormat = audioSinkConfig.format;
     isConfigurationPending = true;
   }
@@ -219,6 +237,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     inputStreamEnded = true;
     // Queue end-of-stream only if playing the last media item in the sequence.
     if (!signalledEndOfStream && checkNotNull(currentEditedMediaItemInfo).isLastInSequence) {
+      DebugTraceUtil.logEvent(
+          COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
+          Integer.toHexString(this.hashCode()),
+          EVENT_INPUT_ENDED,
+          inputPositionUs,
+          "");
       signalledEndOfStream =
           handleBufferInternal(
               EMPTY_BUFFER, C.TIME_END_OF_SOURCE, /* flags= */ C.BUFFER_FLAG_END_OF_STREAM);
@@ -272,6 +296,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public void flush() {
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
+        Integer.toHexString(this.hashCode()),
+        EVENT_FLUSH,
+        inputPositionUs,
+        "");
     inputStreamEnded = false;
     signalledEndOfStream = false;
     isFlushPending = true;
@@ -279,6 +309,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
   @Override
   public void reset() {
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
+        Integer.toHexString(this.hashCode()),
+        EVENT_RESET,
+        inputPositionUs,
+        "");
     if (outputGraphInput != null) {
       outputGraphInput.release();
       outputGraphInput = null;
@@ -300,7 +336,14 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   public void setListener(AudioSink.Listener listener) {}
 
   @Override
-  public void handleDiscontinuity() {}
+  public void handleDiscontinuity() {
+    DebugTraceUtil.logEvent(
+        COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
+        Integer.toHexString(this.hashCode()),
+        EVENT_DISCONTINUITY,
+        inputPositionUs,
+        "");
+  }
 
   @Override
   public void setAudioAttributes(AudioAttributes audioAttributes) {}

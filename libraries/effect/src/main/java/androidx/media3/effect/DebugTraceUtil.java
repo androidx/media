@@ -82,7 +82,8 @@ public final class DebugTraceUtil {
     EVENT_SIGNAL_EOS,
     EVENT_SIGNAL_ENDED,
     EVENT_CAN_WRITE_SAMPLE,
-    EVENT_FLUSH
+    EVENT_FLUSH,
+    EVENT_DISCONTINUITY
   })
   @Target(TYPE_USE)
   public @interface Event {}
@@ -115,6 +116,7 @@ public final class DebugTraceUtil {
   public static final String EVENT_SIGNAL_ENDED = "SignalEnded";
   public static final String EVENT_CAN_WRITE_SAMPLE = "CanWriteSample";
   public static final String EVENT_FLUSH = "Flush";
+  public static final String EVENT_DISCONTINUITY = "Discontinuity";
 
   /** Components logged by {@link #logEvent}. */
   @Documented
@@ -126,6 +128,7 @@ public final class DebugTraceUtil {
     COMPONENT_AUDIO_DECODER,
     COMPONENT_AUDIO_GRAPH,
     COMPONENT_AUDIO_GRAPH_INPUT,
+    COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
     COMPONENT_AUDIO_MIXER,
     COMPONENT_AUDIO_ENCODER,
     COMPONENT_VIDEO_DECODER,
@@ -135,7 +138,7 @@ public final class DebugTraceUtil {
     COMPONENT_TEX_ID_TEXTURE_MANAGER,
     COMPONENT_COMPOSITOR,
     COMPONENT_VIDEO_ENCODER,
-    COMPONENT_MUXER
+    COMPONENT_MUXER,
   })
   @Target(TYPE_USE)
   public @interface Component {}
@@ -146,6 +149,7 @@ public final class DebugTraceUtil {
   public static final String COMPONENT_AUDIO_DECODER = "AudioDecoder";
   public static final String COMPONENT_AUDIO_GRAPH = "AudioGraph";
   public static final String COMPONENT_AUDIO_GRAPH_INPUT = "AudioGraphInput";
+  public static final String COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK = "AGIAudioSink";
   public static final String COMPONENT_AUDIO_MIXER = "AudioMixer";
   public static final String COMPONENT_AUDIO_ENCODER = "AudioEncoder";
   public static final String COMPONENT_VIDEO_DECODER = "VideoDecoder";
@@ -327,7 +331,7 @@ public final class DebugTraceUtil {
     }
     events.get(event).addLog(eventLog);
     if (ENABLE_TRACES_IN_LOGCAT) {
-      Log.d("DebugTrace-" + component, event + ": " + eventLog);
+      Log.d("DT-" + component, event + ": " + eventLog);
     }
   }
 
