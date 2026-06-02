@@ -356,8 +356,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     if (!releasedOnHandler) {
       if (stubsReleased.compareAndSet(false, true)) {
-        sessionLegacyStub.release();
-        sessionStub.release();
+        try {
+          // Regular release on the looper thread timed out. We attempt to release stub resources
+          // on the main thread instead as an emergency path, ignoring any wrong-thread errors that
+          // might throw in unlucky scenarios.
+          sessionLegacyStub.release();
+          sessionStub.release();
+        } catch (RuntimeException e) {
+          Log.w(TAG, "Exception thrown during emergency main thread release fallback", e);
+        }
       }
     }
   }
@@ -813,19 +820,19 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     for (int i = 0; i < controllers.size(); i++) {
       ControllerInfo controller = controllers.get(i);
       try {
-        int seq;
         ConnectedControllersManager<IBinder> controllersManager =
             sessionStub.getConnectedControllersManager();
-        ConnectedControllersManager.ConnectedControllerRecord<IBinder> record =
-            controllersManager.getRecord(controller);
-        if (record == null) {
+        if (!controllersManager.isConnected(controller)) {
           continue;
         }
+        Timeline lastSentTimeline = controllersManager.getLastSentTimeline(controller);
+        Tracks lastSentTracks = controllersManager.getLastSentTracks(controller);
         boolean excludeTimelineForController =
-            excludeTimeline && playerInfo.timeline.equals(record.lastSentTimeline);
+            excludeTimeline && playerInfo.timeline.equals(lastSentTimeline);
         boolean excludeTracksForController =
-            excludeTracks && playerInfo.currentTracks.equals(record.lastSentTracks);
+            excludeTracks && playerInfo.currentTracks.equals(lastSentTracks);
         SequencedFutureManager manager = controllersManager.getSequencedFutureManager(controller);
+        int seq;
         if (manager != null) {
           seq = manager.obtainNextSequenceNumber();
         } else {
@@ -863,12 +870,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                 intersectedCommands,
                 excludeTimelineForController,
                 excludeTracksForController);
-        if (!excludeTimelineForController) {
-          record.lastSentTimeline = playerInfo.timeline;
-        }
-        if (!excludeTracksForController) {
-          record.lastSentTracks = playerInfo.currentTracks;
-        }
+        controllersManager.updateLastSentTimelineAndTracks(
+            controller,
+            excludeTimelineForController ? lastSentTimeline : playerInfo.timeline,
+            excludeTracksForController ? lastSentTracks : playerInfo.currentTracks);
       } catch (DeadObjectException e) {
         onDeadObjectException(controller);
       } catch (RemoteException e) {

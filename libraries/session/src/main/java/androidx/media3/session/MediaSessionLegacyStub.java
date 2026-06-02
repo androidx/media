@@ -473,6 +473,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     // No check for COMMAND_RELEASE needed as MediaControllers can always be released.
     sessionCompat.release();
+    connectedControllersManager.release();
   }
 
   public MediaSessionCompat getSessionCompat() {

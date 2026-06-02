@@ -17,8 +17,10 @@ package androidx.media3.session;
 
 import static androidx.media3.common.util.Util.postOrRun;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
-import androidx.annotation.GuardedBy;
+import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.PlaybackException;
@@ -29,11 +31,10 @@ import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
@@ -43,7 +44,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * can be either {@link android.os.IBinder} or {@link
  * androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo}.
  *
- * <p>This class is thread-safe.
+ * <p>All methods must be called on the application thread associated with the player.
  */
 /* package */ final class ConnectedControllersManager<T extends @NonNull Object> {
 
@@ -58,21 +59,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     ListenableFuture<Void> run();
   }
 
-  private final Object lock;
-
-  @GuardedBy("lock")
   private final ArrayMap<T, ControllerInfo> controllerInfoMap = new ArrayMap<>();
 
-  @GuardedBy("lock")
   private final ArrayMap<ControllerInfo, ConnectedControllerRecord<T>> controllerRecords =
       new ArrayMap<>();
 
   private final WeakReference<MediaSessionImpl> sessionImpl;
 
   public ConnectedControllersManager(MediaSessionImpl session) {
-    // Initialize default values.
-    lock = new Object();
-
     // Initialize members with params.
     sessionImpl = new WeakReference<>(session);
   }
@@ -82,33 +76,32 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       ControllerInfo controllerInfo,
       SessionCommands sessionCommands,
       Player.Commands playerCommands) {
-    synchronized (lock) {
-      @Nullable ControllerInfo savedInfo = getController(controllerKey);
-      if (savedInfo == null) {
-        controllerInfoMap.put(controllerKey, controllerInfo);
-        Timeline timeline = Timeline.EMPTY;
-        Tracks tracks = Tracks.EMPTY;
-        @Nullable MediaSessionImpl session = sessionImpl.get();
-        if (session != null) {
-          PlayerWrapper playerWrapper = session.getPlayerWrapper();
-          timeline = playerWrapper.getCurrentTimelineWithCommandCheck();
-          tracks = playerWrapper.getCurrentTracksWithCommandCheck();
-        }
-        ConnectedControllerRecord<T> record =
-            new ConnectedControllerRecord<>(
-                controllerKey,
-                new SequencedFutureManager(),
-                sessionCommands,
-                playerCommands,
-                timeline,
-                tracks);
-        controllerRecords.put(controllerInfo, record);
-      } else {
-        // already exist. Only update allowed commands.
-        ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(savedInfo));
-        record.sessionCommands = sessionCommands;
-        record.playerCommands = playerCommands;
+    verifyApplicationThread();
+    @Nullable ControllerInfo savedInfo = getController(controllerKey);
+    if (savedInfo == null) {
+      controllerInfoMap.put(controllerKey, controllerInfo);
+      Timeline timeline = Timeline.EMPTY;
+      Tracks tracks = Tracks.EMPTY;
+      @Nullable MediaSessionImpl session = sessionImpl.get();
+      if (session != null) {
+        PlayerWrapper playerWrapper = session.getPlayerWrapper();
+        timeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+        tracks = playerWrapper.getCurrentTracksWithCommandCheck();
       }
+      ConnectedControllerRecord<T> record =
+          new ConnectedControllerRecord<>(
+              controllerKey,
+              new SequencedFutureManager(),
+              sessionCommands,
+              playerCommands,
+              timeline,
+              tracks);
+      controllerRecords.put(controllerInfo, record);
+    } else {
+      // already exist. Only update allowed commands.
+      ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(savedInfo));
+      record.sessionCommands = sessionCommands;
+      record.playerCommands = playerCommands;
     }
   }
 
@@ -116,37 +109,34 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       ControllerInfo controllerInfo,
       SessionCommands sessionCommands,
       Player.Commands playerCommands) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        record.sessionCommands = sessionCommands;
-        if (record.playerCommandsBeforePlaybackException != null) {
-          record.playerCommandsBeforePlaybackException = playerCommands;
-        } else {
-          record.playerCommands = playerCommands;
-        }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      record.sessionCommands = sessionCommands;
+      if (record.playerCommandsBeforePlaybackException != null) {
+        record.playerCommandsBeforePlaybackException = playerCommands;
+      } else {
+        record.playerCommands = playerCommands;
       }
     }
   }
 
   @Nullable
   public Player.Commands getAvailablePlayerCommands(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        return record.playerCommands;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      return record.playerCommands;
     }
     return null;
   }
 
   @Nullable
   public SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        return record.sessionCommands;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      return record.sessionCommands;
     }
     return null;
   }
@@ -155,24 +145,22 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       ControllerInfo controllerInfo,
       PlaybackException playbackException,
       Player.Commands playerCommandsBeforePlaybackException) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        record.playbackException = playbackException;
-        record.playerCommandsBeforePlaybackException = playerCommandsBeforePlaybackException;
-        record.playerInfoForPlaybackException = null;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      record.playbackException = playbackException;
+      record.playerCommandsBeforePlaybackException = playerCommandsBeforePlaybackException;
+      record.playerInfoForPlaybackException = null;
     }
   }
 
   public void resetPlaybackException(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        record.playbackException = null;
-        record.playerCommandsBeforePlaybackException = null;
-        record.playerInfoForPlaybackException = null;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      record.playbackException = null;
+      record.playerCommandsBeforePlaybackException = null;
+      record.playerInfoForPlaybackException = null;
     }
   }
 
@@ -187,49 +175,46 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    */
   public void setPlayerInfoForPlaybackException(
       ControllerInfo controllerInfo, PlayerInfo playerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        checkNotNull(record.playbackException);
-        record.playerInfoForPlaybackException = playerInfo;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      checkNotNull(record.playbackException);
+      record.playerInfoForPlaybackException = playerInfo;
     }
   }
 
   @Nullable
   public PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        return record.playbackException;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      return record.playbackException;
     }
     return null;
   }
 
   @Nullable
   public PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        return record.playerInfoForPlaybackException;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      return record.playerInfoForPlaybackException;
     }
     return null;
   }
 
   @Nullable
   public Player.Commands getPlayerCommandsBeforePlaybackException(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
-      if (record != null) {
-        return record.playerCommandsBeforePlaybackException;
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+    if (record != null) {
+      return record.playerCommandsBeforePlaybackException;
     }
     return null;
   }
 
   public void removeController(T controllerKey) {
+    verifyApplicationThread();
     @Nullable ControllerInfo controllerInfo = getController(controllerKey);
     if (controllerInfo != null) {
       removeController(controllerInfo);
@@ -237,14 +222,12 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   public void removeController(ControllerInfo controllerInfo) {
-    @Nullable /*Type*/ ConnectedControllerRecord<T> record;
-    synchronized (lock) {
-      record = controllerRecords.remove(controllerInfo);
-      if (record == null) {
-        return;
-      }
-      controllerInfoMap.remove(record.controllerKey);
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> record = controllerRecords.remove(controllerInfo);
+    if (record == null) {
+      return;
     }
+    controllerInfoMap.remove(record.controllerKey);
 
     record.sequencedFutureManager.release();
     @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
@@ -261,16 +244,18 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         });
   }
 
+  public void release() {
+    sessionImpl.clear();
+  }
+
   public ImmutableList<ControllerInfo> getConnectedControllers() {
-    synchronized (lock) {
-      return ImmutableList.copyOf(controllerInfoMap.values());
-    }
+    verifyApplicationThread();
+    return ImmutableList.copyOf(controllerInfoMap.values());
   }
 
   public boolean isConnected(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      return controllerRecords.get(controllerInfo) != null;
-    }
+    verifyApplicationThread();
+    return controllerRecords.get(controllerInfo) != null;
   }
 
   /**
@@ -282,10 +267,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    */
   @Nullable
   public SequencedFutureManager getSequencedFutureManager(ControllerInfo controllerInfo) {
-    @Nullable ConnectedControllerRecord<T> info;
-    synchronized (lock) {
-      info = controllerRecords.get(controllerInfo);
-    }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     return info != null ? info.sequencedFutureManager : null;
   }
 
@@ -298,19 +281,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
    */
   @Nullable
   public SequencedFutureManager getSequencedFutureManager(T controllerKey) {
-    @Nullable ConnectedControllerRecord<T> info;
-    synchronized (lock) {
-      @Nullable ControllerInfo controllerInfo = getController(controllerKey);
-      info = controllerInfo != null ? controllerRecords.get(controllerInfo) : null;
-    }
+    verifyApplicationThread();
+    @Nullable ControllerInfo controllerInfo = getController(controllerKey);
+    @Nullable
+    ConnectedControllerRecord<T> info =
+        controllerInfo != null ? controllerRecords.get(controllerInfo) : null;
     return info != null ? info.sequencedFutureManager : null;
   }
 
   public boolean isSessionCommandAvailable(ControllerInfo controllerInfo, SessionCommand command) {
-    @Nullable ConnectedControllerRecord<T> info;
-    synchronized (lock) {
-      info = controllerRecords.get(controllerInfo);
-    }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     return info != null
         && (info.sessionCommands.contains(command)
             || CommandButton.isPredefinedCustomCommandButtonCode(command.customAction));
@@ -318,19 +299,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   public boolean isSessionCommandAvailable(
       ControllerInfo controllerInfo, @SessionCommand.CommandCode int commandCode) {
-    @Nullable ConnectedControllerRecord<T> info;
-    synchronized (lock) {
-      info = controllerRecords.get(controllerInfo);
-    }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     return info != null && info.sessionCommands.contains(commandCode);
   }
 
   public boolean isPlayerCommandAvailable(
       ControllerInfo controllerInfo, @Player.Command int commandCode) {
-    @Nullable ConnectedControllerRecord<T> info;
-    synchronized (lock) {
-      info = controllerRecords.get(controllerInfo);
-    }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
     @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
     return info != null
         && info.playerCommands.contains(commandCode)
@@ -340,108 +317,107 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Nullable
   public ControllerInfo getController(T controllerKey) {
-    synchronized (lock) {
-      return controllerInfoMap.get(controllerKey);
-    }
+    verifyApplicationThread();
+    return controllerInfoMap.get(controllerKey);
   }
 
-  @Nullable
-  /* package */ ConnectedControllerRecord<T> getRecord(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      return controllerRecords.get(controllerInfo);
-    }
+  public Timeline getLastSentTimeline(ControllerInfo controllerInfo) {
+    verifyApplicationThread();
+    ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(controllerInfo));
+    return record.lastSentTimeline;
+  }
+
+  public Tracks getLastSentTracks(ControllerInfo controllerInfo) {
+    verifyApplicationThread();
+    ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(controllerInfo));
+    return record.lastSentTracks;
+  }
+
+  public void updateLastSentTimelineAndTracks(
+      ControllerInfo controllerInfo, Timeline timeline, Tracks tracks) {
+    verifyApplicationThread();
+    ConnectedControllerRecord<T> record = checkNotNull(controllerRecords.get(controllerInfo));
+    record.lastSentTimeline = timeline;
+    record.lastSentTracks = tracks;
   }
 
   public void addToCommandQueue(
       ControllerInfo controllerInfo, @Player.Command int command, AsyncCommand asyncCommand) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
-      if (info != null) {
-        info.commandQueuePlayerCommands =
-            info.commandQueuePlayerCommands.buildUpon().add(command).build();
-        info.commandQueue.add(asyncCommand);
-      }
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
+    if (info != null) {
+      info.commandQueuePlayerCommands =
+          info.commandQueuePlayerCommands.buildUpon().add(command).build();
+      info.commandQueue.add(asyncCommand);
     }
   }
 
   public void flushCommandQueue(ControllerInfo controllerInfo) {
-    synchronized (lock) {
-      @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
-      if (info == null) {
-        return;
-      }
-      Player.Commands commandQueuePlayerCommands = info.commandQueuePlayerCommands;
-      info.commandQueuePlayerCommands = Player.Commands.EMPTY;
-      info.commandQueue.add(
-          () -> {
-            @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
-            if (sessionImpl != null) {
-              sessionImpl.onPlayerInteractionFinishedOnHandler(
-                  controllerInfo, commandQueuePlayerCommands);
-            }
-            return Futures.immediateVoidFuture();
-          });
-      if (info.commandQueueIsFlushing) {
-        return;
-      }
-      info.commandQueueIsFlushing = true;
-      flushCommandQueue(info);
+    verifyApplicationThread();
+    @Nullable ConnectedControllerRecord<T> info = controllerRecords.get(controllerInfo);
+    if (info == null) {
+      return;
     }
+    Player.Commands commandQueuePlayerCommands = info.commandQueuePlayerCommands;
+    info.commandQueuePlayerCommands = Player.Commands.EMPTY;
+    info.commandQueue.add(
+        () -> {
+          @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+          if (sessionImpl != null) {
+            sessionImpl.onPlayerInteractionFinishedOnHandler(
+                controllerInfo, commandQueuePlayerCommands);
+          }
+          return Futures.immediateVoidFuture();
+        });
+    if (info.commandQueueIsFlushing) {
+      return;
+    }
+    info.commandQueueIsFlushing = true;
+    flushCommandQueue(info);
   }
 
-  @GuardedBy("lock")
   private void flushCommandQueue(ConnectedControllerRecord<T> info) {
     @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
     if (sessionImpl == null) {
       return;
     }
-    AtomicBoolean continueRunning = new AtomicBoolean(true);
-    while (continueRunning.get()) {
-      continueRunning.set(false);
+    verifyApplicationThread();
+    while (true) {
       @Nullable AsyncCommand asyncCommand = info.commandQueue.poll();
       if (asyncCommand == null) {
         info.commandQueueIsFlushing = false;
         return;
       }
-      AtomicBoolean commandExecuting = new AtomicBoolean(true);
-      postOrRun(
-          sessionImpl.getApplicationHandler(),
-          sessionImpl.callWithControllerForCurrentRequestSet(
-              getController(info.controllerKey),
-              () ->
-                  asyncCommand
-                      .run()
-                      .addListener(
-                          () -> {
-                            synchronized (lock) {
-                              if (!commandExecuting.get()) {
-                                flushCommandQueue(info);
-                              } else {
-                                continueRunning.set(true);
-                              }
-                            }
-                          },
-                          MoreExecutors.directExecutor())));
-      commandExecuting.set(false);
+      AtomicReference<ListenableFuture<Void>> futureHolder = new AtomicReference<>();
+      sessionImpl
+          .callWithControllerForCurrentRequestSet(
+              getController(info.controllerKey), () -> futureHolder.set(asyncCommand.run()))
+          .run();
+      ListenableFuture<Void> future = futureHolder.get();
+      if (!future.isDone()) {
+        future.addListener(
+            () -> postOrRun(sessionImpl.getApplicationHandler(), () -> flushCommandQueue(info)),
+            directExecutor());
+        return;
+      }
     }
   }
 
-  /* package */ static final class ConnectedControllerRecord<T> {
+  private static final class ConnectedControllerRecord<T> {
 
-    public final T controllerKey;
-    public final SequencedFutureManager sequencedFutureManager;
-    public final Deque<AsyncCommand> commandQueue;
+    private final T controllerKey;
+    private final SequencedFutureManager sequencedFutureManager;
+    private final Deque<AsyncCommand> commandQueue;
 
-    public SessionCommands sessionCommands;
-    public Player.Commands playerCommands;
-    @Nullable public Player.Commands playerCommandsBeforePlaybackException;
-    public boolean commandQueueIsFlushing;
-    public Player.Commands commandQueuePlayerCommands;
-    @Nullable public PlaybackException playbackException;
-    @Nullable public PlayerInfo playerInfoForPlaybackException;
-
-    /* package */ Timeline lastSentTimeline;
-    /* package */ Tracks lastSentTracks;
+    private SessionCommands sessionCommands;
+    private Player.Commands playerCommands;
+    @Nullable private Player.Commands playerCommandsBeforePlaybackException;
+    private boolean commandQueueIsFlushing;
+    private Player.Commands commandQueuePlayerCommands;
+    @Nullable private PlaybackException playbackException;
+    @Nullable private PlayerInfo playerInfoForPlaybackException;
+    private Timeline lastSentTimeline;
+    private Tracks lastSentTracks;
 
     public ConnectedControllerRecord(
         T controllerKey,
@@ -458,6 +434,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       this.lastSentTracks = lastSentTracks;
       this.commandQueue = new ArrayDeque<>();
       this.commandQueuePlayerCommands = Player.Commands.EMPTY;
+    }
+  }
+
+  private void verifyApplicationThread() {
+    @Nullable MediaSessionImpl session = sessionImpl.get();
+    if (session != null) {
+      checkState(Looper.myLooper() == session.getApplicationHandler().getLooper());
     }
   }
 }

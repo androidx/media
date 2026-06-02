@@ -1230,6 +1230,58 @@ public class MediaSessionTest {
     assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isLive()).isTrue();
   }
 
+  @Test
+  public void release_whenLooperThreadBlocked_completesViaEmergencyPath() throws Exception {
+    MockPlayer testPlayer =
+        new MockPlayer.Builder().setApplicationLooper(handler.getLooper()).build();
+    MediaSession testSession =
+        new MediaSession.Builder(context, testPlayer).setId("test_emergency_release").build();
+    CountDownLatch disconnectedLatch = new CountDownLatch(1);
+    MediaController testController =
+        new MediaController.Builder(context, testSession.getToken())
+            .setListener(
+                new MediaController.Listener() {
+                  @Override
+                  public void onDisconnected(MediaController controller) {
+                    disconnectedLatch.countDown();
+                  }
+                })
+            .setApplicationLooper(handler.getLooper())
+            .buildAsync()
+            .get(TIMEOUT_MS, MILLISECONDS);
+    assertThat(testController.isConnected()).isTrue();
+
+    // Block the session looper thread.
+    CountDownLatch looperBlockedLatch = new CountDownLatch(1);
+    CountDownLatch blockLooperLatch = new CountDownLatch(1);
+    handler.post(
+        () -> {
+          looperBlockedLatch.countDown();
+          try {
+            // Block for longer than RELEASE_TIMEOUT_MS (1_000 ms).
+            blockLooperLatch.await(3_000, MILLISECONDS);
+          } catch (InterruptedException e) {
+            // Ignore
+          }
+        });
+
+    // Wait until the looper is actually blocked.
+    assertThat(looperBlockedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    try {
+      // Release the session on the main thread. Since the looper thread is blocked, the 1-second
+      // latch await in MediaSessionImpl.release() will timeout and force the emergency path.
+      testSession.release();
+    } finally {
+      // Unblock the looper thread so it can exit and process queued tasks.
+      blockLooperLatch.countDown();
+    }
+
+    // Verify that the controller receives the disconnect callback and is cleanly disconnected.
+    assertThat(disconnectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(testController.isConnected()).isFalse();
+  }
+
   private static Intent getMediaButtonIntent(int keyCode) {
     Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     intent.setComponent(

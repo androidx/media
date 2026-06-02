@@ -600,11 +600,9 @@ import java.util.concurrent.ExecutionException;
                                   connectionResultToUse.availablePlayerCommands));
                     }
                     playerInfo = updatePlayerInfoWithUniqueTrackGroupIds(playerInfo);
-                    ConnectedControllersManager.ConnectedControllerRecord<IBinder> record =
-                        connectedControllersManager.getRecord(controllerInfo);
-                    if (record != null) {
-                      record.lastSentTimeline = playerInfo.timeline;
-                      record.lastSentTracks = playerInfo.currentTracks;
+                    if (connectedControllersManager.isConnected(controllerInfo)) {
+                      connectedControllersManager.updateLastSentTimelineAndTracks(
+                          controllerInfo, playerInfo.timeline, playerInfo.currentTracks);
                     }
                     Token platformToken = sessionImpl.getPlatformToken();
                     ConnectionState state =
@@ -671,6 +669,7 @@ import java.util.concurrent.ExecutionException;
 
   public void release() {
     sessionImpl.clear();
+    connectedControllersManager.release();
     List<ControllerInfo> controllers = connectedControllersManager.getConnectedControllers();
     for (ControllerInfo controller : controllers) {
       connectedControllersManager.removeController(controller);
