@@ -92,7 +92,6 @@ import androidx.media3.effect.HardwareBufferJniWrapper;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.RenderingPacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
-import androidx.media3.effect.SurfaceHolderHardwareBufferFrameQueue;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -2441,7 +2440,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           CompositionPlayerInternal.Listener,
           SurfaceHolder.Callback,
           PlaybackVideoGraphWrapper.Listener,
-          SurfaceHolderHardwareBufferFrameQueue.Listener,
           CompositionVideoPacketReleaseControl.Listener,
           SurfaceHolderFrameWriter.Listener,
           FrameProcessor.Listener {
@@ -2517,30 +2515,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // TODO: b/328219481 - Report video size change to app.
     }
 
-    // SurfaceHolderHardwareBufferFrameQueue.Listener methods. Called on the effects thread.
-
-    @Override
-    public void onFrameAboutToBeRendered(
-        long presentationTimeUs, long releaseTimeNs, Format format) {
-      if (frameProcessor != null) {
-        VideoSize videoSizeToBeRendered = new VideoSize(format.width, format.height);
-        applicationHandler.post(
-            () -> {
-              if (!Objects.equals(videoSize, videoSizeToBeRendered)) {
-                if (videoSize == null) {
-                  renderedFirstFrame = true;
-                }
-                videoSize = videoSizeToBeRendered;
-                invalidateState();
-              }
-            });
-        if (videoFrameMetadataListener != null) {
-          videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
-              presentationTimeUs, releaseTimeNs, format, /* mediaFormat= */ null);
-        }
-      }
-    }
-
     // CompositionVideoPacketReleaseControl.Listener methods. Called on the playback thread.
 
     @Override
@@ -2563,16 +2537,34 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       onError(VideoFrameProcessingException.from(e));
     }
 
+    // SurfaceHolderFrameWriter.Listener methods. Called on the application thread.
+
+    @Override
+    public void onFrameAboutToBeRendered(
+        long presentationTimeUs, long releaseTimeNs, Format format) {
+      if (frameProcessor != null) {
+        VideoSize videoSizeToBeRendered = new VideoSize(format.width, format.height);
+        if (!Objects.equals(videoSize, videoSizeToBeRendered)) {
+          if (videoSize == null) {
+            renderedFirstFrame = true;
+          }
+          videoSize = videoSizeToBeRendered;
+          invalidateState();
+        }
+        if (videoFrameMetadataListener != null) {
+          videoFrameMetadataListener.onVideoFrameAboutToBeRendered(
+              presentationTimeUs, releaseTimeNs, format, /* mediaFormat= */ null);
+        }
+      }
+    }
+
     @Override
     public void onEnded() {
       if (frameProcessor != null) {
-        applicationHandler.post(
-            () -> {
-              // TODO: b/484336225 - reset packetConsumerEnded on replay.
-              packetConsumerEnded = true;
-              updatePlaybackState();
-              invalidateState();
-            });
+        // TODO: b/484336225 - reset packetConsumerEnded on replay.
+        packetConsumerEnded = true;
+        updatePlaybackState();
+        invalidateState();
       }
     }
 
