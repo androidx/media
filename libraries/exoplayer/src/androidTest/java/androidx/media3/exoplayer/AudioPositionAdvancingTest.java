@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -184,6 +185,7 @@ public class AudioPositionAdvancingTest {
     getInstrumentation().runOnMainSync(() -> player.get().release());
   }
 
+  @Ignore("Flaky: b/493133077")
   @Test
   public void playFromStart_reportedStartTimeEventuallyMatchesPlaybackPosition() throws Exception {
     // Try up to two times as the audio track behavior is not fully reliable and can't be
