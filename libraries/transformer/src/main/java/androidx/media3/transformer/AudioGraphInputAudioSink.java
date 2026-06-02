@@ -117,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   @Nullable private Format currentInputFormat;
   private boolean inputStreamEnded;
   private boolean signalledEndOfStream;
-  @Nullable private EditedMediaItemInfo currentEditedMediaItemInfo;
+  @Nullable private EditedMediaItem currentEditedMediaItem;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
   private long offsetToEditedMediaItemStartUs;
@@ -137,14 +137,12 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
    *     them to the composition time, in microseconds.
    * @param offsetToEditedMediaItemStartUs The position of the current {@link EditedMediaItem}'s
    *     start relative to the audio buffer's presentation timestamp.
-   * @param isLastInSequence Whether this is the last item in the sequence.
    */
   public void onMediaItemChanged(
       EditedMediaItem editedMediaItem,
       long offsetToCompositionTimeUs,
-      long offsetToEditedMediaItemStartUs,
-      boolean isLastInSequence) {
-    currentEditedMediaItemInfo = new EditedMediaItemInfo(editedMediaItem, isLastInSequence);
+      long offsetToEditedMediaItemStartUs) {
+    currentEditedMediaItem = editedMediaItem;
     this.offsetToCompositionTimeUs = offsetToCompositionTimeUs;
     this.offsetToEditedMediaItemStartUs = offsetToEditedMediaItemStartUs;
   }
@@ -184,7 +182,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       throws InitializationException {
     checkState(!inputStreamEnded);
 
-    EditedMediaItem editedMediaItem = checkNotNull(currentEditedMediaItemInfo).editedMediaItem;
+    EditedMediaItem editedMediaItem = checkNotNull(currentEditedMediaItem);
     if (outputGraphInput == null) {
 
       AudioGraphInput outputGraphInput;
@@ -235,8 +233,9 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       return;
     }
     inputStreamEnded = true;
-    // Queue end-of-stream only if playing the last media item in the sequence.
-    if (!signalledEndOfStream && checkNotNull(currentEditedMediaItemInfo).isLastInSequence) {
+    // Play to EoS only gets called at the end of the sequence. The end of an EditedMediaItem before
+    // a transition is signalled by a #handleDiscontinuity() or #flush() call.
+    if (!signalledEndOfStream) {
       DebugTraceUtil.logEvent(
           COMPONENT_AUDIO_GRAPH_INPUT_AUDIO_SINK,
           Integer.toHexString(this.hashCode()),
@@ -323,7 +322,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     inputStreamEnded = false;
     signalledEndOfStream = false;
     currentInputFormat = null;
-    currentEditedMediaItemInfo = null;
+    currentEditedMediaItem = null;
     offsetToEditedMediaItemStartUs = 0;
     offsetToCompositionTimeUs = 0;
     isConfigurationPending = false;
@@ -438,15 +437,5 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
               + sampleCountToDurationUs(framesToWrite, currentInputFormat.sampleRate);
     }
     return bufferQueued;
-  }
-
-  private static final class EditedMediaItemInfo {
-    public final EditedMediaItem editedMediaItem;
-    public final boolean isLastInSequence;
-
-    public EditedMediaItemInfo(EditedMediaItem editedMediaItem, boolean isLastInSequence) {
-      this.editedMediaItem = editedMediaItem;
-      this.isLastInSequence = isLastInSequence;
-    }
   }
 }

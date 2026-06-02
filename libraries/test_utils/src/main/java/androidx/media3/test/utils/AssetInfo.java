@@ -1207,10 +1207,12 @@ public final class AssetInfo {
 
   // This file contains 1 second of audio at 44.1kHZ.
   public static final AssetInfo WAV_ASSET =
-      new AssetInfo.Builder("asset:///media/wav/sample.wav").build();
+      new AssetInfo.Builder("asset:///media/wav/sample.wav").setAudioDurationUs(1_000_000).build();
 
   public static final AssetInfo WAV_96KHZ_ASSET =
-      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav").build();
+      new AssetInfo.Builder("asset:///media/wav/sample_96khz.wav")
+          .setAudioDurationUs(1_000_000)
+          .build();
 
   public static final AssetInfo WAV_192KHZ_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();

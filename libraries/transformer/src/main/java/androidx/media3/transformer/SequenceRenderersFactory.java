@@ -430,8 +430,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       audioSink.onMediaItemChanged(
           currentEditedMediaItem,
           pendingOffsetToCompositionTimeUs,
-          pendingOffsetToEditedMediaItemStartUs,
-          isLastInSequence(getTimeline(), mediaPeriodId));
+          pendingOffsetToEditedMediaItemStartUs);
     }
 
     private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {

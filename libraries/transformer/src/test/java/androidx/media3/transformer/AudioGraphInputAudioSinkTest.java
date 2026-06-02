@@ -60,8 +60,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,
@@ -124,8 +123,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,
@@ -147,8 +145,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,
@@ -179,8 +176,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,
@@ -232,8 +228,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,
@@ -265,8 +260,7 @@ public class AudioGraphInputAudioSinkTest {
     sink.onMediaItemChanged(
         new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
         /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0,
-        /* isLastInSequence= */ true);
+        /* offsetToEditedMediaItemStartUs= */ 0);
     sink.configure(
         Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
         0,

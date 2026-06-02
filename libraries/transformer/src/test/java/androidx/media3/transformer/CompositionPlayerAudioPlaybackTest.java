@@ -19,6 +19,7 @@ import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.test.utils.AssetInfo.WAV_24LE_PCM_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_32LE_PCM_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_96KHZ_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
@@ -655,6 +656,182 @@ public final class CompositionPlayerAudioPlaybackTest {
     assertThat(secondProcessor.inputFormat.get().encoding).isEqualTo(C.ENCODING_PCM_16BIT);
     assertThat(secondProcessor.inputFormat.get().sampleRate).isEqualTo(44100);
     assertThat(secondProcessor.inputFormat.get().channelCount).isEqualTo(1);
+  }
+
+  @Test
+  public void seekTo_fromFirstItemPastEndOfSequence_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(5_000);
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_fromFirstItemToItemBoundary_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(1_000);
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_withinFirstItemWithFormatMatchingSequence_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(400);
+
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_toSecondFormatMatchingItem_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(1_200);
+
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_fromFirstItemPastEndOfSequenceOverDifferentFormatItem_doesNotHang()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setDurationUs(WAV_96KHZ_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item2));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(5_000);
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_fromFirstItemToItemBoundaryWithMismatchingFormats_doesNotHang()
+      throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setDurationUs(WAV_96KHZ_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item2));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(1_000);
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_withinFirstItemWithMismatchingFormatSequence_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setDurationUs(WAV_96KHZ_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item2));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(400);
+    play(player).untilState(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void seekTo_toSecondItemWithMismatchingFormat_doesNotHang() throws Exception {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(WAV_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItem item2 =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
+            .setDurationUs(WAV_96KHZ_ASSET.audioDurationUs)
+            .build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item, item2));
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    // Do not play because all audio buffers will be immediately queued to AudioGraphInput and
+    // trigger transition.
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(1_200);
+    play(player).untilState(Player.STATE_ENDED);
   }
 
   @Test
