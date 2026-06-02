@@ -16,23 +16,35 @@
 package androidx.media3.demo.compose.editing
 
 import android.graphics.Bitmap
+import androidx.annotation.FloatRange
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -41,10 +53,25 @@ import com.google.common.collect.ImmutableList
 
 /** The ratio of the total width of a clipping thumb to the width of the image row. */
 private const val CLIPPING_THUMB_WIDTH_RATIO = 1f / 15
+/** The ratio of the plain, solid width of a clipping thumb to its total width. */
+private const val CLIPPING_THUMB_PLAIN_RATIO = 0.8f
 /** The ratio of the plain, solid width of a clipping thumb to the width of the image row. */
-private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO = CLIPPING_THUMB_WIDTH_RATIO * 0.8f
+private const val CLIPPING_THUMB_PLAIN_WIDTH_RATIO =
+  CLIPPING_THUMB_WIDTH_RATIO * CLIPPING_THUMB_PLAIN_RATIO
+/**
+ * The ratio of the track width available for the clipping thumbs to move, relative to the image row
+ * width.
+ *
+ * The clipping slider track is shorter than the image row because the clipping start and end
+ * positions correspond to the center of the thumb. Specifically, the track starts
+ * [CLIPPING_THUMB_WIDTH_RATIO] / 2 after the image row start and ends [CLIPPING_THUMB_WIDTH_RATIO]
+ * / 2 before the image row end.
+ */
+private const val CLIPPING_TRACK_WIDTH_RATIO = 1f - CLIPPING_THUMB_WIDTH_RATIO
 /** The ratio of the maximum position slider length to the width of the image row. */
 private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - (CLIPPING_THUMB_PLAIN_WIDTH_RATIO * 2)
+/** The ratio of the clipping frame's horizontal bar thickness to the total height of the slider. */
+private const val CLIPPING_FRAME_THICKNESS_RATIO = 0.05f
 
 /**
  * A Material3 clipping slider that allows users to select a clipping range and track playback
@@ -70,6 +97,7 @@ private const val POSITION_SLIDER_MAX_LENGTH_RATIO = 1f - (CLIPPING_THUMB_PLAIN_
  *   within the media (start of media for the start thumb, end of the media for the end thumb).
  */
 // TODO: b/505719491
+//  - Implement accessibility requirements
 //  - Implement color defaults
 //  - Decide and test what the slider should look like for RTL locales
 //  - Move to material3 module and mark API unstable
@@ -175,7 +203,7 @@ private fun ImageRow(bitmaps: ImmutableList<Bitmap>, modifier: Modifier = Modifi
 
 @Composable
 private fun ClippedImagesFilter(
-  clippingRange: ClosedFloatingPointRange<Float>,
+  @FloatRange(from = 0.0, to = 1.0) clippingRange: ClosedFloatingPointRange<Float>,
   modifier: Modifier = Modifier,
   clippedFilterColor: Color,
 ) {
@@ -195,6 +223,119 @@ private fun ClippedImagesFilter(
       )
     }
   }
+}
+
+/**
+ * A composable that draws one of the clipping handles (thumbs).
+ *
+ * This component draws a "C-shaped" frame and an icon within it.
+ */
+@Composable
+private fun ClippingThumb(
+  isStart: Boolean,
+  colors: ClippingSliderColors,
+  imageRowShape: RoundedCornerShape,
+  painter: Painter,
+  modifier: Modifier = Modifier,
+) {
+  Box(
+    // Isolate drawing to its own layer to avoid redraws when the playback position advances.
+    modifier.graphicsLayer().drawWithCache {
+      // Create a square size bounded by the height. This forces percentage-based shapes to resolve
+      // against the height, making the radius perfectly match the ImageRow.
+      val squareSize = Size(size.height, size.height)
+      val topLeft = if (isStart) imageRowShape.topStart.toPx(squareSize, this) else 0f
+      val topRight = if (isStart) 0f else imageRowShape.topEnd.toPx(squareSize, this)
+      val bottomRight = if (isStart) 0f else imageRowShape.bottomEnd.toPx(squareSize, this)
+      val bottomLeft = if (isStart) imageRowShape.bottomStart.toPx(squareSize, this) else 0f
+
+      val thumbPlainWidth = CLIPPING_THUMB_PLAIN_RATIO * size.width
+      val frameThickness = CLIPPING_FRAME_THICKNESS_RATIO * size.height
+
+      val outerRectanglePath =
+        Path().apply {
+          addRoundRect(
+            RoundRect(
+              left = 0f,
+              top = 0f,
+              right = size.width,
+              bottom = size.height,
+              topLeftCornerRadius = CornerRadius(topLeft),
+              topRightCornerRadius = CornerRadius(topRight),
+              bottomRightCornerRadius = CornerRadius(bottomRight),
+              bottomLeftCornerRadius = CornerRadius(bottomLeft),
+            )
+          )
+        }
+      val innerRectanglePath =
+        Path().apply {
+          addRoundRect(
+            RoundRect(
+              left = if (isStart) thumbPlainWidth else 0f,
+              top = frameThickness,
+              right = if (isStart) size.width else size.width - thumbPlainWidth,
+              bottom = size.height - frameThickness,
+              topLeftCornerRadius = CornerRadius(topLeft / 2),
+              topRightCornerRadius = CornerRadius(topRight / 2),
+              bottomRightCornerRadius = CornerRadius(bottomRight / 2),
+              bottomLeftCornerRadius = CornerRadius(bottomLeft / 2),
+            )
+          )
+        }
+      onDrawBehind {
+        clipPath(innerRectanglePath, clipOp = ClipOp.Difference) {
+          drawPath(outerRectanglePath, colors.clippingFrameColor)
+        }
+      }
+    },
+    contentAlignment = if (isStart) Alignment.CenterStart else Alignment.CenterEnd,
+  ) {
+    Image(
+      painter,
+      contentDescription = null,
+      modifier = Modifier.fillMaxHeight().fillMaxWidth(CLIPPING_THUMB_PLAIN_RATIO),
+      contentScale = ContentScale.FillBounds,
+      colorFilter = ColorFilter.tint(colors.clippingIconColor),
+    )
+  }
+}
+
+/**
+ * A composable that draws the horizontal track connecting the two clipping thumbs.
+ *
+ * This component draws the two horizontal bars of the clipping frame.
+ */
+@Composable
+private fun ClippingTrack(
+  @FloatRange(from = 0.0, to = 1.0) clippingSliderRange: ClosedFloatingPointRange<Float>,
+  clippingFrameColor: Color,
+  modifier: Modifier = Modifier,
+) {
+  Spacer(
+    // Isolate drawing to its own layer to avoid redraws when the playback position advances.
+    modifier.graphicsLayer().drawWithCache {
+      // Draw the 2 horizontal bars of the clipping frame.
+      val width = size.width
+      val height = size.height
+      val thumbWidthPx = CLIPPING_THUMB_WIDTH_RATIO / CLIPPING_TRACK_WIDTH_RATIO * width
+      // Shift the start and end by half a thumb so that the horizontal bars are strictly between
+      // the thumbs (instead of between the thumb centers). Shift again by 1 pixel to avoid holes
+      // between the bars and the thumbs due to rounding errors.
+      val clippingStartPx = clippingSliderRange.start * width + thumbWidthPx / 2f - 1f
+      val clippingEndPx = clippingSliderRange.endInclusive * width - thumbWidthPx / 2f + 1f
+      val frameWidth = clippingEndPx - clippingStartPx
+      val frameThickness = CLIPPING_FRAME_THICKNESS_RATIO * height
+      val rectSize = Size(width = frameWidth, height = frameThickness)
+      onDrawBehind {
+        drawRect(clippingFrameColor, topLeft = Offset(x = clippingStartPx, y = 0f), size = rectSize)
+        drawRect(
+          clippingFrameColor,
+          topLeft = Offset(clippingStartPx, height - frameThickness),
+          size = rectSize,
+        )
+      }
+    }
+  )
 }
 
 /**
