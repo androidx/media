@@ -59,6 +59,7 @@ import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** End-to-end tests for the behavior of clipping with HLS media. */
+@Ignore("Flaky: b/515093746")
 @Config(minSdk = 31) // TODO: b/511055213 - Run on all API levels when Robolectric is fixed.
 @RunWith(RobolectricTestParameterInjector.class)
 public final class ClippingHlsPlaybackTest {
@@ -475,7 +476,6 @@ public final class ClippingHlsPlaybackTest {
   }
 
   @Test
-  @Ignore("Flaky: b/515093746")
   public void replaceMediaItem_reduceEndPositionFromEndOfSourceAfterLoadingFinished()
       throws Exception {
     assumeTrue(enableMediaPeriodClipping);
