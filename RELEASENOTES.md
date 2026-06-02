@@ -8,6 +8,8 @@
         resolve it.
     *   Upgrade Kotlin from 2.0.20 to 2.2.0.
 *   ExoPlayer:
+    *   Fix a timing-dependent concurrency bug that could cause an
+        `IllegalStateException` or `IndexOutOfBoundsException` in ExoPlayer.
     *   Relax ad group count checks in `AdsMediaSource` to allow the ad group
         count to decrease when an ad group is fully processed
         (`hasUnplayedAds()` is `false`), accommodating dynamic ad group resizing

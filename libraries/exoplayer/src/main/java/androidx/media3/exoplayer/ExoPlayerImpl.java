@@ -24,7 +24,6 @@ import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_OUTPUT_PROVIDER;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY;
@@ -438,8 +437,7 @@ import java.util.function.IntConsumer;
               audioSessionIdState.setStateInBackground(newAudioSessionId);
               // Provide the audio session ID to the renderers on playback thread to prevent race
               // condition with player preparation.
-              sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
-              sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+              internalPlayer.setAudioSessionId(newAudioSessionId);
             }
           });
       audioBecomingNoisyManager =
@@ -3238,8 +3236,7 @@ import java.util.function.IntConsumer;
 
   private void onAudioSessionIdChanged(int oldAudioSessionId, int newAudioSessionId) {
     verifyApplicationThread();
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
-    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+    internalPlayer.setAudioSessionId(newAudioSessionId);
     listeners.sendEvent(
         EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(newAudioSessionId));
   }

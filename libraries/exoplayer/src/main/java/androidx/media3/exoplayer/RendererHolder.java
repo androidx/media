@@ -869,6 +869,17 @@ import java.util.Objects;
     }
   }
 
+  /** Sets the audio session ID on the renderer. */
+  public void setAudioSessionId(int audioSessionId) throws ExoPlaybackException {
+    if (getTrackType() != TRACK_TYPE_AUDIO && getTrackType() != TRACK_TYPE_VIDEO) {
+      return;
+    }
+    primaryRenderer.handleMessage(Renderer.MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+    if (secondaryRenderer != null) {
+      secondaryRenderer.handleMessage(Renderer.MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+    }
+  }
+
   public boolean isRendererEnabled() {
     boolean checkPrimary =
         prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY
