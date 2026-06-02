@@ -306,6 +306,14 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mkvSampleLastCluster() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_last_cluster.mkv",
+        simulationConfig);
+  }
+
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;

@@ -500,6 +500,10 @@ public class MatroskaExtractor implements Extractor {
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
+  private long tracksContentPosition = C.INDEX_UNSET;
+  private boolean seekForTracks;
+  private long seekPositionAfterReadingTracks = C.INDEX_UNSET;
+  private boolean readTracks;
   private long clusterTimecodeUs = C.TIME_UNSET;
 
   // Reading state.
@@ -646,7 +650,9 @@ public class MatroskaExtractor implements Extractor {
     boolean continueReading = true;
     while (continueReading && !haveOutputSample) {
       continueReading = reader.read(input);
-      if (continueReading && maybeSeekForCues(seekPosition, input.getPosition())) {
+      if (continueReading
+          && (maybeSeekForTracks(seekPosition, input.getPosition())
+              || maybeSeekForCues(seekPosition, input.getPosition()))) {
         return Extractor.RESULT_SEEK;
       }
     }
@@ -843,6 +849,9 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_CLUSTER:
+        if (tracksContentPosition != C.INDEX_UNSET && !readTracks) {
+          seekForTracks = true;
+        }
         if (!sentSeekMap) {
           // We need to build cues before parsing the cluster.
           if (seekForCuesEnabled && cuesContentPosition != C.INDEX_UNSET) {
@@ -907,6 +916,8 @@ public class MatroskaExtractor implements Extractor {
         }
         if (seekEntryId == ID_CUES) {
           cuesContentPosition = seekEntryPosition;
+        } else if (seekEntryId == ID_TRACKS) {
+          tracksContentPosition = seekEntryPosition;
         }
         break;
       case ID_CUES:
@@ -938,9 +949,8 @@ public class MatroskaExtractor implements Extractor {
           inCuesElement = false;
           for (int i = 0; i < tracks.size(); i++) {
             Track track = tracks.valueAt(i);
-            track.maybeAddThumbnailMetadata(
-                perTrackCues, durationUs, segmentContentPosition, segmentContentSize);
             if (!track.waitingForDtsAnalysis) {
+              updateTrackFormatWithMetadata(track);
               track.assertOutputInitialized();
               track.output.format(checkNotNull(track.format));
             }
@@ -985,8 +995,7 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_EDITION_ENTRY:
         for (int i = 0; i < tracks.size(); i++) {
-          Track track = tracks.valueAt(i);
-          track.maybeAddChaptersMetadata(chapters);
+          updateTrackFormatWithMetadata(tracks.valueAt(i));
         }
         break;
       case ID_BLOCK_GROUP:
@@ -1070,8 +1079,10 @@ public class MatroskaExtractor implements Extractor {
         int defaultAudioTrackNumber = C.INDEX_UNSET;
         int firstAudioTrackNumber = C.INDEX_UNSET;
 
-        // If we're not going to seek for cues, output the formats immediately.
-        boolean mayBeSendFormatsEarly = !seekForCuesEnabled || cuesContentPosition == C.INDEX_UNSET;
+        // If we're not going to seek for cues, or we have already processed them, output the
+        // formats immediately.
+        boolean maybeSendFormatsEarly =
+            !seekForCuesEnabled || cuesContentPosition == C.INDEX_UNSET || sentSeekMap;
 
         for (int i = 0; i < tracks.size(); i++) {
           Track trackItem = tracks.valueAt(i);
@@ -1093,9 +1104,10 @@ public class MatroskaExtractor implements Extractor {
             }
           }
 
-          if (mayBeSendFormatsEarly) {
-            trackItem.assertOutputInitialized();
+          if (maybeSendFormatsEarly) {
             if (!trackItem.waitingForDtsAnalysis) {
+              updateTrackFormatWithMetadata(trackItem);
+              trackItem.assertOutputInitialized();
               trackItem.output.format(checkNotNull(trackItem.format));
             }
           }
@@ -1113,7 +1125,8 @@ public class MatroskaExtractor implements Extractor {
           primarySeekTrackNumber = tracks.size() > 0 ? tracks.valueAt(0).number : C.INDEX_UNSET;
         }
 
-        if (mayBeSendFormatsEarly) {
+        readTracks = true;
+        if (maybeSendFormatsEarly) {
           maybeEndTracks();
         }
         break;
@@ -2189,6 +2202,21 @@ public class MatroskaExtractor implements Extractor {
     return false;
   }
 
+  private boolean maybeSeekForTracks(PositionHolder seekPosition, long currentPosition) {
+    if (seekForTracks) {
+      seekPositionAfterReadingTracks = currentPosition;
+      seekPosition.position = tracksContentPosition;
+      seekForTracks = false;
+      return true;
+    }
+    if (readTracks && seekPositionAfterReadingTracks != C.INDEX_UNSET) {
+      seekPosition.position = seekPositionAfterReadingTracks;
+      seekPositionAfterReadingTracks = C.INDEX_UNSET;
+      return true;
+    }
+    return false;
+  }
+
   private long scaleTimecodeToUs(long unscaledTimecode) throws ParserException {
     if (timecodeScale == C.TIME_UNSET) {
       throw ParserException.createForMalformedContainer(
@@ -2263,6 +2291,9 @@ public class MatroskaExtractor implements Extractor {
     if (!pendingEndTracks) {
       return;
     }
+    if (tracksContentPosition != C.INDEX_UNSET && !readTracks) {
+      return;
+    }
     for (int i = 0; i < tracks.size(); i++) {
       if (tracks.valueAt(i).waitingForDtsAnalysis) {
         return;
@@ -2270,6 +2301,12 @@ public class MatroskaExtractor implements Extractor {
     }
     checkNotNull(extractorOutput).endTracks();
     pendingEndTracks = false;
+  }
+
+  private void updateTrackFormatWithMetadata(Track track) {
+    track.maybeAddChaptersMetadata(chapters);
+    track.maybeAddThumbnailMetadata(
+        perTrackCues, durationUs, segmentContentPosition, segmentContentSize);
   }
 
   /** Passes events through to the outer {@link MatroskaExtractor}. */
@@ -2402,6 +2439,8 @@ public class MatroskaExtractor implements Extractor {
     public long seekPreRollNs = 0;
     public @MonotonicNonNull TrueHdSampleRechunker trueHdSampleRechunker;
     public boolean waitingForDtsAnalysis = false;
+    private boolean chaptersMetadataAdded;
+    private boolean thumbnailMetadataAdded;
 
     // Text elements.
     public boolean flagForced;
@@ -2855,7 +2894,7 @@ public class MatroskaExtractor implements Extractor {
       }
 
       List<MatroskaSeekMap.CuePointData> cuePoints = perTrackCues.get(number);
-      if (cuePoints == null || cuePoints.isEmpty()) {
+      if (thumbnailMetadataAdded || cuePoints == null || cuePoints.isEmpty()) {
         return;
       }
 
@@ -2871,6 +2910,7 @@ public class MatroskaExtractor implements Extractor {
                 ? new Metadata(thumbnailMetadata)
                 : existingMetadata.copyWithAppendedEntries(thumbnailMetadata);
         format = format.buildUpon().setMetadata(newMetadata).build();
+        thumbnailMetadataAdded = true;
       }
     }
 
@@ -2933,6 +2973,9 @@ public class MatroskaExtractor implements Extractor {
 
     /** Adds chapters to the track's format as {@link Chapter}. */
     private void maybeAddChaptersMetadata(LongSparseArray<ChapterEntry> chapterEntries) {
+      if (chaptersMetadataAdded || chapterEntries.size() == 0) {
+        return;
+      }
       List<Chapter> chapters = new ArrayList<>(chapterEntries.size());
       for (int i = 0; i < chapterEntries.size(); i++) {
         ChapterEntry chapterEntry = chapterEntries.valueAt(i);
@@ -2958,6 +3001,7 @@ public class MatroskaExtractor implements Extractor {
                         ? format.metadata.copyWithAppendedEntries(chapters.toArray(new Chapter[0]))
                         : new Metadata(chapters))
                 .build();
+        chaptersMetadataAdded = true;
       }
     }
 

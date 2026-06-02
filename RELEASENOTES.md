@@ -107,6 +107,8 @@
         PES packet has a known length
         ([#3206](https://github.com/androidx/media/pull/3206)).
     *   MP3: Fix bitrate reporting for files with Xing and VBRI header.
+    *   Matroska: Handle tracks defined in the last cluster
+        ([#3250](https://github.com/androidx/media/issues/3250)).
 *   Inspector:
 *   Audio:
     *   Add a 100ms grace period in ExoPlayer's audio renderers when

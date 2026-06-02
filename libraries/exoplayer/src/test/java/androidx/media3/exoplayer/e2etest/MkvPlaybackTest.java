@@ -56,7 +56,8 @@ public final class MkvPlaybackTest {
         Sample.forFile("sample_with_overlapping_srt.mkv"),
         Sample.forFile("sample_with_vtt_subtitles.mkv"),
         Sample.forFile("sample_with_null_terminated_vtt_subtitles.mkv"),
-        Sample.withBitmapSubtitles("sample_with_vobsub.mkv"));
+        Sample.withBitmapSubtitles("sample_with_vobsub.mkv"),
+        Sample.forFile("sample_last_cluster.mkv"));
   }
 
   @Parameter public Sample sample;
