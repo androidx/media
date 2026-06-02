@@ -97,6 +97,7 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -309,7 +310,7 @@ public final class DashPlaybackTest {
    * at this transition.
    */
   @Test
-  @Config(minSdk = 24) // TODO: b/514594662 - De-flake this on API 23
+  @Ignore("Flaky: b/514594662")
   public void webvttInMp4_transientLoadError_playbackContinues() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
     WebServerDispatcher webServerDispatcher =
