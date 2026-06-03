@@ -127,10 +127,10 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /**
-   * If an attempt to instantiate an AudioOutput with a buffer size larger than this value fails, a
-   * second attempt is made using half of that failed buffer size.
+   * The fallback minimum buffer size to use for retry if the 1-second buffer size cannot be
+   * calculated.
    */
-  private static final int AUDIO_OUTPUT_RETRY_BUFFER_SIZE_THRESHOLD = 1_000_000;
+  private static final int AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE = 1_000_000;
 
   /** The minimum duration of the skipped silence to be reported as discontinuity. */
   private static final int MINIMUM_REPORT_SKIPPED_SILENCE_DURATION_US = 300_000;
@@ -1095,18 +1095,21 @@ public final class DefaultAudioSink implements AudioSink {
       return buildAudioOutput(configuration.outputConfig);
     } catch (InitializationException initialFailure) {
       int bufferSize = configuration.outputConfig.bufferSize;
-      while (bufferSize > AUDIO_OUTPUT_RETRY_BUFFER_SIZE_THRESHOLD) {
-        // Retry with a smaller buffer size, which is the half of the original buffer size.
-        bufferSize /= 2;
-        int frameSize =
-            configuration.outputPcmFrameSize != C.LENGTH_UNSET
-                ? configuration.outputPcmFrameSize
-                : 1;
+
+      int threshold = getMinimumRetryBufferSize();
+      int frameSize =
+          configuration.outputPcmFrameSize != C.LENGTH_UNSET ? configuration.outputPcmFrameSize : 1;
+
+      while (bufferSize > threshold) {
+        // Retry with a smaller buffer size, which is at least the threshold.
+        bufferSize = max(threshold, bufferSize / 2);
+
+        // Align bufferSize to frame size.
         int partialFrameSize = bufferSize % frameSize;
         if (partialFrameSize != 0) {
-          // Increase buffer size to hold an integer number of frames.
           bufferSize += frameSize - partialFrameSize;
         }
+
         OutputConfig retryConfiguration =
             configuration.outputConfig.buildUpon().setBufferSize(bufferSize).build();
         try {
@@ -1117,9 +1120,33 @@ public final class DefaultAudioSink implements AudioSink {
           initialFailure.addSuppressed(retryFailure);
         }
       }
+
       maybeDisableOffload();
       throw initialFailure;
     }
+  }
+
+  private int getMinimumRetryBufferSize() {
+    int oneSecondBufferSize;
+    if (Util.isEncodingLinearPcm(configuration.outputConfig.encoding)) {
+      oneSecondBufferSize =
+          configuration.outputConfig.sampleRate * configuration.outputPcmFrameSize;
+    } else if (configuration.inputFormat.bitrate != Format.NO_VALUE) {
+      oneSecondBufferSize = configuration.inputFormat.bitrate / 8;
+    } else {
+      int maxRate =
+          ExtractorUtil.getMaximumEncodedRateBytesPerSecond(configuration.outputConfig.encoding);
+      oneSecondBufferSize =
+          maxRate != C.RATE_UNSET_INT ? maxRate : AUDIO_OUTPUT_RETRY_FALLBACK_BUFFER_SIZE;
+    }
+
+    int minBufferSize =
+        AudioTrack.getMinBufferSize(
+            configuration.outputConfig.sampleRate,
+            configuration.outputConfig.channelMask,
+            configuration.outputConfig.encoding);
+
+    return max(oneSecondBufferSize, minBufferSize);
   }
 
   private AudioOutput buildAudioOutput(OutputConfig outputConfig) throws InitializationException {

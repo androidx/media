@@ -62,6 +62,10 @@
         `getInitialBitrateCountryGroupAssignment` to return the country group
         assignments packed into a 32-bit integer instead of an array, reducing
         code size and avoiding allocations.
+    *   Fix AudioTrack initialization failures on some devices by ensuring the
+        retry logic always attempts a minimum of 1 second buffer size if other
+        retries (by halving the buffer size) are unsuccessful
+        ([#3207](https://github.com/androidx/media/issues/3207)).
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:
