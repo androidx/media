@@ -16,29 +16,34 @@ public class AdTimelineTest {
   public void getPeriod() {
     String windowId = "windowId";
 
-    FakeTimeline contentTimeline = new FakeTimeline(
-        new FakeTimeline.TimelineWindowDefinition(
-            3, // periodCount
-            windowId,
-            true, // isSeekable
-            false, // isDynamic
-            false, // isLive
-            false, // isPlaceholder
-            60 * MICROS_PER_SECOND, // durationUs
-            0, // defaultPositionUs
-            0, // windowOffsetInFirstPeriodUs
-            AdPlaybackState.NONE, // adPlaybackState
-            FAKE_MEDIA_ITEM // mediaItem
-        )
-    );
+    FakeTimeline contentTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                3, // periodCount
+                windowId,
+                true, // isSeekable
+                false, // isDynamic
+                false, // isLive
+                false, // isPlaceholder
+                60 * MICROS_PER_SECOND, // durationUs
+                0, // defaultPositionUs
+                0, // windowOffsetInFirstPeriodUs
+                AdPlaybackState.NONE, // adPlaybackState
+                FAKE_MEDIA_ITEM // mediaItem
+                ));
 
-    AdTimeline adTimeline = new AdTimeline(
-        contentTimeline, new AdPlaybackState(
-        "adsId",
-        0L, 10 * MICROS_PER_SECOND, // period 0:  0s - 20s
-        25 * MICROS_PER_SECOND, 35 * MICROS_PER_SECOND, // period 1: 20s - 40s
-        45 * MICROS_PER_SECOND, 55 * MICROS_PER_SECOND // period 2: 40s - 60s
-    ));
+    AdTimeline adTimeline =
+        new AdTimeline(
+            contentTimeline,
+            new AdPlaybackState(
+                "adsId",
+                0L,
+                10 * MICROS_PER_SECOND, // period 0:  0s - 20s
+                25 * MICROS_PER_SECOND,
+                35 * MICROS_PER_SECOND, // period 1: 20s - 40s
+                45 * MICROS_PER_SECOND,
+                55 * MICROS_PER_SECOND // period 2: 40s - 60s
+                ));
 
     Period period0 = new Period();
     adTimeline.getPeriod(0, period0);
@@ -63,7 +68,8 @@ public class AdTimelineTest {
     assertEquals(3, period1.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)); // 30s
     assertEquals(3, period1.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)); // 39s
     // no more ads to be played in 1st period
-    assertEquals(INDEX_UNSET, period1.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 39s
+    assertEquals(
+        INDEX_UNSET, period1.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 39s
 
     Period period2 = new Period();
     adTimeline.getPeriod(2, period2);
@@ -75,34 +81,36 @@ public class AdTimelineTest {
     assertEquals(5, period2.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)); // 50s
     assertEquals(5, period2.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)); // 59s
     // no more ads to be played in 2nd period
-    assertEquals(INDEX_UNSET, period2.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 59s
+    assertEquals(
+        INDEX_UNSET, period2.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 59s
   }
 
   @Test
   public void getPeriod_postRoll() {
     String windowId = "windowId";
 
-    FakeTimeline contentTimeline = new FakeTimeline(
-        new FakeTimeline.TimelineWindowDefinition(
-            2, // periodCount
-            windowId,
-            true, // isSeekable
-            false, // isDynamic
-            false, // isLive
-            false, // isPlaceholder
-            60 * MICROS_PER_SECOND, // durationUs
-            0, // defaultPositionUs
-            0, // windowOffsetInFirstPeriodUs
-            AdPlaybackState.NONE, // adPlaybackState
-            FAKE_MEDIA_ITEM // mediaItem
-        )
-    );
+    FakeTimeline contentTimeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition(
+                2, // periodCount
+                windowId,
+                true, // isSeekable
+                false, // isDynamic
+                false, // isLive
+                false, // isPlaceholder
+                60 * MICROS_PER_SECOND, // durationUs
+                0, // defaultPositionUs
+                0, // windowOffsetInFirstPeriodUs
+                AdPlaybackState.NONE, // adPlaybackState
+                FAKE_MEDIA_ITEM // mediaItem
+                ));
 
-    AdTimeline adTimeline = new AdTimeline(
-        contentTimeline, new AdPlaybackState(
-        "adsId",
-        TIME_END_OF_SOURCE // period 1: 30s - 60s
-    ));
+    AdTimeline adTimeline =
+        new AdTimeline(
+            contentTimeline,
+            new AdPlaybackState(
+                "adsId", TIME_END_OF_SOURCE // period 1: 30s - 60s
+                ));
 
     Period period0 = new Period();
     adTimeline.getPeriod(0, period0);

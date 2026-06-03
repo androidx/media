@@ -22,15 +22,15 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 
-
 /**
- * A custom {@link Timeline} for sources that have {@link AdPlaybackState} split among multiple periods.
- * <br/>
+ * A custom {@link Timeline} for sources that have {@link AdPlaybackState} split among multiple
+ * periods. <br>
  * For each period a modified {@link AdPlaybackState} is created for each period:
+ *
  * <ul>
- * <li> ad group time is offset relative to period start time </li>
- * <li> post-roll ad group is kept only for last period </li>
- * <li> ad group count and indices are kept unchanged </li>
+ *   <li>ad group time is offset relative to period start time
+ *   <li>post-roll ad group is kept only for last period
+ *   <li>ad group count and indices are kept unchanged
  * </ul>
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -53,8 +53,8 @@ public final class AdTimeline extends ForwardingTimeline {
     final Timeline.Period period = new Timeline.Period();
     for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
       timeline.getPeriod(periodIndex, period);
-      adPlaybackStates[periodIndex] = forPeriod(adPlaybackState, period.positionInWindowUs,
-          periodIndex == periodCount - 1);
+      adPlaybackStates[periodIndex] =
+          forPeriod(adPlaybackState, period.positionInWindowUs, periodIndex == periodCount - 1);
     }
   }
 
@@ -74,15 +74,13 @@ public final class AdTimeline extends ForwardingTimeline {
   }
 
   /**
-   * @param adPlaybackState     original state is immutable always new modified copy is created
+   * @param adPlaybackState original state is immutable always new modified copy is created
    * @param periodStartOffsetUs period start time offset from start of timeline (microseconds)
-   * @param isLastPeriod        true if this is the last period
+   * @param isLastPeriod true if this is the last period
    * @return adPlaybackState modified for period
    */
   private AdPlaybackState forPeriod(
-      AdPlaybackState adPlaybackState,
-      long periodStartOffsetUs,
-      boolean isLastPeriod) {
+      AdPlaybackState adPlaybackState, long periodStartOffsetUs, boolean isLastPeriod) {
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
       final long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
       if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
@@ -91,11 +89,10 @@ public final class AdTimeline extends ForwardingTimeline {
         }
       } else {
         // start time relative to period start
-        adPlaybackState = adPlaybackState.withAdGroupTimeUs(adGroupIndex,
-            adGroupTimeUs - periodStartOffsetUs);
+        adPlaybackState =
+            adPlaybackState.withAdGroupTimeUs(adGroupIndex, adGroupTimeUs - periodStartOffsetUs);
       }
     }
     return adPlaybackState;
   }
-
 }

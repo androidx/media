@@ -4038,8 +4038,7 @@ import java.util.Objects;
                 && periodIdWithAds.nextAdGroupIndex >= oldPeriodId.nextAdGroupIndex);
     boolean isOldCuePointWithinNewPeriod =
         isOldCuePointWithinNewPeriod(
-            timeline.getPeriodByUid(newPeriodUid, period),
-            oldPeriodId.nextAdGroupIndex);
+            timeline.getPeriodByUid(newPeriodUid, period), oldPeriodId.nextAdGroupIndex);
     // Drop update if we keep playing the same content (MediaPeriod.periodUid are identical) and
     // the only change is that MediaPeriodId.nextAdGroupIndex increased. This postpones a potential
     // discontinuity until we reach the former next ad group position.
@@ -4168,8 +4167,7 @@ import java.util.Objects;
     if (oldNextAdGroupIndex == C.INDEX_UNSET) {
       return true;
     }
-    AdGroup newAdGroupAtOldIndex = newPeriod
-        .adPlaybackState.getAdGroup(oldNextAdGroupIndex);
+    AdGroup newAdGroupAtOldIndex = newPeriod.adPlaybackState.getAdGroup(oldNextAdGroupIndex);
     return newAdGroupAtOldIndex.timeUs <= newPeriod.durationUs
         || newPeriod.durationUs == C.TIME_UNSET;
   }

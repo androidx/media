@@ -390,7 +390,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
           .handleSourceInfoRefresh(newTimeline);
       maybeUpdateSourceInfo();
     } else {
-//      checkArgument(newTimeline.getPeriodCount() == 1);
+      //      checkArgument(newTimeline.getPeriodCount() == 1);
       contentTimeline = newTimeline;
       mainHandler.post(
           () -> {
