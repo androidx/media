@@ -1,36 +1,49 @@
+/*
+ * Copyright (C) 2026 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package androidx.media3.exoplayer.source.ads;
 
 import static androidx.media3.common.C.INDEX_UNSET;
 import static androidx.media3.common.C.MICROS_PER_SECOND;
 import static androidx.media3.common.C.TIME_END_OF_SOURCE;
-import static androidx.media3.test.utils.FakeTimeline.FAKE_MEDIA_ITEM;
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
+/** Unit test for {@link AdTimeline}. */
+@RunWith(AndroidJUnit4.class)
 public class AdTimelineTest {
+
   @Test
-  public void getPeriod() {
+  public void getPeriod_multiPeriod_returnsCorrectAdPlaybackStateForEachPeriod() {
     String windowId = "windowId";
 
     FakeTimeline contentTimeline =
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                3, // periodCount
-                windowId,
-                true, // isSeekable
-                false, // isDynamic
-                false, // isLive
-                false, // isPlaceholder
-                60 * MICROS_PER_SECOND, // durationUs
-                0, // defaultPositionUs
-                0, // windowOffsetInFirstPeriodUs
-                AdPlaybackState.NONE, // adPlaybackState
-                FAKE_MEDIA_ITEM // mediaItem
-                ));
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(3)
+                .setUid(windowId)
+                .setSeekable(true)
+                .setDurationUs(60 * MICROS_PER_SECOND)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
 
     AdTimeline adTimeline =
         new AdTimeline(
@@ -49,61 +62,53 @@ public class AdTimelineTest {
     adTimeline.getPeriod(0, period0);
 
     // period durations are uniformly split windowDuration/periodCount
-    assertEquals(20 * MICROS_PER_SECOND, period0.durationUs);
+    assertThat(period0.durationUs).isEqualTo(20 * MICROS_PER_SECOND);
 
     // positions within the 0th period
-    assertEquals(0, period0.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND));
-    assertEquals(1, period0.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND));
-    assertEquals(1, period0.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND));
+    assertThat(period0.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(0);
+    assertThat(period0.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(1);
+    assertThat(period0.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(1);
     // no more ads to be played in 0th period
-    assertEquals(INDEX_UNSET, period0.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND));
+    assertThat(period0.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET);
 
     Period period1 = new Period();
     adTimeline.getPeriod(1, period1);
 
     // positions within the 1st period
-    assertEquals(1, period1.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)); // 21s
-    assertEquals(2, period1.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND)); // 21s
-    assertEquals(2, period1.getAdGroupIndexForPositionUs(10 * MICROS_PER_SECOND)); // 30s
-    assertEquals(3, period1.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)); // 30s
-    assertEquals(3, period1.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)); // 39s
+    assertThat(period1.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(1); // 21s
+    assertThat(period1.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(2); // 21s
+    assertThat(period1.getAdGroupIndexForPositionUs(10 * MICROS_PER_SECOND)).isEqualTo(2); // 30s
+    assertThat(period1.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)).isEqualTo(3); // 30s
+    assertThat(period1.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(3); // 39s
     // no more ads to be played in 1st period
-    assertEquals(
-        INDEX_UNSET, period1.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 39s
+    assertThat(period1.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET); // 39s
 
     Period period2 = new Period();
     adTimeline.getPeriod(2, period2);
 
     // positions within the 2nd period
-    assertEquals(3, period2.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)); // 41s
-    assertEquals(4, period2.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND)); // 41s
-    assertEquals(4, period2.getAdGroupIndexForPositionUs(10 * MICROS_PER_SECOND)); // 50s
-    assertEquals(5, period2.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)); // 50s
-    assertEquals(5, period2.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)); // 59s
+    assertThat(period2.getAdGroupIndexForPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(3); // 41s
+    assertThat(period2.getAdGroupIndexAfterPositionUs(1 * MICROS_PER_SECOND)).isEqualTo(4); // 41s
+    assertThat(period2.getAdGroupIndexForPositionUs(10 * MICROS_PER_SECOND)).isEqualTo(4); // 50s
+    assertThat(period2.getAdGroupIndexAfterPositionUs(10 * MICROS_PER_SECOND)).isEqualTo(5); // 50s
+    assertThat(period2.getAdGroupIndexForPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(5); // 59s
     // no more ads to be played in 2nd period
-    assertEquals(
-        INDEX_UNSET, period2.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)); // 59s
+    assertThat(period2.getAdGroupIndexAfterPositionUs(19 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET); // 59s
   }
 
   @Test
-  public void getPeriod_postRoll() {
+  public void getPeriod_postRoll_onlyKeptInLastPeriod() {
     String windowId = "windowId";
 
     FakeTimeline contentTimeline =
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(
-                2, // periodCount
-                windowId,
-                true, // isSeekable
-                false, // isDynamic
-                false, // isLive
-                false, // isPlaceholder
-                60 * MICROS_PER_SECOND, // durationUs
-                0, // defaultPositionUs
-                0, // windowOffsetInFirstPeriodUs
-                AdPlaybackState.NONE, // adPlaybackState
-                FAKE_MEDIA_ITEM // mediaItem
-                ));
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setPeriodCount(2)
+                .setUid(windowId)
+                .setSeekable(true)
+                .setDurationUs(60 * MICROS_PER_SECOND)
+                .setWindowPositionInFirstPeriodUs(0)
+                .build());
 
     AdTimeline adTimeline =
         new AdTimeline(
@@ -116,17 +121,17 @@ public class AdTimelineTest {
     adTimeline.getPeriod(0, period0);
 
     // period durations are uniformly split windowDuration/periodCount
-    assertEquals(30 * MICROS_PER_SECOND, period0.durationUs);
+    assertThat(period0.durationUs).isEqualTo(30 * MICROS_PER_SECOND);
 
-    assertEquals(INDEX_UNSET, period0.getAdGroupIndexForPositionUs(15 * MICROS_PER_SECOND));
+    assertThat(period0.getAdGroupIndexForPositionUs(15 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET);
     // post-roll should not be played in 0th period
-    assertEquals(INDEX_UNSET, period0.getAdGroupIndexAfterPositionUs(15 * MICROS_PER_SECOND));
+    assertThat(period0.getAdGroupIndexAfterPositionUs(15 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET);
 
     Period period1 = new Period();
     adTimeline.getPeriod(1, period1);
 
-    assertEquals(INDEX_UNSET, period1.getAdGroupIndexForPositionUs(29 * MICROS_PER_SECOND)); // 59s
+    assertThat(period1.getAdGroupIndexForPositionUs(29 * MICROS_PER_SECOND)).isEqualTo(INDEX_UNSET); // 59s
     // post-roll in the end
-    assertEquals(0, period1.getAdGroupIndexAfterPositionUs(29 * MICROS_PER_SECOND)); // 59s
+    assertThat(period1.getAdGroupIndexAfterPositionUs(29 * MICROS_PER_SECOND)).isEqualTo(0); // 59s
   }
 }

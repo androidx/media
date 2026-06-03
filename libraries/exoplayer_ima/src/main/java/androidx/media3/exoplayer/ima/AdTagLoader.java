@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.ima;
 
 import static androidx.media3.common.Player.COMMAND_GET_VOLUME;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkArgument;
 import static androidx.media3.exoplayer.ima.ImaUtil.BITRATE_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.TIMEOUT_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.getAdGroupTimesUsForCuePoints;
@@ -490,22 +491,12 @@ import java.util.Objects;
     }
     Player player = this.player;
     this.timeline = timeline;
-    long contentDurationUs;
     int windowIndex = player.getCurrentMediaItemIndex();
-
     Timeline.Window window = new Timeline.Window();
     timeline.getWindow(windowIndex, window);
-    if (window.firstPeriodIndex == window.lastPeriodIndex) {
-      // may be TIME_UNSET for placeholder
-      contentDurationUs = timeline.getPeriod(window.firstPeriodIndex, period).durationUs;
-    } else {
-      // multi-period content
-      contentDurationUs = 0;
-      for (int i = window.firstPeriodIndex; i <= window.lastPeriodIndex; i++) {
-        long periodDurationUs = timeline.getPeriod(i, period).durationUs;
-        contentDurationUs += periodDurationUs != C.TIME_UNSET ? periodDurationUs : 0;
-      }
-    }
+    checkArgument(window.firstPeriodIndex == window.lastPeriodIndex);
+    // may be TIME_UNSET for placeholder
+    long contentDurationUs = timeline.getPeriod(window.firstPeriodIndex, period).durationUs;
 
     contentDurationMs = Util.usToMs(contentDurationUs);
     if (contentDurationUs != adPlaybackState.contentDurationUs) {

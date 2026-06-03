@@ -4032,12 +4032,12 @@ import java.util.Objects;
             contentPositionForAdResolutionUs,
             enforceAdPlaybackOnTimelineRefresh,
             /* transitionsFromPlaceholderPeriod= */ isUsingPlaceholderPeriod);
-    boolean earliestCuePointIsUnchangedOrLater =
+    boolean earliestAdGroupIsUnchangedOrLater =
         periodIdWithAds.nextAdGroupIndex == C.INDEX_UNSET
             || (oldPeriodId.nextAdGroupIndex != C.INDEX_UNSET
                 && periodIdWithAds.nextAdGroupIndex >= oldPeriodId.nextAdGroupIndex);
-    boolean isOldCuePointWithinNewPeriod =
-        isOldCuePointWithinNewPeriod(
+    boolean isOldAdGroupWithinNewPeriod =
+        isOldAdGroupWithinNewPeriod(
             timeline.getPeriodByUid(newPeriodUid, period), oldPeriodId.nextAdGroupIndex);
     // Drop update if we keep playing the same content (MediaPeriod.periodUid are identical) and
     // the only change is that MediaPeriodId.nextAdGroupIndex increased. This postpones a potential
@@ -4047,8 +4047,8 @@ import java.util.Objects;
         sameOldAndNewPeriodUid
             && !oldPeriodId.isAd()
             && !periodIdWithAds.isAd()
-            && isOldCuePointWithinNewPeriod
-            && earliestCuePointIsUnchangedOrLater;
+            && isOldAdGroupWithinNewPeriod
+            && earliestAdGroupIsUnchangedOrLater;
     // Drop update if the change is from/to server-side inserted ads at the same content position to
     // avoid any unintentional renderer reset.
     boolean isInStreamAdChange =
@@ -4162,7 +4162,7 @@ import java.util.Objects;
     return timeline.isEmpty() || timeline.getPeriodByUid(periodId.periodUid, period).isPlaceholder;
   }
 
-  private static boolean isOldCuePointWithinNewPeriod(
+  private static boolean isOldAdGroupWithinNewPeriod(
       Timeline.Period newPeriod, int oldNextAdGroupIndex) {
     if (oldNextAdGroupIndex == C.INDEX_UNSET) {
       return true;

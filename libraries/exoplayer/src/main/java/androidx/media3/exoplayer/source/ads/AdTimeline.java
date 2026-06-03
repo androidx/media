@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 The Android Open Source Project
+ * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
  */
 package androidx.media3.exoplayer.source.ads;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 
 /**
  * A custom {@link Timeline} for sources that have {@link AdPlaybackState} split among multiple
- * periods. <br>
- * For each period a modified {@link AdPlaybackState} is created for each period:
+ * periods.
+ *
+ * <p>For each period a modified {@link AdPlaybackState} is created:
  *
  * <ul>
  *   <li>ad group time is offset relative to period start time
@@ -34,23 +37,24 @@ import androidx.media3.exoplayer.source.ForwardingTimeline;
  * </ul>
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+@UnstableApi
 public final class AdTimeline extends ForwardingTimeline {
 
   private final AdPlaybackState[] adPlaybackStates;
 
   /**
-   * Creates a new timeline with a single period containing ads.
+   * Creates a new timeline alongside which ads will be played.
    *
    * @param contentTimeline The timeline of the content alongside which ads will be played.
    * @param adPlaybackState The state of the media's ads.
    */
   public AdTimeline(Timeline contentTimeline, AdPlaybackState adPlaybackState) {
     super(contentTimeline);
-    final int periodCount = contentTimeline.getPeriodCount();
-    Assertions.checkState(contentTimeline.getWindowCount() == 1);
+    int periodCount = contentTimeline.getPeriodCount();
+    checkState(contentTimeline.getWindowCount() == 1);
     this.adPlaybackStates = new AdPlaybackState[periodCount];
 
-    final Timeline.Period period = new Timeline.Period();
+    Timeline.Period period = new Timeline.Period();
     for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
       timeline.getPeriod(periodIndex, period);
       adPlaybackStates[periodIndex] =
@@ -61,12 +65,15 @@ public final class AdTimeline extends ForwardingTimeline {
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     timeline.getPeriod(periodIndex, period, setIds);
-
+    long durationUs =
+        period.durationUs == C.TIME_UNSET
+            ? adPlaybackStates[periodIndex].contentDurationUs
+            : period.durationUs;
     period.set(
         period.id,
         period.uid,
         period.windowIndex,
-        period.durationUs,
+        durationUs,
         period.getPositionInWindowUs(),
         adPlaybackStates[periodIndex],
         period.isPlaceholder);
@@ -82,7 +89,7 @@ public final class AdTimeline extends ForwardingTimeline {
   private AdPlaybackState forPeriod(
       AdPlaybackState adPlaybackState, long periodStartOffsetUs, boolean isLastPeriod) {
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
-      final long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
+      long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
       if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
         if (!isLastPeriod) {
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
