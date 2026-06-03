@@ -138,11 +138,12 @@ import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+
+// copybara:insert import org.junit.Ignore;
 
 /** Integration test for {@link DefaultAnalyticsCollector}. */
 @RunWith(AndroidJUnit4.class)
@@ -1738,7 +1739,7 @@ public final class DefaultAnalyticsCollectorTest {
   }
 
   @Test
-  @Ignore("Flaky: b/502480903")
+  // copybara:insert @Ignore("Flaky: b/502480903")
   public void onEvents_isReportedWithCorrectEventTimes() throws Exception {
     ExoPlayer player = setupPlayer();
     AnalyticsListener listener = mock(AnalyticsListener.class);

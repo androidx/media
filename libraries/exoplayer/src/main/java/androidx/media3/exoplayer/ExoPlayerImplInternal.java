@@ -4167,7 +4167,13 @@ import java.util.Objects;
     if (oldNextAdGroupIndex == C.INDEX_UNSET) {
       return true;
     }
+    if (oldNextAdGroupIndex >= newPeriod.adPlaybackState.adGroupCount) {
+      return false;
+    }
     AdGroup newAdGroupAtOldIndex = newPeriod.adPlaybackState.getAdGroup(oldNextAdGroupIndex);
+    if (newAdGroupAtOldIndex.timeUs == C.TIME_END_OF_SOURCE) {
+      return true;
+    }
     return newAdGroupAtOldIndex.timeUs <= newPeriod.durationUs
         || newPeriod.durationUs == C.TIME_UNSET;
   }

@@ -14,6 +14,8 @@
         count to decrease when an ad group is fully processed
         (`hasUnplayedAds()` is `false`), accommodating dynamic ad group resizing
         during reset workflows.
+    *   Add support for ads in multi-period content (e.g., DASH) by splitting
+        and offsetting the `AdPlaybackState` for each period.
     *   Add `getFlags()` and `FLAG_STRICT_DURATION` to `SampleStream` to allow
         streams to report flags, and update renderers to check these flags
         dynamically.

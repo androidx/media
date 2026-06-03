@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 The Android Open Source Project
+ * Copyright (C) 2026 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,9 @@ public final class AdTimeline extends ForwardingTimeline {
    * Creates a new timeline alongside which ads will be played.
    *
    * @param contentTimeline The timeline of the content alongside which ads will be played.
-   * @param adPlaybackState The state of the media's ads.
+   * @param adPlaybackState The state of the media's ads. The ad group times in this state must be
+   *     relative to the start of the window (i.e. timeUs = 0 corresponds to the start of the
+   *     window).
    */
   public AdTimeline(Timeline contentTimeline, AdPlaybackState adPlaybackState) {
     super(contentTimeline);
@@ -61,6 +63,7 @@ public final class AdTimeline extends ForwardingTimeline {
           forPeriod(
               adPlaybackState,
               period.positionInWindowUs,
+              period.durationUs,
               /* isLastPeriod= */ periodIndex == periodCount - 1);
     }
   }
@@ -84,7 +87,24 @@ public final class AdTimeline extends ForwardingTimeline {
   }
 
   private AdPlaybackState forPeriod(
-      AdPlaybackState adPlaybackState, long periodStartOffsetUs, boolean isLastPeriod) {
+      AdPlaybackState adPlaybackState,
+      long periodStartOffsetUs,
+      long periodDurationUs,
+      boolean isLastPeriod) {
+    if (periodStartOffsetUs == 0 && isLastPeriod) {
+      long contentDurationUs =
+          periodDurationUs == C.TIME_UNSET ? adPlaybackState.contentDurationUs : periodDurationUs;
+      return adPlaybackState.withContentDurationUs(contentDurationUs);
+    }
+    long contentDurationUs = periodDurationUs;
+    if (contentDurationUs == C.TIME_UNSET) {
+      contentDurationUs =
+          isLastPeriod && adPlaybackState.contentDurationUs != C.TIME_UNSET
+              ? adPlaybackState.contentDurationUs - periodStartOffsetUs
+              : C.TIME_UNSET;
+    }
+    adPlaybackState = adPlaybackState.withContentDurationUs(contentDurationUs);
+
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
       long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
       if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
@@ -92,7 +112,6 @@ public final class AdTimeline extends ForwardingTimeline {
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
         }
       } else {
-        // start time relative to period start
         adPlaybackState =
             adPlaybackState.withAdGroupTimeUs(adGroupIndex, adGroupTimeUs - periodStartOffsetUs);
       }

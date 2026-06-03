@@ -76,6 +76,9 @@ public interface AdsLoader {
      * Called when the ad playback state has been updated. The number of {@link
      * AdPlaybackState#adGroupCount ad groups} may not change after the first call.
      *
+     * <p>The ad group times in the {@link AdPlaybackState} must be relative to the start of the
+     * timeline window (i.e. timeUs = 0 corresponds to the start of the window).
+     *
      * @param adPlaybackState The new ad playback state.
      */
     default void onAdPlaybackState(AdPlaybackState adPlaybackState) {}

@@ -254,8 +254,7 @@ public final class AdsMediaSourceTest {
     verify(mockMediaSourceCaller, times(2))
         .onSourceInfoRefreshed(eq(adsMediaSource), adsTimelineCaptor.capture());
     TestUtil.timelinesAreSame(
-        adsTimelineCaptor.getValue(),
-        new AdTimeline(CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
+        adsTimelineCaptor.getValue(), new AdTimeline(CONTENT_TIMELINE, PREROLL_AD_PLAYBACK_STATE));
   }
 
   @Test
