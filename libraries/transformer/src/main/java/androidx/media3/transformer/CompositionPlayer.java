@@ -2236,7 +2236,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
    * #wrapMediaSourceWithCompositionForwardingTimeline media source} when changing the {@linkplain
    * SequencePlayerHolder sequence players} content.
    */
-  private static final class CompositionForwardingTimeline extends ForwardingTimeline {
+  /* package */ static final class CompositionForwardingTimeline extends ForwardingTimeline {
 
     private final EditedMediaItemSequence sequence;
 

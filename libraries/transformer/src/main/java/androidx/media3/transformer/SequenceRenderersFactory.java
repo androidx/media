@@ -24,6 +24,9 @@ import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDE
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
+import static androidx.media3.transformer.TransformerUtil.getEditedMediaItem;
+import static androidx.media3.transformer.TransformerUtil.getEditedMediaItemSequence;
+import static androidx.media3.transformer.TransformerUtil.getOffsetToCompositionTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -59,6 +62,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -280,44 +284,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return null;
   }
 
-  /**
-   * Returns the offset convert the renderers timestamp to the start of the {@link Composition}.
-   *
-   * @param timeline The {@link Timeline} associated with this renderer.
-   * @param mediaPeriodId The {@link MediaSource.MediaPeriodId}.
-   * @param offsetUs The offset added to timestamps of buffers to ensure monotonically increasing
-   *     timestamps, in microseconds. This is the constant offset between the current MediaPeriod
-   *     timestamps and the renderer timestamp.
-   *     <p>See <a
-   *     href="https://developer.android.com/reference/androidx/media3/exoplayer/Renderer#timestamps-and-offsets">this
-   *     corresponding topic on timestamps</a>.
-   */
-  private static long getOffsetToCompositionTimeUs(
-      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId, long offsetUs) {
-    Timeline.Period period =
-        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
-    return -offsetUs + period.positionInWindowUs;
-  }
-
-  private static boolean isLastInSequence(
-      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
+  private static boolean isLastInSequence(Timeline timeline, MediaPeriodId mediaPeriodId) {
     // TODO: b/419479048 - Investigate whether this should always be false for looping sequences.
     return timeline.getIndexOfPeriod(mediaPeriodId.periodUid) == timeline.getPeriodCount() - 1;
-  }
-
-  private static EditedMediaItemSequence getEditedMediaItemSequence(
-      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
-    Timeline.Period period =
-        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
-    checkState(period.id instanceof EditedMediaItemSequence);
-    return (EditedMediaItemSequence) period.id;
-  }
-
-  private static EditedMediaItem getEditedMediaItem(
-      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
-    int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
-    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
-    return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
   }
 
   private static boolean isAudioOnlySequence(
@@ -328,13 +297,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
-    private final AudioGraphInputAudioSink audioSink;
+
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
     @Nullable private final HardwareBufferFrameReader hardwareBufferFrameReader;
-    private long streamStartPositionUs;
-    private long pendingOffsetToCompositionTimeUs;
-    private long pendingOffsetToEditedMediaItemStartUs;
 
     // TODO: b/320007703 - Revisit the abstractions needed here (editedMediaItemProvider and
     //  Supplier<EditedMediaItem>) once we finish all the wiring to support multiple sequences.
@@ -346,7 +312,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
         @Nullable HardwareBufferFrameReader hardwareBufferFrameReader) {
       super(context, MediaCodecSelector.DEFAULT, eventHandler, eventListener, audioSink);
-      this.audioSink = audioSink;
       this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
       this.hardwareBufferFrameReader = hardwareBufferFrameReader;
     }
@@ -357,10 +322,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
       if (compositionRendererListener != null) {
+        long offsetToCompositionTimeUs =
+            getOffsetToCompositionTimeUs(
+                getTimeline(), checkNotNull(getMediaPeriodId()), getStreamOffsetUs());
+        // TODO: b/518744071 - Remove video-related callbacks.
         compositionRendererListener.onRender(
-            positionUs + pendingOffsetToCompositionTimeUs,
+            /* compositionTimePositionUs= */ positionUs + offsetToCompositionTimeUs,
             elapsedRealtimeUs,
-            streamStartPositionUs + pendingOffsetToCompositionTimeUs);
+            /* compositionTimeOutputStreamStartPositionUs= */ getOutputStreamStartPositionUs()
+                + offsetToCompositionTimeUs);
       }
       try {
         while (playbackAudioGraphWrapper.processData()) {}
@@ -373,45 +343,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onStreamChanged(
-        Format[] formats,
-        long startPositionUs,
-        long offsetUs,
-        MediaSource.MediaPeriodId mediaPeriodId)
-        throws ExoPlaybackException {
-      checkState(getTimeline().getWindowCount() == 1);
-
-      streamStartPositionUs = startPositionUs;
-      pendingOffsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
-      // We cannot use offsetUs for the first EditedMediaItem because the Timeline created by
-      // ConcatenatingMediaSource2 returns the original start of the period, without taking into
-      // account any clipping. For all other EditedMediaItems, offsetUs is aligned to the clipped
-      // start.
-      pendingOffsetToEditedMediaItemStartUs =
-          getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid) == 0
-              ? -pendingOffsetToCompositionTimeUs
-              : offsetUs;
-      super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
-    }
-
-    @Override
-    protected void onProcessedStreamChange() {
-      super.onProcessedStreamChange();
-      onMediaItemChanged();
-    }
-
-    @Override
-    protected void onPositionReset(
-        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
-        throws ExoPlaybackException {
-      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
-      onMediaItemChanged();
-    }
-
-    @Override
     protected void renderToEndOfStream() throws ExoPlaybackException {
       super.renderToEndOfStream();
+      // TODO: b/518744071 - Remove video-related callbacks.
       // For audio-only sequences, there is no video renderer to send the EOS.
       // Send it here so the video pipeline doesn't hang indefinitely.
       if (hardwareBufferFrameReader != null
@@ -419,18 +353,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           && isAudioOnlySequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
         hardwareBufferFrameReader.queueEndOfStream();
       }
-    }
-
-    // Other methods
-
-    private void onMediaItemChanged() {
-      // The media item might have been repeated in the sequence.
-      MediaSource.MediaPeriodId mediaPeriodId = checkNotNull(getMediaPeriodId());
-      EditedMediaItem currentEditedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId);
-      audioSink.onMediaItemChanged(
-          currentEditedMediaItem,
-          pendingOffsetToCompositionTimeUs,
-          pendingOffsetToEditedMediaItemStartUs);
     }
 
     private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {

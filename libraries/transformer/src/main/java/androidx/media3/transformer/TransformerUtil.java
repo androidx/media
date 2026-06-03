@@ -22,6 +22,7 @@ import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternative
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.round;
 
 import android.content.ContentResolver;
@@ -40,6 +41,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
@@ -48,6 +50,8 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
@@ -406,6 +410,57 @@ public final class TransformerUtil {
     }
 
     return false;
+  }
+
+  /**
+   * Returns the offset between a renderer timestamp and the start of the {@link Composition}.
+   *
+   * @param timeline The {@link Timeline} associated with this renderer.
+   * @param mediaPeriodId The {@link MediaSource.MediaPeriodId}.
+   * @param offsetUs The offset added to timestamps of buffers to ensure monotonically increasing
+   *     timestamps, in microseconds. This is the constant offset between the current MediaPeriod
+   *     timestamps and the renderer timestamp.
+   *     <p>See <a
+   *     href="https://developer.android.com/reference/androidx/media3/exoplayer/Renderer#timestamps-and-offsets">this
+   *     corresponding topic on timestamps</a>.
+   */
+  public static long getOffsetToCompositionTimeUs(
+      Timeline timeline, MediaPeriodId mediaPeriodId, long offsetUs) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    return -offsetUs + period.positionInWindowUs;
+  }
+
+  /**
+   * Returns the {@link EditedMediaItemSequence} corresponding to {@code mediaPeriodId} within
+   * {@code timeline}.
+   *
+   * <p>If {@code mediaPeriodId} does not map to a sequence this method will throw a {@link
+   * IllegalStateException}.
+   *
+   * @param timeline The {@link Timeline} associated to the {@link EditedMediaItemSequence}.
+   * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link
+   *     EditedMediaItemSequence}.
+   */
+  public static EditedMediaItemSequence getEditedMediaItemSequence(
+      Timeline timeline, MediaPeriodId mediaPeriodId) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    checkState(period.id instanceof EditedMediaItemSequence);
+    return (EditedMediaItemSequence) period.id;
+  }
+
+  /**
+   * Returns the {@link EditedMediaItem} corresponding to {@code mediaPeriodId} within {@code
+   * timeline}.
+   *
+   * @param timeline The {@link Timeline} associated to the {@link EditedMediaItem}.
+   * @param mediaPeriodId The {@link MediaPeriodId} associated to the {@link EditedMediaItem}.
+   */
+  public static EditedMediaItem getEditedMediaItem(Timeline timeline, MediaPeriodId mediaPeriodId) {
+    int index = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
+    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
+    return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
   }
 
   @Nullable

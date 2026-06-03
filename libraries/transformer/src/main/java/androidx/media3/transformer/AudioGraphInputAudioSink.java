@@ -25,6 +25,8 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_FLUSH;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RESET;
+import static androidx.media3.transformer.TransformerUtil.getEditedMediaItem;
+import static androidx.media3.transformer.TransformerUtil.getOffsetToCompositionTimeUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -37,10 +39,12 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackParameters;
+import androidx.media3.common.Timeline;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
@@ -120,31 +124,13 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
   @Nullable private EditedMediaItem currentEditedMediaItem;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
+  private long outputStreamOffsetUs;
   private long offsetToEditedMediaItemStartUs;
   private boolean isConfigurationPending;
   private boolean isFlushPending;
 
   public AudioGraphInputAudioSink(Controller controller) {
     this.controller = controller;
-  }
-
-  /**
-   * Informs the audio sink there is a change on the {@link EditedMediaItem} currently rendered by
-   * the renderer.
-   *
-   * @param editedMediaItem The {@link EditedMediaItem}.
-   * @param offsetToCompositionTimeUs The offset to add to the audio buffer timestamps to convert
-   *     them to the composition time, in microseconds.
-   * @param offsetToEditedMediaItemStartUs The position of the current {@link EditedMediaItem}'s
-   *     start relative to the audio buffer's presentation timestamp.
-   */
-  public void onMediaItemChanged(
-      EditedMediaItem editedMediaItem,
-      long offsetToCompositionTimeUs,
-      long offsetToEditedMediaItemStartUs) {
-    currentEditedMediaItem = editedMediaItem;
-    this.offsetToCompositionTimeUs = offsetToCompositionTimeUs;
-    this.offsetToEditedMediaItemStartUs = offsetToEditedMediaItemStartUs;
   }
 
   // AudioSink methods
@@ -166,7 +152,27 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
         String.valueOf(audioSinkConfig.mediaPeriodId));
 
     currentInputFormat = audioSinkConfig.format;
+
+    MediaPeriodId mediaPeriodId = checkNotNull(audioSinkConfig.mediaPeriodId);
+    Timeline timeline = audioSinkConfig.timeline;
+    currentEditedMediaItem = getEditedMediaItem(timeline, mediaPeriodId);
+    this.offsetToCompositionTimeUs =
+        getOffsetToCompositionTimeUs(timeline, mediaPeriodId, outputStreamOffsetUs);
+    // We cannot use outputStreamOffsetUs for the first EditedMediaItem because the Timeline created
+    // by ConcatenatingMediaSource2 returns the original start of the period, without taking into
+    // account any clipping. For all other EditedMediaItems, outputStreamOffsetUs is aligned to the
+    // clipped start.
+    this.offsetToEditedMediaItemStartUs =
+        timeline.getIndexOfPeriod(mediaPeriodId.periodUid) == 0
+            ? -offsetToCompositionTimeUs
+            : outputStreamOffsetUs;
+
     isConfigurationPending = true;
+  }
+
+  @Override
+  public void setOutputStreamOffsetUs(long outputStreamOffsetUs) {
+    this.outputStreamOffsetUs = outputStreamOffsetUs;
   }
 
   @Override

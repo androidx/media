@@ -15,19 +15,28 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
 import static androidx.media3.test.utils.TestUtil.getNonRandomByteBuffer;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.AudioSink.AudioSinkConfig;
+import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
+import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.transformer.AudioGraphInputAudioSink.Controller;
+import androidx.media3.transformer.CompositionPlayer.CompositionForwardingTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,6 +46,24 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link AudioGraphInputAudioSink}. */
 @RunWith(AndroidJUnit4.class)
 public class AudioGraphInputAudioSinkTest {
+
+  private static final long INITIAL_RENDERER_OFFSET_US = 1_000_000_000_000L;
+
+  /**
+   * Represents the renderer offset input buffers should use when queuing input after configuring
+   * the sink with {@link #getTimelineForSingleItemSequence()} and setting the {@link
+   * AudioSink#setOutputStreamOffsetUs(long)} to {@link #INITIAL_RENDERER_OFFSET_US}.
+   *
+   * <p>{@link ConcatenatingMediaSource2} creates a {@link Timeline} where the first period returns
+   * its original start position, regardless of clipping. Therefore, {@link
+   * AudioGraphInputAudioSink#configure} will calculate {@code offsetToEditedMediaItemStartUs} as
+   * {@code -outputStreamOffsetUs + period.positionInWindowUs} for the first item in the sequence.
+   */
+  private static final long DEFAULT_PRESENTATION_TIMESTAMP_OFFSET =
+      INITIAL_RENDERER_OFFSET_US + DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+
+  private static final Format STEREO_16BIT_PCM_44100 =
+      getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100);
 
   @Test
   public void hasPendingData_beforeConfiguration_returnsFalse() {
@@ -57,20 +84,23 @@ public class AudioGraphInputAudioSinkTest {
           }
         };
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
 
     // Activate new configuration.
     assertThat(
             sink.handleBuffer(
                 getNonRandomByteBuffer(1024, 4),
-                /* presentationTimeUs= */ 100_000,
+                /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET + 100_000,
                 /* encodedAccessUnitCount= */ 1))
         .isFalse();
     // Force AudioGraphInput to handle media item change.
@@ -80,7 +110,7 @@ public class AudioGraphInputAudioSinkTest {
     assertThat(
             sink.handleBuffer(
                 getNonRandomByteBuffer(1024, 4),
-                /* presentationTimeUs= */ 100_000,
+                /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET + 100_000,
                 /* encodedAccessUnitCount= */ 1))
         .isTrue();
 
@@ -106,10 +136,17 @@ public class AudioGraphInputAudioSinkTest {
     MockController mockController = new MockController();
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
 
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
 
     // Configuration only takes effect after subsequent #handleBuffer() call.
     assertThat(sink.isEnded()).isTrue();
@@ -120,18 +157,22 @@ public class AudioGraphInputAudioSinkTest {
     MockController mockController = new MockController();
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
 
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
+
     boolean unused =
         sink.handleBuffer(
             getNonRandomByteBuffer(1024, 4),
-            /* presentationTimeUs= */ 0,
+            /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
             /* encodedAccessUnitCount= */ 1);
 
     assertThat(sink.isEnded()).isFalse();
@@ -142,18 +183,21 @@ public class AudioGraphInputAudioSinkTest {
     MockController mockController = new MockController();
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
 
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
     boolean unused =
         sink.handleBuffer(
             getNonRandomByteBuffer(1024, 4),
-            /* presentationTimeUs= */ 0,
+            /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
             /* encodedAccessUnitCount= */ 1);
     assertThat(sink.isEnded()).isFalse();
 
@@ -173,20 +217,24 @@ public class AudioGraphInputAudioSinkTest {
           }
         };
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
 
     // Push buffer to activate previous configuration.
     assertThat(
             sink.handleBuffer(
                 getNonRandomByteBuffer(1024, 4),
-                /* presentationTimeUs= */ 0,
+                /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
                 /* encodedAccessUnitCount= */ 1))
         .isFalse();
     // Force AudioGraphInput to handle media item change.
@@ -195,7 +243,7 @@ public class AudioGraphInputAudioSinkTest {
     assertThat(
             sink.handleBuffer(
                 getNonRandomByteBuffer(1024, 4),
-                /* presentationTimeUs= */ 0,
+                /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
                 /* encodedAccessUnitCount= */ 1))
         .isTrue();
     // Queue EoS.
@@ -225,18 +273,22 @@ public class AudioGraphInputAudioSinkTest {
     MockController mockController = new MockController();
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
 
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
+
     boolean unused =
         sink.handleBuffer(
             getNonRandomByteBuffer(1024, 4),
-            /* presentationTimeUs= */ 0,
+            /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
             /* encodedAccessUnitCount= */ 1);
 
     assertThat(sink.getCurrentPositionUs(/* sourceEnded= */ false))
@@ -257,19 +309,23 @@ public class AudioGraphInputAudioSinkTest {
           }
         };
     AudioGraphInputAudioSink sink = new AudioGraphInputAudioSink(mockController);
-    sink.onMediaItemChanged(
-        new EditedMediaItem.Builder(MediaItem.EMPTY).build(),
-        /* offsetToCompositionTimeUs= */ 0,
-        /* offsetToEditedMediaItemStartUs= */ 0);
-    sink.configure(
-        Util.getPcmFormat(C.ENCODING_PCM_16BIT, /* channels= */ 2, /* sampleRate= */ 44100),
-        0,
-        null);
+
+    Timeline timeline = getTimelineForSingleItemSequence();
+    MediaPeriodId mediaPeriodId = new MediaPeriodId(timeline.getUidOfPeriod(0));
+
+    sink.setOutputStreamOffsetUs(INITIAL_RENDERER_OFFSET_US);
+
+    AudioSinkConfig config =
+        new AudioSinkConfig.Builder(STEREO_16BIT_PCM_44100)
+            .setMediaPeriodId(mediaPeriodId)
+            .setTimeline(timeline)
+            .build();
+    sink.configure(config);
     // Queue buffer to activate last configuration.
     boolean unused =
         sink.handleBuffer(
             getNonRandomByteBuffer(1024, 4),
-            /* presentationTimeUs= */ 0,
+            /* presentationTimeUs= */ DEFAULT_PRESENTATION_TIMESTAMP_OFFSET,
             /* encodedAccessUnitCount= */ 1);
     assertThat(mockController.input).isNotNull();
     assertThat(mockController.input.isReleased()).isFalse();
@@ -319,5 +375,15 @@ public class AudioGraphInputAudioSinkTest {
     public boolean shouldEnd() {
       return false;
     }
+  }
+
+  /**
+   * Returns a {@linkplain FakeTimeline#FakeTimeline() default FakeTimeline} wrapped in a {@link
+   * CompositionForwardingTimeline} mapped to a single-item audio sequence containing {@code item}.
+   */
+  private static Timeline getTimelineForSingleItemSequence() {
+    return new CompositionForwardingTimeline(
+        new FakeTimeline(),
+        withAudioFrom(ImmutableList.of(new EditedMediaItem.Builder(MediaItem.EMPTY).build())));
   }
 }
