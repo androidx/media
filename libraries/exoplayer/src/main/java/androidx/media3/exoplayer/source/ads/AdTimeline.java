@@ -31,9 +31,9 @@ import androidx.media3.exoplayer.source.ForwardingTimeline;
  * <p>For each period a modified {@link AdPlaybackState} is created:
  *
  * <ul>
- *   <li>ad group time is offset relative to period start time
- *   <li>post-roll ad group is kept only for last period
- *   <li>ad group count and indices are kept unchanged
+ *   <li>Ad group time is offset relative to period start time
+ *   <li>Post-roll ad group is kept only for last period
+ *   <li>Ad group count and indices are kept unchanged
  * </ul>
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
@@ -58,7 +58,10 @@ public final class AdTimeline extends ForwardingTimeline {
     for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
       timeline.getPeriod(periodIndex, period);
       adPlaybackStates[periodIndex] =
-          forPeriod(adPlaybackState, period.positionInWindowUs, periodIndex == periodCount - 1);
+          forPeriod(
+              adPlaybackState,
+              period.positionInWindowUs,
+              /* isLastPeriod= */ periodIndex == periodCount - 1);
     }
   }
 
@@ -80,12 +83,6 @@ public final class AdTimeline extends ForwardingTimeline {
     return period;
   }
 
-  /**
-   * @param adPlaybackState original state is immutable always new modified copy is created
-   * @param periodStartOffsetUs period start time offset from start of timeline (microseconds)
-   * @param isLastPeriod true if this is the last period
-   * @return adPlaybackState modified for period
-   */
   private AdPlaybackState forPeriod(
       AdPlaybackState adPlaybackState, long periodStartOffsetUs, boolean isLastPeriod) {
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
