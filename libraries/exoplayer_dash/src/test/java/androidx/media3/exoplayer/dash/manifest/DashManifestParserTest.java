@@ -29,6 +29,7 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.dash.DashSegmentIndex;
 import androidx.media3.exoplayer.dash.manifest.Representation.MultiSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.Representation.SingleSegmentRepresentation;
 import androidx.media3.exoplayer.dash.manifest.SegmentBase.SegmentTimelineElement;
@@ -67,6 +68,8 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_LABELS = "media/mpd/sample_mpd_labels";
   private static final String SAMPLE_MPD_ASSET_IDENTIFIER = "media/mpd/sample_mpd_asset_identifier";
   private static final String SAMPLE_MPD_TEXT = "media/mpd/sample_mpd_text";
+  private static final String SAMPLE_MPD_TEXT_PRESENTATION_TIME_OFFSET =
+      "media/mpd/sample_mpd_text_presentation_time_offset";
   private static final String SAMPLE_MPD_TRICK_PLAY = "media/mpd/sample_mpd_trick_play";
   private static final String SAMPLE_MPD_ESSENTIAL_SUPPLEMENTAL_PROPERTIES =
       "media/mpd/sample_mpd_essential_supplemental_properties";
@@ -366,6 +369,44 @@ public class DashManifestParserTest {
     assertThat(format.codecs).isNull();
     assertThat(format.roleFlags).isEqualTo(0);
     assertThat(adaptationSets.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
+  }
+
+  // DASH-IF "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL be
+  // ignored by clients if present.
+  // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
+  @Test
+  public void parseMediaPresentationDescription_standaloneTextIgnoresPresentationTimeOffset()
+      throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(),
+                SAMPLE_MPD_TEXT_PRESENTATION_TIME_OFFSET));
+
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    // Standalone TTML - @presentationTimeOffset must be ignored.
+    Representation ttmlRepresentation = adaptationSets.get(0).representations.get(0);
+    assertThat(ttmlRepresentation.format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_TTML);
+    assertThat(ttmlRepresentation.presentationTimeOffsetUs).isEqualTo(0);
+    DashSegmentIndex ttmlIndex = ((MultiSegmentRepresentation) ttmlRepresentation);
+    assertThat(ttmlIndex.getTimeUs(ttmlIndex.getFirstSegmentNum())).isEqualTo(2_000_000);
+
+    // Standalone WebVTT - @presentationTimeOffset must be ignored.
+    Representation vttRepresentation = adaptationSets.get(1).representations.get(0);
+    assertThat(vttRepresentation.format.containerMimeType).isEqualTo(MimeTypes.TEXT_VTT);
+    assertThat(vttRepresentation.presentationTimeOffsetUs).isEqualTo(0);
+    DashSegmentIndex vttIndex = ((MultiSegmentRepresentation) vttRepresentation);
+    assertThat(vttIndex.getTimeUs(vttIndex.getFirstSegmentNum())).isEqualTo(3_000_000);
+
+    // Muxed text in mp4 - @presentationTimeOffset must be honored.
+    Representation mp4Representation = adaptationSets.get(2).representations.get(0);
+    assertThat(mp4Representation.format.containerMimeType).isEqualTo(MimeTypes.APPLICATION_MP4);
+    assertThat(mp4Representation.presentationTimeOffsetUs).isEqualTo(5_000_000);
+    DashSegmentIndex mp4Index = ((MultiSegmentRepresentation) mp4Representation);
+    assertThat(mp4Index.getTimeUs(mp4Index.getFirstSegmentNum())).isEqualTo(0);
   }
 
   @Test
