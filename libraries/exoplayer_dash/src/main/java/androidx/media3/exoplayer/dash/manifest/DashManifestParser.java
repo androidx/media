@@ -862,6 +862,11 @@ public class DashManifestParser extends DefaultHandler
             essentialProperties,
             supplementalProperties);
     segmentBase = segmentBase != null ? segmentBase : new SingleSegmentBase();
+    if (isStandaloneTextRepresentation(format) && segmentBase.presentationTimeOffset != 0) {
+      // DASH-IF IOP "Standalone Text Timing": @presentationTimeOffset SHALL be ignored for
+      // standalone text. See https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
+      segmentBase = segmentBase.copyWithPresentationTimeOffset(0);
+    }
 
     return new RepresentationInfo(
         format,
@@ -973,26 +978,15 @@ public class DashManifestParser extends DefaultHandler
     ArrayList<Descriptor> inbandEventStreams = representationInfo.inbandEventStreams;
     inbandEventStreams.addAll(extraInbandEventStreams);
     Format format = formatBuilder.build();
-    SegmentBase segmentBase = representationInfo.segmentBase;
-    // DASH-IF IOP "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL
-    // be ignored by clients if present.
-    // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
-    if (isStandaloneTextRepresentation(format) && segmentBase.presentationTimeOffset != 0) {
-      segmentBase = segmentBase.copyWithPresentationTimeOffset(0);
-    }
     return Representation.newInstance(
         representationInfo.revisionId,
         format,
         representationInfo.baseUrls,
-        segmentBase,
+        representationInfo.segmentBase,
         inbandEventStreams,
         representationInfo.essentialProperties,
         representationInfo.supplementalProperties,
         /* cacheKey= */ null);
-  }
-
-  private static boolean isStandaloneTextRepresentation(Format format) {
-    return format.containerMimeType != null && MimeTypes.isText(format.containerMimeType);
   }
 
   // SegmentBase, SegmentList and SegmentTemplate parsing.
@@ -2239,6 +2233,10 @@ public class DashManifestParser extends DefaultHandler
       }
     }
     return false;
+  }
+
+  private static boolean isStandaloneTextRepresentation(Format format) {
+    return format.containerMimeType != null && MimeTypes.isText(format.containerMimeType);
   }
 
   /** A parsed Representation element. */

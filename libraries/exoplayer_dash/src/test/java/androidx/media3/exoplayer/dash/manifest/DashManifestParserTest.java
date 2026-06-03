@@ -375,12 +375,12 @@ public class DashManifestParserTest {
     assertThat(adaptationSets.get(2).type).isEqualTo(C.TRACK_TYPE_TEXT);
   }
 
-  // DASH-IF "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL be
-  // ignored by clients if present.
-  // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
   @Test
   public void parseMediaPresentationDescription_standaloneTextIgnoresPresentationTimeOffset()
       throws IOException {
+    // DASH-IF "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL be
+    // ignored by clients if present.
+    // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
     DashManifestParser parser = new DashManifestParser();
     DashManifest manifest =
         parser.parse(
