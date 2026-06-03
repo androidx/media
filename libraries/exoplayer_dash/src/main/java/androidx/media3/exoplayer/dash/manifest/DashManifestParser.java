@@ -972,15 +972,27 @@ public class DashManifestParser extends DefaultHandler
     }
     ArrayList<Descriptor> inbandEventStreams = representationInfo.inbandEventStreams;
     inbandEventStreams.addAll(extraInbandEventStreams);
+    Format format = formatBuilder.build();
+    SegmentBase segmentBase = representationInfo.segmentBase;
+    // DASH-IF IOP "Standalone Text Timing": @presentationTimeOffset SHALL NOT be present and SHALL
+    // be ignored by clients if present.
+    // https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
+    if (isStandaloneTextRepresentation(format) && segmentBase.presentationTimeOffset != 0) {
+      segmentBase = segmentBase.copyWithPresentationTimeOffset(0);
+    }
     return Representation.newInstance(
         representationInfo.revisionId,
-        formatBuilder.build(),
+        format,
         representationInfo.baseUrls,
-        representationInfo.segmentBase,
+        segmentBase,
         inbandEventStreams,
         representationInfo.essentialProperties,
         representationInfo.supplementalProperties,
         /* cacheKey= */ null);
+  }
+
+  private static boolean isStandaloneTextRepresentation(Format format) {
+    return format.containerMimeType != null && MimeTypes.isText(format.containerMimeType);
   }
 
   // SegmentBase, SegmentList and SegmentTemplate parsing.

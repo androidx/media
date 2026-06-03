@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD type="static" mediaPresentationDuration="PT10S">
+ <Period>
+  <!-- Standalone TTML with @presentationTimeOffset. Per DASH-IF Standalone Text Timing
+       (https://dashif.org/Guidelines-TimingModel/#standalone-text-timing), the offset SHALL be
+       ignored by clients. -->
+  <AdaptationSet id="0" mimeType="application/ttml+xml" subsegmentAlignment="true">
+   <SegmentTemplate timescale="1000" presentationTimeOffset="2000" startNumber="0" media="ttml/$Number$">
+    <SegmentTimeline>
+     <S t="2000" d="10000"/>
+    </SegmentTimeline>
+   </SegmentTemplate>
+   <Representation id="0" bandwidth="16">
+    <BaseURL>https://test.com/0</BaseURL>
+   </Representation>
+  </AdaptationSet>
+  <!-- Standalone WebVTT with @presentationTimeOffset. Must also be ignored. -->
+  <AdaptationSet id="1" mimeType="text/vtt" subsegmentAlignment="true">
+   <SegmentTemplate timescale="1000" presentationTimeOffset="3000" startNumber="0" media="vtt/$Number$">
+    <SegmentTimeline>
+     <S t="3000" d="10000"/>
+    </SegmentTimeline>
+   </SegmentTemplate>
+   <Representation id="1" bandwidth="16">
+    <BaseURL>https://test.com/1</BaseURL>
+   </Representation>
+  </AdaptationSet>
+  <!-- TTML muxed inside mp4. This is NOT standalone text and @presentationTimeOffset must be
+       honored. -->
+  <AdaptationSet id="2" mimeType="application/mp4" subsegmentAlignment="true">
+   <SegmentTemplate timescale="1000" presentationTimeOffset="5000" startNumber="0" media="mp4/$Number$">
+    <SegmentTimeline>
+     <S t="5000" d="10000"/>
+    </SegmentTimeline>
+   </SegmentTemplate>
+   <Representation id="2" codecs="stpp.ttml.im1t" bandwidth="16">
+    <BaseURL>https://test.com/2</BaseURL>
+   </Representation>
+  </AdaptationSet>
+ </Period>
+</MPD>
