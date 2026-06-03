@@ -31,6 +31,8 @@ import android.graphics.PixelFormat;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaFormat;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -53,6 +55,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -550,6 +554,8 @@ public final class VideoFrameProcessorTestRunner {
 
     public final boolean releaseOutputSurface;
 
+    private final BlockingQueue<Image> imageQueue;
+
     /**
      * Creates an instance.
      *
@@ -558,6 +564,7 @@ public final class VideoFrameProcessorTestRunner {
      */
     public SurfaceBitmapReader(boolean releaseOutputSurface) {
       this.releaseOutputSurface = releaseOutputSurface;
+      imageQueue = new ArrayBlockingQueue<>(1);
     }
 
     // ImageReader only supports SDR input.
@@ -568,19 +575,44 @@ public final class VideoFrameProcessorTestRunner {
     @Nullable
     public Surface getSurface(int width, int height, boolean useHighPrecisionColorComponents) {
       if (imageReader != null && releaseOutputSurface) {
+        Image oldImage = imageQueue.poll();
+        if (oldImage != null) {
+          oldImage.close();
+        }
         imageReader.close();
       }
+      // Use maxImages = 2 to allow double buffering while we swap images in the listener.
       imageReader =
-          ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, /* maxImages= */ 1);
+          ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, /* maxImages= */ 2);
+
+      imageReader.setOnImageAvailableListener(
+          reader -> {
+            Image image = reader.acquireNextImage();
+            if (image != null) {
+              Image oldImage = imageQueue.poll();
+              if (oldImage != null) {
+                oldImage.close();
+              }
+              checkState(imageQueue.offer(image));
+            }
+          },
+          new Handler(Looper.getMainLooper()));
+
       return imageReader.getSurface();
     }
 
     @Override
     public Bitmap getBitmap() {
-      Image outputImage = checkNotNull(imageReader).acquireLatestImage();
-      Bitmap outputBitmap = createArgb8888BitmapFromRgba8888Image(outputImage);
-      outputImage.close();
-      return outputBitmap;
+      try {
+        Image outputImage =
+            checkNotNull(imageQueue.poll(VIDEO_FRAME_PROCESSING_WAIT_MS, MILLISECONDS));
+        Bitmap outputBitmap = createArgb8888BitmapFromRgba8888Image(outputImage);
+        outputImage.close();
+        return outputBitmap;
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IllegalStateException(e);
+      }
     }
   }
 
