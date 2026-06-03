@@ -977,10 +977,9 @@ public class DashManifestParser extends DefaultHandler
     }
     ArrayList<Descriptor> inbandEventStreams = representationInfo.inbandEventStreams;
     inbandEventStreams.addAll(extraInbandEventStreams);
-    Format format = formatBuilder.build();
     return Representation.newInstance(
         representationInfo.revisionId,
-        format,
+        formatBuilder.build(),
         representationInfo.baseUrls,
         representationInfo.segmentBase,
         inbandEventStreams,
