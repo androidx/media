@@ -1758,6 +1758,155 @@ public final class ImaAdsLoaderTest {
     }
   }
 
+  @Test
+  public void getAdProgress_duringAdTransition_returnsVideoTimeNotReady() {
+    // Set up a 2-ad pod.
+    AdMediaInfo adMediaInfo1 = TEST_AD_MEDIA_INFO;
+    AdMediaInfo adMediaInfo2 =
+        new AdMediaInfo(
+            "https://www.google.com/2", /* audioMimeType= */ null, /* videoMimeType= */ null);
+
+    AdPodInfo adPodInfo1 =
+        new AdPodInfo() {
+          @Override
+          public int getTotalAds() {
+            return 2;
+          }
+
+          @Override
+          public int getAdPosition() {
+            return 1;
+          }
+
+          @Override
+          public int getPodIndex() {
+            return 0;
+          }
+
+          @Override
+          public double getTimeOffset() {
+            return 0;
+          }
+
+          @Override
+          public double getMaxDuration() {
+            return 5;
+          }
+
+          @Override
+          public boolean isBumper() {
+            return false;
+          }
+        };
+
+    AdPodInfo adPodInfo2 =
+        new AdPodInfo() {
+          @Override
+          public int getTotalAds() {
+            return 2;
+          }
+
+          @Override
+          public int getAdPosition() {
+            return 2;
+          }
+
+          @Override
+          public int getPodIndex() {
+            return 0;
+          }
+
+          @Override
+          public double getTimeOffset() {
+            return 0;
+          }
+
+          @Override
+          public double getMaxDuration() {
+            return 5;
+          }
+
+          @Override
+          public boolean isBumper() {
+            return false;
+          }
+        };
+
+    Ad mockAd1 = mock(Ad.class);
+    when(mockAd1.getAdPodInfo()).thenReturn(adPodInfo1);
+    Ad mockAd2 = mock(Ad.class);
+    when(mockAd2.getAdPodInfo()).thenReturn(adPodInfo2);
+
+    // Start loader and load 1st ad.
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockAd1));
+    videoAdPlayer.loadAd(adMediaInfo1, adPodInfo1);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.CONTENT_PAUSE_REQUESTED, mockAd1));
+
+    // Play 1st ad.
+    videoAdPlayer.playAd(adMediaInfo1);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockAd1));
+
+    // Progress updates for 1st ad.
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 2_000,
+        /* contentPositionMs= */ 0);
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+    verify(mockVideoAdPlayerCallback, atLeastOnce())
+        .onAdProgress(adMediaInfo1, new VideoProgressUpdate(2_000, 5_000));
+
+    // 1st ad finishes. IMA calls stopAd.
+    videoAdPlayer.stopAd(adMediaInfo1);
+
+    // Load and play 2nd ad.
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockAd2));
+    videoAdPlayer.loadAd(adMediaInfo2, adPodInfo2);
+
+    // Simulating the race condition:
+    // IMA calls playAd(adMediaInfo2), which triggers updateAdProgress() immediately.
+    // At this point, the player has NOT transitioned to the 2nd ad yet.
+    // It still reports playing 1st ad (group 0, index 0) at its end position (5000ms).
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 5_000,
+        /* contentPositionMs= */ 0);
+
+    videoAdPlayer.playAd(adMediaInfo2);
+
+    // Verify that the progress reported for adMediaInfo2 is NOT_READY (because of mismatch).
+    verify(mockVideoAdPlayerCallback)
+        .onAdProgress(adMediaInfo2, VideoProgressUpdate.VIDEO_TIME_NOT_READY);
+
+    // Now simulate player transitioning to 2nd ad (group 0, index 1) at position 0.
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 1,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockAd2));
+
+    // Force progress update.
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+
+    // Verify that it now reports correct progress for 2nd ad.
+    verify(mockVideoAdPlayerCallback, atLeastOnce())
+        .onAdProgress(adMediaInfo2, new VideoProgressUpdate(0, 5_000));
+  }
+
   private static TimelineWindowDefinition getInitialTimelineWindowDefinition(Object adsId) {
     return new TimelineWindowDefinition.Builder()
         .setDurationUs(CONTENT_DURATION_US)

@@ -707,10 +707,29 @@ import java.util.Objects;
     if (player == null) {
       return lastAdProgress;
     } else if (imaAdState != IMA_AD_STATE_NONE && playingAd) {
-      long adDuration = player.getDuration();
-      return adDuration == C.TIME_UNSET
-          ? VideoProgressUpdate.VIDEO_TIME_NOT_READY
-          : new VideoProgressUpdate(player.getCurrentPosition(), adDuration);
+      int playerAdIndex = player.getCurrentAdIndexInAdGroup();
+      long adPosition = player.getCurrentPosition();
+      @Nullable AdInfo imaAdInfo = this.imaAdInfo;
+      if (player.isPlayingAd()
+          && imaAdInfo != null
+          && player.getCurrentAdGroupIndex() == imaAdInfo.adGroupIndex
+          && playerAdIndex == imaAdInfo.adIndexInAdGroup) {
+        long adDuration = player.getDuration();
+        return adDuration == C.TIME_UNSET
+            ? VideoProgressUpdate.VIDEO_TIME_NOT_READY
+            : new VideoProgressUpdate(adPosition, adDuration);
+      } else {
+        if (configuration.debugModeEnabled) {
+          Log.d(
+              TAG,
+              "getAdVideoProgressUpdate: player not at expected ad (group="
+                  + player.getCurrentAdGroupIndex()
+                  + ", index="
+                  + playerAdIndex
+                  + "), returning NOT_READY");
+        }
+        return VideoProgressUpdate.VIDEO_TIME_NOT_READY;
+      }
     } else {
       return VideoProgressUpdate.VIDEO_TIME_NOT_READY;
     }

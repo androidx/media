@@ -184,6 +184,9 @@
     *   Add
         `ImaServerSideAdInsertionMediaSource.AdsLoader.Builder.setPauseAdSlot`
         to allow providing an ad slot to use for pause ads.
+    *   Fix bug where back-to-back skippable VAST ads show the skip button
+        immediately on the second ad
+        ([#3165](https://github.com/androidx/media/issues/3165)).
 *   Session:
     *   Fix potential deadlocks and `IllegalStateException` crashes inside
         `MediaNotificationManager` when using a session with a background thread
