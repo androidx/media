@@ -66,6 +66,8 @@
         retry logic always attempts a minimum of 1 second buffer size if other
         retries (by halving the buffer size) are unsuccessful
         ([#3207](https://github.com/androidx/media/issues/3207)).
+    *   Fix codec issue on some devices where the codec was swallowing all
+        samples if previously flushed before receiving input buffers.
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:

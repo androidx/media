@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -906,6 +907,81 @@ public class MediaCodecRendererTest {
 
     verify(mockCodecAdapter, never()).subscribeToVendorParameters(any());
     verify(mockCodecAdapter, never()).unsubscribeFromVendorParameters(any());
+  }
+
+  @Test
+  public void resetPosition_withoutBuffersReceived_doesNotFlushCodec() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
+    when(mockCodecAdapter.dequeueInputBufferIndex()).thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+    when(mockCodecAdapter.dequeueOutputBufferIndex(any()))
+        .thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = configuration -> mockCodecAdapter;
+    TestRenderer renderer = setUpRenderer(mockCodecAdapterFactory);
+
+    Format format = AUDIO_AAC;
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(format, /* sampleTimesUs...= */ 0, 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockCodecAdapter, never())
+        .queueInputBuffer(anyInt(), anyInt(), anyInt(), anyLong(), anyInt());
+
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    verify(mockCodecAdapter, never()).flush();
+  }
+
+  @Test
+  public void resetPosition_withBuffersReceived_flushesCodec() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
+    doAnswer(
+            invocation -> {
+              ((Runnable) invocation.getArgument(0)).run();
+              return null;
+            })
+        .when(mockCodecAdapter)
+        .useInputBuffer(any());
+    when(mockCodecAdapter.dequeueInputBufferIndex())
+        .thenReturn(0)
+        .thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+    when(mockCodecAdapter.getInputBuffer(0)).thenReturn(ByteBuffer.allocate(1024));
+    when(mockCodecAdapter.dequeueOutputBufferIndex(any()))
+        .thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = configuration -> mockCodecAdapter;
+    TestRenderer renderer = setUpRenderer(mockCodecAdapterFactory);
+
+    Format format = AUDIO_AAC;
+    FakeSampleStream fakeSampleStream =
+        createFakeSampleStream(format, /* sampleTimesUs...= */ 0, 100);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    renderer.start();
+    renderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(mockCodecAdapter).queueInputBuffer(eq(0), anyInt(), anyInt(), anyLong(), anyInt());
+
+    renderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
+
+    verify(mockCodecAdapter).flush();
   }
 
   @Test

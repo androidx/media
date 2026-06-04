@@ -1044,7 +1044,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     } else if (shouldFlushCodec()) {
       flushCodec();
-    } else {
+    } else if (codecReceivedBuffers) {
       hasSkippedFlushAndWaitingForQueueInputBuffer = true;
     }
     return false;
@@ -1077,12 +1077,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /**
    * Returns whether the codec should be flushed in cases such that the codec was not released.
    *
-   * <p>Default is {@code true}.
+   * <p>The default implementation returns whether buffers have been received by the codec.
    *
    * @see #flushOrReleaseCodec
    */
   protected boolean shouldFlushCodec() {
-    return true;
+    return codecReceivedBuffers;
   }
 
   /**
