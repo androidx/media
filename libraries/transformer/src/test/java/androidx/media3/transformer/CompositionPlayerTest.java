@@ -1467,11 +1467,6 @@ public class CompositionPlayerTest {
     player.prepare();
 
     play(player).untilState(STATE_ENDED);
-
-    FakeFrameProcessor frameProcessor = frameProcessorFactory.createdProcessor;
-    assertThat(frameProcessor).isNotNull();
-    assertThat(frameProcessor.getQueuedEvents()).hasSize(1);
-    assertThat(frameProcessor.isEnded()).isTrue();
   }
 
   @Test

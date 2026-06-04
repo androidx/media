@@ -25,7 +25,6 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getEditedMediaItem;
-import static androidx.media3.transformer.TransformerUtil.getEditedMediaItemSequence;
 import static androidx.media3.transformer.TransformerUtil.getOffsetToCompositionTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,6 +45,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
@@ -69,6 +69,7 @@ import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import androidx.media3.transformer.HardwareBufferFrameReader.RendererWakeupListener;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -119,7 +120,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final int inputIndex;
   private final boolean videoPrewarmingEnabled;
   @Nullable private final CompositionRendererListener compositionRendererListener;
-  @Nullable private final HardwareBufferFrameReader hardwareBufferFrameReader;
+  private final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
   private final long lateThresholdToDropInputUs;
 
   private @MonotonicNonNull SequenceAudioRenderer audioRenderer;
@@ -144,7 +145,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         inputIndex,
         videoPrewarmingEnabled,
         /* compositionRendererListener= */ null,
-        /* hardwareBufferFrameReader= */ null,
+        /* hardwareBufferFrameReaderSupplier= */ () -> null,
         lateThresholdToDropInputUs);
   }
 
@@ -156,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       CompositionRendererListener compositionRendererListener,
-      HardwareBufferFrameReader hardwareBufferFrameReader,
+      Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     return new SequenceRenderersFactory(
         context,
@@ -166,7 +167,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         inputIndex,
         videoPrewarmingEnabled,
         compositionRendererListener,
-        hardwareBufferFrameReader,
+        hardwareBufferFrameReaderSupplier,
         lateThresholdToDropInputUs);
   }
 
@@ -178,7 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int inputIndex,
       boolean videoPrewarmingEnabled,
       @Nullable CompositionRendererListener compositionRendererListener,
-      @Nullable HardwareBufferFrameReader hardwareBufferFrameReader,
+      Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
       long lateThresholdToDropInputUs) {
     this.context = context;
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
@@ -187,7 +188,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.inputIndex = inputIndex;
     this.videoPrewarmingEnabled = videoPrewarmingEnabled;
     this.compositionRendererListener = compositionRendererListener;
-    this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+    this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
     this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
   }
 
@@ -215,11 +216,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               eventHandler,
               audioRendererEventListener,
               /* audioSink= */ playbackAudioGraphWrapper.createInput(inputIndex),
-              playbackAudioGraphWrapper,
-              hardwareBufferFrameReader);
-    }
-    if (compositionRendererListener != null) {
-      audioRenderer.setOnRenderListener(compositionRendererListener);
+              playbackAudioGraphWrapper);
     }
     renderers.add(audioRenderer);
 
@@ -241,13 +238,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               eventHandler,
               videoRendererEventListener,
               checkNotNull(compositionRendererListener),
-              checkNotNull(hardwareBufferFrameReader),
+              hardwareBufferFrameReaderSupplier,
               lateThresholdToDropInputUs));
       renderers.add(
           new HardwareBufferImageRenderer(
               checkNotNull(imageDecoderFactory),
               checkNotNull(compositionRendererListener),
-              checkNotNull(hardwareBufferFrameReader)));
+              hardwareBufferFrameReaderSupplier));
     }
     return renderers.toArray(new Renderer[0]);
   }
@@ -278,7 +275,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           eventHandler,
           videoRendererEventListener,
           checkNotNull(compositionRendererListener),
-          checkNotNull(hardwareBufferFrameReader),
+          hardwareBufferFrameReaderSupplier,
           lateThresholdToDropInputUs);
     }
     return null;
@@ -289,31 +286,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return timeline.getIndexOfPeriod(mediaPeriodId.periodUid) == timeline.getPeriodCount() - 1;
   }
 
-  private static boolean isAudioOnlySequence(
-      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId) {
-    EditedMediaItemSequence sequence = getEditedMediaItemSequence(timeline, mediaPeriodId);
-    // If there is no video track, the sequence is audio-only
-    return !sequence.trackTypes.contains(C.TRACK_TYPE_VIDEO);
-  }
-
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
 
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
-    private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
-    @Nullable private final HardwareBufferFrameReader hardwareBufferFrameReader;
 
-    // TODO: b/320007703 - Revisit the abstractions needed here (editedMediaItemProvider and
-    //  Supplier<EditedMediaItem>) once we finish all the wiring to support multiple sequences.
     public SequenceAudioRenderer(
         Context context,
         @Nullable Handler eventHandler,
         @Nullable AudioRendererEventListener eventListener,
         AudioGraphInputAudioSink audioSink,
-        PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
-        @Nullable HardwareBufferFrameReader hardwareBufferFrameReader) {
+        PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
       super(context, MediaCodecSelector.DEFAULT, eventHandler, eventListener, audioSink);
       this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
-      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
     }
 
     // MediaCodecAudioRenderer methods
@@ -321,17 +305,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
-      if (compositionRendererListener != null) {
-        long offsetToCompositionTimeUs =
-            getOffsetToCompositionTimeUs(
-                getTimeline(), checkNotNull(getMediaPeriodId()), getStreamOffsetUs());
-        // TODO: b/518744071 - Remove video-related callbacks.
-        compositionRendererListener.onRender(
-            /* compositionTimePositionUs= */ positionUs + offsetToCompositionTimeUs,
-            elapsedRealtimeUs,
-            /* compositionTimeOutputStreamStartPositionUs= */ getOutputStreamStartPositionUs()
-                + offsetToCompositionTimeUs);
-      }
       try {
         while (playbackAudioGraphWrapper.processData()) {}
       } catch (ExportException
@@ -340,23 +313,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           | AudioSink.ConfigurationException e) {
         throw createRendererException(e, /* format= */ null, ERROR_CODE_AUDIO_TRACK_WRITE_FAILED);
       }
-    }
-
-    @Override
-    protected void renderToEndOfStream() throws ExoPlaybackException {
-      super.renderToEndOfStream();
-      // TODO: b/518744071 - Remove video-related callbacks.
-      // For audio-only sequences, there is no video renderer to send the EOS.
-      // Send it here so the video pipeline doesn't hang indefinitely.
-      if (hardwareBufferFrameReader != null
-          && isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))
-          && isAudioOnlySequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
-        hardwareBufferFrameReader.queueEndOfStream();
-      }
-    }
-
-    private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
-      this.compositionRendererListener = compositionRendererListener;
     }
   }
 
@@ -881,8 +837,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final class HardwareBufferVideoRenderer extends MediaCodecVideoRenderer
       implements RendererWakeupListener {
     private final CompositionRendererListener compositionRendererListener;
-    private final HardwareBufferFrameReader hardwareBufferFrameReader;
+    private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private final long lateThresholdToDropInputUs;
+
+    private final Supplier<@NullableType HardwareBufferFrameReader>
+        hardwareBufferFrameReaderSupplier;
 
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private @MonotonicNonNull Format nextFormat;
@@ -896,7 +855,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Handler eventHandler,
         VideoRendererEventListener videoRendererEventListener,
         CompositionRendererListener compositionRendererListener,
-        HardwareBufferFrameReader hardwareBufferFrameReader,
+        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
         long lateThresholdToDropInputUs) {
       super(
           new Builder(context)
@@ -910,13 +869,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setAssumedMinimumCodecOperatingRate(DEFAULT_FRAME_RATE)
               .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropInputUs));
       this.compositionRendererListener = compositionRendererListener;
-      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
     }
 
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
+      if (hardwareBufferFrameReader == null) {
+        // Initialize hardwareBufferFrameReader on the first onEnabled() call.
+        hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
+      }
       hardwareBufferFrameReader.addRendererWakeupListener(/* rendererWakeupListener= */ this);
       super.onEnabled(joining, mayRenderStartOfStream);
     }
@@ -924,7 +887,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onDisabled() {
       super.onDisabled();
-      hardwareBufferFrameReader.removeRendererWakeupListener(/* rendererWakeupListener= */ this);
+      checkNotNull(hardwareBufferFrameReader)
+          .removeRendererWakeupListener(/* rendererWakeupListener= */ this);
     }
 
     @Override
@@ -935,7 +899,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           elapsedRealtimeUs,
           /* compositionTimeOutputStreamStartPositionUs= */ streamStartPositionUs
               + offsetToCompositionTimeUs);
-      hardwareBufferFrameReader.pollImage();
+      checkNotNull(hardwareBufferFrameReader).pollImage();
     }
 
     @Override
@@ -984,7 +948,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         skipOutputBuffer(codec, bufferIndex, bufferPresentationTimeUs);
         return true;
       }
-      if (!hardwareBufferFrameReader.canAcceptFrameViaSurface()) {
+      if (!checkNotNull(hardwareBufferFrameReader).canAcceptFrameViaSurface()) {
         return false;
       }
       long releaseTimeNs = getClock().nanoTime();
@@ -1007,11 +971,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // TODO: b/449956936 - This can probably be replaced by VideoFrameMetadataListener, but the
       // backpressure in processOutputBuffer can't. See what parts of this logic can be moved to
       // vanilla ExoPlayer.
-      hardwareBufferFrameReader.queueFrameViaSurface(
-          /* presentationTimeUs= */ presentationTimeUs,
-          sequenceOffsetUs,
-          indexOfCurrentItem(),
-          checkNotNull(nextFormat));
+      checkNotNull(hardwareBufferFrameReader)
+          .queueFrameViaSurface(
+              /* presentationTimeUs= */ presentationTimeUs,
+              sequenceOffsetUs,
+              indexOfCurrentItem(),
+              checkNotNull(nextFormat));
       super.renderOutputBufferV21(
           codec, index, presentationTimeUs, /* releaseTimeNs= */ presentationTimeUs * 1000);
     }
@@ -1046,7 +1011,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected void renderToEndOfStream() {
       super.renderToEndOfStream();
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
-        hardwareBufferFrameReader.queueEndOfStream();
+        checkNotNull(hardwareBufferFrameReader).queueEndOfStream();
       }
     }
 
@@ -1099,7 +1064,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final class HardwareBufferImageRenderer extends ImageRenderer {
 
     private final CompositionRendererListener compositionRendererListener;
-    private final HardwareBufferFrameReader hardwareBufferFrameReader;
+    private final Supplier<@NullableType HardwareBufferFrameReader>
+        hardwareBufferFrameReaderSupplier;
+    private @MonotonicNonNull HardwareBufferFrameReader hardwareBufferFrameReader;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
     private MediaSource.@MonotonicNonNull MediaPeriodId mediaPeriodId;
     private long streamStartPositionUs;
@@ -1111,10 +1078,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     HardwareBufferImageRenderer(
         ImageDecoder.Factory imageDecoderFactory,
         CompositionRendererListener compositionRendererListener,
-        HardwareBufferFrameReader hardwareBufferFrameReader) {
+        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
       this.compositionRendererListener = compositionRendererListener;
-      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
       streamStartPositionUs = C.TIME_UNSET;
     }
 
@@ -1133,6 +1100,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
       super.onEnabled(joining, mayRenderStartOfStream);
+      if (hardwareBufferFrameReader == null) {
+        // Initialize hardwareBufferFrameReader on the first onEnabled() call.
+        this.hardwareBufferFrameReader = checkNotNull(hardwareBufferFrameReaderSupplier.get());
+      }
     }
 
     @Override
@@ -1182,8 +1153,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkNotNull(timestampIterator);
       int indexOfItem = getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
       long sequenceOffsetUs = getStreamOffsetUs() + offsetToCompositionTimeUs;
-      hardwareBufferFrameReader.outputBitmap(
-          outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
+      checkNotNull(hardwareBufferFrameReader)
+          .outputBitmap(outputImage, timestampIterator, sequenceOffsetUs, indexOfItem);
       if (isLastInSequence(getTimeline(), checkNotNull(mediaPeriodId))) {
         hardwareBufferFrameReader.queueEndOfStream();
       }

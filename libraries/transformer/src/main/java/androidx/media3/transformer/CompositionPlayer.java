@@ -75,6 +75,7 @@ import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.common.video.Frame;
@@ -126,6 +127,7 @@ import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.amr.AmrExtractor;
 import androidx.media3.extractor.ts.AdtsExtractor;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -1221,7 +1223,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   frameReader.flush();
                   checkNotNull(frameAggregator).flush(sequenceIndex);
                 })
-            .setPayload(playerHolders.get(i).hardwareBufferFrameReader)
+            .setPayload(playerHolders.get(i).hardwareBufferFrameReaderSupplier.get())
             .send();
       }
     }
@@ -1354,6 +1356,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         .build();
   }
 
+  private static boolean containsVideo(Composition composition) {
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      if (sequence.trackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private void updatePlaybackState() {
     if (playerHolders.isEmpty() || playbackException != null) {
       playbackState = STATE_IDLE;
@@ -1397,7 +1408,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             /* playWhenReady= */ false, /* shouldUpdateInternalPlayers= */ true);
       }
     } else if (endedCount == playerHolders.size()
-        && (!packetConsumerReportsRenderingEvents || packetConsumerEnded)) {
+        && (!packetConsumerReportsRenderingEvents
+            || packetConsumerEnded
+            || !containsVideo(checkNotNull(composition)))) {
       playbackState = STATE_ENDED;
       checkNotNull(compositionPlayerInternal).stopRendering();
     } else {
@@ -1647,39 +1660,45 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private SequencePlayerHolder createSequencePlayer(Composition composition, int sequenceIndex) {
     boolean requestMediaCodecToneMapping =
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+    boolean sequenceContainsVideo =
+        composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
     SequenceRenderersFactory renderersFactory;
-    HardwareBufferFrameReader hardwareBufferFrameReader = null;
+    Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier =
+        () -> null;
     if (frameProcessor != null) {
       // TODO: b/449956936 - Support MediaCodec tone mapping with packet consumer.
       checkState(!requestMediaCodecToneMapping);
       // TODO: b/449957106 - support component reuse, and decouple the Composition from the
       // HardwareBufferFrameReader.
       final FrameAggregator currentFrameAggregator = frameAggregator;
-      hardwareBufferFrameReader =
-          new HardwareBufferFrameReader(
-              composition,
-              sequenceIndex,
-              /* frameConsumer= */ hardwareBufferFrame -> {
-                if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
-                  checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
-                } else if (hardwareBufferPostProcessor != null) {
-                  HardwareBufferFrame processedFrame =
-                      hardwareBufferPostProcessor.process(hardwareBufferFrame);
-                  checkNotNull(currentFrameAggregator).queueFrame(processedFrame, sequenceIndex);
-                } else {
-                  checkNotNull(currentFrameAggregator)
-                      .queueFrame(hardwareBufferFrame, sequenceIndex);
-                }
-              },
-              checkNotNull(playbackThread).getLooper(),
-              /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
-              imageReaderAdapterFactory,
-              e ->
-                  maybeUpdatePlaybackError(
-                      "HardwareBufferFrameReader error",
-                      e,
-                      PlaybackException.ERROR_CODE_UNSPECIFIED),
-              compositionInternalListenerHandler);
+      hardwareBufferFrameReaderSupplier =
+          Suppliers.memoize(
+              () ->
+                  new HardwareBufferFrameReader(
+                      composition,
+                      sequenceIndex,
+                      /* frameConsumer= */ hardwareBufferFrame -> {
+                        if (hardwareBufferFrame == HardwareBufferFrame.END_OF_STREAM_FRAME) {
+                          checkNotNull(currentFrameAggregator).queueEndOfStream(sequenceIndex);
+                        } else if (hardwareBufferPostProcessor != null) {
+                          HardwareBufferFrame processedFrame =
+                              hardwareBufferPostProcessor.process(hardwareBufferFrame);
+                          checkNotNull(currentFrameAggregator)
+                              .queueFrame(processedFrame, sequenceIndex);
+                        } else {
+                          checkNotNull(currentFrameAggregator)
+                              .queueFrame(hardwareBufferFrame, sequenceIndex);
+                        }
+                      },
+                      checkNotNull(playbackThread).getLooper(),
+                      /* defaultSurfacePixelFormat= */ ImageFormat.PRIVATE,
+                      imageReaderAdapterFactory,
+                      e ->
+                          maybeUpdatePlaybackError(
+                              "HardwareBufferFrameReader error",
+                              e,
+                              PlaybackException.ERROR_CODE_UNSPECIFIED),
+                      compositionInternalListenerHandler));
       renderersFactory =
           SequenceRenderersFactory.createForHardwareBuffer(
               context,
@@ -1688,12 +1707,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* inputIndex= */ sequenceIndex,
               videoPrewarmingEnabled,
               checkNotNull(videoPacketReleaseControl),
-              hardwareBufferFrameReader,
+              hardwareBufferFrameReaderSupplier,
               lateThresholdToDropInputUs);
       // Ensure the FrameAggregator ignores audio only sequences.
-      boolean shouldAggregateSequence =
-          composition.sequences.get(sequenceIndex).trackTypes.contains(C.TRACK_TYPE_VIDEO);
-      checkNotNull(currentFrameAggregator).registerSequence(sequenceIndex, shouldAggregateSequence);
+      checkNotNull(currentFrameAggregator).registerSequence(sequenceIndex, sequenceContainsVideo);
     } else {
       VideoSink inputSink = checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
       renderersFactory =
@@ -1714,7 +1731,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             clock,
             renderersFactory,
             /* inputIndex= */ sequenceIndex,
-            hardwareBufferFrameReader);
+            hardwareBufferFrameReaderSupplier,
+            /* shouldReleaseHardwareBufferFrameReader= */ sequenceContainsVideo);
     playerHolder.player.addListener(new PlayerListener(sequenceIndex));
     playerHolder.player.addAnalyticsListener(new PlayerAnalyticsListener());
     playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
@@ -1722,8 +1740,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
-    if (frameProcessor != null) {
-      playerHolder.player.setVideoSurface(checkNotNull(hardwareBufferFrameReader).getSurface());
+    if (frameProcessor != null && sequenceContainsVideo) {
+      playerHolder.player.setVideoSurface(
+          checkNotNull(hardwareBufferFrameReaderSupplier.get()).getSurface());
     }
     return playerHolder;
   }
@@ -2341,7 +2360,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public final ExoPlayer player;
     public final SequenceRenderersFactory renderersFactory;
     public final CompositionTrackSelector trackSelector;
-    @Nullable final HardwareBufferFrameReader hardwareBufferFrameReader;
+    final Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier;
+    final boolean shouldReleaseHardwareBufferFrameReader;
 
     private SequencePlayerHolder(
         Context context,
@@ -2350,7 +2370,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         Clock clock,
         SequenceRenderersFactory renderersFactory,
         int inputIndex,
-        @Nullable HardwareBufferFrameReader hardwareBufferFrameReader) {
+        Supplier<@NullableType HardwareBufferFrameReader> hardwareBufferFrameReaderSupplier,
+        boolean shouldReleaseHardwareBufferFrameReader) {
       trackSelector =
           new CompositionTrackSelector(
               context,
@@ -2377,13 +2398,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
-      this.hardwareBufferFrameReader = hardwareBufferFrameReader;
+      this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;
+      this.shouldReleaseHardwareBufferFrameReader = shouldReleaseHardwareBufferFrameReader;
     }
 
     private void release() {
       player.release();
-      if (hardwareBufferFrameReader != null) {
-        hardwareBufferFrameReader.release();
+      HardwareBufferFrameReader reader = hardwareBufferFrameReaderSupplier.get();
+      // TODO: b/518679527 - Move hardwareBufferFrameReader release to video renderers.
+      if (shouldReleaseHardwareBufferFrameReader && reader != null) {
+        reader.release();
       }
     }
   }
