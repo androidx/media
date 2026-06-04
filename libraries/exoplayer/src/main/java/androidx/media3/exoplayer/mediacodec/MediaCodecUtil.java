@@ -193,7 +193,7 @@ public final class MediaCodecUtil {
    * decoders that fully support the format come first.
    *
    * <p>This list is more complete than {@link #getDecoderInfos}, as it also considers alternative
-   * MIME types that are a close match using {@link #getAlternativeCodecMimeType}.
+   * MIME types that are a close match using {@link #getAlternativeCodecMimeTypes}.
    *
    * @param mediaCodecSelector The decoder selector.
    * @param format The {@link Format} for which a decoder is required.
@@ -222,9 +222,9 @@ public final class MediaCodecUtil {
   }
 
   /**
-   * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeType alternative MIME types}
-   * that can decode samples of the provided {@link Format}, in the priority order specified by the
-   * {@link MediaCodecSelector}.
+   * Returns a list of decoders for {@linkplain #getAlternativeCodecMimeTypes alternative MIME
+   * types} that can decode samples of the provided {@link Format}, in the priority order specified
+   * by the {@link MediaCodecSelector}.
    *
    * <p>Since the {@link MediaCodecSelector} only has access to {@link Format#sampleMimeType}, the
    * list is not ordered to account for whether each decoder supports the details of the format
@@ -245,12 +245,17 @@ public final class MediaCodecUtil {
       boolean requiresSecureDecoder,
       boolean requiresTunnelingDecoder)
       throws DecoderQueryException {
-    @Nullable String alternativeMimeType = getAlternativeCodecMimeType(format);
-    if (alternativeMimeType == null) {
+    List<String> alternativeMimeTypes = getAlternativeCodecMimeTypes(format);
+    if (alternativeMimeTypes.isEmpty()) {
       return ImmutableList.of();
     }
-    return mediaCodecSelector.getDecoderInfos(
-        alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+    ImmutableList.Builder<MediaCodecInfo> listBuilder = new ImmutableList.Builder<>();
+    for (String alternativeMimeType : alternativeMimeTypes) {
+      listBuilder.addAll(
+          mediaCodecSelector.getDecoderInfos(
+              alternativeMimeType, requiresSecureDecoder, requiresTunnelingDecoder));
+    }
+    return listBuilder.build();
   }
 
   /**
@@ -366,24 +371,35 @@ public final class MediaCodecUtil {
   }
 
   /**
-   * Returns an alternative codec MIME type (besides the default {@link Format#sampleMimeType}) that
-   * can be used to decode samples of the provided {@link Format}.
+   * Returns alternative codec MIME types (besides the default {@link Format#sampleMimeType}) that
+   * can be used to decode samples of the provided {@link Format}, in order of preference.
    *
    * @param format The media format.
-   * @return An alternative MIME type of a codec that be used decode samples of the provided {@code
-   *     Format} (besides the default {@link Format#sampleMimeType}), or null if no such alternative
-   *     exists.
+   * @return Alternative MIME types of a codec that be used decode samples of the provided {@code
+   *     Format} (besides the default {@link Format#sampleMimeType}), or an empty List if no such
+   *     alternative exists.
    */
-  @Nullable
-  public static String getAlternativeCodecMimeType(Format format) {
+  public static List<String> getAlternativeCodecMimeTypes(Format format) {
     if (MimeTypes.AUDIO_E_AC3_JOC.equals(format.sampleMimeType)) {
       // E-AC3 decoders can decode JOC streams, but in 2-D rather than 3-D.
-      return MimeTypes.AUDIO_E_AC3;
+      return Collections.singletonList(MimeTypes.AUDIO_E_AC3);
+    }
+    if (MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS.equals(format.sampleMimeType)) {
+      // Coreless DTS-HD MA can only be decoded by a DTS-HD MA decoder. However, as DTS-HD MA was
+      // added as separate MIME type in platform in 2022, we need to try the older DTS-HD mime type
+      // for backwards compatibility. (https://r.android.com/2302237)
+      return ImmutableList.of(MimeTypes.AUDIO_DTS_HD_MA, MimeTypes.AUDIO_DTS_HD);
+    }
+    if (MimeTypes.AUDIO_DTS_HD_MA.equals(format.sampleMimeType)) {
+      // DTS-HD MA was added as separate MIME type in platform in 2022, so we need to try the older
+      // DTS-HD mime type for backwards compatibility. (https://r.android.com/2302237)
+      // And because this is DTS-HD MA with core layer, even a DTS decoder can decode this stream.
+      return ImmutableList.of(MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS);
     }
     if (MimeTypes.AUDIO_DTS_HD.equals(format.sampleMimeType)
         || MimeTypes.AUDIO_DTS_UHD_P2.equals(format.sampleMimeType)) {
       // DTS decoders support DTS-HD streams (but decode only the core layer).
-      return MimeTypes.AUDIO_DTS;
+      return ImmutableList.of(MimeTypes.AUDIO_DTS);
     }
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // H.264/AVC, H.265/HEVC or AV1 decoders can decode the base layer of some DV profiles.
@@ -397,24 +413,24 @@ public final class MediaCodecUtil {
         int profile = codecProfileAndLevel.getProfile();
         if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr
             || profile == CodecProfileLevel.DolbyVisionProfileDvheSt) {
-          return MimeTypes.VIDEO_H265;
+          return Collections.singletonList(MimeTypes.VIDEO_H265);
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe) {
-          return MimeTypes.VIDEO_H264;
+          return Collections.singletonList(MimeTypes.VIDEO_H264);
         } else if (profile == CodecProfileLevel.DolbyVisionProfileDvav110) {
           if (format.colorInfo != null
               && format.colorInfo.colorTransfer == C.COLOR_TRANSFER_ST2084
               && format.colorInfo.colorRange == C.COLOR_RANGE_FULL) {
-            return null;
+            return Collections.emptyList();
           }
-          return MimeTypes.VIDEO_AV1;
+          return Collections.singletonList(MimeTypes.VIDEO_AV1);
         }
       }
     }
     if (MimeTypes.VIDEO_MV_HEVC.equals(format.sampleMimeType)) {
       // Single-layer HEVC decoders can decode the base layer of MV-HEVC streams.
-      return MimeTypes.VIDEO_H265;
+      return Collections.singletonList(MimeTypes.VIDEO_H265);
     }
-    return null;
+    return Collections.emptyList();
   }
 
   // Internal methods.

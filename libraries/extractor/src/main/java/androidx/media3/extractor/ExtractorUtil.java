@@ -155,6 +155,7 @@ public final class ExtractorUtil {
       case C.ENCODING_DTS:
         return DtsUtil.DTS_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DTS_HD:
+      case C.ENCODING_DTS_HD_MA:
       case C.ENCODING_DTS_UHD_P2:
         return DtsUtil.DTS_HD_MAX_RATE_BYTES_PER_SECOND;
       case C.ENCODING_DOLBY_TRUEHD:

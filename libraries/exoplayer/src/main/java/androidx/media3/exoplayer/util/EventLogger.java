@@ -805,6 +805,8 @@ public class EventLogger implements AnalyticsListener {
         return "dts";
       case C.ENCODING_DTS_HD:
         return "dts-hd";
+      case C.ENCODING_DTS_HD_MA:
+        return "dts-hd-ma";
       case C.ENCODING_DTS_UHD_P2:
         return "dts-uhd-p2";
       case C.ENCODING_DSD:

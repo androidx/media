@@ -72,14 +72,17 @@ import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
+import com.google.common.collect.ImmutableSet;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -825,17 +828,19 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
             mediaExtractorSampleQueue,
             /* isCompatibilityTrack= */ false,
             /* compatibilityTrackMimeType= */ null));
-    @Nullable
-    String compatibilityTrackMimeType =
-        MediaCodecUtil.getAlternativeCodecMimeType(newUpstreamFormat);
-    if (compatibilityTrackMimeType != null) {
-      mediaExtractorSampleQueue.setCompatibilityTrackIndex(tracks.size());
+    List<String> compatibilityTrackMimeTypes =
+        MediaCodecUtil.getAlternativeCodecMimeTypes(newUpstreamFormat);
+    ImmutableSet.Builder<Integer> compatibilityTrackIndicesBuilder = new ImmutableSet.Builder<>();
+    for (String compatibilityTrackMimeType : compatibilityTrackMimeTypes) {
+      compatibilityTrackIndicesBuilder.add(tracks.size());
       tracks.add(
           new MediaExtractorTrack(
               mediaExtractorSampleQueue,
               /* isCompatibilityTrack= */ true,
               compatibilityTrackMimeType));
     }
+    mediaExtractorSampleQueue.setCompatibilityTrackIndices(
+        compatibilityTrackIndicesBuilder.build());
   }
 
   private void maybeResolvePendingSeek() throws IOException {
@@ -969,7 +974,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     private final int trackId;
     private long trackDurationUs;
     private int mainTrackIndex;
-    private int compatibilityTrackIndex;
+    private Set<Integer> compatibilityTrackIndices;
 
     private MediaExtractorSampleQueue(Allocator allocator, int trackId) {
       // We do not need the sample queue to acquire keys for encrypted samples, so we pass null
@@ -978,15 +983,15 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       this.trackId = trackId;
       trackDurationUs = C.TIME_UNSET;
       mainTrackIndex = C.INDEX_UNSET;
-      compatibilityTrackIndex = C.INDEX_UNSET;
+      compatibilityTrackIndices = Collections.emptySet();
     }
 
     private void setMainTrackIndex(int mainTrackIndex) {
       this.mainTrackIndex = mainTrackIndex;
     }
 
-    private void setCompatibilityTrackIndex(int compatibilityTrackIndex) {
-      this.compatibilityTrackIndex = compatibilityTrackIndex;
+    private void setCompatibilityTrackIndices(Set<Integer> compatibilityTrackIndices) {
+      this.compatibilityTrackIndices = compatibilityTrackIndices;
     }
 
     // SampleQueue implementation.
@@ -1028,7 +1033,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     public String toString() {
       return String.format(
           "trackId: %s, mainTrackIndex: %s, compatibilityTrackIndex: %s",
-          trackId, mainTrackIndex, compatibilityTrackIndex);
+          trackId, mainTrackIndex, compatibilityTrackIndices);
     }
 
     private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags) {
@@ -1038,7 +1043,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
       mediaExtractorFlags |=
           (flags & C.BUFFER_FLAG_KEY_FRAME) != 0 ? MediaExtractor.SAMPLE_FLAG_SYNC : 0;
 
-      if (compatibilityTrackIndex != C.INDEX_UNSET) {
+      for (Integer compatibilityTrackIndex : compatibilityTrackIndices) {
         sampleMetadataQueue.addLast(
             timeUs, /* flags= */ mediaExtractorFlags, compatibilityTrackIndex);
       }

@@ -17,7 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeType;
+import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeTypes;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncoders;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
@@ -110,10 +110,12 @@ import java.util.List;
         inputFormat = inputFormat.buildUpon().setMetadata(metadata).build();
       }
       if (!muxerWrapper.supportsSampleMimeType(inputFormat.sampleMimeType)) {
-        String alternativeSampleMimeType = getAlternativeCodecMimeType(inputFormat);
-        if (muxerWrapper.supportsSampleMimeType(alternativeSampleMimeType)) {
-          inputFormat =
-              inputFormat.buildUpon().setSampleMimeType(alternativeSampleMimeType).build();
+        for (String alternativeSampleMimeType : getAlternativeCodecMimeTypes(inputFormat)) {
+          if (muxerWrapper.supportsSampleMimeType(alternativeSampleMimeType)) {
+            inputFormat =
+                inputFormat.buildUpon().setSampleMimeType(alternativeSampleMimeType).build();
+            break;
+          }
         }
       }
       try {

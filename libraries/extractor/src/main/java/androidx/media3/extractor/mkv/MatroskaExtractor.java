@@ -2588,7 +2588,7 @@ public class MatroskaExtractor implements Extractor {
           mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
           break;
         case CODEC_ID_DTS_LOSSLESS:
-          mimeType = MimeTypes.AUDIO_DTS_HD;
+          mimeType = MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS;
           break;
         case CODEC_ID_FLAC:
           mimeType = MimeTypes.AUDIO_FLAC;

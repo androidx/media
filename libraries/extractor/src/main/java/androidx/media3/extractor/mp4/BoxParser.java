@@ -2127,8 +2127,10 @@ public final class BoxParser {
       mimeType = MimeTypes.AUDIO_AC4;
     } else if (atomType == Mp4Box.TYPE_dtsc) {
       mimeType = MimeTypes.AUDIO_DTS;
-    } else if (atomType == Mp4Box.TYPE_dtsh || atomType == Mp4Box.TYPE_dtsl) {
+    } else if (atomType == Mp4Box.TYPE_dtsh) {
       mimeType = MimeTypes.AUDIO_DTS_HD;
+    } else if (atomType == Mp4Box.TYPE_dtsl) {
+      mimeType = MimeTypes.AUDIO_MEDIA3_DTS_HD_MA_CORELESS;
     } else if (atomType == Mp4Box.TYPE_dtse) {
       mimeType = MimeTypes.AUDIO_DTS_EXPRESS;
     } else if (atomType == Mp4Box.TYPE_dtsx) {

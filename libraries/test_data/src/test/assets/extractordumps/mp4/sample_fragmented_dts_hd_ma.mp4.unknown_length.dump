@@ -9,7 +9,7 @@ track 0:
   format 0:
     id = 1
     containerMimeType = audio/mp4
-    sampleMimeType = audio/vnd.dts.hd
+    sampleMimeType = audio/vnd.dts.hd;profile=dtsma
     channelCount = 8
     sampleRate = 48000
     language = en
