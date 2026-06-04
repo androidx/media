@@ -34,17 +34,19 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry.getInstrumentation
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import java.util.ArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.android.HandlerDispatcher
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Test
@@ -70,6 +72,27 @@ class PlayerFenceTest {
       player.prepare()
 
       player.awaitPlaybackState(Player.STATE_READY)
+    }
+
+  @Test
+  fun awaitPlaybackState_alreadyInState_returnsImmediately() =
+    runBlocking(Dispatchers.Main) {
+      player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
+      player.setMediaItem(SHORT_MP3_ITEM)
+      player.prepare()
+      val playerReady = CompletableDeferred<Unit>()
+      player.addListener(
+        object : Player.Listener {
+          override fun onPlaybackStateChanged(playbackState: @Player.State Int) {
+            if (playbackState == Player.STATE_READY) {
+              playerReady.complete(Unit)
+            }
+          }
+        }
+      )
+      playerReady.await()
+
+      assertDoesntSuspend { player.awaitPlaybackState(Player.STATE_READY) }
     }
 
   @Test
@@ -126,8 +149,8 @@ class PlayerFenceTest {
    * fails (instead of timing out).
    */
   @Test
-  fun awaitPlaybackState_fatalErrorBeforeWaiting_propagates() = runTest {
-    withContext(Dispatchers.Main) {
+  fun awaitPlaybackState_fatalErrorBeforeWaiting_propagatesImmediately(): Unit =
+    runBlocking(Dispatchers.Main) {
       player = ExoPlayer.Builder(getInstrumentation().context.applicationContext).build()
       player.setMediaItem(MediaItem.fromUri("file:///not/a/real/file"))
       player.prepare()
@@ -140,11 +163,11 @@ class PlayerFenceTest {
         }
       )
       errorThrown.await()
-      val timeBeforeWaiting = testScheduler.timeSource.markNow()
-      assertFailsWith<PlaybackException> { player.awaitPlaybackState(Player.STATE_READY) }
-      assertThat(timeBeforeWaiting.elapsedNow().inWholeMilliseconds).isEqualTo(0)
+
+      assertDoesntSuspend {
+        assertFailsWith<PlaybackException> { player.awaitPlaybackState(Player.STATE_READY) }
+      }
     }
-  }
 
   /**
    * Check that if a test registers its own player listeners that fire on the same state change,
@@ -193,6 +216,20 @@ class PlayerFenceTest {
       }
     }
     backgroundThread.quit()
+  }
+
+  private fun CoroutineScope.assertDoesntSuspend(block: suspend () -> Unit) {
+    var didSuspend = true
+    // Use UNDISPATCHED so that control-flow returns to the outer scope immediately if `block()`
+    // suspends.
+    launch(start = CoroutineStart.UNDISPATCHED) {
+      try {
+        block()
+      } finally {
+        didSuspend = false
+      }
+    }
+    assertWithMessage("Unexpectedly suspended").that(didSuspend).isFalse()
   }
 
   private class FailingAudioRenderer(
