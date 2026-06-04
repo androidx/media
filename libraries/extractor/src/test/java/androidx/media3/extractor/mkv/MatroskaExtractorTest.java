@@ -291,6 +291,30 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkaSample_withFlac16bit() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-flac-16bit.mka",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkaSample_withFlac24bit() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-flac-24bit.mka",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkaSample_withFlac32bit() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mka/bear-flac-32bit.mka",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSample_withAv1() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
