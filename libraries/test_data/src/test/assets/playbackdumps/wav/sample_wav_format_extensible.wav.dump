@@ -1,7 +1,7 @@
 AudioSink:
   buffer count = 6
   config:
-    pcmEncoding = 4
+    pcmEncoding = pcm-float
     channelCount = 6
     sampleRate = 48000
     channelMask = 0x000000FC

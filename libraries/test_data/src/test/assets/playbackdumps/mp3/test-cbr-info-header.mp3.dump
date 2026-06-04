@@ -290,7 +290,7 @@ MediaCodecAdapter (media3.audio.mpeg):
 AudioSink:
   buffer count = 40
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #0:

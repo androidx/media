@@ -2517,6 +2517,83 @@ public final class Util {
   }
 
   /**
+   * Returns a user-readable string representation of the given {@link C.Encoding}.
+   *
+   * <p>This method is intended for testing and debugging purposes only. The returned string format
+   * is not guaranteed to be stable.
+   *
+   * @param encoding The {@link C.Encoding} value.
+   * @return A string representation of the encoding.
+   */
+  @UnstableApi
+  public static String getEncodingString(@C.Encoding int encoding) {
+    switch (encoding) {
+      case C.ENCODING_AAC_ELD:
+        return "aac-eld";
+      case C.ENCODING_AAC_ER_BSAC:
+        return "aac-er-bsac";
+      case C.ENCODING_AAC_HE_V1:
+        return "aac-he-v1";
+      case C.ENCODING_AAC_HE_V2:
+        return "aac-he-v2";
+      case C.ENCODING_AAC_LC:
+        return "aac-lc";
+      case C.ENCODING_AAC_XHE:
+        return "aac-xhe";
+      case C.ENCODING_AC3:
+        return "ac3";
+      case C.ENCODING_AC4:
+        return "ac4";
+      case C.ENCODING_DOLBY_TRUEHD:
+        return "truehd";
+      case C.ENCODING_DTS:
+        return "dts";
+      case C.ENCODING_DTS_HD:
+        return "dts-hd";
+      case C.ENCODING_DTS_UHD_P2:
+        return "dts-uhd-p2";
+      case C.ENCODING_DSD:
+        return "dsd";
+      case C.ENCODING_E_AC3:
+        return "eac3";
+      case C.ENCODING_E_AC3_JOC:
+        return "eac3-joc";
+      case C.ENCODING_MP3:
+        return "mp3";
+      case C.ENCODING_OPUS:
+        return "opus";
+      case C.ENCODING_PCM_8BIT:
+        return "pcm-8";
+      case C.ENCODING_PCM_16BIT:
+        return "pcm-16";
+      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
+        return "pcm-16be";
+      case C.ENCODING_PCM_24BIT:
+        return "pcm-24";
+      case C.ENCODING_PCM_24BIT_BIG_ENDIAN:
+        return "pcm-24be";
+      case C.ENCODING_PCM_32BIT:
+        return "pcm-32";
+      case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
+        return "pcm-32be";
+      case C.ENCODING_PCM_DOUBLE:
+        return "pcm-double";
+      case C.ENCODING_PCM_DOUBLE_BIG_ENDIAN:
+        return "pcm-double-be";
+      case C.ENCODING_PCM_FLOAT:
+        return "pcm-float";
+      case C.ENCODING_PCM_FLOAT_BIG_ENDIAN:
+        return "pcm-float-be";
+      case C.ENCODING_INVALID:
+        return "invalid";
+      case Format.NO_VALUE:
+        return "unset";
+      default:
+        return "unknown(" + encoding + ")";
+    }
+  }
+
+  /**
    * Returns whether {@code encoding} is one of the linear PCM encodings.
    *
    * @param encoding The encoding of the audio data.

@@ -1,7 +1,7 @@
 AudioSink:
   buffer count = 44
   config:
-    pcmEncoding = 1879048192
+    pcmEncoding = pcm-double
     channelCount = 1
     sampleRate = 44100
   buffer #0:

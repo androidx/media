@@ -482,7 +482,7 @@ MediaCodecAdapter (media3.video.avc):
 AudioSink:
   buffer count = 37
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #0:
@@ -546,7 +546,7 @@ AudioSink:
     time = 1000000485179
     data = empty
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #20:

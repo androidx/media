@@ -4,7 +4,7 @@ format audio:
   channelCount = 1
   channelMask = 0x00000004
   sampleRate = 44100
-  pcmEncoding = 2
+  pcmEncoding = pcm-16
 sample:
   trackType = audio
   dataHashCode = 1742602241

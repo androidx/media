@@ -163,7 +163,7 @@ track 1:
     maxInputSize = 8222
     channelCount = 1
     sampleRate = 44100
-    pcmEncoding = 268435456
+    pcmEncoding = pcm-16be
     language = und
     metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf61.7.100], Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
   sample 0:

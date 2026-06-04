@@ -1,6 +1,6 @@
 AudioSink:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   SampleBlock:

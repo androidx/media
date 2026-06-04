@@ -832,7 +832,7 @@ MediaCodecAdapter (media3.video.hevc):
 AudioSink:
   buffer count = 68
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #0:

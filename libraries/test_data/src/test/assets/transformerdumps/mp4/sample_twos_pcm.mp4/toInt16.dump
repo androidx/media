@@ -4,7 +4,7 @@ format audio:
   channelCount = 1
   channelMask = 0x00000004
   sampleRate = 44100
-  pcmEncoding = 2
+  pcmEncoding = pcm-16
   metadata = entries=[Mp4AlternateGroup: 1, xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=0, modification time=0, timescale=1000]
 format video:
   averageBitrate = 718290

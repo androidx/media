@@ -2,7 +2,7 @@ AudioSink:
   buffer count = 138
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 6
     sampleRate = 48000
     outputChannels = [0, 2, 1, 5, 3, 4]

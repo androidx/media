@@ -91,7 +91,11 @@ public final class DumpableFormat implements Dumper.Dumpable {
         DEFAULT_FORMAT,
         format -> Util.formatInvariant("0x%08X", format.channelMask));
     dumper.addIfNonDefault("sampleRate", format, DEFAULT_FORMAT, format -> format.sampleRate);
-    dumper.addIfNonDefault("pcmEncoding", format, DEFAULT_FORMAT, format -> format.pcmEncoding);
+    dumper.addIfNonDefault(
+        "pcmEncoding",
+        format,
+        DEFAULT_FORMAT,
+        format -> Util.getEncodingString(format.pcmEncoding));
     dumper.addIfNonDefault("encoderDelay", format, DEFAULT_FORMAT, format -> format.encoderDelay);
     dumper.addIfNonDefault(
         "encoderPadding", format, DEFAULT_FORMAT, format -> format.encoderPadding);

@@ -2590,7 +2590,7 @@ MediaCodecAdapter (media3.video.avc):
 AudioSink:
   buffer count = 215
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #0:
@@ -2724,7 +2724,7 @@ AudioSink:
     data = empty
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #43:
@@ -2858,7 +2858,7 @@ AudioSink:
     data = empty
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #86:
@@ -2992,7 +2992,7 @@ AudioSink:
     data = empty
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #129:
@@ -3126,7 +3126,7 @@ AudioSink:
     data = empty
   discontinuity:
   config:
-    pcmEncoding = 2
+    pcmEncoding = pcm-16
     channelCount = 1
     sampleRate = 44100
   buffer #172:
