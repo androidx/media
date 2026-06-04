@@ -147,6 +147,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private @Mp4Extractor.Flags int mp4Flags;
   private @FragmentedMp4Extractor.Flags int fragmentedMp4Flags;
   private @Mp3Extractor.Flags int mp3Flags;
+  private @WavExtractor.Flags int wavFlags;
   private @TsExtractor.Mode int tsMode;
   private @DefaultTsPayloadReaderFactory.Flags int tsFlags;
   // TODO (b/261183220): Initialize tsSubtitleFormats in constructor once shrinking bug is fixed.
@@ -319,6 +320,19 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   @CanIgnoreReturnValue
   public synchronized DefaultExtractorsFactory setMp3ExtractorFlags(@Mp3Extractor.Flags int flags) {
     mp3Flags = flags;
+    return this;
+  }
+
+  /**
+   * Sets flags for {@link WavExtractor} instances created by the factory.
+   *
+   * @see WavExtractor#WavExtractor(int)
+   * @param flags The flags to use.
+   * @return The factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public synchronized DefaultExtractorsFactory setWavExtractorFlags(@WavExtractor.Flags int flags) {
+    wavFlags = flags;
     return this;
   }
 
@@ -581,7 +595,10 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
                 tsTimestampSearchBytes));
         break;
       case FileTypes.WAV:
-        extractors.add(new WavExtractor());
+        extractors.add(
+            new WavExtractor(
+                wavFlags
+                    | (disableArtworkMetadata ? WavExtractor.FLAG_DISABLE_ARTWORK_METADATA : 0)));
         break;
       case FileTypes.JPEG:
         extractors.add(new JpegExtractor(jpegFlags));

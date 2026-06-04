@@ -21,6 +21,7 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
+import androidx.media3.extractor.metadata.ReplayGainInfo;
 
 /** Representation of a LAME Xing or Info frame. */
 /* package */ final class XingFrame {
@@ -37,7 +38,7 @@ import androidx.media3.extractor.MpegAudioUtil;
   public final long dataSize;
 
   /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
-  @Nullable public final Mp3InfoReplayGain replayGain;
+  @Nullable public final ReplayGainInfo replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -62,7 +63,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       long frameCount,
       long dataSize,
       @Nullable long[] tableOfContents,
-      @Nullable Mp3InfoReplayGain replayGain,
+      @Nullable ReplayGainInfo replayGain,
       int encoderDelay,
       int encoderPadding) {
     this.header = new MpegAudioUtil.Header(header);
@@ -104,7 +105,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       frame.skipBytes(4); // Quality indicator
     }
 
-    @Nullable Mp3InfoReplayGain replayGain;
+    @Nullable ReplayGainInfo replayGain;
     int encoderDelay;
     int encoderPadding;
     // Skip: version string (9), revision & VBR method (1), lowpass filter (1).
@@ -117,7 +118,7 @@ import androidx.media3.extractor.MpegAudioUtil;
       float peak = frame.readFloat();
       int field1 = frame.readUnsignedShort();
       int field2 = frame.readUnsignedShort();
-      replayGain = Mp3InfoReplayGain.parse(peak, field1, field2);
+      replayGain = ReplayGainInfo.parse(peak, field1, field2);
 
       frame.skipBytes(bytesToSkipAfterReplayGain);
       int encoderDelayAndPadding = frame.readUnsignedInt24();
