@@ -862,6 +862,11 @@ public class DashManifestParser extends DefaultHandler
             essentialProperties,
             supplementalProperties);
     segmentBase = segmentBase != null ? segmentBase : new SingleSegmentBase();
+    if (isStandaloneTextRepresentation(format) && segmentBase.presentationTimeOffset != 0) {
+      // DASH-IF IOP "Standalone Text Timing": @presentationTimeOffset SHALL be ignored for
+      // standalone text. See https://dashif.org/Guidelines-TimingModel/#standalone-text-timing
+      segmentBase = segmentBase.copyWithPresentationTimeOffset(0);
+    }
 
     return new RepresentationInfo(
         format,
@@ -2227,6 +2232,10 @@ public class DashManifestParser extends DefaultHandler
       }
     }
     return false;
+  }
+
+  private static boolean isStandaloneTextRepresentation(Format format) {
+    return format.containerMimeType != null && MimeTypes.isText(format.containerMimeType);
   }
 
   /** A parsed Representation element. */
