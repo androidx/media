@@ -21,8 +21,6 @@ android {
   namespace = "androidx.media3.docsamples"
 
   compileOptions { isCoreLibraryDesugaringEnabled = true }
-
-  defaultConfig { minSdk = 23 }
 }
 
 dependencies {
