@@ -30,6 +30,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v4.media.MediaDescriptionCompat;
+import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -546,6 +547,97 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(receiovedOnPositionDiscontinuity.get()).isFalse();
+
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void livePlayback_defaultBehavior_hidesPositionAndDurationForLegacyController()
+      throws Exception {
+    Player player =
+        createPlayerWithAvailableCommand(
+            createPlayer(
+                /* onPostCreationTask= */ createdPlayer -> {
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+                  createdPlayer.prepare();
+                }),
+            Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
+    Player livePlayer =
+        new ForwardingPlayer(player) {
+          @Override
+          public boolean isCurrentMediaItemLive() {
+            return true;
+          }
+
+          @Override
+          public long getDuration() {
+            return 3 * 60 * 60 * 1000L;
+          }
+
+          @Override
+          public long getCurrentPosition() {
+            return 60_000L;
+          }
+        };
+    MediaSession mediaSession = createMediaSession(livePlayer, /* callback= */ null);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    assertThat(
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isEqualTo(0);
+    assertThat(controllerCompat.getPlaybackState().getPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(controllerCompat.getMetadata().getLong(MediaMetadataCompat.METADATA_KEY_DURATION))
+        .isEqualTo(-1L);
+
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void livePlayback_flagEnabled_publishesPositionAndDurationForLegacyController()
+      throws Exception {
+    Player player =
+        createPlayerWithAvailableCommand(
+            createPlayer(
+                /* onPostCreationTask= */ createdPlayer -> {
+                  createdPlayer.setMediaItem(MediaItem.fromUri("asset:///media/wav/sample.wav"));
+                  createdPlayer.prepare();
+                }),
+            Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
+    long testDurationMs = 3 * 60 * 60 * 1000L;
+    long testPositionMs = 60_000L;
+    Player livePlayer =
+        new ForwardingPlayer(player) {
+          @Override
+          public boolean isCurrentMediaItemLive() {
+            return true;
+          }
+
+          @Override
+          public long getDuration() {
+            return testDurationMs;
+          }
+
+          @Override
+          public long getCurrentPosition() {
+            return testPositionMs;
+          }
+        };
+    MediaSession mediaSession =
+        createMediaSession(
+            livePlayer,
+            /* callback= */ null,
+            /* showPlaybackPositionForLiveStreams= */ true);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+
+    assertThat(
+            controllerCompat.getPlaybackState().getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isNotEqualTo(0);
+    assertThat(controllerCompat.getPlaybackState().getPosition()).isEqualTo(testPositionMs);
+    assertThat(controllerCompat.getMetadata().getLong(MediaMetadataCompat.METADATA_KEY_DURATION))
+        .isEqualTo(testDurationMs);
 
     mediaSession.release();
     releasePlayer(player);
@@ -2308,13 +2400,25 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
   }
 
   private static MediaSession createMediaSession(Player player) {
-    return createMediaSession(player, /* callback= */ null);
+    return createMediaSession(
+        player,
+        /* callback= */ null,
+        /* showPlaybackPositionForLiveStreams= */ false);
   }
 
   private static MediaSession createMediaSession(
       Player player, @Nullable MediaSession.Callback callback) {
+    return createMediaSession(
+        player, callback, /* showPlaybackPositionForLiveStreams= */ false);
+  }
+
+  private static MediaSession createMediaSession(
+      Player player,
+      @Nullable MediaSession.Callback callback,
+      boolean showPlaybackPositionForLiveStreams) {
     MediaSession.Builder session =
-        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player);
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setShowPlaybackPositionForLiveStreams(showPlaybackPositionForLiveStreams);
     if (callback != null) {
       session.setCallback(callback);
     }

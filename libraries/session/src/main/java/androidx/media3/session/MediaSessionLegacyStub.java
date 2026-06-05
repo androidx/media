@@ -158,6 +158,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private Player.Commands availablePlayerCommands;
   @Nullable private PlaybackException customPlaybackException;
   @Nullable private Player.Commands playerCommandsForErrorState;
+  private final boolean showPlaybackPositionForLiveStreams;
 
   @SuppressWarnings({
     "PendingIntentMutability", // We can't use SaferPendingIntent
@@ -170,6 +171,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Bundle tokenExtras,
       @Nullable PendingIntent sessionActivity,
       boolean playIfSuppressed,
+      boolean showPlaybackPositionForLiveStreams,
       ImmutableList<CommandButton> customLayout,
       ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
@@ -178,6 +180,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable String packageNameOverride) {
     this.sessionImpl = session;
     this.playIfSuppressed = playIfSuppressed;
+    this.showPlaybackPositionForLiveStreams = showPlaybackPositionForLiveStreams;
     this.customLayout = customLayout;
     this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
@@ -1755,7 +1758,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable MediaItem currentMediaItem = player.getCurrentMediaItemWithCommandCheck();
       MediaMetadata newMediaMetadata = player.getMediaMetadataWithCommandCheck();
       long newDurationMs =
-          player.isCurrentMediaItemLiveWithCommandCheck()
+          !showPlaybackPositionForLiveStreams && player.isCurrentMediaItemLiveWithCommandCheck()
               ? C.TIME_UNSET
               : player.getDurationWithCommandCheck();
       String newMediaId =
@@ -1902,7 +1905,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         customPlaybackException != null ? customPlaybackException : player.getPlayerError();
     boolean canReadPositions =
         player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
-            && !player.isCurrentMediaItemLive();
+            && (showPlaybackPositionForLiveStreams || !player.isCurrentMediaItemLive());
     boolean shouldShowPlayButton =
         publicPlaybackException != null || Util.shouldShowPlayButton(player, playIfSuppressed);
     int state =
