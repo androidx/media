@@ -194,6 +194,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private Supplier<ImageReaderAdapter.Factory> imageReaderAdapterFactorySupplier;
 
     private boolean videoPrewarmingEnabled;
+    private boolean perStreamMediaProgressionEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
     private boolean built;
@@ -325,6 +326,23 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     /* package */ Builder setVideoPrewarmingEnabled(boolean videoPrewarmingEnabled) {
       // TODO: b/369817794 - Remove this setter once the tests are run on a device with API < 23.
       this.videoPrewarmingEnabled = videoPrewarmingEnabled;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable per-stream media progression in the player.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * @param perStreamMediaProgressionEnabled Whether to enable per-stream media progression in the
+     *     player.
+     * @return This builder, for convenience.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    /* package */ Builder setPerStreamMediaProgressionEnabled(
+        boolean perStreamMediaProgressionEnabled) {
+      this.perStreamMediaProgressionEnabled = perStreamMediaProgressionEnabled;
       return this;
     }
 
@@ -638,6 +656,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final ImageDecoder.Factory imageDecoderFactory;
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
+  private final boolean perStreamMediaProgressionEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
@@ -723,6 +742,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactorySupplier.get());
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
+    perStreamMediaProgressionEnabled = builder.perStreamMediaProgressionEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
@@ -2395,7 +2415,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
               .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
-              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
+              .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+              .enablePerStreamMediaProgression(perStreamMediaProgressionEnabled);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
       this.hardwareBufferFrameReaderSupplier = hardwareBufferFrameReaderSupplier;

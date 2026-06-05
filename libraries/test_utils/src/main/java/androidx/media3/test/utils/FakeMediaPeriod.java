@@ -131,7 +131,8 @@ public class FakeMediaPeriod implements MediaPeriod {
   private boolean deferOnPrepared;
   private boolean prepared;
   private long seekOffsetUs;
-  private long discontinuityPositionUs;
+  private long pendingDiscontinuityUs;
+  private boolean usesStreamPrerollFlags;
   private long lastSeekPositionUs;
 
   /**
@@ -260,7 +261,7 @@ public class FakeMediaPeriod implements MediaPeriod {
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
     sampleStreams = Sets.newIdentityHashSet();
-    discontinuityPositionUs = C.TIME_UNSET;
+    pendingDiscontinuityUs = C.TIME_UNSET;
     fakePreparationLoadTaskId = LoadEventInfo.getNewId();
   }
 
@@ -271,7 +272,7 @@ public class FakeMediaPeriod implements MediaPeriod {
    * @param discontinuityPositionUs The position to be returned, in microseconds.
    */
   public void setDiscontinuityPositionUs(long discontinuityPositionUs) {
-    this.discontinuityPositionUs = discontinuityPositionUs;
+    this.pendingDiscontinuityUs = discontinuityPositionUs;
   }
 
   /** Allows the fake media period to complete preparation. May be called on any thread. */
@@ -366,10 +367,16 @@ public class FakeMediaPeriod implements MediaPeriod {
                 drmEventDispatcher,
                 selection.getSelectedFormat(),
                 sampleStreamItems);
+        if (pendingDiscontinuityUs != C.TIME_UNSET) {
+          sampleStream.setFlags(SampleStream.FLAG_HAS_PREROLL);
+        }
         sampleStreams.add(sampleStream);
         streams[i] = sampleStream;
         streamResetFlags[i] = true;
       }
+    }
+    if (usesStreamPrerollFlags) {
+      pendingDiscontinuityUs = C.TIME_UNSET;
     }
     return seekToUs(positionUs);
   }
@@ -387,10 +394,15 @@ public class FakeMediaPeriod implements MediaPeriod {
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+  }
+
+  @Override
   public long readDiscontinuity() {
     assertThat(prepared).isTrue();
-    long positionDiscontinuityUs = this.discontinuityPositionUs;
-    this.discontinuityPositionUs = C.TIME_UNSET;
+    long positionDiscontinuityUs = this.pendingDiscontinuityUs;
+    this.pendingDiscontinuityUs = C.TIME_UNSET;
     return positionDiscontinuityUs;
   }
 

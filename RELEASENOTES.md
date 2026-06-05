@@ -68,6 +68,11 @@
         ([#3207](https://github.com/androidx/media/issues/3207)).
     *   Fix codec issue on some devices where the codec was swallowing all
         samples if previously flushed before receiving input buffers.
+    *   Add experimental `ExoPlayer.Builder.enablePerStreamMediaProgression()`
+        to allow advancing media processing on a per-stream basis. This reduces
+        startup latency between playlist items and avoids playback becoming
+        "stuck" with very short content
+        ([#3122](https://github.com/androidx/media/issues/3122)).
 *   CompositionPlayer:
     *   Fix an issue where `TrackSelector` instances were not being released.
 *   Transformer:

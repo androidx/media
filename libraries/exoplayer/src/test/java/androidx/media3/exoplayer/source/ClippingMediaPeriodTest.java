@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_HAS_PREROLL;
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_STRICT_DURATION;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static com.google.common.truth.Truth.assertThat;
@@ -148,10 +150,14 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0]).isNotNull();
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(250);
   }
 
@@ -167,10 +173,13 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 250,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(250);
   }
 
@@ -187,10 +196,13 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 250,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(250);
   }
 
@@ -205,9 +217,13 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(clippingMediaPeriod, /* preparePositionUs= */ 0, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 0, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -221,10 +237,12 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -239,11 +257,14 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
-    clippingMediaPeriod.readDiscontinuity();
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    long unused = clippingMediaPeriod.readDiscontinuity();
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[0].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_HAS_PREROLL | FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -258,10 +279,12 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 
@@ -276,11 +299,13 @@ public class ClippingMediaPeriodTest {
             /* startUs= */ 0,
             /* endUs= */ 500);
 
-    prepareMediaPeriodAndSelectTracks(
-        clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
+    SampleStream[] sampleStreams =
+        prepareMediaPeriodAndSelectTracks(
+            clippingMediaPeriod, /* preparePositionUs= */ 250, trackGroups);
     clippingMediaPeriod.seekToUs(400);
     long discontinuityPositionUs = clippingMediaPeriod.readDiscontinuity();
 
+    assertThat(sampleStreams[1].getFlags()).isEqualTo(FLAG_STRICT_DURATION | FLAG_HAS_PREROLL);
     assertThat(discontinuityPositionUs).isEqualTo(C.TIME_UNSET);
   }
 

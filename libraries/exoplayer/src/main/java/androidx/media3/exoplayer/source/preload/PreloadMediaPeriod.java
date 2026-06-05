@@ -257,6 +257,11 @@ import java.util.Objects;
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    mediaPeriod.setUsesStreamPrerollFlags();
+  }
+
+  @Override
   public long readDiscontinuity() {
     return mediaPeriod.readDiscontinuity();
   }

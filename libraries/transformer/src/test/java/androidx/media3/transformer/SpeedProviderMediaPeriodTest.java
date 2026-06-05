@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.exoplayer.source.SampleStream.FLAG_HAS_PREROLL;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -259,8 +260,11 @@ public final class SpeedProviderMediaPeriodTest {
         new SpeedProviderMediaPeriod(
             spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000 + clipStartUs);
+    SampleStream sampleStream =
+        selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
     assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(2_000_000 + clipStartUs);
+    assertThat(sampleStream.getFlags()).isEqualTo(FLAG_HAS_PREROLL);
     verify(spyPeriod).readDiscontinuity();
   }
 
@@ -277,8 +281,11 @@ public final class SpeedProviderMediaPeriodTest {
         new SpeedProviderMediaPeriod(
             spyPeriod, new SpeedProviderMapper(SPEED_PROVIDER), clipStartUs);
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000 + clipStartUs);
+    SampleStream sampleStream =
+        selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
     assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(C.TIME_UNSET);
+    assertThat(sampleStream.getFlags()).isEqualTo(0);
     verify(spyPeriod).readDiscontinuity();
   }
 

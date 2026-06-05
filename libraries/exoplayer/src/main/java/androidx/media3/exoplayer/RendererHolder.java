@@ -154,6 +154,23 @@ import java.util.Objects;
   }
 
   /**
+   * Signals to the renderer that the current {@link SampleStream} will be the final one supplied
+   * before it is next disabled or reset.
+   *
+   * @see Renderer#setCurrentStreamFinal()
+   * @param streamEndPositionUs The position to stop rendering at or {@link C#LENGTH_UNSET} to
+   *     render until the end of the current stream.
+   */
+  public void setCurrentStreamFinal(long streamEndPositionUs) {
+    boolean isPrimaryRenderer =
+        secondaryRenderer == null
+            || prewarmingState == RENDERER_PREWARMING_STATE_TRANSITIONING_TO_SECONDARY
+            || prewarmingState == RENDERER_PREWARMING_STATE_NOT_PREWARMING_USING_PRIMARY;
+    Renderer renderer = isPrimaryRenderer ? primaryRenderer : checkNotNull(secondaryRenderer);
+    setCurrentStreamFinalInternal(renderer, streamEndPositionUs);
+  }
+
+  /**
    * Maybe signal to the renderer that the old {@link SampleStream} will be the final one supplied
    * before it is next disabled or reset.
    *
@@ -357,10 +374,15 @@ import java.util.Objects;
                 && !hasReachedServerSideInsertedAdsTransition(renderer, readingPeriodHolder)))) {
       // The current reading period is still being read by at least one renderer.
       MediaPeriodHolder followingPeriod = readingPeriodHolder.getNext();
-      // If renderer is reading ahead as it was enabled early, then it is not 'reading' the
-      // current reading period.
-      return followingPeriod != null
-          && followingPeriod.sampleStreams[index] == renderer.getStream();
+      while (followingPeriod != null) {
+        // If renderer is reading ahead as it was enabled early, then it is not 'reading' the
+        // current reading period.
+        if (Objects.equals(followingPeriod.sampleStreams[index], renderer.getStream())) {
+          return true;
+        }
+        followingPeriod = followingPeriod.getNext();
+      }
+      return false;
     }
     return true;
   }

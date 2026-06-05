@@ -98,9 +98,10 @@ public class ChunkSampleStream<T extends ChunkSource>
   @Nullable private BaseMediaChunk canceledMediaChunk;
   private boolean needToEvaluateInitialDiscontinuity;
   private boolean hasInitialDiscontinuity;
+  // TODO: b/510217604 - Remove this field.
+  private boolean usesStreamPrerollFlags;
   private boolean suppressRead;
   private long endPositionUs;
-
   /* package */ boolean loadingFinished;
 
   /**
@@ -440,7 +441,9 @@ public class ChunkSampleStream<T extends ChunkSource>
   @Override
   public int readData(
       FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
-    if (isPendingReset() || mayHaveInitialDiscontinuity() || suppressRead) {
+    boolean shouldBlockForInitialDiscontinuity =
+        !usesStreamPrerollFlags && mayHaveInitialDiscontinuity();
+    if (isPendingReset() || shouldBlockForInitialDiscontinuity || suppressRead) {
       return C.RESULT_NOTHING_READ;
     }
     if (canceledMediaChunk != null
@@ -457,7 +460,9 @@ public class ChunkSampleStream<T extends ChunkSource>
 
   @Override
   public int skipData(long positionUs) {
-    if (isPendingReset() || mayHaveInitialDiscontinuity() || suppressRead) {
+    boolean shouldBlockForInitialDiscontinuity =
+        !usesStreamPrerollFlags && mayHaveInitialDiscontinuity();
+    if (isPendingReset() || shouldBlockForInitialDiscontinuity || suppressRead) {
       return 0;
     }
     int skipCount = primarySampleQueue.getSkipCount(positionUs, loadingFinished);
@@ -783,12 +788,30 @@ public class ChunkSampleStream<T extends ChunkSource>
    *
    * @return Whether the stream had an initial discontinuity.
    */
+  // TODO: b/510217604 - Remove this method.
   public boolean consumeInitialDiscontinuity() {
     try {
       return hasInitialDiscontinuity;
     } finally {
       hasInitialDiscontinuity = false;
     }
+  }
+
+  /**
+   * Sets whether {@link #mayHaveInitialDiscontinuity()} should block on a pending initial
+   * discontinuity that has not yet been consumed by {@link #consumeInitialDiscontinuity()}.
+   */
+  // TODO: b/510217604 - Remove this method.
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+  }
+
+  @Override
+  public @Flags int getFlags() {
+    if (needToEvaluateInitialDiscontinuity) {
+      return FLAG_MAYBE_HAS_PREROLL;
+    }
+    return hasInitialDiscontinuity ? FLAG_HAS_PREROLL : 0;
   }
 
   /**

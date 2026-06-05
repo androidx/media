@@ -159,6 +159,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean seenFirstTrackSelection;
   private boolean notifyDiscontinuity;
   private boolean pendingInitialDiscontinuity;
+  private boolean usesStreamPrerollFlags;
   private int enabledTrackCount;
   private boolean isLengthKnown;
 
@@ -348,7 +349,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         enabledTrackCount++;
         trackEnabledStates[track] = true;
         hasPreroll |= selection.getSelectedFormat().hasPrerollSamples;
-        streams[i] = new SampleStreamImpl(track);
+        streams[i] = new SampleStreamImpl(track, selection.getSelectedFormat().hasPrerollSamples);
         streamResetFlags[i] = true;
 
         if (loadOnlySelectedTracks) {
@@ -461,8 +462,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
+  public void setUsesStreamPrerollFlags() {
+    this.usesStreamPrerollFlags = true;
+  }
+
+  @Override
   public long readDiscontinuity() {
-    if (pendingInitialDiscontinuity) {
+    if (!usesStreamPrerollFlags && pendingInitialDiscontinuity) {
       pendingInitialDiscontinuity = false;
       return lastSeekPositionUs;
     }
@@ -1124,9 +1130,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final class SampleStreamImpl implements SampleStream {
 
     private final int track;
+    private final boolean hasPreroll;
 
-    public SampleStreamImpl(int track) {
+    private SampleStreamImpl(int track, boolean hasPreroll) {
       this.track = track;
+      this.hasPreroll = hasPreroll;
     }
 
     @Override
@@ -1148,6 +1156,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public int skipData(long positionUs) {
       return ProgressiveMediaPeriod.this.skipData(track, positionUs);
+    }
+
+    @Override
+    public @Flags int getFlags() {
+      return hasPreroll ? FLAG_HAS_PREROLL : 0;
     }
   }
 

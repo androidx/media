@@ -994,6 +994,10 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
       checkNotNull(loadingPeriod.callback).onContinueLoadingRequested(loadingPeriod);
     }
 
+    private void setUsesStreamPrerollFlags() {
+      actualMediaPeriod.setUsesStreamPrerollFlags();
+    }
+
     private long getStreamPositionUsWithNotYetStartedHandling(
         MediaPeriodImpl mediaPeriod, long positionUs) {
       if (positionUs < mediaPeriod.lastStartPositionUs) {
@@ -1236,6 +1240,11 @@ public final class ServerSideAdInsertionMediaSource extends BaseMediaSource
     @Override
     public void discardBuffer(long positionUs, boolean toKeyframe) {
       sharedPeriod.discardBuffer(/* mediaPeriod= */ this, positionUs, toKeyframe);
+    }
+
+    @Override
+    public void setUsesStreamPrerollFlags() {
+      sharedPeriod.setUsesStreamPrerollFlags();
     }
 
     @Override

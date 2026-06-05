@@ -75,7 +75,7 @@ public interface SampleStream {
 
   /**
    * Flags that can be specified on the stream. Possible flag values are {@link
-   * #FLAG_STRICT_DURATION}.
+   * #FLAG_STRICT_DURATION}, {@link #FLAG_MAYBE_HAS_PREROLL} and {@link #FLAG_HAS_PREROLL}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -84,11 +84,24 @@ public interface SampleStream {
       flag = true,
       value = {
         FLAG_STRICT_DURATION,
+        FLAG_MAYBE_HAS_PREROLL,
+        FLAG_HAS_PREROLL,
       })
   @interface Flags {}
 
   /** Specifies that playout of the stream should be stopped once the duration is reached. */
   int FLAG_STRICT_DURATION = 1;
+
+  /**
+   * Specifies that the stream may contain preroll samples.
+   *
+   * <p>A stream must resolve itself eventually to either not have this flag or have {@link
+   * #FLAG_HAS_PREROLL}.
+   */
+  int FLAG_MAYBE_HAS_PREROLL = 1 << 1;
+
+  /** Specifies that the stream contains a preroll of decode-only samples. */
+  int FLAG_HAS_PREROLL = 1 << 2;
 
   /** Return values of {@link #readData}. */
   @Documented

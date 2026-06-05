@@ -248,6 +248,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    public void setUsesStreamPrerollFlags() {
+      mediaPeriod.setUsesStreamPrerollFlags();
+    }
+
+    @Override
     public long readDiscontinuity() {
       return getAdjustedPeriodTimeUs(
           mediaPeriod.readDiscontinuity(), speedProviderMapper, clipStartUs);
