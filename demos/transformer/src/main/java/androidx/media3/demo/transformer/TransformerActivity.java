@@ -793,7 +793,17 @@ public final class TransformerActivity extends AppCompatActivity {
     exportStopwatch.stop();
     long elapsedTimeMs = exportStopwatch.elapsed(TimeUnit.MILLISECONDS);
     informationTextView.setText(
-        getString(R.string.export_completed, elapsedTimeMs / 1000.f, filePath));
+        getString(R.string.export_completed, elapsedTimeMs / 1000f, filePath));
+    if (exportResult.approximateDurationMs > 0 && exportResult.videoFrameCount > 0) {
+      informationTextView.append("\n");
+      // This calculates the average frame rate of the exported video (e.g. 30fps),
+      // which is useful for verifying frame rate changes during export.
+      // It does not represent the processing/export throughput.
+      informationTextView.append(
+          getString(
+              R.string.average_fps,
+              exportResult.videoFrameCount * 1000f / exportResult.approximateDurationMs));
+    }
     progressViewGroup.setVisibility(View.GONE);
     debugFrame.removeAllViews();
     inputCardView.setVisibility(View.VISIBLE);
