@@ -23,6 +23,8 @@ import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.getClosestSegmentBoundaryUs;
+import static androidx.media3.exoplayer.hls.HlsInterstitialsTestUtil.getJsonAssetList;
+import static androidx.media3.exoplayer.hls.HlsInterstitialsTestUtil.getJsonAssetListWithSkipInformation;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_IN;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_OUT;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
@@ -91,7 +93,6 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.json.JSONObject;
@@ -129,7 +130,7 @@ public class HlsInterstitialsAdsLoaderTest {
 
   @Before
   public void setUp() {
-    when(mockPlayer.getApplicationLooper()).thenReturn(Looper.getMainLooper());
+    when(mockPlayer.getApplicationLooper()).thenReturn(Looper.myLooper());
     adsLoader = new HlsInterstitialsAdsLoader(() -> new ByteArrayDataSource(new JsonUriResolver()));
     adsLoader.addListener(mockAdsLoaderListener);
     assetListLoadingListener = new AssetListLoadingListener();
@@ -6078,6 +6079,7 @@ public class HlsInterstitialsAdsLoaderTest {
     adsLoader.release();
 
     assertThat(adsLoader.isReleased()).isTrue();
+    verify(mockPlayer).getApplicationLooper();
     verifyNoMoreInteractions(mockPlayer);
   }
 
@@ -6230,11 +6232,14 @@ public class HlsInterstitialsAdsLoaderTest {
   public void setPlayer_playerAlreadySetWithoutActiveListeners_playerSet() {
     Player secondMockPlayer = mock(ExoPlayer.class);
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(contentWindowDefinition));
+    when(secondMockPlayer.getApplicationLooper()).thenReturn(Looper.myLooper());
     adsLoader.setPlayer(mockPlayer);
 
     adsLoader.setPlayer(secondMockPlayer);
 
+    verify(mockPlayer).getApplicationLooper();
     verifyNoMoreInteractions(mockPlayer);
+    verify(secondMockPlayer).getApplicationLooper();
     verifyNoMoreInteractions(secondMockPlayer);
   }
 
@@ -6258,6 +6263,7 @@ public class HlsInterstitialsAdsLoaderTest {
 
     adsLoader.setPlayer(/* player= */ null);
 
+    verify(mockPlayer).getApplicationLooper();
     verifyNoMoreInteractions(mockPlayer);
   }
 
@@ -6581,7 +6587,7 @@ public class HlsInterstitialsAdsLoaderTest {
         /* adGroupTimeUs= */ 10_000L,
         MediaItem.fromUri("http://1"),
         interstitial,
-        /* playlistTargetDurationUs= */ 2_000L);
+        /* targetDurationUs= */ 2_000L);
     holder.putUnresolvedAssetListData(
         /* adsId= */ "adsId",
         /* adGroupIndex= */ 12,
@@ -6589,7 +6595,7 @@ public class HlsInterstitialsAdsLoaderTest {
         /* adGroupTimeUs= */ 20_000L,
         MediaItem.fromUri("http://2"),
         interstitial,
-        /* playlistTargetDurationUs= */ 2_000L);
+        /* targetDurationUs= */ 2_000L);
 
     assertThat(holder.getUnresolvedAssetLists("adsId")).hasSize(2);
 
@@ -7868,59 +7874,6 @@ public class HlsInterstitialsAdsLoaderTest {
     if (verifyMessageScheduled) {
       inOrder.verify(mockPlayer).createMessage(any());
     }
-  }
-
-  private byte[] getJsonAssetList(int assetCount, int delayMs) {
-    StringBuilder assetList = new StringBuilder("{\"ASSETS\": [");
-    for (int i = 0; i < assetCount; i++) {
-      assetList.append(getJsonAsset(/* uri= */ "http://" + i, /* durationSec= */ 10.123d + i));
-      if (i < assetCount - 1) {
-        assetList.append(",");
-      }
-    }
-    if (delayMs > 0) {
-      try {
-        Thread.sleep(delayMs);
-      } catch (InterruptedException e) {
-        // ignored.
-      }
-    }
-    return assetList.append("]}\n").toString().getBytes(Charset.defaultCharset());
-  }
-
-  private byte[] getJsonAssetListWithSkipInformation(
-      int assetCount,
-      @Nullable Float skipInfoOffsetSeconds,
-      @Nullable Float skipInfoDurationSeconds,
-      @Nullable String skipInfoLabelId) {
-    StringBuilder assetList = new StringBuilder("{\"ASSETS\": [");
-    for (int i = 0; i < assetCount; i++) {
-      assetList.append(getJsonAsset(/* uri= */ "http://" + i, /* durationSec= */ 10.123d + i));
-      if (i < assetCount - 1) {
-        assetList.append(",");
-      }
-    }
-    assetList.append("],\n");
-    assetList.append("\"SKIP-CONTROL\": {");
-    if (skipInfoOffsetSeconds != null) {
-      assetList.append("   \"OFFSET\": ").append(skipInfoOffsetSeconds).append(",");
-    }
-    if (skipInfoDurationSeconds != null) {
-      assetList.append("   \"DURATION\": ").append(skipInfoDurationSeconds);
-      if (skipInfoLabelId != null) {
-        assetList.append(",");
-      }
-    }
-    if (skipInfoLabelId != null) {
-      assetList.append("   \"LABEL-ID\": \"").append(skipInfoLabelId).append("\"");
-    }
-    assetList.append("}"); // end of SKIP_CONTROL
-    assetList.append("}"); // end of document
-    return assetList.toString().getBytes(Charset.defaultCharset());
-  }
-
-  private static String getJsonAsset(String uri, double durationSec) {
-    return String.format(Locale.US, "{\"URI\": \"%s\", \"DURATION\": %f}", uri, durationSec);
   }
 
   @SuppressWarnings("NewClassNamingConvention")
