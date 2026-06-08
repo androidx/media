@@ -1628,6 +1628,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // sample that's too large to be held in one of the decoder's input buffers.
     if (!codecReceivedBuffers && !buffer.isKeyFrame()) {
       buffer.clear();
+      decoderCounters.skippedInputBufferCount++;
       if (codecReconfigurationState == RECONFIGURATION_STATE_QUEUE_PENDING) {
         // The buffer we just cleared contained reconfiguration data. We need to re-write this data
         // into a subsequent buffer (if there is one).

@@ -154,6 +154,8 @@
         ([#418](https://github.com/androidx/media/issues/418)).
     *   Add support for big endian 32-bit and 64-bit floating point PCM.
 *   Video:
+    *   Fix immediate rendering decision when setting new surface to avoid frame
+        drops on devices that don't support placeholder surfaces.
     *   Fix frame rate estimation in `MediaCodecVideoRenderer` to be more
         accurate by accounting for dropped or skipped frames.
     *   Allow configuration of the threshold used to schedule frames early. The

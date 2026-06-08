@@ -1322,14 +1322,20 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
       @State int state = getState();
       @Nullable MediaCodecAdapter codec = getCodec();
-      if (codec != null && videoSink == null) {
-        MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
-        boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
-        if (canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
-          setOutputSurface(codec, getSurfaceForCodec(codecInfo));
+      boolean surfaceReplacedSeamlessly = false;
+      if (codec != null) {
+        if (videoSink == null) {
+          MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
+          boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
+          if (canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
+            setOutputSurface(codec, getSurfaceForCodec(codecInfo));
+            surfaceReplacedSeamlessly = true;
+          } else {
+            releaseCodec();
+            maybeInitCodecOrBypass();
+          }
         } else {
-          releaseCodec();
-          maybeInitCodecOrBypass();
+          surfaceReplacedSeamlessly = true;
         }
       }
       if (displaySurface != null) {
@@ -1344,13 +1350,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       }
       if (state == STATE_STARTED) {
         // We want to "join" playback to prevent an intermediate buffering state in the player
-        // before we rendered the new first frame. Since there is no reason to believe the next
-        // frame is delayed and the renderer needs to catch up, we still request to render the
-        // next frame as soon as possible.
+        // before we rendered the new first frame. If the surface was replaced seamlessly,
+        // there is no reason to believe the next frame is delayed and the renderer needs to
+        // catch up, so we still request to render the next frame as soon as possible.
+        boolean renderNextFrameImmediately = surfaceReplacedSeamlessly;
         if (videoSink != null) {
-          videoSink.join(/* renderNextFrameImmediately= */ true);
+          videoSink.join(renderNextFrameImmediately);
         } else {
-          videoFrameReleaseControl.join(/* renderNextFrameImmediately= */ true);
+          videoFrameReleaseControl.join(renderNextFrameImmediately);
         }
       }
       maybeSetupTunnelingForFirstFrame();
