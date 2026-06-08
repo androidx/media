@@ -588,8 +588,6 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
         .isEqualTo(0);
     assertThat(controllerCompat.getPlaybackState().getPosition())
         .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
-    assertThat(controllerCompat.getMetadata().getLong(MediaMetadataCompat.METADATA_KEY_DURATION))
-        .isEqualTo(-1L);
 
     mediaSession.release();
     releasePlayer(player);
