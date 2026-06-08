@@ -29,6 +29,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.offline.SegmentDownloader;
+import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -220,13 +221,21 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
   protected List<Segment> getSegments(DataSource dataSource, HlsPlaylist manifest, boolean removing)
       throws IOException, InterruptedException {
     ArrayList<DataSpec> mediaPlaylistDataSpecs = new ArrayList<>();
+    HlsMultivariantPlaylist multivariantPlaylist = HlsMultivariantPlaylist.EMPTY;
     if (manifest instanceof HlsMultivariantPlaylist) {
-      HlsMultivariantPlaylist multivariantPlaylist = (HlsMultivariantPlaylist) manifest;
+      multivariantPlaylist = (HlsMultivariantPlaylist) manifest;
       addMediaPlaylistDataSpecs(multivariantPlaylist.mediaPlaylistUrls, mediaPlaylistDataSpecs);
     } else {
       mediaPlaylistDataSpecs.add(
           SegmentDownloader.getCompressibleDataSpec(Uri.parse(manifest.baseUri)));
     }
+
+    // When the multivariant playlist defines variables, create a parser that propagates
+    // them to child manifests for IMPORT resolution. Otherwise use the default path.
+    boolean hasVariables = !multivariantPlaylist.variableDefinitions.isEmpty();
+    @Nullable HlsPlaylistParser childManifestParser = hasVariables
+        ? new HlsPlaylistParser(multivariantPlaylist, /* previousMediaPlaylist= */ null)
+        : null;
 
     ArrayList<Segment> segments = new ArrayList<>();
     HashSet<Uri> seenEncryptionKeyUris = new HashSet<>();
@@ -234,7 +243,15 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
       segments.add(new Segment(/* startTimeUs= */ 0, mediaPlaylistDataSpec));
       HlsMediaPlaylist mediaPlaylist;
       try {
-        mediaPlaylist = (HlsMediaPlaylist) getManifest(dataSource, mediaPlaylistDataSpec, removing);
+        if (childManifestParser != null) {
+          mediaPlaylist =
+              (HlsMediaPlaylist)
+                  ParsingLoadable.load(
+                      dataSource, childManifestParser, mediaPlaylistDataSpec, C.DATA_TYPE_MANIFEST);
+        } else {
+          mediaPlaylist = (HlsMediaPlaylist) getManifest(dataSource, mediaPlaylistDataSpec,
+              removing);
+        }
       } catch (IOException e) {
         if (!removing) {
           throw e;
