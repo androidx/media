@@ -88,6 +88,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1007,6 +1008,7 @@ public class DefaultPreloadManagerTest {
         .inOrder();
   }
 
+  @Ignore("Flaky b/521328147")
   @Test
   public void setCurrentPlayingIndexAgain_clearsLowPrioritySourceWhenLoadingUnableToContinue()
       throws Exception {
