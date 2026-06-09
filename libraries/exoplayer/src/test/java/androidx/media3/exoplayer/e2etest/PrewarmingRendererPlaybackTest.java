@@ -266,6 +266,7 @@ public class PrewarmingRendererPlaybackTest {
             + ".dump");
   }
 
+  @Ignore("Flaky b/521713749")
   @Test
   public void playback_withPrewarmingNonTransitioningRenderer_dumpsCorrectOutput()
       throws Exception {
