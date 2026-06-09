@@ -139,8 +139,7 @@ public final class Mp3ExtractorTest {
     writeBigEndianInt(fileBytes, infoTagOffset + 12, infoFrameHeader.frameSize);
 
     FakeExtractorOutput output =
-        extractUntilSeekMap(
-            new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
+        extractUntilSeekMap(new Mp3Extractor(), fileBytes, /* simulateUnknownLength= */ false);
 
     assertThat(output.trackOutputs.get(0).lastFormat.averageBitrate).isEqualTo(64_000);
   }
@@ -454,8 +453,7 @@ public final class Mp3ExtractorTest {
     PositionHolder positionHolder = new PositionHolder();
 
     while (output.seekMap == null) {
-      assertThat(extractor.read(input, positionHolder))
-          .isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
+      assertThat(extractor.read(input, positionHolder)).isNotEqualTo(Extractor.RESULT_END_OF_INPUT);
     }
     return output;
   }

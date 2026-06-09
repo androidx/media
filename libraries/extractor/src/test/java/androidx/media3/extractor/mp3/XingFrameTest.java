@@ -43,9 +43,7 @@ public final class XingFrameTest {
             /* encoderPadding= */ 1_404);
 
     long gaplessSampleCount =
-        frame.frameCount * frame.header.samplesPerFrame
-            - frame.encoderDelay
-            - frame.encoderPadding;
+        frame.frameCount * frame.header.samplesPerFrame - frame.encoderDelay - frame.encoderPadding;
 
     assertThat(frame.computeDurationUs())
         .isEqualTo(Util.sampleCountToDurationUs(gaplessSampleCount - 1, frame.header.sampleRate));
