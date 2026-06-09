@@ -67,10 +67,12 @@ import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KE
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMAT_MISMATCH;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
@@ -103,6 +105,7 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -125,6 +128,7 @@ import androidx.media3.inspector.MediaExtractorCompat;
 import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.RecordingHardwareBufferEffectsPipeline;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
@@ -132,12 +136,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.Rule;
@@ -156,6 +163,7 @@ public class TransformerEndToEndTest {
   private static final GlEffect NO_OP_EFFECT = new Contrast(0f);
   private static final int MIN_BLANK_FRAME_OUTPUT_WIDTH = 320;
   private static final int MIN_BLANK_FRAME_OUTPUT_HEIGHT = 240;
+  private static final int TEST_TIMEOUT_MS = 10_000;
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
@@ -2393,6 +2401,68 @@ public class TransformerEndToEndTest {
         .build()
         .run(testId, audioEditedMediaItem);
     assertThat(audioBytesSeen.get()).isEqualTo(101_760);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 28)
+  public void cancelExport_withPacketConsumerAndImageComposition_doesNotCrash() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ADVANCED_ASSET.videoFormat,
+        /* outputFormat= */ MP4_ADVANCED_ASSET.videoFormat);
+    CountDownLatch firstFrameLatch = new CountDownLatch(1);
+    AtomicReference<@NullableType ExportException> exceptionReference = new AtomicReference<>();
+    AtomicBoolean completedReference = new AtomicBoolean(false);
+    EditedMediaItem imageItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(50000).build())
+            .setFrameRate(30)
+            .build();
+    Transformer transformer =
+        NdkTransformerBuilder.create(context)
+            .setHardwareBufferEffectsPipeline(
+                RecordingHardwareBufferEffectsPipeline.create(
+                    context,
+                    HardwareBufferJni.INSTANCE,
+                    (frames) -> {
+                      firstFrameLatch.countDown();
+                      return frames;
+                    }))
+            .addListener(
+                new Transformer.Listener() {
+                  @Override
+                  public void onCompleted(Composition composition, ExportResult exportResult) {
+                    completedReference.set(true);
+                  }
+
+                  @Override
+                  public void onError(
+                      Composition composition,
+                      ExportResult exportResult,
+                      ExportException exportException) {
+                    exceptionReference.set(exportException);
+                  }
+                })
+            .build();
+
+    TransformerAndroidTestRunner runner =
+        new TransformerAndroidTestRunner.Builder(context, transformer).build();
+    ListenableFuture<ExportTestResult> unused = runner.runAsync(testId, imageItem);
+    assertThat(firstFrameLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              try {
+                transformer.cancel();
+              } catch (RuntimeException e) {
+                exceptionReference.set(ExportException.createForUnexpected(e));
+              }
+            });
+
+    assertThat(exceptionReference.get()).isNull();
+    assertThat(completedReference.get()).isFalse();
   }
 
   @Test
